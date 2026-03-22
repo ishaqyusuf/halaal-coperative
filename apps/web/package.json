@@ -1,0 +1,25 @@
+{
+  "name": "@halalcoop/web",
+  "private": true,
+  "scripts": {
+    "build": "next build --turbopack",
+    "clean": "git clean -xdf .next .turbo node_modules",
+    "dev": "next dev --turbopack -p 3000",
+    "lint": "biome check .",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@halalcoop/tsconfig": "workspace:*",
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "postcss": "^8.4.0"
+  }
+}

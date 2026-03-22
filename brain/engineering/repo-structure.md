@@ -12,8 +12,8 @@ This file documents how the repository is organized and what belongs where.
 halaal-coperative/
 ├── apps/
 │   ├── api/            # Hono + tRPC backend API server
-│   ├── web/            # Next.js public web application
-│   └── dashboard/      # Next.js admin dashboard
+│   ├── web/            # TanStack Start public web application
+│   └── dashboard/      # TanStack Start admin dashboard
 ├── packages/
 │   ├── tsconfig/       # Shared TypeScript configurations
 │   ├── db/             # Prisma schema, migrations, data access

@@ -8,14 +8,21 @@ This file tracks chosen and proposed technologies for the platform.
 - Update whenever a stack decision becomes durable.
 
 ## Current Status
-- No application stack has been implemented yet.
+- Monorepo scaffolded with Bun workspaces and Turborepo.
+- Frontend apps use TanStack Start (TanStack Router + Vite + Nitro).
+- Backend API uses Hono + tRPC.
+- Database layer uses Prisma ORM with PostgreSQL.
 
-## Proposed Stack
-- Frontend: Next.js web app for admin/member portals.
-- Backend: Node.js service layer, potentially in the same monorepo.
+## Adopted Stack
+- Frontend: TanStack Start (type-safe, full-stack React framework) for admin/member portals.
+- Router: TanStack Router (file-based, type-safe routing).
+- State Management: TanStack Query (React Query) with tRPC integration.
+- Build Tool: Vite.
+- Server: Nitro (via TanStack Start).
+- Backend: Hono + tRPC API server.
 - Database: PostgreSQL for strong transactional support.
-- ORM: Prisma or equivalent typed relational ORM.
-- Auth: tenant-aware authentication with role-based authorization.
+- ORM: Prisma typed relational ORM.
+- Auth: tenant-aware authentication with role-based authorization (better-auth).
 - Hosting: cloud deployment suitable for SaaS tenants and secure database access.
 
 ## Selection Criteria
@@ -23,9 +30,9 @@ This file tracks chosen and proposed technologies for the platform.
 - Good developer velocity for a SaaS MVP.
 - Clear migration tooling.
 - Easy observability and audit logging.
+- Full-stack type safety from database to client.
 
 ## To Decide
-- Exact monorepo tooling.
 - Queue/job tooling.
 - File storage strategy for exports and statements.
 - Email/SMS provider.

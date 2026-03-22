@@ -4,6 +4,7 @@
   "exports": {
     "./base.json": "./base.json",
     "./nextjs.json": "./nextjs.json",
+    "./tanstack.json": "./tanstack.json",
     "./package.json": "./package.json"
   }
 }

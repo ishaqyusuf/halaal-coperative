@@ -1,0 +1,9 @@
+{
+  "name": "@halalcoop/tsconfig",
+  "private": true,
+  "exports": {
+    "./base.json": "./base.json",
+    "./nextjs.json": "./nextjs.json",
+    "./package.json": "./package.json"
+  }
+}

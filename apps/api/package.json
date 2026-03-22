@@ -1,0 +1,30 @@
+{
+  "name": "@halalcoop/api",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./context": "./src/context.ts",
+    "./router": "./src/routers/_app.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "bun --watch src/index.ts",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@halalcoop/auth": "workspace:*",
+    "@halalcoop/db": "workspace:*",
+    "@halalcoop/jobs": "workspace:*",
+    "@halalcoop/notifications": "workspace:*",
+    "@trpc/server": "^11.0.0",
+    "hono": "^4.0.0",
+    "superjson": "^2.2.2",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@halalcoop/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0"
+  }
+}

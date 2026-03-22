@@ -7,16 +7,33 @@ This file documents how the repository is organized and what belongs where.
 - Update when introducing new top-level folders or packages.
 - Keep examples aligned with the real repository.
 
-## Current State
-- The repository currently contains the `brain/` documentation system only.
+## Current Structure
+```
+halaal-coperative/
+├── apps/
+│   ├── api/            # Hono + tRPC backend API server
+│   ├── web/            # Next.js public web application
+│   └── dashboard/      # Next.js admin dashboard
+├── packages/
+│   ├── tsconfig/       # Shared TypeScript configurations
+│   ├── db/             # Prisma schema, migrations, data access
+│   ├── auth/           # Authentication and session management
+│   ├── jobs/           # Background job handlers
+│   ├── notifications/  # Notification triggers and delivery
+│   └── email/          # Email templates and sending
+├── brain/              # Documentation and project memory
+├── package.json        # Root workspace configuration
+├── turbo.json          # Turborepo task orchestration
+├── tsconfig.json       # Root TypeScript config
+├── biome.json          # Code formatting and linting
+└── docker-compose.yml  # Local PostgreSQL database
+```
 
-## Intended Structure
-- `apps/web/`: user interfaces for members and administrators.
-- `apps/api/`: APIs, domain services, auth, and jobs.
-- `packages/domain/`: shared business rules and domain models.
-- `packages/db/`: schema and database helpers.
-- `packages/ui/`: shared UI components and design tokens.
-- `brain/`: documentation and project memory.
+## Tooling
+- **Package Manager**: Bun with workspaces (`apps/*`, `packages/*`)
+- **Build Orchestration**: Turborepo
+- **Code Quality**: Biome
+- **Package Namespace**: `@halalcoop/*`
 
 ## Organization Principles
 - Keep financial domain logic out of presentation layers.

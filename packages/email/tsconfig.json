@@ -1,0 +1,12 @@
+{
+  "extends": "@halalcoop/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "emails/**/*.tsx", "components/**/*.tsx"]
+}

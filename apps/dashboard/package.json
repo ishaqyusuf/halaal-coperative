@@ -1,0 +1,35 @@
+{
+  "name": "@halalcoop/dashboard",
+  "private": true,
+  "scripts": {
+    "build": "next build --turbopack",
+    "clean": "git clean -xdf .next .turbo node_modules",
+    "dev": "next dev --turbopack -p 3001",
+    "lint": "biome check .",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@halalcoop/api": "workspace:*",
+    "@halalcoop/auth": "workspace:*",
+    "@halalcoop/db": "workspace:*",
+    "@trpc/server": "^11.0.0",
+    "@trpc/client": "^11.0.0",
+    "@trpc/react-query": "^11.0.0",
+    "@tanstack/react-query": "^5.90.2",
+    "lucide-react": "^0.577.0",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "superjson": "^2.2.2",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@halalcoop/tsconfig": "workspace:*",
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "postcss": "^8.4.0"
+  }
+}

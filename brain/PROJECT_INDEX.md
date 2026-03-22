@@ -8,17 +8,29 @@ This file is a fast map of the repository so contributors can quickly find impor
 - Keep entries short and practical.
 
 ## Current Repository Map
-- `brain/`: project memory and planning system.
-- Application code: not yet created.
 
-## Expected Future Structure
-- `apps/web/`: admin and member web application.
-- `apps/api/`: backend APIs, auth, business rules, and jobs.
-- `packages/ui/`: shared UI components.
-- `packages/config/`: shared lint, TypeScript, and tooling config.
-- `packages/domain/`: shared domain models and business rule helpers.
-- `packages/db/`: schema, migrations, and data access utilities.
+### Apps
+- `apps/api/`: Hono + tRPC backend API server.
+- `apps/web/`: Next.js public-facing web application.
+- `apps/dashboard/`: Next.js admin dashboard for cooperative management.
+
+### Packages
+- `packages/tsconfig/`: shared TypeScript configurations (base, Next.js).
+- `packages/db/`: Prisma schema, migrations, and data access utilities.
+- `packages/auth/`: authentication utilities and session management.
+- `packages/jobs/`: background job handlers (repayments, reminders, etc.).
+- `packages/notifications/`: notification triggers and delivery logic.
+- `packages/email/`: email templates and sending utilities.
+
+### Documentation
+- `brain/`: project memory and planning system.
+
+## Tooling
+- **Package Manager**: Bun (workspaces)
+- **Build Orchestration**: Turborepo
+- **Code Quality**: Biome (formatting + linting)
+- **Database**: PostgreSQL (Docker Compose for local dev)
+- **Package Namespace**: `@halalcoop/*`
 
 ## Notes
-- This index will become more useful once the codebase scaffold exists.
 - Keep this document synchronized with real folder structure, not aspirational structure alone.

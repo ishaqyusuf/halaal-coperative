@@ -1,0 +1,22 @@
+{
+  "name": "@halalcoop/auth",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@halalcoop/db": "workspace:*",
+    "better-auth": "^1.1.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@halalcoop/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0"
+  }
+}

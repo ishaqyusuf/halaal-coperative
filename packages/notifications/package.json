@@ -1,0 +1,21 @@
+{
+  "name": "@halalcoop/notifications",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@halalcoop/email": "workspace:*",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@halalcoop/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0"
+  }
+}

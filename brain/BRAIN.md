@@ -1,7 +1,7 @@
 # Project Brain
 
 ## Purpose
-This folder is the structured memory for the Amanah cooperative SaaS. It keeps product, architecture, engineering, data, API, and task context in one place so humans and AI agents can work consistently.
+This folder is the structured memory for the cooperative SaaS platform. It keeps product, architecture, engineering, data, API, and task context in one place so humans and AI agents can work consistently.
 
 ## How To Use
 - Update the most relevant document whenever a meaningful product or technical decision is made.
@@ -14,6 +14,7 @@ This folder is the structured memory for the Amanah cooperative SaaS. It keeps p
 - `AI_WORKFLOW.md`: how AI agents should operate in this project.
 - `AI_PROMPT_RULES.md`: prompt and collaboration constraints for future AI work.
 - `system/`: architecture, boundaries, and stack.
+- `system/reference-projects.md`: absolute paths for external local repositories used as architecture and coding pattern references.
 - `product/`: problem, users, roadmap, and business model.
 - `engineering/`: repo rules, coding standards, and AI delivery rules.
 - `database/`: schema, relationships, and migration history.

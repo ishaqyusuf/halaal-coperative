@@ -1,0 +1,43 @@
+model User {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String       @map("tenant_id") @db.Uuid
+  email        String
+  phoneNumber  String?      @map("phone_number")
+  passwordHash String?      @map("password_hash")
+  fullName     String       @map("full_name")
+  isPlatformOwner Boolean   @default(false) @map("is_platform_owner")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships  Membership[]
+  memberProfile Member?
+  loanRequests LoanRequest[] @relation("LoanRequestCreatedBy")
+  loanApprovals LoanApproval[]
+  repayments   Repayment[]   @relation("RepaymentReceivedBy")
+  offlineSyncEvents OfflineSyncEvent[] @relation("OfflineSyncCreatedBy")
+  auditLogs    AuditLog[]    @relation("AuditActorUser")
+
+  @@unique([tenantId, email], map: "users_tenant_email_key")
+  @@index([tenantId], map: "users_tenant_id_idx")
+  @@index([deletedAt], map: "users_deleted_at_idx")
+  @@map("users")
+}
+
+model Membership {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  role        MembershipRole
+  isDefault   Boolean        @default(false) @map("is_default")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, role], map: "memberships_tenant_user_role_key")
+  @@index([tenantId, role], map: "memberships_tenant_role_idx")
+  @@map("memberships")
+}

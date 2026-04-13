@@ -8,13 +8,30 @@ This file tracks chosen and proposed technologies for the platform.
 - Update whenever a stack decision becomes durable.
 
 ## Current Status
-- No application stack has been implemented yet.
+- Application scaffold implemented as a Bun and Turbo monorepo.
+- Frontend scaffold implemented with Next.js App Router across `apps/web`, `apps/dashboard`, and `apps/tenant-site`.
+- Shared UI scaffold implemented with shadcn/base components in `packages/ui`.
+- Shared package boundaries established for `auth`, `db`, `domain`, `notifications`, `notifications-react`, and `utils`.
+
+## Adopted Stack
+- Workspace/package manager: Bun workspaces.
+- Monorepo orchestration: Turbo.
+- Frontend: Next.js 16 App Router.
+- Backend HTTP framework: Hono.
+- API contract layer: tRPC with `superjson`.
+- Local named-host dev: Portless via workspace scripts.
+- Styling: Tailwind CSS v4 plus shadcn/base preset styling.
+- Shared UI primitives: `@amanah/ui`.
+- Shared notifications core: `@amanah/notifications`.
+- Shared React notifications adapter: `@amanah/notifications-react`.
+- Linting: ESLint with shared workspace config.
+- Formatting: Prettier with Tailwind plugin.
+- TypeScript sharing: `@amanah/tsconfig`.
+- Database ORM: Prisma 7 with a file-grouped schema layout in `packages/db/prisma`.
 
 ## Proposed Stack
-- Frontend: Next.js web app for admin/member portals.
-- Backend: Node.js service layer, potentially in the same monorepo.
+- Backend runtime: Bun/Node-compatible TypeScript service layer in `apps/api`.
 - Database: PostgreSQL for strong transactional support.
-- ORM: Prisma or equivalent typed relational ORM.
 - Auth: tenant-aware authentication with role-based authorization.
 - Hosting: cloud deployment suitable for SaaS tenants and secure database access.
 
@@ -25,7 +42,7 @@ This file tracks chosen and proposed technologies for the platform.
 - Easy observability and audit logging.
 
 ## To Decide
-- Exact monorepo tooling.
 - Queue/job tooling.
 - File storage strategy for exports and statements.
-- Email/SMS provider.
+- Email/SMS/WhatsApp provider selection behind the shared notifications package.
+- First migration rollout and seeding workflow.

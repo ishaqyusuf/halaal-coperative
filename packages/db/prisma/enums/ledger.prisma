@@ -1,0 +1,23 @@
+enum LedgerAccountType {
+  asset
+  liability
+  equity
+  income
+  expense
+  memo
+}
+
+enum LedgerTransactionType {
+  contribution
+  charge
+  levy
+  loan_disbursement
+  loan_repayment
+  dividend
+  adjustment
+}
+
+enum EntryDirection {
+  debit
+  credit
+}

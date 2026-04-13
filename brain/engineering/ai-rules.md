@@ -14,3 +14,4 @@ This file defines repository-specific delivery rules for AI contributors.
 - Treat ledger, loans, charges, and balances as high-risk areas requiring extra caution.
 - Prefer safe defaults when requirements are underspecified.
 - Do not bypass tenant scoping in queries or service calls.
+- When useful, consult `~/Documents/code/_kitchen_sink/midday`, `~/Documents/code/_turbo/gnd`, `~/Documents/code/ewatrade`, and `~/Documents/code/plotkeys` as standing reference projects for coding standards, architecture, and implementation patterns.

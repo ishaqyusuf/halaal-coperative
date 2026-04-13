@@ -1,0 +1,40 @@
+{
+  "name": "@amanah/dashboard",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node ../../scripts/with-workspace-env.mjs PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-3001} TZ=UTC portless app.coopsaas next dev --turbopack",
+    "dev:portless": "node ../../scripts/with-workspace-env.mjs portless app.coopsaas next dev --turbopack",
+    "build": "node ../../scripts/with-workspace-env.mjs next build --webpack",
+    "start": "node ../../scripts/with-workspace-env.mjs next start",
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hugeicons/core-free-icons": "^4.1.1",
+    "@hugeicons/react": "^1.1.6",
+    "@amanah/api": "workspace:*",
+    "@amanah/auth": "workspace:*",
+    "@amanah/domain": "workspace:*",
+    "@amanah/notifications": "workspace:*",
+    "@amanah/notifications-react": "workspace:*",
+    "@amanah/ui": "workspace:*",
+    "@amanah/utils": "workspace:*",
+    "next": "16.1.6",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^25.1.0",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "^19.2.3",
+    "@amanah/eslint-config": "workspace:^",
+    "@amanah/tsconfig": "workspace:*",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3"
+  }
+}

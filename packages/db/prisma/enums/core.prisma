@@ -1,0 +1,37 @@
+enum TenantStatus {
+  pending
+  active
+  suspended
+  archived
+}
+
+enum MembershipRole {
+  super_admin
+  tenant_admin
+  finance_officer
+  operations_officer
+  member
+}
+
+enum MemberType {
+  civil_servant
+  individual
+  business
+}
+
+enum MemberStatus {
+  pending
+  active
+  inactive
+  suspended
+  exited
+}
+
+enum DeductionSourceType {
+  ministry_payroll
+  employer_payroll
+  bank_transfer
+  card
+  cash
+  manual
+}

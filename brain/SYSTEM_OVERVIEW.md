@@ -6,13 +6,16 @@ This file gives the fastest reliable summary of what the system is, who it serve
 ## How To Use
 - Read this first before making product or engineering changes.
 - Update it when the product model, system scope, or major constraints change.
+- Use `brain/system/reference-projects.md` when external local repositories are needed for architecture or coding pattern reference.
 
 ## Product Summary
-- Product name: Amanah cooperative society platform.
+- Product name: cooperative SaaS platform.
 - Model: multi-tenant SaaS for cooperatives, staff thrift groups, and employee savings/credit societies.
 - Financial posture: 100% halal cooperative model.
 - Primary users: cooperative admins, finance officers, and cooperative members.
 - Core workflows: member registration, monthly contribution tracking, loan requests, loan approval, repayment tracking, charges, transaction history, dividends, and office operations.
+- Product surfaces: SaaS marketing web app, tenant dashboard, tenant public site, and shared API/backend.
+- Tenant examples may include Amanah and similar cooperatives, but the platform is not scoped to a single tenant brand.
 
 ## Core Business Rules
 - Members contribute a recurring monthly amount.

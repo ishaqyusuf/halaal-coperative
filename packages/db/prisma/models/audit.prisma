@@ -1,0 +1,19 @@
+model AuditLog {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String         @map("tenant_id") @db.Uuid
+  actorUserId           String?        @map("actor_user_id") @db.Uuid
+  actorType             AuditActorType @map("actor_type")
+  action                String
+  entityType            String         @map("entity_type")
+  entityId              String?        @map("entity_id")
+  metadata              Json?
+  occurredAt            DateTime       @map("occurred_at") @db.Timestamptz(6)
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorUser             User?          @relation("AuditActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, occurredAt], map: "audit_logs_tenant_occurred_at_idx")
+  @@index([tenantId, entityType, entityId], map: "audit_logs_tenant_entity_idx")
+  @@map("audit_logs")
+}

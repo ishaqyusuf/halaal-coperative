@@ -1,0 +1,20 @@
+enum DividendPeriodStatus {
+  draft
+  approved
+  published
+  closed
+}
+
+enum OfflineSyncStatus {
+  pending
+  processing
+  applied
+  conflicted
+  rejected
+}
+
+enum AuditActorType {
+  user
+  system
+  integration
+}

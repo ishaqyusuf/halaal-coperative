@@ -1,0 +1,25 @@
+model OfflineSyncEvent {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String            @map("tenant_id") @db.Uuid
+  memberId              String?           @map("member_id") @db.Uuid
+  createdByUserId       String?           @map("created_by_user_id") @db.Uuid
+  deviceId              String?           @map("device_id")
+  eventType             String            @map("event_type")
+  aggregateType         String            @map("aggregate_type")
+  aggregateId           String?           @map("aggregate_id")
+  sequenceKey           String            @map("sequence_key")
+  payload               Json
+  status                OfflineSyncStatus @default(pending)
+  conflictReason        String?           @map("conflict_reason")
+  capturedAt            DateTime          @map("captured_at") @db.Timestamptz(6)
+  processedAt           DateTime?         @map("processed_at") @db.Timestamptz(6)
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant                Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                Member?           @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  createdByUser         User?             @relation("OfflineSyncCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, sequenceKey], map: "offline_sync_events_tenant_sequence_key")
+  @@index([tenantId, status, capturedAt], map: "offline_sync_events_tenant_status_captured_at_idx")
+  @@map("offline_sync_events")
+}

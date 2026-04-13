@@ -1,0 +1,31 @@
+enum ContributionPlanInterval {
+  monthly
+  quarterly
+  yearly
+}
+
+enum ContributionStatus {
+  pending
+  posted
+  failed
+  reversed
+}
+
+enum ContributionChannel {
+  payroll
+  transfer
+  cash
+  manual
+}
+
+enum ChargeKind {
+  fixed
+  percentage
+}
+
+enum ChargeApplicationStatus {
+  pending
+  posted
+  waived
+  reversed
+}

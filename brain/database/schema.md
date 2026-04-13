@@ -9,26 +9,25 @@ This file tracks the evolving database design and current source of truth at a c
 
 ## Proposed Core Entities
 - `tenants`
-- `organizations`
 - `members`
-- `member_profiles`
-- `member_categories`
-- `deduction_sources`
 - `contribution_plans`
 - `contributions`
 - `charge_definitions`
-- `charge_applications`
-- `loan_products`
 - `loan_requests`
 - `loans`
 - `repayment_schedules`
 - `repayments`
-- `ledger_accounts`
 - `ledger_entries`
-- `dividend_periods`
-- `dividend_allocations`
-- `offline_sync_events`
 - `audit_logs`
+
+## Current Scaffold State
+- Prisma has been adopted for the database layer in `packages/db`.
+- The schema is grouped by concern under `packages/db/prisma/`:
+  - `schema.prisma` for datasource and generator.
+  - `enums/` for domain enums.
+  - `models/` for domain-grouped model files.
+- Current model coverage includes tenants, users, memberships, members, deduction sources, contribution plans, contributions, charge definitions, charge applications, loan products, loan requests, loan approvals, loans, repayment schedules, repayments, ledger accounts, ledger transactions, ledger entries, dividend periods, dividend allocations, offline sync events, and audit logs.
+- `packages/db/src/index.ts` still exposes the temporary demo seed helpers used by the API scaffold until real Prisma queries replace them.
 
 ## Notes
 - Separate request-stage loan records from approved/disbursed loan records if workflow complexity requires it.

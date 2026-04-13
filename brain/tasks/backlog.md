@@ -8,8 +8,8 @@ This file tracks confirmed work that is not yet in progress.
 - Move items to `in-progress.md` when active.
 
 ## Current Backlog
-- Decide initial application architecture and stack.
-- Define first-pass database schema for tenants, members, contributions, charges, loans, and ledger.
+- Generate the first Prisma migration for the grouped cooperative schema.
+- Replace demo seed helpers in `packages/db/src/index.ts` with real Prisma client access and queries.
 - Define role model and permission matrix.
 - Decide whether the first release is web-only or includes mobile.
 - Write ADR for ledger strategy.

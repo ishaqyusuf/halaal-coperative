@@ -1,0 +1,45 @@
+enum LoanType {
+  quick
+  normal
+}
+
+enum LoanRequestStatus {
+  draft
+  submitted
+  under_review
+  approved
+  rejected
+  cancelled
+  expired
+}
+
+enum LoanStatus {
+  approved
+  disbursed
+  active
+  completed
+  defaulted
+  written_off
+}
+
+enum LoanApprovalAction {
+  submitted
+  approved
+  rejected
+  disbursed
+}
+
+enum RepaymentScheduleStatus {
+  pending
+  due
+  partially_paid
+  paid
+  overdue
+  waived
+}
+
+enum RepaymentStatus {
+  pending
+  posted
+  reversed
+}

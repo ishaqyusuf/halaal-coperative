@@ -1,0 +1,37 @@
+model DividendPeriod {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String               @map("tenant_id") @db.Uuid
+  name                  String
+  periodStart           DateTime             @map("period_start") @db.Timestamptz(6)
+  periodEnd             DateTime             @map("period_end") @db.Timestamptz(6)
+  totalProfitAmount     Decimal              @map("total_profit_amount") @db.Decimal(18, 2)
+  distributableAmount   Decimal              @map("distributable_amount") @db.Decimal(18, 2)
+  status                DividendPeriodStatus @default(draft)
+  publishedAt           DateTime?            @map("published_at") @db.Timestamptz(6)
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  allocations           DividendAllocation[]
+
+  @@index([tenantId, status], map: "dividend_periods_tenant_status_idx")
+  @@map("dividend_periods")
+}
+
+model DividendAllocation {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String         @map("tenant_id") @db.Uuid
+  dividendPeriodId      String         @map("dividend_period_id") @db.Uuid
+  memberId              String         @map("member_id") @db.Uuid
+  savingsBasisAmount    Decimal        @map("savings_basis_amount") @db.Decimal(18, 2)
+  allocationAmount      Decimal        @map("allocation_amount") @db.Decimal(18, 2)
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dividendPeriod        DividendPeriod @relation(fields: [dividendPeriodId], references: [id], onDelete: Cascade)
+  member                Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([dividendPeriodId, memberId], map: "dividend_allocations_period_member_key")
+  @@index([tenantId, memberId], map: "dividend_allocations_tenant_member_idx")
+  @@map("dividend_allocations")
+}

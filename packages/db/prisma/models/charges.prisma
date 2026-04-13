@@ -1,0 +1,51 @@
+model ChargeDefinition {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String      @map("tenant_id") @db.Uuid
+  name                  String
+  code                  String
+  kind                  ChargeKind
+  amount                Decimal     @db.Decimal(18, 2)
+  isMonthlyLevy         Boolean     @default(false) @map("is_monthly_levy")
+  appliesToLoanRequests Boolean     @default(false) @map("applies_to_loan_requests")
+  appliesToLoans        Boolean     @default(false) @map("applies_to_loans")
+  appliesToMembers      Boolean     @default(true) @map("applies_to_members")
+  isActive              Boolean     @default(true) @map("is_active")
+  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  applications          ChargeApplication[]
+
+  @@unique([tenantId, code], map: "charge_definitions_tenant_code_key")
+  @@index([tenantId, isActive], map: "charge_definitions_tenant_active_idx")
+  @@map("charge_definitions")
+}
+
+model ChargeApplication {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String                  @map("tenant_id") @db.Uuid
+  memberId              String                  @map("member_id") @db.Uuid
+  chargeDefinitionId    String                  @map("charge_definition_id") @db.Uuid
+  contributionId        String?                 @unique @map("contribution_id") @db.Uuid
+  loanRequestId         String?                 @map("loan_request_id") @db.Uuid
+  loanId                String?                 @map("loan_id") @db.Uuid
+  amount                Decimal                 @db.Decimal(18, 2)
+  status                ChargeApplicationStatus @default(posted)
+  assessedAt            DateTime                @map("assessed_at") @db.Timestamptz(6)
+  waivedAt              DateTime?               @map("waived_at") @db.Timestamptz(6)
+  notes                 String?
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  chargeDefinition      ChargeDefinition        @relation(fields: [chargeDefinitionId], references: [id], onDelete: Restrict)
+  contribution          Contribution?           @relation(fields: [contributionId], references: [id], onDelete: SetNull)
+  loanRequest           LoanRequest?            @relation(fields: [loanRequestId], references: [id], onDelete: SetNull)
+  loan                  Loan?                   @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  ledgerTransaction     LedgerTransaction?
+
+  @@index([tenantId, memberId, status], map: "charge_applications_tenant_member_status_idx")
+  @@index([tenantId, assessedAt], map: "charge_applications_tenant_assessed_at_idx")
+  @@map("charge_applications")
+}

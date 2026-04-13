@@ -17,6 +17,12 @@ This file captures prompt-level instructions and durable context that future AI 
 - Prefer configurable policy tables over hard-coded charges and cooperative rules.
 - Build for explainability: admins and members should understand how balances were derived.
 - Design offline flows so sync preserves auditability and does not silently rewrite financial history.
+- Treat these repositories as standing coding architecture and implementation references when patterns, structure, or logic guidance is needed:
+  - `~/Documents/code/_kitchen_sink/midday`
+  - `~/Documents/code/_turbo/gnd`
+  - `~/Documents/code/ewatrade`
+  - `~/Documents/code/plotkeys`
+- Reuse relevant standards and proven implementation patterns from those reference projects when they fit this repository's domain and safety constraints.
 
 ## Product Context
 - Primary market assumption: Nigeria/Africa cooperative and thrift societies.

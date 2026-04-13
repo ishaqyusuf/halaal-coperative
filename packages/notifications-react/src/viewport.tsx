@@ -1,6 +1,6 @@
 "use client"
 
-import type { NotificationRecord } from "@amanah/notifications"
+import type { NotificationRecord } from "@halaal-vest/notifications"
 
 const accentClasses = {
   error: "border-rose-200 bg-rose-50 text-rose-950",

@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@amanah/notifications-react", "@amanah/ui", "@amanah/utils"],
+  transpilePackages: ["@halaal-vest/notifications-react", "@halaal-vest/ui", "@halaal-vest/utils"],
 }
 
 export default nextConfig

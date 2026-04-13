@@ -1,3 +1,4 @@
+import { hasActiveMembership, isRoleAtLeast, type CooperativeRole } from "@halaal-vest/auth"
 import { initTRPC, TRPCError } from "@trpc/server"
 import superjson from "superjson"
 
@@ -23,7 +24,7 @@ export const authenticatedProcedure = t.procedure.use(({ ctx, next }) => {
 })
 
 export const tenantProcedure = authenticatedProcedure.use(({ ctx, next }) => {
-  if (!ctx.auth.activeTenantId) {
+  if (!ctx.tenant.current || !hasActiveMembership(ctx.auth)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "An active tenant is required for this action.",
@@ -31,6 +32,32 @@ export const tenantProcedure = authenticatedProcedure.use(({ ctx, next }) => {
   }
 
   return next({
-    ctx,
+    ctx: {
+      ...ctx,
+      auth: {
+        ...ctx.auth,
+        activeMembership: ctx.auth.activeMembership,
+        session: ctx.auth.session,
+      },
+      tenant: {
+        ...ctx.tenant,
+        current: ctx.tenant.current,
+      },
+    },
   })
 })
+
+export function minRoleProcedure(required: CooperativeRole) {
+  return tenantProcedure.use(({ ctx, next }) => {
+    if (!isRoleAtLeast(ctx.auth.activeMembership.role, required)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: `This action requires ${required} role or above.`,
+      })
+    }
+
+    return next({
+      ctx,
+    })
+  })
+}

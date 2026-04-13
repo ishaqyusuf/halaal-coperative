@@ -8,6 +8,10 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - Add project-specific conventions as the codebase grows.
 
 ## Standards
+- Follow `midday` as the primary architecture and coding-standard reference when choosing patterns for app structure, rendering, data loading, and UI composition.
+- Optimize for page speed by default: prefer server-rendered data flows, small client islands, and minimal hydration.
+- Keep bundle size disciplined by avoiding unnecessary dependencies and shipping only route-critical client code.
+- Reuse shared loaders, domain shaping, and API/query boundaries instead of duplicating data-fetch logic across pages.
 - Prefer explicit domain naming over generic helper names.
 - Keep money values typed and consistently represented.
 - Centralize business rules for contributions, charges, and loans.

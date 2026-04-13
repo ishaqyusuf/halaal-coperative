@@ -18,6 +18,9 @@ This file captures payload shapes, response conventions, and contract assumption
   - `api`: `"ok"`.
   - `auth`: `"session-present"` or `"anonymous"`.
   - `tenantId`: active tenant identifier derived from request headers.
+  - `tenantSlug`: resolved tenant slug when available.
+  - `resolution`: one of `subdomain`, `hostname`, `fallback`, or `none`.
+  - `database`: current DB runtime mode, currently `seed-only` or `database-configured`.
   - `timestamp`: ISO timestamp for the request context.
 - `trpc.health.summary`
   - `api`: `"ok"`.
@@ -30,8 +33,26 @@ This file captures payload shapes, response conventions, and contract assumption
   - `tenantName`: display name of the active tenant.
   - `dashboard`: dashboard summary object from `packages/domain`.
   - `loanPolicy`: loan policy object from `packages/domain`.
+  - `resolvedBy`: tenant-resolution mode used for the request.
+- `trpc.onboarding.status`
+  - `status`: `"complete"` or `"incomplete"`.
+  - `completedStepCount`: completed onboarding steps.
+  - `totalStepCount`: total tracked onboarding steps.
+  - `completionRatio`: numeric progress ratio.
+  - `primarySiteHostname`: primary public hostname when configured.
+  - `primaryDashboardHostname`: primary dashboard hostname when configured.
+  - `steps`: labeled step list with completion state.
+- `trpc.onboarding.bootstrap`
+  - Request creates tenant name, slug, owner identity, default policy values, and base routing hostnames.
+  - Response returns the created tenant record, owner user id, primary hostnames, and refreshed onboarding state.
 - `trpc.notifications.list`
-  - array of shared notification payloads built from `@amanah/notifications` types.
+  - array of shared notification payloads built from `@halaal-vest/notifications` types.
+- `trpc.members.list`
+  - paginated tenant member result with `items`, `total`, `page`, and `pageSize`.
+- `trpc.contributions.list`
+  - paginated contribution result with joined member display fields.
+- `trpc.charges.listDefinitions`
+  - array of tenant charge definitions with amount, kind, active state, and applicability flags.
 
 ## Starter Contract Template
 - Endpoint:

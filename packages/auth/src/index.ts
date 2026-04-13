@@ -1,13 +1,99 @@
+import type { MembershipRecord, MembershipRole, UserRecord } from "@halaal-vest/db"
+import { resolveDashboardSessionScope } from "@halaal-vest/utils"
+
 export const cooperativeRoles = [
-  "super-admin",
-  "tenant-admin",
-  "finance-officer",
-  "operations-officer",
+  "super_admin",
+  "tenant_admin",
+  "finance_officer",
+  "operations_officer",
   "member",
 ] as const
 
 export type CooperativeRole = (typeof cooperativeRoles)[number]
+export type SessionScope = typeof platformSessionScope | string
+
+export type AuthSession = {
+  scope: SessionScope
+  token: string
+  user: UserRecord
+}
+
+export type AuthContext = {
+  activeMembership: MembershipRecord | null
+  session: AuthSession | null
+}
+
+export const authSessionCookieName = "halaal-vest_session"
+export const platformSessionScope = "platform"
+
+const roleRank: Record<CooperativeRole, number> = {
+  super_admin: 99,
+  tenant_admin: 4,
+  finance_officer: 3,
+  operations_officer: 2,
+  member: 1,
+}
+
+export function normalizeRole(input: string | null | undefined): CooperativeRole | null {
+  if (!input) {
+    return null
+  }
+
+  const normalized = input.trim().toLowerCase().replace(/-/g, "_")
+
+  return cooperativeRoles.includes(normalized as CooperativeRole)
+    ? (normalized as CooperativeRole)
+    : null
+}
+
+export function getScopedAuthSessionCookieName(scope: SessionScope) {
+  return scope === platformSessionScope ? authSessionCookieName : `${authSessionCookieName}_${scope}`
+}
+
+export function parseCookieHeader(cookieHeader: string | null | undefined) {
+  if (!cookieHeader) {
+    return new Map<string, string>()
+  }
+
+  return new Map(
+    cookieHeader
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separatorIndex = part.indexOf("=")
+        return [part.slice(0, separatorIndex), part.slice(separatorIndex + 1)]
+      }),
+  )
+}
+
+export function resolveRequestSessionScope(host: string | null | undefined) {
+  return resolveDashboardSessionScope(host) ?? platformSessionScope
+}
+
+export function getSessionTokenFromCookieHeader(input: {
+  cookieHeader?: string | null
+  host?: string | null
+  explicitScope?: SessionScope | null
+}) {
+  const cookies = parseCookieHeader(input.cookieHeader)
+  const scope = input.explicitScope ?? resolveRequestSessionScope(input.host)
+  const scopedCookieName = getScopedAuthSessionCookieName(scope)
+
+  return cookies.get(scopedCookieName) ?? cookies.get(authSessionCookieName) ?? null
+}
+
+export function hasActiveMembership(auth: AuthContext): auth is AuthContext & {
+  activeMembership: MembershipRecord
+  session: AuthSession
+} {
+  return Boolean(auth.session && auth.activeMembership)
+}
+
+export function isRoleAtLeast(actual: MembershipRole, required: MembershipRole): boolean {
+  return roleRank[actual] >= roleRank[required]
+}
 
 export function canApproveLoan(role: CooperativeRole) {
-  return role === "super-admin" || role === "tenant-admin" || role === "finance-officer"
+  return role === "super_admin" || role === "tenant_admin" || role === "finance_officer"
 }

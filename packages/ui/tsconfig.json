@@ -1,9 +1,9 @@
 {
-  "extends": "@amanah/tsconfig/react-library.json",
+  "extends": "@halaal-vest/tsconfig/react-library.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@amanah/ui/*": ["./src/*"]
+      "@halaal-vest/ui/*": ["./src/*"]
     }
   },
   "include": ["."],

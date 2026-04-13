@@ -1,11 +1,11 @@
-import "@amanah/ui/globals.css"
-import { NotificationsProvider } from "@amanah/notifications-react"
+import "@halaal-vest/ui/globals.css"
+import { NotificationsProvider } from "@halaal-vest/notifications-react"
 import { ThemeProvider } from "@/components/theme-provider"
 
 export const metadata = {
   title: "Cooperative SaaS Dashboard",
   description:
-    "Tenant dashboard for a multi-tenant cooperative SaaS platform covering members, contributions, loans, charges, and operations.",
+    "Tenant dashboard for halaal-vest, covering members, contributions, loans, charges, and operations.",
 }
 
 export default function RootLayout({

@@ -35,3 +35,9 @@ enum DeductionSourceType {
   cash
   manual
 }
+
+enum TenantDomainKind {
+  site
+  dashboard
+  custom
+}

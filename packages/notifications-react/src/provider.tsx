@@ -7,7 +7,7 @@ import {
   type NotificationRecord,
   type NotificationStore,
   type NotificationVariant,
-} from "@amanah/notifications"
+} from "@halaal-vest/notifications"
 import {
   createContext,
   type ReactNode,

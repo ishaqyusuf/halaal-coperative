@@ -21,12 +21,12 @@ This file tracks chosen and proposed technologies for the platform.
 - API contract layer: tRPC with `superjson`.
 - Local named-host dev: Portless via workspace scripts.
 - Styling: Tailwind CSS v4 plus shadcn/base preset styling.
-- Shared UI primitives: `@amanah/ui`.
-- Shared notifications core: `@amanah/notifications`.
-- Shared React notifications adapter: `@amanah/notifications-react`.
+- Shared UI primitives: `@halaal-vest/ui`.
+- Shared notifications core: `@halaal-vest/notifications`.
+- Shared React notifications adapter: `@halaal-vest/notifications-react`.
 - Linting: ESLint with shared workspace config.
 - Formatting: Prettier with Tailwind plugin.
-- TypeScript sharing: `@amanah/tsconfig`.
+- TypeScript sharing: `@halaal-vest/tsconfig`.
 - Database ORM: Prisma 7 with a file-grouped schema layout in `packages/db/prisma`.
 
 ## Proposed Stack

@@ -1,5 +1,5 @@
-import "@amanah/ui/globals.css"
-import { NotificationsProvider } from "@amanah/notifications-react"
+import "@halaal-vest/ui/globals.css"
+import { NotificationsProvider } from "@halaal-vest/notifications-react"
 
 export const metadata = {
   title: "Cooperative Tenant Site",

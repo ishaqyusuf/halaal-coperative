@@ -7,7 +7,7 @@ import { buildRequestContext, createTRPCContext } from "./context.js"
 import { appRouter } from "./routers/_app.js"
 
 const app = new Hono()
-const dashboardOrigin = process.env.DASHBOARD_APP_URL ?? "http://localhost:3001"
+const dashboardOrigin = process.env.DASHBOARD_APP_URL ?? "http://localhost:1441"
 
 app.use(
   "/trpc/*",
@@ -32,7 +32,10 @@ app.get("/health", async (c) => {
   return c.json({
     api: "ok",
     auth: context.auth.session ? "session-present" : "anonymous",
-    tenantId: context.auth.activeTenantId,
+    tenantId: context.tenant.current?.id ?? null,
+    tenantSlug: context.tenant.current?.slug ?? null,
+    resolution: context.request.tenantResolution.resolvedBy,
+    database: context.runtime.status,
     timestamp: context.request.receivedAt,
   })
 })
@@ -46,7 +49,7 @@ app.all("/trpc/*", async (c) => {
   })
 })
 
-const port = Number(process.env.PORT ?? 3002)
+const port = Number(process.env.PORT ?? 1442)
 
 serve(
   {

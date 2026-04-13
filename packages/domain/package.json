@@ -1,5 +1,5 @@
 {
-  "name": "@amanah/domain",
+  "name": "@halaal-vest/domain",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,12 +7,14 @@
     "build": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^25.1.0",
-    "@amanah/eslint-config": "workspace:*",
-    "@amanah/tsconfig": "workspace:*",
+    "@halaal-vest/eslint-config": "workspace:*",
+    "@halaal-vest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   },

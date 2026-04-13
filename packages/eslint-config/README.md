@@ -1,3 +1,3 @@
-# `@amanah/eslint-config`
+# `@halaal-vest/eslint-config`
 
 Shared eslint configuration for the workspace.

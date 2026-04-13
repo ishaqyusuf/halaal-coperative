@@ -1,5 +1,5 @@
 {
-  "name": "@amanah/db",
+  "name": "@halaal-vest/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,15 +11,20 @@
     "db:studio": "prisma studio",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.0.0"
+  },
+  "prisma": {
+    "seed": "bun run prisma/seed.ts"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
-    "@amanah/eslint-config": "workspace:*",
-    "@amanah/tsconfig": "workspace:*",
+    "@halaal-vest/eslint-config": "workspace:*",
+    "@halaal-vest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "prisma": "^7.0.0",
     "typescript": "^5.9.3"

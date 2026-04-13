@@ -9,6 +9,7 @@ This file tracks the evolving database design and current source of truth at a c
 
 ## Proposed Core Entities
 - `tenants`
+- `tenant_domains`
 - `members`
 - `contribution_plans`
 - `contributions`
@@ -26,8 +27,10 @@ This file tracks the evolving database design and current source of truth at a c
   - `schema.prisma` for datasource and generator.
   - `enums/` for domain enums.
   - `models/` for domain-grouped model files.
-- Current model coverage includes tenants, users, memberships, members, deduction sources, contribution plans, contributions, charge definitions, charge applications, loan products, loan requests, loan approvals, loans, repayment schedules, repayments, ledger accounts, ledger transactions, ledger entries, dividend periods, dividend allocations, offline sync events, and audit logs.
-- `packages/db/src/index.ts` still exposes the temporary demo seed helpers used by the API scaffold until real Prisma queries replace them.
+- Current model coverage includes tenants, tenant domains, users, memberships, members, deduction sources, contribution plans, contributions, charge definitions, charge applications, loan products, loan requests, loan approvals, loans, repayment schedules, repayments, ledger accounts, ledger transactions, ledger entries, dividend periods, dividend allocations, offline sync events, and audit logs.
+- `packages/db` now exposes repository-style query scaffolding for tenants, tenant domains, users, memberships, and runtime status through `src/queries/` and `src/runtime.ts`.
+- Prisma client generation is now wired and `packages/db/src/prisma.ts` provides an optional adapter-backed runtime when `DATABASE_URL` is configured.
+- Query functions currently fall back to seed-backed data when no database runtime is configured, but can read from Prisma when the environment is available.
 
 ## Notes
 - Separate request-stage loan records from approved/disbursed loan records if workflow complexity requires it.

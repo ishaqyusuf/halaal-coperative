@@ -1,5 +1,5 @@
 {
-  "name": "@amanah/notifications-react",
+  "name": "@halaal-vest/notifications-react",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@amanah/notifications": "workspace:*",
+    "@halaal-vest/notifications": "workspace:*",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
@@ -21,8 +21,8 @@
     "@types/node": "^25.1.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
-    "@amanah/eslint-config": "workspace:*",
-    "@amanah/tsconfig": "workspace:*",
+    "@halaal-vest/eslint-config": "workspace:*",
+    "@halaal-vest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   }

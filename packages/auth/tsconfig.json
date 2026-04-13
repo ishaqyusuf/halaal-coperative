@@ -1,5 +1,5 @@
 {
-  "extends": "@amanah/tsconfig/base.json",
+  "extends": "@halaal-vest/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": "."
   },

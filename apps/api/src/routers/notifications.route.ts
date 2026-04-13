@@ -1,4 +1,4 @@
-import { createNotificationFromType, platformNotificationTypes } from "@amanah/notifications"
+import { createNotificationFromType, platformNotificationTypes } from "@halaal-vest/notifications"
 
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc.js"
 
@@ -7,7 +7,7 @@ export const notificationsRouter = createTRPCRouter({
     return [
       createNotificationFromType(platformNotificationTypes, "workspace_invitation", {
         recipientName: "Finance Officer",
-        tenantName: ctx.auth.activeTenantId ?? "tenant",
+        tenantName: ctx.tenant.current.name,
       }),
       createNotificationFromType(platformNotificationTypes, "loan_approval_required", {
         amount: 250000,

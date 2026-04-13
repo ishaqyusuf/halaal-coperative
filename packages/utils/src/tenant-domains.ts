@@ -1,8 +1,8 @@
-export const platformRootDomain = "coopsaas.com"
-export const localPlatformRootDomain = "coopsaas.localhost"
+export const platformRootDomain = "halaal-vest.com"
+export const localPlatformRootDomain = "halaal-vest.localhost"
 export const localTenantRootDomain = `tenant.${localPlatformRootDomain}`
 export const dashboardSubdomainLabel = "dashboard"
-export const localDashboardRootDomain = "app.coopsaas.localhost"
+export const localDashboardRootDomain = "app.halaal-vest.localhost"
 export const platformAppHostname = `app.${platformRootDomain}`
 
 const reservedTenantLabels = new Set([

@@ -1,1 +1,1 @@
-export { default } from "@amanah/ui/postcss.config"
+export { default } from "@halaal-vest/ui/postcss.config"

@@ -1,4 +1,4 @@
-import { extractDashboardHostname, extractDashboardTenantSlug, isTenantDashboardHost } from "@amanah/utils"
+import { extractDashboardHostname, extractDashboardTenantSlug, isTenantDashboardHost } from "@halaal-vest/utils"
 import { type NextRequest, NextResponse } from "next/server"
 
 const PUBLIC_PREFIXES = ["/api/", "/_next/", "/favicon", "/login", "/sign-in", "/sign-up"]

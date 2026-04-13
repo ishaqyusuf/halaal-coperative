@@ -1,13 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: [
-    "@amanah/api",
-    "@amanah/auth",
-    "@amanah/domain",
-    "@amanah/notifications",
-    "@amanah/notifications-react",
-    "@amanah/ui",
-    "@amanah/utils",
+    "@halaal-vest/api",
+    "@halaal-vest/auth",
+    "@halaal-vest/db",
+    "@halaal-vest/domain",
+    "@halaal-vest/notifications",
+    "@halaal-vest/notifications-react",
+    "@halaal-vest/ui",
+    "@halaal-vest/utils",
   ],
 }
 

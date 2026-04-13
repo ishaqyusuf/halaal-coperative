@@ -1,6 +1,6 @@
-# Cooperative SaaS Platform
+# halaal-vest
 
-Bun and Turbo monorepo scaffold for a multi-tenant cooperative SaaS platform. Amanah is treated as a case-study tenant profile, not the product boundary.
+Bun and Turbo monorepo scaffold for `halaal-vest`, a multi-tenant halal cooperative operations platform. Amanah is treated as a case-study tenant profile, not the product boundary.
 
 ## Workspace
 

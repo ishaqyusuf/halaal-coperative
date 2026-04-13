@@ -32,3 +32,4 @@ This file documents who can do what across the platform.
 - HTTP health routes are public.
 - `tenantProcedure` in `apps/api/src/lib.trpc.ts` requires a signed-in session and active tenant context.
 - Tenant-scoped tRPC routes should derive tenant context from request or session state, not untrusted payload input.
+- Role checks should use shared role hierarchy helpers from `packages/auth` rather than app-local rank maps.

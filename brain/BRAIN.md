@@ -1,7 +1,7 @@
 # Project Brain
 
 ## Purpose
-This folder is the structured memory for the cooperative SaaS platform. It keeps product, architecture, engineering, data, API, and task context in one place so humans and AI agents can work consistently.
+This folder is the structured memory for halaal-vest. It keeps product, architecture, engineering, data, API, and task context in one place so humans and AI agents can work consistently.
 
 ## How To Use
 - Update the most relevant document whenever a meaningful product or technical decision is made.
@@ -29,3 +29,4 @@ This folder is the structured memory for the cooperative SaaS platform. It keeps
 - Repository initialized with Brain docs before application code.
 - Product concept: multi-tenant cooperative savings and loan management SaaS.
 - Highest-risk domains: financial correctness, auditability, permissions, trust, and loan liquidity.
+- Primary external architecture and coding-standard reference for performance-sensitive work: `midday` at `/Users/M1PRO/Documents/code/_kitchen_sink/midday`.

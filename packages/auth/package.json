@@ -1,5 +1,5 @@
 {
-  "name": "@amanah/auth",
+  "name": "@halaal-vest/auth",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,10 +9,14 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@halaal-vest/db": "workspace:*",
+    "@halaal-vest/utils": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^25.1.0",
-    "@amanah/eslint-config": "workspace:*",
-    "@amanah/tsconfig": "workspace:*",
+    "@halaal-vest/eslint-config": "workspace:*",
+    "@halaal-vest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   },

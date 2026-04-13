@@ -11,11 +11,11 @@
   },
   "iconLibrary": "hugeicons",
   "aliases": {
-    "components": "@amanah/ui/components",
-    "utils": "@amanah/ui/lib/utils",
-    "hooks": "@amanah/ui/hooks",
-    "lib": "@amanah/ui/lib",
-    "ui": "@amanah/ui/components"
+    "components": "@halaal-vest/ui/components",
+    "utils": "@halaal-vest/ui/lib/utils",
+    "hooks": "@halaal-vest/ui/hooks",
+    "lib": "@halaal-vest/ui/lib",
+    "ui": "@halaal-vest/ui/components"
   },
   "rtl": false,
   "menuColor": "default-translucent",

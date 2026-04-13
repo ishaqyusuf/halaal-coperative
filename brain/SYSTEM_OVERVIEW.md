@@ -7,15 +7,17 @@ This file gives the fastest reliable summary of what the system is, who it serve
 - Read this first before making product or engineering changes.
 - Update it when the product model, system scope, or major constraints change.
 - Use `brain/system/reference-projects.md` when external local repositories are needed for architecture or coding pattern reference.
+- Default to `midday` architecture and coding standards for frontend and app-architecture decisions that affect page speed, bundle size, routing behavior, rendering strategy, and data-loading patterns unless a documented project constraint requires a different approach.
 
 ## Product Summary
-- Product name: cooperative SaaS platform.
+- Product name: halaal-vest.
 - Model: multi-tenant SaaS for cooperatives, staff thrift groups, and employee savings/credit societies.
 - Financial posture: 100% halal cooperative model.
 - Primary users: cooperative admins, finance officers, and cooperative members.
 - Core workflows: member registration, monthly contribution tracking, loan requests, loan approval, repayment tracking, charges, transaction history, dividends, and office operations.
 - Product surfaces: SaaS marketing web app, tenant dashboard, tenant public site, and shared API/backend.
 - Tenant examples may include Amanah and similar cooperatives, but the platform is not scoped to a single tenant brand.
+- Tenant resolution may come from dashboard subdomain, tenant-site subdomain, or mapped hostname/custom domain.
 
 ## Core Business Rules
 - Members contribute a recurring monthly amount.
@@ -56,6 +58,12 @@ This file gives the fastest reliable summary of what the system is, who it serve
 - Full transaction history.
 - Offline mode with online synchronization.
 - Office software capabilities for cooperative staff operations.
+
+## Performance Direction
+- Treat `midday` as the default reference for page-speed-sensitive architecture.
+- Prefer server-first rendering, lean client bundles, and clear data-boundary ownership.
+- Avoid unnecessary client-side state, duplicate fetch paths, and heavyweight page shells.
+- Keep route-level loading fast by favoring composable server loaders and shared query boundaries.
 
 ## Out Of Scope For First Release
 - Bank integrations and automated disbursement.

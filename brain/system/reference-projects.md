@@ -17,3 +17,4 @@ This file keeps absolute local paths for external repositories that serve as ref
 ## Notes
 - These repositories are external references, not part of this workspace.
 - Primary use: architecture review, implementation pattern comparison, and coding style guidance.
+- `midday` is the primary reference for architecture, coding standards, and page-speed-sensitive implementation decisions unless this project has an explicit reason to diverge.

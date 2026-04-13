@@ -11,6 +11,7 @@ model Tenant {
   updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   policies             TenantPolicy?
+  domains              TenantDomain[]
   users                User[]
   memberships          Membership[]
   members              Member[]

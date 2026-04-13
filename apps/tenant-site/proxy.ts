@@ -1,4 +1,4 @@
-import { resolveTenantSiteHostContext } from "@amanah/utils"
+import { resolveTenantSiteHostContext } from "@halaal-vest/utils"
 import { type NextRequest, NextResponse } from "next/server"
 
 export function proxy(request: NextRequest) {

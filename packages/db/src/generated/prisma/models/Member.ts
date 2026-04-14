@@ -45,6 +45,13 @@ export type MemberMinAggregateOutputType = {
   joinedAt: Date | null
   exitedAt: Date | null
   totalSavingsSnapshot: runtime.Decimal | null
+  paymentAllocationPreference: $Enums.PaymentAllocationPreference | null
+  kycStatus: $Enums.KycStatus | null
+  governmentIdNumber: string | null
+  kycDocumentType: string | null
+  kycDocumentUrl: string | null
+  kycDocumentUploadedAt: Date | null
+  kycReviewNotes: string | null
   deductionSourceId: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -61,6 +68,13 @@ export type MemberMaxAggregateOutputType = {
   joinedAt: Date | null
   exitedAt: Date | null
   totalSavingsSnapshot: runtime.Decimal | null
+  paymentAllocationPreference: $Enums.PaymentAllocationPreference | null
+  kycStatus: $Enums.KycStatus | null
+  governmentIdNumber: string | null
+  kycDocumentType: string | null
+  kycDocumentUrl: string | null
+  kycDocumentUploadedAt: Date | null
+  kycReviewNotes: string | null
   deductionSourceId: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -77,6 +91,13 @@ export type MemberCountAggregateOutputType = {
   joinedAt: number
   exitedAt: number
   totalSavingsSnapshot: number
+  paymentAllocationPreference: number
+  kycStatus: number
+  governmentIdNumber: number
+  kycDocumentType: number
+  kycDocumentUrl: number
+  kycDocumentUploadedAt: number
+  kycReviewNotes: number
   deductionSourceId: number
   createdAt: number
   updatedAt: number
@@ -103,6 +124,13 @@ export type MemberMinAggregateInputType = {
   joinedAt?: true
   exitedAt?: true
   totalSavingsSnapshot?: true
+  paymentAllocationPreference?: true
+  kycStatus?: true
+  governmentIdNumber?: true
+  kycDocumentType?: true
+  kycDocumentUrl?: true
+  kycDocumentUploadedAt?: true
+  kycReviewNotes?: true
   deductionSourceId?: true
   createdAt?: true
   updatedAt?: true
@@ -119,6 +147,13 @@ export type MemberMaxAggregateInputType = {
   joinedAt?: true
   exitedAt?: true
   totalSavingsSnapshot?: true
+  paymentAllocationPreference?: true
+  kycStatus?: true
+  governmentIdNumber?: true
+  kycDocumentType?: true
+  kycDocumentUrl?: true
+  kycDocumentUploadedAt?: true
+  kycReviewNotes?: true
   deductionSourceId?: true
   createdAt?: true
   updatedAt?: true
@@ -135,6 +170,13 @@ export type MemberCountAggregateInputType = {
   joinedAt?: true
   exitedAt?: true
   totalSavingsSnapshot?: true
+  paymentAllocationPreference?: true
+  kycStatus?: true
+  governmentIdNumber?: true
+  kycDocumentType?: true
+  kycDocumentUrl?: true
+  kycDocumentUploadedAt?: true
+  kycReviewNotes?: true
   deductionSourceId?: true
   createdAt?: true
   updatedAt?: true
@@ -238,6 +280,13 @@ export type MemberGroupByOutputType = {
   joinedAt: Date
   exitedAt: Date | null
   totalSavingsSnapshot: runtime.Decimal
+  paymentAllocationPreference: $Enums.PaymentAllocationPreference
+  kycStatus: $Enums.KycStatus
+  governmentIdNumber: string | null
+  kycDocumentType: string | null
+  kycDocumentUrl: string | null
+  kycDocumentUploadedAt: Date | null
+  kycReviewNotes: string | null
   deductionSourceId: string | null
   createdAt: Date
   updatedAt: Date
@@ -277,6 +326,13 @@ export type MemberWhereInput = {
   joinedAt?: Prisma.DateTimeFilter<"Member"> | Date | string
   exitedAt?: Prisma.DateTimeNullableFilter<"Member"> | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFilter<"Member"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFilter<"Member"> | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFilter<"Member"> | $Enums.KycStatus
+  governmentIdNumber?: Prisma.StringNullableFilter<"Member"> | string | null
+  kycDocumentType?: Prisma.StringNullableFilter<"Member"> | string | null
+  kycDocumentUrl?: Prisma.StringNullableFilter<"Member"> | string | null
+  kycDocumentUploadedAt?: Prisma.DateTimeNullableFilter<"Member"> | Date | string | null
+  kycReviewNotes?: Prisma.StringNullableFilter<"Member"> | string | null
   deductionSourceId?: Prisma.UuidNullableFilter<"Member"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Member"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Member"> | Date | string
@@ -289,6 +345,8 @@ export type MemberWhereInput = {
   loanRequests?: Prisma.LoanRequestListRelationFilter
   loans?: Prisma.LoanListRelationFilter
   repayments?: Prisma.RepaymentListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
+  documents?: Prisma.MemberDocumentListRelationFilter
   dividendAllocations?: Prisma.DividendAllocationListRelationFilter
   ledgerTransactions?: Prisma.LedgerTransactionListRelationFilter
   offlineSyncEvents?: Prisma.OfflineSyncEventListRelationFilter
@@ -305,6 +363,13 @@ export type MemberOrderByWithRelationInput = {
   joinedAt?: Prisma.SortOrder
   exitedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   totalSavingsSnapshot?: Prisma.SortOrder
+  paymentAllocationPreference?: Prisma.SortOrder
+  kycStatus?: Prisma.SortOrder
+  governmentIdNumber?: Prisma.SortOrderInput | Prisma.SortOrder
+  kycDocumentType?: Prisma.SortOrderInput | Prisma.SortOrder
+  kycDocumentUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  kycDocumentUploadedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  kycReviewNotes?: Prisma.SortOrderInput | Prisma.SortOrder
   deductionSourceId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -317,6 +382,8 @@ export type MemberOrderByWithRelationInput = {
   loanRequests?: Prisma.LoanRequestOrderByRelationAggregateInput
   loans?: Prisma.LoanOrderByRelationAggregateInput
   repayments?: Prisma.RepaymentOrderByRelationAggregateInput
+  collectionFollowUps?: Prisma.CollectionFollowUpOrderByRelationAggregateInput
+  documents?: Prisma.MemberDocumentOrderByRelationAggregateInput
   dividendAllocations?: Prisma.DividendAllocationOrderByRelationAggregateInput
   ledgerTransactions?: Prisma.LedgerTransactionOrderByRelationAggregateInput
   offlineSyncEvents?: Prisma.OfflineSyncEventOrderByRelationAggregateInput
@@ -337,6 +404,13 @@ export type MemberWhereUniqueInput = Prisma.AtLeast<{
   joinedAt?: Prisma.DateTimeFilter<"Member"> | Date | string
   exitedAt?: Prisma.DateTimeNullableFilter<"Member"> | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFilter<"Member"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFilter<"Member"> | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFilter<"Member"> | $Enums.KycStatus
+  governmentIdNumber?: Prisma.StringNullableFilter<"Member"> | string | null
+  kycDocumentType?: Prisma.StringNullableFilter<"Member"> | string | null
+  kycDocumentUrl?: Prisma.StringNullableFilter<"Member"> | string | null
+  kycDocumentUploadedAt?: Prisma.DateTimeNullableFilter<"Member"> | Date | string | null
+  kycReviewNotes?: Prisma.StringNullableFilter<"Member"> | string | null
   deductionSourceId?: Prisma.UuidNullableFilter<"Member"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Member"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Member"> | Date | string
@@ -349,6 +423,8 @@ export type MemberWhereUniqueInput = Prisma.AtLeast<{
   loanRequests?: Prisma.LoanRequestListRelationFilter
   loans?: Prisma.LoanListRelationFilter
   repayments?: Prisma.RepaymentListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
+  documents?: Prisma.MemberDocumentListRelationFilter
   dividendAllocations?: Prisma.DividendAllocationListRelationFilter
   ledgerTransactions?: Prisma.LedgerTransactionListRelationFilter
   offlineSyncEvents?: Prisma.OfflineSyncEventListRelationFilter
@@ -365,6 +441,13 @@ export type MemberOrderByWithAggregationInput = {
   joinedAt?: Prisma.SortOrder
   exitedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   totalSavingsSnapshot?: Prisma.SortOrder
+  paymentAllocationPreference?: Prisma.SortOrder
+  kycStatus?: Prisma.SortOrder
+  governmentIdNumber?: Prisma.SortOrderInput | Prisma.SortOrder
+  kycDocumentType?: Prisma.SortOrderInput | Prisma.SortOrder
+  kycDocumentUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  kycDocumentUploadedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  kycReviewNotes?: Prisma.SortOrderInput | Prisma.SortOrder
   deductionSourceId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -389,6 +472,13 @@ export type MemberScalarWhereWithAggregatesInput = {
   joinedAt?: Prisma.DateTimeWithAggregatesFilter<"Member"> | Date | string
   exitedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Member"> | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalWithAggregatesFilter<"Member"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceWithAggregatesFilter<"Member"> | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusWithAggregatesFilter<"Member"> | $Enums.KycStatus
+  governmentIdNumber?: Prisma.StringNullableWithAggregatesFilter<"Member"> | string | null
+  kycDocumentType?: Prisma.StringNullableWithAggregatesFilter<"Member"> | string | null
+  kycDocumentUrl?: Prisma.StringNullableWithAggregatesFilter<"Member"> | string | null
+  kycDocumentUploadedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Member"> | Date | string | null
+  kycReviewNotes?: Prisma.StringNullableWithAggregatesFilter<"Member"> | string | null
   deductionSourceId?: Prisma.UuidNullableWithAggregatesFilter<"Member"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Member"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Member"> | Date | string
@@ -403,6 +493,13 @@ export type MemberCreateInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -414,6 +511,8 @@ export type MemberCreateInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -430,6 +529,13 @@ export type MemberUncheckedCreateInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -439,6 +545,8 @@ export type MemberUncheckedCreateInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -453,6 +561,13 @@ export type MemberUpdateInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -464,6 +579,8 @@ export type MemberUpdateInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -480,6 +597,13 @@ export type MemberUncheckedUpdateInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -489,6 +613,8 @@ export type MemberUncheckedUpdateInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -505,6 +631,13 @@ export type MemberCreateManyInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -519,6 +652,13 @@ export type MemberUpdateManyMutationInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -534,6 +674,13 @@ export type MemberUncheckedUpdateManyInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -565,6 +712,13 @@ export type MemberCountOrderByAggregateInput = {
   joinedAt?: Prisma.SortOrder
   exitedAt?: Prisma.SortOrder
   totalSavingsSnapshot?: Prisma.SortOrder
+  paymentAllocationPreference?: Prisma.SortOrder
+  kycStatus?: Prisma.SortOrder
+  governmentIdNumber?: Prisma.SortOrder
+  kycDocumentType?: Prisma.SortOrder
+  kycDocumentUrl?: Prisma.SortOrder
+  kycDocumentUploadedAt?: Prisma.SortOrder
+  kycReviewNotes?: Prisma.SortOrder
   deductionSourceId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -585,6 +739,13 @@ export type MemberMaxOrderByAggregateInput = {
   joinedAt?: Prisma.SortOrder
   exitedAt?: Prisma.SortOrder
   totalSavingsSnapshot?: Prisma.SortOrder
+  paymentAllocationPreference?: Prisma.SortOrder
+  kycStatus?: Prisma.SortOrder
+  governmentIdNumber?: Prisma.SortOrder
+  kycDocumentType?: Prisma.SortOrder
+  kycDocumentUrl?: Prisma.SortOrder
+  kycDocumentUploadedAt?: Prisma.SortOrder
+  kycReviewNotes?: Prisma.SortOrder
   deductionSourceId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -601,6 +762,13 @@ export type MemberMinOrderByAggregateInput = {
   joinedAt?: Prisma.SortOrder
   exitedAt?: Prisma.SortOrder
   totalSavingsSnapshot?: Prisma.SortOrder
+  paymentAllocationPreference?: Prisma.SortOrder
+  kycStatus?: Prisma.SortOrder
+  governmentIdNumber?: Prisma.SortOrder
+  kycDocumentType?: Prisma.SortOrder
+  kycDocumentUrl?: Prisma.SortOrder
+  kycDocumentUploadedAt?: Prisma.SortOrder
+  kycReviewNotes?: Prisma.SortOrder
   deductionSourceId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -752,6 +920,20 @@ export type MemberUpdateOneRequiredWithoutLoansNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.MemberUpdateToOneWithWhereWithoutLoansInput, Prisma.MemberUpdateWithoutLoansInput>, Prisma.MemberUncheckedUpdateWithoutLoansInput>
 }
 
+export type MemberCreateNestedOneWithoutCollectionFollowUpsInput = {
+  create?: Prisma.XOR<Prisma.MemberCreateWithoutCollectionFollowUpsInput, Prisma.MemberUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.MemberCreateOrConnectWithoutCollectionFollowUpsInput
+  connect?: Prisma.MemberWhereUniqueInput
+}
+
+export type MemberUpdateOneRequiredWithoutCollectionFollowUpsNestedInput = {
+  create?: Prisma.XOR<Prisma.MemberCreateWithoutCollectionFollowUpsInput, Prisma.MemberUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.MemberCreateOrConnectWithoutCollectionFollowUpsInput
+  upsert?: Prisma.MemberUpsertWithoutCollectionFollowUpsInput
+  connect?: Prisma.MemberWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.MemberUpdateToOneWithWhereWithoutCollectionFollowUpsInput, Prisma.MemberUpdateWithoutCollectionFollowUpsInput>, Prisma.MemberUncheckedUpdateWithoutCollectionFollowUpsInput>
+}
+
 export type MemberCreateNestedOneWithoutRepaymentsInput = {
   create?: Prisma.XOR<Prisma.MemberCreateWithoutRepaymentsInput, Prisma.MemberUncheckedCreateWithoutRepaymentsInput>
   connectOrCreate?: Prisma.MemberCreateOrConnectWithoutRepaymentsInput
@@ -772,6 +954,28 @@ export type EnumMemberTypeFieldUpdateOperationsInput = {
 
 export type EnumMemberStatusFieldUpdateOperationsInput = {
   set?: $Enums.MemberStatus
+}
+
+export type EnumPaymentAllocationPreferenceFieldUpdateOperationsInput = {
+  set?: $Enums.PaymentAllocationPreference
+}
+
+export type EnumKycStatusFieldUpdateOperationsInput = {
+  set?: $Enums.KycStatus
+}
+
+export type MemberCreateNestedOneWithoutDocumentsInput = {
+  create?: Prisma.XOR<Prisma.MemberCreateWithoutDocumentsInput, Prisma.MemberUncheckedCreateWithoutDocumentsInput>
+  connectOrCreate?: Prisma.MemberCreateOrConnectWithoutDocumentsInput
+  connect?: Prisma.MemberWhereUniqueInput
+}
+
+export type MemberUpdateOneRequiredWithoutDocumentsNestedInput = {
+  create?: Prisma.XOR<Prisma.MemberCreateWithoutDocumentsInput, Prisma.MemberUncheckedCreateWithoutDocumentsInput>
+  connectOrCreate?: Prisma.MemberCreateOrConnectWithoutDocumentsInput
+  upsert?: Prisma.MemberUpsertWithoutDocumentsInput
+  connect?: Prisma.MemberWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.MemberUpdateToOneWithWhereWithoutDocumentsInput, Prisma.MemberUpdateWithoutDocumentsInput>, Prisma.MemberUncheckedUpdateWithoutDocumentsInput>
 }
 
 export type MemberCreateNestedManyWithoutDeductionSourceInput = {
@@ -883,6 +1087,13 @@ export type MemberCreateWithoutUserInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -893,6 +1104,8 @@ export type MemberCreateWithoutUserInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -908,6 +1121,13 @@ export type MemberUncheckedCreateWithoutUserInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -917,6 +1137,8 @@ export type MemberUncheckedCreateWithoutUserInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -947,6 +1169,13 @@ export type MemberUpdateWithoutUserInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -957,6 +1186,8 @@ export type MemberUpdateWithoutUserInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -972,6 +1203,13 @@ export type MemberUncheckedUpdateWithoutUserInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -981,6 +1219,8 @@ export type MemberUncheckedUpdateWithoutUserInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -995,6 +1235,13 @@ export type MemberCreateWithoutChargeApplicationsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1005,6 +1252,8 @@ export type MemberCreateWithoutChargeApplicationsInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -1021,6 +1270,13 @@ export type MemberUncheckedCreateWithoutChargeApplicationsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1029,6 +1285,8 @@ export type MemberUncheckedCreateWithoutChargeApplicationsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -1059,6 +1317,13 @@ export type MemberUpdateWithoutChargeApplicationsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -1069,6 +1334,8 @@ export type MemberUpdateWithoutChargeApplicationsInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -1085,6 +1352,13 @@ export type MemberUncheckedUpdateWithoutChargeApplicationsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1093,6 +1367,8 @@ export type MemberUncheckedUpdateWithoutChargeApplicationsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -1107,6 +1383,13 @@ export type MemberCreateWithoutContributionPlansInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1117,6 +1400,8 @@ export type MemberCreateWithoutContributionPlansInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -1133,6 +1418,13 @@ export type MemberUncheckedCreateWithoutContributionPlansInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1141,6 +1433,8 @@ export type MemberUncheckedCreateWithoutContributionPlansInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -1171,6 +1465,13 @@ export type MemberUpdateWithoutContributionPlansInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -1181,6 +1482,8 @@ export type MemberUpdateWithoutContributionPlansInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -1197,6 +1500,13 @@ export type MemberUncheckedUpdateWithoutContributionPlansInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1205,6 +1515,8 @@ export type MemberUncheckedUpdateWithoutContributionPlansInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -1219,6 +1531,13 @@ export type MemberCreateWithoutContributionsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1229,6 +1548,8 @@ export type MemberCreateWithoutContributionsInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -1245,6 +1566,13 @@ export type MemberUncheckedCreateWithoutContributionsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1253,6 +1581,8 @@ export type MemberUncheckedCreateWithoutContributionsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -1283,6 +1613,13 @@ export type MemberUpdateWithoutContributionsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -1293,6 +1630,8 @@ export type MemberUpdateWithoutContributionsInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -1309,6 +1648,13 @@ export type MemberUncheckedUpdateWithoutContributionsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1317,6 +1663,8 @@ export type MemberUncheckedUpdateWithoutContributionsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -1331,6 +1679,13 @@ export type MemberCreateWithoutDividendAllocationsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1342,6 +1697,8 @@ export type MemberCreateWithoutDividendAllocationsInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
 }
@@ -1357,6 +1714,13 @@ export type MemberUncheckedCreateWithoutDividendAllocationsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1366,6 +1730,8 @@ export type MemberUncheckedCreateWithoutDividendAllocationsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
 }
@@ -1395,6 +1761,13 @@ export type MemberUpdateWithoutDividendAllocationsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -1406,6 +1779,8 @@ export type MemberUpdateWithoutDividendAllocationsInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
 }
@@ -1421,6 +1796,13 @@ export type MemberUncheckedUpdateWithoutDividendAllocationsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1430,6 +1812,8 @@ export type MemberUncheckedUpdateWithoutDividendAllocationsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
 }
@@ -1443,6 +1827,13 @@ export type MemberCreateWithoutLedgerTransactionsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1454,6 +1845,8 @@ export type MemberCreateWithoutLedgerTransactionsInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
 }
@@ -1469,6 +1862,13 @@ export type MemberUncheckedCreateWithoutLedgerTransactionsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1478,6 +1878,8 @@ export type MemberUncheckedCreateWithoutLedgerTransactionsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
 }
@@ -1507,6 +1909,13 @@ export type MemberUpdateWithoutLedgerTransactionsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -1518,6 +1927,8 @@ export type MemberUpdateWithoutLedgerTransactionsInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
 }
@@ -1533,6 +1944,13 @@ export type MemberUncheckedUpdateWithoutLedgerTransactionsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1542,6 +1960,8 @@ export type MemberUncheckedUpdateWithoutLedgerTransactionsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
 }
@@ -1555,6 +1975,13 @@ export type MemberCreateWithoutLoanRequestsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1565,6 +1992,8 @@ export type MemberCreateWithoutLoanRequestsInput = {
   chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -1581,6 +2010,13 @@ export type MemberUncheckedCreateWithoutLoanRequestsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1589,6 +2025,8 @@ export type MemberUncheckedCreateWithoutLoanRequestsInput = {
   chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -1619,6 +2057,13 @@ export type MemberUpdateWithoutLoanRequestsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -1629,6 +2074,8 @@ export type MemberUpdateWithoutLoanRequestsInput = {
   chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -1645,6 +2092,13 @@ export type MemberUncheckedUpdateWithoutLoanRequestsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1653,6 +2107,8 @@ export type MemberUncheckedUpdateWithoutLoanRequestsInput = {
   chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -1667,6 +2123,13 @@ export type MemberCreateWithoutLoansInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1677,6 +2140,8 @@ export type MemberCreateWithoutLoansInput = {
   chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutMemberInput
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -1693,6 +2158,13 @@ export type MemberUncheckedCreateWithoutLoansInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1701,6 +2173,8 @@ export type MemberUncheckedCreateWithoutLoansInput = {
   chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutMemberInput
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -1731,6 +2205,13 @@ export type MemberUpdateWithoutLoansInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -1741,6 +2222,8 @@ export type MemberUpdateWithoutLoansInput = {
   chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutMemberNestedInput
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -1757,6 +2240,13 @@ export type MemberUncheckedUpdateWithoutLoansInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1765,6 +2255,156 @@ export type MemberUncheckedUpdateWithoutLoansInput = {
   chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutMemberNestedInput
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
+}
+
+export type MemberCreateWithoutCollectionFollowUpsInput = {
+  id?: string
+  memberNumber: string
+  fullName: string
+  memberType: $Enums.MemberType
+  status?: $Enums.MemberStatus
+  joinedAt: Date | string
+  exitedAt?: Date | string | null
+  totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
+  user?: Prisma.UserCreateNestedOneWithoutMemberProfileInput
+  deductionSource?: Prisma.DeductionSourceCreateNestedOneWithoutMembersInput
+  contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutMemberInput
+  contributions?: Prisma.ContributionCreateNestedManyWithoutMemberInput
+  chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutMemberInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
+  loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
+  dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
+  ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
+}
+
+export type MemberUncheckedCreateWithoutCollectionFollowUpsInput = {
+  id?: string
+  tenantId: string
+  userId?: string | null
+  memberNumber: string
+  fullName: string
+  memberType: $Enums.MemberType
+  status?: $Enums.MemberStatus
+  joinedAt: Date | string
+  exitedAt?: Date | string | null
+  totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
+  deductionSourceId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutMemberInput
+  contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutMemberInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutMemberInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
+  loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
+}
+
+export type MemberCreateOrConnectWithoutCollectionFollowUpsInput = {
+  where: Prisma.MemberWhereUniqueInput
+  create: Prisma.XOR<Prisma.MemberCreateWithoutCollectionFollowUpsInput, Prisma.MemberUncheckedCreateWithoutCollectionFollowUpsInput>
+}
+
+export type MemberUpsertWithoutCollectionFollowUpsInput = {
+  update: Prisma.XOR<Prisma.MemberUpdateWithoutCollectionFollowUpsInput, Prisma.MemberUncheckedUpdateWithoutCollectionFollowUpsInput>
+  create: Prisma.XOR<Prisma.MemberCreateWithoutCollectionFollowUpsInput, Prisma.MemberUncheckedCreateWithoutCollectionFollowUpsInput>
+  where?: Prisma.MemberWhereInput
+}
+
+export type MemberUpdateToOneWithWhereWithoutCollectionFollowUpsInput = {
+  where?: Prisma.MemberWhereInput
+  data: Prisma.XOR<Prisma.MemberUpdateWithoutCollectionFollowUpsInput, Prisma.MemberUncheckedUpdateWithoutCollectionFollowUpsInput>
+}
+
+export type MemberUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  memberNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  memberType?: Prisma.EnumMemberTypeFieldUpdateOperationsInput | $Enums.MemberType
+  status?: Prisma.EnumMemberStatusFieldUpdateOperationsInput | $Enums.MemberStatus
+  joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
+  user?: Prisma.UserUpdateOneWithoutMemberProfileNestedInput
+  deductionSource?: Prisma.DeductionSourceUpdateOneWithoutMembersNestedInput
+  contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutMemberNestedInput
+  contributions?: Prisma.ContributionUpdateManyWithoutMemberNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutMemberNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
+  loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
+}
+
+export type MemberUncheckedUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  tenantId?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  memberNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  memberType?: Prisma.EnumMemberTypeFieldUpdateOperationsInput | $Enums.MemberType
+  status?: Prisma.EnumMemberStatusFieldUpdateOperationsInput | $Enums.MemberStatus
+  joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutMemberNestedInput
+  contributions?: Prisma.ContributionUncheckedUpdateManyWithoutMemberNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutMemberNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
+  loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -1779,6 +2419,13 @@ export type MemberCreateWithoutRepaymentsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1789,6 +2436,8 @@ export type MemberCreateWithoutRepaymentsInput = {
   chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutMemberInput
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -1805,6 +2454,13 @@ export type MemberUncheckedCreateWithoutRepaymentsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1813,6 +2469,8 @@ export type MemberUncheckedCreateWithoutRepaymentsInput = {
   chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutMemberInput
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -1843,6 +2501,13 @@ export type MemberUpdateWithoutRepaymentsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -1853,6 +2518,8 @@ export type MemberUpdateWithoutRepaymentsInput = {
   chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutMemberNestedInput
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -1869,6 +2536,13 @@ export type MemberUncheckedUpdateWithoutRepaymentsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1877,6 +2551,156 @@ export type MemberUncheckedUpdateWithoutRepaymentsInput = {
   chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutMemberNestedInput
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
+}
+
+export type MemberCreateWithoutDocumentsInput = {
+  id?: string
+  memberNumber: string
+  fullName: string
+  memberType: $Enums.MemberType
+  status?: $Enums.MemberStatus
+  joinedAt: Date | string
+  exitedAt?: Date | string | null
+  totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
+  user?: Prisma.UserCreateNestedOneWithoutMemberProfileInput
+  deductionSource?: Prisma.DeductionSourceCreateNestedOneWithoutMembersInput
+  contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutMemberInput
+  contributions?: Prisma.ContributionCreateNestedManyWithoutMemberInput
+  chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutMemberInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
+  loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
+  ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
+}
+
+export type MemberUncheckedCreateWithoutDocumentsInput = {
+  id?: string
+  tenantId: string
+  userId?: string | null
+  memberNumber: string
+  fullName: string
+  memberType: $Enums.MemberType
+  status?: $Enums.MemberStatus
+  joinedAt: Date | string
+  exitedAt?: Date | string | null
+  totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
+  deductionSourceId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutMemberInput
+  contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutMemberInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutMemberInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
+  loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
+}
+
+export type MemberCreateOrConnectWithoutDocumentsInput = {
+  where: Prisma.MemberWhereUniqueInput
+  create: Prisma.XOR<Prisma.MemberCreateWithoutDocumentsInput, Prisma.MemberUncheckedCreateWithoutDocumentsInput>
+}
+
+export type MemberUpsertWithoutDocumentsInput = {
+  update: Prisma.XOR<Prisma.MemberUpdateWithoutDocumentsInput, Prisma.MemberUncheckedUpdateWithoutDocumentsInput>
+  create: Prisma.XOR<Prisma.MemberCreateWithoutDocumentsInput, Prisma.MemberUncheckedCreateWithoutDocumentsInput>
+  where?: Prisma.MemberWhereInput
+}
+
+export type MemberUpdateToOneWithWhereWithoutDocumentsInput = {
+  where?: Prisma.MemberWhereInput
+  data: Prisma.XOR<Prisma.MemberUpdateWithoutDocumentsInput, Prisma.MemberUncheckedUpdateWithoutDocumentsInput>
+}
+
+export type MemberUpdateWithoutDocumentsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  memberNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  memberType?: Prisma.EnumMemberTypeFieldUpdateOperationsInput | $Enums.MemberType
+  status?: Prisma.EnumMemberStatusFieldUpdateOperationsInput | $Enums.MemberStatus
+  joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
+  user?: Prisma.UserUpdateOneWithoutMemberProfileNestedInput
+  deductionSource?: Prisma.DeductionSourceUpdateOneWithoutMembersNestedInput
+  contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutMemberNestedInput
+  contributions?: Prisma.ContributionUpdateManyWithoutMemberNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutMemberNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
+  loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
+}
+
+export type MemberUncheckedUpdateWithoutDocumentsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  tenantId?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  memberNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  memberType?: Prisma.EnumMemberTypeFieldUpdateOperationsInput | $Enums.MemberType
+  status?: Prisma.EnumMemberStatusFieldUpdateOperationsInput | $Enums.MemberStatus
+  joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutMemberNestedInput
+  contributions?: Prisma.ContributionUncheckedUpdateManyWithoutMemberNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutMemberNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
+  loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -1891,6 +2715,13 @@ export type MemberCreateWithoutDeductionSourceInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1901,6 +2732,8 @@ export type MemberCreateWithoutDeductionSourceInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -1917,6 +2750,13 @@ export type MemberUncheckedCreateWithoutDeductionSourceInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutMemberInput
@@ -1925,6 +2765,8 @@ export type MemberUncheckedCreateWithoutDeductionSourceInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -1970,6 +2812,13 @@ export type MemberScalarWhereInput = {
   joinedAt?: Prisma.DateTimeFilter<"Member"> | Date | string
   exitedAt?: Prisma.DateTimeNullableFilter<"Member"> | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFilter<"Member"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFilter<"Member"> | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFilter<"Member"> | $Enums.KycStatus
+  governmentIdNumber?: Prisma.StringNullableFilter<"Member"> | string | null
+  kycDocumentType?: Prisma.StringNullableFilter<"Member"> | string | null
+  kycDocumentUrl?: Prisma.StringNullableFilter<"Member"> | string | null
+  kycDocumentUploadedAt?: Prisma.DateTimeNullableFilter<"Member"> | Date | string | null
+  kycReviewNotes?: Prisma.StringNullableFilter<"Member"> | string | null
   deductionSourceId?: Prisma.UuidNullableFilter<"Member"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Member"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Member"> | Date | string
@@ -1984,6 +2833,13 @@ export type MemberCreateWithoutOfflineSyncEventsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutMembersInput
@@ -1995,6 +2851,8 @@ export type MemberCreateWithoutOfflineSyncEventsInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
 }
@@ -2010,6 +2868,13 @@ export type MemberUncheckedCreateWithoutOfflineSyncEventsInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -2019,6 +2884,8 @@ export type MemberUncheckedCreateWithoutOfflineSyncEventsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
 }
@@ -2048,6 +2915,13 @@ export type MemberUpdateWithoutOfflineSyncEventsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -2059,6 +2933,8 @@ export type MemberUpdateWithoutOfflineSyncEventsInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
 }
@@ -2074,6 +2950,13 @@ export type MemberUncheckedUpdateWithoutOfflineSyncEventsInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2083,6 +2966,8 @@ export type MemberUncheckedUpdateWithoutOfflineSyncEventsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
 }
@@ -2096,6 +2981,13 @@ export type MemberCreateWithoutTenantInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   user?: Prisma.UserCreateNestedOneWithoutMemberProfileInput
@@ -2106,6 +2998,8 @@ export type MemberCreateWithoutTenantInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutMemberInput
@@ -2121,6 +3015,13 @@ export type MemberUncheckedCreateWithoutTenantInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -2130,6 +3031,8 @@ export type MemberUncheckedCreateWithoutTenantInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutMemberInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutMemberInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutMemberInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutMemberInput
+  documents?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutMemberInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutMemberInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutMemberInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutMemberInput
@@ -2172,6 +3075,13 @@ export type MemberCreateManyDeductionSourceInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -2185,6 +3095,13 @@ export type MemberUpdateWithoutDeductionSourceInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutMembersNestedInput
@@ -2195,6 +3112,8 @@ export type MemberUpdateWithoutDeductionSourceInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -2211,6 +3130,13 @@ export type MemberUncheckedUpdateWithoutDeductionSourceInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutMemberNestedInput
@@ -2219,6 +3145,8 @@ export type MemberUncheckedUpdateWithoutDeductionSourceInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -2235,6 +3163,13 @@ export type MemberUncheckedUpdateManyWithoutDeductionSourceInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2249,6 +3184,13 @@ export type MemberCreateManyTenantInput = {
   joinedAt: Date | string
   exitedAt?: Date | string | null
   totalSavingsSnapshot?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: $Enums.PaymentAllocationPreference
+  kycStatus?: $Enums.KycStatus
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycDocumentUploadedAt?: Date | string | null
+  kycReviewNotes?: string | null
   deductionSourceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -2263,6 +3205,13 @@ export type MemberUpdateWithoutTenantInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneWithoutMemberProfileNestedInput
@@ -2273,6 +3222,8 @@ export type MemberUpdateWithoutTenantInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutMemberNestedInput
@@ -2288,6 +3239,13 @@ export type MemberUncheckedUpdateWithoutTenantInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2297,6 +3255,8 @@ export type MemberUncheckedUpdateWithoutTenantInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutMemberNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutMemberNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutMemberNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutMemberNestedInput
+  documents?: Prisma.MemberDocumentUncheckedUpdateManyWithoutMemberNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutMemberNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutMemberNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutMemberNestedInput
@@ -2312,6 +3272,13 @@ export type MemberUncheckedUpdateManyWithoutTenantInput = {
   joinedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exitedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalSavingsSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  paymentAllocationPreference?: Prisma.EnumPaymentAllocationPreferenceFieldUpdateOperationsInput | $Enums.PaymentAllocationPreference
+  kycStatus?: Prisma.EnumKycStatusFieldUpdateOperationsInput | $Enums.KycStatus
+  governmentIdNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kycDocumentUploadedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  kycReviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deductionSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2329,6 +3296,8 @@ export type MemberCountOutputType = {
   loanRequests: number
   loans: number
   repayments: number
+  collectionFollowUps: number
+  documents: number
   dividendAllocations: number
   ledgerTransactions: number
   offlineSyncEvents: number
@@ -2341,6 +3310,8 @@ export type MemberCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions
   loanRequests?: boolean | MemberCountOutputTypeCountLoanRequestsArgs
   loans?: boolean | MemberCountOutputTypeCountLoansArgs
   repayments?: boolean | MemberCountOutputTypeCountRepaymentsArgs
+  collectionFollowUps?: boolean | MemberCountOutputTypeCountCollectionFollowUpsArgs
+  documents?: boolean | MemberCountOutputTypeCountDocumentsArgs
   dividendAllocations?: boolean | MemberCountOutputTypeCountDividendAllocationsArgs
   ledgerTransactions?: boolean | MemberCountOutputTypeCountLedgerTransactionsArgs
   offlineSyncEvents?: boolean | MemberCountOutputTypeCountOfflineSyncEventsArgs
@@ -2401,6 +3372,20 @@ export type MemberCountOutputTypeCountRepaymentsArgs<ExtArgs extends runtime.Typ
 /**
  * MemberCountOutputType without action
  */
+export type MemberCountOutputTypeCountCollectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CollectionFollowUpWhereInput
+}
+
+/**
+ * MemberCountOutputType without action
+ */
+export type MemberCountOutputTypeCountDocumentsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MemberDocumentWhereInput
+}
+
+/**
+ * MemberCountOutputType without action
+ */
 export type MemberCountOutputTypeCountDividendAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.DividendAllocationWhereInput
 }
@@ -2431,6 +3416,13 @@ export type MemberSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   joinedAt?: boolean
   exitedAt?: boolean
   totalSavingsSnapshot?: boolean
+  paymentAllocationPreference?: boolean
+  kycStatus?: boolean
+  governmentIdNumber?: boolean
+  kycDocumentType?: boolean
+  kycDocumentUrl?: boolean
+  kycDocumentUploadedAt?: boolean
+  kycReviewNotes?: boolean
   deductionSourceId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -2443,6 +3435,8 @@ export type MemberSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   loanRequests?: boolean | Prisma.Member$loanRequestsArgs<ExtArgs>
   loans?: boolean | Prisma.Member$loansArgs<ExtArgs>
   repayments?: boolean | Prisma.Member$repaymentsArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.Member$collectionFollowUpsArgs<ExtArgs>
+  documents?: boolean | Prisma.Member$documentsArgs<ExtArgs>
   dividendAllocations?: boolean | Prisma.Member$dividendAllocationsArgs<ExtArgs>
   ledgerTransactions?: boolean | Prisma.Member$ledgerTransactionsArgs<ExtArgs>
   offlineSyncEvents?: boolean | Prisma.Member$offlineSyncEventsArgs<ExtArgs>
@@ -2460,6 +3454,13 @@ export type MemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   joinedAt?: boolean
   exitedAt?: boolean
   totalSavingsSnapshot?: boolean
+  paymentAllocationPreference?: boolean
+  kycStatus?: boolean
+  governmentIdNumber?: boolean
+  kycDocumentType?: boolean
+  kycDocumentUrl?: boolean
+  kycDocumentUploadedAt?: boolean
+  kycReviewNotes?: boolean
   deductionSourceId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -2479,6 +3480,13 @@ export type MemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   joinedAt?: boolean
   exitedAt?: boolean
   totalSavingsSnapshot?: boolean
+  paymentAllocationPreference?: boolean
+  kycStatus?: boolean
+  governmentIdNumber?: boolean
+  kycDocumentType?: boolean
+  kycDocumentUrl?: boolean
+  kycDocumentUploadedAt?: boolean
+  kycReviewNotes?: boolean
   deductionSourceId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -2498,12 +3506,19 @@ export type MemberSelectScalar = {
   joinedAt?: boolean
   exitedAt?: boolean
   totalSavingsSnapshot?: boolean
+  paymentAllocationPreference?: boolean
+  kycStatus?: boolean
+  governmentIdNumber?: boolean
+  kycDocumentType?: boolean
+  kycDocumentUrl?: boolean
+  kycDocumentUploadedAt?: boolean
+  kycReviewNotes?: boolean
   deductionSourceId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type MemberOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "userId" | "memberNumber" | "fullName" | "memberType" | "status" | "joinedAt" | "exitedAt" | "totalSavingsSnapshot" | "deductionSourceId" | "createdAt" | "updatedAt", ExtArgs["result"]["member"]>
+export type MemberOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "userId" | "memberNumber" | "fullName" | "memberType" | "status" | "joinedAt" | "exitedAt" | "totalSavingsSnapshot" | "paymentAllocationPreference" | "kycStatus" | "governmentIdNumber" | "kycDocumentType" | "kycDocumentUrl" | "kycDocumentUploadedAt" | "kycReviewNotes" | "deductionSourceId" | "createdAt" | "updatedAt", ExtArgs["result"]["member"]>
 export type MemberInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
   user?: boolean | Prisma.Member$userArgs<ExtArgs>
@@ -2514,6 +3529,8 @@ export type MemberInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   loanRequests?: boolean | Prisma.Member$loanRequestsArgs<ExtArgs>
   loans?: boolean | Prisma.Member$loansArgs<ExtArgs>
   repayments?: boolean | Prisma.Member$repaymentsArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.Member$collectionFollowUpsArgs<ExtArgs>
+  documents?: boolean | Prisma.Member$documentsArgs<ExtArgs>
   dividendAllocations?: boolean | Prisma.Member$dividendAllocationsArgs<ExtArgs>
   ledgerTransactions?: boolean | Prisma.Member$ledgerTransactionsArgs<ExtArgs>
   offlineSyncEvents?: boolean | Prisma.Member$offlineSyncEventsArgs<ExtArgs>
@@ -2542,6 +3559,8 @@ export type $MemberPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     loanRequests: Prisma.$LoanRequestPayload<ExtArgs>[]
     loans: Prisma.$LoanPayload<ExtArgs>[]
     repayments: Prisma.$RepaymentPayload<ExtArgs>[]
+    collectionFollowUps: Prisma.$CollectionFollowUpPayload<ExtArgs>[]
+    documents: Prisma.$MemberDocumentPayload<ExtArgs>[]
     dividendAllocations: Prisma.$DividendAllocationPayload<ExtArgs>[]
     ledgerTransactions: Prisma.$LedgerTransactionPayload<ExtArgs>[]
     offlineSyncEvents: Prisma.$OfflineSyncEventPayload<ExtArgs>[]
@@ -2557,6 +3576,13 @@ export type $MemberPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     joinedAt: Date
     exitedAt: Date | null
     totalSavingsSnapshot: runtime.Decimal
+    paymentAllocationPreference: $Enums.PaymentAllocationPreference
+    kycStatus: $Enums.KycStatus
+    governmentIdNumber: string | null
+    kycDocumentType: string | null
+    kycDocumentUrl: string | null
+    kycDocumentUploadedAt: Date | null
+    kycReviewNotes: string | null
     deductionSourceId: string | null
     createdAt: Date
     updatedAt: Date
@@ -2963,6 +3989,8 @@ export interface Prisma__MemberClient<T, Null = never, ExtArgs extends runtime.T
   loanRequests<T extends Prisma.Member$loanRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Member$loanRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LoanRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   loans<T extends Prisma.Member$loansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Member$loansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LoanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   repayments<T extends Prisma.Member$repaymentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Member$repaymentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  collectionFollowUps<T extends Prisma.Member$collectionFollowUpsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Member$collectionFollowUpsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CollectionFollowUpPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  documents<T extends Prisma.Member$documentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Member$documentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MemberDocumentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   dividendAllocations<T extends Prisma.Member$dividendAllocationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Member$dividendAllocationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DividendAllocationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ledgerTransactions<T extends Prisma.Member$ledgerTransactionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Member$ledgerTransactionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LedgerTransactionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   offlineSyncEvents<T extends Prisma.Member$offlineSyncEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Member$offlineSyncEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$OfflineSyncEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -3005,6 +4033,13 @@ export interface MemberFieldRefs {
   readonly joinedAt: Prisma.FieldRef<"Member", 'DateTime'>
   readonly exitedAt: Prisma.FieldRef<"Member", 'DateTime'>
   readonly totalSavingsSnapshot: Prisma.FieldRef<"Member", 'Decimal'>
+  readonly paymentAllocationPreference: Prisma.FieldRef<"Member", 'PaymentAllocationPreference'>
+  readonly kycStatus: Prisma.FieldRef<"Member", 'KycStatus'>
+  readonly governmentIdNumber: Prisma.FieldRef<"Member", 'String'>
+  readonly kycDocumentType: Prisma.FieldRef<"Member", 'String'>
+  readonly kycDocumentUrl: Prisma.FieldRef<"Member", 'String'>
+  readonly kycDocumentUploadedAt: Prisma.FieldRef<"Member", 'DateTime'>
+  readonly kycReviewNotes: Prisma.FieldRef<"Member", 'String'>
   readonly deductionSourceId: Prisma.FieldRef<"Member", 'String'>
   readonly createdAt: Prisma.FieldRef<"Member", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Member", 'DateTime'>
@@ -3588,6 +4623,54 @@ export type Member$repaymentsArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.RepaymentScalarFieldEnum | Prisma.RepaymentScalarFieldEnum[]
+}
+
+/**
+ * Member.collectionFollowUps
+ */
+export type Member$collectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CollectionFollowUp
+   */
+  select?: Prisma.CollectionFollowUpSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CollectionFollowUp
+   */
+  omit?: Prisma.CollectionFollowUpOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CollectionFollowUpInclude<ExtArgs> | null
+  where?: Prisma.CollectionFollowUpWhereInput
+  orderBy?: Prisma.CollectionFollowUpOrderByWithRelationInput | Prisma.CollectionFollowUpOrderByWithRelationInput[]
+  cursor?: Prisma.CollectionFollowUpWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CollectionFollowUpScalarFieldEnum | Prisma.CollectionFollowUpScalarFieldEnum[]
+}
+
+/**
+ * Member.documents
+ */
+export type Member$documentsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MemberDocument
+   */
+  select?: Prisma.MemberDocumentSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MemberDocument
+   */
+  omit?: Prisma.MemberDocumentOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MemberDocumentInclude<ExtArgs> | null
+  where?: Prisma.MemberDocumentWhereInput
+  orderBy?: Prisma.MemberDocumentOrderByWithRelationInput | Prisma.MemberDocumentOrderByWithRelationInput[]
+  cursor?: Prisma.MemberDocumentWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MemberDocumentScalarFieldEnum | Prisma.MemberDocumentScalarFieldEnum[]
 }
 
 /**

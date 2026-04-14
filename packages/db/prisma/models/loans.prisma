@@ -25,6 +25,9 @@ model LoanRequest {
   loanProductId         String             @map("loan_product_id") @db.Uuid
   createdByUserId       String             @map("created_by_user_id") @db.Uuid
   requestedAmount       Decimal            @map("requested_amount") @db.Decimal(18, 2)
+  requestedTermMonths   Int                @map("requested_term_months")
+  estimatedMonthlyServicing Decimal        @map("estimated_monthly_servicing") @db.Decimal(18, 2)
+  extraMonthlySavingsAmount Decimal        @default(0) @map("extra_monthly_savings_amount") @db.Decimal(18, 2)
   eligibleAmountSnapshot Decimal           @map("eligible_amount_snapshot") @db.Decimal(18, 2)
   availablePoolSnapshot Decimal            @map("available_pool_snapshot") @db.Decimal(18, 2)
   requestedAt           DateTime           @map("requested_at") @db.Timestamptz(6)
@@ -72,6 +75,9 @@ model Loan {
   loanRequestId         String                  @unique @map("loan_request_id") @db.Uuid
   loanProductId         String                  @map("loan_product_id") @db.Uuid
   principalAmount       Decimal                 @map("principal_amount") @db.Decimal(18, 2)
+  termMonths            Int                     @map("term_months")
+  estimatedMonthlyServicing Decimal             @map("estimated_monthly_servicing") @db.Decimal(18, 2)
+  extraMonthlySavingsAmount Decimal             @default(0) @map("extra_monthly_savings_amount") @db.Decimal(18, 2)
   outstandingPrincipal  Decimal                 @map("outstanding_principal") @db.Decimal(18, 2)
   disbursedAt           DateTime?               @map("disbursed_at") @db.Timestamptz(6)
   firstRepaymentDueAt   DateTime?               @map("first_repayment_due_at") @db.Timestamptz(6)
@@ -87,6 +93,7 @@ model Loan {
   charges               ChargeApplication[]
   repaymentScheduleItems RepaymentScheduleItem[]
   repayments            Repayment[]
+  collectionFollowUps   CollectionFollowUp[]
   ledgerTransactions    LedgerTransaction[]
 
   @@index([tenantId, memberId, status], map: "loans_tenant_member_status_idx")
@@ -111,10 +118,43 @@ model RepaymentScheduleItem {
   tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   loan                  Loan                    @relation(fields: [loanId], references: [id], onDelete: Cascade)
   repayments            Repayment[]
+  collectionFollowUps   CollectionFollowUp[]
 
   @@unique([loanId, installmentNumber], map: "repayment_schedule_loan_installment_key")
   @@index([tenantId, dueAt, status], map: "repayment_schedule_tenant_due_status_idx")
   @@map("repayment_schedule_items")
+}
+
+model CollectionFollowUp {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String                  @map("tenant_id") @db.Uuid
+  repaymentScheduleItemId String                @map("repayment_schedule_item_id") @db.Uuid
+  loanId                String                  @map("loan_id") @db.Uuid
+  memberId              String                  @map("member_id") @db.Uuid
+  actorUserId           String                  @map("actor_user_id") @db.Uuid
+  assignedToUserId      String?                 @map("assigned_to_user_id") @db.Uuid
+  status                String
+  caseStage             String                  @default("active") @map("case_stage")
+  priority              String                  @default("normal")
+  resolutionStatus      String                  @default("open") @map("resolution_status")
+  note                  String
+  nextActionAt          DateTime?               @map("next_action_at") @db.Timestamptz(6)
+  promiseToPayAt        DateTime?               @map("promise_to_pay_at") @db.Timestamptz(6)
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  repaymentScheduleItem RepaymentScheduleItem   @relation(fields: [repaymentScheduleItemId], references: [id], onDelete: Cascade)
+  loan                  Loan                    @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  member                Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  actorUser             User                    @relation("CollectionFollowUpActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  assignedToUser        User?                   @relation("CollectionFollowUpAssignedUser", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt], map: "collection_follow_ups_tenant_created_at_idx")
+  @@index([tenantId, status], map: "collection_follow_ups_tenant_status_idx")
+  @@index([tenantId, caseStage, resolutionStatus], map: "collection_follow_ups_tenant_stage_resolution_idx")
+  @@index([repaymentScheduleItemId, createdAt], map: "collection_follow_ups_schedule_created_at_idx")
+  @@map("collection_follow_ups")
 }
 
 model Repayment {

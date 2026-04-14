@@ -49,6 +49,9 @@ type DashboardPageData = {
     id: string
     slug: string
     name: string
+    currentSize?: number | null
+    officeAddress?: string | null
+    startDate?: string | null
     region: string | null
     currencyCode: string
     timezone: string
@@ -74,7 +77,11 @@ export async function getDashboardServerContext() {
     slug: tenantSlug,
     hostname: tenantHostname ?? host,
   })
-  const user = await findUserByIdAsync(requestedUserId)
+  const resolvedUser = await findUserByIdAsync(requestedUserId)
+  const user =
+    resolvedUser && tenantResolution.tenant && !resolvedUser.isPlatformOwner && resolvedUser.tenantId !== tenantResolution.tenant.id
+      ? null
+      : resolvedUser
   const membership = await findActiveMembershipAsync({
     tenantId: tenantResolution.tenant?.id ?? user?.tenantId ?? null,
     userId: user?.id ?? null,
@@ -109,6 +116,9 @@ export async function getDashboardPageData(): Promise<DashboardPageData> {
       id: "platform-demo",
       slug: "platform",
       name: "Platform Demo Workspace",
+      currentSize: null,
+      officeAddress: null,
+      startDate: null,
       region: null,
       currencyCode: "NGN",
       timezone: "Africa/Lagos",

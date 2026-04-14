@@ -4,6 +4,15 @@ import { ensureTenantLedgerAccounts } from "./ledger.js"
 import { listSeedMemberships, listSeedUsers } from "./auth.js"
 import { listSeedTenantDomains, getTenantById, type TenantRecord } from "./tenants.js"
 
+function getTenantDomainRoutingScope(input: {
+  hostname: string
+  kind: "site" | "dashboard" | "custom"
+}) {
+  if (input.kind === "site") return "site"
+  if (input.kind === "dashboard") return "dashboard"
+  return input.hostname.startsWith("dashboard.") ? "dashboard" : "site"
+}
+
 export type TenantOnboardingStepKey =
   | "tenant_profile"
   | "site_domain"
@@ -34,6 +43,9 @@ export type TenantBootstrapInput = {
   slug: string
   ownerFullName: string
   ownerEmail: string
+  currentSize?: number
+  officeAddress?: string | null
+  startDate?: string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -86,6 +98,9 @@ function toTenantRecord(input: {
   id: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region: string | null
   currencyCode: string
   timezone: string
@@ -96,6 +111,12 @@ function toTenantRecord(input: {
     id: input.id,
     slug: input.slug,
     name: input.name,
+    currentSize: input.currentSize ?? null,
+    officeAddress: input.officeAddress ?? null,
+    startDate:
+      input.startDate instanceof Date
+        ? input.startDate.toISOString().slice(0, 10)
+        : input.startDate ?? null,
     region: input.region,
     currencyCode: input.currencyCode,
     timezone: input.timezone,
@@ -135,8 +156,8 @@ function buildTenantOnboardingSnapshot(input: {
     },
     {
       key: "workspace_owner",
-      label: "Workspace owner",
-      description: "A tenant admin account and default membership are assigned.",
+      label: "Primary admin contact",
+      description: "A primary cooperative admin account and default membership are assigned.",
       complete: input.hasWorkspaceOwner,
     },
     {
@@ -173,9 +194,10 @@ export async function getTenantOnboardingState(tenantId: string) {
   if (!prisma) {
     const tenant = getTenantById(tenantId)
     const domains = listSeedTenantDomains().filter((domain) => domain.tenantId === tenantId)
-    const primarySiteDomain = domains.find((domain) => domain.kind === "site" && domain.isPrimary) ?? null
+    const primarySiteDomain =
+      domains.find((domain) => getTenantDomainRoutingScope(domain) === "site" && domain.isPrimary) ?? null
     const primaryDashboardDomain =
-      domains.find((domain) => domain.kind === "dashboard" && domain.isPrimary) ?? null
+      domains.find((domain) => getTenantDomainRoutingScope(domain) === "dashboard" && domain.isPrimary) ?? null
     const hasWorkspaceOwner = listSeedMemberships().some((membership) =>
       listSeedUsers().some(
         (user) => user.id === membership.userId && membership.tenantId === tenantId && membership.role === "tenant_admin",
@@ -226,9 +248,10 @@ export async function getTenantOnboardingState(tenantId: string) {
     },
   })
 
-  const primarySiteDomain = tenant?.domains.find((domain) => domain.kind === "site" && domain.isPrimary) ?? null
+  const primarySiteDomain =
+    tenant?.domains.find((domain) => getTenantDomainRoutingScope(domain) === "site" && domain.isPrimary) ?? null
   const primaryDashboardDomain =
-    tenant?.domains.find((domain) => domain.kind === "dashboard" && domain.isPrimary) ?? null
+    tenant?.domains.find((domain) => getTenantDomainRoutingScope(domain) === "dashboard" && domain.isPrimary) ?? null
 
   return buildTenantOnboardingSnapshot({
     hasTenantProfile: Boolean(tenant),
@@ -262,6 +285,9 @@ export async function createTenantWorkspaceBootstrap(input: TenantBootstrapInput
       data: {
         slug,
         name: input.name.trim(),
+        currentSize: input.currentSize,
+        officeAddress: input.officeAddress?.trim() || null,
+        startDate: input.startDate ? new Date(`${input.startDate}T00:00:00.000Z`) : null,
         region: input.region?.trim() || null,
         currencyCode: input.currencyCode?.trim().toUpperCase() || "NGN",
         timezone: input.timezone?.trim() || "Africa/Lagos",

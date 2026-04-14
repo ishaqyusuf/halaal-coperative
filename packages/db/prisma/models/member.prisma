@@ -9,6 +9,13 @@ model Member {
   joinedAt              DateTime          @map("joined_at") @db.Timestamptz(6)
   exitedAt              DateTime?         @map("exited_at") @db.Timestamptz(6)
   totalSavingsSnapshot  Decimal           @default(0) @map("total_savings_snapshot") @db.Decimal(18, 2)
+  paymentAllocationPreference PaymentAllocationPreference @default(manual_split) @map("payment_allocation_preference")
+  kycStatus             KycStatus         @default(not_started) @map("kyc_status")
+  governmentIdNumber    String?           @map("government_id_number")
+  kycDocumentType       String?           @map("kyc_document_type")
+  kycDocumentUrl        String?           @map("kyc_document_url")
+  kycDocumentUploadedAt DateTime?         @map("kyc_document_uploaded_at") @db.Timestamptz(6)
+  kycReviewNotes        String?           @map("kyc_review_notes")
   deductionSourceId     String?           @map("deduction_source_id") @db.Uuid
   createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -22,6 +29,8 @@ model Member {
   loanRequests          LoanRequest[]
   loans                 Loan[]
   repayments            Repayment[]
+  collectionFollowUps   CollectionFollowUp[]
+  documents             MemberDocument[]
   dividendAllocations   DividendAllocation[]
   ledgerTransactions    LedgerTransaction[]
   offlineSyncEvents     OfflineSyncEvent[]
@@ -30,6 +39,27 @@ model Member {
   @@index([tenantId, status], map: "members_tenant_status_idx")
   @@index([tenantId, memberType], map: "members_tenant_member_type_idx")
   @@map("members")
+}
+
+model MemberDocument {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  memberId        String    @map("member_id") @db.Uuid
+  documentType    String    @map("document_type")
+  documentUrl     String    @map("document_url")
+  reviewStatus    String    @default("pending") @map("review_status")
+  reviewNotes     String?   @map("review_notes")
+  uploadedAt      DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member          Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, memberId, reviewStatus], map: "member_documents_tenant_member_review_status_idx")
+  @@index([tenantId, uploadedAt], map: "member_documents_tenant_uploaded_at_idx")
+  @@map("member_documents")
 }
 
 model DeductionSource {

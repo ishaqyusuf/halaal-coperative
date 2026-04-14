@@ -1,4 +1,5 @@
-import { Button } from "@halaal-vest/ui/components/button"
+import { buttonVariants } from "@halaal-vest/ui/components/button"
+import Link from "next/link"
 
 const capabilities = [
   {
@@ -47,15 +48,23 @@ export function LaunchLanding() {
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
-                <Button className="bg-emerald-900 text-white hover:bg-emerald-800">
-                  Book a Platform Walkthrough
-                </Button>
-                <Button
-                  className="border-stone-300 bg-white text-stone-900 hover:bg-stone-50"
-                  variant="outline"
+                <Link
+                  className={buttonVariants({
+                    className: "bg-emerald-900 text-white hover:bg-emerald-800",
+                  })}
+                  href="/signup"
+                >
+                  Start Signup
+                </Link>
+                <Link
+                  className={buttonVariants({
+                    className: "border-stone-300 bg-white text-stone-900 hover:bg-stone-50",
+                    variant: "outline",
+                  })}
+                  href="/"
                 >
                   View the Product Story
-                </Button>
+                </Link>
               </div>
 
               <div className="mt-10 grid gap-4 sm:grid-cols-3">

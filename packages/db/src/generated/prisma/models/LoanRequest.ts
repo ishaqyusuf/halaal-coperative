@@ -28,12 +28,18 @@ export type AggregateLoanRequest = {
 
 export type LoanRequestAvgAggregateOutputType = {
   requestedAmount: runtime.Decimal | null
+  requestedTermMonths: number | null
+  estimatedMonthlyServicing: runtime.Decimal | null
+  extraMonthlySavingsAmount: runtime.Decimal | null
   eligibleAmountSnapshot: runtime.Decimal | null
   availablePoolSnapshot: runtime.Decimal | null
 }
 
 export type LoanRequestSumAggregateOutputType = {
   requestedAmount: runtime.Decimal | null
+  requestedTermMonths: number | null
+  estimatedMonthlyServicing: runtime.Decimal | null
+  extraMonthlySavingsAmount: runtime.Decimal | null
   eligibleAmountSnapshot: runtime.Decimal | null
   availablePoolSnapshot: runtime.Decimal | null
 }
@@ -45,6 +51,9 @@ export type LoanRequestMinAggregateOutputType = {
   loanProductId: string | null
   createdByUserId: string | null
   requestedAmount: runtime.Decimal | null
+  requestedTermMonths: number | null
+  estimatedMonthlyServicing: runtime.Decimal | null
+  extraMonthlySavingsAmount: runtime.Decimal | null
   eligibleAmountSnapshot: runtime.Decimal | null
   availablePoolSnapshot: runtime.Decimal | null
   requestedAt: Date | null
@@ -62,6 +71,9 @@ export type LoanRequestMaxAggregateOutputType = {
   loanProductId: string | null
   createdByUserId: string | null
   requestedAmount: runtime.Decimal | null
+  requestedTermMonths: number | null
+  estimatedMonthlyServicing: runtime.Decimal | null
+  extraMonthlySavingsAmount: runtime.Decimal | null
   eligibleAmountSnapshot: runtime.Decimal | null
   availablePoolSnapshot: runtime.Decimal | null
   requestedAt: Date | null
@@ -79,6 +91,9 @@ export type LoanRequestCountAggregateOutputType = {
   loanProductId: number
   createdByUserId: number
   requestedAmount: number
+  requestedTermMonths: number
+  estimatedMonthlyServicing: number
+  extraMonthlySavingsAmount: number
   eligibleAmountSnapshot: number
   availablePoolSnapshot: number
   requestedAt: number
@@ -93,12 +108,18 @@ export type LoanRequestCountAggregateOutputType = {
 
 export type LoanRequestAvgAggregateInputType = {
   requestedAmount?: true
+  requestedTermMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   eligibleAmountSnapshot?: true
   availablePoolSnapshot?: true
 }
 
 export type LoanRequestSumAggregateInputType = {
   requestedAmount?: true
+  requestedTermMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   eligibleAmountSnapshot?: true
   availablePoolSnapshot?: true
 }
@@ -110,6 +131,9 @@ export type LoanRequestMinAggregateInputType = {
   loanProductId?: true
   createdByUserId?: true
   requestedAmount?: true
+  requestedTermMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   eligibleAmountSnapshot?: true
   availablePoolSnapshot?: true
   requestedAt?: true
@@ -127,6 +151,9 @@ export type LoanRequestMaxAggregateInputType = {
   loanProductId?: true
   createdByUserId?: true
   requestedAmount?: true
+  requestedTermMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   eligibleAmountSnapshot?: true
   availablePoolSnapshot?: true
   requestedAt?: true
@@ -144,6 +171,9 @@ export type LoanRequestCountAggregateInputType = {
   loanProductId?: true
   createdByUserId?: true
   requestedAmount?: true
+  requestedTermMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   eligibleAmountSnapshot?: true
   availablePoolSnapshot?: true
   requestedAt?: true
@@ -248,6 +278,9 @@ export type LoanRequestGroupByOutputType = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal
+  extraMonthlySavingsAmount: runtime.Decimal
   eligibleAmountSnapshot: runtime.Decimal
   availablePoolSnapshot: runtime.Decimal
   requestedAt: Date
@@ -288,6 +321,9 @@ export type LoanRequestWhereInput = {
   loanProductId?: Prisma.UuidFilter<"LoanRequest"> | string
   createdByUserId?: Prisma.UuidFilter<"LoanRequest"> | string
   requestedAmount?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFilter<"LoanRequest"> | number
+  estimatedMonthlyServicing?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFilter<"LoanRequest"> | Date | string
@@ -312,6 +348,9 @@ export type LoanRequestOrderByWithRelationInput = {
   loanProductId?: Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
   requestedAmount?: Prisma.SortOrder
+  requestedTermMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   eligibleAmountSnapshot?: Prisma.SortOrder
   availablePoolSnapshot?: Prisma.SortOrder
   requestedAt?: Prisma.SortOrder
@@ -339,6 +378,9 @@ export type LoanRequestWhereUniqueInput = Prisma.AtLeast<{
   loanProductId?: Prisma.UuidFilter<"LoanRequest"> | string
   createdByUserId?: Prisma.UuidFilter<"LoanRequest"> | string
   requestedAmount?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFilter<"LoanRequest"> | number
+  estimatedMonthlyServicing?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFilter<"LoanRequest"> | Date | string
@@ -363,6 +405,9 @@ export type LoanRequestOrderByWithAggregationInput = {
   loanProductId?: Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
   requestedAmount?: Prisma.SortOrder
+  requestedTermMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   eligibleAmountSnapshot?: Prisma.SortOrder
   availablePoolSnapshot?: Prisma.SortOrder
   requestedAt?: Prisma.SortOrder
@@ -388,6 +433,9 @@ export type LoanRequestScalarWhereWithAggregatesInput = {
   loanProductId?: Prisma.UuidWithAggregatesFilter<"LoanRequest"> | string
   createdByUserId?: Prisma.UuidWithAggregatesFilter<"LoanRequest"> | string
   requestedAmount?: Prisma.DecimalWithAggregatesFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntWithAggregatesFilter<"LoanRequest"> | number
+  estimatedMonthlyServicing?: Prisma.DecimalWithAggregatesFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalWithAggregatesFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalWithAggregatesFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalWithAggregatesFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeWithAggregatesFilter<"LoanRequest"> | Date | string
@@ -401,6 +449,9 @@ export type LoanRequestScalarWhereWithAggregatesInput = {
 export type LoanRequestCreateInput = {
   id?: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -425,6 +476,9 @@ export type LoanRequestUncheckedCreateInput = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -441,6 +495,9 @@ export type LoanRequestUncheckedCreateInput = {
 export type LoanRequestUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -465,6 +522,9 @@ export type LoanRequestUncheckedUpdateInput = {
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -485,6 +545,9 @@ export type LoanRequestCreateManyInput = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -498,6 +561,9 @@ export type LoanRequestCreateManyInput = {
 export type LoanRequestUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -515,6 +581,9 @@ export type LoanRequestUncheckedUpdateManyInput = {
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -547,6 +616,9 @@ export type LoanRequestCountOrderByAggregateInput = {
   loanProductId?: Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
   requestedAmount?: Prisma.SortOrder
+  requestedTermMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   eligibleAmountSnapshot?: Prisma.SortOrder
   availablePoolSnapshot?: Prisma.SortOrder
   requestedAt?: Prisma.SortOrder
@@ -559,6 +631,9 @@ export type LoanRequestCountOrderByAggregateInput = {
 
 export type LoanRequestAvgOrderByAggregateInput = {
   requestedAmount?: Prisma.SortOrder
+  requestedTermMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   eligibleAmountSnapshot?: Prisma.SortOrder
   availablePoolSnapshot?: Prisma.SortOrder
 }
@@ -570,6 +645,9 @@ export type LoanRequestMaxOrderByAggregateInput = {
   loanProductId?: Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
   requestedAmount?: Prisma.SortOrder
+  requestedTermMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   eligibleAmountSnapshot?: Prisma.SortOrder
   availablePoolSnapshot?: Prisma.SortOrder
   requestedAt?: Prisma.SortOrder
@@ -587,6 +665,9 @@ export type LoanRequestMinOrderByAggregateInput = {
   loanProductId?: Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
   requestedAmount?: Prisma.SortOrder
+  requestedTermMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   eligibleAmountSnapshot?: Prisma.SortOrder
   availablePoolSnapshot?: Prisma.SortOrder
   requestedAt?: Prisma.SortOrder
@@ -599,6 +680,9 @@ export type LoanRequestMinOrderByAggregateInput = {
 
 export type LoanRequestSumOrderByAggregateInput = {
   requestedAmount?: Prisma.SortOrder
+  requestedTermMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   eligibleAmountSnapshot?: Prisma.SortOrder
   availablePoolSnapshot?: Prisma.SortOrder
 }
@@ -827,6 +911,9 @@ export type LoanRequestUncheckedUpdateManyWithoutTenantNestedInput = {
 export type LoanRequestCreateWithoutCreatedByUserInput = {
   id?: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -849,6 +936,9 @@ export type LoanRequestUncheckedCreateWithoutCreatedByUserInput = {
   memberId: string
   loanProductId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -898,6 +988,9 @@ export type LoanRequestScalarWhereInput = {
   loanProductId?: Prisma.UuidFilter<"LoanRequest"> | string
   createdByUserId?: Prisma.UuidFilter<"LoanRequest"> | string
   requestedAmount?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFilter<"LoanRequest"> | number
+  estimatedMonthlyServicing?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFilter<"LoanRequest"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFilter<"LoanRequest"> | Date | string
@@ -911,6 +1004,9 @@ export type LoanRequestScalarWhereInput = {
 export type LoanRequestCreateWithoutChargesInput = {
   id?: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -934,6 +1030,9 @@ export type LoanRequestUncheckedCreateWithoutChargesInput = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -965,6 +1064,9 @@ export type LoanRequestUpdateToOneWithWhereWithoutChargesInput = {
 export type LoanRequestUpdateWithoutChargesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -988,6 +1090,9 @@ export type LoanRequestUncheckedUpdateWithoutChargesInput = {
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1003,6 +1108,9 @@ export type LoanRequestUncheckedUpdateWithoutChargesInput = {
 export type LoanRequestCreateWithoutLoanProductInput = {
   id?: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1025,6 +1133,9 @@ export type LoanRequestUncheckedCreateWithoutLoanProductInput = {
   memberId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1067,6 +1178,9 @@ export type LoanRequestUpdateManyWithWhereWithoutLoanProductInput = {
 export type LoanRequestCreateWithoutApprovalsInput = {
   id?: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1090,6 +1204,9 @@ export type LoanRequestUncheckedCreateWithoutApprovalsInput = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1121,6 +1238,9 @@ export type LoanRequestUpdateToOneWithWhereWithoutApprovalsInput = {
 export type LoanRequestUpdateWithoutApprovalsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1144,6 +1264,9 @@ export type LoanRequestUncheckedUpdateWithoutApprovalsInput = {
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1159,6 +1282,9 @@ export type LoanRequestUncheckedUpdateWithoutApprovalsInput = {
 export type LoanRequestCreateWithoutLoanInput = {
   id?: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1182,6 +1308,9 @@ export type LoanRequestUncheckedCreateWithoutLoanInput = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1213,6 +1342,9 @@ export type LoanRequestUpdateToOneWithWhereWithoutLoanInput = {
 export type LoanRequestUpdateWithoutLoanInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1236,6 +1368,9 @@ export type LoanRequestUncheckedUpdateWithoutLoanInput = {
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1251,6 +1386,9 @@ export type LoanRequestUncheckedUpdateWithoutLoanInput = {
 export type LoanRequestCreateWithoutMemberInput = {
   id?: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1273,6 +1411,9 @@ export type LoanRequestUncheckedCreateWithoutMemberInput = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1315,6 +1456,9 @@ export type LoanRequestUpdateManyWithWhereWithoutMemberInput = {
 export type LoanRequestCreateWithoutTenantInput = {
   id?: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1337,6 +1481,9 @@ export type LoanRequestUncheckedCreateWithoutTenantInput = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1382,6 +1529,9 @@ export type LoanRequestCreateManyCreatedByUserInput = {
   memberId: string
   loanProductId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1395,6 +1545,9 @@ export type LoanRequestCreateManyCreatedByUserInput = {
 export type LoanRequestUpdateWithoutCreatedByUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1417,6 +1570,9 @@ export type LoanRequestUncheckedUpdateWithoutCreatedByUserInput = {
   memberId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1436,6 +1592,9 @@ export type LoanRequestUncheckedUpdateManyWithoutCreatedByUserInput = {
   memberId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1452,6 +1611,9 @@ export type LoanRequestCreateManyLoanProductInput = {
   memberId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1465,6 +1627,9 @@ export type LoanRequestCreateManyLoanProductInput = {
 export type LoanRequestUpdateWithoutLoanProductInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1487,6 +1652,9 @@ export type LoanRequestUncheckedUpdateWithoutLoanProductInput = {
   memberId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1506,6 +1674,9 @@ export type LoanRequestUncheckedUpdateManyWithoutLoanProductInput = {
   memberId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1522,6 +1693,9 @@ export type LoanRequestCreateManyMemberInput = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1535,6 +1709,9 @@ export type LoanRequestCreateManyMemberInput = {
 export type LoanRequestUpdateWithoutMemberInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1557,6 +1734,9 @@ export type LoanRequestUncheckedUpdateWithoutMemberInput = {
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1576,6 +1756,9 @@ export type LoanRequestUncheckedUpdateManyWithoutMemberInput = {
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1592,6 +1775,9 @@ export type LoanRequestCreateManyTenantInput = {
   loanProductId: string
   createdByUserId: string
   requestedAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot: runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt: Date | string
@@ -1605,6 +1791,9 @@ export type LoanRequestCreateManyTenantInput = {
 export type LoanRequestUpdateWithoutTenantInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1627,6 +1816,9 @@ export type LoanRequestUncheckedUpdateWithoutTenantInput = {
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1646,6 +1838,9 @@ export type LoanRequestUncheckedUpdateManyWithoutTenantInput = {
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   requestedAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  requestedTermMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   eligibleAmountSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   availablePoolSnapshot?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   requestedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1703,6 +1898,9 @@ export type LoanRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   loanProductId?: boolean
   createdByUserId?: boolean
   requestedAmount?: boolean
+  requestedTermMonths?: boolean
+  estimatedMonthlyServicing?: boolean
+  extraMonthlySavingsAmount?: boolean
   eligibleAmountSnapshot?: boolean
   availablePoolSnapshot?: boolean
   requestedAt?: boolean
@@ -1728,6 +1926,9 @@ export type LoanRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   loanProductId?: boolean
   createdByUserId?: boolean
   requestedAmount?: boolean
+  requestedTermMonths?: boolean
+  estimatedMonthlyServicing?: boolean
+  extraMonthlySavingsAmount?: boolean
   eligibleAmountSnapshot?: boolean
   availablePoolSnapshot?: boolean
   requestedAt?: boolean
@@ -1749,6 +1950,9 @@ export type LoanRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   loanProductId?: boolean
   createdByUserId?: boolean
   requestedAmount?: boolean
+  requestedTermMonths?: boolean
+  estimatedMonthlyServicing?: boolean
+  extraMonthlySavingsAmount?: boolean
   eligibleAmountSnapshot?: boolean
   availablePoolSnapshot?: boolean
   requestedAt?: boolean
@@ -1770,6 +1974,9 @@ export type LoanRequestSelectScalar = {
   loanProductId?: boolean
   createdByUserId?: boolean
   requestedAmount?: boolean
+  requestedTermMonths?: boolean
+  estimatedMonthlyServicing?: boolean
+  extraMonthlySavingsAmount?: boolean
   eligibleAmountSnapshot?: boolean
   availablePoolSnapshot?: boolean
   requestedAt?: boolean
@@ -1780,7 +1987,7 @@ export type LoanRequestSelectScalar = {
   updatedAt?: boolean
 }
 
-export type LoanRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "memberId" | "loanProductId" | "createdByUserId" | "requestedAmount" | "eligibleAmountSnapshot" | "availablePoolSnapshot" | "requestedAt" | "purpose" | "status" | "reviewNotes" | "createdAt" | "updatedAt", ExtArgs["result"]["loanRequest"]>
+export type LoanRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "memberId" | "loanProductId" | "createdByUserId" | "requestedAmount" | "requestedTermMonths" | "estimatedMonthlyServicing" | "extraMonthlySavingsAmount" | "eligibleAmountSnapshot" | "availablePoolSnapshot" | "requestedAt" | "purpose" | "status" | "reviewNotes" | "createdAt" | "updatedAt", ExtArgs["result"]["loanRequest"]>
 export type LoanRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
   member?: boolean | Prisma.MemberDefaultArgs<ExtArgs>
@@ -1822,6 +2029,9 @@ export type $LoanRequestPayload<ExtArgs extends runtime.Types.Extensions.Interna
     loanProductId: string
     createdByUserId: string
     requestedAmount: runtime.Decimal
+    requestedTermMonths: number
+    estimatedMonthlyServicing: runtime.Decimal
+    extraMonthlySavingsAmount: runtime.Decimal
     eligibleAmountSnapshot: runtime.Decimal
     availablePoolSnapshot: runtime.Decimal
     requestedAt: Date
@@ -2266,6 +2476,9 @@ export interface LoanRequestFieldRefs {
   readonly loanProductId: Prisma.FieldRef<"LoanRequest", 'String'>
   readonly createdByUserId: Prisma.FieldRef<"LoanRequest", 'String'>
   readonly requestedAmount: Prisma.FieldRef<"LoanRequest", 'Decimal'>
+  readonly requestedTermMonths: Prisma.FieldRef<"LoanRequest", 'Int'>
+  readonly estimatedMonthlyServicing: Prisma.FieldRef<"LoanRequest", 'Decimal'>
+  readonly extraMonthlySavingsAmount: Prisma.FieldRef<"LoanRequest", 'Decimal'>
   readonly eligibleAmountSnapshot: Prisma.FieldRef<"LoanRequest", 'Decimal'>
   readonly availablePoolSnapshot: Prisma.FieldRef<"LoanRequest", 'Decimal'>
   readonly requestedAt: Prisma.FieldRef<"LoanRequest", 'DateTime'>

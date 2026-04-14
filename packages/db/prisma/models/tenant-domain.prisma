@@ -1,11 +1,15 @@
 model TenantDomain {
-  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String           @map("tenant_id") @db.Uuid
-  hostname  String           @unique
-  kind      TenantDomainKind
-  isPrimary Boolean          @default(false) @map("is_primary")
-  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String           @map("tenant_id") @db.Uuid
+  hostname              String           @unique
+  kind                  TenantDomainKind
+  isPrimary             Boolean          @default(false) @map("is_primary")
+  verificationStatus    String           @default("pending_dns") @map("verification_status")
+  verificationDetails   Json?            @map("verification_details")
+  verificationCheckedAt DateTime?        @map("verification_checked_at") @db.Timestamptz(6)
+  verifiedAt            DateTime?        @map("verified_at") @db.Timestamptz(6)
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 

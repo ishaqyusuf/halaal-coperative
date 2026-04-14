@@ -20,14 +20,27 @@ export type TenantModel = runtime.Types.Result.DefaultSelection<Prisma.$TenantPa
 
 export type AggregateTenant = {
   _count: TenantCountAggregateOutputType | null
+  _avg: TenantAvgAggregateOutputType | null
+  _sum: TenantSumAggregateOutputType | null
   _min: TenantMinAggregateOutputType | null
   _max: TenantMaxAggregateOutputType | null
+}
+
+export type TenantAvgAggregateOutputType = {
+  currentSize: number | null
+}
+
+export type TenantSumAggregateOutputType = {
+  currentSize: number | null
 }
 
 export type TenantMinAggregateOutputType = {
   id: string | null
   slug: string | null
   name: string | null
+  currentSize: number | null
+  officeAddress: string | null
+  startDate: Date | null
   region: string | null
   currencyCode: string | null
   timezone: string | null
@@ -41,6 +54,9 @@ export type TenantMaxAggregateOutputType = {
   id: string | null
   slug: string | null
   name: string | null
+  currentSize: number | null
+  officeAddress: string | null
+  startDate: Date | null
   region: string | null
   currencyCode: string | null
   timezone: string | null
@@ -54,6 +70,9 @@ export type TenantCountAggregateOutputType = {
   id: number
   slug: number
   name: number
+  currentSize: number
+  officeAddress: number
+  startDate: number
   region: number
   currencyCode: number
   timezone: number
@@ -65,10 +84,21 @@ export type TenantCountAggregateOutputType = {
 }
 
 
+export type TenantAvgAggregateInputType = {
+  currentSize?: true
+}
+
+export type TenantSumAggregateInputType = {
+  currentSize?: true
+}
+
 export type TenantMinAggregateInputType = {
   id?: true
   slug?: true
   name?: true
+  currentSize?: true
+  officeAddress?: true
+  startDate?: true
   region?: true
   currencyCode?: true
   timezone?: true
@@ -82,6 +112,9 @@ export type TenantMaxAggregateInputType = {
   id?: true
   slug?: true
   name?: true
+  currentSize?: true
+  officeAddress?: true
+  startDate?: true
   region?: true
   currencyCode?: true
   timezone?: true
@@ -95,6 +128,9 @@ export type TenantCountAggregateInputType = {
   id?: true
   slug?: true
   name?: true
+  currentSize?: true
+  officeAddress?: true
+  startDate?: true
   region?: true
   currencyCode?: true
   timezone?: true
@@ -143,6 +179,18 @@ export type TenantAggregateArgs<ExtArgs extends runtime.Types.Extensions.Interna
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: TenantAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: TenantSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: TenantMinAggregateInputType
@@ -173,6 +221,8 @@ export type TenantGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalA
   take?: number
   skip?: number
   _count?: TenantCountAggregateInputType | true
+  _avg?: TenantAvgAggregateInputType
+  _sum?: TenantSumAggregateInputType
   _min?: TenantMinAggregateInputType
   _max?: TenantMaxAggregateInputType
 }
@@ -181,6 +231,9 @@ export type TenantGroupByOutputType = {
   id: string
   slug: string
   name: string
+  currentSize: number | null
+  officeAddress: string | null
+  startDate: Date | null
   region: string | null
   currencyCode: string
   timezone: string
@@ -189,6 +242,8 @@ export type TenantGroupByOutputType = {
   createdAt: Date
   updatedAt: Date
   _count: TenantCountAggregateOutputType | null
+  _avg: TenantAvgAggregateOutputType | null
+  _sum: TenantSumAggregateOutputType | null
   _min: TenantMinAggregateOutputType | null
   _max: TenantMaxAggregateOutputType | null
 }
@@ -215,6 +270,9 @@ export type TenantWhereInput = {
   id?: Prisma.UuidFilter<"Tenant"> | string
   slug?: Prisma.StringFilter<"Tenant"> | string
   name?: Prisma.StringFilter<"Tenant"> | string
+  currentSize?: Prisma.IntNullableFilter<"Tenant"> | number | null
+  officeAddress?: Prisma.StringNullableFilter<"Tenant"> | string | null
+  startDate?: Prisma.DateTimeNullableFilter<"Tenant"> | Date | string | null
   region?: Prisma.StringNullableFilter<"Tenant"> | string | null
   currencyCode?: Prisma.StringFilter<"Tenant"> | string
   timezone?: Prisma.StringFilter<"Tenant"> | string
@@ -227,6 +285,9 @@ export type TenantWhereInput = {
   users?: Prisma.UserListRelationFilter
   memberships?: Prisma.MembershipListRelationFilter
   members?: Prisma.MemberListRelationFilter
+  memberDocuments?: Prisma.MemberDocumentListRelationFilter
+  importBatches?: Prisma.ImportBatchListRelationFilter
+  importBatchRows?: Prisma.ImportBatchRowListRelationFilter
   deductionSources?: Prisma.DeductionSourceListRelationFilter
   contributionPlans?: Prisma.ContributionPlanListRelationFilter
   contributions?: Prisma.ContributionListRelationFilter
@@ -237,6 +298,7 @@ export type TenantWhereInput = {
   loanApprovals?: Prisma.LoanApprovalListRelationFilter
   loans?: Prisma.LoanListRelationFilter
   repaymentSchedules?: Prisma.RepaymentScheduleItemListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
   repayments?: Prisma.RepaymentListRelationFilter
   ledgerAccounts?: Prisma.LedgerAccountListRelationFilter
   ledgerTransactions?: Prisma.LedgerTransactionListRelationFilter
@@ -245,12 +307,17 @@ export type TenantWhereInput = {
   dividendAllocations?: Prisma.DividendAllocationListRelationFilter
   offlineSyncEvents?: Prisma.OfflineSyncEventListRelationFilter
   auditLogs?: Prisma.AuditLogListRelationFilter
+  notificationOutbox?: Prisma.NotificationOutboxListRelationFilter
+  notificationPreferences?: Prisma.NotificationPreferenceListRelationFilter
 }
 
 export type TenantOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  currentSize?: Prisma.SortOrderInput | Prisma.SortOrder
+  officeAddress?: Prisma.SortOrderInput | Prisma.SortOrder
+  startDate?: Prisma.SortOrderInput | Prisma.SortOrder
   region?: Prisma.SortOrderInput | Prisma.SortOrder
   currencyCode?: Prisma.SortOrder
   timezone?: Prisma.SortOrder
@@ -263,6 +330,9 @@ export type TenantOrderByWithRelationInput = {
   users?: Prisma.UserOrderByRelationAggregateInput
   memberships?: Prisma.MembershipOrderByRelationAggregateInput
   members?: Prisma.MemberOrderByRelationAggregateInput
+  memberDocuments?: Prisma.MemberDocumentOrderByRelationAggregateInput
+  importBatches?: Prisma.ImportBatchOrderByRelationAggregateInput
+  importBatchRows?: Prisma.ImportBatchRowOrderByRelationAggregateInput
   deductionSources?: Prisma.DeductionSourceOrderByRelationAggregateInput
   contributionPlans?: Prisma.ContributionPlanOrderByRelationAggregateInput
   contributions?: Prisma.ContributionOrderByRelationAggregateInput
@@ -273,6 +343,7 @@ export type TenantOrderByWithRelationInput = {
   loanApprovals?: Prisma.LoanApprovalOrderByRelationAggregateInput
   loans?: Prisma.LoanOrderByRelationAggregateInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemOrderByRelationAggregateInput
+  collectionFollowUps?: Prisma.CollectionFollowUpOrderByRelationAggregateInput
   repayments?: Prisma.RepaymentOrderByRelationAggregateInput
   ledgerAccounts?: Prisma.LedgerAccountOrderByRelationAggregateInput
   ledgerTransactions?: Prisma.LedgerTransactionOrderByRelationAggregateInput
@@ -281,6 +352,8 @@ export type TenantOrderByWithRelationInput = {
   dividendAllocations?: Prisma.DividendAllocationOrderByRelationAggregateInput
   offlineSyncEvents?: Prisma.OfflineSyncEventOrderByRelationAggregateInput
   auditLogs?: Prisma.AuditLogOrderByRelationAggregateInput
+  notificationOutbox?: Prisma.NotificationOutboxOrderByRelationAggregateInput
+  notificationPreferences?: Prisma.NotificationPreferenceOrderByRelationAggregateInput
 }
 
 export type TenantWhereUniqueInput = Prisma.AtLeast<{
@@ -290,6 +363,9 @@ export type TenantWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.TenantWhereInput[]
   NOT?: Prisma.TenantWhereInput | Prisma.TenantWhereInput[]
   name?: Prisma.StringFilter<"Tenant"> | string
+  currentSize?: Prisma.IntNullableFilter<"Tenant"> | number | null
+  officeAddress?: Prisma.StringNullableFilter<"Tenant"> | string | null
+  startDate?: Prisma.DateTimeNullableFilter<"Tenant"> | Date | string | null
   region?: Prisma.StringNullableFilter<"Tenant"> | string | null
   currencyCode?: Prisma.StringFilter<"Tenant"> | string
   timezone?: Prisma.StringFilter<"Tenant"> | string
@@ -302,6 +378,9 @@ export type TenantWhereUniqueInput = Prisma.AtLeast<{
   users?: Prisma.UserListRelationFilter
   memberships?: Prisma.MembershipListRelationFilter
   members?: Prisma.MemberListRelationFilter
+  memberDocuments?: Prisma.MemberDocumentListRelationFilter
+  importBatches?: Prisma.ImportBatchListRelationFilter
+  importBatchRows?: Prisma.ImportBatchRowListRelationFilter
   deductionSources?: Prisma.DeductionSourceListRelationFilter
   contributionPlans?: Prisma.ContributionPlanListRelationFilter
   contributions?: Prisma.ContributionListRelationFilter
@@ -312,6 +391,7 @@ export type TenantWhereUniqueInput = Prisma.AtLeast<{
   loanApprovals?: Prisma.LoanApprovalListRelationFilter
   loans?: Prisma.LoanListRelationFilter
   repaymentSchedules?: Prisma.RepaymentScheduleItemListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
   repayments?: Prisma.RepaymentListRelationFilter
   ledgerAccounts?: Prisma.LedgerAccountListRelationFilter
   ledgerTransactions?: Prisma.LedgerTransactionListRelationFilter
@@ -320,12 +400,17 @@ export type TenantWhereUniqueInput = Prisma.AtLeast<{
   dividendAllocations?: Prisma.DividendAllocationListRelationFilter
   offlineSyncEvents?: Prisma.OfflineSyncEventListRelationFilter
   auditLogs?: Prisma.AuditLogListRelationFilter
+  notificationOutbox?: Prisma.NotificationOutboxListRelationFilter
+  notificationPreferences?: Prisma.NotificationPreferenceListRelationFilter
 }, "id" | "slug">
 
 export type TenantOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  currentSize?: Prisma.SortOrderInput | Prisma.SortOrder
+  officeAddress?: Prisma.SortOrderInput | Prisma.SortOrder
+  startDate?: Prisma.SortOrderInput | Prisma.SortOrder
   region?: Prisma.SortOrderInput | Prisma.SortOrder
   currencyCode?: Prisma.SortOrder
   timezone?: Prisma.SortOrder
@@ -334,8 +419,10 @@ export type TenantOrderByWithAggregationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.TenantCountOrderByAggregateInput
+  _avg?: Prisma.TenantAvgOrderByAggregateInput
   _max?: Prisma.TenantMaxOrderByAggregateInput
   _min?: Prisma.TenantMinOrderByAggregateInput
+  _sum?: Prisma.TenantSumOrderByAggregateInput
 }
 
 export type TenantScalarWhereWithAggregatesInput = {
@@ -345,6 +432,9 @@ export type TenantScalarWhereWithAggregatesInput = {
   id?: Prisma.UuidWithAggregatesFilter<"Tenant"> | string
   slug?: Prisma.StringWithAggregatesFilter<"Tenant"> | string
   name?: Prisma.StringWithAggregatesFilter<"Tenant"> | string
+  currentSize?: Prisma.IntNullableWithAggregatesFilter<"Tenant"> | number | null
+  officeAddress?: Prisma.StringNullableWithAggregatesFilter<"Tenant"> | string | null
+  startDate?: Prisma.DateTimeNullableWithAggregatesFilter<"Tenant"> | Date | string | null
   region?: Prisma.StringNullableWithAggregatesFilter<"Tenant"> | string | null
   currencyCode?: Prisma.StringWithAggregatesFilter<"Tenant"> | string
   timezone?: Prisma.StringWithAggregatesFilter<"Tenant"> | string
@@ -358,6 +448,9 @@ export type TenantCreateInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -370,6 +463,9 @@ export type TenantCreateInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -380,6 +476,7 @@ export type TenantCreateInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -388,12 +485,17 @@ export type TenantCreateInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -406,6 +508,9 @@ export type TenantUncheckedCreateInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -416,6 +521,7 @@ export type TenantUncheckedCreateInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -424,12 +530,17 @@ export type TenantUncheckedCreateInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -442,6 +553,9 @@ export type TenantUpdateInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -452,6 +566,7 @@ export type TenantUpdateInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -460,12 +575,17 @@ export type TenantUpdateInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -478,6 +598,9 @@ export type TenantUncheckedUpdateInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -488,6 +611,7 @@ export type TenantUncheckedUpdateInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -496,12 +620,17 @@ export type TenantUncheckedUpdateInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateManyInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -515,6 +644,9 @@ export type TenantUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -528,6 +660,9 @@ export type TenantUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -542,10 +677,18 @@ export type TenantScalarRelationFilter = {
   isNot?: Prisma.TenantWhereInput
 }
 
+export type TenantNullableScalarRelationFilter = {
+  is?: Prisma.TenantWhereInput | null
+  isNot?: Prisma.TenantWhereInput | null
+}
+
 export type TenantCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  currentSize?: Prisma.SortOrder
+  officeAddress?: Prisma.SortOrder
+  startDate?: Prisma.SortOrder
   region?: Prisma.SortOrder
   currencyCode?: Prisma.SortOrder
   timezone?: Prisma.SortOrder
@@ -555,10 +698,17 @@ export type TenantCountOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
 }
 
+export type TenantAvgOrderByAggregateInput = {
+  currentSize?: Prisma.SortOrder
+}
+
 export type TenantMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  currentSize?: Prisma.SortOrder
+  officeAddress?: Prisma.SortOrder
+  startDate?: Prisma.SortOrder
   region?: Prisma.SortOrder
   currencyCode?: Prisma.SortOrder
   timezone?: Prisma.SortOrder
@@ -572,6 +722,9 @@ export type TenantMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  currentSize?: Prisma.SortOrder
+  officeAddress?: Prisma.SortOrder
+  startDate?: Prisma.SortOrder
   region?: Prisma.SortOrder
   currencyCode?: Prisma.SortOrder
   timezone?: Prisma.SortOrder
@@ -579,6 +732,10 @@ export type TenantMinOrderByAggregateInput = {
   isDirectDeductionEnabled?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type TenantSumOrderByAggregateInput = {
+  currentSize?: Prisma.SortOrder
 }
 
 export type TenantCreateNestedOneWithoutAuditLogsInput = {
@@ -707,6 +864,34 @@ export type TenantUpdateOneRequiredWithoutDividendAllocationsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutDividendAllocationsInput, Prisma.TenantUpdateWithoutDividendAllocationsInput>, Prisma.TenantUncheckedUpdateWithoutDividendAllocationsInput>
 }
 
+export type TenantCreateNestedOneWithoutImportBatchesInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutImportBatchesInput, Prisma.TenantUncheckedCreateWithoutImportBatchesInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutImportBatchesInput
+  connect?: Prisma.TenantWhereUniqueInput
+}
+
+export type TenantUpdateOneRequiredWithoutImportBatchesNestedInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutImportBatchesInput, Prisma.TenantUncheckedCreateWithoutImportBatchesInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutImportBatchesInput
+  upsert?: Prisma.TenantUpsertWithoutImportBatchesInput
+  connect?: Prisma.TenantWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutImportBatchesInput, Prisma.TenantUpdateWithoutImportBatchesInput>, Prisma.TenantUncheckedUpdateWithoutImportBatchesInput>
+}
+
+export type TenantCreateNestedOneWithoutImportBatchRowsInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutImportBatchRowsInput, Prisma.TenantUncheckedCreateWithoutImportBatchRowsInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutImportBatchRowsInput
+  connect?: Prisma.TenantWhereUniqueInput
+}
+
+export type TenantUpdateOneRequiredWithoutImportBatchRowsNestedInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutImportBatchRowsInput, Prisma.TenantUncheckedCreateWithoutImportBatchRowsInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutImportBatchRowsInput
+  upsert?: Prisma.TenantUpsertWithoutImportBatchRowsInput
+  connect?: Prisma.TenantWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutImportBatchRowsInput, Prisma.TenantUpdateWithoutImportBatchRowsInput>, Prisma.TenantUncheckedUpdateWithoutImportBatchRowsInput>
+}
+
 export type TenantCreateNestedOneWithoutLedgerAccountsInput = {
   create?: Prisma.XOR<Prisma.TenantCreateWithoutLedgerAccountsInput, Prisma.TenantUncheckedCreateWithoutLedgerAccountsInput>
   connectOrCreate?: Prisma.TenantCreateOrConnectWithoutLedgerAccountsInput
@@ -819,6 +1004,20 @@ export type TenantUpdateOneRequiredWithoutRepaymentSchedulesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutRepaymentSchedulesInput, Prisma.TenantUpdateWithoutRepaymentSchedulesInput>, Prisma.TenantUncheckedUpdateWithoutRepaymentSchedulesInput>
 }
 
+export type TenantCreateNestedOneWithoutCollectionFollowUpsInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutCollectionFollowUpsInput, Prisma.TenantUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutCollectionFollowUpsInput
+  connect?: Prisma.TenantWhereUniqueInput
+}
+
+export type TenantUpdateOneRequiredWithoutCollectionFollowUpsNestedInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutCollectionFollowUpsInput, Prisma.TenantUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutCollectionFollowUpsInput
+  upsert?: Prisma.TenantUpsertWithoutCollectionFollowUpsInput
+  connect?: Prisma.TenantWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutCollectionFollowUpsInput, Prisma.TenantUpdateWithoutCollectionFollowUpsInput>, Prisma.TenantUncheckedUpdateWithoutCollectionFollowUpsInput>
+}
+
 export type TenantCreateNestedOneWithoutRepaymentsInput = {
   create?: Prisma.XOR<Prisma.TenantCreateWithoutRepaymentsInput, Prisma.TenantUncheckedCreateWithoutRepaymentsInput>
   connectOrCreate?: Prisma.TenantCreateOrConnectWithoutRepaymentsInput
@@ -847,6 +1046,20 @@ export type TenantUpdateOneRequiredWithoutMembersNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutMembersInput, Prisma.TenantUpdateWithoutMembersInput>, Prisma.TenantUncheckedUpdateWithoutMembersInput>
 }
 
+export type TenantCreateNestedOneWithoutMemberDocumentsInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutMemberDocumentsInput, Prisma.TenantUncheckedCreateWithoutMemberDocumentsInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutMemberDocumentsInput
+  connect?: Prisma.TenantWhereUniqueInput
+}
+
+export type TenantUpdateOneRequiredWithoutMemberDocumentsNestedInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutMemberDocumentsInput, Prisma.TenantUncheckedCreateWithoutMemberDocumentsInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutMemberDocumentsInput
+  upsert?: Prisma.TenantUpsertWithoutMemberDocumentsInput
+  connect?: Prisma.TenantWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutMemberDocumentsInput, Prisma.TenantUpdateWithoutMemberDocumentsInput>, Prisma.TenantUncheckedUpdateWithoutMemberDocumentsInput>
+}
+
 export type TenantCreateNestedOneWithoutDeductionSourcesInput = {
   create?: Prisma.XOR<Prisma.TenantCreateWithoutDeductionSourcesInput, Prisma.TenantUncheckedCreateWithoutDeductionSourcesInput>
   connectOrCreate?: Prisma.TenantCreateOrConnectWithoutDeductionSourcesInput
@@ -859,6 +1072,36 @@ export type TenantUpdateOneRequiredWithoutDeductionSourcesNestedInput = {
   upsert?: Prisma.TenantUpsertWithoutDeductionSourcesInput
   connect?: Prisma.TenantWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutDeductionSourcesInput, Prisma.TenantUpdateWithoutDeductionSourcesInput>, Prisma.TenantUncheckedUpdateWithoutDeductionSourcesInput>
+}
+
+export type TenantCreateNestedOneWithoutNotificationOutboxInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutNotificationOutboxInput, Prisma.TenantUncheckedCreateWithoutNotificationOutboxInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutNotificationOutboxInput
+  connect?: Prisma.TenantWhereUniqueInput
+}
+
+export type TenantUpdateOneWithoutNotificationOutboxNestedInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutNotificationOutboxInput, Prisma.TenantUncheckedCreateWithoutNotificationOutboxInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutNotificationOutboxInput
+  upsert?: Prisma.TenantUpsertWithoutNotificationOutboxInput
+  disconnect?: Prisma.TenantWhereInput | boolean
+  delete?: Prisma.TenantWhereInput | boolean
+  connect?: Prisma.TenantWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutNotificationOutboxInput, Prisma.TenantUpdateWithoutNotificationOutboxInput>, Prisma.TenantUncheckedUpdateWithoutNotificationOutboxInput>
+}
+
+export type TenantCreateNestedOneWithoutNotificationPreferencesInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutNotificationPreferencesInput, Prisma.TenantUncheckedCreateWithoutNotificationPreferencesInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutNotificationPreferencesInput
+  connect?: Prisma.TenantWhereUniqueInput
+}
+
+export type TenantUpdateOneRequiredWithoutNotificationPreferencesNestedInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutNotificationPreferencesInput, Prisma.TenantUncheckedCreateWithoutNotificationPreferencesInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutNotificationPreferencesInput
+  upsert?: Prisma.TenantUpsertWithoutNotificationPreferencesInput
+  connect?: Prisma.TenantWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutNotificationPreferencesInput, Prisma.TenantUpdateWithoutNotificationPreferencesInput>, Prisma.TenantUncheckedUpdateWithoutNotificationPreferencesInput>
 }
 
 export type TenantCreateNestedOneWithoutOfflineSyncEventsInput = {
@@ -889,6 +1132,14 @@ export type TenantUpdateOneRequiredWithoutDomainsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutDomainsInput, Prisma.TenantUpdateWithoutDomainsInput>, Prisma.TenantUncheckedUpdateWithoutDomainsInput>
 }
 
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
 export type EnumTenantStatusFieldUpdateOperationsInput = {
   set?: $Enums.TenantStatus
 }
@@ -911,6 +1162,9 @@ export type TenantCreateWithoutAuditLogsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -923,6 +1177,9 @@ export type TenantCreateWithoutAuditLogsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -933,6 +1190,7 @@ export type TenantCreateWithoutAuditLogsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -940,12 +1198,17 @@ export type TenantCreateWithoutAuditLogsInput = {
   dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutAuditLogsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -958,6 +1221,9 @@ export type TenantUncheckedCreateWithoutAuditLogsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -968,6 +1234,7 @@ export type TenantUncheckedCreateWithoutAuditLogsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -975,6 +1242,8 @@ export type TenantUncheckedCreateWithoutAuditLogsInput = {
   dividendPeriods?: Prisma.DividendPeriodUncheckedCreateNestedManyWithoutTenantInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutAuditLogsInput = {
@@ -997,6 +1266,9 @@ export type TenantUpdateWithoutAuditLogsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1009,6 +1281,9 @@ export type TenantUpdateWithoutAuditLogsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -1019,6 +1294,7 @@ export type TenantUpdateWithoutAuditLogsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -1026,12 +1302,17 @@ export type TenantUpdateWithoutAuditLogsInput = {
   dividendPeriods?: Prisma.DividendPeriodUpdateManyWithoutTenantNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutAuditLogsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1044,6 +1325,9 @@ export type TenantUncheckedUpdateWithoutAuditLogsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1054,6 +1338,7 @@ export type TenantUncheckedUpdateWithoutAuditLogsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1061,12 +1346,17 @@ export type TenantUncheckedUpdateWithoutAuditLogsInput = {
   dividendPeriods?: Prisma.DividendPeriodUncheckedUpdateManyWithoutTenantNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutUsersInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1078,6 +1368,9 @@ export type TenantCreateWithoutUsersInput = {
   domains?: Prisma.TenantDomainCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -1088,6 +1381,7 @@ export type TenantCreateWithoutUsersInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -1096,12 +1390,17 @@ export type TenantCreateWithoutUsersInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutUsersInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1113,6 +1412,9 @@ export type TenantUncheckedCreateWithoutUsersInput = {
   domains?: Prisma.TenantDomainUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -1123,6 +1425,7 @@ export type TenantUncheckedCreateWithoutUsersInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -1131,6 +1434,8 @@ export type TenantUncheckedCreateWithoutUsersInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutUsersInput = {
@@ -1153,6 +1458,9 @@ export type TenantUpdateWithoutUsersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1164,6 +1472,9 @@ export type TenantUpdateWithoutUsersInput = {
   domains?: Prisma.TenantDomainUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -1174,6 +1485,7 @@ export type TenantUpdateWithoutUsersInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -1182,12 +1494,17 @@ export type TenantUpdateWithoutUsersInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutUsersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1199,6 +1516,9 @@ export type TenantUncheckedUpdateWithoutUsersInput = {
   domains?: Prisma.TenantDomainUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1209,6 +1529,7 @@ export type TenantUncheckedUpdateWithoutUsersInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1217,12 +1538,17 @@ export type TenantUncheckedUpdateWithoutUsersInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutMembershipsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1234,6 +1560,9 @@ export type TenantCreateWithoutMembershipsInput = {
   domains?: Prisma.TenantDomainCreateNestedManyWithoutTenantInput
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -1244,6 +1573,7 @@ export type TenantCreateWithoutMembershipsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -1252,12 +1582,17 @@ export type TenantCreateWithoutMembershipsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutMembershipsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1269,6 +1604,9 @@ export type TenantUncheckedCreateWithoutMembershipsInput = {
   domains?: Prisma.TenantDomainUncheckedCreateNestedManyWithoutTenantInput
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -1279,6 +1617,7 @@ export type TenantUncheckedCreateWithoutMembershipsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -1287,6 +1626,8 @@ export type TenantUncheckedCreateWithoutMembershipsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutMembershipsInput = {
@@ -1309,6 +1650,9 @@ export type TenantUpdateWithoutMembershipsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1320,6 +1664,9 @@ export type TenantUpdateWithoutMembershipsInput = {
   domains?: Prisma.TenantDomainUpdateManyWithoutTenantNestedInput
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -1330,6 +1677,7 @@ export type TenantUpdateWithoutMembershipsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -1338,12 +1686,17 @@ export type TenantUpdateWithoutMembershipsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutMembershipsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1355,6 +1708,9 @@ export type TenantUncheckedUpdateWithoutMembershipsInput = {
   domains?: Prisma.TenantDomainUncheckedUpdateManyWithoutTenantNestedInput
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1365,6 +1721,7 @@ export type TenantUncheckedUpdateWithoutMembershipsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1373,12 +1730,17 @@ export type TenantUncheckedUpdateWithoutMembershipsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutChargeDefinitionsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1391,6 +1753,9 @@ export type TenantCreateWithoutChargeDefinitionsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -1400,6 +1765,7 @@ export type TenantCreateWithoutChargeDefinitionsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -1408,12 +1774,17 @@ export type TenantCreateWithoutChargeDefinitionsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutChargeDefinitionsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1426,6 +1797,9 @@ export type TenantUncheckedCreateWithoutChargeDefinitionsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -1435,6 +1809,7 @@ export type TenantUncheckedCreateWithoutChargeDefinitionsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -1443,6 +1818,8 @@ export type TenantUncheckedCreateWithoutChargeDefinitionsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutChargeDefinitionsInput = {
@@ -1465,6 +1842,9 @@ export type TenantUpdateWithoutChargeDefinitionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1477,6 +1857,9 @@ export type TenantUpdateWithoutChargeDefinitionsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -1486,6 +1869,7 @@ export type TenantUpdateWithoutChargeDefinitionsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -1494,12 +1878,17 @@ export type TenantUpdateWithoutChargeDefinitionsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutChargeDefinitionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1512,6 +1901,9 @@ export type TenantUncheckedUpdateWithoutChargeDefinitionsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1521,6 +1913,7 @@ export type TenantUncheckedUpdateWithoutChargeDefinitionsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1529,12 +1922,17 @@ export type TenantUncheckedUpdateWithoutChargeDefinitionsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutChargeApplicationsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1547,6 +1945,9 @@ export type TenantCreateWithoutChargeApplicationsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -1556,6 +1957,7 @@ export type TenantCreateWithoutChargeApplicationsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -1564,12 +1966,17 @@ export type TenantCreateWithoutChargeApplicationsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutChargeApplicationsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1582,6 +1989,9 @@ export type TenantUncheckedCreateWithoutChargeApplicationsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -1591,6 +2001,7 @@ export type TenantUncheckedCreateWithoutChargeApplicationsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -1599,6 +2010,8 @@ export type TenantUncheckedCreateWithoutChargeApplicationsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutChargeApplicationsInput = {
@@ -1621,6 +2034,9 @@ export type TenantUpdateWithoutChargeApplicationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1633,6 +2049,9 @@ export type TenantUpdateWithoutChargeApplicationsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -1642,6 +2061,7 @@ export type TenantUpdateWithoutChargeApplicationsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -1650,12 +2070,17 @@ export type TenantUpdateWithoutChargeApplicationsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutChargeApplicationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1668,6 +2093,9 @@ export type TenantUncheckedUpdateWithoutChargeApplicationsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1677,6 +2105,7 @@ export type TenantUncheckedUpdateWithoutChargeApplicationsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1685,12 +2114,17 @@ export type TenantUncheckedUpdateWithoutChargeApplicationsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutContributionPlansInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1703,6 +2137,9 @@ export type TenantCreateWithoutContributionPlansInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
   chargeDefinitions?: Prisma.ChargeDefinitionCreateNestedManyWithoutTenantInput
@@ -1712,6 +2149,7 @@ export type TenantCreateWithoutContributionPlansInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -1720,12 +2158,17 @@ export type TenantCreateWithoutContributionPlansInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutContributionPlansInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1738,6 +2181,9 @@ export type TenantUncheckedCreateWithoutContributionPlansInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
   chargeDefinitions?: Prisma.ChargeDefinitionUncheckedCreateNestedManyWithoutTenantInput
@@ -1747,6 +2193,7 @@ export type TenantUncheckedCreateWithoutContributionPlansInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -1755,6 +2202,8 @@ export type TenantUncheckedCreateWithoutContributionPlansInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutContributionPlansInput = {
@@ -1777,6 +2226,9 @@ export type TenantUpdateWithoutContributionPlansInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1789,6 +2241,9 @@ export type TenantUpdateWithoutContributionPlansInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
   chargeDefinitions?: Prisma.ChargeDefinitionUpdateManyWithoutTenantNestedInput
@@ -1798,6 +2253,7 @@ export type TenantUpdateWithoutContributionPlansInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -1806,12 +2262,17 @@ export type TenantUpdateWithoutContributionPlansInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutContributionPlansInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1824,6 +2285,9 @@ export type TenantUncheckedUpdateWithoutContributionPlansInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
   chargeDefinitions?: Prisma.ChargeDefinitionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1833,6 +2297,7 @@ export type TenantUncheckedUpdateWithoutContributionPlansInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1841,12 +2306,17 @@ export type TenantUncheckedUpdateWithoutContributionPlansInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutContributionsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1859,6 +2329,9 @@ export type TenantCreateWithoutContributionsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   chargeDefinitions?: Prisma.ChargeDefinitionCreateNestedManyWithoutTenantInput
@@ -1868,6 +2341,7 @@ export type TenantCreateWithoutContributionsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -1876,12 +2350,17 @@ export type TenantCreateWithoutContributionsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutContributionsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -1894,6 +2373,9 @@ export type TenantUncheckedCreateWithoutContributionsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   chargeDefinitions?: Prisma.ChargeDefinitionUncheckedCreateNestedManyWithoutTenantInput
@@ -1903,6 +2385,7 @@ export type TenantUncheckedCreateWithoutContributionsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -1911,6 +2394,8 @@ export type TenantUncheckedCreateWithoutContributionsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutContributionsInput = {
@@ -1933,6 +2418,9 @@ export type TenantUpdateWithoutContributionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1945,6 +2433,9 @@ export type TenantUpdateWithoutContributionsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   chargeDefinitions?: Prisma.ChargeDefinitionUpdateManyWithoutTenantNestedInput
@@ -1954,6 +2445,7 @@ export type TenantUpdateWithoutContributionsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -1962,12 +2454,17 @@ export type TenantUpdateWithoutContributionsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutContributionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1980,6 +2477,9 @@ export type TenantUncheckedUpdateWithoutContributionsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   chargeDefinitions?: Prisma.ChargeDefinitionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1989,6 +2489,7 @@ export type TenantUncheckedUpdateWithoutContributionsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -1997,12 +2498,17 @@ export type TenantUncheckedUpdateWithoutContributionsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutDividendPeriodsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2015,6 +2521,9 @@ export type TenantCreateWithoutDividendPeriodsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -2025,6 +2534,7 @@ export type TenantCreateWithoutDividendPeriodsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -2032,12 +2542,17 @@ export type TenantCreateWithoutDividendPeriodsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutDividendPeriodsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2050,6 +2565,9 @@ export type TenantUncheckedCreateWithoutDividendPeriodsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -2060,6 +2578,7 @@ export type TenantUncheckedCreateWithoutDividendPeriodsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -2067,6 +2586,8 @@ export type TenantUncheckedCreateWithoutDividendPeriodsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutDividendPeriodsInput = {
@@ -2089,6 +2610,9 @@ export type TenantUpdateWithoutDividendPeriodsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2101,6 +2625,9 @@ export type TenantUpdateWithoutDividendPeriodsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -2111,6 +2638,7 @@ export type TenantUpdateWithoutDividendPeriodsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -2118,12 +2646,17 @@ export type TenantUpdateWithoutDividendPeriodsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutDividendPeriodsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2136,6 +2669,9 @@ export type TenantUncheckedUpdateWithoutDividendPeriodsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2146,6 +2682,7 @@ export type TenantUncheckedUpdateWithoutDividendPeriodsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2153,12 +2690,17 @@ export type TenantUncheckedUpdateWithoutDividendPeriodsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutDividendAllocationsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2171,6 +2713,9 @@ export type TenantCreateWithoutDividendAllocationsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -2181,6 +2726,7 @@ export type TenantCreateWithoutDividendAllocationsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -2188,12 +2734,17 @@ export type TenantCreateWithoutDividendAllocationsInput = {
   dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutDividendAllocationsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2206,6 +2757,9 @@ export type TenantUncheckedCreateWithoutDividendAllocationsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -2216,6 +2770,7 @@ export type TenantUncheckedCreateWithoutDividendAllocationsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -2223,6 +2778,8 @@ export type TenantUncheckedCreateWithoutDividendAllocationsInput = {
   dividendPeriods?: Prisma.DividendPeriodUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutDividendAllocationsInput = {
@@ -2245,6 +2802,9 @@ export type TenantUpdateWithoutDividendAllocationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2257,6 +2817,9 @@ export type TenantUpdateWithoutDividendAllocationsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -2267,6 +2830,7 @@ export type TenantUpdateWithoutDividendAllocationsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -2274,12 +2838,17 @@ export type TenantUpdateWithoutDividendAllocationsInput = {
   dividendPeriods?: Prisma.DividendPeriodUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutDividendAllocationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2292,6 +2861,9 @@ export type TenantUncheckedUpdateWithoutDividendAllocationsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2302,6 +2874,7 @@ export type TenantUncheckedUpdateWithoutDividendAllocationsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2309,12 +2882,17 @@ export type TenantUncheckedUpdateWithoutDividendAllocationsInput = {
   dividendPeriods?: Prisma.DividendPeriodUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
-export type TenantCreateWithoutLedgerAccountsInput = {
+export type TenantCreateWithoutImportBatchesInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2327,6 +2905,8 @@ export type TenantCreateWithoutLedgerAccountsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -2337,19 +2917,26 @@ export type TenantCreateWithoutLedgerAccountsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
   dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
-export type TenantUncheckedCreateWithoutLedgerAccountsInput = {
+export type TenantUncheckedCreateWithoutImportBatchesInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2362,6 +2949,8 @@ export type TenantUncheckedCreateWithoutLedgerAccountsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -2372,6 +2961,392 @@ export type TenantUncheckedCreateWithoutLedgerAccountsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
+}
+
+export type TenantCreateOrConnectWithoutImportBatchesInput = {
+  where: Prisma.TenantWhereUniqueInput
+  create: Prisma.XOR<Prisma.TenantCreateWithoutImportBatchesInput, Prisma.TenantUncheckedCreateWithoutImportBatchesInput>
+}
+
+export type TenantUpsertWithoutImportBatchesInput = {
+  update: Prisma.XOR<Prisma.TenantUpdateWithoutImportBatchesInput, Prisma.TenantUncheckedUpdateWithoutImportBatchesInput>
+  create: Prisma.XOR<Prisma.TenantCreateWithoutImportBatchesInput, Prisma.TenantUncheckedCreateWithoutImportBatchesInput>
+  where?: Prisma.TenantWhereInput
+}
+
+export type TenantUpdateToOneWithWhereWithoutImportBatchesInput = {
+  where?: Prisma.TenantWhereInput
+  data: Prisma.XOR<Prisma.TenantUpdateWithoutImportBatchesInput, Prisma.TenantUncheckedUpdateWithoutImportBatchesInput>
+}
+
+export type TenantUpdateWithoutImportBatchesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantUncheckedUpdateWithoutImportBatchesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUncheckedUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUncheckedUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUncheckedUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantCreateWithoutImportBatchRowsInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
+}
+
+export type TenantUncheckedCreateWithoutImportBatchRowsInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyUncheckedCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainUncheckedCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductUncheckedCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
+}
+
+export type TenantCreateOrConnectWithoutImportBatchRowsInput = {
+  where: Prisma.TenantWhereUniqueInput
+  create: Prisma.XOR<Prisma.TenantCreateWithoutImportBatchRowsInput, Prisma.TenantUncheckedCreateWithoutImportBatchRowsInput>
+}
+
+export type TenantUpsertWithoutImportBatchRowsInput = {
+  update: Prisma.XOR<Prisma.TenantUpdateWithoutImportBatchRowsInput, Prisma.TenantUncheckedUpdateWithoutImportBatchRowsInput>
+  create: Prisma.XOR<Prisma.TenantCreateWithoutImportBatchRowsInput, Prisma.TenantUncheckedCreateWithoutImportBatchRowsInput>
+  where?: Prisma.TenantWhereInput
+}
+
+export type TenantUpdateToOneWithWhereWithoutImportBatchRowsInput = {
+  where?: Prisma.TenantWhereInput
+  data: Prisma.XOR<Prisma.TenantUpdateWithoutImportBatchRowsInput, Prisma.TenantUncheckedUpdateWithoutImportBatchRowsInput>
+}
+
+export type TenantUpdateWithoutImportBatchRowsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantUncheckedUpdateWithoutImportBatchRowsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUncheckedUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUncheckedUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUncheckedUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantCreateWithoutLedgerAccountsInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
+}
+
+export type TenantUncheckedCreateWithoutLedgerAccountsInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyUncheckedCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainUncheckedCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductUncheckedCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
   ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutTenantInput
@@ -2379,6 +3354,8 @@ export type TenantUncheckedCreateWithoutLedgerAccountsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutLedgerAccountsInput = {
@@ -2401,6 +3378,9 @@ export type TenantUpdateWithoutLedgerAccountsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2413,6 +3393,9 @@ export type TenantUpdateWithoutLedgerAccountsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -2423,6 +3406,7 @@ export type TenantUpdateWithoutLedgerAccountsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
   ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutTenantNestedInput
@@ -2430,12 +3414,17 @@ export type TenantUpdateWithoutLedgerAccountsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutLedgerAccountsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2448,6 +3437,9 @@ export type TenantUncheckedUpdateWithoutLedgerAccountsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2458,6 +3450,7 @@ export type TenantUncheckedUpdateWithoutLedgerAccountsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
   ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutTenantNestedInput
@@ -2465,12 +3458,17 @@ export type TenantUncheckedUpdateWithoutLedgerAccountsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutLedgerTransactionsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2483,6 +3481,9 @@ export type TenantCreateWithoutLedgerTransactionsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -2493,6 +3494,7 @@ export type TenantCreateWithoutLedgerTransactionsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
@@ -2500,12 +3502,17 @@ export type TenantCreateWithoutLedgerTransactionsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutLedgerTransactionsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2518,6 +3525,9 @@ export type TenantUncheckedCreateWithoutLedgerTransactionsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -2528,6 +3538,7 @@ export type TenantUncheckedCreateWithoutLedgerTransactionsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutTenantInput
@@ -2535,6 +3546,8 @@ export type TenantUncheckedCreateWithoutLedgerTransactionsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutLedgerTransactionsInput = {
@@ -2557,6 +3570,9 @@ export type TenantUpdateWithoutLedgerTransactionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2569,6 +3585,9 @@ export type TenantUpdateWithoutLedgerTransactionsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -2579,6 +3598,7 @@ export type TenantUpdateWithoutLedgerTransactionsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutTenantNestedInput
@@ -2586,12 +3606,17 @@ export type TenantUpdateWithoutLedgerTransactionsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutLedgerTransactionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2604,6 +3629,9 @@ export type TenantUncheckedUpdateWithoutLedgerTransactionsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2614,6 +3642,7 @@ export type TenantUncheckedUpdateWithoutLedgerTransactionsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutTenantNestedInput
@@ -2621,12 +3650,17 @@ export type TenantUncheckedUpdateWithoutLedgerTransactionsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutLedgerEntriesInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2639,6 +3673,9 @@ export type TenantCreateWithoutLedgerEntriesInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -2649,6 +3686,7 @@ export type TenantCreateWithoutLedgerEntriesInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -2656,12 +3694,17 @@ export type TenantCreateWithoutLedgerEntriesInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutLedgerEntriesInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2674,6 +3717,9 @@ export type TenantUncheckedCreateWithoutLedgerEntriesInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -2684,6 +3730,7 @@ export type TenantUncheckedCreateWithoutLedgerEntriesInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -2691,6 +3738,8 @@ export type TenantUncheckedCreateWithoutLedgerEntriesInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutLedgerEntriesInput = {
@@ -2713,6 +3762,9 @@ export type TenantUpdateWithoutLedgerEntriesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2725,6 +3777,9 @@ export type TenantUpdateWithoutLedgerEntriesInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -2735,6 +3790,7 @@ export type TenantUpdateWithoutLedgerEntriesInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -2742,12 +3798,17 @@ export type TenantUpdateWithoutLedgerEntriesInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutLedgerEntriesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2760,6 +3821,9 @@ export type TenantUncheckedUpdateWithoutLedgerEntriesInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2770,6 +3834,7 @@ export type TenantUncheckedUpdateWithoutLedgerEntriesInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2777,12 +3842,17 @@ export type TenantUncheckedUpdateWithoutLedgerEntriesInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutLoanProductsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2795,6 +3865,9 @@ export type TenantCreateWithoutLoanProductsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -2804,6 +3877,7 @@ export type TenantCreateWithoutLoanProductsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -2812,12 +3886,17 @@ export type TenantCreateWithoutLoanProductsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutLoanProductsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2830,6 +3909,9 @@ export type TenantUncheckedCreateWithoutLoanProductsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -2839,6 +3921,7 @@ export type TenantUncheckedCreateWithoutLoanProductsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -2847,6 +3930,8 @@ export type TenantUncheckedCreateWithoutLoanProductsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutLoanProductsInput = {
@@ -2869,6 +3954,9 @@ export type TenantUpdateWithoutLoanProductsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2881,6 +3969,9 @@ export type TenantUpdateWithoutLoanProductsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -2890,6 +3981,7 @@ export type TenantUpdateWithoutLoanProductsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -2898,12 +3990,17 @@ export type TenantUpdateWithoutLoanProductsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutLoanProductsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2916,6 +4013,9 @@ export type TenantUncheckedUpdateWithoutLoanProductsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2925,6 +4025,7 @@ export type TenantUncheckedUpdateWithoutLoanProductsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -2933,12 +4034,17 @@ export type TenantUncheckedUpdateWithoutLoanProductsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutLoanRequestsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2951,6 +4057,9 @@ export type TenantCreateWithoutLoanRequestsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -2960,6 +4069,7 @@ export type TenantCreateWithoutLoanRequestsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -2968,12 +4078,17 @@ export type TenantCreateWithoutLoanRequestsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutLoanRequestsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -2986,6 +4101,9 @@ export type TenantUncheckedCreateWithoutLoanRequestsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -2995,6 +4113,7 @@ export type TenantUncheckedCreateWithoutLoanRequestsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -3003,6 +4122,8 @@ export type TenantUncheckedCreateWithoutLoanRequestsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutLoanRequestsInput = {
@@ -3025,6 +4146,9 @@ export type TenantUpdateWithoutLoanRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3037,6 +4161,9 @@ export type TenantUpdateWithoutLoanRequestsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -3046,6 +4173,7 @@ export type TenantUpdateWithoutLoanRequestsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -3054,12 +4182,17 @@ export type TenantUpdateWithoutLoanRequestsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutLoanRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3072,6 +4205,9 @@ export type TenantUncheckedUpdateWithoutLoanRequestsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3081,6 +4217,7 @@ export type TenantUncheckedUpdateWithoutLoanRequestsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3089,12 +4226,17 @@ export type TenantUncheckedUpdateWithoutLoanRequestsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutLoanApprovalsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3107,6 +4249,9 @@ export type TenantCreateWithoutLoanApprovalsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -3116,6 +4261,7 @@ export type TenantCreateWithoutLoanApprovalsInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -3124,12 +4270,17 @@ export type TenantCreateWithoutLoanApprovalsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutLoanApprovalsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3142,6 +4293,9 @@ export type TenantUncheckedCreateWithoutLoanApprovalsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -3151,6 +4305,7 @@ export type TenantUncheckedCreateWithoutLoanApprovalsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -3159,6 +4314,8 @@ export type TenantUncheckedCreateWithoutLoanApprovalsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutLoanApprovalsInput = {
@@ -3181,6 +4338,9 @@ export type TenantUpdateWithoutLoanApprovalsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3193,6 +4353,9 @@ export type TenantUpdateWithoutLoanApprovalsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -3202,6 +4365,7 @@ export type TenantUpdateWithoutLoanApprovalsInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -3210,12 +4374,17 @@ export type TenantUpdateWithoutLoanApprovalsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutLoanApprovalsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3228,6 +4397,9 @@ export type TenantUncheckedUpdateWithoutLoanApprovalsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3237,6 +4409,7 @@ export type TenantUncheckedUpdateWithoutLoanApprovalsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3245,12 +4418,17 @@ export type TenantUncheckedUpdateWithoutLoanApprovalsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutLoansInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3263,6 +4441,9 @@ export type TenantCreateWithoutLoansInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -3272,6 +4453,7 @@ export type TenantCreateWithoutLoansInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutTenantInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -3280,12 +4462,17 @@ export type TenantCreateWithoutLoansInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutLoansInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3298,6 +4485,9 @@ export type TenantUncheckedCreateWithoutLoansInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -3307,6 +4497,7 @@ export type TenantUncheckedCreateWithoutLoansInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutTenantInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -3315,6 +4506,8 @@ export type TenantUncheckedCreateWithoutLoansInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutLoansInput = {
@@ -3337,6 +4530,9 @@ export type TenantUpdateWithoutLoansInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3349,6 +4545,9 @@ export type TenantUpdateWithoutLoansInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -3358,6 +4557,7 @@ export type TenantUpdateWithoutLoansInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutTenantNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -3366,12 +4566,17 @@ export type TenantUpdateWithoutLoansInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutLoansInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3384,6 +4589,9 @@ export type TenantUncheckedUpdateWithoutLoansInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3393,6 +4601,7 @@ export type TenantUncheckedUpdateWithoutLoansInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutTenantNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3401,12 +4610,17 @@ export type TenantUncheckedUpdateWithoutLoansInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutRepaymentSchedulesInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3419,6 +4633,9 @@ export type TenantCreateWithoutRepaymentSchedulesInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -3428,6 +4645,7 @@ export type TenantCreateWithoutRepaymentSchedulesInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutTenantInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -3436,12 +4654,17 @@ export type TenantCreateWithoutRepaymentSchedulesInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutRepaymentSchedulesInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3454,6 +4677,9 @@ export type TenantUncheckedCreateWithoutRepaymentSchedulesInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -3463,6 +4689,7 @@ export type TenantUncheckedCreateWithoutRepaymentSchedulesInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutTenantInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -3471,6 +4698,8 @@ export type TenantUncheckedCreateWithoutRepaymentSchedulesInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutRepaymentSchedulesInput = {
@@ -3493,6 +4722,9 @@ export type TenantUpdateWithoutRepaymentSchedulesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3505,6 +4737,9 @@ export type TenantUpdateWithoutRepaymentSchedulesInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -3514,6 +4749,7 @@ export type TenantUpdateWithoutRepaymentSchedulesInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutTenantNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -3522,12 +4758,17 @@ export type TenantUpdateWithoutRepaymentSchedulesInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutRepaymentSchedulesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3540,6 +4781,9 @@ export type TenantUncheckedUpdateWithoutRepaymentSchedulesInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3549,6 +4793,7 @@ export type TenantUncheckedUpdateWithoutRepaymentSchedulesInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutTenantNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3557,12 +4802,17 @@ export type TenantUncheckedUpdateWithoutRepaymentSchedulesInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
-export type TenantCreateWithoutRepaymentsInput = {
+export type TenantCreateWithoutCollectionFollowUpsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3575,6 +4825,9 @@ export type TenantCreateWithoutRepaymentsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -3585,6 +4838,7 @@ export type TenantCreateWithoutRepaymentsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
@@ -3592,12 +4846,17 @@ export type TenantCreateWithoutRepaymentsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
-export type TenantUncheckedCreateWithoutRepaymentsInput = {
+export type TenantUncheckedCreateWithoutCollectionFollowUpsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3610,6 +4869,9 @@ export type TenantUncheckedCreateWithoutRepaymentsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -3620,6 +4882,7 @@ export type TenantUncheckedCreateWithoutRepaymentsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
   ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutTenantInput
@@ -3627,6 +4890,200 @@ export type TenantUncheckedCreateWithoutRepaymentsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
+}
+
+export type TenantCreateOrConnectWithoutCollectionFollowUpsInput = {
+  where: Prisma.TenantWhereUniqueInput
+  create: Prisma.XOR<Prisma.TenantCreateWithoutCollectionFollowUpsInput, Prisma.TenantUncheckedCreateWithoutCollectionFollowUpsInput>
+}
+
+export type TenantUpsertWithoutCollectionFollowUpsInput = {
+  update: Prisma.XOR<Prisma.TenantUpdateWithoutCollectionFollowUpsInput, Prisma.TenantUncheckedUpdateWithoutCollectionFollowUpsInput>
+  create: Prisma.XOR<Prisma.TenantCreateWithoutCollectionFollowUpsInput, Prisma.TenantUncheckedCreateWithoutCollectionFollowUpsInput>
+  where?: Prisma.TenantWhereInput
+}
+
+export type TenantUpdateToOneWithWhereWithoutCollectionFollowUpsInput = {
+  where?: Prisma.TenantWhereInput
+  data: Prisma.XOR<Prisma.TenantUpdateWithoutCollectionFollowUpsInput, Prisma.TenantUncheckedUpdateWithoutCollectionFollowUpsInput>
+}
+
+export type TenantUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantUncheckedUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUncheckedUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUncheckedUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUncheckedUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantCreateWithoutRepaymentsInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
+}
+
+export type TenantUncheckedCreateWithoutRepaymentsInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyUncheckedCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainUncheckedCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductUncheckedCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutRepaymentsInput = {
@@ -3649,6 +5106,9 @@ export type TenantUpdateWithoutRepaymentsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3661,6 +5121,9 @@ export type TenantUpdateWithoutRepaymentsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -3671,6 +5134,7 @@ export type TenantUpdateWithoutRepaymentsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
   ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutTenantNestedInput
@@ -3678,12 +5142,17 @@ export type TenantUpdateWithoutRepaymentsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutRepaymentsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3696,6 +5165,9 @@ export type TenantUncheckedUpdateWithoutRepaymentsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3706,6 +5178,7 @@ export type TenantUncheckedUpdateWithoutRepaymentsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
   ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutTenantNestedInput
@@ -3713,12 +5186,17 @@ export type TenantUncheckedUpdateWithoutRepaymentsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutMembersInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3730,6 +5208,9 @@ export type TenantCreateWithoutMembersInput = {
   domains?: Prisma.TenantDomainCreateNestedManyWithoutTenantInput
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -3740,6 +5221,7 @@ export type TenantCreateWithoutMembersInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -3748,12 +5230,17 @@ export type TenantCreateWithoutMembersInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutMembersInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3765,6 +5252,9 @@ export type TenantUncheckedCreateWithoutMembersInput = {
   domains?: Prisma.TenantDomainUncheckedCreateNestedManyWithoutTenantInput
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -3775,6 +5265,7 @@ export type TenantUncheckedCreateWithoutMembersInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -3783,6 +5274,8 @@ export type TenantUncheckedCreateWithoutMembersInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutMembersInput = {
@@ -3805,6 +5298,9 @@ export type TenantUpdateWithoutMembersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3816,6 +5312,9 @@ export type TenantUpdateWithoutMembersInput = {
   domains?: Prisma.TenantDomainUpdateManyWithoutTenantNestedInput
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -3826,6 +5325,7 @@ export type TenantUpdateWithoutMembersInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -3834,12 +5334,17 @@ export type TenantUpdateWithoutMembersInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutMembersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3851,6 +5356,9 @@ export type TenantUncheckedUpdateWithoutMembersInput = {
   domains?: Prisma.TenantDomainUncheckedUpdateManyWithoutTenantNestedInput
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3861,6 +5369,7 @@ export type TenantUncheckedUpdateWithoutMembersInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -3869,12 +5378,17 @@ export type TenantUncheckedUpdateWithoutMembersInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
-export type TenantCreateWithoutDeductionSourcesInput = {
+export type TenantCreateWithoutMemberDocumentsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3887,6 +5401,9 @@ export type TenantCreateWithoutDeductionSourcesInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
   chargeDefinitions?: Prisma.ChargeDefinitionCreateNestedManyWithoutTenantInput
@@ -3896,6 +5413,7 @@ export type TenantCreateWithoutDeductionSourcesInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -3904,12 +5422,17 @@ export type TenantCreateWithoutDeductionSourcesInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
-export type TenantUncheckedCreateWithoutDeductionSourcesInput = {
+export type TenantUncheckedCreateWithoutMemberDocumentsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -3922,6 +5445,9 @@ export type TenantUncheckedCreateWithoutDeductionSourcesInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
   chargeDefinitions?: Prisma.ChargeDefinitionUncheckedCreateNestedManyWithoutTenantInput
@@ -3931,6 +5457,7 @@ export type TenantUncheckedCreateWithoutDeductionSourcesInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -3939,6 +5466,200 @@ export type TenantUncheckedCreateWithoutDeductionSourcesInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
+}
+
+export type TenantCreateOrConnectWithoutMemberDocumentsInput = {
+  where: Prisma.TenantWhereUniqueInput
+  create: Prisma.XOR<Prisma.TenantCreateWithoutMemberDocumentsInput, Prisma.TenantUncheckedCreateWithoutMemberDocumentsInput>
+}
+
+export type TenantUpsertWithoutMemberDocumentsInput = {
+  update: Prisma.XOR<Prisma.TenantUpdateWithoutMemberDocumentsInput, Prisma.TenantUncheckedUpdateWithoutMemberDocumentsInput>
+  create: Prisma.XOR<Prisma.TenantCreateWithoutMemberDocumentsInput, Prisma.TenantUncheckedCreateWithoutMemberDocumentsInput>
+  where?: Prisma.TenantWhereInput
+}
+
+export type TenantUpdateToOneWithWhereWithoutMemberDocumentsInput = {
+  where?: Prisma.TenantWhereInput
+  data: Prisma.XOR<Prisma.TenantUpdateWithoutMemberDocumentsInput, Prisma.TenantUncheckedUpdateWithoutMemberDocumentsInput>
+}
+
+export type TenantUpdateWithoutMemberDocumentsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantUncheckedUpdateWithoutMemberDocumentsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUncheckedUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUncheckedUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUncheckedUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantCreateWithoutDeductionSourcesInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
+}
+
+export type TenantUncheckedCreateWithoutDeductionSourcesInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyUncheckedCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainUncheckedCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductUncheckedCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutDeductionSourcesInput = {
@@ -3961,6 +5682,9 @@ export type TenantUpdateWithoutDeductionSourcesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3973,6 +5697,9 @@ export type TenantUpdateWithoutDeductionSourcesInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
   chargeDefinitions?: Prisma.ChargeDefinitionUpdateManyWithoutTenantNestedInput
@@ -3982,6 +5709,7 @@ export type TenantUpdateWithoutDeductionSourcesInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -3990,12 +5718,17 @@ export type TenantUpdateWithoutDeductionSourcesInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutDeductionSourcesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -4008,6 +5741,9 @@ export type TenantUncheckedUpdateWithoutDeductionSourcesInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
   chargeDefinitions?: Prisma.ChargeDefinitionUncheckedUpdateManyWithoutTenantNestedInput
@@ -4017,6 +5753,7 @@ export type TenantUncheckedUpdateWithoutDeductionSourcesInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -4025,12 +5762,17 @@ export type TenantUncheckedUpdateWithoutDeductionSourcesInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
-export type TenantCreateWithoutOfflineSyncEventsInput = {
+export type TenantCreateWithoutNotificationOutboxInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -4043,6 +5785,9 @@ export type TenantCreateWithoutOfflineSyncEventsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -4053,19 +5798,25 @@ export type TenantCreateWithoutOfflineSyncEventsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
   dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
-export type TenantUncheckedCreateWithoutOfflineSyncEventsInput = {
+export type TenantUncheckedCreateWithoutNotificationOutboxInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -4078,6 +5829,9 @@ export type TenantUncheckedCreateWithoutOfflineSyncEventsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -4088,6 +5842,391 @@ export type TenantUncheckedCreateWithoutOfflineSyncEventsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
+}
+
+export type TenantCreateOrConnectWithoutNotificationOutboxInput = {
+  where: Prisma.TenantWhereUniqueInput
+  create: Prisma.XOR<Prisma.TenantCreateWithoutNotificationOutboxInput, Prisma.TenantUncheckedCreateWithoutNotificationOutboxInput>
+}
+
+export type TenantUpsertWithoutNotificationOutboxInput = {
+  update: Prisma.XOR<Prisma.TenantUpdateWithoutNotificationOutboxInput, Prisma.TenantUncheckedUpdateWithoutNotificationOutboxInput>
+  create: Prisma.XOR<Prisma.TenantCreateWithoutNotificationOutboxInput, Prisma.TenantUncheckedCreateWithoutNotificationOutboxInput>
+  where?: Prisma.TenantWhereInput
+}
+
+export type TenantUpdateToOneWithWhereWithoutNotificationOutboxInput = {
+  where?: Prisma.TenantWhereInput
+  data: Prisma.XOR<Prisma.TenantUpdateWithoutNotificationOutboxInput, Prisma.TenantUncheckedUpdateWithoutNotificationOutboxInput>
+}
+
+export type TenantUpdateWithoutNotificationOutboxInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantUncheckedUpdateWithoutNotificationOutboxInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUncheckedUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUncheckedUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUncheckedUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantCreateWithoutNotificationPreferencesInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+}
+
+export type TenantUncheckedCreateWithoutNotificationPreferencesInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyUncheckedCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainUncheckedCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductUncheckedCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+}
+
+export type TenantCreateOrConnectWithoutNotificationPreferencesInput = {
+  where: Prisma.TenantWhereUniqueInput
+  create: Prisma.XOR<Prisma.TenantCreateWithoutNotificationPreferencesInput, Prisma.TenantUncheckedCreateWithoutNotificationPreferencesInput>
+}
+
+export type TenantUpsertWithoutNotificationPreferencesInput = {
+  update: Prisma.XOR<Prisma.TenantUpdateWithoutNotificationPreferencesInput, Prisma.TenantUncheckedUpdateWithoutNotificationPreferencesInput>
+  create: Prisma.XOR<Prisma.TenantCreateWithoutNotificationPreferencesInput, Prisma.TenantUncheckedCreateWithoutNotificationPreferencesInput>
+  where?: Prisma.TenantWhereInput
+}
+
+export type TenantUpdateToOneWithWhereWithoutNotificationPreferencesInput = {
+  where?: Prisma.TenantWhereInput
+  data: Prisma.XOR<Prisma.TenantUpdateWithoutNotificationPreferencesInput, Prisma.TenantUncheckedUpdateWithoutNotificationPreferencesInput>
+}
+
+export type TenantUpdateWithoutNotificationPreferencesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantUncheckedUpdateWithoutNotificationPreferencesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTenantStatusFieldUpdateOperationsInput | $Enums.TenantStatus
+  isDirectDeductionEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  policies?: Prisma.TenantPolicyUncheckedUpdateOneWithoutTenantNestedInput
+  domains?: Prisma.TenantDomainUncheckedUpdateManyWithoutTenantNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
+  memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
+  members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
+  deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
+  contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedUpdateManyWithoutTenantNestedInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutTenantNestedInput
+  loanProducts?: Prisma.LoanProductUncheckedUpdateManyWithoutTenantNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutTenantNestedInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
+  loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutTenantNestedInput
+  dividendPeriods?: Prisma.DividendPeriodUncheckedUpdateManyWithoutTenantNestedInput
+  dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantCreateWithoutOfflineSyncEventsInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
+  ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
+  ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
+  ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutTenantInput
+  dividendPeriods?: Prisma.DividendPeriodCreateNestedManyWithoutTenantInput
+  dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
+}
+
+export type TenantUncheckedCreateWithoutOfflineSyncEventsInput = {
+  id?: string
+  slug: string
+  name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
+  region?: string | null
+  currencyCode?: string
+  timezone?: string
+  status?: $Enums.TenantStatus
+  isDirectDeductionEnabled?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  policies?: Prisma.TenantPolicyUncheckedCreateNestedOneWithoutTenantInput
+  domains?: Prisma.TenantDomainUncheckedCreateNestedManyWithoutTenantInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
+  memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
+  members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
+  deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
+  contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
+  contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
+  chargeDefinitions?: Prisma.ChargeDefinitionUncheckedCreateNestedManyWithoutTenantInput
+  chargeApplications?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutTenantInput
+  loanProducts?: Prisma.LoanProductUncheckedCreateNestedManyWithoutTenantInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutTenantInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
+  loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
+  repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -4095,6 +6234,8 @@ export type TenantUncheckedCreateWithoutOfflineSyncEventsInput = {
   dividendPeriods?: Prisma.DividendPeriodUncheckedCreateNestedManyWithoutTenantInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutOfflineSyncEventsInput = {
@@ -4117,6 +6258,9 @@ export type TenantUpdateWithoutOfflineSyncEventsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -4129,6 +6273,9 @@ export type TenantUpdateWithoutOfflineSyncEventsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -4139,6 +6286,7 @@ export type TenantUpdateWithoutOfflineSyncEventsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -4146,12 +6294,17 @@ export type TenantUpdateWithoutOfflineSyncEventsInput = {
   dividendPeriods?: Prisma.DividendPeriodUpdateManyWithoutTenantNestedInput
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutOfflineSyncEventsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -4164,6 +6317,9 @@ export type TenantUncheckedUpdateWithoutOfflineSyncEventsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -4174,6 +6330,7 @@ export type TenantUncheckedUpdateWithoutOfflineSyncEventsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -4181,12 +6338,17 @@ export type TenantUncheckedUpdateWithoutOfflineSyncEventsInput = {
   dividendPeriods?: Prisma.DividendPeriodUncheckedUpdateManyWithoutTenantNestedInput
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutDomainsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -4198,6 +6360,9 @@ export type TenantCreateWithoutDomainsInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -4208,6 +6373,7 @@ export type TenantCreateWithoutDomainsInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -4216,12 +6382,17 @@ export type TenantCreateWithoutDomainsInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutDomainsInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -4233,6 +6404,9 @@ export type TenantUncheckedCreateWithoutDomainsInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -4243,6 +6417,7 @@ export type TenantUncheckedCreateWithoutDomainsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -4251,6 +6426,8 @@ export type TenantUncheckedCreateWithoutDomainsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutDomainsInput = {
@@ -4273,6 +6450,9 @@ export type TenantUpdateWithoutDomainsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -4284,6 +6464,9 @@ export type TenantUpdateWithoutDomainsInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -4294,6 +6477,7 @@ export type TenantUpdateWithoutDomainsInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -4302,12 +6486,17 @@ export type TenantUpdateWithoutDomainsInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutDomainsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -4319,6 +6508,9 @@ export type TenantUncheckedUpdateWithoutDomainsInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -4329,6 +6521,7 @@ export type TenantUncheckedUpdateWithoutDomainsInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -4337,12 +6530,17 @@ export type TenantUncheckedUpdateWithoutDomainsInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutPoliciesInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -4354,6 +6552,9 @@ export type TenantCreateWithoutPoliciesInput = {
   users?: Prisma.UserCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionCreateNestedManyWithoutTenantInput
@@ -4364,6 +6565,7 @@ export type TenantCreateWithoutPoliciesInput = {
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutTenantInput
@@ -4372,12 +6574,17 @@ export type TenantCreateWithoutPoliciesInput = {
   dividendAllocations?: Prisma.DividendAllocationCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutPoliciesInput = {
   id?: string
   slug: string
   name: string
+  currentSize?: number | null
+  officeAddress?: string | null
+  startDate?: Date | string | null
   region?: string | null
   currencyCode?: string
   timezone?: string
@@ -4389,6 +6596,9 @@ export type TenantUncheckedCreateWithoutPoliciesInput = {
   users?: Prisma.UserUncheckedCreateNestedManyWithoutTenantInput
   memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutTenantInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutTenantInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedCreateNestedManyWithoutTenantInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutTenantInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedCreateNestedManyWithoutTenantInput
   deductionSources?: Prisma.DeductionSourceUncheckedCreateNestedManyWithoutTenantInput
   contributionPlans?: Prisma.ContributionPlanUncheckedCreateNestedManyWithoutTenantInput
   contributions?: Prisma.ContributionUncheckedCreateNestedManyWithoutTenantInput
@@ -4399,6 +6609,7 @@ export type TenantUncheckedCreateWithoutPoliciesInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutTenantInput
   loans?: Prisma.LoanUncheckedCreateNestedManyWithoutTenantInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutTenantInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutTenantInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutTenantInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedCreateNestedManyWithoutTenantInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutTenantInput
@@ -4407,6 +6618,8 @@ export type TenantUncheckedCreateWithoutPoliciesInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedCreateNestedManyWithoutTenantInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutTenantInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutTenantInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedCreateNestedManyWithoutTenantInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutPoliciesInput = {
@@ -4429,6 +6642,9 @@ export type TenantUpdateWithoutPoliciesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -4440,6 +6656,9 @@ export type TenantUpdateWithoutPoliciesInput = {
   users?: Prisma.UserUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUpdateManyWithoutTenantNestedInput
@@ -4450,6 +6669,7 @@ export type TenantUpdateWithoutPoliciesInput = {
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutTenantNestedInput
@@ -4458,12 +6678,17 @@ export type TenantUpdateWithoutPoliciesInput = {
   dividendAllocations?: Prisma.DividendAllocationUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutPoliciesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  currentSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  officeAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyCode?: Prisma.StringFieldUpdateOperationsInput | string
   timezone?: Prisma.StringFieldUpdateOperationsInput | string
@@ -4475,6 +6700,9 @@ export type TenantUncheckedUpdateWithoutPoliciesInput = {
   users?: Prisma.UserUncheckedUpdateManyWithoutTenantNestedInput
   memberships?: Prisma.MembershipUncheckedUpdateManyWithoutTenantNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutTenantNestedInput
+  memberDocuments?: Prisma.MemberDocumentUncheckedUpdateManyWithoutTenantNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutTenantNestedInput
+  importBatchRows?: Prisma.ImportBatchRowUncheckedUpdateManyWithoutTenantNestedInput
   deductionSources?: Prisma.DeductionSourceUncheckedUpdateManyWithoutTenantNestedInput
   contributionPlans?: Prisma.ContributionPlanUncheckedUpdateManyWithoutTenantNestedInput
   contributions?: Prisma.ContributionUncheckedUpdateManyWithoutTenantNestedInput
@@ -4485,6 +6713,7 @@ export type TenantUncheckedUpdateWithoutPoliciesInput = {
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutTenantNestedInput
   loans?: Prisma.LoanUncheckedUpdateManyWithoutTenantNestedInput
   repaymentSchedules?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutTenantNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutTenantNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutTenantNestedInput
   ledgerAccounts?: Prisma.LedgerAccountUncheckedUpdateManyWithoutTenantNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutTenantNestedInput
@@ -4493,6 +6722,8 @@ export type TenantUncheckedUpdateWithoutPoliciesInput = {
   dividendAllocations?: Prisma.DividendAllocationUncheckedUpdateManyWithoutTenantNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutTenantNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutTenantNestedInput
+  notificationOutbox?: Prisma.NotificationOutboxUncheckedUpdateManyWithoutTenantNestedInput
+  notificationPreferences?: Prisma.NotificationPreferenceUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 
@@ -4505,6 +6736,9 @@ export type TenantCountOutputType = {
   users: number
   memberships: number
   members: number
+  memberDocuments: number
+  importBatches: number
+  importBatchRows: number
   deductionSources: number
   contributionPlans: number
   contributions: number
@@ -4515,6 +6749,7 @@ export type TenantCountOutputType = {
   loanApprovals: number
   loans: number
   repaymentSchedules: number
+  collectionFollowUps: number
   repayments: number
   ledgerAccounts: number
   ledgerTransactions: number
@@ -4523,6 +6758,8 @@ export type TenantCountOutputType = {
   dividendAllocations: number
   offlineSyncEvents: number
   auditLogs: number
+  notificationOutbox: number
+  notificationPreferences: number
 }
 
 export type TenantCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -4530,6 +6767,9 @@ export type TenantCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions
   users?: boolean | TenantCountOutputTypeCountUsersArgs
   memberships?: boolean | TenantCountOutputTypeCountMembershipsArgs
   members?: boolean | TenantCountOutputTypeCountMembersArgs
+  memberDocuments?: boolean | TenantCountOutputTypeCountMemberDocumentsArgs
+  importBatches?: boolean | TenantCountOutputTypeCountImportBatchesArgs
+  importBatchRows?: boolean | TenantCountOutputTypeCountImportBatchRowsArgs
   deductionSources?: boolean | TenantCountOutputTypeCountDeductionSourcesArgs
   contributionPlans?: boolean | TenantCountOutputTypeCountContributionPlansArgs
   contributions?: boolean | TenantCountOutputTypeCountContributionsArgs
@@ -4540,6 +6780,7 @@ export type TenantCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions
   loanApprovals?: boolean | TenantCountOutputTypeCountLoanApprovalsArgs
   loans?: boolean | TenantCountOutputTypeCountLoansArgs
   repaymentSchedules?: boolean | TenantCountOutputTypeCountRepaymentSchedulesArgs
+  collectionFollowUps?: boolean | TenantCountOutputTypeCountCollectionFollowUpsArgs
   repayments?: boolean | TenantCountOutputTypeCountRepaymentsArgs
   ledgerAccounts?: boolean | TenantCountOutputTypeCountLedgerAccountsArgs
   ledgerTransactions?: boolean | TenantCountOutputTypeCountLedgerTransactionsArgs
@@ -4548,6 +6789,8 @@ export type TenantCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions
   dividendAllocations?: boolean | TenantCountOutputTypeCountDividendAllocationsArgs
   offlineSyncEvents?: boolean | TenantCountOutputTypeCountOfflineSyncEventsArgs
   auditLogs?: boolean | TenantCountOutputTypeCountAuditLogsArgs
+  notificationOutbox?: boolean | TenantCountOutputTypeCountNotificationOutboxArgs
+  notificationPreferences?: boolean | TenantCountOutputTypeCountNotificationPreferencesArgs
 }
 
 /**
@@ -4586,6 +6829,27 @@ export type TenantCountOutputTypeCountMembershipsArgs<ExtArgs extends runtime.Ty
  */
 export type TenantCountOutputTypeCountMembersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.MemberWhereInput
+}
+
+/**
+ * TenantCountOutputType without action
+ */
+export type TenantCountOutputTypeCountMemberDocumentsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MemberDocumentWhereInput
+}
+
+/**
+ * TenantCountOutputType without action
+ */
+export type TenantCountOutputTypeCountImportBatchesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ImportBatchWhereInput
+}
+
+/**
+ * TenantCountOutputType without action
+ */
+export type TenantCountOutputTypeCountImportBatchRowsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ImportBatchRowWhereInput
 }
 
 /**
@@ -4661,6 +6925,13 @@ export type TenantCountOutputTypeCountRepaymentSchedulesArgs<ExtArgs extends run
 /**
  * TenantCountOutputType without action
  */
+export type TenantCountOutputTypeCountCollectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CollectionFollowUpWhereInput
+}
+
+/**
+ * TenantCountOutputType without action
+ */
 export type TenantCountOutputTypeCountRepaymentsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.RepaymentWhereInput
 }
@@ -4714,11 +6985,28 @@ export type TenantCountOutputTypeCountAuditLogsArgs<ExtArgs extends runtime.Type
   where?: Prisma.AuditLogWhereInput
 }
 
+/**
+ * TenantCountOutputType without action
+ */
+export type TenantCountOutputTypeCountNotificationOutboxArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NotificationOutboxWhereInput
+}
+
+/**
+ * TenantCountOutputType without action
+ */
+export type TenantCountOutputTypeCountNotificationPreferencesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NotificationPreferenceWhereInput
+}
+
 
 export type TenantSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   slug?: boolean
   name?: boolean
+  currentSize?: boolean
+  officeAddress?: boolean
+  startDate?: boolean
   region?: boolean
   currencyCode?: boolean
   timezone?: boolean
@@ -4731,6 +7019,9 @@ export type TenantSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   users?: boolean | Prisma.Tenant$usersArgs<ExtArgs>
   memberships?: boolean | Prisma.Tenant$membershipsArgs<ExtArgs>
   members?: boolean | Prisma.Tenant$membersArgs<ExtArgs>
+  memberDocuments?: boolean | Prisma.Tenant$memberDocumentsArgs<ExtArgs>
+  importBatches?: boolean | Prisma.Tenant$importBatchesArgs<ExtArgs>
+  importBatchRows?: boolean | Prisma.Tenant$importBatchRowsArgs<ExtArgs>
   deductionSources?: boolean | Prisma.Tenant$deductionSourcesArgs<ExtArgs>
   contributionPlans?: boolean | Prisma.Tenant$contributionPlansArgs<ExtArgs>
   contributions?: boolean | Prisma.Tenant$contributionsArgs<ExtArgs>
@@ -4741,6 +7032,7 @@ export type TenantSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   loanApprovals?: boolean | Prisma.Tenant$loanApprovalsArgs<ExtArgs>
   loans?: boolean | Prisma.Tenant$loansArgs<ExtArgs>
   repaymentSchedules?: boolean | Prisma.Tenant$repaymentSchedulesArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.Tenant$collectionFollowUpsArgs<ExtArgs>
   repayments?: boolean | Prisma.Tenant$repaymentsArgs<ExtArgs>
   ledgerAccounts?: boolean | Prisma.Tenant$ledgerAccountsArgs<ExtArgs>
   ledgerTransactions?: boolean | Prisma.Tenant$ledgerTransactionsArgs<ExtArgs>
@@ -4749,6 +7041,8 @@ export type TenantSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   dividendAllocations?: boolean | Prisma.Tenant$dividendAllocationsArgs<ExtArgs>
   offlineSyncEvents?: boolean | Prisma.Tenant$offlineSyncEventsArgs<ExtArgs>
   auditLogs?: boolean | Prisma.Tenant$auditLogsArgs<ExtArgs>
+  notificationOutbox?: boolean | Prisma.Tenant$notificationOutboxArgs<ExtArgs>
+  notificationPreferences?: boolean | Prisma.Tenant$notificationPreferencesArgs<ExtArgs>
   _count?: boolean | Prisma.TenantCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tenant"]>
 
@@ -4756,6 +7050,9 @@ export type TenantSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   id?: boolean
   slug?: boolean
   name?: boolean
+  currentSize?: boolean
+  officeAddress?: boolean
+  startDate?: boolean
   region?: boolean
   currencyCode?: boolean
   timezone?: boolean
@@ -4769,6 +7066,9 @@ export type TenantSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   id?: boolean
   slug?: boolean
   name?: boolean
+  currentSize?: boolean
+  officeAddress?: boolean
+  startDate?: boolean
   region?: boolean
   currencyCode?: boolean
   timezone?: boolean
@@ -4782,6 +7082,9 @@ export type TenantSelectScalar = {
   id?: boolean
   slug?: boolean
   name?: boolean
+  currentSize?: boolean
+  officeAddress?: boolean
+  startDate?: boolean
   region?: boolean
   currencyCode?: boolean
   timezone?: boolean
@@ -4791,13 +7094,16 @@ export type TenantSelectScalar = {
   updatedAt?: boolean
 }
 
-export type TenantOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "slug" | "name" | "region" | "currencyCode" | "timezone" | "status" | "isDirectDeductionEnabled" | "createdAt" | "updatedAt", ExtArgs["result"]["tenant"]>
+export type TenantOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "slug" | "name" | "currentSize" | "officeAddress" | "startDate" | "region" | "currencyCode" | "timezone" | "status" | "isDirectDeductionEnabled" | "createdAt" | "updatedAt", ExtArgs["result"]["tenant"]>
 export type TenantInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   policies?: boolean | Prisma.Tenant$policiesArgs<ExtArgs>
   domains?: boolean | Prisma.Tenant$domainsArgs<ExtArgs>
   users?: boolean | Prisma.Tenant$usersArgs<ExtArgs>
   memberships?: boolean | Prisma.Tenant$membershipsArgs<ExtArgs>
   members?: boolean | Prisma.Tenant$membersArgs<ExtArgs>
+  memberDocuments?: boolean | Prisma.Tenant$memberDocumentsArgs<ExtArgs>
+  importBatches?: boolean | Prisma.Tenant$importBatchesArgs<ExtArgs>
+  importBatchRows?: boolean | Prisma.Tenant$importBatchRowsArgs<ExtArgs>
   deductionSources?: boolean | Prisma.Tenant$deductionSourcesArgs<ExtArgs>
   contributionPlans?: boolean | Prisma.Tenant$contributionPlansArgs<ExtArgs>
   contributions?: boolean | Prisma.Tenant$contributionsArgs<ExtArgs>
@@ -4808,6 +7114,7 @@ export type TenantInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   loanApprovals?: boolean | Prisma.Tenant$loanApprovalsArgs<ExtArgs>
   loans?: boolean | Prisma.Tenant$loansArgs<ExtArgs>
   repaymentSchedules?: boolean | Prisma.Tenant$repaymentSchedulesArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.Tenant$collectionFollowUpsArgs<ExtArgs>
   repayments?: boolean | Prisma.Tenant$repaymentsArgs<ExtArgs>
   ledgerAccounts?: boolean | Prisma.Tenant$ledgerAccountsArgs<ExtArgs>
   ledgerTransactions?: boolean | Prisma.Tenant$ledgerTransactionsArgs<ExtArgs>
@@ -4816,6 +7123,8 @@ export type TenantInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   dividendAllocations?: boolean | Prisma.Tenant$dividendAllocationsArgs<ExtArgs>
   offlineSyncEvents?: boolean | Prisma.Tenant$offlineSyncEventsArgs<ExtArgs>
   auditLogs?: boolean | Prisma.Tenant$auditLogsArgs<ExtArgs>
+  notificationOutbox?: boolean | Prisma.Tenant$notificationOutboxArgs<ExtArgs>
+  notificationPreferences?: boolean | Prisma.Tenant$notificationPreferencesArgs<ExtArgs>
   _count?: boolean | Prisma.TenantCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type TenantIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -4829,6 +7138,9 @@ export type $TenantPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     users: Prisma.$UserPayload<ExtArgs>[]
     memberships: Prisma.$MembershipPayload<ExtArgs>[]
     members: Prisma.$MemberPayload<ExtArgs>[]
+    memberDocuments: Prisma.$MemberDocumentPayload<ExtArgs>[]
+    importBatches: Prisma.$ImportBatchPayload<ExtArgs>[]
+    importBatchRows: Prisma.$ImportBatchRowPayload<ExtArgs>[]
     deductionSources: Prisma.$DeductionSourcePayload<ExtArgs>[]
     contributionPlans: Prisma.$ContributionPlanPayload<ExtArgs>[]
     contributions: Prisma.$ContributionPayload<ExtArgs>[]
@@ -4839,6 +7151,7 @@ export type $TenantPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     loanApprovals: Prisma.$LoanApprovalPayload<ExtArgs>[]
     loans: Prisma.$LoanPayload<ExtArgs>[]
     repaymentSchedules: Prisma.$RepaymentScheduleItemPayload<ExtArgs>[]
+    collectionFollowUps: Prisma.$CollectionFollowUpPayload<ExtArgs>[]
     repayments: Prisma.$RepaymentPayload<ExtArgs>[]
     ledgerAccounts: Prisma.$LedgerAccountPayload<ExtArgs>[]
     ledgerTransactions: Prisma.$LedgerTransactionPayload<ExtArgs>[]
@@ -4847,11 +7160,16 @@ export type $TenantPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     dividendAllocations: Prisma.$DividendAllocationPayload<ExtArgs>[]
     offlineSyncEvents: Prisma.$OfflineSyncEventPayload<ExtArgs>[]
     auditLogs: Prisma.$AuditLogPayload<ExtArgs>[]
+    notificationOutbox: Prisma.$NotificationOutboxPayload<ExtArgs>[]
+    notificationPreferences: Prisma.$NotificationPreferencePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     slug: string
     name: string
+    currentSize: number | null
+    officeAddress: string | null
+    startDate: Date | null
     region: string | null
     currencyCode: string
     timezone: string
@@ -5258,6 +7576,9 @@ export interface Prisma__TenantClient<T, Null = never, ExtArgs extends runtime.T
   users<T extends Prisma.Tenant$usersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$usersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   memberships<T extends Prisma.Tenant$membershipsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$membershipsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MembershipPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   members<T extends Prisma.Tenant$membersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$membersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  memberDocuments<T extends Prisma.Tenant$memberDocumentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$memberDocumentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MemberDocumentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  importBatches<T extends Prisma.Tenant$importBatchesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$importBatchesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ImportBatchPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  importBatchRows<T extends Prisma.Tenant$importBatchRowsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$importBatchRowsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ImportBatchRowPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   deductionSources<T extends Prisma.Tenant$deductionSourcesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$deductionSourcesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DeductionSourcePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   contributionPlans<T extends Prisma.Tenant$contributionPlansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$contributionPlansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ContributionPlanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   contributions<T extends Prisma.Tenant$contributionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$contributionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ContributionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -5268,6 +7589,7 @@ export interface Prisma__TenantClient<T, Null = never, ExtArgs extends runtime.T
   loanApprovals<T extends Prisma.Tenant$loanApprovalsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$loanApprovalsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LoanApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   loans<T extends Prisma.Tenant$loansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$loansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LoanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   repaymentSchedules<T extends Prisma.Tenant$repaymentSchedulesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$repaymentSchedulesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepaymentScheduleItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  collectionFollowUps<T extends Prisma.Tenant$collectionFollowUpsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$collectionFollowUpsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CollectionFollowUpPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   repayments<T extends Prisma.Tenant$repaymentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$repaymentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ledgerAccounts<T extends Prisma.Tenant$ledgerAccountsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$ledgerAccountsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LedgerAccountPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ledgerTransactions<T extends Prisma.Tenant$ledgerTransactionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$ledgerTransactionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LedgerTransactionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -5276,6 +7598,8 @@ export interface Prisma__TenantClient<T, Null = never, ExtArgs extends runtime.T
   dividendAllocations<T extends Prisma.Tenant$dividendAllocationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$dividendAllocationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DividendAllocationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   offlineSyncEvents<T extends Prisma.Tenant$offlineSyncEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$offlineSyncEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$OfflineSyncEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   auditLogs<T extends Prisma.Tenant$auditLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$auditLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuditLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  notificationOutbox<T extends Prisma.Tenant$notificationOutboxArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$notificationOutboxArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationOutboxPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  notificationPreferences<T extends Prisma.Tenant$notificationPreferencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$notificationPreferencesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationPreferencePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -5308,6 +7632,9 @@ export interface TenantFieldRefs {
   readonly id: Prisma.FieldRef<"Tenant", 'String'>
   readonly slug: Prisma.FieldRef<"Tenant", 'String'>
   readonly name: Prisma.FieldRef<"Tenant", 'String'>
+  readonly currentSize: Prisma.FieldRef<"Tenant", 'Int'>
+  readonly officeAddress: Prisma.FieldRef<"Tenant", 'String'>
+  readonly startDate: Prisma.FieldRef<"Tenant", 'DateTime'>
   readonly region: Prisma.FieldRef<"Tenant", 'String'>
   readonly currencyCode: Prisma.FieldRef<"Tenant", 'String'>
   readonly timezone: Prisma.FieldRef<"Tenant", 'String'>
@@ -5823,6 +8150,78 @@ export type Tenant$membersArgs<ExtArgs extends runtime.Types.Extensions.Internal
 }
 
 /**
+ * Tenant.memberDocuments
+ */
+export type Tenant$memberDocumentsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MemberDocument
+   */
+  select?: Prisma.MemberDocumentSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MemberDocument
+   */
+  omit?: Prisma.MemberDocumentOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MemberDocumentInclude<ExtArgs> | null
+  where?: Prisma.MemberDocumentWhereInput
+  orderBy?: Prisma.MemberDocumentOrderByWithRelationInput | Prisma.MemberDocumentOrderByWithRelationInput[]
+  cursor?: Prisma.MemberDocumentWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MemberDocumentScalarFieldEnum | Prisma.MemberDocumentScalarFieldEnum[]
+}
+
+/**
+ * Tenant.importBatches
+ */
+export type Tenant$importBatchesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ImportBatch
+   */
+  select?: Prisma.ImportBatchSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ImportBatch
+   */
+  omit?: Prisma.ImportBatchOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ImportBatchInclude<ExtArgs> | null
+  where?: Prisma.ImportBatchWhereInput
+  orderBy?: Prisma.ImportBatchOrderByWithRelationInput | Prisma.ImportBatchOrderByWithRelationInput[]
+  cursor?: Prisma.ImportBatchWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ImportBatchScalarFieldEnum | Prisma.ImportBatchScalarFieldEnum[]
+}
+
+/**
+ * Tenant.importBatchRows
+ */
+export type Tenant$importBatchRowsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ImportBatchRow
+   */
+  select?: Prisma.ImportBatchRowSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ImportBatchRow
+   */
+  omit?: Prisma.ImportBatchRowOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ImportBatchRowInclude<ExtArgs> | null
+  where?: Prisma.ImportBatchRowWhereInput
+  orderBy?: Prisma.ImportBatchRowOrderByWithRelationInput | Prisma.ImportBatchRowOrderByWithRelationInput[]
+  cursor?: Prisma.ImportBatchRowWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ImportBatchRowScalarFieldEnum | Prisma.ImportBatchRowScalarFieldEnum[]
+}
+
+/**
  * Tenant.deductionSources
  */
 export type Tenant$deductionSourcesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -6063,6 +8462,30 @@ export type Tenant$repaymentSchedulesArgs<ExtArgs extends runtime.Types.Extensio
 }
 
 /**
+ * Tenant.collectionFollowUps
+ */
+export type Tenant$collectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CollectionFollowUp
+   */
+  select?: Prisma.CollectionFollowUpSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CollectionFollowUp
+   */
+  omit?: Prisma.CollectionFollowUpOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CollectionFollowUpInclude<ExtArgs> | null
+  where?: Prisma.CollectionFollowUpWhereInput
+  orderBy?: Prisma.CollectionFollowUpOrderByWithRelationInput | Prisma.CollectionFollowUpOrderByWithRelationInput[]
+  cursor?: Prisma.CollectionFollowUpWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CollectionFollowUpScalarFieldEnum | Prisma.CollectionFollowUpScalarFieldEnum[]
+}
+
+/**
  * Tenant.repayments
  */
 export type Tenant$repaymentsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -6252,6 +8675,54 @@ export type Tenant$auditLogsArgs<ExtArgs extends runtime.Types.Extensions.Intern
   take?: number
   skip?: number
   distinct?: Prisma.AuditLogScalarFieldEnum | Prisma.AuditLogScalarFieldEnum[]
+}
+
+/**
+ * Tenant.notificationOutbox
+ */
+export type Tenant$notificationOutboxArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NotificationOutbox
+   */
+  select?: Prisma.NotificationOutboxSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NotificationOutbox
+   */
+  omit?: Prisma.NotificationOutboxOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NotificationOutboxInclude<ExtArgs> | null
+  where?: Prisma.NotificationOutboxWhereInput
+  orderBy?: Prisma.NotificationOutboxOrderByWithRelationInput | Prisma.NotificationOutboxOrderByWithRelationInput[]
+  cursor?: Prisma.NotificationOutboxWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NotificationOutboxScalarFieldEnum | Prisma.NotificationOutboxScalarFieldEnum[]
+}
+
+/**
+ * Tenant.notificationPreferences
+ */
+export type Tenant$notificationPreferencesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NotificationPreference
+   */
+  select?: Prisma.NotificationPreferenceSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NotificationPreference
+   */
+  omit?: Prisma.NotificationPreferenceOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NotificationPreferenceInclude<ExtArgs> | null
+  where?: Prisma.NotificationPreferenceWhereInput
+  orderBy?: Prisma.NotificationPreferenceOrderByWithRelationInput | Prisma.NotificationPreferenceOrderByWithRelationInput[]
+  cursor?: Prisma.NotificationPreferenceWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NotificationPreferenceScalarFieldEnum | Prisma.NotificationPreferenceScalarFieldEnum[]
 }
 
 /**

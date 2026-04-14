@@ -18,6 +18,12 @@ enum ContributionChannel {
   manual
 }
 
+enum PaymentAllocationPreference {
+  manual_split
+  savings_first
+  loan_first
+}
+
 enum ChargeKind {
   fixed
   percentage

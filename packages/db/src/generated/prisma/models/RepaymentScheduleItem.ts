@@ -291,6 +291,7 @@ export type RepaymentScheduleItemWhereInput = {
   tenant?: Prisma.XOR<Prisma.TenantScalarRelationFilter, Prisma.TenantWhereInput>
   loan?: Prisma.XOR<Prisma.LoanScalarRelationFilter, Prisma.LoanWhereInput>
   repayments?: Prisma.RepaymentListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
 }
 
 export type RepaymentScheduleItemOrderByWithRelationInput = {
@@ -309,6 +310,7 @@ export type RepaymentScheduleItemOrderByWithRelationInput = {
   tenant?: Prisma.TenantOrderByWithRelationInput
   loan?: Prisma.LoanOrderByWithRelationInput
   repayments?: Prisma.RepaymentOrderByRelationAggregateInput
+  collectionFollowUps?: Prisma.CollectionFollowUpOrderByRelationAggregateInput
 }
 
 export type RepaymentScheduleItemWhereUniqueInput = Prisma.AtLeast<{
@@ -331,6 +333,7 @@ export type RepaymentScheduleItemWhereUniqueInput = Prisma.AtLeast<{
   tenant?: Prisma.XOR<Prisma.TenantScalarRelationFilter, Prisma.TenantWhereInput>
   loan?: Prisma.XOR<Prisma.LoanScalarRelationFilter, Prisma.LoanWhereInput>
   repayments?: Prisma.RepaymentListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
 }, "id" | "loanId_installmentNumber">
 
 export type RepaymentScheduleItemOrderByWithAggregationInput = {
@@ -385,6 +388,7 @@ export type RepaymentScheduleItemCreateInput = {
   tenant: Prisma.TenantCreateNestedOneWithoutRepaymentSchedulesInput
   loan: Prisma.LoanCreateNestedOneWithoutRepaymentScheduleItemsInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutRepaymentScheduleItemInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutRepaymentScheduleItemInput
 }
 
 export type RepaymentScheduleItemUncheckedCreateInput = {
@@ -401,6 +405,7 @@ export type RepaymentScheduleItemUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutRepaymentScheduleItemInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutRepaymentScheduleItemInput
 }
 
 export type RepaymentScheduleItemUpdateInput = {
@@ -417,6 +422,7 @@ export type RepaymentScheduleItemUpdateInput = {
   tenant?: Prisma.TenantUpdateOneRequiredWithoutRepaymentSchedulesNestedInput
   loan?: Prisma.LoanUpdateOneRequiredWithoutRepaymentScheduleItemsNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutRepaymentScheduleItemNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutRepaymentScheduleItemNestedInput
 }
 
 export type RepaymentScheduleItemUncheckedUpdateInput = {
@@ -433,6 +439,7 @@ export type RepaymentScheduleItemUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutRepaymentScheduleItemNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutRepaymentScheduleItemNestedInput
 }
 
 export type RepaymentScheduleItemCreateManyInput = {
@@ -554,6 +561,11 @@ export type RepaymentScheduleItemSumOrderByAggregateInput = {
   amountPaid?: Prisma.SortOrder
 }
 
+export type RepaymentScheduleItemScalarRelationFilter = {
+  is?: Prisma.RepaymentScheduleItemWhereInput
+  isNot?: Prisma.RepaymentScheduleItemWhereInput
+}
+
 export type RepaymentScheduleItemNullableScalarRelationFilter = {
   is?: Prisma.RepaymentScheduleItemWhereInput | null
   isNot?: Prisma.RepaymentScheduleItemWhereInput | null
@@ -603,6 +615,20 @@ export type RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput = {
 
 export type EnumRepaymentScheduleStatusFieldUpdateOperationsInput = {
   set?: $Enums.RepaymentScheduleStatus
+}
+
+export type RepaymentScheduleItemCreateNestedOneWithoutCollectionFollowUpsInput = {
+  create?: Prisma.XOR<Prisma.RepaymentScheduleItemCreateWithoutCollectionFollowUpsInput, Prisma.RepaymentScheduleItemUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.RepaymentScheduleItemCreateOrConnectWithoutCollectionFollowUpsInput
+  connect?: Prisma.RepaymentScheduleItemWhereUniqueInput
+}
+
+export type RepaymentScheduleItemUpdateOneRequiredWithoutCollectionFollowUpsNestedInput = {
+  create?: Prisma.XOR<Prisma.RepaymentScheduleItemCreateWithoutCollectionFollowUpsInput, Prisma.RepaymentScheduleItemUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.RepaymentScheduleItemCreateOrConnectWithoutCollectionFollowUpsInput
+  upsert?: Prisma.RepaymentScheduleItemUpsertWithoutCollectionFollowUpsInput
+  connect?: Prisma.RepaymentScheduleItemWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.RepaymentScheduleItemUpdateToOneWithWhereWithoutCollectionFollowUpsInput, Prisma.RepaymentScheduleItemUpdateWithoutCollectionFollowUpsInput>, Prisma.RepaymentScheduleItemUncheckedUpdateWithoutCollectionFollowUpsInput>
 }
 
 export type RepaymentScheduleItemCreateNestedOneWithoutRepaymentsInput = {
@@ -676,6 +702,7 @@ export type RepaymentScheduleItemCreateWithoutLoanInput = {
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutRepaymentSchedulesInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutRepaymentScheduleItemInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutRepaymentScheduleItemInput
 }
 
 export type RepaymentScheduleItemUncheckedCreateWithoutLoanInput = {
@@ -691,6 +718,7 @@ export type RepaymentScheduleItemUncheckedCreateWithoutLoanInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutRepaymentScheduleItemInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutRepaymentScheduleItemInput
 }
 
 export type RepaymentScheduleItemCreateOrConnectWithoutLoanInput = {
@@ -737,6 +765,86 @@ export type RepaymentScheduleItemScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"RepaymentScheduleItem"> | Date | string
 }
 
+export type RepaymentScheduleItemCreateWithoutCollectionFollowUpsInput = {
+  id?: string
+  installmentNumber: number
+  dueAt: Date | string
+  principalDue: runtime.Decimal | runtime.DecimalJsLike | number | string
+  chargeDue?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  totalDue: runtime.Decimal | runtime.DecimalJsLike | number | string
+  amountPaid?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: $Enums.RepaymentScheduleStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  tenant: Prisma.TenantCreateNestedOneWithoutRepaymentSchedulesInput
+  loan: Prisma.LoanCreateNestedOneWithoutRepaymentScheduleItemsInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutRepaymentScheduleItemInput
+}
+
+export type RepaymentScheduleItemUncheckedCreateWithoutCollectionFollowUpsInput = {
+  id?: string
+  tenantId: string
+  loanId: string
+  installmentNumber: number
+  dueAt: Date | string
+  principalDue: runtime.Decimal | runtime.DecimalJsLike | number | string
+  chargeDue?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  totalDue: runtime.Decimal | runtime.DecimalJsLike | number | string
+  amountPaid?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: $Enums.RepaymentScheduleStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutRepaymentScheduleItemInput
+}
+
+export type RepaymentScheduleItemCreateOrConnectWithoutCollectionFollowUpsInput = {
+  where: Prisma.RepaymentScheduleItemWhereUniqueInput
+  create: Prisma.XOR<Prisma.RepaymentScheduleItemCreateWithoutCollectionFollowUpsInput, Prisma.RepaymentScheduleItemUncheckedCreateWithoutCollectionFollowUpsInput>
+}
+
+export type RepaymentScheduleItemUpsertWithoutCollectionFollowUpsInput = {
+  update: Prisma.XOR<Prisma.RepaymentScheduleItemUpdateWithoutCollectionFollowUpsInput, Prisma.RepaymentScheduleItemUncheckedUpdateWithoutCollectionFollowUpsInput>
+  create: Prisma.XOR<Prisma.RepaymentScheduleItemCreateWithoutCollectionFollowUpsInput, Prisma.RepaymentScheduleItemUncheckedCreateWithoutCollectionFollowUpsInput>
+  where?: Prisma.RepaymentScheduleItemWhereInput
+}
+
+export type RepaymentScheduleItemUpdateToOneWithWhereWithoutCollectionFollowUpsInput = {
+  where?: Prisma.RepaymentScheduleItemWhereInput
+  data: Prisma.XOR<Prisma.RepaymentScheduleItemUpdateWithoutCollectionFollowUpsInput, Prisma.RepaymentScheduleItemUncheckedUpdateWithoutCollectionFollowUpsInput>
+}
+
+export type RepaymentScheduleItemUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  installmentNumber?: Prisma.IntFieldUpdateOperationsInput | number
+  dueAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  principalDue?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  chargeDue?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  totalDue?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  amountPaid?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: Prisma.EnumRepaymentScheduleStatusFieldUpdateOperationsInput | $Enums.RepaymentScheduleStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  tenant?: Prisma.TenantUpdateOneRequiredWithoutRepaymentSchedulesNestedInput
+  loan?: Prisma.LoanUpdateOneRequiredWithoutRepaymentScheduleItemsNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutRepaymentScheduleItemNestedInput
+}
+
+export type RepaymentScheduleItemUncheckedUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  tenantId?: Prisma.StringFieldUpdateOperationsInput | string
+  loanId?: Prisma.StringFieldUpdateOperationsInput | string
+  installmentNumber?: Prisma.IntFieldUpdateOperationsInput | number
+  dueAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  principalDue?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  chargeDue?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  totalDue?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  amountPaid?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: Prisma.EnumRepaymentScheduleStatusFieldUpdateOperationsInput | $Enums.RepaymentScheduleStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutRepaymentScheduleItemNestedInput
+}
+
 export type RepaymentScheduleItemCreateWithoutRepaymentsInput = {
   id?: string
   installmentNumber: number
@@ -750,6 +858,7 @@ export type RepaymentScheduleItemCreateWithoutRepaymentsInput = {
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutRepaymentSchedulesInput
   loan: Prisma.LoanCreateNestedOneWithoutRepaymentScheduleItemsInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutRepaymentScheduleItemInput
 }
 
 export type RepaymentScheduleItemUncheckedCreateWithoutRepaymentsInput = {
@@ -765,6 +874,7 @@ export type RepaymentScheduleItemUncheckedCreateWithoutRepaymentsInput = {
   status?: $Enums.RepaymentScheduleStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutRepaymentScheduleItemInput
 }
 
 export type RepaymentScheduleItemCreateOrConnectWithoutRepaymentsInput = {
@@ -796,6 +906,7 @@ export type RepaymentScheduleItemUpdateWithoutRepaymentsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutRepaymentSchedulesNestedInput
   loan?: Prisma.LoanUpdateOneRequiredWithoutRepaymentScheduleItemsNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutRepaymentScheduleItemNestedInput
 }
 
 export type RepaymentScheduleItemUncheckedUpdateWithoutRepaymentsInput = {
@@ -811,6 +922,7 @@ export type RepaymentScheduleItemUncheckedUpdateWithoutRepaymentsInput = {
   status?: Prisma.EnumRepaymentScheduleStatusFieldUpdateOperationsInput | $Enums.RepaymentScheduleStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutRepaymentScheduleItemNestedInput
 }
 
 export type RepaymentScheduleItemCreateWithoutTenantInput = {
@@ -826,6 +938,7 @@ export type RepaymentScheduleItemCreateWithoutTenantInput = {
   updatedAt?: Date | string
   loan: Prisma.LoanCreateNestedOneWithoutRepaymentScheduleItemsInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutRepaymentScheduleItemInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutRepaymentScheduleItemInput
 }
 
 export type RepaymentScheduleItemUncheckedCreateWithoutTenantInput = {
@@ -841,6 +954,7 @@ export type RepaymentScheduleItemUncheckedCreateWithoutTenantInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutRepaymentScheduleItemInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutRepaymentScheduleItemInput
 }
 
 export type RepaymentScheduleItemCreateOrConnectWithoutTenantInput = {
@@ -896,6 +1010,7 @@ export type RepaymentScheduleItemUpdateWithoutLoanInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutRepaymentSchedulesNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutRepaymentScheduleItemNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutRepaymentScheduleItemNestedInput
 }
 
 export type RepaymentScheduleItemUncheckedUpdateWithoutLoanInput = {
@@ -911,6 +1026,7 @@ export type RepaymentScheduleItemUncheckedUpdateWithoutLoanInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutRepaymentScheduleItemNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutRepaymentScheduleItemNestedInput
 }
 
 export type RepaymentScheduleItemUncheckedUpdateManyWithoutLoanInput = {
@@ -954,6 +1070,7 @@ export type RepaymentScheduleItemUpdateWithoutTenantInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   loan?: Prisma.LoanUpdateOneRequiredWithoutRepaymentScheduleItemsNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutRepaymentScheduleItemNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutRepaymentScheduleItemNestedInput
 }
 
 export type RepaymentScheduleItemUncheckedUpdateWithoutTenantInput = {
@@ -969,6 +1086,7 @@ export type RepaymentScheduleItemUncheckedUpdateWithoutTenantInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutRepaymentScheduleItemNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutRepaymentScheduleItemNestedInput
 }
 
 export type RepaymentScheduleItemUncheckedUpdateManyWithoutTenantInput = {
@@ -992,10 +1110,12 @@ export type RepaymentScheduleItemUncheckedUpdateManyWithoutTenantInput = {
 
 export type RepaymentScheduleItemCountOutputType = {
   repayments: number
+  collectionFollowUps: number
 }
 
 export type RepaymentScheduleItemCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   repayments?: boolean | RepaymentScheduleItemCountOutputTypeCountRepaymentsArgs
+  collectionFollowUps?: boolean | RepaymentScheduleItemCountOutputTypeCountCollectionFollowUpsArgs
 }
 
 /**
@@ -1015,6 +1135,13 @@ export type RepaymentScheduleItemCountOutputTypeCountRepaymentsArgs<ExtArgs exte
   where?: Prisma.RepaymentWhereInput
 }
 
+/**
+ * RepaymentScheduleItemCountOutputType without action
+ */
+export type RepaymentScheduleItemCountOutputTypeCountCollectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CollectionFollowUpWhereInput
+}
+
 
 export type RepaymentScheduleItemSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1032,6 +1159,7 @@ export type RepaymentScheduleItemSelect<ExtArgs extends runtime.Types.Extensions
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
   loan?: boolean | Prisma.LoanDefaultArgs<ExtArgs>
   repayments?: boolean | Prisma.RepaymentScheduleItem$repaymentsArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.RepaymentScheduleItem$collectionFollowUpsArgs<ExtArgs>
   _count?: boolean | Prisma.RepaymentScheduleItemCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["repaymentScheduleItem"]>
 
@@ -1089,6 +1217,7 @@ export type RepaymentScheduleItemInclude<ExtArgs extends runtime.Types.Extension
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
   loan?: boolean | Prisma.LoanDefaultArgs<ExtArgs>
   repayments?: boolean | Prisma.RepaymentScheduleItem$repaymentsArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.RepaymentScheduleItem$collectionFollowUpsArgs<ExtArgs>
   _count?: boolean | Prisma.RepaymentScheduleItemCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type RepaymentScheduleItemIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1106,6 +1235,7 @@ export type $RepaymentScheduleItemPayload<ExtArgs extends runtime.Types.Extensio
     tenant: Prisma.$TenantPayload<ExtArgs>
     loan: Prisma.$LoanPayload<ExtArgs>
     repayments: Prisma.$RepaymentPayload<ExtArgs>[]
+    collectionFollowUps: Prisma.$CollectionFollowUpPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1517,6 +1647,7 @@ export interface Prisma__RepaymentScheduleItemClient<T, Null = never, ExtArgs ex
   tenant<T extends Prisma.TenantDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TenantDefaultArgs<ExtArgs>>): Prisma.Prisma__TenantClient<runtime.Types.Result.GetResult<Prisma.$TenantPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   loan<T extends Prisma.LoanDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoanDefaultArgs<ExtArgs>>): Prisma.Prisma__LoanClient<runtime.Types.Result.GetResult<Prisma.$LoanPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   repayments<T extends Prisma.RepaymentScheduleItem$repaymentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RepaymentScheduleItem$repaymentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  collectionFollowUps<T extends Prisma.RepaymentScheduleItem$collectionFollowUpsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RepaymentScheduleItem$collectionFollowUpsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CollectionFollowUpPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1980,6 +2111,30 @@ export type RepaymentScheduleItem$repaymentsArgs<ExtArgs extends runtime.Types.E
   take?: number
   skip?: number
   distinct?: Prisma.RepaymentScalarFieldEnum | Prisma.RepaymentScalarFieldEnum[]
+}
+
+/**
+ * RepaymentScheduleItem.collectionFollowUps
+ */
+export type RepaymentScheduleItem$collectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CollectionFollowUp
+   */
+  select?: Prisma.CollectionFollowUpSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CollectionFollowUp
+   */
+  omit?: Prisma.CollectionFollowUpOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CollectionFollowUpInclude<ExtArgs> | null
+  where?: Prisma.CollectionFollowUpWhereInput
+  orderBy?: Prisma.CollectionFollowUpOrderByWithRelationInput | Prisma.CollectionFollowUpOrderByWithRelationInput[]
+  cursor?: Prisma.CollectionFollowUpWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CollectionFollowUpScalarFieldEnum | Prisma.CollectionFollowUpScalarFieldEnum[]
 }
 
 /**

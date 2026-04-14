@@ -28,11 +28,17 @@ export type AggregateLoan = {
 
 export type LoanAvgAggregateOutputType = {
   principalAmount: runtime.Decimal | null
+  termMonths: number | null
+  estimatedMonthlyServicing: runtime.Decimal | null
+  extraMonthlySavingsAmount: runtime.Decimal | null
   outstandingPrincipal: runtime.Decimal | null
 }
 
 export type LoanSumAggregateOutputType = {
   principalAmount: runtime.Decimal | null
+  termMonths: number | null
+  estimatedMonthlyServicing: runtime.Decimal | null
+  extraMonthlySavingsAmount: runtime.Decimal | null
   outstandingPrincipal: runtime.Decimal | null
 }
 
@@ -43,6 +49,9 @@ export type LoanMinAggregateOutputType = {
   loanRequestId: string | null
   loanProductId: string | null
   principalAmount: runtime.Decimal | null
+  termMonths: number | null
+  estimatedMonthlyServicing: runtime.Decimal | null
+  extraMonthlySavingsAmount: runtime.Decimal | null
   outstandingPrincipal: runtime.Decimal | null
   disbursedAt: Date | null
   firstRepaymentDueAt: Date | null
@@ -59,6 +68,9 @@ export type LoanMaxAggregateOutputType = {
   loanRequestId: string | null
   loanProductId: string | null
   principalAmount: runtime.Decimal | null
+  termMonths: number | null
+  estimatedMonthlyServicing: runtime.Decimal | null
+  extraMonthlySavingsAmount: runtime.Decimal | null
   outstandingPrincipal: runtime.Decimal | null
   disbursedAt: Date | null
   firstRepaymentDueAt: Date | null
@@ -75,6 +87,9 @@ export type LoanCountAggregateOutputType = {
   loanRequestId: number
   loanProductId: number
   principalAmount: number
+  termMonths: number
+  estimatedMonthlyServicing: number
+  extraMonthlySavingsAmount: number
   outstandingPrincipal: number
   disbursedAt: number
   firstRepaymentDueAt: number
@@ -88,11 +103,17 @@ export type LoanCountAggregateOutputType = {
 
 export type LoanAvgAggregateInputType = {
   principalAmount?: true
+  termMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   outstandingPrincipal?: true
 }
 
 export type LoanSumAggregateInputType = {
   principalAmount?: true
+  termMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   outstandingPrincipal?: true
 }
 
@@ -103,6 +124,9 @@ export type LoanMinAggregateInputType = {
   loanRequestId?: true
   loanProductId?: true
   principalAmount?: true
+  termMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   outstandingPrincipal?: true
   disbursedAt?: true
   firstRepaymentDueAt?: true
@@ -119,6 +143,9 @@ export type LoanMaxAggregateInputType = {
   loanRequestId?: true
   loanProductId?: true
   principalAmount?: true
+  termMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   outstandingPrincipal?: true
   disbursedAt?: true
   firstRepaymentDueAt?: true
@@ -135,6 +162,9 @@ export type LoanCountAggregateInputType = {
   loanRequestId?: true
   loanProductId?: true
   principalAmount?: true
+  termMonths?: true
+  estimatedMonthlyServicing?: true
+  extraMonthlySavingsAmount?: true
   outstandingPrincipal?: true
   disbursedAt?: true
   firstRepaymentDueAt?: true
@@ -238,6 +268,9 @@ export type LoanGroupByOutputType = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal
+  extraMonthlySavingsAmount: runtime.Decimal
   outstandingPrincipal: runtime.Decimal
   disbursedAt: Date | null
   firstRepaymentDueAt: Date | null
@@ -277,6 +310,9 @@ export type LoanWhereInput = {
   loanRequestId?: Prisma.UuidFilter<"Loan"> | string
   loanProductId?: Prisma.UuidFilter<"Loan"> | string
   principalAmount?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFilter<"Loan"> | number
+  estimatedMonthlyServicing?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.DateTimeNullableFilter<"Loan"> | Date | string | null
   firstRepaymentDueAt?: Prisma.DateTimeNullableFilter<"Loan"> | Date | string | null
@@ -291,6 +327,7 @@ export type LoanWhereInput = {
   charges?: Prisma.ChargeApplicationListRelationFilter
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemListRelationFilter
   repayments?: Prisma.RepaymentListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
   ledgerTransactions?: Prisma.LedgerTransactionListRelationFilter
 }
 
@@ -301,6 +338,9 @@ export type LoanOrderByWithRelationInput = {
   loanRequestId?: Prisma.SortOrder
   loanProductId?: Prisma.SortOrder
   principalAmount?: Prisma.SortOrder
+  termMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   outstandingPrincipal?: Prisma.SortOrder
   disbursedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   firstRepaymentDueAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -315,6 +355,7 @@ export type LoanOrderByWithRelationInput = {
   charges?: Prisma.ChargeApplicationOrderByRelationAggregateInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemOrderByRelationAggregateInput
   repayments?: Prisma.RepaymentOrderByRelationAggregateInput
+  collectionFollowUps?: Prisma.CollectionFollowUpOrderByRelationAggregateInput
   ledgerTransactions?: Prisma.LedgerTransactionOrderByRelationAggregateInput
 }
 
@@ -328,6 +369,9 @@ export type LoanWhereUniqueInput = Prisma.AtLeast<{
   memberId?: Prisma.UuidFilter<"Loan"> | string
   loanProductId?: Prisma.UuidFilter<"Loan"> | string
   principalAmount?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFilter<"Loan"> | number
+  estimatedMonthlyServicing?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.DateTimeNullableFilter<"Loan"> | Date | string | null
   firstRepaymentDueAt?: Prisma.DateTimeNullableFilter<"Loan"> | Date | string | null
@@ -342,6 +386,7 @@ export type LoanWhereUniqueInput = Prisma.AtLeast<{
   charges?: Prisma.ChargeApplicationListRelationFilter
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemListRelationFilter
   repayments?: Prisma.RepaymentListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
   ledgerTransactions?: Prisma.LedgerTransactionListRelationFilter
 }, "id" | "loanRequestId">
 
@@ -352,6 +397,9 @@ export type LoanOrderByWithAggregationInput = {
   loanRequestId?: Prisma.SortOrder
   loanProductId?: Prisma.SortOrder
   principalAmount?: Prisma.SortOrder
+  termMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   outstandingPrincipal?: Prisma.SortOrder
   disbursedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   firstRepaymentDueAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -376,6 +424,9 @@ export type LoanScalarWhereWithAggregatesInput = {
   loanRequestId?: Prisma.UuidWithAggregatesFilter<"Loan"> | string
   loanProductId?: Prisma.UuidWithAggregatesFilter<"Loan"> | string
   principalAmount?: Prisma.DecimalWithAggregatesFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntWithAggregatesFilter<"Loan"> | number
+  estimatedMonthlyServicing?: Prisma.DecimalWithAggregatesFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalWithAggregatesFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalWithAggregatesFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Loan"> | Date | string | null
   firstRepaymentDueAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Loan"> | Date | string | null
@@ -388,6 +439,9 @@ export type LoanScalarWhereWithAggregatesInput = {
 export type LoanCreateInput = {
   id?: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -402,6 +456,7 @@ export type LoanCreateInput = {
   charges?: Prisma.ChargeApplicationCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutLoanInput
 }
 
@@ -412,6 +467,9 @@ export type LoanUncheckedCreateInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -422,12 +480,16 @@ export type LoanUncheckedCreateInput = {
   charges?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutLoanInput
 }
 
 export type LoanUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -442,6 +504,7 @@ export type LoanUpdateInput = {
   charges?: Prisma.ChargeApplicationUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutLoanNestedInput
 }
 
@@ -452,6 +515,9 @@ export type LoanUncheckedUpdateInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -462,6 +528,7 @@ export type LoanUncheckedUpdateInput = {
   charges?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutLoanNestedInput
 }
 
@@ -472,6 +539,9 @@ export type LoanCreateManyInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -484,6 +554,9 @@ export type LoanCreateManyInput = {
 export type LoanUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -500,6 +573,9 @@ export type LoanUncheckedUpdateManyInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -531,6 +607,9 @@ export type LoanCountOrderByAggregateInput = {
   loanRequestId?: Prisma.SortOrder
   loanProductId?: Prisma.SortOrder
   principalAmount?: Prisma.SortOrder
+  termMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   outstandingPrincipal?: Prisma.SortOrder
   disbursedAt?: Prisma.SortOrder
   firstRepaymentDueAt?: Prisma.SortOrder
@@ -542,6 +621,9 @@ export type LoanCountOrderByAggregateInput = {
 
 export type LoanAvgOrderByAggregateInput = {
   principalAmount?: Prisma.SortOrder
+  termMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   outstandingPrincipal?: Prisma.SortOrder
 }
 
@@ -552,6 +634,9 @@ export type LoanMaxOrderByAggregateInput = {
   loanRequestId?: Prisma.SortOrder
   loanProductId?: Prisma.SortOrder
   principalAmount?: Prisma.SortOrder
+  termMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   outstandingPrincipal?: Prisma.SortOrder
   disbursedAt?: Prisma.SortOrder
   firstRepaymentDueAt?: Prisma.SortOrder
@@ -568,6 +653,9 @@ export type LoanMinOrderByAggregateInput = {
   loanRequestId?: Prisma.SortOrder
   loanProductId?: Prisma.SortOrder
   principalAmount?: Prisma.SortOrder
+  termMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   outstandingPrincipal?: Prisma.SortOrder
   disbursedAt?: Prisma.SortOrder
   firstRepaymentDueAt?: Prisma.SortOrder
@@ -579,6 +667,9 @@ export type LoanMinOrderByAggregateInput = {
 
 export type LoanSumOrderByAggregateInput = {
   principalAmount?: Prisma.SortOrder
+  termMonths?: Prisma.SortOrder
+  estimatedMonthlyServicing?: Prisma.SortOrder
+  extraMonthlySavingsAmount?: Prisma.SortOrder
   outstandingPrincipal?: Prisma.SortOrder
 }
 
@@ -711,6 +802,20 @@ export type LoanUpdateOneRequiredWithoutRepaymentScheduleItemsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.LoanUpdateToOneWithWhereWithoutRepaymentScheduleItemsInput, Prisma.LoanUpdateWithoutRepaymentScheduleItemsInput>, Prisma.LoanUncheckedUpdateWithoutRepaymentScheduleItemsInput>
 }
 
+export type LoanCreateNestedOneWithoutCollectionFollowUpsInput = {
+  create?: Prisma.XOR<Prisma.LoanCreateWithoutCollectionFollowUpsInput, Prisma.LoanUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.LoanCreateOrConnectWithoutCollectionFollowUpsInput
+  connect?: Prisma.LoanWhereUniqueInput
+}
+
+export type LoanUpdateOneRequiredWithoutCollectionFollowUpsNestedInput = {
+  create?: Prisma.XOR<Prisma.LoanCreateWithoutCollectionFollowUpsInput, Prisma.LoanUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.LoanCreateOrConnectWithoutCollectionFollowUpsInput
+  upsert?: Prisma.LoanUpsertWithoutCollectionFollowUpsInput
+  connect?: Prisma.LoanWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.LoanUpdateToOneWithWhereWithoutCollectionFollowUpsInput, Prisma.LoanUpdateWithoutCollectionFollowUpsInput>, Prisma.LoanUncheckedUpdateWithoutCollectionFollowUpsInput>
+}
+
 export type LoanCreateNestedOneWithoutRepaymentsInput = {
   create?: Prisma.XOR<Prisma.LoanCreateWithoutRepaymentsInput, Prisma.LoanUncheckedCreateWithoutRepaymentsInput>
   connectOrCreate?: Prisma.LoanCreateOrConnectWithoutRepaymentsInput
@@ -812,6 +917,9 @@ export type LoanUncheckedUpdateManyWithoutTenantNestedInput = {
 export type LoanCreateWithoutChargesInput = {
   id?: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -825,6 +933,7 @@ export type LoanCreateWithoutChargesInput = {
   loanProduct: Prisma.LoanProductCreateNestedOneWithoutLoansInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutLoanInput
 }
 
@@ -835,6 +944,9 @@ export type LoanUncheckedCreateWithoutChargesInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -844,6 +956,7 @@ export type LoanUncheckedCreateWithoutChargesInput = {
   updatedAt?: Date | string
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutLoanInput
 }
 
@@ -866,6 +979,9 @@ export type LoanUpdateToOneWithWhereWithoutChargesInput = {
 export type LoanUpdateWithoutChargesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -879,6 +995,7 @@ export type LoanUpdateWithoutChargesInput = {
   loanProduct?: Prisma.LoanProductUpdateOneRequiredWithoutLoansNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutLoanNestedInput
 }
 
@@ -889,6 +1006,9 @@ export type LoanUncheckedUpdateWithoutChargesInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -898,12 +1018,16 @@ export type LoanUncheckedUpdateWithoutChargesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutLoanNestedInput
 }
 
 export type LoanCreateWithoutLedgerTransactionsInput = {
   id?: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -918,6 +1042,7 @@ export type LoanCreateWithoutLedgerTransactionsInput = {
   charges?: Prisma.ChargeApplicationCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutLoanInput
 }
 
 export type LoanUncheckedCreateWithoutLedgerTransactionsInput = {
@@ -927,6 +1052,9 @@ export type LoanUncheckedCreateWithoutLedgerTransactionsInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -937,6 +1065,7 @@ export type LoanUncheckedCreateWithoutLedgerTransactionsInput = {
   charges?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutLoanInput
 }
 
 export type LoanCreateOrConnectWithoutLedgerTransactionsInput = {
@@ -958,6 +1087,9 @@ export type LoanUpdateToOneWithWhereWithoutLedgerTransactionsInput = {
 export type LoanUpdateWithoutLedgerTransactionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -972,6 +1104,7 @@ export type LoanUpdateWithoutLedgerTransactionsInput = {
   charges?: Prisma.ChargeApplicationUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutLoanNestedInput
 }
 
 export type LoanUncheckedUpdateWithoutLedgerTransactionsInput = {
@@ -981,6 +1114,9 @@ export type LoanUncheckedUpdateWithoutLedgerTransactionsInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -991,11 +1127,15 @@ export type LoanUncheckedUpdateWithoutLedgerTransactionsInput = {
   charges?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutLoanNestedInput
 }
 
 export type LoanCreateWithoutLoanProductInput = {
   id?: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1009,6 +1149,7 @@ export type LoanCreateWithoutLoanProductInput = {
   charges?: Prisma.ChargeApplicationCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutLoanInput
 }
 
@@ -1018,6 +1159,9 @@ export type LoanUncheckedCreateWithoutLoanProductInput = {
   memberId: string
   loanRequestId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1028,6 +1172,7 @@ export type LoanUncheckedCreateWithoutLoanProductInput = {
   charges?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutLoanInput
 }
 
@@ -1067,6 +1212,9 @@ export type LoanScalarWhereInput = {
   loanRequestId?: Prisma.UuidFilter<"Loan"> | string
   loanProductId?: Prisma.UuidFilter<"Loan"> | string
   principalAmount?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFilter<"Loan"> | number
+  estimatedMonthlyServicing?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFilter<"Loan"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.DateTimeNullableFilter<"Loan"> | Date | string | null
   firstRepaymentDueAt?: Prisma.DateTimeNullableFilter<"Loan"> | Date | string | null
@@ -1079,6 +1227,9 @@ export type LoanScalarWhereInput = {
 export type LoanCreateWithoutLoanRequestInput = {
   id?: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1092,6 +1243,7 @@ export type LoanCreateWithoutLoanRequestInput = {
   charges?: Prisma.ChargeApplicationCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutLoanInput
 }
 
@@ -1101,6 +1253,9 @@ export type LoanUncheckedCreateWithoutLoanRequestInput = {
   memberId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1111,6 +1266,7 @@ export type LoanUncheckedCreateWithoutLoanRequestInput = {
   charges?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutLoanInput
 }
 
@@ -1133,6 +1289,9 @@ export type LoanUpdateToOneWithWhereWithoutLoanRequestInput = {
 export type LoanUpdateWithoutLoanRequestInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1146,6 +1305,7 @@ export type LoanUpdateWithoutLoanRequestInput = {
   charges?: Prisma.ChargeApplicationUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutLoanNestedInput
 }
 
@@ -1155,6 +1315,9 @@ export type LoanUncheckedUpdateWithoutLoanRequestInput = {
   memberId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1165,12 +1328,16 @@ export type LoanUncheckedUpdateWithoutLoanRequestInput = {
   charges?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutLoanNestedInput
 }
 
 export type LoanCreateWithoutRepaymentScheduleItemsInput = {
   id?: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1184,6 +1351,7 @@ export type LoanCreateWithoutRepaymentScheduleItemsInput = {
   loanProduct: Prisma.LoanProductCreateNestedOneWithoutLoansInput
   charges?: Prisma.ChargeApplicationCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutLoanInput
 }
 
@@ -1194,6 +1362,9 @@ export type LoanUncheckedCreateWithoutRepaymentScheduleItemsInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1203,6 +1374,7 @@ export type LoanUncheckedCreateWithoutRepaymentScheduleItemsInput = {
   updatedAt?: Date | string
   charges?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutLoanInput
 }
 
@@ -1225,6 +1397,9 @@ export type LoanUpdateToOneWithWhereWithoutRepaymentScheduleItemsInput = {
 export type LoanUpdateWithoutRepaymentScheduleItemsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1238,6 +1413,7 @@ export type LoanUpdateWithoutRepaymentScheduleItemsInput = {
   loanProduct?: Prisma.LoanProductUpdateOneRequiredWithoutLoansNestedInput
   charges?: Prisma.ChargeApplicationUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutLoanNestedInput
 }
 
@@ -1248,6 +1424,9 @@ export type LoanUncheckedUpdateWithoutRepaymentScheduleItemsInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1257,12 +1436,16 @@ export type LoanUncheckedUpdateWithoutRepaymentScheduleItemsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   charges?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutLoanNestedInput
 }
 
-export type LoanCreateWithoutRepaymentsInput = {
+export type LoanCreateWithoutCollectionFollowUpsInput = {
   id?: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1276,6 +1459,115 @@ export type LoanCreateWithoutRepaymentsInput = {
   loanProduct: Prisma.LoanProductCreateNestedOneWithoutLoansInput
   charges?: Prisma.ChargeApplicationCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutLoanInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutLoanInput
+  ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutLoanInput
+}
+
+export type LoanUncheckedCreateWithoutCollectionFollowUpsInput = {
+  id?: string
+  tenantId: string
+  memberId: string
+  loanRequestId: string
+  loanProductId: string
+  principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
+  disbursedAt?: Date | string | null
+  firstRepaymentDueAt?: Date | string | null
+  closedAt?: Date | string | null
+  status?: $Enums.LoanStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  charges?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutLoanInput
+  repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutLoanInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutLoanInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutLoanInput
+}
+
+export type LoanCreateOrConnectWithoutCollectionFollowUpsInput = {
+  where: Prisma.LoanWhereUniqueInput
+  create: Prisma.XOR<Prisma.LoanCreateWithoutCollectionFollowUpsInput, Prisma.LoanUncheckedCreateWithoutCollectionFollowUpsInput>
+}
+
+export type LoanUpsertWithoutCollectionFollowUpsInput = {
+  update: Prisma.XOR<Prisma.LoanUpdateWithoutCollectionFollowUpsInput, Prisma.LoanUncheckedUpdateWithoutCollectionFollowUpsInput>
+  create: Prisma.XOR<Prisma.LoanCreateWithoutCollectionFollowUpsInput, Prisma.LoanUncheckedCreateWithoutCollectionFollowUpsInput>
+  where?: Prisma.LoanWhereInput
+}
+
+export type LoanUpdateToOneWithWhereWithoutCollectionFollowUpsInput = {
+  where?: Prisma.LoanWhereInput
+  data: Prisma.XOR<Prisma.LoanUpdateWithoutCollectionFollowUpsInput, Prisma.LoanUncheckedUpdateWithoutCollectionFollowUpsInput>
+}
+
+export type LoanUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.EnumLoanStatusFieldUpdateOperationsInput | $Enums.LoanStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  tenant?: Prisma.TenantUpdateOneRequiredWithoutLoansNestedInput
+  member?: Prisma.MemberUpdateOneRequiredWithoutLoansNestedInput
+  loanRequest?: Prisma.LoanRequestUpdateOneRequiredWithoutLoanNestedInput
+  loanProduct?: Prisma.LoanProductUpdateOneRequiredWithoutLoansNestedInput
+  charges?: Prisma.ChargeApplicationUpdateManyWithoutLoanNestedInput
+  repaymentScheduleItems?: Prisma.RepaymentScheduleItemUpdateManyWithoutLoanNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutLoanNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutLoanNestedInput
+}
+
+export type LoanUncheckedUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  tenantId?: Prisma.StringFieldUpdateOperationsInput | string
+  memberId?: Prisma.StringFieldUpdateOperationsInput | string
+  loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
+  loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
+  principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.EnumLoanStatusFieldUpdateOperationsInput | $Enums.LoanStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  charges?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutLoanNestedInput
+  repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutLoanNestedInput
+  ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutLoanNestedInput
+}
+
+export type LoanCreateWithoutRepaymentsInput = {
+  id?: string
+  principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
+  disbursedAt?: Date | string | null
+  firstRepaymentDueAt?: Date | string | null
+  closedAt?: Date | string | null
+  status?: $Enums.LoanStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  tenant: Prisma.TenantCreateNestedOneWithoutLoansInput
+  member: Prisma.MemberCreateNestedOneWithoutLoansInput
+  loanRequest: Prisma.LoanRequestCreateNestedOneWithoutLoanInput
+  loanProduct: Prisma.LoanProductCreateNestedOneWithoutLoansInput
+  charges?: Prisma.ChargeApplicationCreateNestedManyWithoutLoanInput
+  repaymentScheduleItems?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutLoanInput
 }
 
@@ -1286,6 +1578,9 @@ export type LoanUncheckedCreateWithoutRepaymentsInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1295,6 +1590,7 @@ export type LoanUncheckedCreateWithoutRepaymentsInput = {
   updatedAt?: Date | string
   charges?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutLoanInput
 }
 
@@ -1317,6 +1613,9 @@ export type LoanUpdateToOneWithWhereWithoutRepaymentsInput = {
 export type LoanUpdateWithoutRepaymentsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1330,6 +1629,7 @@ export type LoanUpdateWithoutRepaymentsInput = {
   loanProduct?: Prisma.LoanProductUpdateOneRequiredWithoutLoansNestedInput
   charges?: Prisma.ChargeApplicationUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutLoanNestedInput
 }
 
@@ -1340,6 +1640,9 @@ export type LoanUncheckedUpdateWithoutRepaymentsInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1349,12 +1652,16 @@ export type LoanUncheckedUpdateWithoutRepaymentsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   charges?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutLoanNestedInput
 }
 
 export type LoanCreateWithoutMemberInput = {
   id?: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1368,6 +1675,7 @@ export type LoanCreateWithoutMemberInput = {
   charges?: Prisma.ChargeApplicationCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutLoanInput
 }
 
@@ -1377,6 +1685,9 @@ export type LoanUncheckedCreateWithoutMemberInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1387,6 +1698,7 @@ export type LoanUncheckedCreateWithoutMemberInput = {
   charges?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutLoanInput
 }
 
@@ -1419,6 +1731,9 @@ export type LoanUpdateManyWithWhereWithoutMemberInput = {
 export type LoanCreateWithoutTenantInput = {
   id?: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1432,6 +1747,7 @@ export type LoanCreateWithoutTenantInput = {
   charges?: Prisma.ChargeApplicationCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionCreateNestedManyWithoutLoanInput
 }
 
@@ -1441,6 +1757,9 @@ export type LoanUncheckedCreateWithoutTenantInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1451,6 +1770,7 @@ export type LoanUncheckedCreateWithoutTenantInput = {
   charges?: Prisma.ChargeApplicationUncheckedCreateNestedManyWithoutLoanInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedCreateNestedManyWithoutLoanInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutLoanInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutLoanInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedCreateNestedManyWithoutLoanInput
 }
 
@@ -1486,6 +1806,9 @@ export type LoanCreateManyLoanProductInput = {
   memberId: string
   loanRequestId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1498,6 +1821,9 @@ export type LoanCreateManyLoanProductInput = {
 export type LoanUpdateWithoutLoanProductInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1511,6 +1837,7 @@ export type LoanUpdateWithoutLoanProductInput = {
   charges?: Prisma.ChargeApplicationUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutLoanNestedInput
 }
 
@@ -1520,6 +1847,9 @@ export type LoanUncheckedUpdateWithoutLoanProductInput = {
   memberId?: Prisma.StringFieldUpdateOperationsInput | string
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1530,6 +1860,7 @@ export type LoanUncheckedUpdateWithoutLoanProductInput = {
   charges?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutLoanNestedInput
 }
 
@@ -1539,6 +1870,9 @@ export type LoanUncheckedUpdateManyWithoutLoanProductInput = {
   memberId?: Prisma.StringFieldUpdateOperationsInput | string
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1554,6 +1888,9 @@ export type LoanCreateManyMemberInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1566,6 +1903,9 @@ export type LoanCreateManyMemberInput = {
 export type LoanUpdateWithoutMemberInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1579,6 +1919,7 @@ export type LoanUpdateWithoutMemberInput = {
   charges?: Prisma.ChargeApplicationUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutLoanNestedInput
 }
 
@@ -1588,6 +1929,9 @@ export type LoanUncheckedUpdateWithoutMemberInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1598,6 +1942,7 @@ export type LoanUncheckedUpdateWithoutMemberInput = {
   charges?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutLoanNestedInput
 }
 
@@ -1607,6 +1952,9 @@ export type LoanUncheckedUpdateManyWithoutMemberInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1622,6 +1970,9 @@ export type LoanCreateManyTenantInput = {
   loanRequestId: string
   loanProductId: string
   principalAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths: number
+  estimatedMonthlyServicing: runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal: runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Date | string | null
   firstRepaymentDueAt?: Date | string | null
@@ -1634,6 +1985,9 @@ export type LoanCreateManyTenantInput = {
 export type LoanUpdateWithoutTenantInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1647,6 +2001,7 @@ export type LoanUpdateWithoutTenantInput = {
   charges?: Prisma.ChargeApplicationUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUpdateManyWithoutLoanNestedInput
 }
 
@@ -1656,6 +2011,9 @@ export type LoanUncheckedUpdateWithoutTenantInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1666,6 +2024,7 @@ export type LoanUncheckedUpdateWithoutTenantInput = {
   charges?: Prisma.ChargeApplicationUncheckedUpdateManyWithoutLoanNestedInput
   repaymentScheduleItems?: Prisma.RepaymentScheduleItemUncheckedUpdateManyWithoutLoanNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutLoanNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutLoanNestedInput
   ledgerTransactions?: Prisma.LedgerTransactionUncheckedUpdateManyWithoutLoanNestedInput
 }
 
@@ -1675,6 +2034,9 @@ export type LoanUncheckedUpdateManyWithoutTenantInput = {
   loanRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   loanProductId?: Prisma.StringFieldUpdateOperationsInput | string
   principalAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  estimatedMonthlyServicing?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  extraMonthlySavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   outstandingPrincipal?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   disbursedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   firstRepaymentDueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1693,6 +2055,7 @@ export type LoanCountOutputType = {
   charges: number
   repaymentScheduleItems: number
   repayments: number
+  collectionFollowUps: number
   ledgerTransactions: number
 }
 
@@ -1700,6 +2063,7 @@ export type LoanCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   charges?: boolean | LoanCountOutputTypeCountChargesArgs
   repaymentScheduleItems?: boolean | LoanCountOutputTypeCountRepaymentScheduleItemsArgs
   repayments?: boolean | LoanCountOutputTypeCountRepaymentsArgs
+  collectionFollowUps?: boolean | LoanCountOutputTypeCountCollectionFollowUpsArgs
   ledgerTransactions?: boolean | LoanCountOutputTypeCountLedgerTransactionsArgs
 }
 
@@ -1737,6 +2101,13 @@ export type LoanCountOutputTypeCountRepaymentsArgs<ExtArgs extends runtime.Types
 /**
  * LoanCountOutputType without action
  */
+export type LoanCountOutputTypeCountCollectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CollectionFollowUpWhereInput
+}
+
+/**
+ * LoanCountOutputType without action
+ */
 export type LoanCountOutputTypeCountLedgerTransactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.LedgerTransactionWhereInput
 }
@@ -1749,6 +2120,9 @@ export type LoanSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   loanRequestId?: boolean
   loanProductId?: boolean
   principalAmount?: boolean
+  termMonths?: boolean
+  estimatedMonthlyServicing?: boolean
+  extraMonthlySavingsAmount?: boolean
   outstandingPrincipal?: boolean
   disbursedAt?: boolean
   firstRepaymentDueAt?: boolean
@@ -1763,6 +2137,7 @@ export type LoanSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   charges?: boolean | Prisma.Loan$chargesArgs<ExtArgs>
   repaymentScheduleItems?: boolean | Prisma.Loan$repaymentScheduleItemsArgs<ExtArgs>
   repayments?: boolean | Prisma.Loan$repaymentsArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.Loan$collectionFollowUpsArgs<ExtArgs>
   ledgerTransactions?: boolean | Prisma.Loan$ledgerTransactionsArgs<ExtArgs>
   _count?: boolean | Prisma.LoanCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["loan"]>
@@ -1774,6 +2149,9 @@ export type LoanSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   loanRequestId?: boolean
   loanProductId?: boolean
   principalAmount?: boolean
+  termMonths?: boolean
+  estimatedMonthlyServicing?: boolean
+  extraMonthlySavingsAmount?: boolean
   outstandingPrincipal?: boolean
   disbursedAt?: boolean
   firstRepaymentDueAt?: boolean
@@ -1794,6 +2172,9 @@ export type LoanSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   loanRequestId?: boolean
   loanProductId?: boolean
   principalAmount?: boolean
+  termMonths?: boolean
+  estimatedMonthlyServicing?: boolean
+  extraMonthlySavingsAmount?: boolean
   outstandingPrincipal?: boolean
   disbursedAt?: boolean
   firstRepaymentDueAt?: boolean
@@ -1814,6 +2195,9 @@ export type LoanSelectScalar = {
   loanRequestId?: boolean
   loanProductId?: boolean
   principalAmount?: boolean
+  termMonths?: boolean
+  estimatedMonthlyServicing?: boolean
+  extraMonthlySavingsAmount?: boolean
   outstandingPrincipal?: boolean
   disbursedAt?: boolean
   firstRepaymentDueAt?: boolean
@@ -1823,7 +2207,7 @@ export type LoanSelectScalar = {
   updatedAt?: boolean
 }
 
-export type LoanOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "memberId" | "loanRequestId" | "loanProductId" | "principalAmount" | "outstandingPrincipal" | "disbursedAt" | "firstRepaymentDueAt" | "closedAt" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["loan"]>
+export type LoanOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "memberId" | "loanRequestId" | "loanProductId" | "principalAmount" | "termMonths" | "estimatedMonthlyServicing" | "extraMonthlySavingsAmount" | "outstandingPrincipal" | "disbursedAt" | "firstRepaymentDueAt" | "closedAt" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["loan"]>
 export type LoanInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
   member?: boolean | Prisma.MemberDefaultArgs<ExtArgs>
@@ -1832,6 +2216,7 @@ export type LoanInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   charges?: boolean | Prisma.Loan$chargesArgs<ExtArgs>
   repaymentScheduleItems?: boolean | Prisma.Loan$repaymentScheduleItemsArgs<ExtArgs>
   repayments?: boolean | Prisma.Loan$repaymentsArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.Loan$collectionFollowUpsArgs<ExtArgs>
   ledgerTransactions?: boolean | Prisma.Loan$ledgerTransactionsArgs<ExtArgs>
   _count?: boolean | Prisma.LoanCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -1858,6 +2243,7 @@ export type $LoanPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     charges: Prisma.$ChargeApplicationPayload<ExtArgs>[]
     repaymentScheduleItems: Prisma.$RepaymentScheduleItemPayload<ExtArgs>[]
     repayments: Prisma.$RepaymentPayload<ExtArgs>[]
+    collectionFollowUps: Prisma.$CollectionFollowUpPayload<ExtArgs>[]
     ledgerTransactions: Prisma.$LedgerTransactionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -1867,6 +2253,9 @@ export type $LoanPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     loanRequestId: string
     loanProductId: string
     principalAmount: runtime.Decimal
+    termMonths: number
+    estimatedMonthlyServicing: runtime.Decimal
+    extraMonthlySavingsAmount: runtime.Decimal
     outstandingPrincipal: runtime.Decimal
     disbursedAt: Date | null
     firstRepaymentDueAt: Date | null
@@ -2275,6 +2664,7 @@ export interface Prisma__LoanClient<T, Null = never, ExtArgs extends runtime.Typ
   charges<T extends Prisma.Loan$chargesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Loan$chargesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ChargeApplicationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   repaymentScheduleItems<T extends Prisma.Loan$repaymentScheduleItemsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Loan$repaymentScheduleItemsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepaymentScheduleItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   repayments<T extends Prisma.Loan$repaymentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Loan$repaymentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  collectionFollowUps<T extends Prisma.Loan$collectionFollowUpsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Loan$collectionFollowUpsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CollectionFollowUpPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ledgerTransactions<T extends Prisma.Loan$ledgerTransactionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Loan$ledgerTransactionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LedgerTransactionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -2311,6 +2701,9 @@ export interface LoanFieldRefs {
   readonly loanRequestId: Prisma.FieldRef<"Loan", 'String'>
   readonly loanProductId: Prisma.FieldRef<"Loan", 'String'>
   readonly principalAmount: Prisma.FieldRef<"Loan", 'Decimal'>
+  readonly termMonths: Prisma.FieldRef<"Loan", 'Int'>
+  readonly estimatedMonthlyServicing: Prisma.FieldRef<"Loan", 'Decimal'>
+  readonly extraMonthlySavingsAmount: Prisma.FieldRef<"Loan", 'Decimal'>
   readonly outstandingPrincipal: Prisma.FieldRef<"Loan", 'Decimal'>
   readonly disbursedAt: Prisma.FieldRef<"Loan", 'DateTime'>
   readonly firstRepaymentDueAt: Prisma.FieldRef<"Loan", 'DateTime'>
@@ -2788,6 +3181,30 @@ export type Loan$repaymentsArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   distinct?: Prisma.RepaymentScalarFieldEnum | Prisma.RepaymentScalarFieldEnum[]
+}
+
+/**
+ * Loan.collectionFollowUps
+ */
+export type Loan$collectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CollectionFollowUp
+   */
+  select?: Prisma.CollectionFollowUpSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CollectionFollowUp
+   */
+  omit?: Prisma.CollectionFollowUpOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CollectionFollowUpInclude<ExtArgs> | null
+  where?: Prisma.CollectionFollowUpWhereInput
+  orderBy?: Prisma.CollectionFollowUpOrderByWithRelationInput | Prisma.CollectionFollowUpOrderByWithRelationInput[]
+  cursor?: Prisma.CollectionFollowUpWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CollectionFollowUpScalarFieldEnum | Prisma.CollectionFollowUpScalarFieldEnum[]
 }
 
 /**

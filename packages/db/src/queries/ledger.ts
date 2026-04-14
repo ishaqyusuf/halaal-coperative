@@ -180,3 +180,59 @@ export async function getMemberTransactions(
     orderBy: { postedAt: "desc" },
   })
 }
+
+export async function listLedgerTransactions(
+  tenantId: string,
+  input?: {
+    fromDate?: Date
+    limit?: number
+    memberId?: string
+    search?: string
+    toDate?: Date
+    transactionType?: LedgerTransactionType
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.ledgerTransaction.findMany({
+    where: {
+      tenantId,
+      ...(input?.memberId ? { memberId: input.memberId } : {}),
+      ...(input?.transactionType ? { transactionType: input.transactionType } : {}),
+      ...((input?.fromDate || input?.toDate)
+        ? {
+            postedAt: {
+              ...(input?.fromDate ? { gte: input.fromDate } : {}),
+              ...(input?.toDate ? { lte: input.toDate } : {}),
+            },
+          }
+        : {}),
+      ...(input?.search
+        ? {
+            OR: [
+              { narration: { contains: input.search, mode: "insensitive" } },
+              { reference: { contains: input.search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    include: {
+      member: {
+        select: {
+          id: true,
+          fullName: true,
+          memberNumber: true,
+        },
+      },
+      entries: {
+        include: {
+          ledgerAccount: true,
+        },
+      },
+    },
+    orderBy: { postedAt: "desc" },
+    take: input?.limit ?? 100,
+  })
+}

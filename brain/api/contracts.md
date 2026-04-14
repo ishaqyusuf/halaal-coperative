@@ -43,8 +43,15 @@ This file captures payload shapes, response conventions, and contract assumption
   - `primaryDashboardHostname`: primary dashboard hostname when configured.
   - `steps`: labeled step list with completion state.
 - `trpc.onboarding.bootstrap`
-  - Request creates tenant name, slug, owner identity, default policy values, and base routing hostnames.
+  - Request creates tenant name, slug, primary admin identity, default policy values, and base routing hostnames.
   - Response returns the created tenant record, owner user id, primary hostnames, and refreshed onboarding state.
+- `POST /api/signup`
+  - Request validates `cooperativeName`, `primaryContactFullName`, and `primaryContactEmail`.
+  - Response returns `expiresAt`, `onboardingUrl`, delivery metadata, and the verification email draft.
+- `POST /api/onboarding`
+  - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, `currentSize`, `officeAddress`, `startDate`, and the signed `token`.
+  - The route derives the slug from `cooperativeName` and applies server-side tenant policy defaults instead of asking for public policy fields.
+  - `currentSize`, `officeAddress`, and `startDate` are persisted on the tenant record during workspace bootstrap.
 - `trpc.notifications.list`
   - array of shared notification payloads built from `@halaal-vest/notifications` types.
 - `trpc.members.list`

@@ -22,6 +22,44 @@ export type NotificationInput = {
   action?: NotificationAction
 }
 
+export type NotificationEmailDraft = {
+  actionLabel: string
+  actionUrl: string
+  bodyText: string
+  notificationType: string
+  previewText: string
+  recipient: NotificationRecipient
+  subject: string
+}
+
+export type NotificationEmailDelivery = {
+  attempts: number
+  draft: NotificationEmailDraft
+  errorMessage?: string
+  messageId: string
+  status: "failed" | "queued" | "sent"
+}
+
+export type NotificationEmailTransport = {
+  send: (draft: NotificationEmailDraft) => NotificationEmailDelivery | Promise<NotificationEmailDelivery>
+}
+
+export type ResendEmailTransportOptions = {
+  apiKey: string
+  from: string
+  replyTo?: string
+}
+
+export type RetryingEmailTransportOptions = {
+  maxAttempts: number
+  onAttemptFailure?: (input: {
+    attempt: number
+    draft: NotificationEmailDraft
+    error: unknown
+    maxAttempts: number
+  }) => void
+}
+
 export type NotificationRecord = NotificationInput & {
   id: string
   recipients: NotificationRecipient[]
@@ -154,9 +192,205 @@ export function createMemoryNotificationStore(): NotificationStore {
 }
 
 export class NotificationService {
-  constructor(private readonly sendNotification: (input: NotificationInput) => string) {}
+  constructor(
+    private readonly sendNotification: (input: NotificationInput) => string,
+    private readonly emailTransport?: NotificationEmailTransport,
+  ) {}
 
   notify(input: NotificationInput) {
     return this.sendNotification(input)
+  }
+
+  async email(draft: NotificationEmailDraft) {
+    if (!this.emailTransport) {
+      return {
+        attempts: 1,
+        draft,
+        messageId: `email-${Date.now()}-${Math.random()}`,
+        status: "queued",
+      } satisfies NotificationEmailDelivery
+    }
+
+    return this.emailTransport.send(draft)
+  }
+
+  async tryEmail(draft: NotificationEmailDraft) {
+    try {
+      return await this.email(draft)
+    } catch (error) {
+      return {
+        attempts: 1,
+        draft,
+        errorMessage: error instanceof Error ? error.message : "Unknown email delivery failure.",
+        messageId: `email-${Date.now()}-${Math.random()}`,
+        status: "failed",
+      } satisfies NotificationEmailDelivery
+    }
+  }
+}
+
+export function createConsoleEmailTransport(): NotificationEmailTransport {
+  return {
+    send(draft) {
+      const messageId = `email-${Date.now()}-${Math.random()}`
+
+      console.log(
+        JSON.stringify(
+          {
+            channel: "email",
+            messageId,
+            notificationType: draft.notificationType,
+            recipient: draft.recipient,
+            subject: draft.subject,
+            previewText: draft.previewText,
+            actionUrl: draft.actionUrl,
+          },
+          null,
+          2,
+        ),
+      )
+
+      return {
+        attempts: 1,
+        draft,
+        messageId,
+        status: "sent",
+      } satisfies NotificationEmailDelivery
+    },
+  }
+}
+
+export function createResendEmailTransport(
+  options: ResendEmailTransportOptions,
+): NotificationEmailTransport {
+  return {
+    async send(draft) {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${options.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: options.from,
+          reply_to: options.replyTo,
+          subject: draft.subject,
+          tags: [
+            {
+              name: "notification_type",
+              value: draft.notificationType,
+            },
+          ],
+          text: [draft.bodyText, "", `${draft.actionLabel}: ${draft.actionUrl}`].join("\n"),
+          to: [draft.recipient.value],
+        }),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.text()
+
+        throw new Error(`Resend email delivery failed: ${response.status} ${errorBody}`)
+      }
+
+      const payload = (await response.json()) as { id?: string }
+
+      return {
+        attempts: 1,
+        draft,
+        messageId: payload.id ?? `email-${Date.now()}-${Math.random()}`,
+        status: "sent",
+      } satisfies NotificationEmailDelivery
+    },
+  }
+}
+
+export function createRetryingEmailTransport(
+  transport: NotificationEmailTransport,
+  options: RetryingEmailTransportOptions,
+): NotificationEmailTransport {
+  return {
+    async send(draft) {
+      let lastError: unknown = null
+
+      for (let attempt = 1; attempt <= options.maxAttempts; attempt += 1) {
+        try {
+          const delivery = await transport.send(draft)
+
+          return {
+            ...delivery,
+            attempts: attempt,
+          }
+        } catch (error) {
+          lastError = error
+          options.onAttemptFailure?.({
+            attempt,
+            draft,
+            error,
+            maxAttempts: options.maxAttempts,
+          })
+        }
+      }
+
+      throw lastError instanceof Error ? lastError : new Error("Email delivery failed.")
+    },
+  }
+}
+
+export function createSignupVerificationEmail(input: {
+  expiresAt: string
+  recipientEmail: string
+  recipientName: string
+  tenantName: string
+  verificationUrl: string
+}): NotificationEmailDraft {
+  return {
+    actionLabel: "Verify email and continue",
+    actionUrl: input.verificationUrl,
+    bodyText: [
+      `Assalamu alaikum ${input.recipientName},`,
+      "",
+      `Your halaal-vest signup for ${input.tenantName} is almost ready.`,
+      "Confirm this email address to continue setting up the cooperative workspace.",
+      "",
+      `This verification link expires on ${input.expiresAt}.`,
+    ].join("\n"),
+    notificationType: "signup_email_verification",
+    previewText: `Verify ${input.recipientEmail} to continue setup for ${input.tenantName}.`,
+    recipient: {
+      kind: "email",
+      value: input.recipientEmail,
+      displayName: input.recipientName,
+    },
+    subject: `Verify your halaal-vest signup for ${input.tenantName}`,
+  }
+}
+
+export function createWorkspaceReadyEmail(input: {
+  dashboardUrl: string
+  recipientEmail: string
+  recipientName: string
+  siteUrl: string
+  tenantName: string
+}): NotificationEmailDraft {
+  return {
+    actionLabel: "Open workspace",
+    actionUrl: input.dashboardUrl,
+    bodyText: [
+      `Assalamu alaikum ${input.recipientName},`,
+      "",
+      `${input.tenantName} is ready in halaal-vest.`,
+      `Dashboard: ${input.dashboardUrl}`,
+      `Public site: ${input.siteUrl}`,
+      "",
+      "You can now continue tenant setup from the dashboard workspace.",
+    ].join("\n"),
+    notificationType: "workspace_ready",
+    previewText: `${input.tenantName} is provisioned and ready to open.`,
+    recipient: {
+      kind: "email",
+      value: input.recipientEmail,
+      displayName: input.recipientName,
+    },
+    subject: `${input.tenantName} is ready in halaal-vest`,
   }
 }

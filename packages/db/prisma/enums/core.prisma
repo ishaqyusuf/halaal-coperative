@@ -36,6 +36,13 @@ enum DeductionSourceType {
   manual
 }
 
+enum KycStatus {
+  not_started
+  pending
+  verified
+  rejected
+}
+
 enum TenantDomainKind {
   site
   dashboard

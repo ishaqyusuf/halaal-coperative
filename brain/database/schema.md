@@ -20,6 +20,7 @@ This file tracks the evolving database design and current source of truth at a c
 - `repayments`
 - `ledger_entries`
 - `audit_logs`
+- `notification_outbox`
 
 ## Current Scaffold State
 - Prisma has been adopted for the database layer in `packages/db`.
@@ -27,10 +28,18 @@ This file tracks the evolving database design and current source of truth at a c
   - `schema.prisma` for datasource and generator.
   - `enums/` for domain enums.
   - `models/` for domain-grouped model files.
-- Current model coverage includes tenants, tenant domains, users, memberships, members, deduction sources, contribution plans, contributions, charge definitions, charge applications, loan products, loan requests, loan approvals, loans, repayment schedules, repayments, ledger accounts, ledger transactions, ledger entries, dividend periods, dividend allocations, offline sync events, and audit logs.
+- Current model coverage includes tenants, tenant domains, users, memberships, members, member documents, import batches, import batch rows, deduction sources, contribution plans, contributions, charge definitions, charge applications, loan products, loan requests, loan approvals, loans, repayment schedules, repayments, collection follow-ups, ledger accounts, ledger transactions, ledger entries, dividend periods, dividend allocations, offline sync events, audit logs, and notification outbox entries.
+- `tenants` now also stores onboarding profile metadata for new cooperative workspaces: `current_size`, `office_address`, and `start_date`.
+- `members` now also stores `payment_allocation_preference`, `kyc_status`, `government_id_number`, `kyc_document_type`, `kyc_document_url`, `kyc_document_uploaded_at`, and `kyc_review_notes`.
+- `member_documents` now stores multiple supporting KYC documents per member, with per-document review status, notes, uploaded timestamps, and reviewed timestamps.
+- `import_batches` and `import_batch_rows` now store persisted staged import data so operators can review, stage, and apply migration batches instead of relying only on direct paste-and-apply imports.
+- `collection_follow_ups` now stores persisted collections notes, status, next-action dates, stage, priority, resolution state, promise-to-pay dates, assignee links, and actor/member/loan links instead of relying only on audit metadata.
+- `audit_logs` is also being reused for tenant-scoped operational delivery tracking, including notification email outcomes after tenant bootstrap.
+- `notification_outbox` stores durable email delivery attempts before and after tenant creation, with optional `tenantId`, delivery status, message id, attempts, source, and rendered email payload fields.
 - `packages/db` now exposes repository-style query scaffolding for tenants, tenant domains, users, memberships, and runtime status through `src/queries/` and `src/runtime.ts`.
 - Prisma client generation is now wired and `packages/db/src/prisma.ts` provides an optional adapter-backed runtime when `DATABASE_URL` is configured.
 - Query functions currently fall back to seed-backed data when no database runtime is configured, but can read from Prisma when the environment is available.
+- `tenant_domains` now also store `verification_details` so DNS checks can surface resolved records, lookup method, and failure reasons in the dashboard.
 
 ## Notes
 - Separate request-stage loan records from approved/disbursed loan records if workflow complexity requires it.

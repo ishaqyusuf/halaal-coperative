@@ -1,0 +1,42 @@
+model ImportBatch {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String           @map("tenant_id") @db.Uuid
+  createdByUserId     String           @map("created_by_user_id") @db.Uuid
+  importType          String           @map("import_type")
+  status              String           @default("draft")
+  totalRows           Int              @default(0) @map("total_rows")
+  validRows           Int              @default(0) @map("valid_rows")
+  existingMatchCount  Int              @default(0) @map("existing_match_count")
+  duplicateRowCount   Int              @default(0) @map("duplicate_row_count")
+  sourceCsv           String           @map("source_csv")
+  appliedAt           DateTime?        @map("applied_at") @db.Timestamptz(6)
+  errorMessage        String?          @map("error_message")
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant              Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUser       User             @relation("ImportBatchCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  rows                ImportBatchRow[]
+
+  @@index([tenantId, createdAt], map: "import_batches_tenant_created_at_idx")
+  @@index([tenantId, importType, status], map: "import_batches_tenant_type_status_idx")
+  @@map("import_batches")
+}
+
+model ImportBatchRow {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String       @map("tenant_id") @db.Uuid
+  importBatchId       String       @map("import_batch_id") @db.Uuid
+  rowIndex            Int          @map("row_index")
+  primaryValue        String?      @map("primary_value")
+  existingMatch       Boolean      @default(false) @map("existing_match")
+  duplicateInFile     Boolean      @default(false) @map("duplicate_in_file")
+  payload             Json         @map("payload")
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  importBatch         ImportBatch   @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, importBatchId, rowIndex], map: "import_batch_rows_tenant_batch_row_idx")
+  @@map("import_batch_rows")
+}

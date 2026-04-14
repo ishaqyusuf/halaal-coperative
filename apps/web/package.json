@@ -13,12 +13,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@halaal-vest/db": "workspace:*",
+    "@halaal-vest/notifications": "workspace:*",
     "@halaal-vest/notifications-react": "workspace:*",
     "@halaal-vest/ui": "workspace:*",
     "@halaal-vest/utils": "workspace:*",
+    "@hookform/resolvers": "^5.2.2",
     "next": "16.1.6",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "react-hook-form": "^7.65.0",
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",

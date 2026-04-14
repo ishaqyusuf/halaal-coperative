@@ -60,6 +60,8 @@ export const ModelName = {
   Contribution: 'Contribution',
   DividendPeriod: 'DividendPeriod',
   DividendAllocation: 'DividendAllocation',
+  ImportBatch: 'ImportBatch',
+  ImportBatchRow: 'ImportBatchRow',
   LedgerAccount: 'LedgerAccount',
   LedgerTransaction: 'LedgerTransaction',
   LedgerEntry: 'LedgerEntry',
@@ -68,9 +70,13 @@ export const ModelName = {
   LoanApproval: 'LoanApproval',
   Loan: 'Loan',
   RepaymentScheduleItem: 'RepaymentScheduleItem',
+  CollectionFollowUp: 'CollectionFollowUp',
   Repayment: 'Repayment',
   Member: 'Member',
+  MemberDocument: 'MemberDocument',
   DeductionSource: 'DeductionSource',
+  NotificationOutbox: 'NotificationOutbox',
+  NotificationPreference: 'NotificationPreference',
   OfflineSyncEvent: 'OfflineSyncEvent',
   TenantDomain: 'TenantDomain',
   Tenant: 'Tenant',
@@ -201,6 +207,8 @@ export const ContributionScalarFieldEnum = {
   contributionPlanId: 'contributionPlanId',
   postedAt: 'postedAt',
   amount: 'amount',
+  committedAmount: 'committedAmount',
+  extraSavingsAmount: 'extraSavingsAmount',
   status: 'status',
   channel: 'channel',
   periodLabel: 'periodLabel',
@@ -241,6 +249,41 @@ export const DividendAllocationScalarFieldEnum = {
 } as const
 
 export type DividendAllocationScalarFieldEnum = (typeof DividendAllocationScalarFieldEnum)[keyof typeof DividendAllocationScalarFieldEnum]
+
+
+export const ImportBatchScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  createdByUserId: 'createdByUserId',
+  importType: 'importType',
+  status: 'status',
+  totalRows: 'totalRows',
+  validRows: 'validRows',
+  existingMatchCount: 'existingMatchCount',
+  duplicateRowCount: 'duplicateRowCount',
+  sourceCsv: 'sourceCsv',
+  appliedAt: 'appliedAt',
+  errorMessage: 'errorMessage',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ImportBatchScalarFieldEnum = (typeof ImportBatchScalarFieldEnum)[keyof typeof ImportBatchScalarFieldEnum]
+
+
+export const ImportBatchRowScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  importBatchId: 'importBatchId',
+  rowIndex: 'rowIndex',
+  primaryValue: 'primaryValue',
+  existingMatch: 'existingMatch',
+  duplicateInFile: 'duplicateInFile',
+  payload: 'payload',
+  createdAt: 'createdAt'
+} as const
+
+export type ImportBatchRowScalarFieldEnum = (typeof ImportBatchRowScalarFieldEnum)[keyof typeof ImportBatchRowScalarFieldEnum]
 
 
 export const LedgerAccountScalarFieldEnum = {
@@ -311,6 +354,9 @@ export const LoanRequestScalarFieldEnum = {
   loanProductId: 'loanProductId',
   createdByUserId: 'createdByUserId',
   requestedAmount: 'requestedAmount',
+  requestedTermMonths: 'requestedTermMonths',
+  estimatedMonthlyServicing: 'estimatedMonthlyServicing',
+  extraMonthlySavingsAmount: 'extraMonthlySavingsAmount',
   eligibleAmountSnapshot: 'eligibleAmountSnapshot',
   availablePoolSnapshot: 'availablePoolSnapshot',
   requestedAt: 'requestedAt',
@@ -345,6 +391,9 @@ export const LoanScalarFieldEnum = {
   loanRequestId: 'loanRequestId',
   loanProductId: 'loanProductId',
   principalAmount: 'principalAmount',
+  termMonths: 'termMonths',
+  estimatedMonthlyServicing: 'estimatedMonthlyServicing',
+  extraMonthlySavingsAmount: 'extraMonthlySavingsAmount',
   outstandingPrincipal: 'outstandingPrincipal',
   disbursedAt: 'disbursedAt',
   firstRepaymentDueAt: 'firstRepaymentDueAt',
@@ -373,6 +422,28 @@ export const RepaymentScheduleItemScalarFieldEnum = {
 } as const
 
 export type RepaymentScheduleItemScalarFieldEnum = (typeof RepaymentScheduleItemScalarFieldEnum)[keyof typeof RepaymentScheduleItemScalarFieldEnum]
+
+
+export const CollectionFollowUpScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  repaymentScheduleItemId: 'repaymentScheduleItemId',
+  loanId: 'loanId',
+  memberId: 'memberId',
+  actorUserId: 'actorUserId',
+  assignedToUserId: 'assignedToUserId',
+  status: 'status',
+  caseStage: 'caseStage',
+  priority: 'priority',
+  resolutionStatus: 'resolutionStatus',
+  note: 'note',
+  nextActionAt: 'nextActionAt',
+  promiseToPayAt: 'promiseToPayAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CollectionFollowUpScalarFieldEnum = (typeof CollectionFollowUpScalarFieldEnum)[keyof typeof CollectionFollowUpScalarFieldEnum]
 
 
 export const RepaymentScalarFieldEnum = {
@@ -404,12 +475,36 @@ export const MemberScalarFieldEnum = {
   joinedAt: 'joinedAt',
   exitedAt: 'exitedAt',
   totalSavingsSnapshot: 'totalSavingsSnapshot',
+  paymentAllocationPreference: 'paymentAllocationPreference',
+  kycStatus: 'kycStatus',
+  governmentIdNumber: 'governmentIdNumber',
+  kycDocumentType: 'kycDocumentType',
+  kycDocumentUrl: 'kycDocumentUrl',
+  kycDocumentUploadedAt: 'kycDocumentUploadedAt',
+  kycReviewNotes: 'kycReviewNotes',
   deductionSourceId: 'deductionSourceId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type MemberScalarFieldEnum = (typeof MemberScalarFieldEnum)[keyof typeof MemberScalarFieldEnum]
+
+
+export const MemberDocumentScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  memberId: 'memberId',
+  documentType: 'documentType',
+  documentUrl: 'documentUrl',
+  reviewStatus: 'reviewStatus',
+  reviewNotes: 'reviewNotes',
+  uploadedAt: 'uploadedAt',
+  reviewedAt: 'reviewedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MemberDocumentScalarFieldEnum = (typeof MemberDocumentScalarFieldEnum)[keyof typeof MemberDocumentScalarFieldEnum]
 
 
 export const DeductionSourceScalarFieldEnum = {
@@ -424,6 +519,44 @@ export const DeductionSourceScalarFieldEnum = {
 } as const
 
 export type DeductionSourceScalarFieldEnum = (typeof DeductionSourceScalarFieldEnum)[keyof typeof DeductionSourceScalarFieldEnum]
+
+
+export const NotificationOutboxScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  notificationType: 'notificationType',
+  channel: 'channel',
+  recipient: 'recipient',
+  subject: 'subject',
+  bodyText: 'bodyText',
+  actionLabel: 'actionLabel',
+  actionUrl: 'actionUrl',
+  source: 'source',
+  messageId: 'messageId',
+  status: 'status',
+  attempts: 'attempts',
+  errorMessage: 'errorMessage',
+  metadata: 'metadata',
+  sentAt: 'sentAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type NotificationOutboxScalarFieldEnum = (typeof NotificationOutboxScalarFieldEnum)[keyof typeof NotificationOutboxScalarFieldEnum]
+
+
+export const NotificationPreferenceScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  role: 'role',
+  notificationType: 'notificationType',
+  channel: 'channel',
+  enabled: 'enabled',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type NotificationPreferenceScalarFieldEnum = (typeof NotificationPreferenceScalarFieldEnum)[keyof typeof NotificationPreferenceScalarFieldEnum]
 
 
 export const OfflineSyncEventScalarFieldEnum = {
@@ -453,6 +586,10 @@ export const TenantDomainScalarFieldEnum = {
   hostname: 'hostname',
   kind: 'kind',
   isPrimary: 'isPrimary',
+  verificationStatus: 'verificationStatus',
+  verificationDetails: 'verificationDetails',
+  verificationCheckedAt: 'verificationCheckedAt',
+  verifiedAt: 'verifiedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -464,6 +601,9 @@ export const TenantScalarFieldEnum = {
   id: 'id',
   slug: 'slug',
   name: 'name',
+  currentSize: 'currentSize',
+  officeAddress: 'officeAddress',
+  startDate: 'startDate',
   region: 'region',
   currencyCode: 'currencyCode',
   timezone: 'timezone',

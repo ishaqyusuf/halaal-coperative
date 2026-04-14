@@ -31,6 +31,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - Tenant host resolution and proxy-based header injection are handled in shared utilities plus Next `proxy.ts` entry points for dashboard and tenant-site apps.
 - Dashboard and tenant-site pages now consume tenant resolution through app-level server context loaders rather than hardcoded sample-only page state.
 - Dashboard workspace modules now use server-rendered loaders to surface onboarding progress plus members, recent contributions, and charge setup without introducing a separate client-side data layer.
+- Dashboard routes now also sit inside a shared role-filtered shell with a registry-driven sidebar and route-aware header, borrowing the information architecture idea from the local `gnd` site-nav pattern while keeping route data ownership local to each page.
 - Local named-host development is supported through `portless` scripts and the shared environment bootstrap script.
 - Current tenant resolution is implemented through shared repository/query scaffolding and seed-backed lookup flows, with Prisma execution intended to replace the seed store after migrations and generation are formalized.
 
@@ -59,6 +60,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - Modular monolith package layout adopted. See `brain/decisions/ADR-001-monorepo-scaffold.md`.
 - Plot-keys-aligned multi-app and notification architecture adopted. See `brain/decisions/ADR-003-align-app-and-api-architecture-with-plot-keys.md`.
 - Seed-backed tenant and auth repository scaffolding adopted as the transitional bridge to real Prisma-backed runtime queries. See `brain/decisions/ADR-004-adopt-seed-backed-tenant-resolution-and-scoped-session-foundation.md`.
+- Role-filtered dashboard navigation registry adopted for operational route scaling. See `brain/decisions/ADR-005-adopt-role-filtered-dashboard-navigation-registry.md`.
 - Payment and disbursement integrations strategy.
 - Exact ledger model and posting rules.
 - TODO: define offline sync conflict-resolution strategy for money-related events.

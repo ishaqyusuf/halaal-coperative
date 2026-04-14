@@ -28,10 +28,14 @@ export type AggregateContribution = {
 
 export type ContributionAvgAggregateOutputType = {
   amount: runtime.Decimal | null
+  committedAmount: runtime.Decimal | null
+  extraSavingsAmount: runtime.Decimal | null
 }
 
 export type ContributionSumAggregateOutputType = {
   amount: runtime.Decimal | null
+  committedAmount: runtime.Decimal | null
+  extraSavingsAmount: runtime.Decimal | null
 }
 
 export type ContributionMinAggregateOutputType = {
@@ -41,6 +45,8 @@ export type ContributionMinAggregateOutputType = {
   contributionPlanId: string | null
   postedAt: Date | null
   amount: runtime.Decimal | null
+  committedAmount: runtime.Decimal | null
+  extraSavingsAmount: runtime.Decimal | null
   status: $Enums.ContributionStatus | null
   channel: $Enums.ContributionChannel | null
   periodLabel: string | null
@@ -57,6 +63,8 @@ export type ContributionMaxAggregateOutputType = {
   contributionPlanId: string | null
   postedAt: Date | null
   amount: runtime.Decimal | null
+  committedAmount: runtime.Decimal | null
+  extraSavingsAmount: runtime.Decimal | null
   status: $Enums.ContributionStatus | null
   channel: $Enums.ContributionChannel | null
   periodLabel: string | null
@@ -73,6 +81,8 @@ export type ContributionCountAggregateOutputType = {
   contributionPlanId: number
   postedAt: number
   amount: number
+  committedAmount: number
+  extraSavingsAmount: number
   status: number
   channel: number
   periodLabel: number
@@ -86,10 +96,14 @@ export type ContributionCountAggregateOutputType = {
 
 export type ContributionAvgAggregateInputType = {
   amount?: true
+  committedAmount?: true
+  extraSavingsAmount?: true
 }
 
 export type ContributionSumAggregateInputType = {
   amount?: true
+  committedAmount?: true
+  extraSavingsAmount?: true
 }
 
 export type ContributionMinAggregateInputType = {
@@ -99,6 +113,8 @@ export type ContributionMinAggregateInputType = {
   contributionPlanId?: true
   postedAt?: true
   amount?: true
+  committedAmount?: true
+  extraSavingsAmount?: true
   status?: true
   channel?: true
   periodLabel?: true
@@ -115,6 +131,8 @@ export type ContributionMaxAggregateInputType = {
   contributionPlanId?: true
   postedAt?: true
   amount?: true
+  committedAmount?: true
+  extraSavingsAmount?: true
   status?: true
   channel?: true
   periodLabel?: true
@@ -131,6 +149,8 @@ export type ContributionCountAggregateInputType = {
   contributionPlanId?: true
   postedAt?: true
   amount?: true
+  committedAmount?: true
+  extraSavingsAmount?: true
   status?: true
   channel?: true
   periodLabel?: true
@@ -234,6 +254,8 @@ export type ContributionGroupByOutputType = {
   contributionPlanId: string | null
   postedAt: Date
   amount: runtime.Decimal
+  committedAmount: runtime.Decimal | null
+  extraSavingsAmount: runtime.Decimal
   status: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel: string | null
@@ -273,6 +295,8 @@ export type ContributionWhereInput = {
   contributionPlanId?: Prisma.UuidNullableFilter<"Contribution"> | string | null
   postedAt?: Prisma.DateTimeFilter<"Contribution"> | Date | string
   amount?: Prisma.DecimalFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.DecimalNullableFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFilter<"Contribution"> | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFilter<"Contribution"> | $Enums.ContributionChannel
   periodLabel?: Prisma.StringNullableFilter<"Contribution"> | string | null
@@ -294,6 +318,8 @@ export type ContributionOrderByWithRelationInput = {
   contributionPlanId?: Prisma.SortOrderInput | Prisma.SortOrder
   postedAt?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  committedAmount?: Prisma.SortOrderInput | Prisma.SortOrder
+  extraSavingsAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   channel?: Prisma.SortOrder
   periodLabel?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -318,6 +344,8 @@ export type ContributionWhereUniqueInput = Prisma.AtLeast<{
   contributionPlanId?: Prisma.UuidNullableFilter<"Contribution"> | string | null
   postedAt?: Prisma.DateTimeFilter<"Contribution"> | Date | string
   amount?: Prisma.DecimalFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.DecimalNullableFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFilter<"Contribution"> | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFilter<"Contribution"> | $Enums.ContributionChannel
   periodLabel?: Prisma.StringNullableFilter<"Contribution"> | string | null
@@ -339,6 +367,8 @@ export type ContributionOrderByWithAggregationInput = {
   contributionPlanId?: Prisma.SortOrderInput | Prisma.SortOrder
   postedAt?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  committedAmount?: Prisma.SortOrderInput | Prisma.SortOrder
+  extraSavingsAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   channel?: Prisma.SortOrder
   periodLabel?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -363,6 +393,8 @@ export type ContributionScalarWhereWithAggregatesInput = {
   contributionPlanId?: Prisma.UuidNullableWithAggregatesFilter<"Contribution"> | string | null
   postedAt?: Prisma.DateTimeWithAggregatesFilter<"Contribution"> | Date | string
   amount?: Prisma.DecimalWithAggregatesFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.DecimalNullableWithAggregatesFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalWithAggregatesFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusWithAggregatesFilter<"Contribution"> | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelWithAggregatesFilter<"Contribution"> | $Enums.ContributionChannel
   periodLabel?: Prisma.StringNullableWithAggregatesFilter<"Contribution"> | string | null
@@ -376,6 +408,8 @@ export type ContributionCreateInput = {
   id?: string
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -397,6 +431,8 @@ export type ContributionUncheckedCreateInput = {
   contributionPlanId?: string | null
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -412,6 +448,8 @@ export type ContributionUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -433,6 +471,8 @@ export type ContributionUncheckedUpdateInput = {
   contributionPlanId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -451,6 +491,8 @@ export type ContributionCreateManyInput = {
   contributionPlanId?: string | null
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -464,6 +506,8 @@ export type ContributionUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -480,6 +524,8 @@ export type ContributionUncheckedUpdateManyInput = {
   contributionPlanId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -511,6 +557,8 @@ export type ContributionCountOrderByAggregateInput = {
   contributionPlanId?: Prisma.SortOrder
   postedAt?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  committedAmount?: Prisma.SortOrder
+  extraSavingsAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   channel?: Prisma.SortOrder
   periodLabel?: Prisma.SortOrder
@@ -522,6 +570,8 @@ export type ContributionCountOrderByAggregateInput = {
 
 export type ContributionAvgOrderByAggregateInput = {
   amount?: Prisma.SortOrder
+  committedAmount?: Prisma.SortOrder
+  extraSavingsAmount?: Prisma.SortOrder
 }
 
 export type ContributionMaxOrderByAggregateInput = {
@@ -531,6 +581,8 @@ export type ContributionMaxOrderByAggregateInput = {
   contributionPlanId?: Prisma.SortOrder
   postedAt?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  committedAmount?: Prisma.SortOrder
+  extraSavingsAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   channel?: Prisma.SortOrder
   periodLabel?: Prisma.SortOrder
@@ -547,6 +599,8 @@ export type ContributionMinOrderByAggregateInput = {
   contributionPlanId?: Prisma.SortOrder
   postedAt?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  committedAmount?: Prisma.SortOrder
+  extraSavingsAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   channel?: Prisma.SortOrder
   periodLabel?: Prisma.SortOrder
@@ -558,6 +612,8 @@ export type ContributionMinOrderByAggregateInput = {
 
 export type ContributionSumOrderByAggregateInput = {
   amount?: Prisma.SortOrder
+  committedAmount?: Prisma.SortOrder
+  extraSavingsAmount?: Prisma.SortOrder
 }
 
 export type ContributionCreateNestedOneWithoutChargeApplicationInput = {
@@ -616,6 +672,14 @@ export type ContributionUncheckedUpdateManyWithoutContributionPlanNestedInput = 
   update?: Prisma.ContributionUpdateWithWhereUniqueWithoutContributionPlanInput | Prisma.ContributionUpdateWithWhereUniqueWithoutContributionPlanInput[]
   updateMany?: Prisma.ContributionUpdateManyWithWhereWithoutContributionPlanInput | Prisma.ContributionUpdateManyWithWhereWithoutContributionPlanInput[]
   deleteMany?: Prisma.ContributionScalarWhereInput | Prisma.ContributionScalarWhereInput[]
+}
+
+export type NullableDecimalFieldUpdateOperationsInput = {
+  set?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  increment?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  decrement?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  multiply?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  divide?: runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type EnumContributionStatusFieldUpdateOperationsInput = {
@@ -730,6 +794,8 @@ export type ContributionCreateWithoutChargeApplicationInput = {
   id?: string
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -750,6 +816,8 @@ export type ContributionUncheckedCreateWithoutChargeApplicationInput = {
   contributionPlanId?: string | null
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -780,6 +848,8 @@ export type ContributionUpdateWithoutChargeApplicationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -800,6 +870,8 @@ export type ContributionUncheckedUpdateWithoutChargeApplicationInput = {
   contributionPlanId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -814,6 +886,8 @@ export type ContributionCreateWithoutContributionPlanInput = {
   id?: string
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -833,6 +907,8 @@ export type ContributionUncheckedCreateWithoutContributionPlanInput = {
   memberId: string
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -880,6 +956,8 @@ export type ContributionScalarWhereInput = {
   contributionPlanId?: Prisma.UuidNullableFilter<"Contribution"> | string | null
   postedAt?: Prisma.DateTimeFilter<"Contribution"> | Date | string
   amount?: Prisma.DecimalFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.DecimalNullableFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFilter<"Contribution"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFilter<"Contribution"> | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFilter<"Contribution"> | $Enums.ContributionChannel
   periodLabel?: Prisma.StringNullableFilter<"Contribution"> | string | null
@@ -893,6 +971,8 @@ export type ContributionCreateWithoutLedgerTransactionInput = {
   id?: string
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -913,6 +993,8 @@ export type ContributionUncheckedCreateWithoutLedgerTransactionInput = {
   contributionPlanId?: string | null
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -943,6 +1025,8 @@ export type ContributionUpdateWithoutLedgerTransactionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -963,6 +1047,8 @@ export type ContributionUncheckedUpdateWithoutLedgerTransactionInput = {
   contributionPlanId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -977,6 +1063,8 @@ export type ContributionCreateWithoutMemberInput = {
   id?: string
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -996,6 +1084,8 @@ export type ContributionUncheckedCreateWithoutMemberInput = {
   contributionPlanId?: string | null
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -1037,6 +1127,8 @@ export type ContributionCreateWithoutTenantInput = {
   id?: string
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -1056,6 +1148,8 @@ export type ContributionUncheckedCreateWithoutTenantInput = {
   contributionPlanId?: string | null
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -1099,6 +1193,8 @@ export type ContributionCreateManyContributionPlanInput = {
   memberId: string
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -1112,6 +1208,8 @@ export type ContributionUpdateWithoutContributionPlanInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1131,6 +1229,8 @@ export type ContributionUncheckedUpdateWithoutContributionPlanInput = {
   memberId?: Prisma.StringFieldUpdateOperationsInput | string
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1148,6 +1248,8 @@ export type ContributionUncheckedUpdateManyWithoutContributionPlanInput = {
   memberId?: Prisma.StringFieldUpdateOperationsInput | string
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1163,6 +1265,8 @@ export type ContributionCreateManyMemberInput = {
   contributionPlanId?: string | null
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -1176,6 +1280,8 @@ export type ContributionUpdateWithoutMemberInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1195,6 +1301,8 @@ export type ContributionUncheckedUpdateWithoutMemberInput = {
   contributionPlanId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1212,6 +1320,8 @@ export type ContributionUncheckedUpdateManyWithoutMemberInput = {
   contributionPlanId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1227,6 +1337,8 @@ export type ContributionCreateManyTenantInput = {
   contributionPlanId?: string | null
   postedAt: Date | string
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.ContributionStatus
   channel: $Enums.ContributionChannel
   periodLabel?: string | null
@@ -1240,6 +1352,8 @@ export type ContributionUpdateWithoutTenantInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1259,6 +1373,8 @@ export type ContributionUncheckedUpdateWithoutTenantInput = {
   contributionPlanId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1276,6 +1392,8 @@ export type ContributionUncheckedUpdateManyWithoutTenantInput = {
   contributionPlanId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   postedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  committedAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  extraSavingsAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumContributionStatusFieldUpdateOperationsInput | $Enums.ContributionStatus
   channel?: Prisma.EnumContributionChannelFieldUpdateOperationsInput | $Enums.ContributionChannel
   periodLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1294,6 +1412,8 @@ export type ContributionSelect<ExtArgs extends runtime.Types.Extensions.Internal
   contributionPlanId?: boolean
   postedAt?: boolean
   amount?: boolean
+  committedAmount?: boolean
+  extraSavingsAmount?: boolean
   status?: boolean
   channel?: boolean
   periodLabel?: boolean
@@ -1315,6 +1435,8 @@ export type ContributionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   contributionPlanId?: boolean
   postedAt?: boolean
   amount?: boolean
+  committedAmount?: boolean
+  extraSavingsAmount?: boolean
   status?: boolean
   channel?: boolean
   periodLabel?: boolean
@@ -1334,6 +1456,8 @@ export type ContributionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   contributionPlanId?: boolean
   postedAt?: boolean
   amount?: boolean
+  committedAmount?: boolean
+  extraSavingsAmount?: boolean
   status?: boolean
   channel?: boolean
   periodLabel?: boolean
@@ -1353,6 +1477,8 @@ export type ContributionSelectScalar = {
   contributionPlanId?: boolean
   postedAt?: boolean
   amount?: boolean
+  committedAmount?: boolean
+  extraSavingsAmount?: boolean
   status?: boolean
   channel?: boolean
   periodLabel?: boolean
@@ -1362,7 +1488,7 @@ export type ContributionSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ContributionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "memberId" | "contributionPlanId" | "postedAt" | "amount" | "status" | "channel" | "periodLabel" | "reference" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["contribution"]>
+export type ContributionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "memberId" | "contributionPlanId" | "postedAt" | "amount" | "committedAmount" | "extraSavingsAmount" | "status" | "channel" | "periodLabel" | "reference" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["contribution"]>
 export type ContributionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
   member?: boolean | Prisma.MemberDefaultArgs<ExtArgs>
@@ -1397,6 +1523,8 @@ export type $ContributionPayload<ExtArgs extends runtime.Types.Extensions.Intern
     contributionPlanId: string | null
     postedAt: Date
     amount: runtime.Decimal
+    committedAmount: runtime.Decimal | null
+    extraSavingsAmount: runtime.Decimal
     status: $Enums.ContributionStatus
     channel: $Enums.ContributionChannel
     periodLabel: string | null
@@ -1838,6 +1966,8 @@ export interface ContributionFieldRefs {
   readonly contributionPlanId: Prisma.FieldRef<"Contribution", 'String'>
   readonly postedAt: Prisma.FieldRef<"Contribution", 'DateTime'>
   readonly amount: Prisma.FieldRef<"Contribution", 'Decimal'>
+  readonly committedAmount: Prisma.FieldRef<"Contribution", 'Decimal'>
+  readonly extraSavingsAmount: Prisma.FieldRef<"Contribution", 'Decimal'>
   readonly status: Prisma.FieldRef<"Contribution", 'ContributionStatus'>
   readonly channel: Prisma.FieldRef<"Contribution", 'ContributionChannel'>
   readonly periodLabel: Prisma.FieldRef<"Contribution", 'String'>

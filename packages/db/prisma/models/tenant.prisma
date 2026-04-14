@@ -2,6 +2,9 @@ model Tenant {
   id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   slug                 String             @unique
   name                 String
+  currentSize          Int?               @map("current_size")
+  officeAddress        String?            @map("office_address")
+  startDate            DateTime?          @map("start_date") @db.Date
   region               String?
   currencyCode         String             @default("NGN") @map("currency_code")
   timezone             String             @default("Africa/Lagos")
@@ -15,6 +18,9 @@ model Tenant {
   users                User[]
   memberships          Membership[]
   members              Member[]
+  memberDocuments      MemberDocument[]
+  importBatches        ImportBatch[]
+  importBatchRows      ImportBatchRow[]
   deductionSources     DeductionSource[]
   contributionPlans    ContributionPlan[]
   contributions        Contribution[]
@@ -25,6 +31,7 @@ model Tenant {
   loanApprovals        LoanApproval[]
   loans                Loan[]
   repaymentSchedules   RepaymentScheduleItem[]
+  collectionFollowUps  CollectionFollowUp[]
   repayments           Repayment[]
   ledgerAccounts       LedgerAccount[]
   ledgerTransactions   LedgerTransaction[]
@@ -33,6 +40,8 @@ model Tenant {
   dividendAllocations  DividendAllocation[]
   offlineSyncEvents    OfflineSyncEvent[]
   auditLogs            AuditLog[]
+  notificationOutbox   NotificationOutbox[]
+  notificationPreferences NotificationPreference[]
 
   @@map("tenants")
 }

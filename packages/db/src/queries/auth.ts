@@ -1,3 +1,5 @@
+import { createPrismaClient } from "../prisma.js"
+
 export type MembershipRole =
   | "super_admin"
   | "tenant_admin"
@@ -185,4 +187,154 @@ export async function findActiveMembershipAsync(input: {
 
   return memberships.find((membership) => membership.isDefault) ?? memberships[0] ?? null
 }
-import { createPrismaClient } from "../prisma.js"
+
+export async function listTenantUsersWithMemberships(tenantId: string) {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return seedUsers
+      .filter((user) => user.tenantId === tenantId)
+      .map((user) => ({
+        ...user,
+        memberships: seedMemberships.filter((membership) => membership.userId === user.id),
+      }))
+  }
+
+  const users = await prisma.user.findMany({
+    where: {
+      tenantId,
+      deletedAt: null,
+    },
+    include: {
+      memberships: {
+        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+      },
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  })
+
+  return users.map((user) => ({
+    id: user.id,
+    tenantId: user.tenantId,
+    email: user.email,
+    fullName: user.fullName,
+    isPlatformOwner: user.isPlatformOwner,
+    memberships: user.memberships.map((membership) => ({
+      id: membership.id,
+      tenantId: membership.tenantId,
+      userId: membership.userId,
+      role: membership.role,
+      isDefault: membership.isDefault,
+    })),
+  }))
+}
+
+export async function provisionTenantUserRole(input: {
+  actorUserId: string
+  email: string
+  fullName: string
+  makeDefault?: boolean
+  role: MembershipRole
+  tenantId: string
+}) {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error("Database not configured")
+  }
+
+  const normalizedEmail = input.email.trim().toLowerCase()
+  const normalizedFullName = input.fullName.trim()
+
+  if (!normalizedEmail || !normalizedFullName) {
+    throw new Error("Full name and email are required.")
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.upsert({
+      where: {
+        tenantId_email: {
+          tenantId: input.tenantId,
+          email: normalizedEmail,
+        },
+      },
+      update: {
+        fullName: normalizedFullName,
+      },
+      create: {
+        tenantId: input.tenantId,
+        email: normalizedEmail,
+        fullName: normalizedFullName,
+      },
+    })
+
+    if (input.makeDefault) {
+      await tx.membership.updateMany({
+        where: {
+          tenantId: input.tenantId,
+          userId: user.id,
+        },
+        data: {
+          isDefault: false,
+        },
+      })
+    }
+
+    const membership = await tx.membership.upsert({
+      where: {
+        tenantId_userId_role: {
+          tenantId: input.tenantId,
+          userId: user.id,
+          role: input.role,
+        },
+      },
+      update: {
+        isDefault: input.makeDefault ?? false,
+      },
+      create: {
+        tenantId: input.tenantId,
+        userId: user.id,
+        role: input.role,
+        isDefault: input.makeDefault ?? false,
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        tenantId: input.tenantId,
+        actorUserId: input.actorUserId,
+        actorType: "user",
+        action: "membership.provisioned",
+        entityType: "Membership",
+        entityId: membership.id,
+        metadata: {
+          email: normalizedEmail,
+          fullName: normalizedFullName,
+          isDefault: membership.isDefault,
+          role: membership.role,
+          userId: user.id,
+        },
+        occurredAt: new Date(),
+      },
+    })
+
+    return {
+      membership: {
+        id: membership.id,
+        tenantId: membership.tenantId,
+        userId: membership.userId,
+        role: membership.role,
+        isDefault: membership.isDefault,
+      } satisfies MembershipRecord,
+      user: {
+        id: user.id,
+        tenantId: user.tenantId,
+        email: user.email,
+        fullName: user.fullName,
+        isPlatformOwner: user.isPlatformOwner,
+      } satisfies UserRecord,
+    }
+  })
+}

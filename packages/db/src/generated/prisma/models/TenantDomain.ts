@@ -30,6 +30,9 @@ export type TenantDomainMinAggregateOutputType = {
   hostname: string | null
   kind: $Enums.TenantDomainKind | null
   isPrimary: boolean | null
+  verificationStatus: string | null
+  verificationCheckedAt: Date | null
+  verifiedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -40,6 +43,9 @@ export type TenantDomainMaxAggregateOutputType = {
   hostname: string | null
   kind: $Enums.TenantDomainKind | null
   isPrimary: boolean | null
+  verificationStatus: string | null
+  verificationCheckedAt: Date | null
+  verifiedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -50,6 +56,10 @@ export type TenantDomainCountAggregateOutputType = {
   hostname: number
   kind: number
   isPrimary: number
+  verificationStatus: number
+  verificationDetails: number
+  verificationCheckedAt: number
+  verifiedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -62,6 +72,9 @@ export type TenantDomainMinAggregateInputType = {
   hostname?: true
   kind?: true
   isPrimary?: true
+  verificationStatus?: true
+  verificationCheckedAt?: true
+  verifiedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -72,6 +85,9 @@ export type TenantDomainMaxAggregateInputType = {
   hostname?: true
   kind?: true
   isPrimary?: true
+  verificationStatus?: true
+  verificationCheckedAt?: true
+  verifiedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -82,6 +98,10 @@ export type TenantDomainCountAggregateInputType = {
   hostname?: true
   kind?: true
   isPrimary?: true
+  verificationStatus?: true
+  verificationDetails?: true
+  verificationCheckedAt?: true
+  verifiedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -165,6 +185,10 @@ export type TenantDomainGroupByOutputType = {
   hostname: string
   kind: $Enums.TenantDomainKind
   isPrimary: boolean
+  verificationStatus: string
+  verificationDetails: runtime.JsonValue | null
+  verificationCheckedAt: Date | null
+  verifiedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: TenantDomainCountAggregateOutputType | null
@@ -196,6 +220,10 @@ export type TenantDomainWhereInput = {
   hostname?: Prisma.StringFilter<"TenantDomain"> | string
   kind?: Prisma.EnumTenantDomainKindFilter<"TenantDomain"> | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFilter<"TenantDomain"> | boolean
+  verificationStatus?: Prisma.StringFilter<"TenantDomain"> | string
+  verificationDetails?: Prisma.JsonNullableFilter<"TenantDomain">
+  verificationCheckedAt?: Prisma.DateTimeNullableFilter<"TenantDomain"> | Date | string | null
+  verifiedAt?: Prisma.DateTimeNullableFilter<"TenantDomain"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"TenantDomain"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TenantDomain"> | Date | string
   tenant?: Prisma.XOR<Prisma.TenantScalarRelationFilter, Prisma.TenantWhereInput>
@@ -207,6 +235,10 @@ export type TenantDomainOrderByWithRelationInput = {
   hostname?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   isPrimary?: Prisma.SortOrder
+  verificationStatus?: Prisma.SortOrder
+  verificationDetails?: Prisma.SortOrderInput | Prisma.SortOrder
+  verificationCheckedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   tenant?: Prisma.TenantOrderByWithRelationInput
@@ -221,6 +253,10 @@ export type TenantDomainWhereUniqueInput = Prisma.AtLeast<{
   tenantId?: Prisma.UuidFilter<"TenantDomain"> | string
   kind?: Prisma.EnumTenantDomainKindFilter<"TenantDomain"> | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFilter<"TenantDomain"> | boolean
+  verificationStatus?: Prisma.StringFilter<"TenantDomain"> | string
+  verificationDetails?: Prisma.JsonNullableFilter<"TenantDomain">
+  verificationCheckedAt?: Prisma.DateTimeNullableFilter<"TenantDomain"> | Date | string | null
+  verifiedAt?: Prisma.DateTimeNullableFilter<"TenantDomain"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"TenantDomain"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TenantDomain"> | Date | string
   tenant?: Prisma.XOR<Prisma.TenantScalarRelationFilter, Prisma.TenantWhereInput>
@@ -232,6 +268,10 @@ export type TenantDomainOrderByWithAggregationInput = {
   hostname?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   isPrimary?: Prisma.SortOrder
+  verificationStatus?: Prisma.SortOrder
+  verificationDetails?: Prisma.SortOrderInput | Prisma.SortOrder
+  verificationCheckedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.TenantDomainCountOrderByAggregateInput
@@ -248,6 +288,10 @@ export type TenantDomainScalarWhereWithAggregatesInput = {
   hostname?: Prisma.StringWithAggregatesFilter<"TenantDomain"> | string
   kind?: Prisma.EnumTenantDomainKindWithAggregatesFilter<"TenantDomain"> | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolWithAggregatesFilter<"TenantDomain"> | boolean
+  verificationStatus?: Prisma.StringWithAggregatesFilter<"TenantDomain"> | string
+  verificationDetails?: Prisma.JsonNullableWithAggregatesFilter<"TenantDomain">
+  verificationCheckedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"TenantDomain"> | Date | string | null
+  verifiedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"TenantDomain"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"TenantDomain"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"TenantDomain"> | Date | string
 }
@@ -257,6 +301,10 @@ export type TenantDomainCreateInput = {
   hostname: string
   kind: $Enums.TenantDomainKind
   isPrimary?: boolean
+  verificationStatus?: string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Date | string | null
+  verifiedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutDomainsInput
@@ -268,6 +316,10 @@ export type TenantDomainUncheckedCreateInput = {
   hostname: string
   kind: $Enums.TenantDomainKind
   isPrimary?: boolean
+  verificationStatus?: string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Date | string | null
+  verifiedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -277,6 +329,10 @@ export type TenantDomainUpdateInput = {
   hostname?: Prisma.StringFieldUpdateOperationsInput | string
   kind?: Prisma.EnumTenantDomainKindFieldUpdateOperationsInput | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  verificationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutDomainsNestedInput
@@ -288,6 +344,10 @@ export type TenantDomainUncheckedUpdateInput = {
   hostname?: Prisma.StringFieldUpdateOperationsInput | string
   kind?: Prisma.EnumTenantDomainKindFieldUpdateOperationsInput | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  verificationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -298,6 +358,10 @@ export type TenantDomainCreateManyInput = {
   hostname: string
   kind: $Enums.TenantDomainKind
   isPrimary?: boolean
+  verificationStatus?: string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Date | string | null
+  verifiedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -307,6 +371,10 @@ export type TenantDomainUpdateManyMutationInput = {
   hostname?: Prisma.StringFieldUpdateOperationsInput | string
   kind?: Prisma.EnumTenantDomainKindFieldUpdateOperationsInput | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  verificationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -317,6 +385,10 @@ export type TenantDomainUncheckedUpdateManyInput = {
   hostname?: Prisma.StringFieldUpdateOperationsInput | string
   kind?: Prisma.EnumTenantDomainKindFieldUpdateOperationsInput | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  verificationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -327,6 +399,10 @@ export type TenantDomainCountOrderByAggregateInput = {
   hostname?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   isPrimary?: Prisma.SortOrder
+  verificationStatus?: Prisma.SortOrder
+  verificationDetails?: Prisma.SortOrder
+  verificationCheckedAt?: Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -337,6 +413,9 @@ export type TenantDomainMaxOrderByAggregateInput = {
   hostname?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   isPrimary?: Prisma.SortOrder
+  verificationStatus?: Prisma.SortOrder
+  verificationCheckedAt?: Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -347,6 +426,9 @@ export type TenantDomainMinOrderByAggregateInput = {
   hostname?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   isPrimary?: Prisma.SortOrder
+  verificationStatus?: Prisma.SortOrder
+  verificationCheckedAt?: Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -412,6 +494,10 @@ export type TenantDomainCreateWithoutTenantInput = {
   hostname: string
   kind: $Enums.TenantDomainKind
   isPrimary?: boolean
+  verificationStatus?: string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Date | string | null
+  verifiedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -421,6 +507,10 @@ export type TenantDomainUncheckedCreateWithoutTenantInput = {
   hostname: string
   kind: $Enums.TenantDomainKind
   isPrimary?: boolean
+  verificationStatus?: string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Date | string | null
+  verifiedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -460,6 +550,10 @@ export type TenantDomainScalarWhereInput = {
   hostname?: Prisma.StringFilter<"TenantDomain"> | string
   kind?: Prisma.EnumTenantDomainKindFilter<"TenantDomain"> | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFilter<"TenantDomain"> | boolean
+  verificationStatus?: Prisma.StringFilter<"TenantDomain"> | string
+  verificationDetails?: Prisma.JsonNullableFilter<"TenantDomain">
+  verificationCheckedAt?: Prisma.DateTimeNullableFilter<"TenantDomain"> | Date | string | null
+  verifiedAt?: Prisma.DateTimeNullableFilter<"TenantDomain"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"TenantDomain"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TenantDomain"> | Date | string
 }
@@ -469,6 +563,10 @@ export type TenantDomainCreateManyTenantInput = {
   hostname: string
   kind: $Enums.TenantDomainKind
   isPrimary?: boolean
+  verificationStatus?: string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Date | string | null
+  verifiedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -478,6 +576,10 @@ export type TenantDomainUpdateWithoutTenantInput = {
   hostname?: Prisma.StringFieldUpdateOperationsInput | string
   kind?: Prisma.EnumTenantDomainKindFieldUpdateOperationsInput | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  verificationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -487,6 +589,10 @@ export type TenantDomainUncheckedUpdateWithoutTenantInput = {
   hostname?: Prisma.StringFieldUpdateOperationsInput | string
   kind?: Prisma.EnumTenantDomainKindFieldUpdateOperationsInput | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  verificationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -496,6 +602,10 @@ export type TenantDomainUncheckedUpdateManyWithoutTenantInput = {
   hostname?: Prisma.StringFieldUpdateOperationsInput | string
   kind?: Prisma.EnumTenantDomainKindFieldUpdateOperationsInput | $Enums.TenantDomainKind
   isPrimary?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  verificationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  verificationDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verificationCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -508,6 +618,10 @@ export type TenantDomainSelect<ExtArgs extends runtime.Types.Extensions.Internal
   hostname?: boolean
   kind?: boolean
   isPrimary?: boolean
+  verificationStatus?: boolean
+  verificationDetails?: boolean
+  verificationCheckedAt?: boolean
+  verifiedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
@@ -519,6 +633,10 @@ export type TenantDomainSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   hostname?: boolean
   kind?: boolean
   isPrimary?: boolean
+  verificationStatus?: boolean
+  verificationDetails?: boolean
+  verificationCheckedAt?: boolean
+  verifiedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
@@ -530,6 +648,10 @@ export type TenantDomainSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   hostname?: boolean
   kind?: boolean
   isPrimary?: boolean
+  verificationStatus?: boolean
+  verificationDetails?: boolean
+  verificationCheckedAt?: boolean
+  verifiedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
@@ -541,11 +663,15 @@ export type TenantDomainSelectScalar = {
   hostname?: boolean
   kind?: boolean
   isPrimary?: boolean
+  verificationStatus?: boolean
+  verificationDetails?: boolean
+  verificationCheckedAt?: boolean
+  verifiedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type TenantDomainOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "hostname" | "kind" | "isPrimary" | "createdAt" | "updatedAt", ExtArgs["result"]["tenantDomain"]>
+export type TenantDomainOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "hostname" | "kind" | "isPrimary" | "verificationStatus" | "verificationDetails" | "verificationCheckedAt" | "verifiedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["tenantDomain"]>
 export type TenantDomainInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
 }
@@ -567,6 +693,10 @@ export type $TenantDomainPayload<ExtArgs extends runtime.Types.Extensions.Intern
     hostname: string
     kind: $Enums.TenantDomainKind
     isPrimary: boolean
+    verificationStatus: string
+    verificationDetails: runtime.JsonValue | null
+    verificationCheckedAt: Date | null
+    verifiedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["tenantDomain"]>
@@ -998,6 +1128,10 @@ export interface TenantDomainFieldRefs {
   readonly hostname: Prisma.FieldRef<"TenantDomain", 'String'>
   readonly kind: Prisma.FieldRef<"TenantDomain", 'TenantDomainKind'>
   readonly isPrimary: Prisma.FieldRef<"TenantDomain", 'Boolean'>
+  readonly verificationStatus: Prisma.FieldRef<"TenantDomain", 'String'>
+  readonly verificationDetails: Prisma.FieldRef<"TenantDomain", 'Json'>
+  readonly verificationCheckedAt: Prisma.FieldRef<"TenantDomain", 'DateTime'>
+  readonly verifiedAt: Prisma.FieldRef<"TenantDomain", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"TenantDomain", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"TenantDomain", 'DateTime'>
 }

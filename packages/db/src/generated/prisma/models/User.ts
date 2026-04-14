@@ -228,6 +228,9 @@ export type UserWhereInput = {
   loanRequests?: Prisma.LoanRequestListRelationFilter
   loanApprovals?: Prisma.LoanApprovalListRelationFilter
   repayments?: Prisma.RepaymentListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
+  importBatches?: Prisma.ImportBatchListRelationFilter
   offlineSyncEvents?: Prisma.OfflineSyncEventListRelationFilter
   auditLogs?: Prisma.AuditLogListRelationFilter
 }
@@ -249,6 +252,9 @@ export type UserOrderByWithRelationInput = {
   loanRequests?: Prisma.LoanRequestOrderByRelationAggregateInput
   loanApprovals?: Prisma.LoanApprovalOrderByRelationAggregateInput
   repayments?: Prisma.RepaymentOrderByRelationAggregateInput
+  collectionFollowUps?: Prisma.CollectionFollowUpOrderByRelationAggregateInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpOrderByRelationAggregateInput
+  importBatches?: Prisma.ImportBatchOrderByRelationAggregateInput
   offlineSyncEvents?: Prisma.OfflineSyncEventOrderByRelationAggregateInput
   auditLogs?: Prisma.AuditLogOrderByRelationAggregateInput
 }
@@ -274,6 +280,9 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   loanRequests?: Prisma.LoanRequestListRelationFilter
   loanApprovals?: Prisma.LoanApprovalListRelationFilter
   repayments?: Prisma.RepaymentListRelationFilter
+  collectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpListRelationFilter
+  importBatches?: Prisma.ImportBatchListRelationFilter
   offlineSyncEvents?: Prisma.OfflineSyncEventListRelationFilter
   auditLogs?: Prisma.AuditLogListRelationFilter
 }, "id" | "tenantId_email">
@@ -326,6 +335,9 @@ export type UserCreateInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
 }
@@ -346,6 +358,9 @@ export type UserUncheckedCreateInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
 }
@@ -366,6 +381,9 @@ export type UserUpdateInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
 }
@@ -386,6 +404,9 @@ export type UserUncheckedUpdateInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
 }
@@ -530,6 +551,20 @@ export type UserUpdateOneRequiredWithoutMembershipsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutMembershipsInput, Prisma.UserUpdateWithoutMembershipsInput>, Prisma.UserUncheckedUpdateWithoutMembershipsInput>
 }
 
+export type UserCreateNestedOneWithoutImportBatchesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutImportBatchesInput, Prisma.UserUncheckedCreateWithoutImportBatchesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutImportBatchesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutImportBatchesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutImportBatchesInput, Prisma.UserUncheckedCreateWithoutImportBatchesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutImportBatchesInput
+  upsert?: Prisma.UserUpsertWithoutImportBatchesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutImportBatchesInput, Prisma.UserUpdateWithoutImportBatchesInput>, Prisma.UserUncheckedUpdateWithoutImportBatchesInput>
+}
+
 export type UserCreateNestedOneWithoutLoanRequestsInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutLoanRequestsInput, Prisma.UserUncheckedCreateWithoutLoanRequestsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutLoanRequestsInput
@@ -556,6 +591,36 @@ export type UserUpdateOneRequiredWithoutLoanApprovalsNestedInput = {
   upsert?: Prisma.UserUpsertWithoutLoanApprovalsInput
   connect?: Prisma.UserWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutLoanApprovalsInput, Prisma.UserUpdateWithoutLoanApprovalsInput>, Prisma.UserUncheckedUpdateWithoutLoanApprovalsInput>
+}
+
+export type UserCreateNestedOneWithoutCollectionFollowUpsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutCollectionFollowUpsInput, Prisma.UserUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutCollectionFollowUpsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutAssignedCollectionFollowUpsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAssignedCollectionFollowUpsInput, Prisma.UserUncheckedCreateWithoutAssignedCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAssignedCollectionFollowUpsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutCollectionFollowUpsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutCollectionFollowUpsInput, Prisma.UserUncheckedCreateWithoutCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutCollectionFollowUpsInput
+  upsert?: Prisma.UserUpsertWithoutCollectionFollowUpsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutCollectionFollowUpsInput, Prisma.UserUpdateWithoutCollectionFollowUpsInput>, Prisma.UserUncheckedUpdateWithoutCollectionFollowUpsInput>
+}
+
+export type UserUpdateOneWithoutAssignedCollectionFollowUpsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAssignedCollectionFollowUpsInput, Prisma.UserUncheckedCreateWithoutAssignedCollectionFollowUpsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAssignedCollectionFollowUpsInput
+  upsert?: Prisma.UserUpsertWithoutAssignedCollectionFollowUpsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAssignedCollectionFollowUpsInput, Prisma.UserUpdateWithoutAssignedCollectionFollowUpsInput>, Prisma.UserUncheckedUpdateWithoutAssignedCollectionFollowUpsInput>
 }
 
 export type UserCreateNestedOneWithoutRepaymentsInput = {
@@ -662,6 +727,9 @@ export type UserCreateWithoutAuditLogsInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
 }
 
@@ -681,6 +749,9 @@ export type UserUncheckedCreateWithoutAuditLogsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
 }
 
@@ -716,6 +787,9 @@ export type UserUpdateWithoutAuditLogsInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
 }
 
@@ -735,6 +809,9 @@ export type UserUncheckedUpdateWithoutAuditLogsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
 }
 
@@ -753,6 +830,9 @@ export type UserCreateWithoutMembershipsInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
 }
@@ -772,6 +852,9 @@ export type UserUncheckedCreateWithoutMembershipsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
 }
@@ -807,6 +890,9 @@ export type UserUpdateWithoutMembershipsInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
 }
@@ -826,6 +912,113 @@ export type UserUncheckedUpdateWithoutMembershipsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
+}
+
+export type UserCreateWithoutImportBatchesInput = {
+  id?: string
+  email: string
+  phoneNumber?: string | null
+  passwordHash?: string | null
+  fullName: string
+  isPlatformOwner?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  tenant: Prisma.TenantCreateNestedOneWithoutUsersInput
+  memberships?: Prisma.MembershipCreateNestedManyWithoutUserInput
+  memberProfile?: Prisma.MemberCreateNestedOneWithoutUserInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
+  loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
+}
+
+export type UserUncheckedCreateWithoutImportBatchesInput = {
+  id?: string
+  tenantId: string
+  email: string
+  phoneNumber?: string | null
+  passwordHash?: string | null
+  fullName: string
+  isPlatformOwner?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutUserInput
+  memberProfile?: Prisma.MemberUncheckedCreateNestedOneWithoutUserInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
+}
+
+export type UserCreateOrConnectWithoutImportBatchesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutImportBatchesInput, Prisma.UserUncheckedCreateWithoutImportBatchesInput>
+}
+
+export type UserUpsertWithoutImportBatchesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutImportBatchesInput, Prisma.UserUncheckedUpdateWithoutImportBatchesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutImportBatchesInput, Prisma.UserUncheckedCreateWithoutImportBatchesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutImportBatchesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutImportBatchesInput, Prisma.UserUncheckedUpdateWithoutImportBatchesInput>
+}
+
+export type UserUpdateWithoutImportBatchesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  isPlatformOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  tenant?: Prisma.TenantUpdateOneRequiredWithoutUsersNestedInput
+  memberships?: Prisma.MembershipUpdateManyWithoutUserNestedInput
+  memberProfile?: Prisma.MemberUpdateOneWithoutUserNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
+  loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutImportBatchesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  tenantId?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  isPlatformOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  memberships?: Prisma.MembershipUncheckedUpdateManyWithoutUserNestedInput
+  memberProfile?: Prisma.MemberUncheckedUpdateOneWithoutUserNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
 }
@@ -845,6 +1038,9 @@ export type UserCreateWithoutLoanRequestsInput = {
   memberProfile?: Prisma.MemberCreateNestedOneWithoutUserInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
 }
@@ -864,6 +1060,9 @@ export type UserUncheckedCreateWithoutLoanRequestsInput = {
   memberProfile?: Prisma.MemberUncheckedCreateNestedOneWithoutUserInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
 }
@@ -899,6 +1098,9 @@ export type UserUpdateWithoutLoanRequestsInput = {
   memberProfile?: Prisma.MemberUpdateOneWithoutUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
 }
@@ -918,6 +1120,9 @@ export type UserUncheckedUpdateWithoutLoanRequestsInput = {
   memberProfile?: Prisma.MemberUncheckedUpdateOneWithoutUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
 }
@@ -937,6 +1142,9 @@ export type UserCreateWithoutLoanApprovalsInput = {
   memberProfile?: Prisma.MemberCreateNestedOneWithoutUserInput
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
 }
@@ -956,6 +1164,9 @@ export type UserUncheckedCreateWithoutLoanApprovalsInput = {
   memberProfile?: Prisma.MemberUncheckedCreateNestedOneWithoutUserInput
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
 }
@@ -991,6 +1202,9 @@ export type UserUpdateWithoutLoanApprovalsInput = {
   memberProfile?: Prisma.MemberUpdateOneWithoutUserNestedInput
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
 }
@@ -1010,6 +1224,217 @@ export type UserUncheckedUpdateWithoutLoanApprovalsInput = {
   memberProfile?: Prisma.MemberUncheckedUpdateOneWithoutUserNestedInput
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
+}
+
+export type UserCreateWithoutCollectionFollowUpsInput = {
+  id?: string
+  email: string
+  phoneNumber?: string | null
+  passwordHash?: string | null
+  fullName: string
+  isPlatformOwner?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  tenant: Prisma.TenantCreateNestedOneWithoutUsersInput
+  memberships?: Prisma.MembershipCreateNestedManyWithoutUserInput
+  memberProfile?: Prisma.MemberCreateNestedOneWithoutUserInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
+  loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
+}
+
+export type UserUncheckedCreateWithoutCollectionFollowUpsInput = {
+  id?: string
+  tenantId: string
+  email: string
+  phoneNumber?: string | null
+  passwordHash?: string | null
+  fullName: string
+  isPlatformOwner?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutUserInput
+  memberProfile?: Prisma.MemberUncheckedCreateNestedOneWithoutUserInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
+}
+
+export type UserCreateOrConnectWithoutCollectionFollowUpsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutCollectionFollowUpsInput, Prisma.UserUncheckedCreateWithoutCollectionFollowUpsInput>
+}
+
+export type UserCreateWithoutAssignedCollectionFollowUpsInput = {
+  id?: string
+  email: string
+  phoneNumber?: string | null
+  passwordHash?: string | null
+  fullName: string
+  isPlatformOwner?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  tenant: Prisma.TenantCreateNestedOneWithoutUsersInput
+  memberships?: Prisma.MembershipCreateNestedManyWithoutUserInput
+  memberProfile?: Prisma.MemberCreateNestedOneWithoutUserInput
+  loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
+  loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
+  repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
+}
+
+export type UserUncheckedCreateWithoutAssignedCollectionFollowUpsInput = {
+  id?: string
+  tenantId: string
+  email: string
+  phoneNumber?: string | null
+  passwordHash?: string | null
+  fullName: string
+  isPlatformOwner?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  memberships?: Prisma.MembershipUncheckedCreateNestedManyWithoutUserInput
+  memberProfile?: Prisma.MemberUncheckedCreateNestedOneWithoutUserInput
+  loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
+  repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
+}
+
+export type UserCreateOrConnectWithoutAssignedCollectionFollowUpsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutAssignedCollectionFollowUpsInput, Prisma.UserUncheckedCreateWithoutAssignedCollectionFollowUpsInput>
+}
+
+export type UserUpsertWithoutCollectionFollowUpsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutCollectionFollowUpsInput, Prisma.UserUncheckedUpdateWithoutCollectionFollowUpsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutCollectionFollowUpsInput, Prisma.UserUncheckedCreateWithoutCollectionFollowUpsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutCollectionFollowUpsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutCollectionFollowUpsInput, Prisma.UserUncheckedUpdateWithoutCollectionFollowUpsInput>
+}
+
+export type UserUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  isPlatformOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  tenant?: Prisma.TenantUpdateOneRequiredWithoutUsersNestedInput
+  memberships?: Prisma.MembershipUpdateManyWithoutUserNestedInput
+  memberProfile?: Prisma.MemberUpdateOneWithoutUserNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
+  loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  tenantId?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  isPlatformOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  memberships?: Prisma.MembershipUncheckedUpdateManyWithoutUserNestedInput
+  memberProfile?: Prisma.MemberUncheckedUpdateOneWithoutUserNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
+}
+
+export type UserUpsertWithoutAssignedCollectionFollowUpsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutAssignedCollectionFollowUpsInput, Prisma.UserUncheckedUpdateWithoutAssignedCollectionFollowUpsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutAssignedCollectionFollowUpsInput, Prisma.UserUncheckedCreateWithoutAssignedCollectionFollowUpsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutAssignedCollectionFollowUpsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutAssignedCollectionFollowUpsInput, Prisma.UserUncheckedUpdateWithoutAssignedCollectionFollowUpsInput>
+}
+
+export type UserUpdateWithoutAssignedCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  isPlatformOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  tenant?: Prisma.TenantUpdateOneRequiredWithoutUsersNestedInput
+  memberships?: Prisma.MembershipUpdateManyWithoutUserNestedInput
+  memberProfile?: Prisma.MemberUpdateOneWithoutUserNestedInput
+  loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
+  loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
+  repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
+  offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutAssignedCollectionFollowUpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  tenantId?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  isPlatformOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  memberships?: Prisma.MembershipUncheckedUpdateManyWithoutUserNestedInput
+  memberProfile?: Prisma.MemberUncheckedUpdateOneWithoutUserNestedInput
+  loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
+  repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
 }
@@ -1029,6 +1454,9 @@ export type UserCreateWithoutRepaymentsInput = {
   memberProfile?: Prisma.MemberCreateNestedOneWithoutUserInput
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
 }
@@ -1048,6 +1476,9 @@ export type UserUncheckedCreateWithoutRepaymentsInput = {
   memberProfile?: Prisma.MemberUncheckedCreateNestedOneWithoutUserInput
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
 }
@@ -1083,6 +1514,9 @@ export type UserUpdateWithoutRepaymentsInput = {
   memberProfile?: Prisma.MemberUpdateOneWithoutUserNestedInput
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
 }
@@ -1102,6 +1536,9 @@ export type UserUncheckedUpdateWithoutRepaymentsInput = {
   memberProfile?: Prisma.MemberUncheckedUpdateOneWithoutUserNestedInput
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
 }
@@ -1121,6 +1558,9 @@ export type UserCreateWithoutMemberProfileInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
 }
@@ -1140,6 +1580,9 @@ export type UserUncheckedCreateWithoutMemberProfileInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
 }
@@ -1175,6 +1618,9 @@ export type UserUpdateWithoutMemberProfileInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
 }
@@ -1194,6 +1640,9 @@ export type UserUncheckedUpdateWithoutMemberProfileInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
 }
@@ -1214,6 +1663,9 @@ export type UserCreateWithoutOfflineSyncEventsInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
 }
 
@@ -1233,6 +1685,9 @@ export type UserUncheckedCreateWithoutOfflineSyncEventsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
 }
 
@@ -1268,6 +1723,9 @@ export type UserUpdateWithoutOfflineSyncEventsInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
 }
 
@@ -1287,6 +1745,9 @@ export type UserUncheckedUpdateWithoutOfflineSyncEventsInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
 }
 
@@ -1305,6 +1766,9 @@ export type UserCreateWithoutTenantInput = {
   loanRequests?: Prisma.LoanRequestCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutActorUserInput
 }
@@ -1324,6 +1788,9 @@ export type UserUncheckedCreateWithoutTenantInput = {
   loanRequests?: Prisma.LoanRequestUncheckedCreateNestedManyWithoutCreatedByUserInput
   loanApprovals?: Prisma.LoanApprovalUncheckedCreateNestedManyWithoutActorUserInput
   repayments?: Prisma.RepaymentUncheckedCreateNestedManyWithoutReceivedByUserInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutActorUserInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedCreateNestedManyWithoutAssignedToUserInput
+  importBatches?: Prisma.ImportBatchUncheckedCreateNestedManyWithoutCreatedByUserInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedCreateNestedManyWithoutCreatedByUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutActorUserInput
 }
@@ -1397,6 +1864,9 @@ export type UserUpdateWithoutTenantInput = {
   loanRequests?: Prisma.LoanRequestUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutActorUserNestedInput
 }
@@ -1416,6 +1886,9 @@ export type UserUncheckedUpdateWithoutTenantInput = {
   loanRequests?: Prisma.LoanRequestUncheckedUpdateManyWithoutCreatedByUserNestedInput
   loanApprovals?: Prisma.LoanApprovalUncheckedUpdateManyWithoutActorUserNestedInput
   repayments?: Prisma.RepaymentUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  collectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutActorUserNestedInput
+  assignedCollectionFollowUps?: Prisma.CollectionFollowUpUncheckedUpdateManyWithoutAssignedToUserNestedInput
+  importBatches?: Prisma.ImportBatchUncheckedUpdateManyWithoutCreatedByUserNestedInput
   offlineSyncEvents?: Prisma.OfflineSyncEventUncheckedUpdateManyWithoutCreatedByUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutActorUserNestedInput
 }
@@ -1442,6 +1915,9 @@ export type UserCountOutputType = {
   loanRequests: number
   loanApprovals: number
   repayments: number
+  collectionFollowUps: number
+  assignedCollectionFollowUps: number
+  importBatches: number
   offlineSyncEvents: number
   auditLogs: number
 }
@@ -1451,6 +1927,9 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   loanRequests?: boolean | UserCountOutputTypeCountLoanRequestsArgs
   loanApprovals?: boolean | UserCountOutputTypeCountLoanApprovalsArgs
   repayments?: boolean | UserCountOutputTypeCountRepaymentsArgs
+  collectionFollowUps?: boolean | UserCountOutputTypeCountCollectionFollowUpsArgs
+  assignedCollectionFollowUps?: boolean | UserCountOutputTypeCountAssignedCollectionFollowUpsArgs
+  importBatches?: boolean | UserCountOutputTypeCountImportBatchesArgs
   offlineSyncEvents?: boolean | UserCountOutputTypeCountOfflineSyncEventsArgs
   auditLogs?: boolean | UserCountOutputTypeCountAuditLogsArgs
 }
@@ -1496,6 +1975,27 @@ export type UserCountOutputTypeCountRepaymentsArgs<ExtArgs extends runtime.Types
 /**
  * UserCountOutputType without action
  */
+export type UserCountOutputTypeCountCollectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CollectionFollowUpWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountAssignedCollectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CollectionFollowUpWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountImportBatchesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ImportBatchWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
 export type UserCountOutputTypeCountOfflineSyncEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.OfflineSyncEventWhereInput
 }
@@ -1525,6 +2025,9 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   loanRequests?: boolean | Prisma.User$loanRequestsArgs<ExtArgs>
   loanApprovals?: boolean | Prisma.User$loanApprovalsArgs<ExtArgs>
   repayments?: boolean | Prisma.User$repaymentsArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.User$collectionFollowUpsArgs<ExtArgs>
+  assignedCollectionFollowUps?: boolean | Prisma.User$assignedCollectionFollowUpsArgs<ExtArgs>
+  importBatches?: boolean | Prisma.User$importBatchesArgs<ExtArgs>
   offlineSyncEvents?: boolean | Prisma.User$offlineSyncEventsArgs<ExtArgs>
   auditLogs?: boolean | Prisma.User$auditLogsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -1579,6 +2082,9 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   loanRequests?: boolean | Prisma.User$loanRequestsArgs<ExtArgs>
   loanApprovals?: boolean | Prisma.User$loanApprovalsArgs<ExtArgs>
   repayments?: boolean | Prisma.User$repaymentsArgs<ExtArgs>
+  collectionFollowUps?: boolean | Prisma.User$collectionFollowUpsArgs<ExtArgs>
+  assignedCollectionFollowUps?: boolean | Prisma.User$assignedCollectionFollowUpsArgs<ExtArgs>
+  importBatches?: boolean | Prisma.User$importBatchesArgs<ExtArgs>
   offlineSyncEvents?: boolean | Prisma.User$offlineSyncEventsArgs<ExtArgs>
   auditLogs?: boolean | Prisma.User$auditLogsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -1599,6 +2105,9 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     loanRequests: Prisma.$LoanRequestPayload<ExtArgs>[]
     loanApprovals: Prisma.$LoanApprovalPayload<ExtArgs>[]
     repayments: Prisma.$RepaymentPayload<ExtArgs>[]
+    collectionFollowUps: Prisma.$CollectionFollowUpPayload<ExtArgs>[]
+    assignedCollectionFollowUps: Prisma.$CollectionFollowUpPayload<ExtArgs>[]
+    importBatches: Prisma.$ImportBatchPayload<ExtArgs>[]
     offlineSyncEvents: Prisma.$OfflineSyncEventPayload<ExtArgs>[]
     auditLogs: Prisma.$AuditLogPayload<ExtArgs>[]
   }
@@ -2013,6 +2522,9 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   loanRequests<T extends Prisma.User$loanRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$loanRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LoanRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   loanApprovals<T extends Prisma.User$loanApprovalsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$loanApprovalsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LoanApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   repayments<T extends Prisma.User$repaymentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$repaymentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  collectionFollowUps<T extends Prisma.User$collectionFollowUpsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$collectionFollowUpsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CollectionFollowUpPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  assignedCollectionFollowUps<T extends Prisma.User$assignedCollectionFollowUpsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$assignedCollectionFollowUpsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CollectionFollowUpPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  importBatches<T extends Prisma.User$importBatchesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$importBatchesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ImportBatchPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   offlineSyncEvents<T extends Prisma.User$offlineSyncEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$offlineSyncEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$OfflineSyncEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   auditLogs<T extends Prisma.User$auditLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$auditLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuditLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
@@ -2567,6 +3079,78 @@ export type User$repaymentsArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   distinct?: Prisma.RepaymentScalarFieldEnum | Prisma.RepaymentScalarFieldEnum[]
+}
+
+/**
+ * User.collectionFollowUps
+ */
+export type User$collectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CollectionFollowUp
+   */
+  select?: Prisma.CollectionFollowUpSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CollectionFollowUp
+   */
+  omit?: Prisma.CollectionFollowUpOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CollectionFollowUpInclude<ExtArgs> | null
+  where?: Prisma.CollectionFollowUpWhereInput
+  orderBy?: Prisma.CollectionFollowUpOrderByWithRelationInput | Prisma.CollectionFollowUpOrderByWithRelationInput[]
+  cursor?: Prisma.CollectionFollowUpWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CollectionFollowUpScalarFieldEnum | Prisma.CollectionFollowUpScalarFieldEnum[]
+}
+
+/**
+ * User.assignedCollectionFollowUps
+ */
+export type User$assignedCollectionFollowUpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CollectionFollowUp
+   */
+  select?: Prisma.CollectionFollowUpSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CollectionFollowUp
+   */
+  omit?: Prisma.CollectionFollowUpOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CollectionFollowUpInclude<ExtArgs> | null
+  where?: Prisma.CollectionFollowUpWhereInput
+  orderBy?: Prisma.CollectionFollowUpOrderByWithRelationInput | Prisma.CollectionFollowUpOrderByWithRelationInput[]
+  cursor?: Prisma.CollectionFollowUpWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CollectionFollowUpScalarFieldEnum | Prisma.CollectionFollowUpScalarFieldEnum[]
+}
+
+/**
+ * User.importBatches
+ */
+export type User$importBatchesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ImportBatch
+   */
+  select?: Prisma.ImportBatchSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ImportBatch
+   */
+  omit?: Prisma.ImportBatchOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ImportBatchInclude<ExtArgs> | null
+  where?: Prisma.ImportBatchWhereInput
+  orderBy?: Prisma.ImportBatchOrderByWithRelationInput | Prisma.ImportBatchOrderByWithRelationInput[]
+  cursor?: Prisma.ImportBatchWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ImportBatchScalarFieldEnum | Prisma.ImportBatchScalarFieldEnum[]
 }
 
 /**

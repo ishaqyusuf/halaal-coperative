@@ -87,6 +87,16 @@ export type DividendPeriod = Prisma.DividendPeriodModel
  */
 export type DividendAllocation = Prisma.DividendAllocationModel
 /**
+ * Model ImportBatch
+ * 
+ */
+export type ImportBatch = Prisma.ImportBatchModel
+/**
+ * Model ImportBatchRow
+ * 
+ */
+export type ImportBatchRow = Prisma.ImportBatchRowModel
+/**
  * Model LedgerAccount
  * 
  */
@@ -127,6 +137,11 @@ export type Loan = Prisma.LoanModel
  */
 export type RepaymentScheduleItem = Prisma.RepaymentScheduleItemModel
 /**
+ * Model CollectionFollowUp
+ * 
+ */
+export type CollectionFollowUp = Prisma.CollectionFollowUpModel
+/**
  * Model Repayment
  * 
  */
@@ -137,10 +152,25 @@ export type Repayment = Prisma.RepaymentModel
  */
 export type Member = Prisma.MemberModel
 /**
+ * Model MemberDocument
+ * 
+ */
+export type MemberDocument = Prisma.MemberDocumentModel
+/**
  * Model DeductionSource
  * 
  */
 export type DeductionSource = Prisma.DeductionSourceModel
+/**
+ * Model NotificationOutbox
+ * 
+ */
+export type NotificationOutbox = Prisma.NotificationOutboxModel
+/**
+ * Model NotificationPreference
+ * 
+ */
+export type NotificationPreference = Prisma.NotificationPreferenceModel
 /**
  * Model OfflineSyncEvent
  * 

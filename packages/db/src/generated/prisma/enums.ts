@@ -38,6 +38,15 @@ export const ContributionChannel = {
 export type ContributionChannel = (typeof ContributionChannel)[keyof typeof ContributionChannel]
 
 
+export const PaymentAllocationPreference = {
+  manual_split: 'manual_split',
+  savings_first: 'savings_first',
+  loan_first: 'loan_first'
+} as const
+
+export type PaymentAllocationPreference = (typeof PaymentAllocationPreference)[keyof typeof PaymentAllocationPreference]
+
+
 export const ChargeKind = {
   fixed: 'fixed',
   percentage: 'percentage'
@@ -107,6 +116,16 @@ export const DeductionSourceType = {
 } as const
 
 export type DeductionSourceType = (typeof DeductionSourceType)[keyof typeof DeductionSourceType]
+
+
+export const KycStatus = {
+  not_started: 'not_started',
+  pending: 'pending',
+  verified: 'verified',
+  rejected: 'rejected'
+} as const
+
+export type KycStatus = (typeof KycStatus)[keyof typeof KycStatus]
 
 
 export const TenantDomainKind = {
@@ -243,3 +262,12 @@ export const AuditActorType = {
 } as const
 
 export type AuditActorType = (typeof AuditActorType)[keyof typeof AuditActorType]
+
+
+export const NotificationDeliveryStatus = {
+  queued: 'queued',
+  sent: 'sent',
+  failed: 'failed'
+} as const
+
+export type NotificationDeliveryStatus = (typeof NotificationDeliveryStatus)[keyof typeof NotificationDeliveryStatus]

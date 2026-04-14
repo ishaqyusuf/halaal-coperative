@@ -31,9 +31,15 @@ This file tracks the public and internal API surface of the platform.
 - `TRPC /trpc/workspace.summary`
   - Purpose: tenant dashboard summary and tenant policy derived from shared domain modules.
 - `TRPC /trpc/onboarding.status`
-  - Purpose: return onboarding progress for the active tenant, including domain, owner, policy, and ledger bootstrap state.
+  - Purpose: return onboarding progress for the active tenant, including domain, primary admin contact, policy, and ledger bootstrap state.
 - `TRPC /trpc/onboarding.bootstrap`
-  - Purpose: create a new tenant workspace with primary domains, tenant-admin owner, default policy, and baseline ledger accounts.
+  - Purpose: create a new tenant workspace with primary domains, tenant-admin contact, default policy, and baseline ledger accounts.
+- `POST /api/signup`
+  - Purpose: validate the public signup intent, mint a signed onboarding token, and build the verification email draft for the cooperative primary contact.
+  - Notes: implemented as `apps/web/app/api/signup/route.ts` because the full auth/session stack is not in place yet.
+- `POST /api/onboarding`
+  - Purpose: verify the signed signup token and provision the tenant workspace from a simplified cooperative profile payload.
+  - Notes: implemented as `apps/web/app/api/onboarding/route.ts` and backed directly by `createTenantWorkspaceBootstrap`.
 - `TRPC /trpc/notifications.list`
   - Purpose: return sample notification payloads using the shared notification registry.
 - `TRPC /trpc/members.list|get|create|update|updateStatus`

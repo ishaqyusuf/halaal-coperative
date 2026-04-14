@@ -16,6 +16,9 @@ model User {
   loanRequests LoanRequest[] @relation("LoanRequestCreatedBy")
   loanApprovals LoanApproval[]
   repayments   Repayment[]   @relation("RepaymentReceivedBy")
+  collectionFollowUps CollectionFollowUp[] @relation("CollectionFollowUpActor")
+  assignedCollectionFollowUps CollectionFollowUp[] @relation("CollectionFollowUpAssignedUser")
+  importBatches ImportBatch[] @relation("ImportBatchCreatedBy")
   offlineSyncEvents OfflineSyncEvent[] @relation("OfflineSyncCreatedBy")
   auditLogs    AuditLog[]    @relation("AuditActorUser")
 

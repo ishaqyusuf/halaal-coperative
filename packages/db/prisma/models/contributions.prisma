@@ -26,6 +26,8 @@ model Contribution {
   contributionPlanId    String?            @map("contribution_plan_id") @db.Uuid
   postedAt              DateTime           @map("posted_at") @db.Timestamptz(6)
   amount                Decimal            @db.Decimal(18, 2)
+  committedAmount       Decimal?           @map("committed_amount") @db.Decimal(18, 2)
+  extraSavingsAmount    Decimal            @default(0) @map("extra_savings_amount") @db.Decimal(18, 2)
   status                ContributionStatus @default(posted)
   channel               ContributionChannel
   periodLabel           String?            @map("period_label")

@@ -100,19 +100,59 @@ function getOptionalNumber(formData: FormData, key: string) {
   return Number(value.trim())
 }
 
+function getOptionalBoolean(formData: FormData, key: string) {
+  const value = formData.get(key)
+  if (typeof value !== "string") {
+    return false
+  }
+
+  return value === "on" || value === "true"
+}
+
 export async function createMemberAction(formData: FormData) {
   const actor = await requireDashboardActor(memberManagementRoles)
+  const hasServingLoan = getOptionalBoolean(formData, "hasServingLoan")
+  const currentSavingsBalance = getOptionalNumber(formData, "currentSavingsBalance")
+  const monthlyCommitment = getOptionalNumber(formData, "monthlyCommitment")
+  const loanAmount = getOptionalNumber(formData, "loanAmount")
+  const loanMonthlyCommitment = getOptionalNumber(formData, "loanMonthlyCommitment")
+  const loanServed = getOptionalNumber(formData, "loanServed") ?? 0
+  const loanStartDate = (formData.get("loanStartDate") as string | null)?.trim() || undefined
+
+  if (hasServingLoan) {
+    if (!loanStartDate || !loanAmount || !loanMonthlyCommitment) {
+      throw new Error("Loan start date, amount, and monthly commitment are required when serving loan is enabled.")
+    }
+
+    if (loanServed < 0 || loanServed > loanAmount) {
+      throw new Error("Served amount must be between 0 and the total loan amount.")
+    }
+  }
 
   await createMember({
     actorUserId: actor.user.id,
+    currentSavingsBalance,
     fullName: getRequiredString(formData, "fullName"),
     joinedAt: new Date(`${getRequiredString(formData, "joinedAt")}T00:00:00.000Z`),
     memberNumber: getRequiredString(formData, "memberNumber"),
     memberType: getRequiredString(formData, "memberType") as DashboardMemberType,
+    monthlyCommitment,
+    servingLoan:
+      hasServingLoan && loanStartDate && loanAmount && loanMonthlyCommitment
+        ? {
+            amountServed: loanServed,
+            monthlyCommitment: loanMonthlyCommitment,
+            principalAmount: loanAmount,
+            startDate: new Date(`${loanStartDate}T00:00:00.000Z`),
+          }
+        : undefined,
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/members")
+  revalidatePath("/contributions")
+  revalidatePath("/loans")
+  revalidatePath("/repayments")
 }
 
 export async function updateMemberStatusAction(formData: FormData) {

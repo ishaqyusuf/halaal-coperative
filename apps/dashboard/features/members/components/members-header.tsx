@@ -22,12 +22,12 @@ function buildMembersUrl(pathname: string, filters: MemberFilterValues) {
 
 export function MembersHeader({
   activeFilters,
-  createPanel,
+  createAction,
   defaultValues,
   importPanel,
 }: {
   activeFilters: Array<{ key: string; label: string }>
-  createPanel?: React.ReactNode
+  createAction?: React.ReactNode
   defaultValues: MemberFilterValues
   importPanel?: React.ReactNode
 }) {
@@ -37,7 +37,6 @@ export function MembersHeader({
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(
     Boolean(defaultValues.status || defaultValues.memberType || defaultValues.kycStatus || defaultValues.joinedFrom || defaultValues.joinedTo),
   )
-  const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [showImportPanel, setShowImportPanel] = useState(false)
 
   function applyFilters() {
@@ -85,25 +84,12 @@ export function MembersHeader({
                 className="rounded-full"
                 onClick={() => {
                   setShowImportPanel((current) => !current)
-                  setShowCreatePanel(false)
                 }}
               >
                 Import members
               </Button>
             ) : null}
-            {createPanel ? (
-              <Button
-                type="button"
-                variant={showCreatePanel ? "default" : "outline"}
-                className="rounded-full"
-                onClick={() => {
-                  setShowCreatePanel((current) => !current)
-                  setShowImportPanel(false)
-                }}
-              >
-                New member
-              </Button>
-            ) : null}
+            {createAction}
           </div>
         </div>
 
@@ -141,7 +127,6 @@ export function MembersHeader({
       </DashboardSectionCard>
 
       {showImportPanel ? importPanel : null}
-      {showCreatePanel ? createPanel : null}
     </div>
   )
 }

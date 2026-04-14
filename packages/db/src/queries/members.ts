@@ -1,4 +1,10 @@
-import type { KycStatus, MemberStatus, MemberType, PrismaClient } from "@prisma/client"
+import type {
+  KycStatus,
+  MemberStatus,
+  MemberType,
+  PrismaClient,
+  RepaymentScheduleStatus,
+} from "@prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getMemberTransactions } from "./ledger"
 
@@ -84,9 +90,50 @@ export type CreateMemberInput = {
   fullName: string
   memberType: MemberType
   joinedAt: Date
+  currentSavingsBalance?: number
+  monthlyCommitment?: number
+  servingLoan?: {
+    amountServed: number
+    monthlyCommitment: number
+    principalAmount: number
+    startDate: Date
+  }
   userId?: string
   deductionSourceId?: string
   actorUserId: string
+}
+
+function buildRepaymentSchedule(input: {
+  principalAmount: number
+  startDate: Date
+  termMonths: number
+}): Array<{
+  amountPaid: number
+  chargeDue: number
+  dueAt: Date
+  installmentNumber: number
+  principalDue: number
+  status: RepaymentScheduleStatus
+  totalDue: number
+}> {
+  const installmentAmount = input.principalAmount / input.termMonths
+
+  return Array.from({ length: input.termMonths }, (_, index) => {
+    const dueAt = new Date(input.startDate)
+    dueAt.setUTCMonth(dueAt.getUTCMonth() + index + 1)
+
+    const roundedPrincipal = Number(installmentAmount.toFixed(2))
+
+    return {
+      amountPaid: 0,
+      chargeDue: 0,
+      dueAt,
+      installmentNumber: index + 1,
+      principalDue: roundedPrincipal,
+      status: dueAt <= new Date() ? "due" : "pending",
+      totalDue: roundedPrincipal,
+    }
+  })
 }
 
 export async function createMember(
@@ -104,11 +151,132 @@ export async function createMember(
         fullName: input.fullName,
         memberType: input.memberType,
         joinedAt: input.joinedAt,
+        totalSavingsSnapshot: input.currentSavingsBalance ?? 0,
         userId: input.userId,
         deductionSourceId: input.deductionSourceId,
         status: "active",
       },
     })
+
+    if (input.monthlyCommitment && input.monthlyCommitment > 0) {
+      await tx.contributionPlan.create({
+        data: {
+          amount: input.monthlyCommitment,
+          interval: "monthly",
+          isActive: true,
+          memberId: member.id,
+          name: "Monthly commitment",
+          startsAt: input.joinedAt,
+          tenantId: input.tenantId,
+        },
+      })
+    }
+
+    if (input.servingLoan) {
+      const outstandingPrincipal = Number(
+        Math.max(0, input.servingLoan.principalAmount - input.servingLoan.amountServed).toFixed(2),
+      )
+      const termMonths = Math.max(
+        1,
+        Math.ceil(input.servingLoan.principalAmount / input.servingLoan.monthlyCommitment),
+      )
+      const estimatedMonthlyServicing = Number(input.servingLoan.monthlyCommitment.toFixed(2))
+
+      const loanProduct = await tx.loanProduct.upsert({
+        where: {
+          tenantId_name: {
+            name: "Imported active loan",
+            tenantId: input.tenantId,
+          },
+        },
+        update: {
+          isActive: true,
+          loanType: "normal",
+          maxSavingsMultiple: 2,
+          termMonths,
+        },
+        create: {
+          isActive: true,
+          loanType: "normal",
+          maxSavingsMultiple: 2,
+          name: "Imported active loan",
+          tenantId: input.tenantId,
+          termMonths,
+        },
+      })
+
+      const request = await tx.loanRequest.create({
+        data: {
+          availablePoolSnapshot: 0,
+          createdByUserId: input.actorUserId,
+          eligibleAmountSnapshot: input.currentSavingsBalance ?? 0,
+          estimatedMonthlyServicing,
+          extraMonthlySavingsAmount: 0,
+          loanProductId: loanProduct.id,
+          memberId: member.id,
+          requestedAmount: input.servingLoan.principalAmount,
+          requestedAt: input.servingLoan.startDate,
+          requestedTermMonths: termMonths,
+          reviewNotes: "Created from member onboarding current-state form.",
+          status: "approved",
+          tenantId: input.tenantId,
+        },
+      })
+
+      await tx.loanApproval.create({
+        data: {
+          action: "approved",
+          actedAt: input.servingLoan.startDate,
+          actorUserId: input.actorUserId,
+          loanRequestId: request.id,
+          notes: "Approved during member creation current-state capture.",
+          tenantId: input.tenantId,
+        },
+      })
+
+      const loan = await tx.loan.create({
+        data: {
+          disbursedAt: input.servingLoan.startDate,
+          estimatedMonthlyServicing,
+          extraMonthlySavingsAmount: 0,
+          firstRepaymentDueAt: input.servingLoan.startDate,
+          loanProductId: loanProduct.id,
+          loanRequestId: request.id,
+          memberId: member.id,
+          outstandingPrincipal,
+          principalAmount: input.servingLoan.principalAmount,
+          status: outstandingPrincipal > 0 ? "active" : "completed",
+          tenantId: input.tenantId,
+          termMonths,
+        },
+      })
+
+      const repaymentSchedule = buildRepaymentSchedule({
+        principalAmount: input.servingLoan.principalAmount,
+        startDate: input.servingLoan.startDate,
+        termMonths,
+      })
+      let remainingPaid = Math.max(0, input.servingLoan.amountServed)
+
+      await tx.repaymentScheduleItem.createMany({
+        data: repaymentSchedule.map((item) => {
+          const applied = Math.min(remainingPaid, item.totalDue)
+          remainingPaid -= applied
+
+          return {
+            amountPaid: applied,
+            chargeDue: item.chargeDue,
+            dueAt: item.dueAt,
+            installmentNumber: item.installmentNumber,
+            loanId: loan.id,
+            principalDue: item.principalDue,
+            status: applied >= item.totalDue ? "paid" : applied > 0 ? "partially_paid" : item.status,
+            tenantId: input.tenantId,
+            totalDue: item.totalDue,
+          }
+        }),
+      })
+    }
 
     await tx.auditLog.create({
       data: {
@@ -119,9 +287,19 @@ export async function createMember(
         entityType: "Member",
         entityId: member.id,
         metadata: {
+          currentSavingsBalance: input.currentSavingsBalance ?? 0,
           memberNumber: member.memberNumber,
+          monthlyCommitment: input.monthlyCommitment ?? 0,
           fullName: member.fullName,
           memberType: member.memberType,
+          servingLoan: input.servingLoan
+            ? {
+                amountServed: input.servingLoan.amountServed,
+                monthlyCommitment: input.servingLoan.monthlyCommitment,
+                principalAmount: input.servingLoan.principalAmount,
+                startDate: input.servingLoan.startDate.toISOString(),
+              }
+            : null,
         },
         occurredAt: new Date(),
       },

@@ -4,9 +4,8 @@ import {
   listImportBatches,
   listMembers,
 } from "@halaal-vest/db"
-import { DashboardSectionCard, DashboardSectionHeader } from "@/components/dashboard/primitives"
-import { MemberCreateForm } from "@/features/forms/member-forms"
 import {
+  MemberCreateModal,
   MemberImportPanel,
   MemberRegistryTable,
   MembersHeader,
@@ -68,21 +67,10 @@ export default async function MembersPage({
     >
       <MembersHeader
         activeFilters={activeFilters}
-        defaultValues={filters}
-        createPanel={
-          canManageMembers ? (
-            <DashboardSectionCard>
-              <DashboardSectionHeader
-                eyebrow="Create"
-                title="Add a member"
-                description="Create a new cooperative member without leaving the registry workspace."
-              />
-              <div className="mt-5">
-                <MemberCreateForm devMode={process.env.NODE_ENV !== "production"} />
-              </div>
-            </DashboardSectionCard>
-          ) : undefined
+        createAction={
+          canManageMembers ? <MemberCreateModal devMode={process.env.NODE_ENV !== "production"} /> : undefined
         }
+        defaultValues={filters}
         importPanel={
           canManageImports && referenceData ? (
             <MemberImportPanel

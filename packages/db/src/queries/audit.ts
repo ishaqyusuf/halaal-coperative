@@ -1,5 +1,5 @@
-import { createPrismaClient } from "../prisma.js"
-import type { Prisma, PrismaClient } from "../generated/prisma/client.js"
+import type { Prisma, PrismaClient } from "@prisma/client"
+import { createPrismaClient } from "../prisma"
 
 export type CreateAuditLogEntryInput = {
   action: string

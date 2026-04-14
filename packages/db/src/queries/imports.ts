@@ -1,4 +1,3 @@
-import { createPrismaClient } from "../prisma.js"
 import type {
   DeductionSourceType,
   LoanStatus,
@@ -6,11 +5,12 @@ import type {
   MemberType,
   Prisma,
   PrismaClient,
-} from "../generated/prisma/client.js"
-import { createAuditLogEntry } from "./audit.js"
-import { applyCharge } from "./charges.js"
-import { recordContribution } from "./contributions.js"
-import { postRepayment } from "./loans.js"
+} from "@prisma/client"
+import { createPrismaClient } from "../prisma"
+import { createAuditLogEntry } from "./audit"
+import { applyCharge } from "./charges"
+import { recordContribution } from "./contributions"
+import { postRepayment } from "./loans"
 
 type ImportResult = {
   processed: number

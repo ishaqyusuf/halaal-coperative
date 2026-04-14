@@ -1,6 +1,6 @@
 import { getRoleDisplayName, type CooperativeRole } from "@halaal-vest/auth"
+import { getActiveLinkFromMap, getLinkModules, validateLinks, type NavModule } from "@halaal-vest/site-nav"
 import { dashboardNavRegistry } from "./registry"
-import type { DashboardNavItem, DashboardNavModule } from "./types"
 
 function normalizePath(pathname: string) {
   if (!pathname) {
@@ -21,48 +21,37 @@ function isPathActive(pathname: string, href: string) {
   return normalizedPath === normalizedHref || normalizedPath.startsWith(`${normalizedHref}/`)
 }
 
-function canAccessRole(itemRoles: CooperativeRole[] | undefined, role: CooperativeRole | null) {
-  if (!itemRoles?.length) {
-    return true
+export function getVisibleDashboardNav(role: CooperativeRole | null): NavModule[] {
+  return validateLinks({
+    linkModules: dashboardNavRegistry,
+    role,
+  }).filter((module) => module.sections.some((section) => section.links.some((item) => item.show)))
+}
+
+export function getActiveDashboardNavItem(pathname: string, modules: NavModule[]) {
+  const linksMap = getLinkModules(modules).linksNameMap
+  const active = getActiveLinkFromMap(pathname, linksMap)
+  if (!active?.name) {
+    return null
   }
 
-  if (!role) {
-    return false
-  }
-
-  return itemRoles.includes(role)
+  const items = modules.flatMap((module) => module.sections.flatMap((section) => section.links))
+  return items.find((item) => item.name === active.name && isPathActive(pathname, item.href ?? "")) ?? null
 }
 
-export function getVisibleDashboardNav(role: CooperativeRole | null): DashboardNavModule[] {
-  return dashboardNavRegistry
-    .map((module) => ({
-      ...module,
-      sections: module.sections
-        .map((section) => ({
-          ...section,
-          items: section.items.filter((item) => canAccessRole(item.roles, role)),
-        }))
-        .filter((section) => section.items.length > 0),
-    }))
-    .filter((module) => module.sections.length > 0)
-}
-
-export function getActiveDashboardNavItem(pathname: string, modules: DashboardNavModule[]) {
-  const items = modules.flatMap((module) => module.sections.flatMap((section) => section.items))
-  return items.find((item) => isPathActive(pathname, item.href)) ?? null
-}
-
-export function getCurrentDashboardModule(pathname: string, modules: DashboardNavModule[]) {
+export function getCurrentDashboardModule(pathname: string, modules: NavModule[]) {
   return (
     modules.find((module) =>
-      module.sections.some((section) => section.items.some((item) => isPathActive(pathname, item.href))),
+      module.sections.some((section) =>
+        section.links.some((item) => item.show && isPathActive(pathname, item.href ?? "")),
+      ),
     ) ?? modules[0] ?? null
   )
 }
 
-export function getDashboardQuickLinks(pathname: string, modules: DashboardNavModule[]) {
+export function getDashboardQuickLinks(pathname: string, modules: NavModule[]) {
   const currentModule = getCurrentDashboardModule(pathname, modules)
-  return currentModule?.sections.flatMap((section) => section.items).slice(0, 6) ?? []
+  return currentModule?.sections.flatMap((section) => section.links.filter((item) => item.show)).slice(0, 6) ?? []
 }
 
 export function getDashboardRouteTitle(pathname: string, role: CooperativeRole | null) {
@@ -79,4 +68,4 @@ export function getDashboardRouteTitle(pathname: string, role: CooperativeRole |
 }
 
 export type DashboardRouteTitle = ReturnType<typeof getDashboardRouteTitle>
-export type DashboardQuickLink = DashboardNavItem
+export type DashboardQuickLink = NonNullable<ReturnType<typeof getDashboardQuickLinks>[number]>

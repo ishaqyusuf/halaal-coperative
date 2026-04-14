@@ -1,9 +1,14 @@
-export const platformRootDomain = "halaal-vest.com"
-export const localPlatformRootDomain = "halaal-vest.localhost"
-export const localTenantRootDomain = `tenant.${localPlatformRootDomain}`
+export const platformRootDomain =
+  process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() || "halaal-vest.com"
+export const localPlatformRootDomain =
+  process.env.HALAAL_VEST_LOCAL_ROOT_DOMAIN?.trim() || "halaal-vest.localhost"
+export const localTenantRootDomain =
+  process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() || `tenant.${localPlatformRootDomain}`
 export const dashboardSubdomainLabel = "dashboard"
-export const localDashboardRootDomain = "app.halaal-vest.localhost"
-export const platformAppHostname = `app.${platformRootDomain}`
+export const localDashboardRootDomain =
+  process.env.HALAAL_VEST_DASHBOARD_ROOT_DOMAIN?.trim() || "app.halaal-vest.localhost"
+export const platformAppHostname =
+  process.env.HALAAL_VEST_PLATFORM_APP_HOSTNAME?.trim() || `app.${platformRootDomain}`
 
 const reservedTenantLabels = new Set([
   "api",

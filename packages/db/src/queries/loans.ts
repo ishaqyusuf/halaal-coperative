@@ -1,7 +1,7 @@
-import { createPrismaClient } from "../prisma.js"
-import type { PrismaClient, RepaymentScheduleStatus } from "../generated/prisma/client.js"
-import { getDashboardMetrics } from "./dashboard.js"
-import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger.js"
+import type { PrismaClient, RepaymentScheduleStatus } from "@prisma/client"
+import { createPrismaClient } from "../prisma"
+import { getDashboardMetrics } from "./dashboard"
+import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 
 export async function listLoanProducts(tenantId: string, prismaOverride?: PrismaClient) {
   const prisma = prismaOverride ?? createPrismaClient()

@@ -1,4 +1,27 @@
-import { Badge } from "@halaal-vest/ui/components/badge"
+import { cn } from "@halaal-vest/ui/lib/utils"
+import { DashboardPageHeader, DashboardSectionCard } from "@/components/dashboard/primitives"
+
+export function DashboardPageShell({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return <section className={cn("flex flex-col gap-6", className)}>{children}</section>
+}
+
+export function DashboardPageTitle({
+  action,
+  description,
+  title,
+}: {
+  action?: React.ReactNode
+  description?: string
+  title: string
+}) {
+  return <DashboardPageHeader actions={action} description={description} title={title} />
+}
 
 export function WorkspacePageShell({
   children,
@@ -12,14 +35,10 @@ export function WorkspacePageShell({
   title: string
 }) {
   return (
-    <section className="space-y-6">
-      <div className="rounded-[1.75rem] border border-border/70 bg-background/90 p-6 shadow-sm">
-        <Badge variant="outline">{eyebrow}</Badge>
-        <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">{title}</h2>
-        <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">{description}</p>
-      </div>
+    <DashboardPageShell>
+      <DashboardPageHeader badge={eyebrow} description={description} eyebrow="Workspace" title={title} />
       {children}
-    </section>
+    </DashboardPageShell>
   )
 }
 
@@ -31,9 +50,9 @@ export function WorkspaceEmptyState({
   title: string
 }) {
   return (
-    <div className="rounded-[1.75rem] border border-dashed border-border bg-background/80 p-8 text-center shadow-sm">
+    <DashboardSectionCard className="border-dashed bg-background/80 p-8 text-center">
       <h3 className="text-xl font-semibold tracking-tight text-foreground">{title}</h3>
       <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">{body}</p>
-    </div>
+    </DashboardSectionCard>
   )
 }

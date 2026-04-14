@@ -1,7 +1,7 @@
 import { buildDashboardSnapshot, defaultTenantPolicy } from "@halaal-vest/domain"
 import { getDashboardMetrics } from "@halaal-vest/db"
 
-import { createTRPCRouter, tenantProcedure } from "../lib.trpc.js"
+import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
 
 export const workspaceRouter = createTRPCRouter({
   summary: tenantProcedure.query(async ({ ctx }) => {

@@ -1,5 +1,9 @@
 import { PrismaPg } from "@prisma/adapter-pg"
-import { PrismaClient } from "../src/generated/prisma/client.js"
+import { PrismaClient } from "@prisma/client"
+import {
+  buildDashboardHostname,
+  buildTenantSiteHostname,
+} from "@halaal-vest/utils"
 
 const DATABASE_URL = process.env.DATABASE_URL
 if (!DATABASE_URL) {
@@ -77,11 +81,11 @@ async function main() {
 
   // Tenant Domains
   const domainData = [
-    { tenantId: amanah.id, hostname: "amanah.halaal-vest.com", kind: "site" as const, isPrimary: true },
-    { tenantId: amanah.id, hostname: "dashboard.amanah.halaal-vest.com", kind: "dashboard" as const, isPrimary: true },
+    { tenantId: amanah.id, hostname: buildTenantSiteHostname("amanah"), kind: "site" as const, isPrimary: true },
+    { tenantId: amanah.id, hostname: buildDashboardHostname("amanah"), kind: "dashboard" as const, isPrimary: true },
     { tenantId: amanah.id, hostname: "app.amanah.example", kind: "custom" as const, isPrimary: false },
-    { tenantId: barakah.id, hostname: "barakah.halaal-vest.com", kind: "site" as const, isPrimary: true },
-    { tenantId: barakah.id, hostname: "dashboard.barakah.halaal-vest.com", kind: "dashboard" as const, isPrimary: true },
+    { tenantId: barakah.id, hostname: buildTenantSiteHostname("barakah"), kind: "site" as const, isPrimary: true },
+    { tenantId: barakah.id, hostname: buildDashboardHostname("barakah"), kind: "dashboard" as const, isPrimary: true },
   ]
 
   for (const domain of domainData) {

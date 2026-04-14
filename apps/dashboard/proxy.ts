@@ -1,7 +1,7 @@
 import { extractDashboardHostname, extractDashboardTenantSlug, isTenantDashboardHost } from "@halaal-vest/utils"
 import { type NextRequest, NextResponse } from "next/server"
 
-const PUBLIC_PREFIXES = ["/api/", "/_next/", "/favicon", "/login", "/sign-in", "/sign-up"]
+const PUBLIC_PREFIXES = ["/api/", "/_next/", "/auth/", "/favicon", "/login", "/sign-in", "/sign-up"]
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))

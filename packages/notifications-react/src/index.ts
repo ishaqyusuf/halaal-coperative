@@ -1,2 +1,2 @@
-export * from "./provider.js"
-export * from "./viewport.js"
+export * from "./provider"
+export * from "./viewport"

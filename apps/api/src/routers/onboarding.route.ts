@@ -1,7 +1,7 @@
 import { createTenantWorkspaceBootstrap, getTenantOnboardingState } from "@halaal-vest/db"
 import { z } from "zod"
 
-import { authenticatedProcedure, createTRPCRouter, tenantProcedure } from "../lib.trpc.js"
+import { authenticatedProcedure, createTRPCRouter, tenantProcedure } from "../lib.trpc"
 
 export const onboardingRouter = createTRPCRouter({
   status: tenantProcedure.query(async ({ ctx }) => {

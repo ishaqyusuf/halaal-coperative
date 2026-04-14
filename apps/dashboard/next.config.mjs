@@ -7,6 +7,7 @@ const nextConfig = {
     "@halaal-vest/domain",
     "@halaal-vest/notifications",
     "@halaal-vest/notifications-react",
+    "@halaal-vest/site-nav",
     "@halaal-vest/ui",
     "@halaal-vest/utils",
   ],

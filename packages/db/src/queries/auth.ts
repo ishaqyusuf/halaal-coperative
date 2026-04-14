@@ -1,4 +1,11 @@
-import { createPrismaClient } from "../prisma.js"
+import { createPrismaClient } from "../prisma"
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function isUuidLike(value: string | null | undefined) {
+  return Boolean(value && uuidPattern.test(value))
+}
 
 export type MembershipRole =
   | "super_admin"
@@ -117,6 +124,10 @@ export async function findUserByIdAsync(userId: string | null | undefined) {
     return null
   }
 
+  if (!isUuidLike(userId)) {
+    return findUserById(userId)
+  }
+
   const prisma = createPrismaClient()
 
   if (!prisma) {
@@ -145,6 +156,10 @@ export async function findUserByIdAsync(userId: string | null | undefined) {
 export async function findMembershipsForUserAsync(userId: string | null | undefined) {
   if (!userId) {
     return []
+  }
+
+  if (!isUuidLike(userId)) {
+    return findMembershipsForUser(userId)
   }
 
   const prisma = createPrismaClient()

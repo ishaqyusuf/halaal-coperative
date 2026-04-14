@@ -9,7 +9,7 @@ const percentFormatter = new Intl.NumberFormat("en-NG", {
   maximumFractionDigits: 0,
 })
 
-export * from "./tenant-domains.js"
+export * from "./tenant-domains"
 
 export function formatCurrency(value: number) {
   return currencyFormatter.format(value)

@@ -1,8 +1,8 @@
 import { PrismaPg } from "@prisma/adapter-pg"
-import { PrismaClient } from "./generated/prisma/client.js"
+import { PrismaClient } from "@prisma/client"
 
-declare global {
-  var __amanahPrisma: PrismaClient | undefined
+const globalForPrisma = globalThis as typeof globalThis & {
+  __halaalVestPrisma?: PrismaClient
 }
 
 export function createPrismaClient() {
@@ -10,13 +10,13 @@ export function createPrismaClient() {
     return null
   }
 
-  if (!globalThis.__amanahPrisma) {
-    globalThis.__amanahPrisma = new PrismaClient({
+  if (!globalForPrisma.__halaalVestPrisma) {
+    globalForPrisma.__halaalVestPrisma = new PrismaClient({
       adapter: new PrismaPg({
         connectionString: process.env.DATABASE_URL,
       }),
     })
   }
 
-  return globalThis.__amanahPrisma
+  return globalForPrisma.__halaalVestPrisma
 }

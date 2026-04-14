@@ -32,6 +32,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - Dashboard and tenant-site pages now consume tenant resolution through app-level server context loaders rather than hardcoded sample-only page state.
 - Dashboard workspace modules now use server-rendered loaders to surface onboarding progress plus members, recent contributions, and charge setup without introducing a separate client-side data layer.
 - Dashboard routes now also sit inside a shared role-filtered shell with a registry-driven sidebar and route-aware header, borrowing the information architecture idea from the local `gnd` site-nav pattern while keeping route data ownership local to each page.
+- Dashboard UI now also uses a dashboard-only primitive layer for sidebar/topbar/page-frame composition plus reusable KPI, section-card, trend-pill, and data-table building blocks, allowing Midday-style visual consistency without moving server data ownership out of route pages.
 - Local named-host development is supported through `portless` scripts and the shared environment bootstrap script.
 - Current tenant resolution is implemented through shared repository/query scaffolding and seed-backed lookup flows, with Prisma execution intended to replace the seed store after migrations and generation are formalized.
 
@@ -61,6 +62,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - Plot-keys-aligned multi-app and notification architecture adopted. See `brain/decisions/ADR-003-align-app-and-api-architecture-with-plot-keys.md`.
 - Seed-backed tenant and auth repository scaffolding adopted as the transitional bridge to real Prisma-backed runtime queries. See `brain/decisions/ADR-004-adopt-seed-backed-tenant-resolution-and-scoped-session-foundation.md`.
 - Role-filtered dashboard navigation registry adopted for operational route scaling. See `brain/decisions/ADR-005-adopt-role-filtered-dashboard-navigation-registry.md`.
+- Dashboard UI primitive layer adopted for authenticated workspace consistency. See `brain/decisions/ADR-006-adopt-dashboard-ui-primitives-layer.md`.
 - Payment and disbursement integrations strategy.
 - Exact ledger model and posting rules.
 - TODO: define offline sync conflict-resolution strategy for money-related events.

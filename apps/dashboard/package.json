@@ -21,6 +21,7 @@
     "@halaal-vest/domain": "workspace:*",
     "@halaal-vest/notifications": "workspace:*",
     "@halaal-vest/notifications-react": "workspace:*",
+    "@halaal-vest/site-nav": "workspace:*",
     "@halaal-vest/ui": "workspace:*",
     "@halaal-vest/utils": "workspace:*",
     "next": "16.1.6",

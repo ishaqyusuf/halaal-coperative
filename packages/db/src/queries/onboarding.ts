@@ -1,8 +1,13 @@
-import type { PrismaClient } from "../generated/prisma/client.js"
-import { createPrismaClient } from "../prisma.js"
-import { ensureTenantLedgerAccounts } from "./ledger.js"
-import { listSeedMemberships, listSeedUsers } from "./auth.js"
-import { listSeedTenantDomains, getTenantById, type TenantRecord } from "./tenants.js"
+import type { PrismaClient } from "@prisma/client"
+import {
+  buildDashboardHostname,
+  buildTenantSiteHostname,
+  normalizeSubdomainLabel,
+} from "@halaal-vest/utils"
+import { createPrismaClient } from "../prisma"
+import { ensureTenantLedgerAccounts } from "./ledger"
+import { listSeedMemberships, listSeedUsers } from "./auth"
+import { listSeedTenantDomains, getTenantById, type TenantRecord } from "./tenants"
 
 function getTenantDomainRoutingScope(input: {
   hostname: string
@@ -75,24 +80,6 @@ const defaultBootstrapPolicy = {
   requiresDualLoanApproval: false,
   reserveBuffer: 450_000,
 } as const
-
-function normalizeSubdomainLabel(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-}
-
-function buildTenantSiteHostname(subdomain: string) {
-  const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
-  return normalizedSubdomain ? `${normalizedSubdomain}.halaal-vest.com` : ""
-}
-
-function buildDashboardHostname(subdomain: string) {
-  const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
-  return normalizedSubdomain ? `dashboard.${normalizedSubdomain}.halaal-vest.com` : ""
-}
 
 function toTenantRecord(input: {
   id: string

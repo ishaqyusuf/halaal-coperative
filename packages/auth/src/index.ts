@@ -24,6 +24,7 @@ export type AuthContext = {
 }
 
 export const authSessionCookieName = "halaal-vest_session"
+export const authUserCookieName = "halaal-vest_user"
 export const platformSessionScope = "platform"
 
 const roleRank: Record<CooperativeRole, number> = {
@@ -48,6 +49,10 @@ export function normalizeRole(input: string | null | undefined): CooperativeRole
 
 export function getScopedAuthSessionCookieName(scope: SessionScope) {
   return scope === platformSessionScope ? authSessionCookieName : `${authSessionCookieName}_${scope}`
+}
+
+export function getScopedAuthUserCookieName(scope: SessionScope) {
+  return scope === platformSessionScope ? authUserCookieName : `${authUserCookieName}_${scope}`
 }
 
 export function parseCookieHeader(cookieHeader: string | null | undefined) {
@@ -81,6 +86,18 @@ export function getSessionTokenFromCookieHeader(input: {
   const scopedCookieName = getScopedAuthSessionCookieName(scope)
 
   return cookies.get(scopedCookieName) ?? cookies.get(authSessionCookieName) ?? null
+}
+
+export function getUserIdFromCookieHeader(input: {
+  cookieHeader?: string | null
+  host?: string | null
+  explicitScope?: SessionScope | null
+}) {
+  const cookies = parseCookieHeader(input.cookieHeader)
+  const scope = input.explicitScope ?? resolveRequestSessionScope(input.host)
+  const scopedCookieName = getScopedAuthUserCookieName(scope)
+
+  return cookies.get(scopedCookieName) ?? cookies.get(authUserCookieName) ?? null
 }
 
 export function hasActiveMembership(auth: AuthContext): auth is AuthContext & {

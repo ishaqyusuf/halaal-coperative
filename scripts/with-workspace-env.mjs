@@ -23,13 +23,16 @@ function mergeEnvFile(filePath, targetEnv) {
 
 function buildEnv() {
   const env = { ...process.env };
+  const isProduction = env.NODE_ENV === "production";
   const rootEnvFiles = [
     path.join(repoRoot, ".env"),
     path.join(repoRoot, ".env.development"),
+    ...(isProduction ? [path.join(repoRoot, ".env.production")] : []),
   ];
   const workspaceEnvFiles = [
     path.join(workspaceDir, ".env"),
     path.join(workspaceDir, ".env.development"),
+    ...(isProduction ? [path.join(workspaceDir, ".env.production")] : []),
   ];
 
   for (const filePath of rootEnvFiles) {

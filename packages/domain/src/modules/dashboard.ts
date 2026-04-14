@@ -1,4 +1,4 @@
-import { defaultTenantPolicy, type TenantPolicySummary } from "./policies.js"
+import { defaultTenantPolicy, type TenantPolicySummary } from "./policies"
 
 export interface DashboardTenantSnapshot {
   id: string

@@ -3,8 +3,8 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 
-import { buildRequestContext, createTRPCContext } from "./context.js"
-import { appRouter } from "./routers/_app.js"
+import { buildRequestContext, createTRPCContext } from "./context"
+import { appRouter } from "./routers/_app"
 
 const app = new Hono()
 const dashboardOrigin = process.env.DASHBOARD_APP_URL ?? "http://localhost:1441"

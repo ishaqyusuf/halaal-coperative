@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure, minRoleProcedure } from "../lib.trpc.js"
+import { createTRPCRouter, tenantProcedure, minRoleProcedure } from "../lib.trpc"
 import {
   listChargeDefinitions,
   createChargeDefinition,

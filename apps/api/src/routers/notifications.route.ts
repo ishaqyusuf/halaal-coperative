@@ -1,6 +1,6 @@
 import { createNotificationFromType, platformNotificationTypes } from "@halaal-vest/notifications"
 
-import { createTRPCRouter, tenantProcedure } from "../lib.trpc.js"
+import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
 
 export const notificationsRouter = createTRPCRouter({
   list: tenantProcedure.query(({ ctx }) => {

@@ -10,6 +10,7 @@ This file records migration history, rationale, and rollout notes.
 ## Current Status
 - Prisma has been selected and configured with `prisma.config.ts`.
 - Multi-file schema loading is configured via `schema: "prisma"`.
+- `packages/db/prisma.config.ts` now loads root and workspace `.env` files before resolving `env("DATABASE_URL")`, so Prisma migrate commands work consistently from both the db package and the repo root.
 - The initial schema migration exists at `packages/db/prisma/migrations/20260413115737_init/`.
 - Notification outbox persistence was added in `packages/db/prisma/migrations/20260414093000_add_notification_outbox/`.
 - Tenant onboarding profile persistence was added in `packages/db/prisma/migrations/20260414133000_add_tenant_profile_fields/`.

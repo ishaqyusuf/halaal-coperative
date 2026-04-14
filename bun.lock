@@ -45,6 +45,7 @@
         "@halaal-vest/domain": "workspace:*",
         "@halaal-vest/notifications": "workspace:*",
         "@halaal-vest/notifications-react": "workspace:*",
+        "@halaal-vest/site-nav": "workspace:*",
         "@halaal-vest/ui": "workspace:*",
         "@halaal-vest/utils": "workspace:*",
         "@hugeicons/core-free-icons": "^4.1.1",
@@ -137,6 +138,7 @@
       "name": "@halaal-vest/db",
       "version": "0.0.0",
       "dependencies": {
+        "@halaal-vest/utils": "workspace:*",
         "@prisma/adapter-pg": "^7.7.0",
         "@prisma/client": "^7.0.0",
       },
@@ -205,6 +207,23 @@
         "@types/react": "^19.2.10",
         "@types/react-dom": "^19.2.3",
         "eslint": "^9.39.2",
+        "typescript": "^5.9.3",
+      },
+    },
+    "packages/site-nav": {
+      "name": "@halaal-vest/site-nav",
+      "version": "0.0.0",
+      "dependencies": {
+        "@halaal-vest/ui": "workspace:*",
+      },
+      "devDependencies": {
+        "@halaal-vest/eslint-config": "workspace:*",
+        "@halaal-vest/tsconfig": "workspace:*",
+        "@types/react": "^19.2.10",
+        "@types/react-dom": "^19.2.3",
+        "eslint": "^9.39.2",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4",
         "typescript": "^5.9.3",
       },
     },
@@ -426,6 +445,8 @@
     "@halaal-vest/notifications": ["@halaal-vest/notifications@workspace:packages/notifications"],
 
     "@halaal-vest/notifications-react": ["@halaal-vest/notifications-react@workspace:packages/notifications-react"],
+
+    "@halaal-vest/site-nav": ["@halaal-vest/site-nav@workspace:packages/site-nav"],
 
     "@halaal-vest/tenant-site": ["@halaal-vest/tenant-site@workspace:apps/tenant-site"],
 

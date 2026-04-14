@@ -1,7 +1,6 @@
-import { createPrismaClient } from "../prisma.js"
-import { postLedgerTransaction, getLedgerAccountByCode } from "./ledger.js"
-import type { PrismaClient } from "../generated/prisma/client.js"
-import type { ChargeKind } from "../generated/prisma/client.js"
+import type { ChargeKind, PrismaClient } from "@prisma/client"
+import { createPrismaClient } from "../prisma"
+import { postLedgerTransaction, getLedgerAccountByCode } from "./ledger"
 
 export async function listChargeDefinitions(
   tenantId: string,

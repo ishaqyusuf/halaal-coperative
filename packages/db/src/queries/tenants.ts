@@ -1,7 +1,12 @@
 import { resolveCname } from "node:dns/promises"
-import type { Prisma } from "../generated/prisma/client.js"
-import { createPrismaClient } from "../prisma.js"
-import { createAuditLogEntry } from "./audit.js"
+import type { Prisma } from "@prisma/client"
+import {
+  buildDashboardHostname,
+  buildTenantSiteHostname,
+  platformAppHostname,
+} from "@halaal-vest/utils"
+import { createPrismaClient } from "../prisma"
+import { createAuditLogEntry } from "./audit"
 
 export type TenantStatus = "pending" | "active" | "suspended" | "archived"
 
@@ -78,7 +83,7 @@ const seedTenantDomains: TenantDomainRecord[] = [
   {
     id: "tenant-domain-amanah-site",
     tenantId: "tenant-amanah-demo",
-    hostname: "amanah.halaal-vest.com",
+    hostname: buildTenantSiteHostname("amanah"),
     kind: "site",
     routingScope: "site",
     isPrimary: true,
@@ -89,7 +94,7 @@ const seedTenantDomains: TenantDomainRecord[] = [
   {
     id: "tenant-domain-amanah-dashboard",
     tenantId: "tenant-amanah-demo",
-    hostname: "dashboard.amanah.halaal-vest.com",
+    hostname: buildDashboardHostname("amanah"),
     kind: "dashboard",
     routingScope: "dashboard",
     isPrimary: true,
@@ -111,7 +116,7 @@ const seedTenantDomains: TenantDomainRecord[] = [
   {
     id: "tenant-domain-barakah-site",
     tenantId: "tenant-barakah-demo",
-    hostname: "barakah.halaal-vest.com",
+    hostname: buildTenantSiteHostname("barakah"),
     kind: "site",
     routingScope: "site",
     isPrimary: true,
@@ -122,7 +127,7 @@ const seedTenantDomains: TenantDomainRecord[] = [
   {
     id: "tenant-domain-barakah-dashboard",
     tenantId: "tenant-barakah-demo",
-    hostname: "dashboard.barakah.halaal-vest.com",
+    hostname: buildDashboardHostname("barakah"),
     kind: "dashboard",
     routingScope: "dashboard",
     isPrimary: true,
@@ -242,7 +247,7 @@ function mapPrismaTenantRecord(input: {
   } satisfies TenantRecord
 }
 
-const platformIngressHostname = "app.halaal-vest.com"
+const platformIngressHostname = platformAppHostname
 
 function getTenantDomainRoutingScope(input: {
   hostname: string

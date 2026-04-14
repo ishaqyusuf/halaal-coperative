@@ -1,5 +1,5 @@
-import { createPrismaClient } from "../prisma.js"
-import type { PrismaClient } from "../generated/prisma/client.js"
+import type { PrismaClient } from "@prisma/client"
+import { createPrismaClient } from "../prisma"
 
 export type DashboardMetrics = {
   memberCount: number

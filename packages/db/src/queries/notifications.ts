@@ -1,6 +1,6 @@
-import { createPrismaClient } from "../prisma.js"
-import type { Prisma, PrismaClient } from "../generated/prisma/client.js"
-import { listTenantUsersWithMemberships } from "./auth.js"
+import type { Prisma, PrismaClient } from "@prisma/client"
+import { createPrismaClient } from "../prisma"
+import { listTenantUsersWithMemberships } from "./auth"
 
 export type CreateNotificationOutboxEntryInput = {
   actionLabel: string

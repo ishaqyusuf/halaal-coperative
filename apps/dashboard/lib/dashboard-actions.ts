@@ -923,6 +923,7 @@ export async function stageImportBatchAction(formData: FormData) {
   })
 
   revalidatePath("/settings/imports")
+  revalidatePath("/members")
 }
 
 export async function applyImportBatchAction(formData: FormData) {

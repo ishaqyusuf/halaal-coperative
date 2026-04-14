@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.7.0",
-    "@prisma/client": "^7.0.0"
+    "@prisma/client": "^7.0.0",
+    "@halaal-vest/utils": "workspace:*"
   },
   "prisma": {
     "seed": "bun run prisma/seed.ts"
@@ -30,6 +31,7 @@
     "typescript": "^5.9.3"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./test-utils": "./src/test-utils.ts"
   }
 }

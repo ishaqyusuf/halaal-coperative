@@ -1,5 +1,6 @@
 import {
   getSessionTokenFromCookieHeader,
+  getUserIdFromCookieHeader,
   normalizeRole,
   platformSessionScope,
   resolveRequestSessionScope,
@@ -15,7 +16,14 @@ export async function buildRequestContext(headers: Headers) {
   const requestHost = headers.get("host")
   const forwardedTenantSlug = headers.get("x-tenant-subdomain")
   const forwardedTenantHostname = headers.get("x-tenant-hostname")
-  const requestedUserId = headers.get("x-user-id") ?? "user-tenant-admin-amanah"
+  const sessionScope = resolveRequestSessionScope(requestHost)
+  const requestedUserId =
+    headers.get("x-user-id") ??
+    getUserIdFromCookieHeader({
+      cookieHeader: headers.get("cookie"),
+      host: requestHost,
+      explicitScope: sessionScope ?? platformSessionScope,
+    })
   const userRoleOverride = normalizeRole(headers.get("x-user-role"))
   const tenantResolution = await resolveTenantAsync({
     slug: forwardedTenantSlug,
@@ -27,7 +35,6 @@ export async function buildRequestContext(headers: Headers) {
       tenantId: tenantResolution.tenant?.id ?? user?.tenantId ?? null,
       userId: user?.id ?? null,
     })) ?? null
-  const sessionScope = resolveRequestSessionScope(requestHost)
   const sessionToken =
     headers.get("x-session-token") ??
     getSessionTokenFromCookieHeader({

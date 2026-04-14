@@ -1,11 +1,11 @@
-import { createPrismaClient } from "../prisma.js"
 import type {
   ContributionChannel,
   ContributionStatus,
   PaymentAllocationPreference,
   PrismaClient,
-} from "../generated/prisma/client.js"
-import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger.js"
+} from "@prisma/client"
+import { createPrismaClient } from "../prisma"
+import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 
 export type ListContributionsFilters = {
   channel?: ContributionChannel

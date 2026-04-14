@@ -1,4 +1,9 @@
-import { getSessionTokenFromCookieHeader, platformSessionScope, resolveRequestSessionScope } from "@halaal-vest/auth"
+import {
+  getSessionTokenFromCookieHeader,
+  getUserIdFromCookieHeader,
+  platformSessionScope,
+  resolveRequestSessionScope,
+} from "@halaal-vest/auth"
 import {
   createDbRuntime,
   findActiveMembershipAsync,
@@ -72,7 +77,14 @@ export async function getDashboardServerContext() {
   const host = headerStore.get("host")
   const tenantSlug = headerStore.get("x-tenant-subdomain")
   const tenantHostname = headerStore.get("x-tenant-hostname")
-  const requestedUserId = headerStore.get("x-user-id") ?? "user-tenant-admin-amanah"
+  const sessionScope = resolveRequestSessionScope(host)
+  const requestedUserId =
+    headerStore.get("x-user-id") ??
+    getUserIdFromCookieHeader({
+      cookieHeader: cookieStore.toString(),
+      host,
+      explicitScope: sessionScope ?? platformSessionScope,
+    })
   const tenantResolution = await resolveTenantAsync({
     slug: tenantSlug,
     hostname: tenantHostname ?? host,
@@ -86,7 +98,6 @@ export async function getDashboardServerContext() {
     tenantId: tenantResolution.tenant?.id ?? user?.tenantId ?? null,
     userId: user?.id ?? null,
   })
-  const sessionScope = resolveRequestSessionScope(host)
   const sessionToken =
     headerStore.get("x-session-token") ??
     getSessionTokenFromCookieHeader({

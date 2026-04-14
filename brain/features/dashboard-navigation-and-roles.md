@@ -2,6 +2,7 @@
 
 ## Summary
 - The dashboard now uses a role-filtered navigation registry and shared shell so cooperative routes can scale beyond the initial scaffold page.
+- The authenticated workspace now also uses a Midday-inspired UI slice with dedicated shell and primitive components so route pages can share a denser operational dashboard language.
 
 ## Goal
 - Create a structured workspace navigation system for members, finance, experience, and settings routes without introducing a full permission matrix yet.
@@ -9,9 +10,12 @@
 ## Flow
 - `apps/dashboard/app/layout.tsx` loads tenant and auth context server-side.
 - `apps/dashboard/components/dashboard-shell-client.tsx` resolves the current pathname and active role client-side.
+- `apps/dashboard/components/dashboard/shell/` owns the sidebar, topbar, and page frame for the authenticated dashboard.
+- `apps/dashboard/components/dashboard/primitives/` owns reusable KPI, section-card, trend-pill, and data-table building blocks for route pages.
 - `apps/dashboard/features/navigation/registry.ts` defines modules, sections, and route links.
 - `apps/dashboard/features/navigation/lib.ts` filters links by role and resolves the active route/module state.
-- Individual route pages own their data loading and render inside the shared shell.
+- `apps/dashboard/features/workspace/page-shell.tsx` adapts the route pages onto the shared primitive layer.
+- Individual route pages still own their data loading and render inside the shared shell.
 
 ## Roles
 - `super_admin`
@@ -36,6 +40,9 @@
 ## Notes
 - The role model is intentionally simple for now.
 - UI visibility is role-based; a deeper permission system is deferred.
+- The shell now uses a Midday-style density target: fixed hover-expand sidebar, compact sticky topbar, tokenized section cards, KPI strips, and flatter table/list surfaces.
+- `/` now acts as the primary UI reference page for the dashboard system, while the main operational, reporting, experience, settings, and member-detail routes now reuse the same primitives.
+- Member detail, printable statement, and the audit viewer now also follow the same Midday-inspired drill-down layout language instead of falling back to the earlier page-specific card stack.
 - Members, contributions, charges, loans, and repayments now include server-action-backed operator flows inside the new shell.
 - Loans now support request submission, review state changes, approval, and disbursement from `/loans`.
 - Repayments now support repayment posting and schedule visibility from `/repayments`.

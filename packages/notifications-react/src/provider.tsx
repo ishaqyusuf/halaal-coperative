@@ -18,7 +18,7 @@ import {
   useSyncExternalStore,
 } from "react"
 
-import { NotificationsViewport } from "./viewport.js"
+import { NotificationsViewport } from "./viewport"
 
 type NotificationsContextValue = {
   clear: () => void

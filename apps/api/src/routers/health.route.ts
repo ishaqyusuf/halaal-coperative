@@ -1,7 +1,7 @@
 import { listSeedTenants } from "@halaal-vest/db"
 import { z } from "zod"
 
-import { createTRPCRouter, publicProcedure } from "../lib.trpc.js"
+import { createTRPCRouter, publicProcedure } from "../lib.trpc"
 
 export const healthRouter = createTRPCRouter({
   summary: publicProcedure.query(() => {

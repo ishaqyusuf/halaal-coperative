@@ -1,5 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg"
-import { PrismaClient } from "./generated/prisma/client.js"
+import { PrismaClient } from "@prisma/client"
 
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??

@@ -6,6 +6,10 @@ import {
   updateNotificationOutboxDelivery,
 } from "@halaal-vest/db"
 import { createWorkspaceReadyEmail } from "@halaal-vest/notifications"
+import {
+  buildTenantDashboardUrl,
+  buildTenantSiteUrl,
+} from "@halaal-vest/utils"
 import { normalizeWorkspaceSlug, onboardingFormSchema } from "@/lib/signup-flow"
 import { createServerNotificationService } from "@/lib/server-notifications"
 import { verifySignedSignupToken } from "@/lib/signup-token"
@@ -22,6 +26,20 @@ function formatOnboardingError(error: unknown) {
   return error.message
 }
 
+function getDashboardAppUrl(currentOrigin?: string | null) {
+  return process.env.DASHBOARD_APP_URL
+    ?? process.env.NEXT_PUBLIC_DASHBOARD_APP_URL
+    ?? currentOrigin
+    ?? "http://app.halaal-vest.localhost:1441"
+}
+
+function getTenantSiteAppUrl(currentOrigin?: string | null) {
+  return process.env.TENANT_SITE_APP_URL
+    ?? process.env.NEXT_PUBLIC_TENANT_SITE_APP_URL
+    ?? currentOrigin
+    ?? "http://tenant.halaal-vest.localhost:1443"
+}
+
 export async function POST(request: Request) {
   try {
     const input = onboardingFormSchema.parse(await request.json())
@@ -36,8 +54,16 @@ export async function POST(request: Request) {
       startDate: input.startDate,
     })
 
-    const dashboardUrl = `https://${result.primaryDashboardHostname}`
-    const siteUrl = `https://${result.primarySiteHostname}`
+    const dashboardUrl = buildTenantDashboardUrl(result.tenant.slug, {
+      currentOrigin: getDashboardAppUrl(request.url),
+      tenantHostname: result.primarySiteHostname,
+    })
+    const siteUrl = buildTenantSiteUrl(result.tenant.slug, {
+      currentOrigin: getTenantSiteAppUrl(request.url),
+      tenantHostname: result.primarySiteHostname,
+    })
+    const dashboardHostname = new URL(dashboardUrl).host
+    const siteHostname = new URL(siteUrl).host
     const notificationService = createServerNotificationService()
     const workspaceReadyEmail = createWorkspaceReadyEmail({
       dashboardUrl,
@@ -85,8 +111,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       dashboardUrl,
-      primaryDashboardHostname: result.primaryDashboardHostname,
-      primarySiteHostname: result.primarySiteHostname,
+      primaryDashboardHostname: dashboardHostname,
+      primarySiteHostname: siteHostname,
       siteUrl,
       tenantId: result.tenant.id,
       tenantName: result.tenant.name,

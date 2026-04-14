@@ -2,7 +2,7 @@ import { hasActiveMembership, isRoleAtLeast, type CooperativeRole } from "@halaa
 import { initTRPC, TRPCError } from "@trpc/server"
 import superjson from "superjson"
 
-import type { TRPCContext } from "./context.js"
+import type { TRPCContext } from "./context"
 
 const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,

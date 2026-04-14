@@ -19,24 +19,31 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/web/src/app/`: main marketing route entrypoints for launch and pre-launch rendering.
 - `apps/web/src/lib/marketing-config.ts`: server-side env-driven switch for launch versus pre-launch marketing modes.
 - `apps/web/src/lib/signup-flow.ts`: shared signup and onboarding schemas, defaults, and payload shaping.
-- `apps/web/src/lib/dev-form-fill.ts`: central dev-mode autofill defaults for signup and onboarding forms.
+- `apps/web/src/lib/dev-form-fill.ts`: central dev-mode random autofill generator for signup and onboarding forms.
 - `apps/web/src/components/marketing/`: launch and pre-launch landing page sections for the public marketing surface.
 - `apps/web/src/components/signup/`: shared shell and client forms for signup verification and onboarding bootstrap.
 - `apps/dashboard/`: Next.js tenant dashboard application for authenticated internal workflows.
-- `apps/dashboard/components/dashboard-shell-client.tsx`: shared dashboard shell with a role-filtered sidebar and route-aware header.
-- `apps/dashboard/features/navigation/registry.ts`: dashboard navigation registry inspired by the `gnd` site-nav pattern and filtered by cooperative role.
-- `apps/dashboard/features/navigation/lib.ts`: resolves visible modules, active links, and route metadata from the navigation registry.
+- `apps/dashboard/app/(sidebar)/layout.tsx`: `gnd`-style sidebar route-group layout that binds the shared site-nav package to the tenant dashboard pages without changing public URLs.
+- `apps/dashboard/app/login/page.tsx`: public dashboard login chooser that lists available workspace accounts for the current tenant or platform host.
+- `apps/dashboard/app/auth/login/route.ts`: scoped dashboard sign-in endpoint that sets the session token and user-id cookies for the current dashboard host.
+- `apps/dashboard/app/auth/logout/route.ts`: scoped dashboard sign-out endpoint that clears both session and user-id cookies before returning to `/login`.
+- `apps/dashboard/components/dashboard-shell-client.tsx`: shared dashboard shell composition root that maps route metadata into the new Midday-inspired sidebar, topbar, and page-frame components.
+- `apps/dashboard/components/dashboard/`: dashboard-only shell and primitive UI layer for the authenticated workspace, including sidebar/topbar/page-frame components and reusable KPI, section-card, trend-pill, and table building blocks.
+- `apps/dashboard/features/navigation/registry.ts`: dashboard navigation registry built with the shared site-nav module/section/link builders and filtered by cooperative role.
+- `apps/dashboard/features/navigation/lib.ts`: resolves visible modules, active links, and route metadata from the shared site-nav registry engine.
+- `apps/dashboard/features/workspace/page-shell.tsx`: compatibility wrapper that maps route pages onto the new dashboard primitive layer while preserving existing feature-page call sites.
 - `apps/dashboard/features/forms/`: reusable dashboard client forms built on shared shadcn-style primitives and `useZodForm`.
 - `apps/dashboard/features/forms/import-forms.tsx`: reusable CSV import and migration forms with live preview, reconciliation hints, staging, validation, and dev quick-fill samples.
 - `apps/dashboard/lib/dashboard-actions.ts`: server actions for dashboard member, contribution, charge, loan, and repayment workflows.
+- `apps/dashboard/lib/auth-redirect.ts`: login/logout redirect sanitization helper for safe dashboard auth transitions.
 - `apps/dashboard/lib/import-csv.ts`: shared dashboard-side CSV parsing and import schema normalization used by both client previews and server actions.
-- `apps/dashboard/app/loans/page.tsx`: loan request, review, approval, and disbursement workspace inside the shared dashboard shell.
-- `apps/dashboard/app/repayments/page.tsx`: repayment posting, schedule visibility, overdue collections follow-up, assignment-aware case tracking, queue-style open/resolved collections views, and collections status refresh workspace.
-- `apps/dashboard/app/contributions/page.tsx`: commitment-plan management and split member-payment allocation workspace.
-- `apps/dashboard/app/notifications/page.tsx`: notification delivery history, filterable delivery review, shared template previews, and tenant-level per-role preference toggles.
-- `apps/dashboard/app/domains/page.tsx`: tenant hostname review, DNS-backed verification details, scope-aware custom-domain verification guidance, and primary promotion workspace.
-- `apps/dashboard/app/reports/page.tsx`: admin audit and reporting workspace for finance snapshots, collections follow-up activity, notification totals, and recent audit activity.
-- `apps/dashboard/app/reports/audit/page.tsx`: filterable audit viewer route for deeper admin event review.
+- `apps/dashboard/app/(sidebar)/loans/page.tsx`: loan request, review, approval, and disbursement workspace inside the shared dashboard shell.
+- `apps/dashboard/app/(sidebar)/repayments/page.tsx`: repayment posting, schedule visibility, overdue collections follow-up, assignment-aware case tracking, queue-style open/resolved collections views, and collections status refresh workspace.
+- `apps/dashboard/app/(sidebar)/contributions/page.tsx`: commitment-plan management and split member-payment allocation workspace.
+- `apps/dashboard/app/(sidebar)/notifications/page.tsx`: notification delivery history, filterable delivery review, shared template previews, and tenant-level per-role preference toggles.
+- `apps/dashboard/app/(sidebar)/domains/page.tsx`: tenant hostname review, DNS-backed verification details, scope-aware custom-domain verification guidance, and primary promotion workspace.
+- `apps/dashboard/app/(sidebar)/reports/page.tsx`: admin audit and reporting workspace for finance snapshots, collections follow-up activity, notification totals, and recent audit activity.
+- `apps/dashboard/app/(sidebar)/reports/audit/page.tsx`: filterable audit viewer route for deeper admin event review, using the same stat and section-card layout language as the main reports page.
 - `apps/dashboard/app/reports/audit-export/route.ts`: CSV export endpoint for recent tenant audit activity.
 - `apps/dashboard/app/reports/collections-export/route.ts`: CSV export endpoint for repayment schedule and collections status.
 - `apps/dashboard/app/reports/notifications-export/route.ts`: CSV export endpoint for notification delivery history.
@@ -46,25 +53,26 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/dashboard/app/reports/charges-export/route.ts`: CSV export endpoint for charge and levy application history.
 - `apps/dashboard/app/reports/repayments-export/route.ts`: CSV export endpoint for repayment posting history.
 - `apps/dashboard/app/reports/member-ledgers-export/route.ts`: CSV export endpoint for member-linked ledger transactions.
-- `apps/dashboard/app/members/[memberId]/page.tsx`: member-level dashboard statement view for commitment history, savings activity, loans, schedules, and repayments.
-- `apps/dashboard/app/members/[memberId]/page.tsx`: member-level dashboard statement view for commitment history, savings activity, loans, schedules, repayments, and multi-document KYC review.
-- `apps/dashboard/app/members/[memberId]/statement/page.tsx`: printable member statement route with summary totals and ledger timeline.
+- `apps/dashboard/app/(sidebar)/members/[memberId]/page.tsx`: member-level dashboard statement view for commitment history, savings activity, loans, schedules, repayments, and multi-document KYC review.
+- `apps/dashboard/app/(sidebar)/members/[memberId]/statement/page.tsx`: printable member statement route rebuilt on the same dashboard summary and table primitives for stronger visual parity with the authenticated workspace.
 - `apps/dashboard/app/members/[memberId]/statement-export/route.ts`: downloadable per-member text statement export for staff workflows.
-- `apps/dashboard/app/tenant-site/page.tsx`: public-site readiness and hostname summary workspace.
-- `apps/dashboard/app/settings/profile/page.tsx`: cooperative profile update form and persisted onboarding-profile summary.
-- `apps/dashboard/app/settings/roles/page.tsx`: tenant-user role provisioning and current-role visibility workspace.
-- `apps/dashboard/app/settings/imports/page.tsx`: centralized staff import and migration workspace for members, records, and legacy finance data.
+- `apps/dashboard/app/(sidebar)/tenant-site/page.tsx`: public-site readiness and hostname summary workspace.
+- `apps/dashboard/app/(sidebar)/settings/profile/page.tsx`: cooperative profile update form and persisted onboarding-profile summary.
+- `apps/dashboard/app/(sidebar)/settings/roles/page.tsx`: tenant-user role provisioning and current-role visibility workspace.
+- `apps/dashboard/app/(sidebar)/settings/imports/page.tsx`: centralized staff import and migration workspace for members, records, and legacy finance data.
 - `apps/tenant-site/`: Next.js tenant public website surface.
 - `apps/api/`: Hono + tRPC backend foundation following the same structural standard used in `plot-keys`.
 - `apps/dashboard/lib/server-context.ts`: server-side tenant, membership, and session loader for dashboard pages.
 - `apps/api/src/routers/onboarding.route.ts`: tenant onboarding status and workspace bootstrap route.
 - `apps/tenant-site/lib/server-context.ts`: server-side tenant loader for tenant public pages.
 - `packages/auth/`: cooperative roles and approval guard helpers.
+- `packages/auth/src/index.ts`: auth cookie naming, session-scope helpers, and role utilities shared by the dashboard and API request contexts.
 - `packages/db/`: tenant, domain, user, and membership repository scaffolding plus runtime boundaries for the future Prisma-backed data layer.
 - `packages/domain/`: shared cooperative rules, platform identity, policies, finance helpers, and dashboard builders, intended to stay app-agnostic like the domain layer in `plot-keys`.
 - `packages/notifications/`: shared notification types, in-memory store, and service primitives.
 - `packages/notifications/src/index.ts`: notification registry, delivery service, console email transport, and shared email-draft builders for signup verification and workspace-ready follow-up.
 - `packages/notifications-react/`: React adapter for rendering shared notification events in web surfaces.
+- `packages/site-nav/`: shared reusable sidebar-navigation package modeled on the `gnd` package boundary, including nav builders, access helpers, path matching, and shell components for app surfaces.
 - `scripts/with-workspace-env.mjs`: shared environment bootstrap for root and workspace commands, including portless-based dev flows.
 - `packages/eslint-config/`: shared lint configuration for apps and packages.
 - `packages/tsconfig/`: shared TypeScript presets for Next.js and workspace packages.

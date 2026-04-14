@@ -1,9 +1,11 @@
-import { createPrismaClient } from "../prisma.js"
-import type { PrismaClient } from "../generated/prisma/client.js"
-import type { KycStatus, MemberStatus, MemberType } from "../generated/prisma/client.js"
-import { getMemberTransactions } from "./ledger.js"
+import type { KycStatus, MemberStatus, MemberType, PrismaClient } from "@prisma/client"
+import { createPrismaClient } from "../prisma"
+import { getMemberTransactions } from "./ledger"
 
 export type ListMembersFilters = {
+  kycStatus?: KycStatus
+  joinedFrom?: Date
+  joinedTo?: Date
   status?: MemberStatus
   memberType?: MemberType
   search?: string
@@ -24,8 +26,15 @@ export async function listMembers(
 
   const where = {
     tenantId,
+    ...(filters?.kycStatus && { kycStatus: filters.kycStatus }),
     ...(filters?.status && { status: filters.status }),
     ...(filters?.memberType && { memberType: filters.memberType }),
+    ...((filters?.joinedFrom || filters?.joinedTo) && {
+      joinedAt: {
+        ...(filters?.joinedFrom && { gte: filters.joinedFrom }),
+        ...(filters?.joinedTo && { lte: filters.joinedTo }),
+      },
+    }),
     ...(filters?.search && {
       OR: [
         { fullName: { contains: filters.search, mode: "insensitive" as const } },

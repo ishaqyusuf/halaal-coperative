@@ -17,9 +17,7 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning className="font-sans antialiased">
       <body>
         <ThemeProvider>
-          <NotificationsProvider>
-            {children}
-          </NotificationsProvider>
+          <NotificationsProvider>{children}</NotificationsProvider>
         </ThemeProvider>
       </body>
     </html>

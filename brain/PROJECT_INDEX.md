@@ -17,12 +17,13 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/web/app/api/signup/route.ts`: public signup API endpoint that issues the signed onboarding link and verification email draft.
 - `apps/web/app/api/onboarding/route.ts`: public onboarding API endpoint that verifies the token and provisions the tenant workspace.
 - `apps/web/src/app/`: main marketing route entrypoints for launch and pre-launch rendering.
-- `apps/web/src/lib/marketing-config.ts`: server-side env-driven switch for launch versus pre-launch marketing modes.
+- `apps/web/src/lib/marketing-config.ts`: web-app wrapper around the shared homepage and launch-stage config exported from `packages/domain`.
 - `apps/web/src/lib/signup-flow.ts`: shared signup and onboarding schemas, defaults, and payload shaping.
 - `apps/web/src/lib/dev-form-fill.ts`: central dev-mode random autofill generator for signup and onboarding forms.
 - `apps/web/src/components/marketing/`: launch and pre-launch landing page sections for the public marketing surface.
 - `apps/web/src/components/signup/`: shared shell and client forms for signup verification and onboarding bootstrap.
 - `apps/dashboard/`: Next.js tenant application serving the public tenant homepage, shared login/signup, and protected `/app` workspace on the same host.
+- `apps/dashboard/app/page.tsx`: tenant-root public homepage that now mirrors the polished marketing direction and redirects to `/login` when `SHOW_HOME_PAGE` is disabled.
 - `apps/dashboard/app/app/layout.tsx`: protected `/app` shell layout that binds the shared site-nav package to the tenant workspace pages.
 - `apps/dashboard/app/login/page.tsx`: public dashboard login chooser that lists available workspace accounts for the current tenant or platform host.
 - `apps/dashboard/app/auth/login/route.ts`: scoped tenant sign-in endpoint that sets the session token and user-id cookies for the current tenant or platform host.
@@ -66,6 +67,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/auth/src/index.ts`: auth cookie naming, session-scope helpers, and role utilities shared by the dashboard and API request contexts.
 - `packages/db/`: tenant, domain, user, and membership repository scaffolding plus runtime boundaries for the future Prisma-backed data layer.
 - `packages/domain/`: shared cooperative rules, platform identity, policies, finance helpers, and dashboard builders, intended to stay app-agnostic like the domain layer in `plot-keys`.
+- `packages/domain/src/modules/marketing.ts`: shared env-driven homepage visibility and launch-stage config consumed by both `apps/web` and `apps/dashboard`.
 - `packages/notifications/`: shared notification types, in-memory store, and service primitives.
 - `packages/notifications/src/index.ts`: notification registry, delivery service, console email transport, and shared email-draft builders for signup verification and workspace-ready follow-up.
 - `packages/notifications-react/`: React adapter for rendering shared notification events in web surfaces.
@@ -88,7 +90,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/db/src/queries/audit.ts`: tenant audit-log listing and reporting-summary query layer for admin reporting routes.
 - `packages/db/src/queries/imports.ts`: bulk import, staged import-batch persistence, and historical migration query layer for members, deduction sources, loan products, contributions, charges, loans, and repayments.
 - `packages/db/src/prisma.ts`: optional Prisma 7 runtime singleton using the Postgres driver adapter when `DATABASE_URL` is configured.
-- `packages/domain/src/modules/`: platform, policy, finance, product, and dashboard modules.
+- `packages/domain/src/modules/`: platform, policy, finance, product, marketing, and dashboard modules.
 
 ## Notes
 - The repository now uses a simplified surface model: marketing app, one tenant-hosted dashboard/public app, and a shared API.

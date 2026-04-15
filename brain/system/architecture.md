@@ -19,6 +19,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - Bun workspace monorepo orchestrated with Turbo.
 - App layout now centers on `apps/web`, `apps/dashboard`, and `apps/api`, with `apps/dashboard` absorbing the former tenant-site responsibility into one host-aware tenant app.
 - `apps/web` now uses a server-driven marketing-state switch so the main landing route can render either a pre-launch page or the full launch landing experience from environment configuration.
+- `apps/web` and `apps/dashboard` now share one env-driven homepage visibility config through `packages/domain/src/modules/marketing.ts`, allowing the platform marketing root to redirect to `/signup` and tenant roots to redirect to `/login` when `SHOW_HOME_PAGE` is disabled.
 - `apps/web` now also uses a `src/` layout so route files, marketing sections, and server-side config helpers are separated more cleanly in the same direction as the reference applications.
 - `apps/api` now uses a Hono + tRPC foundation with grouped routers and shared request context.
 - Shared packages are split by responsibility: `auth`, `db`, `domain`, `notifications`, `notifications-react`, `ui`, `utils`, `eslint-config`, and `tsconfig`.

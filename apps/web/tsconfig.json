@@ -4,6 +4,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "@halaal-vest/domain": ["../../packages/domain/src/index.ts"],
       "@halaal-vest/ui/*": ["../../packages/ui/src/*"]
     },
     "plugins": [

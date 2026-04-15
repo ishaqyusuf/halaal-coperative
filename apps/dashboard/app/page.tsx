@@ -27,41 +27,60 @@ export default async function TenantHomePage() {
     <main className="min-h-svh bg-[radial-gradient(circle_at_top,_rgba(196,123,33,0.12),_transparent_38%),linear-gradient(180deg,_#fffaf3_0%,_#ffffff_55%,_#f8f1e7_100%)]">
       <section className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-12 lg:px-10 lg:py-16">
         <div className="max-w-3xl">
-          <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
+          <p className="text-xs font-medium tracking-[0.24em] text-muted-foreground uppercase">
             {context.tenant.slug}.halaal-vest.com
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
             {context.tenant.name}
           </h1>
           <p className="mt-5 text-base leading-7 text-muted-foreground">
-            One tenant site for public discovery, member onboarding, shared login, and the protected cooperative workspace.
+            One tenant site for public discovery, member onboarding, shared
+            login, and the protected cooperative workspace.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <article className="rounded-3xl border border-border/60 bg-background/90 p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Members</p>
-            <p className="mt-3 text-xl font-semibold">{dashboard.memberCount}</p>
+            <p className="text-xs tracking-[0.22em] text-muted-foreground uppercase">
+              Members
+            </p>
+            <p className="mt-3 text-xl font-semibold">
+              {dashboard.memberCount}
+            </p>
           </article>
           <article className="rounded-3xl border border-border/60 bg-background/90 p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Available pool</p>
-            <p className="mt-3 text-xl font-semibold">{formatCurrency(dashboard.availablePool)}</p>
+            <p className="text-xs tracking-[0.22em] text-muted-foreground uppercase">
+              Available pool
+            </p>
+            <p className="mt-3 text-xl font-semibold">
+              {formatCurrency(dashboard.availablePool)}
+            </p>
           </article>
           <article className="rounded-3xl border border-border/60 bg-background/90 p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Reserve buffer</p>
-            <p className="mt-3 text-xl font-semibold">{formatCurrency(dashboard.reserveBuffer)}</p>
+            <p className="text-xs tracking-[0.22em] text-muted-foreground uppercase">
+              Reserve buffer
+            </p>
+            <p className="mt-3 text-xl font-semibold">
+              {formatCurrency(dashboard.reserveBuffer)}
+            </p>
           </article>
         </div>
 
         <div className="flex flex-wrap gap-3">
           <a href="/signup/member">
-            <Button size="lg" className="rounded-full px-5">Become a member</Button>
+            <Button size="lg" className="rounded-full px-5">
+              Become a member
+            </Button>
           </a>
           <a href="/login">
-            <Button size="lg" variant="outline" className="rounded-full px-5">Login</Button>
+            <Button size="lg" variant="outline" className="rounded-full px-5">
+              Login
+            </Button>
           </a>
           <a href="/app">
-            <Button size="lg" variant="outline" className="rounded-full px-5">Open app</Button>
+            <Button size="lg" variant="outline" className="rounded-full px-5">
+              Open app
+            </Button>
           </a>
         </div>
       </section>

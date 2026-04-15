@@ -72,6 +72,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@halaal-vest/db": "workspace:*",
+        "@halaal-vest/domain": "workspace:*",
         "@halaal-vest/notifications": "workspace:*",
         "@halaal-vest/notifications-react": "workspace:*",
         "@halaal-vest/ui": "workspace:*",

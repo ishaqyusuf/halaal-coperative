@@ -1,13 +1,42 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".env", ".env.development", ".env.production", "**/.env", "**/.env.development", "**/.env.production"],
-  "globalEnv": ["DASHBOARD_APP_URL", "DATABASE_URL", "HALAAL_VEST_DASHBOARD_ROOT_DOMAIN", "HALAAL_VEST_MARKETING_STAGE", "HALAAL_VEST_PLATFORM_APP_HOSTNAME", "HALAAL_VEST_PLATFORM_ROOT_DOMAIN", "HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN", "HALAAL_VEST_TENANT_ROOT_DOMAIN", "PORT", "PORTLESS_APP_PORT", "TENANT_SITE_APP_URL", "TEST_DATABASE_URL", "TZ"],
+  "globalDependencies": [
+    ".env",
+    ".env.development",
+    ".env.production",
+    "**/.env",
+    "**/.env.development",
+    "**/.env.production"
+  ],
+  "globalEnv": [
+    "DASHBOARD_APP_URL",
+    "DATABASE_URL",
+    "HALAAL_VEST_DASHBOARD_ROOT_DOMAIN",
+    "HALAAL_VEST_MARKETING_STAGE",
+    "HALAAL_VEST_PLATFORM_APP_HOSTNAME",
+    "HALAAL_VEST_PLATFORM_ROOT_DOMAIN",
+    "HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN",
+    "HALAAL_VEST_TENANT_ROOT_DOMAIN",
+    "NODE_ENV",
+    "PORT",
+    "PORTLESS_APP_PORT",
+    "SHOW_HOME_PAGE",
+    "TENANT_SITE_APP_URL",
+    "TEST_DATABASE_URL",
+    "TZ"
+  ],
   "ui": "tui",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**", "build/**", "lib/**"]
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**",
+        "build/**",
+        "lib/**"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]

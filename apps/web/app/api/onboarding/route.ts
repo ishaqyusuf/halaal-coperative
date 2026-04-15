@@ -3,6 +3,7 @@ import {
   createNotificationOutboxEntry,
   createTenantWorkspaceBootstrap,
   recordNotificationDeliveryAudit,
+  syncTenantDomainVerificationByHostname,
   updateNotificationOutboxDelivery,
 } from "@halaal-vest/db"
 import { createWorkspaceReadyEmail } from "@halaal-vest/notifications"
@@ -13,6 +14,7 @@ import {
 import { normalizeWorkspaceSlug, onboardingFormSchema } from "@/lib/signup-flow"
 import { createServerNotificationService } from "@/lib/server-notifications"
 import { verifySignedSignupToken } from "@/lib/signup-token"
+import { provisionTenantDomainOnVercel } from "@/lib/vercel-domains.server"
 
 function formatOnboardingError(error: unknown) {
   if (!(error instanceof Error)) {
@@ -26,18 +28,11 @@ function formatOnboardingError(error: unknown) {
   return error.message
 }
 
-function getDashboardAppUrl(currentOrigin?: string | null) {
+function getTenantAppOrigin(currentOrigin?: string | null) {
   return process.env.DASHBOARD_APP_URL
     ?? process.env.NEXT_PUBLIC_DASHBOARD_APP_URL
     ?? currentOrigin
     ?? "http://app.halaal-vest.localhost:1441"
-}
-
-function getTenantSiteAppUrl(currentOrigin?: string | null) {
-  return process.env.TENANT_SITE_APP_URL
-    ?? process.env.NEXT_PUBLIC_TENANT_SITE_APP_URL
-    ?? currentOrigin
-    ?? "http://tenant.halaal-vest.localhost:1443"
 }
 
 export async function POST(request: Request) {
@@ -55,13 +50,29 @@ export async function POST(request: Request) {
     })
 
     const dashboardUrl = buildTenantDashboardUrl(result.tenant.slug, {
-      currentOrigin: getDashboardAppUrl(request.url),
+      currentOrigin: getTenantAppOrigin(request.url),
       tenantHostname: result.primarySiteHostname,
     })
     const siteUrl = buildTenantSiteUrl(result.tenant.slug, {
-      currentOrigin: getTenantSiteAppUrl(request.url),
+      currentOrigin: getTenantAppOrigin(request.url),
       tenantHostname: result.primarySiteHostname,
     })
+    const vercelDomainProvisioning = await provisionTenantDomainOnVercel(result.primarySiteHostname)
+
+    if (vercelDomainProvisioning.status !== "skipped") {
+      await syncTenantDomainVerificationByHostname({
+        hostname: result.primarySiteHostname,
+        tenantId: result.tenant.id,
+        verificationDetails: vercelDomainProvisioning,
+        verificationStatus:
+          vercelDomainProvisioning.status === "verified"
+            ? "verified"
+            : vercelDomainProvisioning.status === "pending_verification"
+              ? "pending_dns"
+              : "failed",
+      })
+    }
+
     const dashboardHostname = new URL(dashboardUrl).host
     const siteHostname = new URL(siteUrl).host
     const notificationService = createServerNotificationService()
@@ -116,6 +127,7 @@ export async function POST(request: Request) {
       siteUrl,
       tenantId: result.tenant.id,
       tenantName: result.tenant.name,
+      vercelDomainProvisioning,
       workspaceReadyOutboxId: outboxEntry?.id ?? null,
       workspaceReadyDeliveryError:
         workspaceReadyDelivery.status === "failed"

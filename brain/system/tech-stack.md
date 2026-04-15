@@ -9,7 +9,7 @@ This file tracks chosen and proposed technologies for the platform.
 
 ## Current Status
 - Application scaffold implemented as a Bun and Turbo monorepo.
-- Frontend scaffold implemented with Next.js App Router across `apps/web`, `apps/dashboard`, and `apps/tenant-site`.
+- Frontend scaffold implemented with Next.js App Router across `apps/web` and the host-aware tenant app in `apps/dashboard`.
 - Shared UI scaffold implemented with shadcn/base components in `packages/ui`.
 - Shared package boundaries established for `auth`, `db`, `domain`, `notifications`, `notifications-react`, and `utils`.
 

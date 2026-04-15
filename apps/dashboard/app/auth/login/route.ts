@@ -5,9 +5,16 @@ import {
   platformSessionScope,
   resolveRequestSessionScope,
 } from "@halaal-vest/auth"
-import { findActiveMembershipAsync, findUserByIdAsync, resolveTenantAsync } from "@halaal-vest/db"
+import {
+  findActiveMembershipAsync,
+  findUserByEmailAsync,
+  findUserByIdAsync,
+  getPendingMemberOnboardingForUser,
+  resolveTenantAsync,
+} from "@halaal-vest/db"
 import { NextResponse, type NextRequest } from "next/server"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
+import { verifyPassword } from "@/lib/password"
 
 function buildCookieOptions(request: NextRequest) {
   return {
@@ -21,27 +28,39 @@ function buildCookieOptions(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const formData = await request.formData()
   const userId = String(formData.get("userId") ?? "").trim()
+  const email = String(formData.get("email") ?? "").trim().toLowerCase()
+  const password = String(formData.get("password") ?? "")
   const nextPath = normalizeDashboardRedirectPath(String(formData.get("next") ?? "/"))
   const loginPath = new URL(`/login?next=${encodeURIComponent(nextPath)}&error=invalid-account`, request.url)
 
-  if (!userId) {
+  if (!userId && (!email || !password)) {
     return NextResponse.redirect(loginPath)
   }
 
   const host = request.headers.get("host")
   const scope = resolveRequestSessionScope(host) ?? platformSessionScope
-  const user = await findUserByIdAsync(userId)
-
-  if (!user) {
-    return NextResponse.redirect(loginPath)
-  }
-
   const tenantResolution = await resolveTenantAsync({
     hostname: request.headers.get("x-tenant-hostname") ?? host,
     slug: request.headers.get("x-tenant-subdomain"),
   })
 
+  const credentialUser = userId
+    ? null
+    : await findUserByEmailAsync({
+        email,
+        tenantId: tenantResolution.tenant?.id ?? null,
+      })
+  const user = userId ? await findUserByIdAsync(userId) : credentialUser
+
+  if (!user) {
+    return NextResponse.redirect(loginPath)
+  }
+
   if (tenantResolution.tenant && !user.isPlatformOwner && user.tenantId !== tenantResolution.tenant.id) {
+    return NextResponse.redirect(loginPath)
+  }
+
+  if (credentialUser && !verifyPassword(password, credentialUser.passwordHash)) {
     return NextResponse.redirect(loginPath)
   }
 
@@ -50,7 +69,15 @@ export async function POST(request: NextRequest) {
     userId: user.id,
   })
 
-  if (!membership && !user.isPlatformOwner) {
+  const pendingOnboarding =
+    !membership && tenantResolution.tenant
+      ? await getPendingMemberOnboardingForUser({
+          tenantId: tenantResolution.tenant.id,
+          userId: user.id,
+        })
+      : null
+
+  if (!membership && !pendingOnboarding && !user.isPlatformOwner) {
     return NextResponse.redirect(loginPath)
   }
 

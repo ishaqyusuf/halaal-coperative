@@ -2,13 +2,16 @@
 
 import { revalidatePath } from "next/cache"
 import {
+  approveMemberOnboardingRequest,
   applyCharge,
+  applyImportBatch,
   closeContributionPlan,
   createTenantCustomDomain,
   createChargeDefinition,
   createImportBatch,
   createMember,
   createMemberDocument,
+  createNotificationOutboxEntry,
   disburseLoan,
   getImportReferenceData,
   importCharges,
@@ -33,6 +36,7 @@ import {
   postRepayment,
   queueTenantRoleNotifications,
   upsertNotificationPreference,
+  rejectMemberOnboardingRequest,
   updateContributionPlan,
   updateMemberPaymentAllocationPreference,
   updateTenantProfile,
@@ -41,8 +45,8 @@ import {
   updateMemberDocumentReview,
   updateMemberStatus,
   waiveChargeApplication,
-  applyImportBatch,
 } from "@halaal-vest/db"
+import { buildTenantDashboardUrl } from "@halaal-vest/utils"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -109,8 +113,7 @@ function getOptionalBoolean(formData: FormData, key: string) {
   return value === "on" || value === "true"
 }
 
-export async function createMemberAction(formData: FormData) {
-  const actor = await requireDashboardActor(memberManagementRoles)
+function getMemberStateFromFormData(formData: FormData) {
   const hasServingLoan = getOptionalBoolean(formData, "hasServingLoan")
   const currentSavingsBalance = getOptionalNumber(formData, "currentSavingsBalance")
   const monthlyCommitment = getOptionalNumber(formData, "monthlyCommitment")
@@ -129,13 +132,8 @@ export async function createMemberAction(formData: FormData) {
     }
   }
 
-  await createMember({
-    actorUserId: actor.user.id,
+  return {
     currentSavingsBalance,
-    fullName: getRequiredString(formData, "fullName"),
-    joinedAt: new Date(`${getRequiredString(formData, "joinedAt")}T00:00:00.000Z`),
-    memberNumber: getRequiredString(formData, "memberNumber"),
-    memberType: getRequiredString(formData, "memberType") as DashboardMemberType,
     monthlyCommitment,
     servingLoan:
       hasServingLoan && loanStartDate && loanAmount && loanMonthlyCommitment
@@ -146,13 +144,29 @@ export async function createMemberAction(formData: FormData) {
             startDate: new Date(`${loanStartDate}T00:00:00.000Z`),
           }
         : undefined,
+  }
+}
+
+export async function createMemberAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberManagementRoles)
+  const memberState = getMemberStateFromFormData(formData)
+
+  await createMember({
+    actorUserId: actor.user.id,
+    currentSavingsBalance: memberState.currentSavingsBalance,
+    fullName: getRequiredString(formData, "fullName"),
+    joinedAt: new Date(`${getRequiredString(formData, "joinedAt")}T00:00:00.000Z`),
+    memberNumber: getRequiredString(formData, "memberNumber"),
+    memberType: getRequiredString(formData, "memberType") as DashboardMemberType,
+    monthlyCommitment: memberState.monthlyCommitment,
+    servingLoan: memberState.servingLoan,
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/members")
-  revalidatePath("/contributions")
-  revalidatePath("/loans")
-  revalidatePath("/repayments")
+  revalidatePath("/app/members")
+  revalidatePath("/app/contributions")
+  revalidatePath("/app/loans")
+  revalidatePath("/app/repayments")
 }
 
 export async function updateMemberStatusAction(formData: FormData) {
@@ -167,7 +181,7 @@ export async function updateMemberStatusAction(formData: FormData) {
 
   await queueTenantRoleNotifications({
     actionLabel: "Open members",
-    actionUrl: "/members",
+    actionUrl: "/app/members",
     bodyText: `${member.fullName} is now marked as ${member.status.replace(/_/g, " ")}.`,
     metadata: {
       memberId: member.id,
@@ -181,7 +195,83 @@ export async function updateMemberStatusAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/members")
+  revalidatePath("/app/members")
+}
+
+export async function approveMemberOnboardingAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberManagementRoles)
+  const memberState = getMemberStateFromFormData(formData)
+
+  const approved = await approveMemberOnboardingRequest({
+    actorUserId: actor.user.id,
+    memberState,
+    requestId: getRequiredString(formData, "requestId"),
+    tenantId: actor.tenant.id,
+  })
+
+  await createNotificationOutboxEntry({
+    actionLabel: "Open dashboard",
+    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, { pathname: "/app" }),
+    bodyText: [
+      `Assalamu alaikum ${approved.user.fullName},`,
+      "",
+      `Your membership for ${actor.tenant.name} has been approved.`,
+      "You can now sign in to your dashboard and continue with your cooperative account.",
+    ].join("\n"),
+    metadata: {
+      memberId: approved.member.id,
+      requestId: approved.request.id,
+      userId: approved.user.id,
+    },
+    notificationType: "member.onboarding_approved",
+    recipient: approved.user.email,
+    source: "dashboard.membership_approvals",
+    subject: `${actor.tenant.name}: your membership has been approved`,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/app/membership-approvals")
+  revalidatePath(`/app/membership-approvals/${approved.request.id}`)
+  revalidatePath("/app/members")
+  revalidatePath("/app/contributions")
+  revalidatePath("/app/loans")
+  revalidatePath("/app/repayments")
+}
+
+export async function rejectMemberOnboardingAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberManagementRoles)
+
+  const rejected = await rejectMemberOnboardingRequest({
+    actorUserId: actor.user.id,
+    reason: (formData.get("reason") as string | null)?.trim() || undefined,
+    requestId: getRequiredString(formData, "requestId"),
+    tenantId: actor.tenant.id,
+  })
+
+  await createNotificationOutboxEntry({
+    actionLabel: "Contact support",
+    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, { pathname: "/login" }),
+    bodyText: [
+      `Assalamu alaikum ${rejected.user.fullName},`,
+      "",
+      `Your membership signup for ${actor.tenant.name} was not approved yet.`,
+      rejected.request.rejectionReason
+        ? `Reason: ${rejected.request.rejectionReason}`
+        : "Please contact the cooperative team for the next steps.",
+    ].join("\n"),
+    metadata: {
+      requestId: rejected.request.id,
+      userId: rejected.user.id,
+    },
+    notificationType: "member.onboarding_rejected",
+    recipient: rejected.user.email,
+    source: "dashboard.membership_approvals",
+    subject: `${actor.tenant.name}: membership signup update`,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/app/membership-approvals")
+  revalidatePath(`/app/membership-approvals/${rejected.request.id}`)
 }
 
 export async function updateMemberKycAction(formData: FormData) {
@@ -200,7 +290,7 @@ export async function updateMemberKycAction(formData: FormData) {
 
   await queueTenantRoleNotifications({
     actionLabel: "Open member profile",
-    actionUrl: `/members/${member.id}`,
+    actionUrl: `/app/members/${member.id}`,
     bodyText: `${member.fullName} KYC is now ${member.kycStatus.replace(/_/g, " ")}.`,
     metadata: {
       kycStatus: member.kycStatus,
@@ -213,8 +303,8 @@ export async function updateMemberKycAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/members")
-  revalidatePath(`/members/${getRequiredString(formData, "memberId")}`)
+  revalidatePath("/app/members")
+  revalidatePath(`/app/members/${getRequiredString(formData, "memberId")}`)
 }
 
 export async function createMemberDocumentAction(formData: FormData) {
@@ -230,8 +320,8 @@ export async function createMemberDocumentAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath(`/members/${document.memberId}`)
-  revalidatePath("/reports")
+  revalidatePath(`/app/members/${document.memberId}`)
+  revalidatePath("/app/reports")
 }
 
 export async function updateMemberDocumentReviewAction(formData: FormData) {
@@ -245,8 +335,8 @@ export async function updateMemberDocumentReviewAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath(`/members/${document.memberId}`)
-  revalidatePath("/reports")
+  revalidatePath(`/app/members/${document.memberId}`)
+  revalidatePath("/app/reports")
 }
 
 export async function recordContributionAction(formData: FormData) {
@@ -266,7 +356,7 @@ export async function recordContributionAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/contributions")
+  revalidatePath("/app/contributions")
 }
 
 export async function setMemberContributionPlanAction(formData: FormData) {
@@ -281,7 +371,7 @@ export async function setMemberContributionPlanAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/contributions")
+  revalidatePath("/app/contributions")
 }
 
 export async function updateContributionPlanAction(formData: FormData) {
@@ -295,8 +385,8 @@ export async function updateContributionPlanAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/contributions")
-  revalidatePath("/members")
+  revalidatePath("/app/contributions")
+  revalidatePath("/app/members")
 }
 
 export async function closeContributionPlanAction(formData: FormData) {
@@ -309,8 +399,8 @@ export async function closeContributionPlanAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/contributions")
-  revalidatePath("/members")
+  revalidatePath("/app/contributions")
+  revalidatePath("/app/members")
 }
 
 export async function updateMemberPaymentAllocationPreferenceAction(formData: FormData) {
@@ -323,8 +413,8 @@ export async function updateMemberPaymentAllocationPreferenceAction(formData: Fo
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/contributions")
-  revalidatePath("/members")
+  revalidatePath("/app/contributions")
+  revalidatePath("/app/members")
 }
 
 export async function recordMemberPaymentAction(formData: FormData) {
@@ -347,9 +437,9 @@ export async function recordMemberPaymentAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/contributions")
-  revalidatePath("/repayments")
-  revalidatePath("/loans")
+  revalidatePath("/app/contributions")
+  revalidatePath("/app/repayments")
+  revalidatePath("/app/loans")
 }
 
 export async function createChargeDefinitionAction(formData: FormData) {
@@ -367,7 +457,7 @@ export async function createChargeDefinitionAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/charges")
+  revalidatePath("/app/charges")
 }
 
 export async function updateChargeDefinitionAction(formData: FormData) {
@@ -381,7 +471,7 @@ export async function updateChargeDefinitionAction(formData: FormData) {
     },
   )
 
-  revalidatePath("/charges")
+  revalidatePath("/app/charges")
 }
 
 export async function applyChargeAction(formData: FormData) {
@@ -399,7 +489,7 @@ export async function applyChargeAction(formData: FormData) {
 
   await queueTenantRoleNotifications({
     actionLabel: "Review charges",
-    actionUrl: "/charges",
+    actionUrl: "/app/charges",
     bodyText: `A charge application of ${Number(charge.amount)} was posted for member operations review.`,
     metadata: {
       chargeApplicationId: charge.id,
@@ -412,8 +502,8 @@ export async function applyChargeAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/charges")
-  revalidatePath("/contributions")
+  revalidatePath("/app/charges")
+  revalidatePath("/app/contributions")
 }
 
 export async function waiveChargeApplicationAction(formData: FormData) {
@@ -427,7 +517,7 @@ export async function waiveChargeApplicationAction(formData: FormData) {
 
   await queueTenantRoleNotifications({
     actionLabel: "Review charges",
-    actionUrl: "/charges",
+    actionUrl: "/app/charges",
     bodyText: `A charge application was waived for member operations review.`,
     metadata: {
       chargeApplicationId: charge.id,
@@ -441,8 +531,8 @@ export async function waiveChargeApplicationAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/charges")
-  revalidatePath("/contributions")
+  revalidatePath("/app/charges")
+  revalidatePath("/app/contributions")
 }
 
 export async function reverseChargeApplicationAction(formData: FormData) {
@@ -456,7 +546,7 @@ export async function reverseChargeApplicationAction(formData: FormData) {
 
   await queueTenantRoleNotifications({
     actionLabel: "Review charges",
-    actionUrl: "/charges",
+    actionUrl: "/app/charges",
     bodyText: `A charge application was reversed and savings were restored.`,
     metadata: {
       chargeApplicationId: charge.id,
@@ -470,8 +560,8 @@ export async function reverseChargeApplicationAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/charges")
-  revalidatePath("/contributions")
+  revalidatePath("/app/charges")
+  revalidatePath("/app/contributions")
 }
 
 export async function submitLoanRequestAction(formData: FormData) {
@@ -488,7 +578,7 @@ export async function submitLoanRequestAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/loans")
+  revalidatePath("/app/loans")
 }
 
 export async function reviewLoanRequestAction(formData: FormData) {
@@ -504,7 +594,7 @@ export async function reviewLoanRequestAction(formData: FormData) {
 
   await queueTenantRoleNotifications({
     actionLabel: "Open loans",
-    actionUrl: "/loans",
+    actionUrl: "/app/loans",
     bodyText: `Loan request ${request.id} is now ${request.status.replace(/_/g, " ")}.`,
     metadata: {
       loanRequestId: request.id,
@@ -517,7 +607,7 @@ export async function reviewLoanRequestAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/loans")
+  revalidatePath("/app/loans")
 }
 
 export async function disburseLoanAction(formData: FormData) {
@@ -530,8 +620,8 @@ export async function disburseLoanAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/loans")
-  revalidatePath("/repayments")
+  revalidatePath("/app/loans")
+  revalidatePath("/app/repayments")
 }
 
 export async function postRepaymentAction(formData: FormData) {
@@ -548,7 +638,7 @@ export async function postRepaymentAction(formData: FormData) {
 
   await queueTenantRoleNotifications({
     actionLabel: "Open repayments",
-    actionUrl: "/repayments",
+    actionUrl: "/app/repayments",
     bodyText: `A repayment was posted for finance review and reconciliation.`,
     metadata: {
       loanId: getRequiredString(formData, "loanId"),
@@ -561,8 +651,8 @@ export async function postRepaymentAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/repayments")
-  revalidatePath("/loans")
+  revalidatePath("/app/repayments")
+  revalidatePath("/app/loans")
 }
 
 export async function updateCooperativeProfileAction(formData: FormData) {
@@ -582,8 +672,8 @@ export async function updateCooperativeProfileAction(formData: FormData) {
     timezone: getRequiredString(formData, "timezone"),
   })
 
-  revalidatePath("/settings/profile")
-  revalidatePath("/tenant-site")
+  revalidatePath("/app/settings/profile")
+  revalidatePath("/")
 }
 
 export async function createTenantDomainAction(formData: FormData) {
@@ -595,8 +685,8 @@ export async function createTenantDomainAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/domains")
-  revalidatePath("/tenant-site")
+  revalidatePath("/app/domains")
+  revalidatePath("/")
 }
 
 export async function setTenantDomainPrimaryAction(formData: FormData) {
@@ -608,7 +698,7 @@ export async function setTenantDomainPrimaryAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/domains")
+  revalidatePath("/app/domains")
 }
 
 export async function updateTenantDomainVerificationStatusAction(formData: FormData) {
@@ -623,7 +713,7 @@ export async function updateTenantDomainVerificationStatusAction(formData: FormD
 
   await queueTenantRoleNotifications({
     actionLabel: "Open domains",
-    actionUrl: "/domains",
+    actionUrl: "/app/domains",
     bodyText: `A custom domain verification status was updated to ${getRequiredString(formData, "status").replace(/_/g, " ")}.`,
     metadata: {
       domainId: getRequiredString(formData, "domainId"),
@@ -636,7 +726,7 @@ export async function updateTenantDomainVerificationStatusAction(formData: FormD
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/domains")
+  revalidatePath("/app/domains")
 }
 
 export async function runTenantDomainVerificationCheckAction(formData: FormData) {
@@ -650,7 +740,7 @@ export async function runTenantDomainVerificationCheckAction(formData: FormData)
 
   await queueTenantRoleNotifications({
     actionLabel: "Open domains",
-    actionUrl: "/domains",
+    actionUrl: "/app/domains",
     bodyText: `A domain verification check completed with status ${domain.verificationStatus.replace(/_/g, " ")}.`,
     metadata: {
       domainId: domain.id,
@@ -664,7 +754,7 @@ export async function runTenantDomainVerificationCheckAction(formData: FormData)
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/domains")
+  revalidatePath("/app/domains")
 }
 
 export async function provisionTenantUserRoleAction(formData: FormData) {
@@ -679,7 +769,7 @@ export async function provisionTenantUserRoleAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/roles")
+  revalidatePath("/app/settings/roles")
 }
 
 export async function saveNotificationPreferenceAction(formData: FormData) {
@@ -694,7 +784,7 @@ export async function saveNotificationPreferenceAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/notifications")
+  revalidatePath("/app/notifications")
 }
 
 export async function refreshCollectionsStatusesAction() {
@@ -705,8 +795,8 @@ export async function refreshCollectionsStatusesAction() {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/repayments")
-  revalidatePath("/loans")
+  revalidatePath("/app/repayments")
+  revalidatePath("/app/loans")
 }
 
 export async function recordCollectionFollowUpAction(formData: FormData) {
@@ -730,7 +820,7 @@ export async function recordCollectionFollowUpAction(formData: FormData) {
 
   await queueTenantRoleNotifications({
     actionLabel: "Open repayments",
-    actionUrl: "/repayments",
+    actionUrl: "/app/repayments",
     bodyText: `A collections follow-up was recorded with status ${followUpStatus.replace(/_/g, " ")}.`,
     metadata: {
       assignedToUserId: (formData.get("assignedToUserId") as string | null)?.trim() || null,
@@ -749,7 +839,7 @@ export async function recordCollectionFollowUpAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/repayments")
+  revalidatePath("/app/repayments")
 }
 
 export async function importMembersCsvAction(formData: FormData) {
@@ -769,8 +859,8 @@ export async function importMembersCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
-  revalidatePath("/members")
+  revalidatePath("/app/settings/imports")
+  revalidatePath("/app/members")
 }
 
 export async function importDeductionSourcesCsvAction(formData: FormData) {
@@ -790,8 +880,8 @@ export async function importDeductionSourcesCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
-  revalidatePath("/members")
+  revalidatePath("/app/settings/imports")
+  revalidatePath("/app/members")
 }
 
 export async function importLoanProductsCsvAction(formData: FormData) {
@@ -811,8 +901,8 @@ export async function importLoanProductsCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
-  revalidatePath("/loans")
+  revalidatePath("/app/settings/imports")
+  revalidatePath("/app/loans")
 }
 
 export async function importContributionsCsvAction(formData: FormData) {
@@ -832,9 +922,9 @@ export async function importContributionsCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
-  revalidatePath("/contributions")
-  revalidatePath("/members")
+  revalidatePath("/app/settings/imports")
+  revalidatePath("/app/contributions")
+  revalidatePath("/app/members")
 }
 
 export async function importChargesCsvAction(formData: FormData) {
@@ -854,9 +944,9 @@ export async function importChargesCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
-  revalidatePath("/charges")
-  revalidatePath("/members")
+  revalidatePath("/app/settings/imports")
+  revalidatePath("/app/charges")
+  revalidatePath("/app/members")
 }
 
 export async function importLoanMigrationsCsvAction(formData: FormData) {
@@ -876,10 +966,10 @@ export async function importLoanMigrationsCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
-  revalidatePath("/loans")
-  revalidatePath("/repayments")
-  revalidatePath("/members")
+  revalidatePath("/app/settings/imports")
+  revalidatePath("/app/loans")
+  revalidatePath("/app/repayments")
+  revalidatePath("/app/members")
 }
 
 export async function importRepaymentMigrationsCsvAction(formData: FormData) {
@@ -899,10 +989,10 @@ export async function importRepaymentMigrationsCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
-  revalidatePath("/repayments")
-  revalidatePath("/loans")
-  revalidatePath("/members")
+  revalidatePath("/app/settings/imports")
+  revalidatePath("/app/repayments")
+  revalidatePath("/app/loans")
+  revalidatePath("/app/members")
 }
 
 export async function stageImportBatchAction(formData: FormData) {
@@ -962,8 +1052,8 @@ export async function stageImportBatchAction(formData: FormData) {
     validRows: parsed.rows.length,
   })
 
-  revalidatePath("/settings/imports")
-  revalidatePath("/members")
+  revalidatePath("/app/settings/imports")
+  revalidatePath("/app/members")
 }
 
 export async function applyImportBatchAction(formData: FormData) {
@@ -975,10 +1065,10 @@ export async function applyImportBatchAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
-  revalidatePath("/members")
-  revalidatePath("/contributions")
-  revalidatePath("/charges")
-  revalidatePath("/loans")
-  revalidatePath("/repayments")
+  revalidatePath("/app/settings/imports")
+  revalidatePath("/app/members")
+  revalidatePath("/app/contributions")
+  revalidatePath("/app/charges")
+  revalidatePath("/app/loans")
+  revalidatePath("/app/repayments")
 }

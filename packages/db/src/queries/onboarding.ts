@@ -1,6 +1,5 @@
 import type { PrismaClient } from "@prisma/client"
 import {
-  buildDashboardHostname,
   buildTenantSiteHostname,
   normalizeSubdomainLabel,
 } from "@halaal-vest/utils"
@@ -21,7 +20,7 @@ function getTenantDomainRoutingScope(input: {
 export type TenantOnboardingStepKey =
   | "tenant_profile"
   | "site_domain"
-  | "dashboard_domain"
+  | "workspace_access"
   | "workspace_owner"
   | "policy_defaults"
   | "ledger_bootstrap"
@@ -115,7 +114,7 @@ function toTenantRecord(input: {
 function buildTenantOnboardingSnapshot(input: {
   hasTenantProfile: boolean
   hasPrimarySiteDomain: boolean
-  hasPrimaryDashboardDomain: boolean
+  hasWorkspaceAccess: boolean
   hasWorkspaceOwner: boolean
   hasPolicyDefaults: boolean
   hasLedgerBootstrap: boolean
@@ -136,10 +135,10 @@ function buildTenantOnboardingSnapshot(input: {
       complete: input.hasPrimarySiteDomain,
     },
     {
-      key: "dashboard_domain",
-      label: "Dashboard hostname",
-      description: "The tenant dashboard resolves through a dedicated workspace hostname.",
-      complete: input.hasPrimaryDashboardDomain,
+      key: "workspace_access",
+      label: "Workspace app route",
+      description: "The tenant hostname also serves the authenticated workspace under /app.",
+      complete: input.hasWorkspaceAccess,
     },
     {
       key: "workspace_owner",
@@ -170,7 +169,7 @@ function buildTenantOnboardingSnapshot(input: {
     totalStepCount,
     completionRatio: totalStepCount > 0 ? completedStepCount / totalStepCount : 0,
     primarySiteHostname: input.primarySiteHostname ?? null,
-    primaryDashboardHostname: input.primaryDashboardHostname ?? null,
+    primaryDashboardHostname: input.primaryDashboardHostname ?? input.primarySiteHostname ?? null,
     steps,
   } satisfies TenantOnboardingSnapshot
 }
@@ -194,7 +193,7 @@ export async function getTenantOnboardingState(tenantId: string) {
     return buildTenantOnboardingSnapshot({
       hasTenantProfile: Boolean(tenant),
       hasPrimarySiteDomain: Boolean(primarySiteDomain),
-      hasPrimaryDashboardDomain: Boolean(primaryDashboardDomain),
+      hasWorkspaceAccess: Boolean(primarySiteDomain),
       hasWorkspaceOwner,
       hasPolicyDefaults: Boolean(tenant),
       hasLedgerBootstrap: true,
@@ -243,7 +242,7 @@ export async function getTenantOnboardingState(tenantId: string) {
   return buildTenantOnboardingSnapshot({
     hasTenantProfile: Boolean(tenant),
     hasPrimarySiteDomain: Boolean(primarySiteDomain),
-    hasPrimaryDashboardDomain: Boolean(primaryDashboardDomain),
+      hasWorkspaceAccess: Boolean(primarySiteDomain),
     hasWorkspaceOwner: Boolean(tenant?.users.length && tenant.memberships.length),
     hasPolicyDefaults: Boolean(tenant?.policies),
     hasLedgerBootstrap: Boolean(tenant?.ledgerAccounts.length),
@@ -265,7 +264,7 @@ export async function createTenantWorkspaceBootstrap(input: TenantBootstrapInput
   }
 
   const primarySiteHostname = buildTenantSiteHostname(slug)
-  const primaryDashboardHostname = buildDashboardHostname(slug)
+  const primaryDashboardHostname = primarySiteHostname
 
   const tenant = await prisma.$transaction(async (tx) => {
     const createdTenant = await tx.tenant.create({
@@ -299,9 +298,9 @@ export async function createTenantWorkspaceBootstrap(input: TenantBootstrapInput
         },
         {
           tenantId: createdTenant.id,
-          hostname: primaryDashboardHostname,
+          hostname: `dashboard.${primarySiteHostname}`,
           kind: "dashboard",
-          isPrimary: true,
+          isPrimary: false,
         },
       ],
     })

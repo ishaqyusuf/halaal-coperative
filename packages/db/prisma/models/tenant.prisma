@@ -42,6 +42,7 @@ model Tenant {
   auditLogs            AuditLog[]
   notificationOutbox   NotificationOutbox[]
   notificationPreferences NotificationPreference[]
+  memberOnboardingRequests MemberOnboardingRequest[]
 
   @@map("tenants")
 }

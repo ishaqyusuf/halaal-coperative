@@ -15,8 +15,6 @@
     "dev:web:portless": "turbo dev:portless --filter=@halaal-vest/web",
     "dev:dashboard": "turbo dev --filter=@halaal-vest/dashboard",
     "dev:dashboard:portless": "turbo dev:portless --filter=@halaal-vest/dashboard",
-    "dev:tenant-site": "turbo dev --filter=@halaal-vest/tenant-site",
-    "dev:tenant-site:portless": "turbo dev:portless --filter=@halaal-vest/tenant-site",
     "dev:portless": "turbo dev:portless --parallel",
     "lint": "turbo lint",
     "format": "turbo format",

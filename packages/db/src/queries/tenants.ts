@@ -97,7 +97,7 @@ const seedTenantDomains: TenantDomainRecord[] = [
     hostname: buildDashboardHostname("amanah"),
     kind: "dashboard",
     routingScope: "dashboard",
-    isPrimary: true,
+    isPrimary: false,
     verificationStatus: "verified",
     verificationCheckedAt: "2026-04-14T00:00:00.000Z",
     verifiedAt: "2026-04-14T00:00:00.000Z",
@@ -130,7 +130,7 @@ const seedTenantDomains: TenantDomainRecord[] = [
     hostname: buildDashboardHostname("barakah"),
     kind: "dashboard",
     routingScope: "dashboard",
-    isPrimary: true,
+    isPrimary: false,
     verificationStatus: "verified",
     verificationCheckedAt: "2026-04-14T00:00:00.000Z",
     verifiedAt: "2026-04-14T00:00:00.000Z",
@@ -281,8 +281,8 @@ function getTenantDomainVerificationGuide(input: {
       verificationTarget: null,
       verificationNote:
         routingScope === "dashboard"
-          ? "Platform-managed dashboard hostname. Verification is handled by the platform."
-          : "Platform-managed public hostname. Verification is handled by the platform.",
+          ? "Platform-managed legacy dashboard alias. Verification is handled by the platform."
+          : "Platform-managed canonical tenant hostname. Verification is handled by the platform.",
     }
   }
 
@@ -298,8 +298,8 @@ function getTenantDomainVerificationGuide(input: {
         : input.verificationStatus === "failed" && errorSummary
           ? `Verification failed. ${errorSummary}`
         : routingScope === "dashboard"
-          ? `Point this dashboard hostname to ${platformIngressHostname}, then run a verification check before making it primary.`
-          : `Point this public hostname to ${platformIngressHostname}, then run a verification check before making it primary.`,
+          ? `Point this legacy dashboard alias to ${platformIngressHostname}, then run a verification check before making it primary.`
+          : `Point this canonical tenant hostname to ${platformIngressHostname}, then run a verification check before making it primary.`,
   }
 }
 
@@ -802,6 +802,44 @@ export async function updateTenantDomainVerificationStatus(input: {
       verificationDetails: updated.verificationDetails,
     },
     tenantId: input.tenantId,
+  })
+
+  return mapTenantDomainRecord(updated)
+}
+
+export async function syncTenantDomainVerificationByHostname(input: {
+  hostname: string
+  tenantId: string
+  verificationDetails: Prisma.InputJsonValue
+  verificationStatus: "failed" | "pending_dns" | "verified"
+}) {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return null
+  }
+
+  const domain = await prisma.tenantDomain.findFirst({
+    where: {
+      hostname: input.hostname.trim().toLowerCase(),
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!domain) {
+    return null
+  }
+
+  const updated = await prisma.tenantDomain.update({
+    where: {
+      id: domain.id,
+    },
+    data: {
+      verificationCheckedAt: new Date(),
+      verificationDetails: input.verificationDetails,
+      verificationStatus: input.verificationStatus,
+      verifiedAt: input.verificationStatus === "verified" ? domain.verifiedAt ?? new Date() : null,
+    },
   })
 
   return mapTenantDomainRecord(updated)

@@ -1,7 +1,7 @@
 export type TenantOnboardingStepKey =
   | "tenant_profile"
   | "site_domain"
-  | "dashboard_domain"
+  | "workspace_access"
   | "workspace_owner"
   | "policy_defaults"
   | "ledger_bootstrap"
@@ -26,7 +26,7 @@ export type TenantOnboardingSnapshot = {
 export function buildTenantOnboardingSnapshot(input: {
   hasTenantProfile: boolean
   hasPrimarySiteDomain: boolean
-  hasPrimaryDashboardDomain: boolean
+  hasWorkspaceAccess: boolean
   hasWorkspaceOwner: boolean
   hasPolicyDefaults: boolean
   hasLedgerBootstrap: boolean
@@ -47,10 +47,10 @@ export function buildTenantOnboardingSnapshot(input: {
       complete: input.hasPrimarySiteDomain,
     },
     {
-      key: "dashboard_domain",
-      label: "Dashboard hostname",
-      description: "The tenant dashboard resolves through a dedicated workspace hostname.",
-      complete: input.hasPrimaryDashboardDomain,
+      key: "workspace_access",
+      label: "Workspace app route",
+      description: "The tenant hostname also serves the authenticated workspace under /app.",
+      complete: input.hasWorkspaceAccess,
     },
     {
       key: "workspace_owner",
@@ -81,7 +81,7 @@ export function buildTenantOnboardingSnapshot(input: {
     totalStepCount,
     completionRatio: totalStepCount > 0 ? completedStepCount / totalStepCount : 0,
     primarySiteHostname: input.primarySiteHostname ?? null,
-    primaryDashboardHostname: input.primaryDashboardHostname ?? null,
+    primaryDashboardHostname: input.primaryDashboardHostname ?? input.primarySiteHostname ?? null,
     steps,
   }
 }

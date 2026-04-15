@@ -21,6 +21,10 @@ type OnboardingResult = {
   siteUrl: string
   tenantId: string
   tenantName: string
+  vercelDomainProvisioning?: {
+    errorMessage: string | null
+    status: "failed" | "pending_verification" | "skipped" | "verified"
+  }
   workspaceReadyDeliveryError: string | null
   workspaceReadyEmail: {
     bodyText: string
@@ -92,18 +96,18 @@ export function OnboardingForm({
             {result.tenantName} has been provisioned.
           </h2>
           <p className="mt-3 text-sm leading-7 text-stone-600">
-            Your dashboard and public site are ready. Financial rules can be configured next
-            from inside the workspace.
+            Your tenant host is ready. Members and staff will use the same site for the public
+            homepage, login, and the authenticated workspace under <code>/app</code>.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
-            <p className="text-sm font-semibold text-stone-950">Dashboard</p>
-            <p className="mt-2 text-sm leading-6 text-stone-600">{result.primaryDashboardHostname}</p>
+            <p className="text-sm font-semibold text-stone-950">Authenticated app</p>
+            <p className="mt-2 text-sm leading-6 text-stone-600">{result.dashboardUrl}</p>
           </div>
           <div className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
-            <p className="text-sm font-semibold text-stone-950">Public site</p>
+            <p className="text-sm font-semibold text-stone-950">Tenant host</p>
             <p className="mt-2 text-sm leading-6 text-stone-600">{result.primarySiteHostname}</p>
           </div>
         </div>
@@ -124,6 +128,15 @@ export function OnboardingForm({
               The tenant workspace was created, but the follow-up email could not be delivered:
               {" "}
               {result.workspaceReadyDeliveryError}
+            </p>
+          </div>
+        ) : null}
+
+        {result.vercelDomainProvisioning && result.vercelDomainProvisioning.status !== "verified" && result.vercelDomainProvisioning.status !== "skipped" ? (
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-semibold text-amber-950">Tenant domain still needs attention</p>
+            <p className="mt-2 text-sm leading-6 text-amber-900">
+              {result.vercelDomainProvisioning.errorMessage ?? "Vercel accepted the tenant hostname, but verification is still pending."}
             </p>
           </div>
         ) : null}

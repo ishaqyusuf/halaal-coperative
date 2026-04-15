@@ -9,8 +9,7 @@ This file documents the intended high-level architecture, service boundaries, an
 
 ## Target Architecture
 - SaaS marketing web application.
-- Tenant dashboard application for internal cooperative workflows.
-- Tenant public site application for each cooperative's external presence.
+- Tenant application that serves each cooperative's public homepage, shared auth, and protected workspace routes on one host.
 - API/backend service for auth, business workflows, notifications, and reporting.
 - Relational database for transactional consistency.
 - Background jobs for scheduled tasks such as repayment generation, reminders, and statement preparation.
@@ -18,7 +17,7 @@ This file documents the intended high-level architecture, service boundaries, an
 
 ## Implemented Scaffold
 - Bun workspace monorepo orchestrated with Turbo.
-- App layout follows the same top-level shape used in `plot-keys`: `apps/web`, `apps/dashboard`, `apps/tenant-site`, and `apps/api`.
+- App layout now centers on `apps/web`, `apps/dashboard`, and `apps/api`, with `apps/dashboard` absorbing the former tenant-site responsibility into one host-aware tenant app.
 - `apps/web` now uses a server-driven marketing-state switch so the main landing route can render either a pre-launch page or the full launch landing experience from environment configuration.
 - `apps/web` now also uses a `src/` layout so route files, marketing sections, and server-side config helpers are separated more cleanly in the same direction as the reference applications.
 - `apps/api` now uses a Hono + tRPC foundation with grouped routers and shared request context.
@@ -28,8 +27,8 @@ This file documents the intended high-level architecture, service boundaries, an
 - `packages/auth` now owns scoped session cookie naming, request session-scope helpers, and role hierarchy helpers.
 - Domain logic is intended to flow from `packages/domain` into apps, not the reverse.
 - Notification behavior is intended to flow from `packages/notifications` into web surfaces through `packages/notifications-react`, not be recreated per app.
-- Tenant host resolution and proxy-based header injection are handled in shared utilities plus Next `proxy.ts` entry points for dashboard and tenant-site apps.
-- Dashboard and tenant-site pages now consume tenant resolution through app-level server context loaders rather than hardcoded sample-only page state.
+- Tenant host resolution and proxy-based header injection are handled in shared utilities plus the dashboard app's Next `proxy.ts` entry point.
+- Dashboard public and protected pages now consume tenant resolution through app-level server context loaders rather than hardcoded sample-only page state.
 - Dashboard workspace modules now use server-rendered loaders to surface onboarding progress plus members, recent contributions, and charge setup without introducing a separate client-side data layer.
 - Dashboard routes now also sit inside a shared role-filtered shell with a registry-driven sidebar and route-aware header, borrowing the information architecture idea from the local `gnd` site-nav pattern while keeping route data ownership local to each page.
 - Dashboard UI now also uses a dashboard-only primitive layer for sidebar/topbar/page-frame composition plus reusable KPI, section-card, trend-pill, and data-table building blocks, allowing Midday-style visual consistency without moving server data ownership out of route pages.

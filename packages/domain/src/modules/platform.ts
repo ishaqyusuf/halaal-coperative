@@ -15,7 +15,7 @@ const localRootDomain =
 const dashboardRootDomain =
   process.env.HALAAL_VEST_DASHBOARD_ROOT_DOMAIN?.trim() || "app.halaal-vest.localhost"
 const tenantRootDomain =
-  process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() || "tenant.halaal-vest.localhost"
+  process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() || "app.halaal-vest.localhost"
 
 export const platformIdentity: PlatformIdentity = {
   appName: "halaal-vest",

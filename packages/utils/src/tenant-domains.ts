@@ -3,10 +3,10 @@ export const platformRootDomain =
 export const localPlatformRootDomain =
   process.env.HALAAL_VEST_LOCAL_ROOT_DOMAIN?.trim() || "halaal-vest.localhost"
 export const localTenantRootDomain =
-  process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() || `tenant.${localPlatformRootDomain}`
+  process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() || `app.${localPlatformRootDomain}`
 export const dashboardSubdomainLabel = "dashboard"
 export const localDashboardRootDomain =
-  process.env.HALAAL_VEST_DASHBOARD_ROOT_DOMAIN?.trim() || "app.halaal-vest.localhost"
+  process.env.HALAAL_VEST_DASHBOARD_ROOT_DOMAIN?.trim() || localTenantRootDomain
 export const platformAppHostname =
   process.env.HALAAL_VEST_PLATFORM_APP_HOSTNAME?.trim() || `app.${platformRootDomain}`
 
@@ -97,7 +97,7 @@ export function buildDashboardHostname(subdomain: string) {
 export function buildLocalDashboardHostname(subdomain: string) {
   const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
   return normalizedSubdomain
-    ? `${dashboardSubdomainLabel}.${normalizedSubdomain}.${localDashboardRootDomain}`
+    ? `${dashboardSubdomainLabel}.${normalizedSubdomain}.${localTenantRootDomain}`
     : ""
 }
 
@@ -189,39 +189,12 @@ export function buildTenantDashboardUrl(
     protocol?: "http" | "https"
   },
 ) {
-  const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
-
-  if (!normalizedSubdomain) {
-    return ""
-  }
-
-  const parsedOrigin = options?.currentOrigin ? parseOriginLike(options.currentOrigin) : null
-  const protocol = options?.protocol ?? parsedOrigin?.protocol.replace(":", "") ?? "https"
-  const pathname = options?.pathname ?? ""
-  const normalizedPathname = pathname ? (pathname.startsWith("/") ? pathname : `/${pathname}`) : ""
-  const port = parsedOrigin?.port ? `:${parsedOrigin.port}` : ""
-
-  if (isAnyLocalPlatformHostname(parsedOrigin?.hostname)) {
-    const localTenantDashboardHostname = options?.tenantHostname
-      ? buildLocalDashboardHostnameForTenantHostname(options.tenantHostname)
-      : ""
-
-    if (localTenantDashboardHostname) {
-      return `${protocol}://${localTenantDashboardHostname}${port}${normalizedPathname}`
-    }
-
-    return `${protocol}://${localDashboardRootDomain}${port}${normalizedPathname}`
-  }
-
-  const tenantDashboardHostname = options?.tenantHostname
-    ? buildDashboardHostnameForTenantHostname(options.tenantHostname)
-    : ""
-
-  if (tenantDashboardHostname) {
-    return `${protocol}://${tenantDashboardHostname}${normalizedPathname}`
-  }
-
-  return `${protocol}://${buildDashboardHostname(normalizedSubdomain)}${normalizedPathname}`
+  return buildTenantSiteUrl(subdomain, {
+    currentOrigin: options?.currentOrigin,
+    pathname: options?.pathname ?? "/app",
+    protocol: options?.protocol,
+    tenantHostname: options?.tenantHostname,
+  })
 }
 
 export function buildTenantSiteUrl(
@@ -331,17 +304,27 @@ export function extractDashboardTenantSlug(host: string) {
 }
 
 export function resolveDashboardSessionScope(host: string | null | undefined) {
+  const tenantSubdomain = extractSitefrontSubdomain(host ?? "")
+  if (tenantSubdomain) {
+    return tenantSubdomain
+  }
+
   const tenantSlug = extractDashboardTenantSlug(host ?? "")
 
   if (tenantSlug) {
     return tenantSlug
   }
 
+  const tenantHostContext = resolveTenantSiteHostContext(host ?? "")
+  if (tenantHostContext.tenantHostname) {
+    return tenantHostContext.tenantSubdomain ?? tenantHostContext.tenantHostname
+  }
+
   return extractDashboardHostname(host ?? "")
 }
 
 export function isTenantDashboardHost(host: string) {
-  return extractDashboardHostname(host) !== null
+  return extractDashboardHostname(host) !== null || resolveTenantSiteHostContext(host).tenantHostname !== null
 }
 
 export function resolveTenantSiteHostContext(host: string): {

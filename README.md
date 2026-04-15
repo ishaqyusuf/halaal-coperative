@@ -5,8 +5,7 @@ Bun and Turbo monorepo scaffold for `halaal-vest`, a multi-tenant halal cooperat
 ## Workspace
 
 - `apps/web`: Next.js SaaS marketing experience.
-- `apps/dashboard`: Next.js tenant dashboard.
-- `apps/tenant-site`: Next.js tenant public website surface.
+- `apps/dashboard`: Next.js tenant application serving the public tenant homepage, shared login, and protected `/app` workspace on the same host.
 - `apps/api`: Hono + tRPC backend for tenant-aware workflows.
 - `packages/ui`: shared shadcn/base UI components and theme tokens.
 - `packages/domain`: cooperative business rules and dashboard snapshots.
@@ -36,7 +35,6 @@ This repo includes `plot-keys`-style `portless` scripts for stable named `.local
 bun run dev:portless
 bun run dev:dashboard:portless
 bun run dev:web:portless
-bun run dev:tenant-site:portless
 bun run dev:api:portless
 ```
 

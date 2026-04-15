@@ -22,6 +22,11 @@ export type UserRecord = {
   isPlatformOwner: boolean
 }
 
+export type UserCredentialRecord = UserRecord & {
+  passwordHash: string | null
+  phoneNumber: string | null
+}
+
 export type MembershipRecord = {
   id: string
   tenantId: string
@@ -151,6 +156,59 @@ export async function findUserByIdAsync(userId: string | null | undefined) {
     fullName: user.fullName,
     isPlatformOwner: user.isPlatformOwner,
   } satisfies UserRecord
+}
+
+export async function findUserByEmailAsync(input: {
+  email: string
+  tenantId?: string | null
+}) {
+  const normalizedEmail = input.email.trim().toLowerCase()
+
+  if (!normalizedEmail) {
+    return null
+  }
+
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    const user = seedUsers.find(
+      (candidate) =>
+        candidate.email.toLowerCase() === normalizedEmail &&
+        (!input.tenantId || candidate.tenantId === input.tenantId),
+    )
+
+    if (!user) {
+      return null
+    }
+
+    return {
+      ...user,
+      passwordHash: null,
+      phoneNumber: null,
+    } satisfies UserCredentialRecord
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      email: normalizedEmail,
+      deletedAt: null,
+      ...(input.tenantId ? { tenantId: input.tenantId } : {}),
+    },
+  })
+
+  if (!user) {
+    return null
+  }
+
+  return {
+    id: user.id,
+    tenantId: user.tenantId,
+    email: user.email,
+    fullName: user.fullName,
+    isPlatformOwner: user.isPlatformOwner,
+    passwordHash: user.passwordHash,
+    phoneNumber: user.phoneNumber,
+  } satisfies UserCredentialRecord
 }
 
 export async function findMembershipsForUserAsync(userId: string | null | undefined) {

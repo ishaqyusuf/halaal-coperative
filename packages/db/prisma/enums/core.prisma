@@ -43,6 +43,14 @@ enum KycStatus {
   rejected
 }
 
+enum MemberOnboardingStatus {
+  pending_email_verification
+  pending_approval
+  approved
+  rejected
+  cancelled
+}
+
 enum TenantDomainKind {
   site
   dashboard

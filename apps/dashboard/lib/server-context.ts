@@ -8,6 +8,7 @@ import {
   createDbRuntime,
   findActiveMembershipAsync,
   findUserByIdAsync,
+  getPendingMemberOnboardingForUser,
   getTenantOnboardingState,
   listChargeDefinitions,
   listContributions,
@@ -109,6 +110,13 @@ export async function getDashboardServerContext() {
   return {
     auth: {
       membership,
+      pendingMemberOnboarding:
+        user && tenantResolution.tenant
+          ? await getPendingMemberOnboardingForUser({
+              tenantId: tenantResolution.tenant.id,
+              userId: user.id,
+            })
+          : null,
       sessionToken,
       sessionScope,
       user,

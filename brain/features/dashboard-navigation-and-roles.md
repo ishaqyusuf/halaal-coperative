@@ -32,7 +32,6 @@
 - `/loans`
 - `/repayments`
 - `/notifications`
-- `/tenant-site`
 - `/domains`
 - `/settings/profile`
 - `/settings/roles`

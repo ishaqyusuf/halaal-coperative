@@ -2,6 +2,7 @@ import type {
   KycStatus,
   MemberStatus,
   MemberType,
+  Prisma,
   PrismaClient,
   RepaymentScheduleStatus,
 } from "@prisma/client"
@@ -103,6 +104,8 @@ export type CreateMemberInput = {
   actorUserId: string
 }
 
+type MemberWriteClient = Prisma.TransactionClient
+
 function buildRepaymentSchedule(input: {
   principalAmount: number
   startDate: Date
@@ -136,15 +139,11 @@ function buildRepaymentSchedule(input: {
   })
 }
 
-export async function createMember(
+export async function createMemberWithState(
+  tx: MemberWriteClient,
   input: CreateMemberInput,
-  prismaOverride?: PrismaClient,
 ) {
-  const prisma = prismaOverride ?? createPrismaClient()
-  if (!prisma) throw new Error("Database not configured")
-
-  return prisma.$transaction(async (tx) => {
-    const member = await tx.member.create({
+  const member = await tx.member.create({
       data: {
         tenantId: input.tenantId,
         memberNumber: input.memberNumber,
@@ -158,8 +157,8 @@ export async function createMember(
       },
     })
 
-    if (input.monthlyCommitment && input.monthlyCommitment > 0) {
-      await tx.contributionPlan.create({
+  if (input.monthlyCommitment && input.monthlyCommitment > 0) {
+    await tx.contributionPlan.create({
         data: {
           amount: input.monthlyCommitment,
           interval: "monthly",
@@ -170,19 +169,19 @@ export async function createMember(
           tenantId: input.tenantId,
         },
       })
-    }
+  }
 
-    if (input.servingLoan) {
-      const outstandingPrincipal = Number(
-        Math.max(0, input.servingLoan.principalAmount - input.servingLoan.amountServed).toFixed(2),
-      )
-      const termMonths = Math.max(
-        1,
-        Math.ceil(input.servingLoan.principalAmount / input.servingLoan.monthlyCommitment),
-      )
-      const estimatedMonthlyServicing = Number(input.servingLoan.monthlyCommitment.toFixed(2))
+  if (input.servingLoan) {
+    const outstandingPrincipal = Number(
+      Math.max(0, input.servingLoan.principalAmount - input.servingLoan.amountServed).toFixed(2),
+    )
+    const termMonths = Math.max(
+      1,
+      Math.ceil(input.servingLoan.principalAmount / input.servingLoan.monthlyCommitment),
+    )
+    const estimatedMonthlyServicing = Number(input.servingLoan.monthlyCommitment.toFixed(2))
 
-      const loanProduct = await tx.loanProduct.upsert({
+    const loanProduct = await tx.loanProduct.upsert({
         where: {
           tenantId_name: {
             name: "Imported active loan",
@@ -205,7 +204,7 @@ export async function createMember(
         },
       })
 
-      const request = await tx.loanRequest.create({
+    const request = await tx.loanRequest.create({
         data: {
           availablePoolSnapshot: 0,
           createdByUserId: input.actorUserId,
@@ -223,7 +222,7 @@ export async function createMember(
         },
       })
 
-      await tx.loanApproval.create({
+    await tx.loanApproval.create({
         data: {
           action: "approved",
           actedAt: input.servingLoan.startDate,
@@ -234,7 +233,7 @@ export async function createMember(
         },
       })
 
-      const loan = await tx.loan.create({
+    const loan = await tx.loan.create({
         data: {
           disbursedAt: input.servingLoan.startDate,
           estimatedMonthlyServicing,
@@ -251,14 +250,14 @@ export async function createMember(
         },
       })
 
-      const repaymentSchedule = buildRepaymentSchedule({
-        principalAmount: input.servingLoan.principalAmount,
-        startDate: input.servingLoan.startDate,
-        termMonths,
-      })
-      let remainingPaid = Math.max(0, input.servingLoan.amountServed)
+    const repaymentSchedule = buildRepaymentSchedule({
+      principalAmount: input.servingLoan.principalAmount,
+      startDate: input.servingLoan.startDate,
+      termMonths,
+    })
+    let remainingPaid = Math.max(0, input.servingLoan.amountServed)
 
-      await tx.repaymentScheduleItem.createMany({
+    await tx.repaymentScheduleItem.createMany({
         data: repaymentSchedule.map((item) => {
           const applied = Math.min(remainingPaid, item.totalDue)
           remainingPaid -= applied
@@ -276,9 +275,9 @@ export async function createMember(
           }
         }),
       })
-    }
+  }
 
-    await tx.auditLog.create({
+  await tx.auditLog.create({
       data: {
         tenantId: input.tenantId,
         actorUserId: input.actorUserId,
@@ -305,8 +304,17 @@ export async function createMember(
       },
     })
 
-    return member
-  })
+  return member
+}
+
+export async function createMember(
+  input: CreateMemberInput,
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.$transaction(async (tx) => createMemberWithState(tx, input))
 }
 
 export type UpdateMemberInput = {

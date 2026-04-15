@@ -15,9 +15,9 @@ This file gives the fastest reliable summary of what the system is, who it serve
 - Financial posture: 100% halal cooperative model.
 - Primary users: cooperative admins, finance officers, and cooperative members.
 - Core workflows: member registration, monthly contribution tracking, loan requests, loan approval, repayment tracking, charges, transaction history, dividends, and office operations.
-- Product surfaces: SaaS marketing web app, tenant dashboard, tenant public site, and shared API/backend.
+- Product surfaces: SaaS marketing web app, a single tenant-hosted app for public/member/admin flows, and shared API/backend.
 - Tenant examples may include Amanah and similar cooperatives, but the platform is not scoped to a single tenant brand.
-- Tenant resolution may come from dashboard subdomain, tenant-site subdomain, or mapped hostname/custom domain.
+- Tenant resolution may come from the canonical tenant host, a temporary legacy `dashboard.` alias, or a mapped custom domain.
 
 ## Core Business Rules
 - Members contribute a recurring monthly amount.
@@ -64,7 +64,7 @@ This file gives the fastest reliable summary of what the system is, who it serve
 - Prefer server-first rendering, lean client bundles, and clear data-boundary ownership.
 - Avoid unnecessary client-side state, duplicate fetch paths, and heavyweight page shells.
 - Keep route-level loading fast by favoring composable server loaders and shared query boundaries.
-- Dashboard app routes now follow a `gnd`-style page system: shared `site-nav` package, `(sidebar)` route-group layout, and lightweight page-shell primitives for feature pages.
+- Dashboard app routes now follow a `gnd`-style page system: shared `site-nav` package, `/app` protected routes, and lightweight page-shell primitives for feature pages.
 - Dashboard UI now also layers a Midday-inspired authenticated shell and dashboard-only primitives on top of that route structure, so overview and operator pages can share denser cards, KPI strips, topbar patterns, and table surfaces without moving data ownership out of route pages.
 
 ## Out Of Scope For First Release

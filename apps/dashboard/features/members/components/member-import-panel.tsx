@@ -242,7 +242,7 @@ export function MemberImportPanel({
             <Button disabled={isPending} type="submit" className="rounded-full">
               Stage members import
             </Button>
-            <p className="text-sm text-muted-foreground">Apply the staged batch later from `/settings/imports`.</p>
+            <p className="text-sm text-muted-foreground">Apply the staged batch later from `/app/settings/imports`.</p>
           </div>
         </form>
       </Form>

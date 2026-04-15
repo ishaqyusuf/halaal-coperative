@@ -82,10 +82,10 @@ async function main() {
   // Tenant Domains
   const domainData = [
     { tenantId: amanah.id, hostname: buildTenantSiteHostname("amanah"), kind: "site" as const, isPrimary: true },
-    { tenantId: amanah.id, hostname: buildDashboardHostname("amanah"), kind: "dashboard" as const, isPrimary: true },
+    { tenantId: amanah.id, hostname: buildDashboardHostname("amanah"), kind: "dashboard" as const, isPrimary: false },
     { tenantId: amanah.id, hostname: "app.amanah.example", kind: "custom" as const, isPrimary: false },
     { tenantId: barakah.id, hostname: buildTenantSiteHostname("barakah"), kind: "site" as const, isPrimary: true },
-    { tenantId: barakah.id, hostname: buildDashboardHostname("barakah"), kind: "dashboard" as const, isPrimary: true },
+    { tenantId: barakah.id, hostname: buildDashboardHostname("barakah"), kind: "dashboard" as const, isPrimary: false },
   ]
 
   for (const domain of domainData) {

@@ -67,31 +67,6 @@
         "typescript": "^5.9.3",
       },
     },
-    "apps/tenant-site": {
-      "name": "@halaal-vest/tenant-site",
-      "version": "0.0.1",
-      "dependencies": {
-        "@halaal-vest/auth": "workspace:*",
-        "@halaal-vest/db": "workspace:*",
-        "@halaal-vest/domain": "workspace:*",
-        "@halaal-vest/notifications-react": "workspace:*",
-        "@halaal-vest/ui": "workspace:*",
-        "@halaal-vest/utils": "workspace:*",
-        "next": "16.1.6",
-        "react": "^19.2.4",
-        "react-dom": "^19.2.4",
-      },
-      "devDependencies": {
-        "@halaal-vest/eslint-config": "workspace:^",
-        "@halaal-vest/tsconfig": "workspace:*",
-        "@tailwindcss/postcss": "^4.1.18",
-        "@types/node": "^25.1.0",
-        "@types/react": "^19.2.10",
-        "@types/react-dom": "^19.2.3",
-        "eslint": "^9.39.2",
-        "typescript": "^5.9.3",
-      },
-    },
     "apps/web": {
       "name": "@halaal-vest/web",
       "version": "0.0.1",
@@ -447,8 +422,6 @@
     "@halaal-vest/notifications-react": ["@halaal-vest/notifications-react@workspace:packages/notifications-react"],
 
     "@halaal-vest/site-nav": ["@halaal-vest/site-nav@workspace:packages/site-nav"],
-
-    "@halaal-vest/tenant-site": ["@halaal-vest/tenant-site@workspace:apps/tenant-site"],
 
     "@halaal-vest/tsconfig": ["@halaal-vest/tsconfig@workspace:packages/tsconfig"],
 

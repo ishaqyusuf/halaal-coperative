@@ -66,7 +66,7 @@ export function MemberRegistryTable({
                   <DashboardTableCell>{member.joinedAt.toISOString().slice(0, 10)}</DashboardTableCell>
                   <DashboardTableCell>
                     <div className="flex flex-wrap gap-2">
-                      <Link href={`/members/${member.id}`} className="inline-flex h-8 items-center rounded-full border border-border px-3 text-xs font-medium text-foreground transition hover:border-foreground/30">
+                      <Link href={`/app/members/${member.id}`} className="inline-flex h-8 items-center rounded-full border border-border px-3 text-xs font-medium text-foreground transition hover:border-foreground/30">
                         View details
                       </Link>
                       {canManageMembers ? (

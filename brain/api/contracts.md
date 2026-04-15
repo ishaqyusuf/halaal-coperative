@@ -40,7 +40,7 @@ This file captures payload shapes, response conventions, and contract assumption
   - `totalStepCount`: total tracked onboarding steps.
   - `completionRatio`: numeric progress ratio.
   - `primarySiteHostname`: primary public hostname when configured.
-  - `primaryDashboardHostname`: primary dashboard hostname when configured.
+  - `primaryDashboardHostname`: legacy dashboard alias hostname when configured; the canonical tenant host now serves both public and authenticated flows.
   - `steps`: labeled step list with completion state.
 - `trpc.onboarding.bootstrap`
   - Request creates tenant name, slug, primary admin identity, default policy values, and base routing hostnames.

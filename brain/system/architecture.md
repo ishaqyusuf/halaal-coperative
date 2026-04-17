@@ -32,7 +32,12 @@ This file documents the intended high-level architecture, service boundaries, an
 - Dashboard public and protected pages now consume tenant resolution through app-level server context loaders rather than hardcoded sample-only page state.
 - Dashboard workspace modules now use server-rendered loaders to surface onboarding progress plus members, recent contributions, and charge setup without introducing a separate client-side data layer.
 - Dashboard routes now also sit inside a shared role-filtered shell with a registry-driven sidebar and route-aware header, borrowing the information architecture idea from the local `gnd` site-nav pattern while keeping route data ownership local to each page.
-- Dashboard UI now also uses a dashboard-only primitive layer for sidebar/topbar/page-frame composition plus reusable KPI, section-card, trend-pill, and data-table building blocks, allowing Midday-style visual consistency without moving server data ownership out of route pages.
+- Dashboard UI now uses a Midday-style `src/` architecture under `apps/dashboard/src`, with route grouping in `src/app`, canonical shell and page composition in `src/components/dashboard`, table atoms in `src/components/tables/core`, domain table views in `src/components/tables/<domain>`, and route/data helpers in `src/lib/<domain>`.
+- The old dashboard `features/`, `primitives/`, `data-display/`, and `shell/` buckets have been retired in favor of the `src/components/*` and `src/lib/*` structure so new work follows one standard by default.
+- The members workspace now demonstrates the intended route pattern inside the new layout: `/members` route files stay thin, while member loaders live in `src/lib/members` and member-facing tables/views live in `src/components/tables/members`.
+- The members list route now explicitly follows the local Midday table-page anatomy, using the Midday invoice/customers pattern of `ScrollableContent -> CollapsibleSummary -> compact toolbar -> table surface`.
+- The contributions and loans workspaces now follow the same structure, with route entrypoints under `src/app/(app)/(sidebar)/*`, shared page framing in `src/components/dashboard`, and domain-specific page composition in `src/components/tables/contributions` and `src/components/tables/loans`.
+- The authenticated dashboard now also includes a dedicated `/analytics` route so overview, analytics, tables, reports, and settings all live inside the same Midday-style app structure.
 - Local named-host development is supported through `portless` scripts and the shared environment bootstrap script.
 - Current tenant resolution is implemented through shared repository/query scaffolding and seed-backed lookup flows, with Prisma execution intended to replace the seed store after migrations and generation are formalized.
 
@@ -63,6 +68,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - Seed-backed tenant and auth repository scaffolding adopted as the transitional bridge to real Prisma-backed runtime queries. See `brain/decisions/ADR-004-adopt-seed-backed-tenant-resolution-and-scoped-session-foundation.md`.
 - Role-filtered dashboard navigation registry adopted for operational route scaling. See `brain/decisions/ADR-005-adopt-role-filtered-dashboard-navigation-registry.md`.
 - Dashboard UI primitive layer adopted for authenticated workspace consistency. See `brain/decisions/ADR-006-adopt-dashboard-ui-primitives-layer.md`.
+- Midday-style dashboard `src` architecture adopted for authenticated workspace routes and components. See `brain/decisions/ADR-007-adopt-midday-style-dashboard-src-architecture.md`.
 - Payment and disbursement integrations strategy.
 - Exact ledger model and posting rules.
 - TODO: define offline sync conflict-resolution strategy for money-related events.

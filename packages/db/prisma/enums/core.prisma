@@ -51,6 +51,11 @@ enum MemberOnboardingStatus {
   cancelled
 }
 
+enum MemberSignupAccessMode {
+  in_office
+  public
+}
+
 enum TenantDomainKind {
   site
   dashboard

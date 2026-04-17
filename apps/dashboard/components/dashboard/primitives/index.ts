@@ -1,5 +1,0 @@
-export { DashboardDataTable, DashboardTable, DashboardTableBody, DashboardTableCell, DashboardTableHead, DashboardTableHeaderCell, DashboardTableRow } from "./data-table"
-export { DashboardPageHeader, DashboardPageStack } from "./page-header"
-export { DashboardSectionCard, DashboardSectionHeader } from "./section-card"
-export { DashboardStatCard } from "./stat-card"
-export { TrendPill } from "./trend-pill"

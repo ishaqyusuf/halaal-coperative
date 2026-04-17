@@ -3,12 +3,15 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { type FieldValues, type Resolver, type UseFormProps, useForm } from "react-hook-form"
 
+type ResolverSchema = Parameters<typeof zodResolver>[0]
+
 export const useZodForm = <TFieldValues extends FieldValues>(
-  schema: unknown,
+  schema: ResolverSchema | object,
   options?: Omit<UseFormProps<TFieldValues>, "resolver">,
 ) => {
   return useForm<TFieldValues>({
-    resolver: zodResolver(schema as never) as Resolver<TFieldValues>,
+    resolver: zodResolver(schema as ResolverSchema) as Resolver<TFieldValues>,
+    shouldFocusError: true,
     ...options,
   })
 }

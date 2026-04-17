@@ -22,44 +22,38 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/web/src/lib/dev-form-fill.ts`: central dev-mode random autofill generator for signup and onboarding forms.
 - `apps/web/src/components/marketing/`: launch and pre-launch landing page sections for the public marketing surface.
 - `apps/web/src/components/signup/`: shared shell and client forms for signup verification and onboarding bootstrap.
-- `apps/dashboard/`: Next.js tenant application serving the public tenant homepage, shared login/signup, and protected `/app` workspace on the same host.
-- `apps/dashboard/app/page.tsx`: tenant-root public homepage that now mirrors the polished marketing direction and redirects to `/login` when `SHOW_HOME_PAGE` is disabled.
-- `apps/dashboard/app/app/layout.tsx`: protected `/app` shell layout that binds the shared site-nav package to the tenant workspace pages.
-- `apps/dashboard/app/login/page.tsx`: public dashboard login chooser that lists available workspace accounts for the current tenant or platform host.
-- `apps/dashboard/app/auth/login/route.ts`: scoped tenant sign-in endpoint that sets the session token and user-id cookies for the current tenant or platform host.
-- `apps/dashboard/app/auth/logout/route.ts`: scoped dashboard sign-out endpoint that clears both session and user-id cookies before returning to `/login`.
-- `apps/dashboard/components/dashboard-shell-client.tsx`: shared dashboard shell composition root that maps route metadata into the new Midday-inspired sidebar, topbar, and page-frame components.
-- `apps/dashboard/components/dashboard/`: dashboard-only shell and primitive UI layer for the authenticated workspace, including sidebar/topbar/page-frame components and reusable KPI, section-card, trend-pill, and table building blocks.
-- `apps/dashboard/features/navigation/registry.ts`: dashboard navigation registry built with the shared site-nav module/section/link builders and filtered by cooperative role.
-- `apps/dashboard/features/navigation/lib.ts`: resolves visible modules, active links, and route metadata from the shared site-nav registry engine.
-- `apps/dashboard/features/workspace/page-shell.tsx`: compatibility wrapper that maps route pages onto the new dashboard primitive layer while preserving existing feature-page call sites.
-- `apps/dashboard/features/forms/`: reusable dashboard client forms built on shared shadcn-style primitives and `useZodForm`.
-- `apps/dashboard/features/forms/import-forms.tsx`: reusable CSV import and migration forms with live preview, reconciliation hints, staging, validation, and dev quick-fill samples.
-- `apps/dashboard/lib/dashboard-actions.ts`: server actions for dashboard member, contribution, charge, loan, and repayment workflows.
-- `apps/dashboard/lib/auth-redirect.ts`: login/logout redirect sanitization helper for safe dashboard auth transitions.
-- `apps/dashboard/lib/import-csv.ts`: shared dashboard-side CSV parsing and import schema normalization used by both client previews and server actions.
-- `apps/dashboard/app/app/loans/page.tsx`: loan request, review, approval, and disbursement workspace inside the shared dashboard shell.
-- `apps/dashboard/app/app/repayments/page.tsx`: repayment posting, schedule visibility, overdue collections follow-up, assignment-aware case tracking, queue-style open/resolved collections views, and collections status refresh workspace.
-- `apps/dashboard/app/app/contributions/page.tsx`: commitment-plan management and split member-payment allocation workspace.
-- `apps/dashboard/app/app/notifications/page.tsx`: notification delivery history, filterable delivery review, shared template previews, and tenant-level per-role preference toggles.
-- `apps/dashboard/app/app/domains/page.tsx`: tenant hostname review, DNS-backed verification details, scope-aware custom-domain verification guidance, and primary promotion workspace.
-- `apps/dashboard/app/app/reports/page.tsx`: admin audit and reporting workspace for finance snapshots, collections follow-up activity, notification totals, and recent audit activity.
-- `apps/dashboard/app/app/reports/audit/page.tsx`: filterable audit viewer route for deeper admin event review, using the same stat and section-card layout language as the main reports page.
-- `apps/dashboard/app/app/reports/audit-export/route.ts`: CSV export endpoint for recent tenant audit activity.
-- `apps/dashboard/app/app/reports/collections-export/route.ts`: CSV export endpoint for repayment schedule and collections status.
-- `apps/dashboard/app/app/reports/notifications-export/route.ts`: CSV export endpoint for notification delivery history.
-- `apps/dashboard/app/app/reports/contributions-export/route.ts`: CSV export endpoint for member contribution, commitment, and extra-savings activity.
-- `apps/dashboard/app/app/reports/loans-export/route.ts`: CSV export endpoint for loan requests and active-loan servicing details.
-- `apps/dashboard/app/app/reports/member-statements-export/route.ts`: CSV export endpoint for per-member finance summaries across commitments, savings, loan exposure, and repayments.
-- `apps/dashboard/app/app/reports/charges-export/route.ts`: CSV export endpoint for charge and levy application history.
-- `apps/dashboard/app/app/reports/repayments-export/route.ts`: CSV export endpoint for repayment posting history.
-- `apps/dashboard/app/app/reports/member-ledgers-export/route.ts`: CSV export endpoint for member-linked ledger transactions.
-- `apps/dashboard/app/app/members/[memberId]/page.tsx`: member-level dashboard statement view for commitment history, savings activity, loans, schedules, repayments, and multi-document KYC review.
-- `apps/dashboard/app/app/members/[memberId]/statement/page.tsx`: printable member statement route rebuilt on the same dashboard summary and table primitives for stronger visual parity with the authenticated workspace.
-- `apps/dashboard/app/app/members/[memberId]/statement-export/route.ts`: downloadable per-member text statement export for staff workflows.
-- `apps/dashboard/app/app/settings/profile/page.tsx`: cooperative profile update form and persisted onboarding-profile summary.
-- `apps/dashboard/app/app/settings/roles/page.tsx`: tenant-user role provisioning and current-role visibility workspace.
-- `apps/dashboard/app/app/settings/imports/page.tsx`: centralized staff import and migration workspace for members, records, and legacy finance data.
+- `apps/web/src/components/signup/*.tsx`: public signup and onboarding forms now consume the shared `@halaal-vest/ui/hooks/use-zod-form` hook instead of a web-local duplicate.
+- `apps/dashboard/`: Next.js tenant application serving the public tenant homepage, shared login/signup, and protected workspace routes on the same host.
+- `apps/dashboard/src/`: Midday-style dashboard application root with grouped routes, shell components, domain tables, forms, and route/data helpers.
+- `apps/dashboard/src/app/page.tsx`: tenant-root entrypoint that chooses between the public tenant homepage and the authenticated dashboard overview.
+- `apps/dashboard/src/app/(app)/(sidebar)/layout.tsx`: protected shell layout for the authenticated workspace routes.
+- `apps/dashboard/src/app/(public)/login/page.tsx`: public dashboard login chooser that lists available workspace accounts for the current tenant or platform host.
+- `apps/dashboard/src/app/(public)/signup/members/page.tsx`: canonical member signup route that enforces tenant signup access policy and accepts staff-issued signed signup-link tokens.
+- `apps/dashboard/src/app/(public)/signup/members/verify/page.tsx`: canonical member-signup verification route for the pluralized signup path.
+- `apps/dashboard/src/app/auth/login/route.ts`: scoped tenant sign-in endpoint that sets the session token and user-id cookies for the current tenant or platform host.
+- `apps/dashboard/src/app/auth/logout/route.ts`: scoped dashboard sign-out endpoint that clears both session and user-id cookies before returning to `/login`.
+- `apps/dashboard/src/app/(app)/(sidebar)/members/page.tsx`: Midday-style members list route using the invoice/customers page anatomy of summary strip, compact toolbar, and direct table surface.
+- `apps/dashboard/src/app/(app)/(sidebar)/member-signup-links/page.tsx`: dedicated staff workspace for member-signup access mode, link generation, lifecycle controls, and per-link analytics.
+- `apps/dashboard/src/app/(app)/(sidebar)/members/[memberId]/page.tsx`: member-level dashboard statement view for commitment history, savings activity, loans, schedules, repayments, and multi-document KYC review.
+- `apps/dashboard/src/app/(app)/(sidebar)/loans/page.tsx`: loan request, review, approval, and disbursement workspace inside the shared dashboard shell.
+- `apps/dashboard/src/app/(app)/(sidebar)/repayments/page.tsx`: repayment posting, schedule visibility, overdue collections follow-up, and collections-status workspace.
+- `apps/dashboard/src/app/(app)/(sidebar)/contributions/page.tsx`: commitment-plan management and split member-payment allocation workspace.
+- `apps/dashboard/src/app/(app)/(sidebar)/notifications/page.tsx`: notification delivery history, shared template previews, and tenant-level per-role preference toggles.
+- `apps/dashboard/src/app/(app)/(sidebar)/domains/page.tsx`: tenant hostname review, DNS-backed verification details, and primary-domain promotion workspace.
+- `apps/dashboard/src/app/(app)/(sidebar)/reports/page.tsx`: admin audit and reporting workspace for finance snapshots, collections follow-up activity, and recent audit activity.
+- `apps/dashboard/src/app/(app)/(sidebar)/reports/audit/page.tsx`: filterable audit viewer route for deeper admin event review.
+- `apps/dashboard/src/app/(app)/(sidebar)/settings/profile/page.tsx`: cooperative profile update form and persisted onboarding-profile summary.
+- `apps/dashboard/src/app/(app)/(sidebar)/settings/roles/page.tsx`: tenant-user role provisioning and current-role visibility workspace.
+- `apps/dashboard/src/app/(app)/(sidebar)/settings/imports/page.tsx`: centralized staff import and migration workspace for members, records, and legacy finance data.
+- `apps/dashboard/src/components/dashboard/`: canonical Midday-style dashboard shell, topbar, sidebar, page frame, summary helpers, and section/surface components.
+- `apps/dashboard/src/components/tables/`: domain-specific table/page compositions plus shared table atoms in `core/`.
+- `apps/dashboard/src/components/forms/`: reusable dashboard client forms built on shared shadcn-style primitives and `useZodForm`.
+- `apps/dashboard/src/components/signup-links/`: member-signup access mode, link creation, copying, rotation, and per-link management UI.
+- `apps/dashboard/src/lib/dashboard-actions.ts`: server actions for dashboard member, contribution, charge, loan, and repayment workflows.
+- `apps/dashboard/src/lib/member-signup-access.ts`: shared server-side gate resolver for public member signup access.
+- `apps/dashboard/src/lib/member-signup-link-token.ts`: signed token helper for staff-issued member signup links.
+- `apps/dashboard/src/lib/auth-redirect.ts`: login/logout redirect sanitization helper for safe dashboard auth transitions.
+- `apps/dashboard/src/lib/import-csv.ts`: shared dashboard-side CSV parsing and import schema normalization used by both client previews and server actions.
 - `apps/api/`: Hono + tRPC backend foundation following the same structural standard used in `plot-keys`.
 - `apps/dashboard/lib/server-context.ts`: server-side tenant, membership, and session loader for dashboard pages.
 - `apps/api/src/routers/onboarding.route.ts`: tenant onboarding status and workspace bootstrap route.
@@ -86,6 +80,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/db/src/queries/contributions.ts`: member commitment plans, savings contributions, editable plan lifecycle, and split payment allocation query layer.
 - `packages/db/src/queries/charges.ts`: charge definitions, applications, and waive/reverse correction flows.
 - `packages/db/src/queries/tenants.ts`: tenant resolution plus tenant profile, scope-aware tenant-domain management, DNS guidance, stored verification details, and domain verification-check query helpers for dashboard settings and routing workflows.
+- `packages/db/src/queries/member-signup-links.ts`: tenant signup-access policy and member-signup-link query layer for gating, analytics, lifecycle controls, and token rotation.
 - `packages/db/src/queries/auth.ts`: tenant user, membership, and role-provisioning query layer for the simplified workspace role system.
 - `packages/db/src/queries/audit.ts`: tenant audit-log listing and reporting-summary query layer for admin reporting routes.
 - `packages/db/src/queries/imports.ts`: bulk import, staged import-batch persistence, and historical migration query layer for members, deduction sources, loan products, contributions, charges, loans, and repayments.

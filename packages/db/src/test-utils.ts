@@ -80,6 +80,7 @@ export async function seedTestTenant() {
       reserveBufferAmount: 100000,
       monthlyLevyAmount: 500,
       requiresDualLoanApproval: false,
+      memberSignupAccessMode: "in_office",
     },
   })
 

@@ -43,6 +43,7 @@ model Tenant {
   notificationOutbox   NotificationOutbox[]
   notificationPreferences NotificationPreference[]
   memberOnboardingRequests MemberOnboardingRequest[]
+  memberSignupLinks    MemberSignupLink[]
 
   @@map("tenants")
 }
@@ -57,6 +58,7 @@ model TenantPolicy {
   monthlyLevyAmount          Decimal? @map("monthly_levy_amount") @db.Decimal(18, 2)
   requiresDualLoanApproval   Boolean  @default(false) @map("requires_dual_loan_approval")
   allowOfflineFinancialCapture Boolean @default(true) @map("allow_offline_financial_capture")
+  memberSignupAccessMode     MemberSignupAccessMode @default(in_office) @map("member_signup_access_mode")
   createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

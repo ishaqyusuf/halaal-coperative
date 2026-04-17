@@ -19,6 +19,7 @@ This file records migration history, rationale, and rollout notes.
 - Domain verification details, persisted collection follow-ups, and richer KYC review fields were added in `packages/db/prisma/migrations/20260414195500_domain_dns_and_collection_followups/`.
 - Collection-case metadata and multi-document member KYC support were added in `packages/db/prisma/migrations/20260414233000_add_collection_case_and_member_documents/`.
 - Persisted import batches and staged apply support were added in `packages/db/prisma/migrations/20260414235500_add_import_batches/`.
+- Member signup gating and staff-issued signup links were added in `packages/db/prisma/migrations/20260415101500_add_member_signup_links_and_access_gate/`.
 
 ## History
 - 2026-04-13: Generated `20260413115737_init` as the first full cooperative schema migration.
@@ -29,6 +30,7 @@ This file records migration history, rationale, and rollout notes.
 - 2026-04-14: Added `20260414195500_domain_dns_and_collection_followups` with `tenant_domains.verification_details`, richer member KYC review fields, and a new `collection_follow_ups` table so domain verification, collections operations, and KYC review state can be persisted more explicitly.
 - 2026-04-14: Added `20260414233000_add_collection_case_and_member_documents` with assignee/stage/resolution fields on `collection_follow_ups` and a new `member_documents` table so collections work can move toward case-management and KYC can support multiple reviewed documents per member.
 - 2026-04-14: Added `20260414235500_add_import_batches` with `import_batches` and `import_batch_rows` so imports can be staged, reviewed, and applied later with durable history.
+- 2026-04-15: Added `20260415101500_add_member_signup_links_and_access_gate` with `MemberSignupAccessMode`, `tenant_policies.member_signup_access_mode`, `member_signup_links`, and `member_onboarding_requests.signup_link_id` so member signup can stay in-office by default while staff issue controlled remote signup links.
 
 ## Migration Entry Template
 - Date:

@@ -88,15 +88,29 @@ function FormLabel({ className, ...props }: React.ComponentProps<"label">) {
 
 function FormControl({ className, ...props }: React.ComponentProps<"div">) {
   const { error, formDescriptionId, formItemId, formMessageId } = useFormField()
+  const child = React.Children.only(props.children) as React.ReactElement<{
+    className?: string
+    id?: string
+    "aria-describedby"?: string
+    "aria-invalid"?: boolean
+  }>
+
+  if (!React.isValidElement(child)) {
+    throw new Error("FormControl expects a single valid React element child.")
+  }
+
+  const describedBy = error
+    ? `${formDescriptionId} ${formMessageId}`
+    : formDescriptionId
 
   return (
-    <div
-      className={className}
-      id={formItemId}
-      aria-describedby={error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId}
-      aria-invalid={Boolean(error)}
-      {...props}
-    />
+    React.cloneElement(child, {
+      ...child.props,
+      className: cn(className, child.props.className),
+      id: formItemId,
+      "aria-describedby": describedBy,
+      "aria-invalid": Boolean(error),
+    })
   )
 }
 

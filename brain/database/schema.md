@@ -21,6 +21,7 @@ This file tracks the evolving database design and current source of truth at a c
 - `ledger_entries`
 - `audit_logs`
 - `notification_outbox`
+- `member_signup_links`
 
 ## Current Scaffold State
 - Prisma has been adopted for the database layer in `packages/db`.
@@ -29,6 +30,9 @@ This file tracks the evolving database design and current source of truth at a c
   - `enums/` for domain enums.
   - `models/` for domain-grouped model files.
 - Current model coverage includes tenants, tenant domains, users, memberships, members, member documents, import batches, import batch rows, deduction sources, contribution plans, contributions, charge definitions, charge applications, loan products, loan requests, loan approvals, loans, repayment schedules, repayments, collection follow-ups, ledger accounts, ledger transactions, ledger entries, dividend periods, dividend allocations, offline sync events, audit logs, and notification outbox entries.
+- `tenant_policies` now also stores `member_signup_access_mode` so each cooperative can choose whether member signup stays in-office only or becomes public.
+- `member_signup_links` now stores staff-issued member signup links with token-rotation version, expiry, optional signup cap, enable/disable state, notes, creator, and last-used timestamp.
+- `member_onboarding_requests` now also stores an optional `signup_link_id` so remote signup analytics can be tied back to the issuing link.
 - `tenants` now also stores onboarding profile metadata for new cooperative workspaces: `current_size`, `office_address`, and `start_date`.
 - `members` now also stores `payment_allocation_preference`, `kyc_status`, `government_id_number`, `kyc_document_type`, `kyc_document_url`, `kyc_document_uploaded_at`, and `kyc_review_notes`.
 - `member_documents` now stores multiple supporting KYC documents per member, with per-document review status, notes, uploaded timestamps, and reviewed timestamps.

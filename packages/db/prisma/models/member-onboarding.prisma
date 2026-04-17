@@ -2,6 +2,7 @@ model MemberOnboardingRequest {
   id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId           String                 @map("tenant_id") @db.Uuid
   userId             String                 @unique @map("user_id") @db.Uuid
+  signupLinkId       String?                @map("signup_link_id") @db.Uuid
   memberNumber       String                 @map("member_number")
   fullName           String                 @map("full_name")
   email              String
@@ -17,10 +18,36 @@ model MemberOnboardingRequest {
 
   tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signupLink         MemberSignupLink?      @relation(fields: [signupLinkId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, email], map: "member_onboarding_requests_tenant_email_key")
   @@unique([tenantId, memberNumber], map: "member_onboarding_requests_tenant_member_number_key")
   @@index([tenantId, status, createdAt], map: "member_onboarding_requests_tenant_status_created_at_idx")
   @@index([tenantId, emailVerifiedAt], map: "member_onboarding_requests_tenant_verified_at_idx")
+  @@index([tenantId, signupLinkId], map: "member_onboarding_requests_tenant_signup_link_idx")
   @@map("member_onboarding_requests")
+}
+
+model MemberSignupLink {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  name            String
+  notes           String?
+  tokenVersion    Int       @default(1) @map("token_version")
+  tokenIssuedAt   DateTime  @default(now()) @map("token_issued_at") @db.Timestamptz(6)
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz(6)
+  maxSignups      Int?      @map("max_signups")
+  isEnabled       Boolean   @default(true) @map("is_enabled")
+  lastUsedAt      DateTime? @map("last_used_at") @db.Timestamptz(6)
+  createdByUserId String?   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUser   User?     @relation("MemberSignupLinkCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  requests        MemberOnboardingRequest[]
+
+  @@index([tenantId, isEnabled, expiresAt], map: "member_signup_links_tenant_enabled_expiry_idx")
+  @@index([tenantId, createdAt], map: "member_signup_links_tenant_created_at_idx")
+  @@map("member_signup_links")
 }

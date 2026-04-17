@@ -16,6 +16,8 @@ export async function createMemberOnboardingRequest(
     memberNumber: string
     passwordHash: string
     phoneNumber?: string | null
+    signupLinkId?: string | null
+    signupLinkTokenVersion?: number | null
     tenantId: string
   },
   prismaOverride?: PrismaClient,
@@ -33,6 +35,51 @@ export async function createMemberOnboardingRequest(
   }
 
   return prisma.$transaction(async (tx) => {
+    if (input.signupLinkId) {
+      const signupLink = await tx.memberSignupLink.findFirst({
+        where: {
+          id: input.signupLinkId,
+          tenantId: input.tenantId,
+        },
+        select: {
+          expiresAt: true,
+          id: true,
+          isEnabled: true,
+          maxSignups: true,
+          tokenVersion: true,
+        },
+      })
+
+      if (!signupLink) {
+        throw new Error("This member signup link could not be found.")
+      }
+
+      if (signupLink.tokenVersion !== input.signupLinkTokenVersion) {
+        throw new Error("This member signup link has been replaced. Ask the cooperative for the latest link.")
+      }
+
+      if (!signupLink.isEnabled) {
+        throw new Error("This member signup link is currently disabled.")
+      }
+
+      if (signupLink.expiresAt && signupLink.expiresAt.getTime() <= Date.now()) {
+        throw new Error("This member signup link has expired.")
+      }
+
+      if (signupLink.maxSignups !== null) {
+        const usedCount = await tx.memberOnboardingRequest.count({
+          where: {
+            signupLinkId: signupLink.id,
+            tenantId: input.tenantId,
+          },
+        })
+
+        if (usedCount >= signupLink.maxSignups) {
+          throw new Error("This member signup link has reached its signup limit.")
+        }
+      }
+    }
+
     const existingMember = await tx.member.findFirst({
       where: {
         tenantId: input.tenantId,
@@ -77,10 +124,22 @@ export async function createMemberOnboardingRequest(
         fullName: normalizedFullName,
         memberNumber: normalizedMemberNumber,
         phoneNumber: normalizedPhoneNumber,
+        signupLinkId: input.signupLinkId ?? null,
         tenantId: input.tenantId,
         userId: user.id,
       },
     })
+
+    if (input.signupLinkId) {
+      await tx.memberSignupLink.update({
+        where: {
+          id: input.signupLinkId,
+        },
+        data: {
+          lastUsedAt: new Date(),
+        },
+      })
+    }
 
     await tx.auditLog.create({
       data: {
@@ -94,6 +153,7 @@ export async function createMemberOnboardingRequest(
           fullName: normalizedFullName,
           memberNumber: normalizedMemberNumber,
           phoneNumber: normalizedPhoneNumber,
+          signupLinkId: input.signupLinkId ?? null,
           status: request.status,
         },
         occurredAt: new Date(),

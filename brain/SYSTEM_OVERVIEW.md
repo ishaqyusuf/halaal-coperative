@@ -64,8 +64,8 @@ This file gives the fastest reliable summary of what the system is, who it serve
 - Prefer server-first rendering, lean client bundles, and clear data-boundary ownership.
 - Avoid unnecessary client-side state, duplicate fetch paths, and heavyweight page shells.
 - Keep route-level loading fast by favoring composable server loaders and shared query boundaries.
-- Dashboard app routes now follow a `gnd`-style page system: shared `site-nav` package, `/app` protected routes, and lightweight page-shell primitives for feature pages.
-- Dashboard UI now also layers a Midday-inspired authenticated shell and dashboard-only primitives on top of that route structure, so overview and operator pages can share denser cards, KPI strips, topbar patterns, and table surfaces without moving data ownership out of route pages.
+- Dashboard app routes now live directly under the protected `(sidebar)` group rather than an extra `/app` path segment, with thin route files and shared shell behavior.
+- Dashboard UI now layers a Midday-inspired authenticated shell and dashboard-only primitives on top of that route structure, and the members list route specifically follows the local Midday invoice/customers page composition for summary, toolbar, and table ownership.
 
 ## Out Of Scope For First Release
 - Bank integrations and automated disbursement.

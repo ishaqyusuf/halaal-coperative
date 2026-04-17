@@ -3,7 +3,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./src/*", "./*"],
       "@halaal-vest/ui/*": ["../../packages/ui/src/*"]
     },
     "plugins": [

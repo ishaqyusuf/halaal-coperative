@@ -25,6 +25,9 @@ export async function disconnectTestPrisma() {
 
 const TRUNCATE_ORDER = [
   "audit_logs",
+  "backfill_activities",
+  "backfill_month_rows",
+  "backfill_batches",
   "ledger_entries",
   "ledger_transactions",
   "ledger_accounts",
@@ -38,9 +41,13 @@ const TRUNCATE_ORDER = [
   "loan_requests",
   "loan_products",
   "charge_applications",
+  "charge_definition_versions",
   "charge_definitions",
   "contributions",
   "contribution_plans",
+  "member_share_overrides",
+  "member_amount_logs",
+  "tenant_share_structure_versions",
   "deduction_sources",
   "members",
   "memberships",

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@halaal-vest/ui/components/button"
-import { cn } from "@halaal-vest/ui/lib/utils"
 import { MemberCreateForm } from "@/components/forms/member-forms"
 
 export function MemberCreateModal({ devMode }: { devMode: boolean }) {
@@ -35,10 +34,9 @@ export function MemberCreateModal({ devMode }: { devMode: boolean }) {
       </Button>
 
       <div
-        className={cn(
-          "fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 backdrop-blur-[2px] transition md:items-center",
-          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
-        )}
+        className={`fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 backdrop-blur-[2px] transition md:items-center ${
+          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+        }`}
         onClick={() => setOpen(false)}
       >
         <div

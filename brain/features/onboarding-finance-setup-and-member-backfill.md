@@ -1,0 +1,326 @@
+# Feature: Onboarding Finance Setup And Member Backfill
+
+## Goal
+- Add a first-run finance setup flow for each cooperative and a historical member backfill workspace.
+- Let staff define the cooperative start date, charge history, default share history, member-specific amount history, and member share overrides.
+- Generate editable month-by-month backfill rows from those histories before posting them into live contribution, charge, repayment, and future dividend records.
+
+## User Flow
+- A tenant admin creates or updates the cooperative profile and confirms the cooperative `startDate`.
+- A tenant admin or finance officer opens the finance setup workspace and configures:
+  - default cooperative share amount from the cooperative start date
+  - dated share updates
+  - charge definitions with dated amount updates
+- A staff user opens a member profile and records:
+  - amount history entries
+  - optional member-specific share override history
+  - any active loan context already carried by the member record
+- A staff user opens the backfill workspace, selects a member, and chooses a date range.
+- The system generates one monthly row per month using the member amount log, active charge versions, active share version, and loan schedule data.
+- The staff user reviews the generated rows, edits any field that needs correction, and adds extra month activities such as:
+  - loan taken
+  - profit dividend
+  - extra charge
+  - extra share
+  - manual adjustment
+- The staff user saves the backfill batch as draft, regenerates if needed before manual edits are locked in, and then applies the batch.
+- Applying the batch creates the corresponding live finance records and audit entries.
+
+## Data Model
+- Existing tables used directly:
+  - `Tenant`
+    - `startDate` is the canonical cooperative start date.
+  - `Member`
+  - `ContributionPlan`
+  - `Contribution`
+  - `ChargeDefinition`
+  - `ChargeApplication`
+  - `Loan`
+  - `Repayment`
+  - `RepaymentScheduleItem`
+  - `AuditLog`
+- Recommended new tables:
+  - `TenantShareStructureVersion`
+    - Purpose: dated default monthly share amount for the cooperative.
+    - Fields:
+      - `id`
+      - `tenantId`
+      - `effectiveFrom`
+      - `amount`
+      - `notes`
+      - `createdByUserId`
+      - `createdAt`
+  - `MemberShareOverride`
+    - Purpose: member-specific dated monthly share override.
+    - Fields:
+      - `id`
+      - `tenantId`
+      - `memberId`
+      - `effectiveFrom`
+      - `amount`
+      - `notes`
+      - `createdByUserId`
+      - `createdAt`
+  - `MemberAmountLog`
+    - Purpose: dated monthly remittance default for a member.
+    - Fields:
+      - `id`
+      - `tenantId`
+      - `memberId`
+      - `effectiveFrom`
+      - `amount`
+      - `notes`
+      - `createdByUserId`
+      - `createdAt`
+  - `ChargeDefinitionVersion`
+    - Purpose: dated amount history for each charge definition.
+    - Fields:
+      - `id`
+      - `tenantId`
+      - `chargeDefinitionId`
+      - `effectiveFrom`
+      - `amount`
+      - `kind`
+      - `notes`
+      - `createdByUserId`
+      - `createdAt`
+    - Notes:
+      - Keep `ChargeDefinition` as the identity row with name/code/scope.
+      - Resolve the monthly charge amount from the latest active version on or before a target month.
+  - `BackfillBatch`
+    - Purpose: one staged backfill run for one member over a date range.
+    - Fields:
+      - `id`
+      - `tenantId`
+      - `memberId`
+      - `rangeStart`
+      - `rangeEnd`
+      - `status` with values such as `draft`, `generated`, `approved`, `applied`
+      - `generatedAt`
+      - `appliedAt`
+      - `createdByUserId`
+      - `updatedByUserId`
+      - `createdAt`
+      - `updatedAt`
+  - `BackfillMonthRow`
+    - Purpose: the editable monthly grid row for one batch.
+    - Fields:
+      - `id`
+      - `tenantId`
+      - `batchId`
+      - `year`
+      - `month`
+      - `amount`
+      - `charge`
+      - `loanCollected`
+      - `loanServiceAmount`
+      - `monthlyTopup`
+      - `pendingLoanPayment`
+      - `share`
+      - `totalShare`
+      - `total`
+      - `isGenerated`
+      - `isEdited`
+      - `notes`
+      - `createdAt`
+      - `updatedAt`
+  - `BackfillActivity`
+    - Purpose: extra month-level activity rows attached to a backfill month.
+    - Fields:
+      - `id`
+      - `tenantId`
+      - `batchId`
+      - `monthRowId`
+      - `activityType`
+      - `activityDate`
+      - `amount`
+      - `direction`
+      - `notes`
+      - `metadata`
+      - `createdByUserId`
+      - `createdAt`
+- Recommended enums:
+  - `BackfillBatchStatus`
+    - `draft`
+    - `generated`
+    - `approved`
+    - `applied`
+    - `cancelled`
+  - `BackfillActivityType`
+    - `loan_taken`
+    - `profit_dividend`
+    - `extra_charge`
+    - `extra_share`
+    - `manual_adjustment`
+    - `loan_repayment_adjustment`
+- Resolution rules:
+  - Monthly member amount:
+    - latest `MemberAmountLog.effectiveFrom <= month`
+  - Monthly share amount:
+    - latest `MemberShareOverride.effectiveFrom <= month`
+    - otherwise latest `TenantShareStructureVersion.effectiveFrom <= month`
+  - Monthly charge total:
+    - sum of the latest active `ChargeDefinitionVersion` per active charge definition effective for the month
+  - Monthly loan service amount:
+    - active schedule due for that month from `RepaymentScheduleItem`
+  - `totalShare`:
+    - running cumulative share total within the batch, seeded from prior posted share history if available
+  - `total`:
+    - TODO: finalize whether this is gross remittance, row net, or row obligations summary
+
+## API Endpoints
+- Existing routes to extend:
+  - `TRPC /trpc/onboarding.bootstrap`
+    - Add support for cooperative `startDate` if not already captured across all payload paths.
+  - `TRPC /trpc/charges.listDefinitions|createDefinition|updateDefinition`
+    - Keep for charge identity records.
+- Recommended new route areas:
+  - `TRPC /trpc/tenantFinance.getSetup`
+    - Purpose: return tenant start date, default share history, and charge history.
+  - `TRPC /trpc/tenantFinance.updateStartDate`
+    - Purpose: update cooperative start date.
+  - `TRPC /trpc/tenantFinance.listShareVersions`
+  - `TRPC /trpc/tenantFinance.createShareVersion`
+  - `TRPC /trpc/tenantFinance.updateShareVersion`
+  - `TRPC /trpc/charges.listVersions`
+  - `TRPC /trpc/charges.createVersion`
+  - `TRPC /trpc/charges.updateVersion`
+  - `TRPC /trpc/members.listAmountLogs`
+  - `TRPC /trpc/members.createAmountLog`
+  - `TRPC /trpc/members.updateAmountLog`
+  - `TRPC /trpc/members.listShareOverrides`
+  - `TRPC /trpc/members.createShareOverride`
+  - `TRPC /trpc/members.updateShareOverride`
+  - `TRPC /trpc/backfill.createBatch`
+    - Request summary:
+      - `memberId`
+      - `rangeStart`
+      - `rangeEnd`
+  - `TRPC /trpc/backfill.generateBatch`
+    - Purpose: resolve histories and create month rows.
+  - `TRPC /trpc/backfill.getBatch`
+    - Purpose: return batch header, month rows, and activities.
+  - `TRPC /trpc/backfill.updateMonthRow`
+    - Purpose: edit generated month values inline.
+  - `TRPC /trpc/backfill.addActivity`
+  - `TRPC /trpc/backfill.updateActivity`
+  - `TRPC /trpc/backfill.deleteActivity`
+  - `TRPC /trpc/backfill.approveBatch`
+  - `TRPC /trpc/backfill.applyBatch`
+    - Purpose: create live contribution, charge, repayment, and adjustment records from the staged rows.
+- Recommended query modules:
+  - `packages/db/src/queries/tenant-finance.ts`
+  - `packages/db/src/queries/backfill.ts`
+  - extend:
+    - `packages/db/src/queries/charges.ts`
+    - `packages/db/src/queries/members.ts`
+    - `packages/db/src/queries/contributions.ts`
+
+## UI Screens
+- `apps/dashboard/src/app/(app)/(sidebar)/settings/profile/page.tsx`
+  - Add or confirm editable cooperative start date.
+- Recommended new route:
+  - `apps/dashboard/src/app/(app)/(sidebar)/settings/finance/page.tsx`
+  - Screen purpose:
+    - tenant-level finance setup
+  - Sections:
+    - cooperative start date
+    - share structure history
+    - charge structure history
+- Existing member detail route to extend:
+  - `apps/dashboard/src/app/(app)/(sidebar)/members/[memberId]/page.tsx`
+  - New sections:
+    - amount history table
+      - columns: `Date | Amount | Notes | Actions`
+    - share override history table
+      - columns: `Date | Amount | Notes | Actions`
+- Recommended new route:
+  - `apps/dashboard/src/app/(app)/(sidebar)/backfill/page.tsx`
+  - Layout:
+    - top toolbar with member select, date range, generate button, save draft, apply batch
+    - summary cards:
+      - total months
+      - generated total amount
+      - generated total share
+      - generated total charge
+      - generated total loan collected
+    - main grid:
+      - year columns
+      - month rows
+      - columns:
+        - `Month`
+        - `Amount`
+        - `Charge`
+        - `Loan Collected`
+        - `Loan Service Amount`
+        - `Monthly Topup`
+        - `Pending Loan Payment`
+        - `Share`
+        - `Total Share`
+        - `Total`
+        - `Actions`
+    - row expansion:
+      - list month activities
+      - add activity button
+      - inline activity editor
+  - UX behavior:
+    - generated values appear with a subtle generated state
+    - manual edits appear with an edited state
+    - warnings appear for missing defaults, overlap conflicts, or invalid loan totals
+- Recommended components:
+  - `apps/dashboard/src/components/tables/backfill/backfill-page-view.tsx`
+  - `apps/dashboard/src/components/forms/tenant-finance/share-structure-form.tsx`
+  - `apps/dashboard/src/components/forms/tenant-finance/charge-version-form.tsx`
+  - `apps/dashboard/src/components/forms/members/member-amount-log-form.tsx`
+  - `apps/dashboard/src/components/forms/members/member-share-override-form.tsx`
+  - `apps/dashboard/src/components/forms/backfill/backfill-activity-form.tsx`
+
+## Edge Cases
+- Cooperative start date is missing.
+  - Reject generation until it is set.
+- A charge/share/member amount version is created before the cooperative start date.
+  - Reject by default.
+  - TODO: decide whether migration-mode tenants may bypass this.
+- Two dated versions overlap for the same structure.
+  - Reject and show the conflicting record.
+- A backfill month has no member amount history.
+  - Show the month row with zero or blank default and a warning.
+  - TODO: decide whether blank should block apply.
+- A member has no share override and no tenant default share.
+  - Use zero and show a warning.
+- A member has an active loan but no schedule item for a month.
+  - Default `loanServiceAmount` to zero and show a warning.
+- A backfill batch is regenerated after manual edits.
+  - Require explicit overwrite confirmation or keep edited rows locked.
+- A batch is applied twice.
+  - Prevent with batch status guard and record-level idempotency keys.
+- Applying a batch would create duplicate posted finance rows for the same member/month/category.
+  - Reject and show the existing records.
+- Profit dividend activity is entered before dividend policy is finalized.
+  - Store as explicit activity and post only as a documented adjustment path, not as automated dividend policy output.
+- Rounding differences in cumulative share or loan totals.
+  - Round at 2 decimal places at row computation time and keep audit metadata for source values.
+
+## Permissions
+- `tenant_admin`
+  - full access to finance setup, charge/share structures, member overrides, and backfill apply
+- `finance_officer`
+  - create and edit finance setup records
+  - create, edit, approve, and apply backfill batches
+- `operations_officer`
+  - view backfill batches and member history
+  - optionally draft batches if the business wants separation of duties
+  - TODO: confirm whether operations can apply batches
+- `member`
+  - no access to finance setup or backfill editing
+  - future read-only visibility may be added through statements after posting
+
+## Future Improvements
+- Add a tenant-level “first finance month” wizard after workspace onboarding.
+- Add CSV import for member amount logs and share overrides.
+- Add a backfill preview diff showing generated rows versus already-posted live records.
+- Add tenant-wide bulk backfill generation for many members at once.
+- Add approval separation where one role drafts and another role applies.
+- Add statement rendering that marks which historical entries were created by backfill.
+- Add full dividend policy support once halal profit-sharing rules are finalized.
+- Add offline capture support for draft backfill entry if this becomes part of field operations.

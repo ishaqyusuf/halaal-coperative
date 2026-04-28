@@ -78,6 +78,7 @@ export default async function MemberSignupPage({
 
         {context.tenant && gate?.access === "granted" ? (
           <MemberSignupForm
+            devMode={process.env.NODE_ENV !== "production"}
             signupToken={gate.token}
             tenantName={context.tenant.name}
           />

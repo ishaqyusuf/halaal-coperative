@@ -25,9 +25,12 @@ model Member {
   deductionSource       DeductionSource?  @relation(fields: [deductionSourceId], references: [id], onDelete: SetNull)
   contributionPlans     ContributionPlan[]
   contributions         Contribution[]
+  shareOverrides        MemberShareOverride[]
+  amountLogs            MemberAmountLog[]
   chargeApplications    ChargeApplication[]
   loanRequests          LoanRequest[]
   loans                 Loan[]
+  backfillBatches       BackfillBatch[]
   repayments            Repayment[]
   collectionFollowUps   CollectionFollowUp[]
   documents             MemberDocument[]

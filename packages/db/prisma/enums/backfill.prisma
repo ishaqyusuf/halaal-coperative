@@ -1,0 +1,16 @@
+enum BackfillBatchStatus {
+  draft
+  generated
+  approved
+  applied
+  cancelled
+}
+
+enum BackfillActivityType {
+  loan_taken
+  profit_dividend
+  extra_charge
+  extra_share
+  manual_adjustment
+  loan_repayment_adjustment
+}

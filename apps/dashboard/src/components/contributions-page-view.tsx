@@ -1,14 +1,5 @@
 import { formatCurrency } from "@halaal-vest/utils"
 import {
-  DashboardDataTable,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
-} from "@/components/tables/core"
-import {
   DashboardSectionCard,
   DashboardSectionHeader,
   DashboardStatCard,
@@ -24,6 +15,7 @@ import {
   MemberPaymentPreferenceForm,
 } from "@/components/forms/finance-forms"
 import { ContributionFilterForm } from "@/components/forms/misc-forms"
+import { ContributionsDataTable } from "@/components/tables/contributions/data-table"
 import { loadContributionsPageData } from "@/lib/contributions"
 
 type ContributionsPageData = Extract<
@@ -192,47 +184,7 @@ export function ContributionsPageView({
           title="Recent contribution activity"
         />
         <div className="mt-5">
-          <DashboardDataTable>
-            <DashboardTable>
-              <DashboardTableHead>
-                <DashboardTableHeaderCell>Member</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Savings</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Committed</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Extra savings</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Posted</DashboardTableHeaderCell>
-              </DashboardTableHead>
-              <DashboardTableBody>
-                {contributions.items.map((contribution) => (
-                  <DashboardTableRow key={contribution.id}>
-                    <DashboardTableCell>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {contribution.member?.fullName ?? "Unknown member"}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {contribution.member?.memberNumber ?? "No member number"}
-                        </p>
-                      </div>
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      {formatCurrency(Number(contribution.amount))}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      {contribution.committedAmount
-                        ? formatCurrency(Number(contribution.committedAmount))
-                        : "n/a"}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      {formatCurrency(Number(contribution.extraSavingsAmount ?? 0))}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      {formatIsoDate(contribution.postedAt)}
-                    </DashboardTableCell>
-                  </DashboardTableRow>
-                ))}
-              </DashboardTableBody>
-            </DashboardTable>
-          </DashboardDataTable>
+          <ContributionsDataTable items={contributions.items} />
         </div>
       </DashboardSectionCard>
     </WorkspacePageShell>

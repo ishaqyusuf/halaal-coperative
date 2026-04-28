@@ -61,6 +61,14 @@ const dashboardDevFormDefaults = {
     memberNumber: "MEM-1024",
     memberType: "individual",
   },
+  member_signup: {
+    confirmPassword: "password123",
+    email: "amina.yusuf@example.com",
+    fullName: "Amina Yusuf",
+    memberNumber: "MEM-1024",
+    password: "password123",
+    phoneNumber: "+234 800 000 0000",
+  },
   member_kyc: {
     governmentIdNumber: "NIN-12345678901",
     kycDocumentType: "National ID",

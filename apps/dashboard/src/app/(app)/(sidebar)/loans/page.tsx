@@ -1,5 +1,5 @@
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { LoansPageView } from "@/components/tables/loans"
+import { LoansPageView } from "@/components/loans-page-view"
 import { loadLoansPageData } from "@/lib/loans"
 
 export default async function LoansPage() {

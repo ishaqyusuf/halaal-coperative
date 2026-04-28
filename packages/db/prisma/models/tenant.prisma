@@ -24,7 +24,9 @@ model Tenant {
   deductionSources     DeductionSource[]
   contributionPlans    ContributionPlan[]
   contributions        Contribution[]
+  tenantShareStructureVersions TenantShareStructureVersion[]
   chargeDefinitions    ChargeDefinition[]
+  chargeDefinitionVersions ChargeDefinitionVersion[]
   chargeApplications   ChargeApplication[]
   loanProducts         LoanProduct[]
   loanRequests         LoanRequest[]
@@ -44,6 +46,11 @@ model Tenant {
   notificationPreferences NotificationPreference[]
   memberOnboardingRequests MemberOnboardingRequest[]
   memberSignupLinks    MemberSignupLink[]
+  memberShareOverrides MemberShareOverride[]
+  memberAmountLogs     MemberAmountLog[]
+  backfillBatches      BackfillBatch[]
+  backfillMonthRows    BackfillMonthRow[]
+  backfillActivities   BackfillActivity[]
 
   @@map("tenants")
 }

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { MemberDetailView } from "@/components/tables/members"
+import { MemberDetailView } from "@/components/member-detail-view"
 import { loadMemberDetailPageData } from "@/lib/members"
 
 export default async function MemberDetailPage({

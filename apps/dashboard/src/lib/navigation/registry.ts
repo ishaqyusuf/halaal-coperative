@@ -69,6 +69,9 @@ export const dashboardNavRegistry: NavModule[] = [
       createNavLink("Charges", FinanceIcon, "/charges", [], [role.in(...financeRoles)])
         .title("Charges")
         .data,
+      createNavLink("Backfill", FinanceIcon, "/backfill", [], [role.in(...financeRoles)])
+        .title("Backfill")
+        .data,
     ]),
     createNavSection("credit", "Credit", [
       createNavLink("Loans", FinanceIcon, "/loans", [], [role.in(...allStaffRoles)])
@@ -92,6 +95,11 @@ export const dashboardNavRegistry: NavModule[] = [
         role.in(...adminRoles),
       ])
         .title("Cooperative profile")
+        .data,
+      createNavLink("Finance Setup", SettingsIcon, "/settings/finance", [], [
+        role.in("super_admin", "tenant_admin", "finance_officer"),
+      ])
+        .title("Finance setup")
         .data,
       createNavLink("Roles", SettingsIcon, "/settings/roles", [], [role.in(...adminRoles)])
         .title("Roles")

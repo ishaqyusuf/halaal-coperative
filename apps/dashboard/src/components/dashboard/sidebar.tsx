@@ -9,6 +9,7 @@ import {
   DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,
   DASHBOARD_SIDEBAR_EXPANDED_WIDTH,
 } from "./constants"
+import { DashboardSidebarSheet } from "@/components/sheets/dashboard-sidebar-sheet"
 
 function DashboardSidebarLink({
   onNavigate,
@@ -182,22 +183,9 @@ export function DashboardSidebar({
 
   return (
     <>
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
-            aria-label="Close navigation menu"
-            onClick={closeMobile}
-          />
-          <aside
-            className="absolute inset-y-0 left-0 flex max-w-[calc(100vw-2rem)] flex-col border-r border-border bg-background shadow-xl"
-            style={{ width: DASHBOARD_MOBILE_SIDEBAR_WIDTH }}
-          >
-            {sidebarBody}
-          </aside>
-        </div>
-      ) : null}
+      <DashboardSidebarSheet onOpenChange={closeMobile} open={mobileOpen}>
+        {sidebarBody}
+      </DashboardSidebarSheet>
 
       <aside
         className="fixed top-0 left-0 z-40 hidden h-screen flex-shrink-0 border-r border-border bg-background pb-4 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:flex md:flex-col"

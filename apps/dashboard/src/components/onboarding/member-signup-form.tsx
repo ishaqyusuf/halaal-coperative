@@ -14,6 +14,7 @@ import {
 } from "@halaal-vest/ui/components/form"
 import { Input } from "@halaal-vest/ui/components/input"
 import { useZodForm } from "@halaal-vest/ui/hooks/use-zod-form"
+import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import { submitMemberOnboardingAction } from "@/lib/public-actions"
 
@@ -34,9 +35,11 @@ const memberSignupSchema = z
 type MemberSignupValues = z.infer<typeof memberSignupSchema>
 
 export function MemberSignupForm({
+  devMode = false,
   signupToken,
   tenantName,
 }: {
+  devMode?: boolean
   signupToken?: string | null
   tenantName: string
 }) {
@@ -80,13 +83,26 @@ export function MemberSignupForm({
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="md:col-span-2">
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            {signupToken ? "Invited member onboarding" : "Member onboarding"}
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Start your membership signup</h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Submit your personal details, verify your email, and wait for cooperative approval before your dashboard access is activated.
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                {signupToken ? "Invited member onboarding" : "Member onboarding"}
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Start your membership signup</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Submit your personal details, verify your email, and wait for cooperative approval before your dashboard access is activated.
+              </p>
+            </div>
+            {devMode ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => applyDashboardDevFormFill(form, "member_signup")}
+              >
+                Quick fill
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         <FormField

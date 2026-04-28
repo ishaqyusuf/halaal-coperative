@@ -1,0 +1,153 @@
+model TenantShareStructureVersion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  amount        Decimal  @db.Decimal(18, 2)
+  notes         String?
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, effectiveFrom], map: "tenant_share_versions_tenant_effective_key")
+  @@index([tenantId, effectiveFrom], map: "tenant_share_versions_tenant_effective_idx")
+  @@map("tenant_share_structure_versions")
+}
+
+model MemberShareOverride {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  memberId      String   @map("member_id") @db.Uuid
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  amount        Decimal  @db.Decimal(18, 2)
+  notes         String?
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, effectiveFrom], map: "member_share_overrides_member_effective_key")
+  @@index([tenantId, memberId, effectiveFrom], map: "member_share_overrides_tenant_member_effective_idx")
+  @@map("member_share_overrides")
+}
+
+model MemberAmountLog {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  memberId      String   @map("member_id") @db.Uuid
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  amount        Decimal  @db.Decimal(18, 2)
+  notes         String?
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, effectiveFrom], map: "member_amount_logs_member_effective_key")
+  @@index([tenantId, memberId, effectiveFrom], map: "member_amount_logs_tenant_member_effective_idx")
+  @@map("member_amount_logs")
+}
+
+model ChargeDefinitionVersion {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String     @map("tenant_id") @db.Uuid
+  chargeDefinitionId String     @map("charge_definition_id") @db.Uuid
+  effectiveFrom      DateTime   @map("effective_from") @db.Date
+  amount             Decimal    @db.Decimal(18, 2)
+  kind               ChargeKind
+  notes              String?
+  createdByUserId    String?    @map("created_by_user_id") @db.Uuid
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chargeDefinition ChargeDefinition @relation(fields: [chargeDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([chargeDefinitionId, effectiveFrom], map: "charge_definition_versions_definition_effective_key")
+  @@index([tenantId, chargeDefinitionId, effectiveFrom], map: "charge_definition_versions_tenant_definition_effective_idx")
+  @@map("charge_definition_versions")
+}
+
+model BackfillBatch {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String              @map("tenant_id") @db.Uuid
+  memberId        String              @map("member_id") @db.Uuid
+  rangeStart      DateTime            @map("range_start") @db.Date
+  rangeEnd        DateTime            @map("range_end") @db.Date
+  status          BackfillBatchStatus @default(draft)
+  generatedAt     DateTime?           @map("generated_at") @db.Timestamptz(6)
+  approvedAt      DateTime?           @map("approved_at") @db.Timestamptz(6)
+  appliedAt       DateTime?           @map("applied_at") @db.Timestamptz(6)
+  createdByUserId String?             @map("created_by_user_id") @db.Uuid
+  updatedByUserId String?             @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member     Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  monthRows  BackfillMonthRow[]
+  activities BackfillActivity[]
+
+  @@index([tenantId, memberId, status], map: "backfill_batches_tenant_member_status_idx")
+  @@index([tenantId, createdAt], map: "backfill_batches_tenant_created_at_idx")
+  @@map("backfill_batches")
+}
+
+model BackfillMonthRow {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  batchId            String   @map("batch_id") @db.Uuid
+  year               Int
+  month              Int
+  amount             Decimal  @db.Decimal(18, 2)
+  charge             Decimal  @default(0) @db.Decimal(18, 2)
+  loanCollected      Decimal  @default(0) @map("loan_collected") @db.Decimal(18, 2)
+  loanServiceAmount  Decimal  @default(0) @map("loan_service_amount") @db.Decimal(18, 2)
+  monthlyTopup       Decimal  @default(0) @map("monthly_topup") @db.Decimal(18, 2)
+  pendingLoanPayment Decimal  @default(0) @map("pending_loan_payment") @db.Decimal(18, 2)
+  share              Decimal  @default(0) @db.Decimal(18, 2)
+  totalShare         Decimal  @default(0) @map("total_share") @db.Decimal(18, 2)
+  total              Decimal  @default(0) @db.Decimal(18, 2)
+  isGenerated        Boolean  @default(true) @map("is_generated")
+  isEdited           Boolean  @default(false) @map("is_edited")
+  notes              String?
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch       BackfillBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  activities  BackfillActivity[]
+
+  @@unique([batchId, year, month], map: "backfill_month_rows_batch_year_month_key")
+  @@index([tenantId, batchId], map: "backfill_month_rows_tenant_batch_idx")
+  @@map("backfill_month_rows")
+}
+
+model BackfillActivity {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String               @map("tenant_id") @db.Uuid
+  batchId         String               @map("batch_id") @db.Uuid
+  monthRowId      String               @map("month_row_id") @db.Uuid
+  activityType    BackfillActivityType @map("activity_type")
+  activityDate    DateTime             @map("activity_date") @db.Date
+  amount          Decimal              @db.Decimal(18, 2)
+  direction       String               @default("credit")
+  notes           String?
+  metadata        Json?
+  createdByUserId String?              @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch    BackfillBatch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  monthRow BackfillMonthRow @relation(fields: [monthRowId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, batchId], map: "backfill_activities_tenant_batch_idx")
+  @@index([monthRowId, activityDate], map: "backfill_activities_month_row_date_idx")
+  @@map("backfill_activities")
+}

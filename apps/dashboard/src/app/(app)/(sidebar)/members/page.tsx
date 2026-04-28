@@ -1,12 +1,11 @@
-import { MemberCreateModal, MemberImportPanel } from "@/components/tables/members"
-import {
-  MembersActive,
-  MembersAll,
-  MembersDataTable,
-  MembersKycPending,
-  MembersLinkedUsers,
-  MembersPageHeader,
-} from "@/components/tables/members"
+import { MemberCreateModal } from "@/components/modals/member-create-modal"
+import { MemberImportPanel } from "@/components/member-import-panel"
+import { MembersDataTable } from "@/components/tables/members/data-table"
+import { MembersActive } from "@/components/members-active"
+import { MembersAll } from "@/components/members-all"
+import { MembersKycPending } from "@/components/members-kyc-pending"
+import { MembersLinkedUsers } from "@/components/members-linked-users"
+import { MembersPageHeader } from "@/components/members-page-header"
 import {
   CollapsibleSummary,
   DashboardActionLink,

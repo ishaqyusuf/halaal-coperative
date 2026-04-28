@@ -1,5 +1,5 @@
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { ContributionsPageView } from "@/components/tables/contributions"
+import { ContributionsPageView } from "@/components/contributions-page-view"
 import { loadContributionsPageData } from "@/lib/contributions"
 
 export default async function ContributionsPage({

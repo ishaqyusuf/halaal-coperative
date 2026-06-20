@@ -7,7 +7,7 @@ ROOT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 
 COMPOSE_FILE="${HALAALVEST_COMPOSE_FILE:-$ROOT_DIR/docker-compose.yml}"
 SERVICE_NAME="${HALAALVEST_DB_SERVICE:-postgres}"
-DB_HOST_PORT="${HALAALVEST_DB_HOST_PORT:-5432}"
+DB_HOST_PORT="${HALAALVEST_DB_HOST_PORT:-55434}"
 DB_USER="${HALAALVEST_DB_USER:-postgres}"
 DB_NAME="${HALAALVEST_DB_NAME:-amanah_cooperative}"
 MAX_ATTEMPTS="${HALAALVEST_DB_WAIT_ATTEMPTS:-30}"
@@ -26,9 +26,9 @@ print_port_diagnostics() {
   fi
 }
 
-get_published_db_port() {
+get_published_db_ports() {
   container_id="$1"
-  docker inspect "$container_id" --format '{{with index .NetworkSettings.Ports "5432/tcp"}}{{range .}}{{.HostPort}}{{end}}{{end}}' 2>/dev/null || true
+  docker inspect "$container_id" --format '{{with index .NetworkSettings.Ports "5432/tcp"}}{{range .}}{{println .HostPort}}{{end}}{{end}}' 2>/dev/null || true
 }
 
 host_port_has_listener() {
@@ -37,9 +37,8 @@ host_port_has_listener() {
 
 ensure_host_port_published() {
   container_id="$1"
-  published_port=$(get_published_db_port "$container_id")
 
-  if [ "$published_port" = "$DB_HOST_PORT" ]; then
+  if get_published_db_ports "$container_id" | grep -qx "$DB_HOST_PORT"; then
     return 0
   fi
 

@@ -1,0 +1,27 @@
+{
+  "name": "@halaalvest/jobs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tasks": "./src/tasks/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@halaalvest/backfill": "workspace:*",
+    "@halaalvest/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@halaalvest/eslint-config": "workspace:*",
+    "@halaalvest/tsconfig": "workspace:*",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3"
+  }
+}

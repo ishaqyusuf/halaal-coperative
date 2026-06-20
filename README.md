@@ -1,6 +1,6 @@
-# halaal-vest
+# halaalvest
 
-Bun and Turbo monorepo scaffold for `halaal-vest`, a multi-tenant halal cooperative operations platform. Amanah is treated as a case-study tenant profile, not the product boundary.
+Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant halal cooperative operations platform. Amanah is treated as a case-study tenant profile, not the product boundary.
 
 ## Workspace
 
@@ -25,6 +25,20 @@ bun run dev
 bun run dev:portless
 bun run lint
 bun run typecheck
+```
+
+Development starters automatically start the local PostgreSQL container and wait until it accepts connections before launching the apps. Docker Desktop or another Docker-compatible daemon with Compose must be available.
+
+To start only the database:
+
+```bash
+bun run db:start
+```
+
+The local database uses `localhost:5432`, database `amanah_cooperative`, and a persistent Docker volume. If startup fails, inspect the service with:
+
+```bash
+docker compose logs postgres
 ```
 
 ## Portless

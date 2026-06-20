@@ -5,6 +5,41 @@ enum DividendPeriodStatus {
   closed
 }
 
+enum ShareBusinessStatus {
+  planned
+  active
+  completed
+  archived
+}
+
+enum ChargePurpose {
+  general
+  member_share
+  loan_fee
+  membership_fee
+  penalty
+}
+
+enum MemberShareSourceType {
+  monthly_share_charge
+  backfill
+  manual_adjustment
+  import
+  reversal
+}
+
+enum ProfitEntrySourceType {
+  manual
+  backfill
+  import
+}
+
+enum ShareProfitAllocationStatus {
+  draft
+  published
+  cancelled
+}
+
 enum OfflineSyncStatus {
   pending
   processing

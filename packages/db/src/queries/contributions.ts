@@ -103,6 +103,29 @@ export async function setMemberContributionPlan(
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.$transaction(async (tx) => {
+    const member = await tx.member.findFirst({
+      where: {
+        id: input.memberId,
+        tenantId: input.tenantId,
+      },
+      select: {
+        joinedAt: true,
+        _count: {
+          select: {
+            contributionPlans: true,
+          },
+        },
+      },
+    })
+
+    if (!member) {
+      throw new Error("Member not found.")
+    }
+
+    if (member._count.contributionPlans === 0 && input.startsAt > member.joinedAt) {
+      throw new Error("The first commitment history date cannot be later than the member start date.")
+    }
+
     await tx.contributionPlan.updateMany({
       where: {
         tenantId: input.tenantId,

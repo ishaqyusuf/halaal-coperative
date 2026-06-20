@@ -1,4 +1,4 @@
-import { createNotificationFromType, platformNotificationTypes } from "@halaal-vest/notifications"
+import { createNotificationFromType, platformNotificationTypes } from "@halaalvest/notifications"
 
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
 

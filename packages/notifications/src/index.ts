@@ -349,7 +349,7 @@ export function createSignupVerificationEmail(input: {
     bodyText: [
       `Assalamu alaikum ${input.recipientName},`,
       "",
-      `Your halaal-vest signup for ${input.tenantName} is almost ready.`,
+      `Your halaalvest signup for ${input.tenantName} is almost ready.`,
       "Confirm this email address to continue setting up the cooperative workspace.",
       "",
       `This verification link expires on ${input.expiresAt}.`,
@@ -361,7 +361,7 @@ export function createSignupVerificationEmail(input: {
       value: input.recipientEmail,
       displayName: input.recipientName,
     },
-    subject: `Verify your halaal-vest signup for ${input.tenantName}`,
+    subject: `Verify your halaalvest signup for ${input.tenantName}`,
   }
 }
 
@@ -378,7 +378,7 @@ export function createWorkspaceReadyEmail(input: {
     bodyText: [
       `Assalamu alaikum ${input.recipientName},`,
       "",
-      `${input.tenantName} is ready in halaal-vest.`,
+      `${input.tenantName} is ready in halaalvest.`,
       `Dashboard: ${input.dashboardUrl}`,
       `Public site: ${input.siteUrl}`,
       "",
@@ -391,6 +391,6 @@ export function createWorkspaceReadyEmail(input: {
       value: input.recipientEmail,
       displayName: input.recipientName,
     },
-    subject: `${input.tenantName} is ready in halaal-vest`,
+    subject: `${input.tenantName} is ready in halaalvest`,
   }
 }

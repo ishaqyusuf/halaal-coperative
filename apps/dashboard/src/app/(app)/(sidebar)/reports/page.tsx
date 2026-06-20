@@ -1,17 +1,21 @@
-import { createDbRuntime, getAuditSummary, getCollectionFollowUpSummary, getMemberKycSummary, listAuditLogs, listCollectionFollowUps, listNotificationOutboxEntries } from "@halaal-vest/db"
-import { formatCurrency } from "@halaal-vest/utils"
+import { createDbRuntime, getAuditSummary, getCollectionFollowUpSummary, getMemberKycSummary, getReportsFilterMetadata, listAuditLogs, listCollectionFollowUps, listNotificationOutboxEntries } from "@halaalvest/db"
+import { formatCurrency } from "@halaalvest/utils"
+import { ReportsHeader } from "@/components/reports-header"
 import { DashboardActionLink, DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { ReportsFilterForm } from "@/components/forms/misc-forms"
+import { loadReportsFilterParams } from "@/hooks/use-reports-filter-params"
 import { getDashboardPageData, getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 import { getReportsDateFilters, withReportFilters } from "./export-utils"
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const params = await searchParams
+  const params = loadReportsFilterParams(await searchParams)
   const { dashboard } = await getDashboardPageData()
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
-  const filters = getReportsDateFilters(params)
+  const filters = getReportsDateFilters({
+    from: params.from ?? undefined,
+    to: params.to ?? undefined,
+  })
   const canViewReports = hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)
 
   if (!context.tenant || runtime.status !== "database-configured") {
@@ -21,11 +25,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     return <WorkspacePageShell eyebrow="Reports" title="Audit and reporting" description="Operational reporting and audit visibility for cooperative admins."><WorkspaceEmptyState title="Report access is limited." body="Tenant admins and super admins can access audit and reporting surfaces." /></WorkspacePageShell>
   }
 
-  const [auditSummary, auditLogs, collectionSummary, collectionFollowUps, kycSummary, notificationEntries] = await Promise.all([
+  const [auditSummary, auditLogs, collectionSummary, collectionFollowUps, filterList, kycSummary, notificationEntries] = await Promise.all([
     getAuditSummary(context.tenant.id),
     listAuditLogs(context.tenant.id, { fromDate: filters.fromDate, limit: 20, toDate: filters.toDate }),
     getCollectionFollowUpSummary(context.tenant.id),
     listCollectionFollowUps(context.tenant.id, { fromDate: filters.fromDate, limit: 12, toDate: filters.toDate }),
+    getReportsFilterMetadata(),
     getMemberKycSummary(context.tenant.id),
     listNotificationOutboxEntries(context.tenant.id, { fromDate: filters.fromDate, limit: 50, toDate: filters.toDate }),
   ])
@@ -44,7 +49,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   return (
     <WorkspacePageShell eyebrow="Reports" title="Audit and reporting" description="Review operational activity, finance snapshots, exports, and recent audit events from one admin route.">
-      <ReportsFilterForm defaultValues={{ from: filters.from, to: filters.to }} devMode={process.env.NODE_ENV !== "production"} />
+      <ReportsHeader filterList={filterList} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardStatCard label="Available pool" value={formatCurrency(dashboard.availablePool)} detail="Liquidity snapshot from the current dashboard summary." />

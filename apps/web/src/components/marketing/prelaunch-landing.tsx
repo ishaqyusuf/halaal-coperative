@@ -1,170 +1,172 @@
-import { Badge } from "@halaal-vest/ui/components/badge"
-import { Button, buttonVariants } from "@halaal-vest/ui/components/button"
-import { Separator } from "@halaal-vest/ui/components/separator"
+import { Badge } from "@halaalvest/ui/components/badge"
+import { buttonVariants } from "@halaalvest/ui/components/button"
+import { Separator } from "@halaalvest/ui/components/separator"
 import Link from "next/link"
 
 const pillars = [
   {
-    label: "Savings & Contributions",
+    label: "Member capital",
     description:
-      "Track member deposits, recurring contributions, and cooperative balances with ledger-backed precision.",
+      "Contribution tracking, balances, charges, and statements designed for cooperative finance teams.",
   },
   {
-    label: "Halal Loan Governance",
+    label: "Halal lending",
     description:
-      "Interest-free loan workflows with eligibility rules, dual approval, and repayment schedules.",
+      "Interest-free loan workflows with eligibility checks, liquidity awareness, and accountable approvals.",
   },
   {
-    label: "Multi-Tenant Operations",
+    label: "Tenant rollout",
     description:
-      "Each cooperative gets its own dashboard, public site, and policy configuration on shared infrastructure.",
+      "Public signup, branded cooperative surfaces, and protected workspaces on one shared platform.",
   },
 ] as const
 
-const contactTeamHref =
-  "mailto:hello@halaal-vest.com?subject=halaal-vest%20product%20inquiry&body=Hello%20halaal-vest%20team%2C%0A%0AI%27d%20like%20to%20learn%20more%20about%20the%20platform.%0A%0AName%3A%0AOrganization%3A%0APhone%3A%0A%0AThanks."
+const readiness = [
+  ["Built for", "$100M+ funds"],
+  ["Designed for", "Audit-ready ops"],
+  ["Launch path", "Guided signup"],
+] as const
 
-export function PrelaunchLanding() {
+const contactTeamHref =
+  "mailto:hello@halaalvest.com?subject=halaalvest%20product%20inquiry&body=Hello%20halaalvest%20team%2C%0A%0AI%27d%20like%20to%20learn%20more%20about%20the%20platform.%0A%0AName%3A%0AOrganization%3A%0APhone%3A%0A%0AThanks."
+
+export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
   return (
-    <main className="min-h-svh bg-background">
-      {/* Nav */}
-      <nav className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-            <span className="text-xs font-bold text-primary-foreground">H</span>
-          </div>
-          <span className="text-sm font-semibold tracking-tight text-foreground">
-            halaal-vest
-          </span>
+    <main className="min-h-svh bg-background text-foreground">
+      <header className="border-b border-border bg-background">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
+          <Link className="flex items-center gap-3" href="/">
+            <span className="flex size-8 items-center justify-center rounded-md bg-foreground text-xs font-semibold text-background">
+              H
+            </span>
+            <span className="text-sm font-semibold tracking-tight">
+              halaalvest
+            </span>
+          </Link>
+          <Badge variant="outline" className="h-6 rounded-md px-2.5">
+            Private launch
+          </Badge>
         </div>
-        <Badge variant="outline" className="text-muted-foreground">
-          Coming Soon
-        </Badge>
-      </nav>
+      </header>
+
+      <section className="border-b border-border">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-5 py-14 sm:px-6 sm:py-18 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-20">
+          <div className="max-w-3xl">
+            <Badge variant="secondary" className="h-6 rounded-md px-2.5">
+              Cooperative finance infrastructure
+            </Badge>
+            <h1 className="mt-6 max-w-4xl font-heading text-5xl leading-[1.02] font-semibold tracking-tight sm:text-6xl lg:text-7xl">
+              A cleaner operating backbone for halal cooperatives.
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
+              Halaalvest is building the public signup, tenant workspace, and
+              governed finance layer cooperative teams need before serious
+              growth arrives.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
+                className={buttonVariants({
+                  className: "h-11 rounded-md px-5 text-sm",
+                  size: "lg",
+                })}
+                href={signupHref}
+              >
+                Join early access
+              </Link>
+              <Link
+                className={buttonVariants({
+                  className: "h-11 rounded-md px-5 text-sm",
+                  size: "lg",
+                  variant: "outline",
+                })}
+                href={contactTeamHref}
+              >
+                Contact team
+              </Link>
+            </div>
+          </div>
+
+          <aside className="border border-border bg-card">
+            <div className="border-b border-border p-5">
+              <p className="text-sm font-semibold">Launch readiness</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                A premium front door for cooperative operators.
+              </p>
+            </div>
+            <div className="grid gap-px bg-border">
+              {readiness.map(([label, value]) => (
+                <div
+                  className="flex items-center justify-between bg-card p-5"
+                  key={label}
+                >
+                  <p className="text-sm text-muted-foreground">{label}</p>
+                  <p className="text-lg font-semibold tracking-tight">
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section className="border-b border-border bg-card">
+        <div className="mx-auto w-full max-w-7xl px-5 py-14 sm:px-6 lg:px-8 lg:py-18">
+          <div className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
+            <div>
+              <p className="text-xs font-medium tracking-[0.24em] text-muted-foreground uppercase">
+                What is coming
+              </p>
+              <h2 className="mt-4 max-w-md font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+                Finance-grade structure without making the cooperative feel
+                generic.
+              </h2>
+            </div>
+
+            <div className="grid gap-px overflow-hidden border border-border bg-border md:grid-cols-3">
+              {pillars.map((pillar) => (
+                <article className="bg-card p-6" key={pillar.label}>
+                  <p className="text-sm font-semibold">{pillar.label}</p>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                    {pillar.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8 lg:py-16">
+          <div className="max-w-xl">
+            <h2 className="font-heading text-3xl font-semibold tracking-tight">
+              Start with the cooperative setup flow.
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-muted-foreground">
+              Early access teams can move directly into signup while the public
+              launch story stays clean and credible.
+            </p>
+          </div>
+          <Link
+            className={buttonVariants({
+              className: "h-11 rounded-md px-5 text-sm",
+              size: "lg",
+            })}
+            href={signupHref}
+          >
+            Start signup
+          </Link>
+        </div>
+      </section>
 
       <Separator />
 
-      {/* Hero */}
-      <section className="mx-auto w-full max-w-5xl px-6 pt-20 pb-16 lg:pt-28 lg:pb-20">
-        <div className="mx-auto max-w-2xl text-center">
-          <Badge variant="secondary" className="mb-6">
-            Pre-Launch
-          </Badge>
-
-          <h1 className="font-heading text-4xl font-semibold leading-[1.08] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-            The operating backbone for halal cooperatives
-          </h1>
-
-          <p className="mx-auto mt-6 max-w-lg text-base leading-7 text-muted-foreground">
-            One platform for member savings, interest-free lending, financial transparency,
-            and tenant-branded cooperative sites.
-          </p>
-
-          <div className="mt-10 flex items-center justify-center gap-3">
-            <Link
-              className={buttonVariants({
-                size: "lg",
-                className: "px-5",
-              })}
-              href="/signup"
-            >
-              Start Signup
-            </Link>
-            <Link
-              className={buttonVariants({
-                variant: "outline",
-                size: "lg",
-                className: "px-5",
-              })}
-              href={contactTeamHref}
-            >
-              Talk to Us
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <Separator className="mx-auto max-w-5xl" />
-
-      {/* Pillars */}
-      <section className="mx-auto w-full max-w-5xl px-6 py-16 lg:py-20">
-        <p className="text-center text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-          What We Are Building
-        </p>
-
-        <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
-          {pillars.map((pillar) => (
-            <div key={pillar.label} className="bg-card p-6">
-              <p className="text-sm font-semibold text-card-foreground">{pillar.label}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {pillar.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <Separator className="mx-auto max-w-5xl" />
-
-      {/* Signal */}
-      <section className="mx-auto w-full max-w-5xl px-6 py-16 lg:py-20">
-        <div className="mx-auto grid max-w-3xl gap-12 sm:grid-cols-2 sm:gap-16">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              For Cooperative Teams
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
-              Replace spreadsheets with real financial infrastructure.
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-muted-foreground">
-              Halaal-vest gives finance officers, admins, and members a shared workspace
-              with role-aware access, audit trails, and double-entry accounting out of the box.
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Halal-First Design
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
-              Interest-free lending with clear governance.
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-muted-foreground">
-              Loan eligibility is separated from pool liquidity. Approval workflows support
-              configurable dual sign-off. Every transaction posts to the cooperative ledger.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <Separator className="mx-auto max-w-5xl" />
-
-      {/* Footer CTA */}
-      <section className="mx-auto w-full max-w-5xl px-6 py-16 lg:py-20">
-        <div className="mx-auto max-w-md text-center">
-          <h2 className="text-xl font-semibold tracking-tight text-foreground">
-            Get notified when we launch
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Join the early access list for priority onboarding.
-          </p>
-          <div className="mt-6">
-            <Link
-              className={buttonVariants({ size: "lg", className: "px-6" })}
-              href="/signup"
-            >
-              Start Signup
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
-          <p className="text-xs text-muted-foreground">halaal-vest</p>
-          <p className="text-xs text-muted-foreground">
-            Halal cooperative operations platform
-          </p>
+      <footer>
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-5 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <p>halaalvest</p>
+          <p>Halal cooperative operations platform</p>
         </div>
       </footer>
     </main>

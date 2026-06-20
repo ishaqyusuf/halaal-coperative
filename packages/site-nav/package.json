@@ -1,5 +1,5 @@
 {
-  "name": "@halaal-vest/site-nav",
+  "name": "@halaalvest/site-nav",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -17,13 +17,13 @@
     "./links": "./src/lib/links.ts"
   },
   "dependencies": {
-    "@halaal-vest/ui": "workspace:*"
+    "@halaalvest/ui": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
-    "@halaal-vest/eslint-config": "workspace:*",
-    "@halaal-vest/tsconfig": "workspace:*",
+    "@halaalvest/eslint-config": "workspace:*",
+    "@halaalvest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

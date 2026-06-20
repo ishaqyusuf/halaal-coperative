@@ -1,4 +1,4 @@
-import { listRepayments } from "@halaal-vest/db"
+import { listRepayments } from "@halaalvest/db"
 import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
 
 export async function GET(request: Request) {

@@ -1,21 +1,26 @@
 import {
   getSessionTokenFromCookieHeader,
-  getUserIdFromCookieHeader,
   platformSessionScope,
   resolveRequestSessionScope,
-} from "@halaal-vest/auth"
+  verifySignedSessionToken,
+} from "@halaalvest/auth"
 import {
   createDbRuntime,
   findActiveMembershipAsync,
   findUserByIdAsync,
+  getDashboardMetrics,
   getPendingMemberOnboardingForUser,
   getTenantOnboardingState,
   listChargeDefinitions,
   listContributions,
   listMembers,
   resolveTenantAsync,
-} from "@halaal-vest/db"
-import { buildDashboardSnapshot, defaultTenantPolicy, productAreas } from "@halaal-vest/domain"
+} from "@halaalvest/db"
+import {
+  buildDashboardSnapshot,
+  defaultTenantPolicy,
+  productAreas,
+} from "@halaalvest/domain"
 import { cookies, headers } from "next/headers"
 
 type DashboardMemberRow = {
@@ -55,6 +60,7 @@ type DashboardPageData = {
     id: string
     slug: string
     name: string
+    memberNumberPrefix?: string | null
     currentSize?: number | null
     officeAddress?: string | null
     startDate?: string | null
@@ -79,34 +85,36 @@ export async function getDashboardServerContext() {
   const tenantSlug = headerStore.get("x-tenant-subdomain")
   const tenantHostname = headerStore.get("x-tenant-hostname")
   const sessionScope = resolveRequestSessionScope(host)
-  const requestedUserId =
-    headerStore.get("x-user-id") ??
-    getUserIdFromCookieHeader({
-      cookieHeader: cookieStore.toString(),
-      host,
-      explicitScope: sessionScope ?? platformSessionScope,
-    })
+  const sessionToken = getSessionTokenFromCookieHeader({
+    cookieHeader: cookieStore.toString(),
+    host,
+    explicitScope: sessionScope ?? platformSessionScope,
+  })
+  const sessionPayload = await verifySignedSessionToken({
+    expectedScope: sessionScope ?? platformSessionScope,
+    token: sessionToken,
+  })
+  const requestedUserId = sessionPayload?.userId ?? null
+  const resolvedUser = await findUserByIdAsync(requestedUserId)
   const tenantResolution = await resolveTenantAsync({
+    fallbackTenantId:
+      resolvedUser && !resolvedUser.isPlatformOwner
+        ? resolvedUser.tenantId
+        : null,
     slug: tenantSlug,
     hostname: tenantHostname ?? host,
   })
-  const resolvedUser = await findUserByIdAsync(requestedUserId)
   const user =
-    resolvedUser && tenantResolution.tenant && !resolvedUser.isPlatformOwner && resolvedUser.tenantId !== tenantResolution.tenant.id
+    resolvedUser &&
+    tenantResolution.tenant &&
+    !resolvedUser.isPlatformOwner &&
+    resolvedUser.tenantId !== tenantResolution.tenant.id
       ? null
       : resolvedUser
   const membership = await findActiveMembershipAsync({
     tenantId: tenantResolution.tenant?.id ?? user?.tenantId ?? null,
     userId: user?.id ?? null,
   })
-  const sessionToken =
-    headerStore.get("x-session-token") ??
-    getSessionTokenFromCookieHeader({
-      cookieHeader: cookieStore.toString(),
-      host,
-      explicitScope: sessionScope ?? platformSessionScope,
-    })
-
   return {
     auth: {
       membership,
@@ -117,7 +125,7 @@ export async function getDashboardServerContext() {
               userId: user.id,
             })
           : null,
-      sessionToken,
+      sessionToken: sessionPayload ? sessionToken : null,
       sessionScope,
       user,
     },
@@ -135,6 +143,7 @@ export async function getDashboardPageData(): Promise<DashboardPageData> {
       id: "platform-demo",
       slug: "platform",
       name: "Platform Demo Workspace",
+      memberNumberPrefix: null,
       currentSize: null,
       officeAddress: null,
       startDate: null,
@@ -145,7 +154,13 @@ export async function getDashboardPageData(): Promise<DashboardPageData> {
       memberCount: 0,
     } as const)
 
-  const onboarding = context.tenant ? await getTenantOnboardingState(context.tenant.id) : null
+  const onboarding = context.tenant
+    ? await getTenantOnboardingState(context.tenant.id)
+    : null
+  const dashboardMetrics =
+    context.tenant && runtime.status === "database-configured"
+      ? await getDashboardMetrics(context.tenant.id)
+      : null
   const workspaceModules =
     context.tenant && runtime.status === "database-configured"
       ? await Promise.all([
@@ -191,10 +206,27 @@ export async function getDashboardPageData(): Promise<DashboardPageData> {
 
   return {
     dashboard: buildDashboardSnapshot({
-      tenant,
+      tenant: dashboardMetrics
+        ? {
+            ...tenant,
+            memberCount: dashboardMetrics.memberCount,
+          }
+        : tenant,
       policy: {
-        reserveBuffer: defaultTenantPolicy.reserveBuffer,
+        reserveBuffer: dashboardMetrics?.reserveBuffer ?? defaultTenantPolicy.reserveBuffer,
       },
+      metrics: dashboardMetrics
+        ? {
+            activeLoans: dashboardMetrics.activeLoanCount,
+            availablePool: dashboardMetrics.availablePool,
+            collectionCoverage:
+              dashboardMetrics.totalContributions > 0
+                ? dashboardMetrics.availablePool / dashboardMetrics.totalContributions
+                : 0,
+            delinquencyRate: dashboardMetrics.delinquencyRate,
+            monthlyContributionTarget: dashboardMetrics.totalContributions,
+          }
+        : undefined,
     }),
     hasSession: Boolean(context.auth.sessionToken && context.auth.user),
     membership: context.auth.membership,

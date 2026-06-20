@@ -22,7 +22,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/web/src/lib/dev-form-fill.ts`: central dev-mode random autofill generator for signup and onboarding forms.
 - `apps/web/src/components/marketing/`: launch and pre-launch landing page sections for the public marketing surface.
 - `apps/web/src/components/signup/`: shared shell and client forms for signup verification and onboarding bootstrap.
-- `apps/web/src/components/signup/*.tsx`: public signup and onboarding forms now consume the shared `@halaal-vest/ui/hooks/use-zod-form` hook instead of a web-local duplicate.
+- `apps/web/src/components/signup/*.tsx`: public signup and onboarding forms now consume the shared `@halaalvest/ui/hooks/use-zod-form` hook instead of a web-local duplicate.
 - `apps/dashboard/`: Next.js tenant application serving the public tenant homepage, shared login/signup, and protected workspace routes on the same host.
 - `apps/dashboard/src/`: Midday-style dashboard application root with grouped routes, shell components, domain tables, forms, and route/data helpers.
 - `apps/dashboard/src/app/page.tsx`: tenant-root entrypoint that chooses between the public tenant homepage and the authenticated dashboard overview.
@@ -46,6 +46,8 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/dashboard/src/app/(app)/(sidebar)/settings/roles/page.tsx`: tenant-user role provisioning and current-role visibility workspace.
 - `apps/dashboard/src/app/(app)/(sidebar)/settings/imports/page.tsx`: centralized staff import and migration workspace for members, records, and legacy finance data.
 - `apps/dashboard/src/components/dashboard/`: canonical Midday-style dashboard shell, topbar, sidebar, page frame, summary helpers, and section/surface components.
+- `apps/dashboard/src/components/search-filter/`: reusable Midday-style list search/filter module with typed wrapper, panel, field renderer, active filter pills, and label utilities.
+- `apps/dashboard/src/components/members/`: member-list page widgets including the search toolbar and summary cards.
 - `apps/dashboard/src/components/tables/`: domain-specific table/page compositions plus shared table atoms in `core/`.
 - `apps/dashboard/src/components/forms/`: reusable dashboard client forms built on shared shadcn-style primitives and `useZodForm`.
 - `apps/dashboard/src/components/signup-links/`: member-signup access mode, link creation, copying, rotation, and per-link management UI.

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import {
+  checkTenantSignupAvailability,
   createNotificationOutboxEntry,
   updateNotificationOutboxDelivery,
-} from "@halaal-vest/db"
-import { createSignupVerificationEmail } from "@halaal-vest/notifications"
+} from "@halaalvest/db"
+import { createSignupVerificationEmail } from "@halaalvest/notifications"
 import { createServerNotificationService } from "@/lib/server-notifications"
 import { createSignedSignupToken } from "@/lib/signup-token"
 import {
@@ -14,6 +15,23 @@ import {
 export async function POST(request: Request) {
   try {
     const input = signupIntentSchema.parse(await request.json())
+    const availability = await checkTenantSignupAvailability({
+      cooperativeName: input.cooperativeName,
+      workspaceSlug: input.workspaceSlug,
+    })
+
+    if (!availability.cooperativeName.available || !availability.workspaceSlug.available) {
+      return NextResponse.json(
+        {
+          availability,
+          error: !availability.cooperativeName.available
+            ? "That cooperative name is already in use."
+            : "That workspace subdomain is not available.",
+        },
+        { status: 409 },
+      )
+    }
+
     const payload = createSignupVerificationPayload(input)
     const token = createSignedSignupToken(payload)
     const onboardingUrl = new URL("/onboarding", request.url)

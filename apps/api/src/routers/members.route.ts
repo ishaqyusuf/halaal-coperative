@@ -6,7 +6,7 @@ import {
   createMember,
   updateMember,
   updateMemberStatus,
-} from "@halaal-vest/db"
+} from "@halaalvest/db"
 
 export const membersRouter = createTRPCRouter({
   list: tenantProcedure

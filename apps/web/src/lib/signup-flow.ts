@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { isReservedTenantSubdomainLabel } from "@halaalvest/utils"
 
 export function normalizeWorkspaceSlug(value: string) {
   return value
@@ -7,6 +8,26 @@ export function normalizeWorkspaceSlug(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
 }
+
+export function createWorkspaceSlugSuggestion(value: string) {
+  return normalizeWorkspaceSlug(
+    value
+      .replace(/\bco[-\s]?operative\b/gi, " ")
+      .replace(/\bcoop\b/gi, " "),
+  )
+}
+
+export function isReservedWorkspaceSlug(value: string) {
+  return isReservedTenantSubdomainLabel(value)
+}
+
+const workspaceSlugSchema = z
+  .string()
+  .trim()
+  .min(2, "Choose a workspace subdomain.")
+  .max(63, "Keep the workspace subdomain under 63 characters.")
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers, and hyphens only.")
+  .refine((value) => !isReservedWorkspaceSlug(value), "That workspace subdomain is reserved.")
 
 function positiveIntegerField(message: string) {
   return z.preprocess((value) => {
@@ -28,6 +49,8 @@ export const signupIntentSchema = z.object({
   cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
   primaryContactEmail: z.email("Enter a valid email address."),
   primaryContactFullName: z.string().trim().min(2, "Enter the primary contact name."),
+  primaryContactMemberNumber: z.string().trim().min(1, "Enter the primary contact cooperative number."),
+  workspaceSlug: workspaceSlugSchema,
 })
 
 export const signupVerificationPayloadSchema = z.object({
@@ -36,7 +59,8 @@ export const signupVerificationPayloadSchema = z.object({
   issuedAt: z.string().datetime(),
   primaryContactEmail: z.email(),
   primaryContactFullName: z.string().trim().min(2),
-  workspaceSlug: z.string().trim().min(2).regex(/^[a-z0-9-]+$/),
+  primaryContactMemberNumber: z.string().trim().min(1),
+  workspaceSlug: workspaceSlugSchema,
 })
 
 export const onboardingFormSchema = z.object({
@@ -45,6 +69,7 @@ export const onboardingFormSchema = z.object({
   officeAddress: z.string().trim().min(10, "Enter the cooperative office address."),
   primaryContactEmail: z.email("Enter a valid email address."),
   primaryContactFullName: z.string().trim().min(2, "Enter the primary contact name."),
+  primaryContactMemberNumber: z.string().trim().min(1, "Enter the primary contact cooperative number."),
   startDate: z
     .string()
     .trim()
@@ -66,7 +91,8 @@ export function createSignupVerificationPayload(input: SignupIntentInput): Signu
     cooperativeName: input.cooperativeName.trim(),
     primaryContactEmail: input.primaryContactEmail.trim().toLowerCase(),
     primaryContactFullName: input.primaryContactFullName.trim(),
-    workspaceSlug: normalizeWorkspaceSlug(input.cooperativeName),
+    primaryContactMemberNumber: input.primaryContactMemberNumber.trim(),
+    workspaceSlug: normalizeWorkspaceSlug(input.workspaceSlug),
   }
 }
 
@@ -77,6 +103,7 @@ export function getOnboardingDefaultsFromVerification(payload: SignupVerificatio
     officeAddress: "",
     primaryContactEmail: payload.primaryContactEmail,
     primaryContactFullName: payload.primaryContactFullName,
+    primaryContactMemberNumber: payload.primaryContactMemberNumber,
     startDate: "",
     token: "",
   }

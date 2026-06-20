@@ -6,6 +6,7 @@ import { membersRouter } from "./members.route"
 import { contributionsRouter } from "./contributions.route"
 import { chargesRouter } from "./charges.route"
 import { onboardingRouter } from "./onboarding.route"
+import { filtersRouter } from "./filters.route"
 
 export const appRouter = createTRPCRouter({
   health: healthRouter,
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   contributions: contributionsRouter,
   charges: chargesRouter,
   onboarding: onboardingRouter,
+  filters: filtersRouter,
 })
 
 export type AppRouter = typeof appRouter

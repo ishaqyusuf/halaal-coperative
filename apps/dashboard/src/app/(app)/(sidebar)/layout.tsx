@@ -1,8 +1,9 @@
-import { normalizeRole } from "@halaal-vest/auth"
+import { normalizeRole } from "@halaalvest/auth"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { DashboardShellClient } from "@/components/dashboard"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
+import { canAccessDashboardPath } from "@/lib/navigation/lib"
 import { getDashboardServerContext } from "@/lib/server-context"
 
 export default async function SidebarLayout({
@@ -29,6 +30,11 @@ export default async function SidebarLayout({
   }
 
   const role = normalizeRole(context.auth.membership?.role ?? null)
+
+  if (!canAccessDashboardPath(nextPath, role)) {
+    redirect("/")
+  }
+
   const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
   const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
 

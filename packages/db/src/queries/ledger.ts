@@ -14,6 +14,7 @@ const STANDARD_CHART_OF_ACCOUNTS: LedgerAccountSeed[] = [
   { code: "2000", name: "Cash / Bank", accountType: "asset", isSystem: true },
   { code: "3000", name: "Charge Income", accountType: "income", isSystem: true },
   { code: "3100", name: "Levy Income", accountType: "income", isSystem: true },
+  { code: "3200", name: "Member Share Capital", accountType: "equity", isSystem: true },
   { code: "4000", name: "Cooperative Equity", accountType: "equity", isSystem: true },
 ]
 

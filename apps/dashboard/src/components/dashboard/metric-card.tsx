@@ -1,4 +1,4 @@
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { cn } from "@halaalvest/ui/lib/utils"
 
 export function DashboardStatCard({
   detail,

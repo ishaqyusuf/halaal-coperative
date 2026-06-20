@@ -1,5 +1,5 @@
-import { buttonVariants } from "@halaal-vest/ui/components/button"
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { buttonVariants } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { MemberSignupForm } from "@/components/onboarding/member-signup-form"
 import { resolveMemberSignupGate } from "@/lib/member-signup-access"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -79,6 +79,7 @@ export default async function MemberSignupPage({
         {context.tenant && gate?.access === "granted" ? (
           <MemberSignupForm
             devMode={process.env.NODE_ENV !== "production"}
+            memberNumberPrefix={context.tenant.memberNumberPrefix}
             signupToken={gate.token}
             tenantName={context.tenant.name}
           />

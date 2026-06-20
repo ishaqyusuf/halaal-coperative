@@ -9,7 +9,7 @@ function getSignupTokenSecret() {
   }
 
   if (process.env.NODE_ENV !== "production") {
-    return "halaal-vest-dev-signup-secret"
+    return "halaalvest-dev-signup-secret"
   }
 
   throw new Error("HALAAL_VEST_SIGNUP_TOKEN_SECRET must be configured in production.")

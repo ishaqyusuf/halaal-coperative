@@ -1,5 +1,5 @@
-import { buildDashboardSnapshot, defaultTenantPolicy } from "@halaal-vest/domain"
-import { getDashboardMetrics } from "@halaal-vest/db"
+import { buildDashboardSnapshot, defaultTenantPolicy } from "@halaalvest/domain"
+import { getDashboardMetrics } from "@halaalvest/db"
 
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
 

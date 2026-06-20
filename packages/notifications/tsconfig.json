@@ -1,5 +1,5 @@
 {
-  "extends": "@halaal-vest/tsconfig/base.json",
+  "extends": "@halaalvest/tsconfig/base.json",
   "compilerOptions": {
     "outDir": "dist"
   },

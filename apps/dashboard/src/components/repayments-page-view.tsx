@@ -1,8 +1,9 @@
-import { Button } from "@halaal-vest/ui/components/button"
-import { formatCurrency } from "@halaal-vest/utils"
+import { Button } from "@halaalvest/ui/components/button"
+import type { PageFilterData } from "@halaalvest/utils"
+import { formatCurrency } from "@halaalvest/utils"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspacePageShell } from "@/components/dashboard"
 import { CollectionFollowUpForm, RepaymentPostForm } from "@/components/forms/finance-forms"
-import { RepaymentFilterForm } from "@/components/forms/misc-forms"
+import { RepaymentsHeader } from "@/components/repayments-header"
 import { refreshCollectionsStatusesAction } from "@/lib/dashboard-actions"
 
 export function RepaymentsPageView({
@@ -11,6 +12,7 @@ export function RepaymentsPageView({
   canPostRepayment,
   dashboard,
   escalatedItems,
+  filterList,
   from,
   highPriorityItems,
   loans,
@@ -32,6 +34,7 @@ export function RepaymentsPageView({
   canPostRepayment: boolean
   dashboard: { collectionCoverage: number }
   escalatedItems: Array<any>
+  filterList?: PageFilterData[]
   from: string
   highPriorityItems: Array<any>
   loans: Array<any>
@@ -50,10 +53,15 @@ export function RepaymentsPageView({
 }) {
   return (
     <WorkspacePageShell eyebrow="Repayments" title="Repayment tracking" description="Track due schedules, collections follow-up, resolved queues, and recent repayments from one servicing workspace.">
-      <RepaymentFilterForm
-        assignees={assignees}
-        defaultValues={{ assignedToUserId, from, memberId, resolutionStatus, scheduleStatus, stage, to }}
-        members={uniqueMembers.map((member) => ({ id: member.id, label: `${member.fullName} (${member.memberNumber})` }))}
+      <RepaymentsHeader
+        actions={
+          canPostRepayment ? (
+            <form action={refreshCollectionsStatusesAction}>
+              <Button type="submit" variant="outline" className="rounded-full">Refresh collections status</Button>
+            </form>
+          ) : undefined
+        }
+        filterList={filterList}
       />
 
       {canPostRepayment ? (
@@ -76,14 +84,6 @@ export function RepaymentsPageView({
         <DashboardStatCard label="High priority" value={highPriorityItems.length.toString()} detail="Collections items flagged as high priority." tone={highPriorityItems.length ? "warning" : "default"} />
         <DashboardStatCard label="Escalated" value={escalatedItems.length.toString()} detail="Cases already escalated beyond the initial collection pass." />
       </section>
-
-      {canPostRepayment ? (
-        <div className="flex justify-end">
-          <form action={refreshCollectionsStatusesAction}>
-            <Button type="submit" variant="outline" className="rounded-full">Refresh collections status</Button>
-          </form>
-        </div>
-      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-2">
         <DashboardSectionCard>

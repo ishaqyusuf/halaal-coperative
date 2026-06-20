@@ -1,6 +1,6 @@
-import { formatCurrency, formatPercent } from "@halaal-vest/utils"
-import { Badge } from "@halaal-vest/ui/components/badge"
-import { Button } from "@halaal-vest/ui/components/button"
+import { formatCurrency, formatPercent } from "@halaalvest/utils"
+import { Badge } from "@halaalvest/ui/components/badge"
+import { Button } from "@halaalvest/ui/components/button"
 import {
   DashboardPageHeader,
   DashboardPageStack,
@@ -13,9 +13,11 @@ import {
 import { getDashboardPageData } from "@/lib/server-context"
 
 function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short", year: "numeric" }).format(
-    new Date(value),
-  )
+  return new Intl.DateTimeFormat("en-NG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value))
 }
 
 export async function DashboardOverviewPage() {
@@ -31,8 +33,12 @@ export async function DashboardOverviewPage() {
     workspaceModules,
   } = await getDashboardPageData()
 
-  const collectionGap = Math.max(0, dashboard.monthlyContributionTarget - dashboard.availablePool)
-  const onboardingTone = onboarding?.completionRatio === 1 ? "positive" : "warning"
+  const collectionGap = Math.max(
+    0,
+    dashboard.monthlyContributionTarget - dashboard.availablePool
+  )
+  const onboardingTone =
+    onboarding?.completionRatio === 1 ? "positive" : "warning"
 
   return (
     <DashboardPageStack>
@@ -45,7 +51,11 @@ export async function DashboardOverviewPage() {
             <Button className="rounded-full">Open operations</Button>
           </>
         }
-        badge={runtime.status === "database-configured" ? "Live runtime" : "Seed runtime"}
+        badge={
+          runtime.status === "database-configured"
+            ? "Live runtime"
+            : "Seed runtime"
+        }
         description="A Midday-style operations overview for cooperative cash position, workflow readiness, onboarding progress, and the latest member finance activity."
         eyebrow="Overview"
         title={`${tenant.name} workspace`}
@@ -84,21 +94,33 @@ export async function DashboardOverviewPage() {
             eyebrow="Control center"
             title="Finance posture and decision context"
             description="Match the speed of the daily work queue with the safeguards the finance team needs before approving or reversing money movements."
-            actions={<TrendPill tone={collectionGap > 0 ? "warning" : "positive"}>{collectionGap > 0 ? `${formatCurrency(collectionGap)} collection gap` : "Target covered"}</TrendPill>}
+            actions={
+              <TrendPill tone={collectionGap > 0 ? "warning" : "positive"}>
+                {collectionGap > 0
+                  ? `${formatCurrency(collectionGap)} collection gap`
+                  : "Target covered"}
+              </TrendPill>
+            }
           />
 
           <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <DashboardSurfaceCard className="rounded-[22px] p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  <p className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
                     Current runway
                   </p>
                   <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                     {formatCurrency(dashboard.availablePool)}
                   </h3>
                 </div>
-                <TrendPill tone={dashboard.collectionCoverage >= 0.75 ? "positive" : "warning"}>
+                <TrendPill
+                  tone={
+                    dashboard.collectionCoverage >= 0.75
+                      ? "positive"
+                      : "warning"
+                  }
+                >
                   {formatPercent(dashboard.collectionCoverage)} coverage
                 </TrendPill>
               </div>
@@ -111,40 +133,59 @@ export async function DashboardOverviewPage() {
                   <div className="h-2 rounded-full bg-border/70">
                     <div
                       className="h-2 rounded-full bg-foreground"
-                      style={{ width: `${Math.min(100, Math.round(dashboard.collectionCoverage * 100))}%` }}
+                      style={{
+                        width: `${Math.min(100, Math.round(dashboard.collectionCoverage * 100))}%`,
+                      }}
                     />
                   </div>
                 </div>
                 <dl className="grid gap-3 sm:grid-cols-3">
                   <DashboardSurfaceCard className="bg-card">
-                    <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Members</dt>
-                    <dd className="mt-2 text-lg font-semibold text-foreground">{dashboard.memberCount}</dd>
+                    <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                      Members
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-foreground">
+                      {dashboard.memberCount}
+                    </dd>
                   </DashboardSurfaceCard>
                   <DashboardSurfaceCard className="bg-card">
-                    <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Session</dt>
-                    <dd className="mt-2 text-lg font-semibold text-foreground">{hasSession ? "Active" : "Anonymous"}</dd>
+                    <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                      Session
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-foreground">
+                      {hasSession ? "Active" : "Anonymous"}
+                    </dd>
                   </DashboardSurfaceCard>
                   <DashboardSurfaceCard className="bg-card">
-                    <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Routing</dt>
-                    <dd className="mt-2 text-lg font-semibold capitalize text-foreground">{tenantResolution.resolvedBy}</dd>
+                    <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                      Routing
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-foreground capitalize">
+                      {tenantResolution.resolvedBy}
+                    </dd>
                   </DashboardSurfaceCard>
                 </dl>
               </div>
             </DashboardSurfaceCard>
 
             <DashboardSectionCard className="rounded-[22px] p-5 sm:p-5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
                 Immediate focus
               </p>
               <div className="mt-4 space-y-3">
                 <DashboardSurfaceCard>
-                  <p className="text-sm font-medium text-foreground">Approvals and disbursement readiness</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Approvals and disbursement readiness
+                  </p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Strengthen the approval lane before automated disbursement is enabled across tenants.
+                    Strengthen the approval lane before automated disbursement
+                    is enabled across tenants.
                   </p>
                 </DashboardSurfaceCard>
                 <DashboardSurfaceCard>
-                  <p className="text-sm font-medium text-foreground">Workspace setup progress</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Workspace setup progress
+                  </p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {onboarding
                       ? `${onboarding.completedStepCount} of ${onboarding.totalStepCount} onboarding steps are complete.`
@@ -152,9 +193,13 @@ export async function DashboardOverviewPage() {
                   </p>
                 </DashboardSurfaceCard>
                 <DashboardSurfaceCard>
-                  <p className="text-sm font-medium text-foreground">Role in session</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Role in session
+                  </p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {membership ? membership.role : "No active membership loaded for this session."}
+                    {membership
+                      ? membership.role
+                      : "No active membership loaded for this session."}
                   </p>
                 </DashboardSurfaceCard>
               </div>
@@ -167,34 +212,83 @@ export async function DashboardOverviewPage() {
             eyebrow="Bootstrap"
             title="Tenant readiness"
             description="Operational basics, routing state, and configuration progress needed before the tenant workspace feels fully production-ready."
-            actions={<TrendPill tone={onboardingTone}>{onboarding ? `${formatPercent(onboarding.completionRatio)} configured` : "Not started"}</TrendPill>}
+            actions={
+              <TrendPill tone={onboardingTone}>
+                {onboarding
+                  ? `${formatPercent(onboarding.completionRatio)} configured`
+                  : "Not started"}
+              </TrendPill>
+            }
           />
 
           <div className="mt-5 space-y-3">
             <DashboardSurfaceCard>
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Tenant host</p>
+              <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                Tenant host
+              </p>
               <p className="mt-2 text-sm font-medium text-foreground">
                 {onboarding?.primaryDashboardHostname ?? "Not configured yet"}
               </p>
             </DashboardSurfaceCard>
             <DashboardSurfaceCard>
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Legacy dashboard alias</p>
+              <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                Legacy dashboard alias
+              </p>
               <p className="mt-2 text-sm font-medium text-foreground">
                 {onboarding?.primarySiteHostname ?? "Not configured yet"}
               </p>
             </DashboardSurfaceCard>
             <DashboardSurfaceCard>
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+              <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                Status
+              </p>
               <div className="mt-2 flex items-center gap-2">
-                <TrendPill tone={onboardingTone}>{onboarding?.status ?? tenant.status}</TrendPill>
-                <span className="text-sm text-muted-foreground">{tenant.currencyCode} · {tenant.timezone}</span>
+                <TrendPill tone={onboardingTone}>
+                  {onboarding?.status ?? tenant.status}
+                </TrendPill>
+                <span className="text-sm text-muted-foreground">
+                  {tenant.currencyCode} · {tenant.timezone}
+                </span>
               </div>
             </DashboardSurfaceCard>
+            {onboarding ? (
+              <DashboardSurfaceCard>
+                <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                  Setup checklist
+                </p>
+                <div className="mt-4 space-y-3">
+                  {onboarding.steps.map((step) => (
+                    <div
+                      key={step.key}
+                      className="flex items-start justify-between gap-3"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {step.label}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {step.description}
+                        </p>
+                      </div>
+                      <TrendPill tone={step.complete ? "positive" : "warning"}>
+                        {step.complete ? "Done" : "Open"}
+                      </TrendPill>
+                    </div>
+                  ))}
+                </div>
+              </DashboardSurfaceCard>
+            ) : null}
             <DashboardSurfaceCard>
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Product areas scaffolded</p>
+              <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                Product areas scaffolded
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {productAreas.map((area) => (
-                  <Badge key={area.title} variant="outline" className="rounded-full px-2.5 py-1">
+                  <Badge
+                    key={area.title}
+                    variant="outline"
+                    className="rounded-full px-2.5 py-1"
+                  >
                     {area.title}
                   </Badge>
                 ))}
@@ -209,7 +303,9 @@ export async function DashboardOverviewPage() {
           <DashboardSectionHeader
             eyebrow="Members"
             title="Recent member records"
-            actions={<TrendPill>{workspaceModules.members.length} loaded</TrendPill>}
+            actions={
+              <TrendPill>{workspaceModules.members.length} loaded</TrendPill>
+            }
           />
 
           <div className="mt-5 space-y-3">
@@ -218,9 +314,12 @@ export async function DashboardOverviewPage() {
                 <DashboardSurfaceCard key={member.id}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-medium text-foreground">{member.fullName}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        {member.memberNumber} · {member.memberType.replace(/_/g, " ")}
+                      <p className="text-sm font-medium text-foreground">
+                        {member.fullName}
+                      </p>
+                      <p className="mt-1 text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                        {member.memberNumber} ·{" "}
+                        {member.memberType.replace(/_/g, " ")}
                       </p>
                     </div>
                     <TrendPill>{member.status}</TrendPill>
@@ -229,7 +328,8 @@ export async function DashboardOverviewPage() {
               ))
             ) : (
               <p className="text-sm leading-7 text-muted-foreground">
-                Connect a configured database runtime to surface the first member queue here.
+                Connect a configured database runtime to surface the first
+                member queue here.
               </p>
             )}
           </div>
@@ -239,7 +339,11 @@ export async function DashboardOverviewPage() {
           <DashboardSectionHeader
             eyebrow="Contributions"
             title="Latest posted activity"
-            actions={<TrendPill>{workspaceModules.contributions.length} loaded</TrendPill>}
+            actions={
+              <TrendPill>
+                {workspaceModules.contributions.length} loaded
+              </TrendPill>
+            }
           />
 
           <div className="mt-5 space-y-3">
@@ -248,21 +352,28 @@ export async function DashboardOverviewPage() {
                 <DashboardSurfaceCard key={contribution.id}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-medium text-foreground">{contribution.memberName}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      <p className="text-sm font-medium text-foreground">
+                        {contribution.memberName}
+                      </p>
+                      <p className="mt-1 text-xs tracking-[0.18em] text-muted-foreground uppercase">
                         {contribution.channel} · {contribution.status}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-foreground">{formatCurrency(contribution.amount)}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{formatShortDate(contribution.postedAt)}</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {formatCurrency(contribution.amount)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {formatShortDate(contribution.postedAt)}
+                      </p>
                     </div>
                   </div>
                 </DashboardSurfaceCard>
               ))
             ) : (
               <p className="text-sm leading-7 text-muted-foreground">
-                Recent contribution postings will appear here once live tenant finance data is available.
+                Recent contribution postings will appear here once live tenant
+                finance data is available.
               </p>
             )}
           </div>
@@ -272,7 +383,11 @@ export async function DashboardOverviewPage() {
           <DashboardSectionHeader
             eyebrow="Charges"
             title="Active charge setup"
-            actions={<TrendPill>{workspaceModules.chargeDefinitions.length} active rules</TrendPill>}
+            actions={
+              <TrendPill>
+                {workspaceModules.chargeDefinitions.length} active rules
+              </TrendPill>
+            }
           />
 
           <div className="mt-5 space-y-3">
@@ -281,23 +396,30 @@ export async function DashboardOverviewPage() {
                 <DashboardSurfaceCard key={charge.id}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-medium text-foreground">{charge.name}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      <p className="text-sm font-medium text-foreground">
+                        {charge.name}
+                      </p>
+                      <p className="mt-1 text-xs tracking-[0.18em] text-muted-foreground uppercase">
                         {charge.code} · {charge.kind.replace(/_/g, " ")}
                       </p>
                     </div>
                     <div className="text-right">
-                      <TrendPill tone={charge.isActive ? "positive" : "warning"}>
+                      <TrendPill
+                        tone={charge.isActive ? "positive" : "warning"}
+                      >
                         {charge.isActive ? "Active" : "Inactive"}
                       </TrendPill>
-                      <p className="mt-2 text-sm font-semibold text-foreground">{formatCurrency(charge.amount)}</p>
+                      <p className="mt-2 text-sm font-semibold text-foreground">
+                        {formatCurrency(charge.amount)}
+                      </p>
                     </div>
                   </div>
                 </DashboardSurfaceCard>
               ))
             ) : (
               <p className="text-sm leading-7 text-muted-foreground">
-                Charge definitions will surface here after the tenant finance setup is configured.
+                Charge definitions will surface here after the tenant finance
+                setup is configured.
               </p>
             )}
           </div>

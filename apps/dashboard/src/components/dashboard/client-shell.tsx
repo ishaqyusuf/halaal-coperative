@@ -2,11 +2,12 @@
 
 import { useState } from "react"
 import { usePathname } from "next/navigation"
-import type { CooperativeRole } from "@halaal-vest/auth"
+import type { CooperativeRole } from "@halaalvest/auth"
 import {
   getDashboardQuickLinks,
   getDashboardRouteTitle,
 } from "@/lib/navigation/lib"
+import { GlobalSheetsProvider } from "@/components/sheets/global-sheets-provider"
 import { DASHBOARD_SIDEBAR_COLLAPSED_WIDTH } from "./constants"
 import { DashboardPageFrame } from "./page"
 import { DashboardSidebar } from "./sidebar"
@@ -47,6 +48,7 @@ export function DashboardShellClient({
         tenantName={tenantName}
         userName={userName}
       />
+      <GlobalSheetsProvider />
 
       <div className="md:[padding-left:var(--dashboard-sidebar-offset)]">
         <DashboardTopbar

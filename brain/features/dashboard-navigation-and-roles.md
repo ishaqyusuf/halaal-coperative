@@ -1,13 +1,16 @@
 # Dashboard Navigation And Roles
 
 ## Summary
+
 - The dashboard now uses a role-filtered navigation registry and shared shell so cooperative routes can scale beyond the initial scaffold page.
 - The authenticated workspace now also uses a Midday-inspired UI slice with dedicated shell and primitive components so route pages can share a denser operational dashboard language.
 
 ## Goal
+
 - Create a structured workspace navigation system for members, finance, experience, and settings routes without introducing a full permission matrix yet.
 
 ## Flow
+
 - `apps/dashboard/app/layout.tsx` loads tenant and auth context server-side.
 - `apps/dashboard/components/dashboard-shell-client.tsx` resolves the current pathname and active role client-side.
 - `apps/dashboard/components/dashboard/shell/` owns the sidebar, topbar, and page frame for the authenticated dashboard.
@@ -18,6 +21,7 @@
 - Individual route pages still own their data loading and render inside the shared shell.
 
 ## Roles
+
 - `super_admin`
 - `tenant_admin`
 - `finance_officer`
@@ -25,6 +29,7 @@
 - `member`
 
 ## Current Routes
+
 - `/`
 - `/members`
 - `/contributions`
@@ -37,8 +42,12 @@
 - `/settings/roles`
 
 ## Notes
+
 - The role model is intentionally simple for now.
 - UI visibility is role-based; a deeper permission system is deferred.
+- Authenticated dashboard routes are prefiltered by `apps/dashboard/src/proxy.ts` and then enforced again by the protected `(sidebar)` layout.
+- The protected layout also applies the navigation registry's role rules as a server-side route gate, so hidden staff/admin pages cannot be opened directly by URL.
+- Dashboard sessions are signed, expiring, and scoped to the current platform or tenant host; client-supplied `x-user-id` and `x-session-token` headers are not trusted.
 - The shell now uses a Midday-style density target: fixed hover-expand sidebar, compact sticky topbar, tokenized section cards, KPI strips, and flatter table/list surfaces.
 - `/` now acts as the primary UI reference page for the dashboard system, while the main operational, reporting, experience, settings, and member-detail routes now reuse the same primitives.
 - Member detail, printable statement, and the audit viewer now also follow the same Midday-inspired drill-down layout language instead of falling back to the earlier page-specific card stack.

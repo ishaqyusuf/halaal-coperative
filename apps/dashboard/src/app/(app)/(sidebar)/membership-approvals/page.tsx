@@ -1,11 +1,9 @@
 import {
   createDbRuntime,
+  getMembershipApprovalFilterMetadata,
   getTenantMemberSignupSettings,
   listMemberOnboardingRequests,
-} from "@halaal-vest/db"
-import { Button } from "@halaal-vest/ui/components/button"
-import { Input } from "@halaal-vest/ui/components/input"
-import { Select } from "@halaal-vest/ui/components/select"
+} from "@halaalvest/db"
 import {
   DashboardDataTable,
   DashboardActionLink,
@@ -20,7 +18,9 @@ import {
   DashboardTableRow,
   TrendPill,
 } from "@/components/dashboard"
+import { MembershipApprovalsHeader } from "@/components/membership-approvals-header"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
+import { loadMembershipApprovalsFilterParams } from "@/hooks/use-membership-approvals-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, memberManagementRoles } from "@/lib/workspace-access"
 
@@ -29,13 +29,13 @@ export default async function MembershipApprovalsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const params = await searchParams
+  const params = loadMembershipApprovalsFilterParams(await searchParams)
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
   const canManage = hasAnyRole(context.auth.membership?.role, memberManagementRoles)
-  const search = typeof params.search === "string" ? params.search : undefined
+  const search = params.search ?? undefined
   const status =
-    typeof params.status === "string" &&
+    params.status &&
     ["pending_email_verification", "pending_approval", "approved", "rejected", "cancelled"].includes(params.status)
       ? params.status
       : undefined
@@ -55,7 +55,8 @@ export default async function MembershipApprovalsPage({
     )
   }
 
-  const [requests, signupSettings] = await Promise.all([
+  const [filterList, requests, signupSettings] = await Promise.all([
+    getMembershipApprovalFilterMetadata(),
     listMemberOnboardingRequests(context.tenant.id, {
       page: 1,
       pageSize: 50,
@@ -95,29 +96,9 @@ export default async function MembershipApprovalsPage({
           }
         />
 
-        <form className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
-          <Input
-            className="rounded-full px-4"
-            defaultValue={search ?? ""}
-            name="search"
-            placeholder="Search name, email, phone, or cooperative number"
-          />
-          <Select
-            className="rounded-full px-4"
-            defaultValue={status ?? ""}
-            name="status"
-          >
-            <option value="">All statuses</option>
-            <option value="pending_email_verification">Pending email verification</option>
-            <option value="pending_approval">Pending approval</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="cancelled">Cancelled</option>
-          </Select>
-          <Button className="rounded-full" type="submit" variant="outline">
-            Apply
-          </Button>
-        </form>
+        <div className="mt-5">
+          <MembershipApprovalsHeader filterList={filterList} />
+        </div>
 
         {canManage ? (
           <div className="mt-5">

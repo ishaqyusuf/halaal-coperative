@@ -3,8 +3,8 @@ import {
   createDbRuntime,
   getTenantMemberSignupSettings,
   listMemberSignupLinks,
-} from "@halaal-vest/db"
-import { buildTenantDashboardUrl } from "@halaal-vest/utils"
+} from "@halaalvest/db"
+import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import {
   DashboardActionLink,
   DashboardSectionCard,

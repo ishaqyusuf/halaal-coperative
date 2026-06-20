@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { Button } from "@halaal-vest/ui/components/button"
+import { Button } from "@halaalvest/ui/components/button"
 import { resendMemberVerificationAction } from "@/lib/public-actions"
 import { getDashboardServerContext } from "@/lib/server-context"
 

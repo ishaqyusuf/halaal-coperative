@@ -80,6 +80,9 @@ model BackfillBatch {
   rangeStart      DateTime            @map("range_start") @db.Date
   rangeEnd        DateTime            @map("range_end") @db.Date
   status          BackfillBatchStatus @default(draft)
+  draftInput      Json?               @map("draft_input")
+  warnings        Json?
+  summary         Json?
   generatedAt     DateTime?           @map("generated_at") @db.Timestamptz(6)
   approvedAt      DateTime?           @map("approved_at") @db.Timestamptz(6)
   appliedAt       DateTime?           @map("applied_at") @db.Timestamptz(6)
@@ -104,6 +107,7 @@ model BackfillMonthRow {
   batchId            String   @map("batch_id") @db.Uuid
   year               Int
   month              Int
+  rowStatus          String   @default("active") @map("row_status")
   amount             Decimal  @db.Decimal(18, 2)
   charge             Decimal  @default(0) @db.Decimal(18, 2)
   loanCollected      Decimal  @default(0) @map("loan_collected") @db.Decimal(18, 2)
@@ -111,8 +115,11 @@ model BackfillMonthRow {
   monthlyTopup       Decimal  @default(0) @map("monthly_topup") @db.Decimal(18, 2)
   pendingLoanPayment Decimal  @default(0) @map("pending_loan_payment") @db.Decimal(18, 2)
   share              Decimal  @default(0) @db.Decimal(18, 2)
+  dividend           Decimal  @default(0) @db.Decimal(18, 2)
   totalShare         Decimal  @default(0) @map("total_share") @db.Decimal(18, 2)
   total              Decimal  @default(0) @db.Decimal(18, 2)
+  chargeBreakdown    Json?    @map("charge_breakdown")
+  metadata           Json?
   isGenerated        Boolean  @default(true) @map("is_generated")
   isEdited           Boolean  @default(false) @map("is_edited")
   notes              String?

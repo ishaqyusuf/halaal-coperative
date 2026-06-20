@@ -2,9 +2,10 @@
 
 import { useTransition } from "react"
 import { z } from "zod"
-import { useNotifications } from "@halaal-vest/notifications-react"
-import { Button } from "@halaal-vest/ui/components/button"
-import { Checkbox } from "@halaal-vest/ui/components/checkbox"
+import { useNotifications } from "@halaalvest/notifications-react"
+import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
+import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import {
   Form,
   FormControl,
@@ -12,11 +13,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@halaal-vest/ui/components/form"
-import { Input } from "@halaal-vest/ui/components/input"
-import { Select } from "@halaal-vest/ui/components/select"
-import { Textarea } from "@halaal-vest/ui/components/textarea"
-import { useZodForm } from "@halaal-vest/ui/hooks/use-zod-form"
+} from "@halaalvest/ui/components/form"
+import { Input } from "@halaalvest/ui/components/input"
+import { Select } from "@halaalvest/ui/components/select"
+import { Textarea } from "@halaalvest/ui/components/textarea"
+import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import {
   applyChargeAction,
@@ -32,6 +33,28 @@ import {
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
 import { closeContributionPlanAction, disburseLoanAction } from "@/lib/dashboard-actions"
+
+function CurrencyFormInput({
+  onChange,
+  placeholder,
+  value,
+}: {
+  onChange: (value: string) => void
+  placeholder?: string
+  value?: string
+}) {
+  return (
+    <CurrencyInput
+      allowNegative={false}
+      decimalScale={2}
+      inputMode="decimal"
+      placeholder={placeholder}
+      value={value ?? ""}
+      valueIsNumericString
+      onValueChange={(values) => onChange(values.value)}
+    />
+  )
+}
 
 const contributionPlanSchema = z.object({
   amount: z.string().min(1, "Monthly commitment is required."),
@@ -132,7 +155,7 @@ export function ContributionPlanForm({
             <FormItem>
               <FormLabel>Monthly commitment</FormLabel>
               <FormControl>
-                <Input {...field} inputMode="decimal" placeholder="25000" />
+                <CurrencyFormInput {...field} placeholder="25000" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -349,7 +372,11 @@ export function MemberPaymentForm({
               <FormItem>
                 <FormLabel>{label}</FormLabel>
                 <FormControl>
-                  <Input {...field} value={(field.value as string | undefined) ?? ""} inputMode="decimal" placeholder={placeholder} />
+                  <CurrencyFormInput
+                    onChange={field.onChange}
+                    value={field.value as string | undefined}
+                    placeholder={placeholder}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -427,6 +454,7 @@ const chargeDefinitionSchema = z.object({
   appliesToLoans: z.boolean().default(false),
   appliesToMembers: z.boolean().default(true),
   code: z.string().min(1, "Code is required."),
+  effectiveFrom: z.string().min(1, "Start date is required."),
   isMonthlyLevy: z.boolean().default(false),
   kind: z.enum(["fixed", "percentage"]),
   name: z.string().min(1, "Name is required."),
@@ -442,6 +470,7 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
       appliesToLoans: false,
       appliesToMembers: true,
       code: "",
+      effectiveFrom: "",
       isMonthlyLevy: false,
       kind: "fixed",
       name: "",
@@ -461,6 +490,7 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
           appliesToLoans: false,
           appliesToMembers: true,
           code: "",
+          effectiveFrom: "",
           isMonthlyLevy: false,
           kind: "fixed",
           name: "",
@@ -514,7 +544,14 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
         <FormField control={form.control} name="amount" render={({ field }) => (
           <FormItem>
             <FormLabel>Amount</FormLabel>
-            <FormControl><Input {...field} inputMode="decimal" placeholder="2500" /></FormControl>
+            <FormControl><CurrencyFormInput {...field} placeholder="2500" /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="effectiveFrom" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Start date</FormLabel>
+            <FormControl><Input {...field} type="date" /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -653,7 +690,7 @@ export function ChargeApplicationForm({
         <FormField control={form.control} name="amount" render={({ field }) => (
           <FormItem>
             <FormLabel>Amount</FormLabel>
-            <FormControl><Input {...field} inputMode="decimal" placeholder="2500" /></FormControl>
+            <FormControl><CurrencyFormInput {...field} placeholder="2500" /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -794,7 +831,7 @@ export function LoanRequestForm({
         <FormField control={form.control} name="requestedAmount" render={({ field }) => (
           <FormItem>
             <FormLabel>Requested amount</FormLabel>
-            <FormControl><Input {...field} inputMode="decimal" placeholder="150000" /></FormControl>
+            <FormControl><CurrencyFormInput {...field} placeholder="150000" /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -808,7 +845,7 @@ export function LoanRequestForm({
         <FormField control={form.control} name="extraMonthlySavingsAmount" render={({ field }) => (
           <FormItem>
             <FormLabel>Extra monthly savings</FormLabel>
-            <FormControl><Input {...field} value={field.value ?? ""} inputMode="decimal" placeholder="5000" /></FormControl>
+            <FormControl><CurrencyFormInput {...field} value={field.value ?? ""} placeholder="5000" /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -931,7 +968,7 @@ export function RepaymentPostForm({
         <FormField control={form.control} name="amount" render={({ field }) => (
           <FormItem>
             <FormLabel>Amount</FormLabel>
-            <FormControl><Input {...field} inputMode="decimal" placeholder="25000" /></FormControl>
+            <FormControl><CurrencyFormInput {...field} placeholder="25000" /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -1051,7 +1088,7 @@ export function ContributionPlanUpdateForm({
         )} />
         <FormField control={form.control} name="amount" render={({ field }) => (
           <FormItem>
-            <FormControl><Input {...field} inputMode="decimal" /></FormControl>
+            <FormControl><CurrencyFormInput {...field} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />

@@ -1,23 +1,23 @@
 {
-  "name": "@halaal-vest/api",
+  "name": "@halaalvest/api",
   "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit",
     "dev": "node ../../scripts/with-workspace-env.mjs bun --watch src/index.ts",
-    "dev:portless": "node ../../scripts/with-workspace-env.mjs portless api.halaal-vest bun --watch src/index.ts",
+    "dev:portless": "node ../../scripts/with-workspace-env.mjs portless api.halaalvest bun --watch src/index.ts",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
   "dependencies": {
-    "@halaal-vest/auth": "workspace:*",
-    "@halaal-vest/db": "workspace:*",
-    "@halaal-vest/domain": "workspace:*",
-    "@halaal-vest/notifications": "workspace:*",
-    "@halaal-vest/utils": "workspace:*",
+    "@halaalvest/auth": "workspace:*",
+    "@halaalvest/db": "workspace:*",
+    "@halaalvest/domain": "workspace:*",
+    "@halaalvest/notifications": "workspace:*",
+    "@halaalvest/utils": "workspace:*",
     "@hono/node-server": "^1.19.6",
     "@trpc/server": "^11.7.1",
     "hono": "^4.9.8",
@@ -26,8 +26,8 @@
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
-    "@halaal-vest/eslint-config": "workspace:*",
-    "@halaal-vest/tsconfig": "workspace:*",
+    "@halaalvest/eslint-config": "workspace:*",
+    "@halaalvest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   }

@@ -1,5 +1,5 @@
 {
-  "extends": "@halaal-vest/tsconfig/react-library.json",
+  "extends": "@halaalvest/tsconfig/react-library.json",
   "compilerOptions": {
     "baseUrl": ".",
     "module": "ESNext",

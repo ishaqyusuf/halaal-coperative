@@ -2,8 +2,8 @@
 
 import { useTransition } from "react"
 import { z } from "zod"
-import { useNotifications } from "@halaal-vest/notifications-react"
-import { Button } from "@halaal-vest/ui/components/button"
+import { useNotifications } from "@halaalvest/notifications-react"
+import { Button } from "@halaalvest/ui/components/button"
 import {
   Form,
   FormControl,
@@ -11,11 +11,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@halaal-vest/ui/components/form"
-import { Input } from "@halaal-vest/ui/components/input"
-import { Select } from "@halaal-vest/ui/components/select"
-import { Textarea } from "@halaal-vest/ui/components/textarea"
-import { useZodForm } from "@halaal-vest/ui/hooks/use-zod-form"
+} from "@halaalvest/ui/components/form"
+import { Input } from "@halaalvest/ui/components/input"
+import { Select } from "@halaalvest/ui/components/select"
+import { Textarea } from "@halaalvest/ui/components/textarea"
+import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import {
   createMemberSignupLinkAction,
   rotateMemberSignupLinkAction,

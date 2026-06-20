@@ -1,13 +1,22 @@
+import { getContributionFilterMetadata } from "@halaalvest/db"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { ContributionsPageView } from "@/components/contributions-page-view"
+import { loadContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
 import { loadContributionsPageData } from "@/lib/contributions"
+import { getDashboardServerContext } from "@/lib/server-context"
 
 export default async function ContributionsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const data = await loadContributionsPageData(await searchParams)
+  const params = await searchParams
+  const filters = loadContributionsFilterParams(params)
+  const context = await getDashboardServerContext()
+  const [data, filterList] = await Promise.all([
+    loadContributionsPageData(filters),
+    context.tenant ? getContributionFilterMetadata(context.tenant.id) : Promise.resolve([]),
+  ])
 
   if (data.state !== "ready") {
     return (
@@ -20,5 +29,5 @@ export default async function ContributionsPage({
     )
   }
 
-  return <ContributionsPageView {...data} />
+  return <ContributionsPageView {...data} filterList={filterList} />
 }

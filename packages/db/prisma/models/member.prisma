@@ -34,7 +34,10 @@ model Member {
   repayments            Repayment[]
   collectionFollowUps   CollectionFollowUp[]
   documents             MemberDocument[]
+  monthlyRecordMembers  MonthlyRecordMember[]
   dividendAllocations   DividendAllocation[]
+  shareLedgerEntries    MemberShareLedgerEntry[]
+  shareProfitAllocations ShareProfitAllocation[]
   ledgerTransactions    LedgerTransaction[]
   offlineSyncEvents     OfflineSyncEvent[]
 

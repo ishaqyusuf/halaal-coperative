@@ -1,5 +1,5 @@
-import { createDbRuntime, listTenantDomainsByTenantId } from "@halaal-vest/db"
-import { Button } from "@halaal-vest/ui/components/button"
+import { createDbRuntime, listTenantDomainsByTenantId } from "@halaalvest/db"
+import { Button } from "@halaalvest/ui/components/button"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspacePageShell } from "@/components/dashboard"
 import { CustomDomainForm } from "@/components/forms/misc-forms"
 import { runTenantDomainVerificationCheckAction, setTenantDomainPrimaryAction, updateTenantDomainVerificationStatusAction } from "@/lib/dashboard-actions"

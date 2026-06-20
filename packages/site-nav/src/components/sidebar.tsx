@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, type ReactNode } from "react"
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { NavsList } from "./navs-list"
 import { useSiteNav } from "./use-site-nav"
 

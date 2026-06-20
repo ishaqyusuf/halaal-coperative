@@ -1,4 +1,4 @@
-import { listCollectionFollowUps, listRepaymentScheduleItems } from "@halaal-vest/db"
+import { listCollectionFollowUps, listRepaymentScheduleItems } from "@halaalvest/db"
 import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
 
 export async function GET(request: Request) {

@@ -1,3 +1,3 @@
-# `@halaal-vest/tsconfig`
+# `@halaalvest/tsconfig`
 
 Shared typescript configuration for the workspace.

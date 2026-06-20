@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { buttonVariants } from "@halaal-vest/ui/components/button"
+import { buttonVariants } from "@halaalvest/ui/components/button"
 import { OnboardingForm } from "@/components/signup/onboarding-form"
 import { SignupShell } from "@/components/signup/signup-shell"
 import { verifySignedSignupToken } from "@/lib/signup-token"

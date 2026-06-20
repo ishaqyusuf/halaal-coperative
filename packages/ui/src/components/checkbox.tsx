@@ -1,17 +1,50 @@
-import * as React from "react"
-import { cn } from "@halaal-vest/ui/lib/utils"
+"use client"
 
-function Checkbox({ className, ...props }: React.ComponentProps<"input">) {
+import * as React from "react"
+import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
+
+import { cn } from "@halaalvest/ui/lib/utils"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Tick02Icon } from "@hugeicons/core-free-icons"
+
+type CheckboxChangeEvent = {
+  target: {
+    checked: boolean
+  }
+}
+
+type CheckboxProps = Omit<CheckboxPrimitive.Root.Props, "onCheckedChange"> & {
+  onChange?: (event: CheckboxChangeEvent) => void
+  onCheckedChange?: (checked: boolean) => void
+}
+
+function Checkbox({
+  className,
+  onChange,
+  onCheckedChange,
+  ...props
+}: CheckboxProps) {
   return (
-    <input
-      type="checkbox"
+    <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "h-4 w-4 rounded-[0.35rem] border border-input bg-background text-primary shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/20",
-        className,
+        "peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-shadow outline-none group-has-disabled/field:opacity-50 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground dark:data-checked:bg-primary",
+        className
       )}
+      onCheckedChange={(checked) => {
+        const nextChecked = checked === true
+        onCheckedChange?.(nextChecked)
+        onChange?.({ target: { checked: nextChecked } })
+      }}
       {...props}
-    />
+    >
+      <CheckboxPrimitive.Indicator
+        data-slot="checkbox-indicator"
+        className="grid place-content-center text-current transition-none [&>svg]:size-3.5"
+      >
+        <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
+      </CheckboxPrimitive.Indicator>
+    </CheckboxPrimitive.Root>
   )
 }
 

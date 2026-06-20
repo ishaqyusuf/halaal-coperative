@@ -16,7 +16,7 @@ export function SignupShell({
       <section className="mx-auto flex min-h-svh w-full max-w-6xl flex-col gap-8 px-6 py-8 lg:px-10 lg:py-12">
         <header className="flex items-center justify-between">
           <Link href="/" className="text-sm font-semibold tracking-tight text-stone-950">
-            halaal-vest
+            halaalvest
           </Link>
           <Link href="/" className="text-sm text-stone-600 transition hover:text-stone-950">
             Back to site

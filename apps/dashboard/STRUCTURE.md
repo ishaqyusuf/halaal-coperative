@@ -1,69 +1,70 @@
 # Dashboard Structure
 
-This app is migrating toward a Midday-style structure where route files stay thin,
-feature code owns its own forms and loaders, and reusable dashboard primitives live
-under clear layout and data-display boundaries.
+This app uses a Midday-style `src` structure where route files stay thin,
+domain code owns its own forms/loaders/page widgets, and reusable dashboard
+and filter primitives live under clear component boundaries.
 
 ## Target Shape
 
 ```text
-apps/dashboard/
+apps/dashboard/src/
   app/
+    (app)/(sidebar)/
+      members/
+        page.tsx
   components/
     dashboard/
-      layout/
-      data-display/
-      feedback/
-  features/
-    auth/
-    contributions/
-      data-display/
-      server/
-    loans/
-      data-display/
-      server/
-    navigation/
-    workspace/
     members/
-      components/
-      data-display/
-      lib/
-      server/
-    member-onboarding/
+    search-filter/
+    tables/
+      core/
+      members/
+      contributions/
+      loans/
+    forms/
+    modals/
+    onboarding/
+    sheets/
+    signup-links/
+  hooks/
   lib/
+    members/
+    contributions/
+    loans/
+    filters/
+    navigation/
     server-context.ts
     public-actions.ts
 ```
 
 ## Ownership Rules
 
-- `app/`: routing, auth guards, page-level orchestration only.
-- `components/dashboard/layout/`: reusable dashboard shell, page frame, topbar,
-  sidebar, page headers, and shell composition.
-- `components/dashboard/data-display/`: stat cards, section cards, table wrappers,
-  trend pills, and reusable presentational building blocks.
-- `components/dashboard/feedback/`: empty states and other reusable response states.
-- `features/<feature>/`: feature-owned forms, schemas, actions, loaders, and
-  reusable feature UI.
-- `features/<feature>/server/`: route-ready loaders and server-side composition
-  for feature pages.
-- `features/<feature>/data-display/`: feature-owned list/detail/report surfaces
-  when the UI is specific to one domain and should not live in shared dashboard
-  primitives.
-- `lib/`: app-wide helpers only when they are truly cross-feature.
+- `app/`: routing, auth guards, and page-level orchestration only.
+- `components/dashboard`: reusable authenticated shell, page frame, summaries,
+  metric cards, empty states, and other dashboard-wide composition pieces.
+- `components/search-filter`: reusable Midday-style search/filter controls shared
+  by list pages.
+- `components/members`: member-list page widgets such as the toolbar and summary
+  cards. Member tables stay in `components/tables/members`.
+- `components/tables/core`: shared table atoms and list/table infrastructure.
+- `components/tables/<domain>`: domain-specific table surfaces.
+- `lib/<domain>`: route loaders, URL-filter mapping, and domain-specific server
+  data shaping.
+- `lib/filters`: app-wide filter utilities only.
+- `hooks`: URL-param hooks and client-only shared state hooks.
 
 ## Migration Rules
 
-- New dashboard shell primitives must go under `components/dashboard/layout`.
-- New reusable data-display components must go under `components/dashboard/data-display`.
-- New reusable empty/loading/feedback blocks must go under `components/dashboard/feedback`.
-- Auth-specific redirect or flow helpers should live under `features/auth`.
-- Avoid adding new route-specific helper logic to top-level `lib` when it belongs
-  to a feature folder.
-- Avoid introducing new local form hooks; use `@halaal-vest/ui/hooks/use-zod-form`.
+- New reusable dashboard primitives must go under `components/dashboard`.
+- New reusable search/filter behavior must go under `components/search-filter`.
+- New member-list page widgets must go under `components/members`, not the
+  top-level `components` folder.
+- Avoid adding route-specific helper logic to top-level `lib` when it belongs in
+  `lib/<domain>`.
+- Avoid introducing new local form hooks; use `@halaalvest/ui/hooks/use-zod-form`.
 
 ## Compatibility
 
-Some existing files still re-export from older locations during the migration.
-Those shims are transitional and should be removed once imports have been moved
-to the canonical structure.
+Avoid compatibility shims for moved dashboard files unless a staged migration
+requires them. Prefer moving imports to the canonical structure in the same
+change set.

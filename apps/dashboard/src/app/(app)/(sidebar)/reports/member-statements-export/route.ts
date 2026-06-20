@@ -1,4 +1,4 @@
-import { listMemberStatementSummaries } from "@halaal-vest/db"
+import { listMemberStatementSummaries } from "@halaalvest/db"
 import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
 
 export async function GET(request: Request) {

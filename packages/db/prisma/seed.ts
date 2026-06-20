@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client"
 import {
   buildDashboardHostname,
   buildTenantSiteHostname,
-} from "@halaal-vest/utils"
+} from "@halaalvest/utils"
 
 const DATABASE_URL = process.env.DATABASE_URL
 if (!DATABASE_URL) {
@@ -100,11 +100,11 @@ async function main() {
 
   // Users
   const platformOwner = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: amanah.id, email: "owner@halaal-vest.local" } },
+    where: { tenantId_email: { tenantId: amanah.id, email: "owner@halaalvest.local" } },
     update: {},
     create: {
       tenantId: amanah.id,
-      email: "owner@halaal-vest.local",
+      email: "owner@halaalvest.local",
       fullName: "Platform Owner",
       isPlatformOwner: true,
     },
@@ -232,6 +232,7 @@ async function main() {
     { code: "2000", name: "Cash / Bank", accountType: "asset" as const, isSystem: true },
     { code: "3000", name: "Charge Income", accountType: "income" as const, isSystem: true },
     { code: "3100", name: "Levy Income", accountType: "income" as const, isSystem: true },
+    { code: "3200", name: "Member Share Capital", accountType: "equity" as const, isSystem: true },
     { code: "4000", name: "Cooperative Equity", accountType: "equity" as const, isSystem: true },
   ]
 

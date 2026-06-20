@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { useSiteNav } from "./use-site-nav"
 
 export function SidebarShell({

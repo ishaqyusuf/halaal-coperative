@@ -4,31 +4,17 @@ import {
   listContributions,
   listLoans,
   listMembers,
-} from "@halaal-vest/db"
+} from "@halaalvest/db"
+import type { ContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
-export type ContributionPageFilterValues = {
-  channel: string
-  from: string
-  memberId: string
-  search: string
-  to: string
-}
-
 export async function loadContributionsPageData(
-  searchParams: Record<string, string | string[] | undefined>,
+  filters: ContributionsFilterParams,
 ) {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
   const canRecordContributions = hasAnyRole(context.auth.membership?.role, allStaffRoles)
-  const filters: ContributionPageFilterValues = {
-    channel: typeof searchParams.channel === "string" ? searchParams.channel : "",
-    from: typeof searchParams.from === "string" ? searchParams.from : "",
-    memberId: typeof searchParams.memberId === "string" ? searchParams.memberId : "",
-    search: typeof searchParams.search === "string" ? searchParams.search : "",
-    to: typeof searchParams.to === "string" ? searchParams.to : "",
-  }
 
   if (!context.tenant || runtime.status !== "database-configured") {
     return {
@@ -48,10 +34,10 @@ export async function loadContributionsPageData(
           ? filters.channel
           : undefined,
       fromDate: filters.from ? new Date(`${filters.from}T00:00:00.000Z`) : undefined,
-      memberId: filters.memberId || undefined,
+      memberId: filters.memberId ?? undefined,
       page: 1,
       pageSize: 20,
-      search: filters.search || undefined,
+      search: filters.search ?? undefined,
       toDate: filters.to ? new Date(`${filters.to}T23:59:59.999Z`) : undefined,
     }),
     listMembers(context.tenant.id, { page: 1, pageSize: 100 }),

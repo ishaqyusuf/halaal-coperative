@@ -1,5 +1,5 @@
-import { Button } from "@halaal-vest/ui/components/button"
-import { formatCurrency } from "@halaal-vest/utils"
+import { Button } from "@halaalvest/ui/components/button"
+import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardDataTable,
   DashboardSectionCard,
@@ -16,6 +16,7 @@ import {
   WorkspacePageShell,
 } from "@/components/dashboard"
 import { ChargeApplicationForm, ChargeDefinitionForm } from "@/components/forms/finance-forms"
+import { ChargeDefinitionVersionForm } from "@/components/forms/tenant-finance-forms"
 import {
   reverseChargeApplicationAction,
   updateChargeDefinitionAction,
@@ -51,11 +52,19 @@ export function ChargesPageView({
   charges: Array<{
     amount: number | string | { toString(): string }
     code: string
+    currentEffectiveFrom: string | null
     id: string
     isActive: boolean
     isMonthlyLevy: boolean
     kind: string
     name: string
+    versions: Array<{
+      amount: number
+      effectiveFrom: string
+      id: string
+      notes?: string | null
+      status: "current" | "historical" | "scheduled"
+    }>
   }>
   members: {
     items: Array<{ fullName: string; id: string; memberNumber: string }>
@@ -134,18 +143,19 @@ export function ChargesPageView({
         <DashboardSectionHeader
           eyebrow="Definitions"
           title="Charge library"
-          description="Every configured charge, its amount, posting kind, and whether it is currently active."
+          description="Every configured charge, its current dated amount, posting kind, and full update history."
           actions={<TrendPill>{charges.length} configured</TrendPill>}
         />
 
-        <div className="mt-5">
+        <div className="mt-5 space-y-4">
           <DashboardDataTable>
             <DashboardTable>
               <DashboardTableHead>
                 <DashboardTableHeaderCell>Charge</DashboardTableHeaderCell>
                 <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
                 <DashboardTableHeaderCell>Kind</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">Amount</DashboardTableHeaderCell>
+                <DashboardTableHeaderCell>Current date</DashboardTableHeaderCell>
+                <DashboardTableHeaderCell align="right">Current amount</DashboardTableHeaderCell>
                 <DashboardTableHeaderCell align="right">Action</DashboardTableHeaderCell>
               </DashboardTableHead>
               <DashboardTableBody>
@@ -169,6 +179,9 @@ export function ChargesPageView({
                     </DashboardTableCell>
                     <DashboardTableCell>
                       <span className="capitalize text-muted-foreground">{charge.kind.replace(/_/g, " ")}</span>
+                    </DashboardTableCell>
+                    <DashboardTableCell>
+                      <span className="text-muted-foreground">{charge.currentEffectiveFrom ?? "No dated version"}</span>
                     </DashboardTableCell>
                     <DashboardTableCell align="right" className="font-medium">
                       {formatCurrency(Number(charge.amount))}
@@ -197,6 +210,75 @@ export function ChargesPageView({
               </DashboardTableBody>
             </DashboardTable>
           </DashboardDataTable>
+
+          {charges.map((charge) => (
+            <DashboardSurfaceCard as="article" key={`${charge.id}-history`}>
+              <details>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-foreground">{charge.name}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Current cost {formatCurrency(Number(charge.amount))}
+                      {charge.currentEffectiveFrom ? ` from ${charge.currentEffectiveFrom}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <TrendPill>{charge.versions.length} dated updates</TrendPill>
+                    <TrendPill tone="neutral">View history</TrendPill>
+                  </div>
+                </summary>
+
+                <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Charge update history</p>
+                    <div className="mt-4 space-y-3">
+                      {charge.versions.map((version) => (
+                        <div
+                          key={version.id}
+                          className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/80 px-4 py-3"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{version.effectiveFrom}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{version.notes ?? "No note"}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-foreground">{formatCurrency(Number(version.amount))}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {version.status === "current"
+                                ? "Current cost"
+                                : version.status === "scheduled"
+                                  ? "Scheduled cost"
+                                  : "Historical cost"}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {canManageCharges ? (
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Add dated charge update</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Record a new charge amount with its effective date for proper historical resolution.
+                      </p>
+                      <div className="mt-4">
+                        <ChargeDefinitionVersionForm
+                          chargeDefinitions={[
+                            {
+                              id: charge.id,
+                              kind: charge.kind,
+                              label: `${charge.name} (${charge.code})`,
+                            },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </details>
+            </DashboardSurfaceCard>
+          ))}
         </div>
       </DashboardSectionCard>
 

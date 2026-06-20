@@ -5,7 +5,7 @@ import {
   getScopedAuthUserCookieName,
   platformSessionScope,
   resolveRequestSessionScope,
-} from "@halaal-vest/auth"
+} from "@halaalvest/auth"
 import { NextResponse, type NextRequest } from "next/server"
 import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
 

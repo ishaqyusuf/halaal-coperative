@@ -1,10 +1,10 @@
 {
-  "extends": "@halaal-vest/tsconfig/nextjs.json",
+  "extends": "@halaalvest/tsconfig/nextjs.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*", "./*"],
-      "@halaal-vest/ui/*": ["../../packages/ui/src/*"]
+      "@halaalvest/ui/*": ["../../packages/ui/src/*"]
     },
     "plugins": [
       {

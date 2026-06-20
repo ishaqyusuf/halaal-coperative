@@ -1,13 +1,16 @@
 # Done
 
 ## Purpose
+
 This file records completed work and important outcomes.
 
 ## How To Use
+
 - Add a dated note when meaningful work completes.
 - Prefer concise outcomes over long narratives.
 
 ## Completed
+
 - 2026-03-21: Initialized Project Brain scaffold for the cooperative savings and loans SaaS repository, including system, product, engineering, database, API, task, and template documentation.
 - 2026-04-10: Scaffolded the application codebase as a Bun and Turbo monorepo with `apps/web`, `apps/api`, and shared `auth`, `db`, `domain`, `ui`, `utils`, `eslint-config`, and `tsconfig` packages. Added a Next.js dashboard shell, sample domain scaffolds, and synchronized Brain documentation.
 - 2026-04-10: Implemented a full Prisma 7 cooperative schema in `packages/db` using a file-grouped layout for enums and models, then validated the schema successfully with Prisma.
@@ -47,13 +50,24 @@ This file records completed work and important outcomes.
 - 2026-04-14: Added persisted import batches and staged apply flow for the settings import workspace, including stored batch rows, recent batch history, and apply-from-batch actions for safer operator-led migrations.
 - 2026-04-14: Introduced a Midday-inspired dashboard UI slice with dedicated authenticated shell and reusable primitives under `apps/dashboard/components/dashboard/`, then rebuilt the overview and charges routes on top of that denser page system while preserving server-first route ownership.
 - 2026-04-14: Extended the Midday-inspired dashboard pass across the remaining main workspace routes plus member detail, printable statement, and audit drill-down pages, so the dashboard now uses one consistent shell, primitive layer, and page-composition language across overview, list, detail, and reporting surfaces.
-- 2026-04-15: Collapsed the old split tenant-site/dashboard host model into one tenant-hosted app by moving protected workspace routes under `/app`, making `{slug}.halaal-vest.com` the canonical tenant surface, keeping `dashboard.{slug}...` as a redirect alias, deleting `apps/tenant-site`, and updating onboarding, routing, env defaults, seeds, and docs to match the new single-site flow.
+- 2026-04-15: Collapsed the old split tenant-site/dashboard host model into one tenant-hosted app by moving protected workspace routes under `/app`, making `{slug}.halaalvest.com` the canonical tenant surface, keeping `dashboard.{slug}...` as a redirect alias, deleting `apps/tenant-site`, and updating onboarding, routing, env defaults, seeds, and docs to match the new single-site flow.
 - 2026-04-15: Redesigned the tenant-root homepage in `apps/dashboard`, introduced the same `SHOW_HOME_PAGE` gate there so tenant `/` can redirect to `/login` when disabled, and moved homepage visibility parsing into a shared `packages/domain/src/modules/marketing.ts` module consumed by both apps.
-- 2026-04-15: Started the Midday-style dashboard structure migration by introducing canonical `components/dashboard/layout`, `components/dashboard/data-display`, and `components/dashboard/feedback` folders with compatibility exports, moving auth redirect usage behind `features/auth/lib/auth-redirect.ts`, documenting folder ownership in `apps/dashboard/STRUCTURE.md`, and removing the duplicate web-local `useZodForm` hook in favor of `@halaal-vest/ui/hooks/use-zod-form`.
-- 2026-04-15: Continued the migration on public/auth entry flows by rebuilding `apps/web` signup and onboarding forms on shared `Form` / `FormField` primitives plus `@halaal-vest/ui/hooks/use-zod-form`, and by switching the dashboard login screen to shared input and button components instead of raw styled controls.
+- 2026-04-15: Started the Midday-style dashboard structure migration by introducing canonical `components/dashboard/layout`, `components/dashboard/data-display`, and `components/dashboard/feedback` folders with compatibility exports, moving auth redirect usage behind `features/auth/lib/auth-redirect.ts`, documenting folder ownership in `apps/dashboard/STRUCTURE.md`, and removing the duplicate web-local `useZodForm` hook in favor of `@halaalvest/ui/hooks/use-zod-form`.
+- 2026-04-15: Continued the migration on public/auth entry flows by rebuilding `apps/web` signup and onboarding forms on shared `Form` / `FormField` primitives plus `@halaalvest/ui/hooks/use-zod-form`, and by switching the dashboard login screen to shared input and button components instead of raw styled controls.
 - 2026-04-15: Took the `members` module through the next Midday-style slice by adding feature-owned `server/` loaders plus `data-display/` views, shrinking the member list/detail/statement route files down to orchestration and preserving the heavy UI in reusable member-specific surfaces.
 - 2026-04-15: Reworked the members list page again to follow the Midday invoices pattern more closely, with separate summary widgets, a dedicated page-header/action row, and a dedicated members data-table module instead of one bundled registry block.
 - 2026-04-15: Pushed the members list further toward the Midday reference by dropping the older shared dashboard `data-display` wrappers from the visible page UI and replacing them with page-owned Midday-style summary cards, badges, filter row, and table shell.
 - 2026-04-15: Extended the same Midday-style route-thinning pattern to `contributions` by introducing feature-owned `server/` loaders and a contribution-specific `data-display/` view, leaving the route focused on database-runtime fallback and page composition.
 - 2026-04-15: Extended the same pattern to `loans` by introducing feature-owned `server/` loaders and a loan-specific `data-display/` view, shrinking the route to runtime fallback plus orchestration while preserving review, liquidity, and disbursement workflows.
 - 2026-04-15: Added an in-office-by-default member signup gate plus a dedicated `/app/member-signup-links` control page, with tenant-level access mode, staff-issued signed signup links, expiry/cap controls, link rotation, per-link analytics, and shortcut entry points from the members and membership approvals pages.
+- 2026-05-01: Hardened dashboard auth against the `plot-keys` reference by adding a Next `proxy.ts` guard/header injector, signing host-scoped session tokens, ignoring spoofable auth headers in server context, and limiting passwordless dev quick-login to non-production.
+- 2026-05-01: Refactored the members page search/filter architecture toward the Midday invoice search-filter pattern by introducing `components/search-filter`, moving member page widgets into `components/members`, preserving URL/server filter behavior, improving filter labels, and documenting the updated folder ownership.
+
+### Add automatic local database readiness to dev starters
+- Priority: Medium
+- Description: Track plan in `brain/plans/2026-06-20-feature-automatic-local-database-readiness-for-dev-starters.md`.
+- Related Feature: Automatic Local Database Readiness for Dev Starters
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-06-20-feature-automatic-local-database-readiness-for-dev-starters.md
+- Created Date: 2026-06-20

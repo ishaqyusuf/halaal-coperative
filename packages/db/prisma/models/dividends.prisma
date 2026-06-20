@@ -13,6 +13,8 @@ model DividendPeriod {
 
   tenant                Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   allocations           DividendAllocation[]
+  shareBusinesses       ShareBusiness[]
+  shareBusinessProfitEntries ShareBusinessProfitEntry[]
 
   @@index([tenantId, status], map: "dividend_periods_tenant_status_idx")
   @@map("dividend_periods")

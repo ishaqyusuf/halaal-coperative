@@ -1,6 +1,7 @@
 "use client"
 
 import type { FieldValues, UseFormReturn } from "react-hook-form"
+import { createWorkspaceSlugSuggestion } from "@/lib/signup-flow"
 
 const firstNames = ["Amina", "Zainab", "Fatima", "Maryam", "Khadija", "Hauwa", "Yusuf", "Musa", "Ibrahim", "Sadiq"]
 const lastNames = ["Yusuf", "Bello", "Garba", "Muhammad", "Sule", "Usman", "Abdullahi", "Ilyas", "Kabir", "Lawal"]
@@ -39,6 +40,7 @@ function createRandomContact() {
   return {
     primaryContactEmail: `${emailHandle}${randomInt(10, 99)}@example.test`,
     primaryContactFullName,
+    primaryContactMemberNumber: `PC-${randomInt(1000, 9999)}`,
   }
 }
 
@@ -60,17 +62,21 @@ const devFormDefaults = {
       officeAddress: createRandomOfficeAddress(),
       primaryContactEmail: contact.primaryContactEmail,
       primaryContactFullName: contact.primaryContactFullName,
+      primaryContactMemberNumber: contact.primaryContactMemberNumber,
       startDate: randomStartDate(),
       token: "",
     }
   },
   signup: () => {
     const contact = createRandomContact()
+    const cooperativeName = createRandomCooperativeName()
 
     return {
-      cooperativeName: createRandomCooperativeName(),
+      cooperativeName,
       primaryContactEmail: contact.primaryContactEmail,
       primaryContactFullName: contact.primaryContactFullName,
+      primaryContactMemberNumber: contact.primaryContactMemberNumber,
+      workspaceSlug: createWorkspaceSlugSuggestion(cooperativeName),
     }
   },
 } as const

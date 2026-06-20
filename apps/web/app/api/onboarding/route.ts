@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server"
 import {
+  checkTenantSignupAvailability,
   createNotificationOutboxEntry,
   createTenantWorkspaceBootstrap,
   recordNotificationDeliveryAudit,
   syncTenantDomainVerificationByHostname,
   updateNotificationOutboxDelivery,
-} from "@halaal-vest/db"
-import { createWorkspaceReadyEmail } from "@halaal-vest/notifications"
+} from "@halaalvest/db"
+import { createWorkspaceReadyEmail } from "@halaalvest/notifications"
 import {
   buildTenantDashboardUrl,
   buildTenantSiteUrl,
-} from "@halaal-vest/utils"
+} from "@halaalvest/utils"
 import { normalizeWorkspaceSlug, onboardingFormSchema } from "@/lib/signup-flow"
 import { createServerNotificationService } from "@/lib/server-notifications"
 import { verifySignedSignupToken } from "@/lib/signup-token"
@@ -32,25 +33,44 @@ function getTenantAppOrigin(currentOrigin?: string | null) {
   return process.env.DASHBOARD_APP_URL
     ?? process.env.NEXT_PUBLIC_DASHBOARD_APP_URL
     ?? currentOrigin
-    ?? "http://app.halaal-vest.localhost:1441"
+    ?? "http://app.halaalvest.localhost:1441"
 }
 
 export async function POST(request: Request) {
   try {
     const input = onboardingFormSchema.parse(await request.json())
     const verification = verifySignedSignupToken(input.token)
+    const availability = await checkTenantSignupAvailability({
+      cooperativeName: input.cooperativeName,
+      workspaceSlug: verification.workspaceSlug,
+    })
+
+    if (!availability.cooperativeName.available || !availability.workspaceSlug.available) {
+      return NextResponse.json(
+        {
+          availability,
+          error: !availability.cooperativeName.available
+            ? "That cooperative name is already in use."
+            : "That workspace subdomain is not available.",
+        },
+        { status: 409 },
+      )
+    }
+
     const result = await createTenantWorkspaceBootstrap({
       currentSize: input.currentSize,
       name: input.cooperativeName,
       officeAddress: input.officeAddress,
       ownerEmail: verification.primaryContactEmail,
       ownerFullName: input.primaryContactFullName,
-      slug: normalizeWorkspaceSlug(input.cooperativeName),
+      ownerMemberNumber: input.primaryContactMemberNumber,
+      slug: normalizeWorkspaceSlug(verification.workspaceSlug),
       startDate: input.startDate,
     })
 
     const dashboardUrl = buildTenantDashboardUrl(result.tenant.slug, {
       currentOrigin: getTenantAppOrigin(request.url),
+      pathname: "/",
       tenantHostname: result.primarySiteHostname,
     })
     const siteUrl = buildTenantSiteUrl(result.tenant.slug, {

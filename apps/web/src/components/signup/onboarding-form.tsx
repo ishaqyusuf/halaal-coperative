@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Button, buttonVariants } from "@halaal-vest/ui/components/button"
+import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import {
   Form,
   FormControl,
@@ -10,11 +10,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@halaal-vest/ui/components/form"
-import { Input } from "@halaal-vest/ui/components/input"
-import { Textarea } from "@halaal-vest/ui/components/textarea"
-import { useZodForm } from "@halaal-vest/ui/hooks/use-zod-form"
-import { useNotifications } from "@halaal-vest/notifications-react"
+} from "@halaalvest/ui/components/form"
+import { Input } from "@halaalvest/ui/components/input"
+import { Textarea } from "@halaalvest/ui/components/textarea"
+import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
+import { useNotifications } from "@halaalvest/notifications-react"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
   getOnboardingDefaultsFromVerification,
@@ -214,6 +214,7 @@ export function OnboardingForm({
                   cooperativeName: verification.cooperativeName,
                   primaryContactEmail: verification.primaryContactEmail,
                   primaryContactFullName: verification.primaryContactFullName,
+                  primaryContactMemberNumber: verification.primaryContactMemberNumber,
                   token: form.getValues("token"),
                 })
               }
@@ -263,6 +264,20 @@ export function OnboardingForm({
                   <FormLabel>Verified primary contact email</FormLabel>
                   <FormControl>
                     <Input id="primaryContactEmail" readOnly {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="primaryContactMemberNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Primary contact cooperative number</FormLabel>
+                  <FormControl>
+                    <Input id="primaryContactMemberNumber" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

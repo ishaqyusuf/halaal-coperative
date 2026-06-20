@@ -1,17 +1,17 @@
-import { MemberCreateModal } from "@/components/modals/member-create-modal"
+import { getMemberFilterMetadata } from "@halaalvest/db"
+import { DashboardActionLink, DashboardEmptyState, ScrollableContent } from "@/components/dashboard"
 import { MemberImportPanel } from "@/components/member-import-panel"
-import { MembersDataTable } from "@/components/tables/members/data-table"
-import { MembersActive } from "@/components/members-active"
-import { MembersAll } from "@/components/members-all"
-import { MembersKycPending } from "@/components/members-kyc-pending"
-import { MembersLinkedUsers } from "@/components/members-linked-users"
-import { MembersPageHeader } from "@/components/members-page-header"
 import {
-  CollapsibleSummary,
-  DashboardActionLink,
-  DashboardEmptyState,
-  ScrollableContent,
-} from "@/components/dashboard"
+  MembersActive,
+  MembersAll,
+  MembersKycPending,
+  MembersLinkedUsers,
+  MembersPageHeader,
+} from "@/components/members"
+import { MemberCreateModal } from "@/components/modals/member-create-modal"
+import { MembersDataTable } from "@/components/tables/members/data-table"
+import { CollapsibleSummary } from "@/components/dashboard"
+import { loadMembersFilterParams } from "@/hooks/use-members-filter-params"
 import { loadMembersPageData } from "@/lib/members"
 
 export default async function MembersPage({
@@ -20,24 +20,27 @@ export default async function MembersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
-  const data = await loadMembersPageData(params)
+  const filters = loadMembersFilterParams(params)
   const startWithImportPanelOpen = params.import === "1"
+  const [data, filterList] = await Promise.all([
+    loadMembersPageData(filters),
+    getMemberFilterMetadata(),
+  ])
 
   if (data.state !== "ready") {
     return (
       <ScrollableContent>
         <div className="flex flex-col gap-6">
           <MembersPageHeader
-            activeFilters={[]}
             createAction={
               data.canManageMembers ? (
-                <MemberCreateModal devMode={process.env.NODE_ENV !== "production"} />
+                <MemberCreateModal devMode={process.env.NODE_ENV !== "production"} memberNumberPrefix={data.tenant?.memberNumberPrefix} />
               ) : undefined
             }
-            defaultValues={data.filters}
+            filterList={filterList}
             secondaryActions={
               data.canManageMembers ? (
-                <DashboardActionLink href="/member-signup-links" className="px-4">
+                <DashboardActionLink className="px-4" href="/member-signup-links">
                   Open link generator
                 </DashboardActionLink>
               ) : undefined
@@ -45,8 +48,8 @@ export default async function MembersPage({
           />
 
           <DashboardEmptyState
+            body="The member registry could not load from the tenant database right now. If you still open the create form, submissions will fail until the database connection is restored."
             title="Database-backed member records are not available yet."
-            body="Configure the database runtime to load the tenant member registry, filter it, and stage member imports here."
           />
         </div>
       </ScrollableContent>
@@ -59,7 +62,7 @@ export default async function MembersPage({
         <CollapsibleSummary>
           <section className="grid grid-cols-1 gap-4 pt-6 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
             <MembersAll filters={data.filters} totalCount={data.summary.totalCount} />
-            <MembersActive filters={data.filters} activeCount={data.summary.activeCount} />
+            <MembersActive activeCount={data.summary.activeCount} filters={data.filters} />
             <MembersKycPending
               filters={data.filters}
               kycPendingCount={data.summary.kycPendingCount}
@@ -69,13 +72,12 @@ export default async function MembersPage({
         </CollapsibleSummary>
 
         <MembersPageHeader
-          activeFilters={data.activeFilters}
           createAction={
             data.canManageMembers ? (
-              <MemberCreateModal devMode={process.env.NODE_ENV !== "production"} />
+              <MemberCreateModal devMode={process.env.NODE_ENV !== "production"} memberNumberPrefix={data.tenant?.memberNumberPrefix} />
             ) : undefined
           }
-          defaultValues={data.filters}
+          filterList={filterList}
           importPanel={
             data.canManageImports && data.referenceData ? (
               <MemberImportPanel
@@ -85,21 +87,20 @@ export default async function MembersPage({
               />
             ) : undefined
           }
-          startWithImportPanelOpen={startWithImportPanelOpen}
           secondaryActions={
-            <>
-              {data.canManageMembers && data.signupSettings.memberSignupAccessMode !== "public" ? (
-                <DashboardActionLink href="/member-signup-links" className="px-4">
-                  Open link generator
-                </DashboardActionLink>
-              ) : null}
-            </>
+            data.canManageMembers && data.signupSettings.memberSignupAccessMode !== "public" ? (
+              <DashboardActionLink className="px-4" href="/member-signup-links">
+                Open link generator
+              </DashboardActionLink>
+            ) : undefined
           }
+          startWithImportPanelOpen={startWithImportPanelOpen}
         />
 
         <MembersDataTable
           canManageMembers={data.canManageMembers}
-          hasFilters={data.activeFilters.length > 0}
+          cooperativeStartDate={data.tenant?.startDate ?? null}
+          hasFilters={data.hasFilters}
           members={data.members.items}
         />
       </div>

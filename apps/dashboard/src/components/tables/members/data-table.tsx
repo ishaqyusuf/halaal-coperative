@@ -5,10 +5,12 @@ import { MembersTableHeader } from "./table-header"
 
 export function MembersDataTable({
   canManageMembers,
+  cooperativeStartDate,
   hasFilters,
   members,
 }: {
   canManageMembers: boolean
+  cooperativeStartDate?: string | null
   hasFilters?: boolean
   members: Array<{
     fullName: string
@@ -28,6 +30,7 @@ export function MembersDataTable({
   const rows: MemberTableRow[] = members.map((member) => ({
     ...member,
     canManageMembers,
+    cooperativeStartDate,
   }))
 
   return (

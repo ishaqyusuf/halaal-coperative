@@ -1,6 +1,6 @@
 import Link from "next/link"
-import { buttonVariants } from "@halaal-vest/ui/components/button"
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { buttonVariants } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
 
 export function DashboardSectionCard({
   children,

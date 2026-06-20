@@ -1,12 +1,17 @@
 import type { PrismaClient } from "@prisma/client"
 import {
   buildTenantSiteHostname,
+  isReservedTenantSubdomainLabel,
   normalizeSubdomainLabel,
-} from "@halaal-vest/utils"
+} from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
 import { ensureTenantLedgerAccounts } from "./ledger"
 import { listSeedMemberships, listSeedUsers } from "./auth"
-import { listSeedTenantDomains, getTenantById, type TenantRecord } from "./tenants"
+import {
+  listSeedTenantDomains,
+  getTenantById,
+  type TenantRecord,
+} from "./tenants"
 
 function getTenantDomainRoutingScope(input: {
   hostname: string
@@ -23,6 +28,7 @@ export type TenantOnboardingStepKey =
   | "workspace_access"
   | "workspace_owner"
   | "policy_defaults"
+  | "charge_setup"
   | "ledger_bootstrap"
 
 export type TenantOnboardingStep = {
@@ -47,6 +53,7 @@ export type TenantBootstrapInput = {
   slug: string
   ownerFullName: string
   ownerEmail: string
+  ownerMemberNumber?: string
   currentSize?: number
   officeAddress?: string | null
   startDate?: string | null
@@ -102,7 +109,7 @@ function toTenantRecord(input: {
     startDate:
       input.startDate instanceof Date
         ? input.startDate.toISOString().slice(0, 10)
-        : input.startDate ?? null,
+        : (input.startDate ?? null),
     region: input.region,
     currencyCode: input.currencyCode,
     timezone: input.timezone,
@@ -117,6 +124,7 @@ function buildTenantOnboardingSnapshot(input: {
   hasWorkspaceAccess: boolean
   hasWorkspaceOwner: boolean
   hasPolicyDefaults: boolean
+  hasChargeSetup: boolean
   hasLedgerBootstrap: boolean
   primarySiteHostname?: string | null
   primaryDashboardHostname?: string | null
@@ -125,37 +133,50 @@ function buildTenantOnboardingSnapshot(input: {
     {
       key: "tenant_profile",
       label: "Tenant profile",
-      description: "Cooperative name, slug, region, and workspace identity are saved.",
+      description:
+        "Cooperative name, slug, region, and workspace identity are saved.",
       complete: input.hasTenantProfile,
     },
     {
       key: "site_domain",
       label: "Public site hostname",
-      description: "The tenant public website has a primary hostname for routing.",
+      description:
+        "The tenant public website has a primary hostname for routing.",
       complete: input.hasPrimarySiteDomain,
     },
     {
       key: "workspace_access",
       label: "Workspace app route",
-      description: "The tenant hostname also serves the authenticated workspace under /app.",
+      description:
+        "The tenant hostname also serves the authenticated workspace under /app.",
       complete: input.hasWorkspaceAccess,
     },
     {
       key: "workspace_owner",
       label: "Primary admin contact",
-      description: "A primary cooperative admin account and default membership are assigned.",
+      description:
+        "A primary cooperative admin account and default membership are assigned.",
       complete: input.hasWorkspaceOwner,
     },
     {
       key: "policy_defaults",
       label: "Policy defaults",
-      description: "Core savings, levy, reserve, and approval defaults are configured.",
+      description:
+        "Core savings, levy, reserve, and approval defaults are configured.",
       complete: input.hasPolicyDefaults,
+    },
+    {
+      key: "charge_setup",
+      label: "Charges setup",
+      description:
+        "At least one active tenant charge definition is ready for member finance workflows.",
+      complete: input.hasChargeSetup,
     },
     {
       key: "ledger_bootstrap",
       label: "Ledger bootstrap",
-      description: "The baseline chart of accounts has been provisioned for money flows.",
+      description:
+        "The baseline chart of accounts has been provisioned for money flows.",
       complete: input.hasLedgerBootstrap,
     },
   ]
@@ -167,9 +188,11 @@ function buildTenantOnboardingSnapshot(input: {
     status: completedStepCount === totalStepCount ? "complete" : "incomplete",
     completedStepCount,
     totalStepCount,
-    completionRatio: totalStepCount > 0 ? completedStepCount / totalStepCount : 0,
+    completionRatio:
+      totalStepCount > 0 ? completedStepCount / totalStepCount : 0,
     primarySiteHostname: input.primarySiteHostname ?? null,
-    primaryDashboardHostname: input.primaryDashboardHostname ?? input.primarySiteHostname ?? null,
+    primaryDashboardHostname:
+      input.primaryDashboardHostname ?? input.primarySiteHostname ?? null,
     steps,
   } satisfies TenantOnboardingSnapshot
 }
@@ -179,15 +202,27 @@ export async function getTenantOnboardingState(tenantId: string) {
 
   if (!prisma) {
     const tenant = getTenantById(tenantId)
-    const domains = listSeedTenantDomains().filter((domain) => domain.tenantId === tenantId)
+    const domains = listSeedTenantDomains().filter(
+      (domain) => domain.tenantId === tenantId
+    )
     const primarySiteDomain =
-      domains.find((domain) => getTenantDomainRoutingScope(domain) === "site" && domain.isPrimary) ?? null
+      domains.find(
+        (domain) =>
+          getTenantDomainRoutingScope(domain) === "site" && domain.isPrimary
+      ) ?? null
     const primaryDashboardDomain =
-      domains.find((domain) => getTenantDomainRoutingScope(domain) === "dashboard" && domain.isPrimary) ?? null
+      domains.find(
+        (domain) =>
+          getTenantDomainRoutingScope(domain) === "dashboard" &&
+          domain.isPrimary
+      ) ?? null
     const hasWorkspaceOwner = listSeedMemberships().some((membership) =>
       listSeedUsers().some(
-        (user) => user.id === membership.userId && membership.tenantId === tenantId && membership.role === "tenant_admin",
-      ),
+        (user) =>
+          user.id === membership.userId &&
+          membership.tenantId === tenantId &&
+          membership.role === "tenant_admin"
+      )
     )
 
     return buildTenantOnboardingSnapshot({
@@ -196,6 +231,7 @@ export async function getTenantOnboardingState(tenantId: string) {
       hasWorkspaceAccess: Boolean(primarySiteDomain),
       hasWorkspaceOwner,
       hasPolicyDefaults: Boolean(tenant),
+      hasChargeSetup: Boolean(tenant),
       hasLedgerBootstrap: true,
       primarySiteHostname: primarySiteDomain?.hostname ?? null,
       primaryDashboardHostname: primaryDashboardDomain?.hostname ?? null,
@@ -226,6 +262,14 @@ export async function getTenantOnboardingState(tenantId: string) {
           id: true,
         },
       },
+      chargeDefinitions: {
+        where: {
+          isActive: true,
+        },
+        select: {
+          id: true,
+        },
+      },
       ledgerAccounts: {
         select: {
           id: true,
@@ -235,23 +279,34 @@ export async function getTenantOnboardingState(tenantId: string) {
   })
 
   const primarySiteDomain =
-    tenant?.domains.find((domain) => getTenantDomainRoutingScope(domain) === "site" && domain.isPrimary) ?? null
+    tenant?.domains.find(
+      (domain) =>
+        getTenantDomainRoutingScope(domain) === "site" && domain.isPrimary
+    ) ?? null
   const primaryDashboardDomain =
-    tenant?.domains.find((domain) => getTenantDomainRoutingScope(domain) === "dashboard" && domain.isPrimary) ?? null
+    tenant?.domains.find(
+      (domain) =>
+        getTenantDomainRoutingScope(domain) === "dashboard" && domain.isPrimary
+    ) ?? null
 
   return buildTenantOnboardingSnapshot({
     hasTenantProfile: Boolean(tenant),
     hasPrimarySiteDomain: Boolean(primarySiteDomain),
-      hasWorkspaceAccess: Boolean(primarySiteDomain),
-    hasWorkspaceOwner: Boolean(tenant?.users.length && tenant.memberships.length),
+    hasWorkspaceAccess: Boolean(primarySiteDomain),
+    hasWorkspaceOwner: Boolean(
+      tenant?.users.length && tenant.memberships.length
+    ),
     hasPolicyDefaults: Boolean(tenant?.policies),
+    hasChargeSetup: Boolean(tenant?.chargeDefinitions.length),
     hasLedgerBootstrap: Boolean(tenant?.ledgerAccounts.length),
     primarySiteHostname: primarySiteDomain?.hostname ?? null,
     primaryDashboardHostname: primaryDashboardDomain?.hostname ?? null,
   })
 }
 
-export async function createTenantWorkspaceBootstrap(input: TenantBootstrapInput): Promise<TenantBootstrapResult> {
+export async function createTenantWorkspaceBootstrap(
+  input: TenantBootstrapInput
+): Promise<TenantBootstrapResult> {
   const prisma = createPrismaClient()
 
   if (!prisma) {
@@ -263,17 +318,51 @@ export async function createTenantWorkspaceBootstrap(input: TenantBootstrapInput
     throw new Error("A valid tenant slug is required")
   }
 
+  if (isReservedTenantSubdomainLabel(slug)) {
+    throw new Error("That workspace subdomain is not available.")
+  }
+
   const primarySiteHostname = buildTenantSiteHostname(slug)
   const primaryDashboardHostname = primarySiteHostname
 
   const tenant = await prisma.$transaction(async (tx) => {
+    const existingTenant = await tx.tenant.findFirst({
+      where: {
+        OR: [
+          {
+            slug,
+          },
+          {
+            name: {
+              equals: input.name.trim(),
+              mode: "insensitive",
+            },
+          },
+        ],
+      },
+      select: {
+        name: true,
+        slug: true,
+      },
+    })
+
+    if (existingTenant?.slug === slug) {
+      throw new Error("That workspace subdomain is not available.")
+    }
+
+    if (existingTenant) {
+      throw new Error("That cooperative name is already in use.")
+    }
+
     const createdTenant = await tx.tenant.create({
       data: {
         slug,
         name: input.name.trim(),
         currentSize: input.currentSize,
         officeAddress: input.officeAddress?.trim() || null,
-        startDate: input.startDate ? new Date(`${input.startDate}T00:00:00.000Z`) : null,
+        startDate: input.startDate
+          ? new Date(`${input.startDate}T00:00:00.000Z`)
+          : null,
         region: input.region?.trim() || null,
         currencyCode: input.currencyCode?.trim().toUpperCase() || "NGN",
         timezone: input.timezone?.trim() || "Africa/Lagos",
@@ -322,22 +411,51 @@ export async function createTenantWorkspaceBootstrap(input: TenantBootstrapInput
       },
     })
 
+    if (input.ownerMemberNumber?.trim()) {
+      await tx.member.create({
+        data: {
+          tenantId: createdTenant.id,
+          userId: owner.id,
+          memberNumber: input.ownerMemberNumber.trim(),
+          fullName: input.ownerFullName.trim(),
+          memberType: "individual",
+          joinedAt: input.startDate
+            ? new Date(`${input.startDate}T00:00:00.000Z`)
+            : new Date(),
+          status: "active",
+        },
+      })
+    }
+
     await tx.tenantPolicy.create({
       data: {
         tenantId: createdTenant.id,
-        reserveBufferAmount: input.reserveBufferAmount ?? defaultBootstrapPolicy.reserveBuffer,
-        monthlyLevyAmount: input.monthlyLevyAmount ?? defaultBootstrapPolicy.monthlyLevyAmount,
-        quickLoanTermMonths: input.quickLoanTermMonths ?? defaultBootstrapPolicy.quickLoanTermMonths,
-        normalLoanTermMonths: input.normalLoanTermMonths ?? defaultBootstrapPolicy.normalLoanTermMonths,
-        loanEligibilityMultiple: input.loanEligibilityMultiple ?? defaultBootstrapPolicy.eligibilityMultiple,
+        reserveBufferAmount:
+          input.reserveBufferAmount ?? defaultBootstrapPolicy.reserveBuffer,
+        monthlyLevyAmount:
+          input.monthlyLevyAmount ?? defaultBootstrapPolicy.monthlyLevyAmount,
+        quickLoanTermMonths:
+          input.quickLoanTermMonths ??
+          defaultBootstrapPolicy.quickLoanTermMonths,
+        normalLoanTermMonths:
+          input.normalLoanTermMonths ??
+          defaultBootstrapPolicy.normalLoanTermMonths,
+        loanEligibilityMultiple:
+          input.loanEligibilityMultiple ??
+          defaultBootstrapPolicy.eligibilityMultiple,
         requiresDualLoanApproval:
-          input.requiresDualLoanApproval ?? defaultBootstrapPolicy.requiresDualLoanApproval,
+          input.requiresDualLoanApproval ??
+          defaultBootstrapPolicy.requiresDualLoanApproval,
         allowOfflineFinancialCapture:
-          input.allowOfflineFinancialCapture ?? defaultBootstrapPolicy.allowOfflineFinancialCapture,
+          input.allowOfflineFinancialCapture ??
+          defaultBootstrapPolicy.allowOfflineFinancialCapture,
       },
     })
 
-    await ensureTenantLedgerAccounts(createdTenant.id, tx as unknown as PrismaClient)
+    await ensureTenantLedgerAccounts(
+      createdTenant.id,
+      tx as unknown as PrismaClient
+    )
 
     return {
       ownerUserId: owner.id,

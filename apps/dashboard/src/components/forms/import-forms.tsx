@@ -2,9 +2,9 @@
 
 import { useMemo, useTransition } from "react"
 import { z } from "zod"
-import { useNotifications } from "@halaal-vest/notifications-react"
-import { Button } from "@halaal-vest/ui/components/button"
-import { Checkbox } from "@halaal-vest/ui/components/checkbox"
+import { useNotifications } from "@halaalvest/notifications-react"
+import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   Form,
   FormControl,
@@ -12,9 +12,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@halaal-vest/ui/components/form"
-import { Textarea } from "@halaal-vest/ui/components/textarea"
-import { useZodForm } from "@halaal-vest/ui/hooks/use-zod-form"
+} from "@halaalvest/ui/components/form"
+import { Textarea } from "@halaalvest/ui/components/textarea"
+import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import {
   importChargesCsvAction,
   importContributionsCsvAction,

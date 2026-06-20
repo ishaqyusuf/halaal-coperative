@@ -53,7 +53,7 @@ This file captures payload shapes, response conventions, and contract assumption
   - The route derives the slug from `cooperativeName` and applies server-side tenant policy defaults instead of asking for public policy fields.
   - `currentSize`, `officeAddress`, and `startDate` are persisted on the tenant record during workspace bootstrap.
 - `trpc.notifications.list`
-  - array of shared notification payloads built from `@halaal-vest/notifications` types.
+  - array of shared notification payloads built from `@halaalvest/notifications` types.
 - `trpc.members.list`
   - paginated tenant member result with `items`, `total`, `page`, and `pageSize`.
 - `trpc.contributions.list`

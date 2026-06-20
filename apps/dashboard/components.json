@@ -14,8 +14,8 @@
     "components": "@/components",
     "hooks": "@/hooks",
     "lib": "@/lib",
-    "utils": "@halaal-vest/ui/lib/utils",
-    "ui": "@halaal-vest/ui/components"
+    "utils": "@halaalvest/ui/lib/utils",
+    "ui": "@halaalvest/ui/components"
   },
   "rtl": false,
   "menuColor": "default-translucent",

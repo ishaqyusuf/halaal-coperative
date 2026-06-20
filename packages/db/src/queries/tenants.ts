@@ -3,8 +3,10 @@ import type { Prisma } from "@prisma/client"
 import {
   buildDashboardHostname,
   buildTenantSiteHostname,
+  isReservedTenantSubdomainLabel,
+  normalizeSubdomainLabel,
   platformAppHostname,
-} from "@halaal-vest/utils"
+} from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 
@@ -14,6 +16,7 @@ export type TenantRecord = {
   id: string
   slug: string
   name: string
+  memberNumberPrefix?: string | null
   currentSize?: number | null
   officeAddress?: string | null
   startDate?: string | null
@@ -49,11 +52,24 @@ export type TenantResolution = {
   tenantDomain: TenantDomainRecord | null
 }
 
+export type TenantSignupAvailability = {
+  cooperativeName: {
+    available: boolean
+    normalized: string
+  }
+  workspaceSlug: {
+    available: boolean
+    hostname: string
+    normalized: string
+  }
+}
+
 const seedTenants: TenantRecord[] = [
   {
     id: "tenant-amanah-demo",
     slug: "amanah",
     name: "Amanah Staff Thrift Cooperative",
+    memberNumberPrefix: "MEM-",
     currentSize: 428,
     officeAddress: "12 Marina Road, Lagos Island, Lagos",
     startDate: "2016-01-15",
@@ -68,6 +84,7 @@ const seedTenants: TenantRecord[] = [
     id: "tenant-barakah-demo",
     slug: "barakah",
     name: "Barakah Multipurpose Cooperative",
+    memberNumberPrefix: "MEM-",
     currentSize: 212,
     officeAddress: "44 Shehu Shagari Way, Abuja",
     startDate: "2018-06-01",
@@ -223,6 +240,7 @@ function mapPrismaTenantRecord(input: {
   id: string
   slug: string
   name: string
+  memberNumberPrefix: string | null
   currentSize: number | null
   officeAddress: string | null
   startDate: Date | null
@@ -236,6 +254,7 @@ function mapPrismaTenantRecord(input: {
     id: input.id,
     slug: input.slug,
     name: input.name,
+    memberNumberPrefix: input.memberNumberPrefix,
     currentSize: input.currentSize,
     officeAddress: input.officeAddress,
     startDate: input.startDate ? input.startDate.toISOString().slice(0, 10) : null,
@@ -406,6 +425,98 @@ export async function listTenants() {
   return tenants.map(mapPrismaTenantRecord)
 }
 
+export async function checkTenantSignupAvailability(input: {
+  cooperativeName?: string | null
+  workspaceSlug?: string | null
+}): Promise<TenantSignupAvailability> {
+  const normalizedName = input.cooperativeName?.trim() ?? ""
+  const normalizedSlug = normalizeSubdomainLabel(input.workspaceSlug ?? "")
+  const hostname = normalizedSlug ? buildTenantSiteHostname(normalizedSlug) : ""
+  const isReservedSlug = isReservedTenantSubdomainLabel(normalizedSlug)
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    const nameLower = normalizedName.toLowerCase()
+    const existingTenantByName = normalizedName
+      ? listSeedTenants().some((tenant) => tenant.name.trim().toLowerCase() === nameLower)
+      : false
+    const existingTenantBySlug = normalizedSlug
+      ? listSeedTenants().some((tenant) => tenant.slug === normalizedSlug)
+      : false
+    const existingDomain = hostname
+      ? listSeedTenantDomains().some((domain) => domain.hostname === hostname)
+      : false
+
+    return {
+      cooperativeName: {
+        available: Boolean(normalizedName) && !existingTenantByName,
+        normalized: normalizedName,
+      },
+      workspaceSlug: {
+        available:
+          Boolean(normalizedSlug) &&
+          !isReservedSlug &&
+          !existingTenantBySlug &&
+          !existingDomain,
+        hostname,
+        normalized: normalizedSlug,
+      },
+    }
+  }
+
+  const [existingTenantByName, existingTenantBySlug, existingDomain] = await Promise.all([
+    normalizedName
+      ? prisma.tenant.findFirst({
+          where: {
+            name: {
+              equals: normalizedName,
+              mode: "insensitive",
+            },
+          },
+          select: {
+            id: true,
+          },
+        })
+      : null,
+    normalizedSlug
+      ? prisma.tenant.findUnique({
+          where: {
+            slug: normalizedSlug,
+          },
+          select: {
+            id: true,
+          },
+        })
+      : null,
+    hostname
+      ? prisma.tenantDomain.findUnique({
+          where: {
+            hostname,
+          },
+          select: {
+            id: true,
+          },
+        })
+      : null,
+  ])
+
+  return {
+    cooperativeName: {
+      available: Boolean(normalizedName) && !existingTenantByName,
+      normalized: normalizedName,
+    },
+    workspaceSlug: {
+      available:
+        Boolean(normalizedSlug) &&
+        !isReservedSlug &&
+        !existingTenantBySlug &&
+        !existingDomain,
+      hostname,
+      normalized: normalizedSlug,
+    },
+  }
+}
+
 export async function getTenantByIdAsync(tenantId: string) {
   const prisma = createPrismaClient()
 
@@ -545,6 +656,7 @@ export async function updateTenantProfile(
   input: {
     actorUserId: string
     currentSize?: number | null
+    memberNumberPrefix?: string | null
     name: string
     officeAddress?: string | null
     region?: string | null
@@ -565,6 +677,7 @@ export async function updateTenantProfile(
     },
     data: {
       currentSize: input.currentSize ?? null,
+      memberNumberPrefix: input.memberNumberPrefix ?? null,
       name: input.name,
       officeAddress: input.officeAddress ?? null,
       region: input.region ?? null,
@@ -582,6 +695,7 @@ export async function updateTenantProfile(
       entityType: "Tenant",
       metadata: {
         currentSize: input.currentSize ?? null,
+        memberNumberPrefix: input.memberNumberPrefix ?? null,
         name: input.name,
         officeAddress: input.officeAddress ?? null,
         region: input.region ?? null,

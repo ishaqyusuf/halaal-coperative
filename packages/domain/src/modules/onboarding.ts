@@ -4,6 +4,7 @@ export type TenantOnboardingStepKey =
   | "workspace_access"
   | "workspace_owner"
   | "policy_defaults"
+  | "charge_setup"
   | "ledger_bootstrap"
 
 export type TenantOnboardingStep = {
@@ -29,6 +30,7 @@ export function buildTenantOnboardingSnapshot(input: {
   hasWorkspaceAccess: boolean
   hasWorkspaceOwner: boolean
   hasPolicyDefaults: boolean
+  hasChargeSetup: boolean
   hasLedgerBootstrap: boolean
   primarySiteHostname?: string | null
   primaryDashboardHostname?: string | null
@@ -37,37 +39,50 @@ export function buildTenantOnboardingSnapshot(input: {
     {
       key: "tenant_profile",
       label: "Tenant profile",
-      description: "Cooperative name, slug, region, and workspace identity are saved.",
+      description:
+        "Cooperative name, slug, region, and workspace identity are saved.",
       complete: input.hasTenantProfile,
     },
     {
       key: "site_domain",
       label: "Public site hostname",
-      description: "The tenant public website has a primary hostname for routing.",
+      description:
+        "The tenant public website has a primary hostname for routing.",
       complete: input.hasPrimarySiteDomain,
     },
     {
       key: "workspace_access",
       label: "Workspace app route",
-      description: "The tenant hostname also serves the authenticated workspace under /app.",
+      description:
+        "The tenant hostname also serves the authenticated workspace under /app.",
       complete: input.hasWorkspaceAccess,
     },
     {
       key: "workspace_owner",
       label: "Workspace owner",
-      description: "A tenant admin account and default membership are assigned.",
+      description:
+        "A tenant admin account and default membership are assigned.",
       complete: input.hasWorkspaceOwner,
     },
     {
       key: "policy_defaults",
       label: "Policy defaults",
-      description: "Core savings, levy, reserve, and approval defaults are configured.",
+      description:
+        "Core savings, levy, reserve, and approval defaults are configured.",
       complete: input.hasPolicyDefaults,
+    },
+    {
+      key: "charge_setup",
+      label: "Charges setup",
+      description:
+        "At least one active tenant charge definition is ready for member finance workflows.",
+      complete: input.hasChargeSetup,
     },
     {
       key: "ledger_bootstrap",
       label: "Ledger bootstrap",
-      description: "The baseline chart of accounts has been provisioned for money flows.",
+      description:
+        "The baseline chart of accounts has been provisioned for money flows.",
       complete: input.hasLedgerBootstrap,
     },
   ]
@@ -79,9 +94,11 @@ export function buildTenantOnboardingSnapshot(input: {
     status: completedStepCount === totalStepCount ? "complete" : "incomplete",
     completedStepCount,
     totalStepCount,
-    completionRatio: totalStepCount > 0 ? completedStepCount / totalStepCount : 0,
+    completionRatio:
+      totalStepCount > 0 ? completedStepCount / totalStepCount : 0,
     primarySiteHostname: input.primarySiteHostname ?? null,
-    primaryDashboardHostname: input.primaryDashboardHostname ?? input.primarySiteHostname ?? null,
+    primaryDashboardHostname:
+      input.primaryDashboardHostname ?? input.primarySiteHostname ?? null,
     steps,
   }
 }

@@ -1,4 +1,4 @@
-import { hasActiveMembership, isRoleAtLeast, type CooperativeRole } from "@halaal-vest/auth"
+import { hasActiveMembership, isRoleAtLeast, type CooperativeRole } from "@halaalvest/auth"
 import { initTRPC, TRPCError } from "@trpc/server"
 import superjson from "superjson"
 

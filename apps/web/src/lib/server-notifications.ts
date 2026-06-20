@@ -4,7 +4,7 @@ import {
   createResendEmailTransport,
   NotificationService,
   type NotificationInput,
-} from "@halaal-vest/notifications"
+} from "@halaalvest/notifications"
 
 function discardNotification(_input: NotificationInput) {
   return `notification-${Date.now()}-${Math.random()}`

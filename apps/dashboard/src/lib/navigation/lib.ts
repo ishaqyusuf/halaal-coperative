@@ -1,5 +1,10 @@
-import { getRoleDisplayName, type CooperativeRole } from "@halaal-vest/auth"
-import { getActiveLinkFromMap, getLinkModules, validateLinks, type NavModule } from "@halaal-vest/site-nav"
+import { getRoleDisplayName, type CooperativeRole } from "@halaalvest/auth"
+import {
+  getActiveLinkFromMap,
+  getLinkModules,
+  validateLinks,
+  type NavModule,
+} from "@halaalvest/site-nav"
 import { dashboardNavRegistry } from "./registry"
 
 function normalizePath(pathname: string) {
@@ -18,43 +23,74 @@ function isPathActive(pathname: string, href: string) {
   const normalizedPath = normalizePath(pathname)
   const normalizedHref = normalizePath(href)
 
-  return normalizedPath === normalizedHref || normalizedPath.startsWith(`${normalizedHref}/`)
+  return (
+    normalizedPath === normalizedHref ||
+    normalizedPath.startsWith(`${normalizedHref}/`)
+  )
 }
 
-export function getVisibleDashboardNav(role: CooperativeRole | null): NavModule[] {
+export function getVisibleDashboardNav(
+  role: CooperativeRole | null
+): NavModule[] {
   return validateLinks({
     linkModules: dashboardNavRegistry,
     role,
-  }).filter((module) => module.sections.some((section) => section.links.some((item) => item.show)))
+  }).filter((module) =>
+    module.sections.some((section) => section.links.some((item) => item.show))
+  )
 }
 
-export function getActiveDashboardNavItem(pathname: string, modules: NavModule[]) {
+export function getActiveDashboardNavItem(
+  pathname: string,
+  modules: NavModule[]
+) {
   const linksMap = getLinkModules(modules).linksNameMap
   const active = getActiveLinkFromMap(pathname, linksMap)
   if (!active?.name) {
     return null
   }
 
-  const items = modules.flatMap((module) => module.sections.flatMap((section) => section.links))
-  return items.find((item) => item.name === active.name && isPathActive(pathname, item.href ?? "")) ?? null
+  const items = modules.flatMap((module) =>
+    module.sections.flatMap((section) => section.links)
+  )
+  return (
+    items.find(
+      (item) =>
+        item.name === active.name && isPathActive(pathname, item.href ?? "")
+    ) ?? null
+  )
 }
 
-export function getCurrentDashboardModule(pathname: string, modules: NavModule[]) {
+export function getCurrentDashboardModule(
+  pathname: string,
+  modules: NavModule[]
+) {
   return (
     modules.find((module) =>
       module.sections.some((section) =>
-        section.links.some((item) => item.show && isPathActive(pathname, item.href ?? "")),
-      ),
-    ) ?? modules[0] ?? null
+        section.links.some(
+          (item) => item.show && isPathActive(pathname, item.href ?? "")
+        )
+      )
+    ) ??
+    modules[0] ??
+    null
   )
 }
 
 export function getDashboardQuickLinks(pathname: string, modules: NavModule[]) {
   const currentModule = getCurrentDashboardModule(pathname, modules)
-  return currentModule?.sections.flatMap((section) => section.links.filter((item) => item.show)).slice(0, 6) ?? []
+  return (
+    currentModule?.sections
+      .flatMap((section) => section.links.filter((item) => item.show))
+      .slice(0, 6) ?? []
+  )
 }
 
-export function getDashboardRouteTitle(pathname: string, role: CooperativeRole | null) {
+export function getDashboardRouteTitle(
+  pathname: string,
+  role: CooperativeRole | null
+) {
   const modules = getVisibleDashboardNav(role)
   const activeItem = getActiveDashboardNavItem(pathname, modules)
   const currentModule = getCurrentDashboardModule(pathname, modules)
@@ -67,5 +103,43 @@ export function getDashboardRouteTitle(pathname: string, role: CooperativeRole |
   }
 }
 
+export function canAccessDashboardPath(
+  pathname: string,
+  role: CooperativeRole | null
+) {
+  const linksMap = getLinkModules(
+    validateLinks({
+      linkModules: dashboardNavRegistry,
+      role,
+    })
+  ).linksNameMap
+  const normalizedPath = normalizePath(pathname).toLowerCase()
+
+  if (!normalizedPath) {
+    return true
+  }
+
+  const entries = Object.entries(linksMap).map(([href, data]) => ({
+    data,
+    href: normalizePath(href).toLowerCase(),
+  }))
+  const exactMatch = entries.find((entry) => entry.href === normalizedPath)
+
+  if (exactMatch) {
+    return exactMatch.data.hasAccess !== false
+  }
+
+  const partialMatch = entries
+    .filter(
+      (entry) =>
+        entry.data.match === "part" && normalizedPath.startsWith(entry.href)
+    )
+    .sort((left, right) => right.href.length - left.href.length)[0]
+
+  return partialMatch ? partialMatch.data.hasAccess !== false : true
+}
+
 export type DashboardRouteTitle = ReturnType<typeof getDashboardRouteTitle>
-export type DashboardQuickLink = NonNullable<ReturnType<typeof getDashboardQuickLinks>[number]>
+export type DashboardQuickLink = NonNullable<
+  ReturnType<typeof getDashboardQuickLinks>[number]
+>

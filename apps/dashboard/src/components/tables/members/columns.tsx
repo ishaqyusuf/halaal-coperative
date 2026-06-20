@@ -1,11 +1,13 @@
 import Link from "next/link"
-import { Badge } from "@halaal-vest/ui/components/badge"
-import { Button } from "@halaal-vest/ui/components/button"
+import { Badge } from "@halaalvest/ui/components/badge"
+import { Button } from "@halaalvest/ui/components/button"
+import { BackfillHistoryModal } from "@/components/modals/backfill-history-modal"
 import { updateMemberStatusAction } from "@/lib/dashboard-actions"
 import type { TableColumn } from "@/components/tables/core"
 
 export type MemberTableRow = {
   canManageMembers: boolean
+  cooperativeStartDate?: string | null
   fullName: string
   id: string
   joinedAt: Date
@@ -89,6 +91,13 @@ export const memberColumns: Array<TableColumn<MemberTableRow>> = [
         >
           View details
         </Link>
+        <BackfillHistoryModal
+          cooperativeStartDate={member.cooperativeStartDate}
+          joinedAt={member.joinedAt.toISOString().slice(0, 10)}
+          memberId={member.id}
+          memberName={member.fullName}
+          memberNumber={member.memberNumber}
+        />
         {member.canManageMembers ? (
           <form action={updateMemberStatusAction} className="flex flex-wrap gap-2">
             <input type="hidden" name="memberId" value={member.id} />

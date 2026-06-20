@@ -1,5 +1,5 @@
 {
-  "name": "@halaal-vest/utils",
+  "name": "@halaalvest/utils",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,12 +11,13 @@
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
-    "@halaal-vest/eslint-config": "workspace:*",
-    "@halaal-vest/tsconfig": "workspace:*",
+    "@halaalvest/eslint-config": "workspace:*",
+    "@halaalvest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./runtime-url": "./src/runtime-url.ts"
   }
 }

@@ -4,6 +4,7 @@ model ChargeDefinition {
   name                  String
   code                  String
   kind                  ChargeKind
+  purpose               ChargePurpose @default(general)
   amount                Decimal     @db.Decimal(18, 2)
   isMonthlyLevy         Boolean     @default(false) @map("is_monthly_levy")
   appliesToLoanRequests Boolean     @default(false) @map("applies_to_loan_requests")

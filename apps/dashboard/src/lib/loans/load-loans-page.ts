@@ -4,7 +4,7 @@ import {
   listLoanRequests,
   listLoans,
   listMembers,
-} from "@halaal-vest/db"
+} from "@halaalvest/db"
 import { getDashboardPageData, getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 

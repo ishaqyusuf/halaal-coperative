@@ -2,9 +2,9 @@
 
 import { useTransition } from "react"
 import { z } from "zod"
-import { useNotifications } from "@halaal-vest/notifications-react"
-import { Button } from "@halaal-vest/ui/components/button"
-import { Checkbox } from "@halaal-vest/ui/components/checkbox"
+import { useNotifications } from "@halaalvest/notifications-react"
+import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   Form,
   FormControl,
@@ -12,11 +12,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@halaal-vest/ui/components/form"
-import { Input } from "@halaal-vest/ui/components/input"
-import { Select } from "@halaal-vest/ui/components/select"
-import { Textarea } from "@halaal-vest/ui/components/textarea"
-import { useZodForm } from "@halaal-vest/ui/hooks/use-zod-form"
+} from "@halaalvest/ui/components/form"
+import { Input } from "@halaalvest/ui/components/input"
+import { Select } from "@halaalvest/ui/components/select"
+import { Textarea } from "@halaalvest/ui/components/textarea"
+import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import {
@@ -26,6 +26,7 @@ import {
 
 const profileSchema = z.object({
   currentSize: z.string().optional(),
+  memberNumberPrefix: z.string().optional(),
   name: z.string().min(1, "Cooperative name is required."),
   officeAddress: z.string().optional(),
   region: z.string().optional(),
@@ -98,6 +99,19 @@ export function CooperativeProfileForm({
               <FormLabel>Current size</FormLabel>
               <FormControl>
                 <Input {...field} inputMode="numeric" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="memberNumberPrefix"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Member prefix</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ""} placeholder="MEM-" />
               </FormControl>
               <FormMessage />
             </FormItem>

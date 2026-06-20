@@ -1,6 +1,6 @@
-import { createDbRuntime, getMemberStatementDetail } from "@halaal-vest/db"
+import { createDbRuntime, getMemberStatementDetail } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
-import { hasAnyRole, memberManagementRoles } from "@/lib/workspace-access"
+import { allStaffRoles, hasAnyRole, memberManagementRoles } from "@/lib/workspace-access"
 
 export async function loadMemberDetailPageData(memberId: string) {
   const context = await getDashboardServerContext()
@@ -22,7 +22,9 @@ export async function loadMemberDetailPageData(memberId: string) {
 
   return {
     state: "ready" as const,
+    canManageCommitments: hasAnyRole(context.auth.membership?.role, allStaffRoles),
     canManageMembers: hasAnyRole(context.auth.membership?.role, memberManagementRoles),
     detail,
+    tenantStartDate: context.tenant.startDate ?? null,
   }
 }

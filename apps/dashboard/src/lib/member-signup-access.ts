@@ -1,4 +1,4 @@
-import { getMemberSignupLinkAccess, getTenantMemberSignupSettings } from "@halaal-vest/db"
+import { getMemberSignupLinkAccess, getTenantMemberSignupSettings } from "@halaalvest/db"
 import { verifyMemberSignupLinkToken } from "./member-signup-link-token"
 
 type MemberSignupGate =

@@ -1,0 +1,49 @@
+model MonthlyRecord {
+  id              String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String                      @map("tenant_id") @db.Uuid
+  periodYear      Int                         @map("period_year")
+  periodMonth     Int                         @map("period_month")
+  periodLabel     String                      @map("period_label")
+  status          MonthlyRecordStatus         @default(open)
+  createdByUserId String                      @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant          Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberRows      MonthlyRecordMember[]
+
+  @@unique([tenantId, periodYear, periodMonth], map: "monthly_records_tenant_period_key")
+  @@index([tenantId, periodYear, periodMonth], map: "monthly_records_tenant_period_idx")
+  @@index([tenantId, status], map: "monthly_records_tenant_status_idx")
+  @@map("monthly_records")
+}
+
+model MonthlyRecordMember {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                String                    @map("tenant_id") @db.Uuid
+  monthlyRecordId         String                    @map("monthly_record_id") @db.Uuid
+  memberId                String                    @map("member_id") @db.Uuid
+  contributionPlanId      String?                   @map("contribution_plan_id") @db.Uuid
+  loanId                  String?                   @map("loan_id") @db.Uuid
+  calculatedPayableAmount Decimal                   @default(0) @map("calculated_payable_amount") @db.Decimal(18, 2)
+  contributionAmount      Decimal                   @default(0) @map("contribution_amount") @db.Decimal(18, 2)
+  shareChargeAmount       Decimal                   @default(0) @map("share_charge_amount") @db.Decimal(18, 2)
+  loanRepaymentAmount     Decimal                   @default(0) @map("loan_repayment_amount") @db.Decimal(18, 2)
+  totalPaidAmount         Decimal                   @default(0) @map("total_paid_amount") @db.Decimal(18, 2)
+  contributionId          String?                   @map("contribution_id") @db.Uuid
+  repaymentId             String?                   @map("repayment_id") @db.Uuid
+  status                  MonthlyRecordMemberStatus @default(pending)
+  appliedAt               DateTime?                 @map("applied_at") @db.Timestamptz(6)
+  cancelledAt             DateTime?                 @map("cancelled_at") @db.Timestamptz(6)
+  createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                  Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  monthlyRecord           MonthlyRecord             @relation(fields: [monthlyRecordId], references: [id], onDelete: Cascade)
+  member                  Member                    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([monthlyRecordId, memberId], map: "monthly_record_members_record_member_key")
+  @@index([tenantId, status], map: "monthly_record_members_tenant_status_idx")
+  @@index([tenantId, memberId], map: "monthly_record_members_tenant_member_idx")
+  @@map("monthly_record_members")
+}

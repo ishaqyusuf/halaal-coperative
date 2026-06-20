@@ -39,7 +39,7 @@ const seedUsers: UserRecord[] = [
   {
     id: "user-platform-owner",
     tenantId: "tenant-amanah-demo",
-    email: "owner@halaal-vest.local",
+    email: "owner@halaalvest.local",
     fullName: "Platform Owner",
     isPlatformOwner: true,
   },

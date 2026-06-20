@@ -1,6 +1,7 @@
-import { listAuditLogs } from "@halaal-vest/db"
+import { getAuditFilterMetadata, listAuditLogs } from "@halaalvest/db"
+import { AuditHeader } from "@/components/audit-header"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { AuditFilterForm } from "@/components/forms/misc-forms"
+import { loadAuditFilterParams } from "@/hooks/use-audit-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 import { getReportsDateFilters } from "../export-utils"
@@ -10,7 +11,7 @@ export default async function AuditViewerPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const params = await searchParams
+  const params = loadAuditFilterParams(await searchParams)
   const context = await getDashboardServerContext()
 
   if (!context.tenant || !hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)) {
@@ -21,20 +22,26 @@ export default async function AuditViewerPage({
     )
   }
 
-  const filters = getReportsDateFilters(params)
-  const search = typeof params.search === "string" ? params.search : ""
-  const action = typeof params.action === "string" ? params.action : ""
-  const logs = await listAuditLogs(context.tenant.id, {
-    action: action || undefined,
-    fromDate: filters.fromDate,
-    limit: 200,
-    search: search || undefined,
-    toDate: filters.toDate,
+  const filters = getReportsDateFilters({
+    from: params.from ?? undefined,
+    to: params.to ?? undefined,
   })
+  const search = params.search ?? ""
+  const action = params.action ?? ""
+  const [filterList, logs] = await Promise.all([
+    getAuditFilterMetadata(context.tenant.id),
+    listAuditLogs(context.tenant.id, {
+      action: action || undefined,
+      fromDate: filters.fromDate,
+      limit: 200,
+      search: search || undefined,
+      toDate: filters.toDate,
+    }),
+  ])
 
   return (
     <WorkspacePageShell eyebrow="Reports" title="Audit viewer" description="Search actor activity, entity changes, and operational events with a wider time window than the reports overview card.">
-      <AuditFilterForm defaultValues={{ action, from: filters.from, search, to: filters.to }} devMode={process.env.NODE_ENV !== "production"} />
+      <AuditHeader filterList={filterList} />
 
       <section className="grid gap-4 md:grid-cols-3">
         <DashboardStatCard label="Events loaded" value={logs.length.toString()} detail="Audit events returned for the current filter set." />

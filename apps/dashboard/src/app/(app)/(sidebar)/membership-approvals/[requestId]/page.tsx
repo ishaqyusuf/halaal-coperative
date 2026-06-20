@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { createDbRuntime, getMemberOnboardingRequestById } from "@halaal-vest/db"
+import { createDbRuntime, getMemberOnboardingRequestById } from "@halaalvest/db"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, TrendPill, WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { MembershipApprovalForm } from "@/components/onboarding/membership-approval-form"
 import { getDashboardServerContext } from "@/lib/server-context"

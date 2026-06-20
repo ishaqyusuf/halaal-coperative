@@ -2,8 +2,8 @@
 
 import { useTransition } from "react"
 import { z } from "zod"
-import { useNotifications } from "@halaal-vest/notifications-react"
-import { Button } from "@halaal-vest/ui/components/button"
+import { useNotifications } from "@halaalvest/notifications-react"
+import { Button } from "@halaalvest/ui/components/button"
 import {
   Form,
   FormControl,
@@ -11,9 +11,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@halaal-vest/ui/components/form"
-import { Input } from "@halaal-vest/ui/components/input"
-import { useZodForm } from "@halaal-vest/ui/hooks/use-zod-form"
+} from "@halaalvest/ui/components/form"
+import { Input } from "@halaalvest/ui/components/input"
+import { InputGroup, InputGroupInput, InputGroupText } from "@halaalvest/ui/components/input-group"
+import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import { submitMemberOnboardingAction } from "@/lib/public-actions"
@@ -36,10 +37,12 @@ type MemberSignupValues = z.infer<typeof memberSignupSchema>
 
 export function MemberSignupForm({
   devMode = false,
+  memberNumberPrefix,
   signupToken,
   tenantName,
 }: {
   devMode?: boolean
+  memberNumberPrefix?: string | null
   signupToken?: string | null
   tenantName: string
 }) {
@@ -154,7 +157,14 @@ export function MemberSignupForm({
             <FormItem>
               <FormLabel>UID / cooperative number</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="MEM-1024" />
+                {memberNumberPrefix ? (
+                  <InputGroup>
+                    <InputGroupText>{memberNumberPrefix}</InputGroupText>
+                    <InputGroupInput {...field} placeholder="1024" />
+                  </InputGroup>
+                ) : (
+                  <Input {...field} placeholder="1024" />
+                )}
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -7,7 +7,9 @@ import {
   type NotificationRecord,
   type NotificationStore,
   type NotificationVariant,
-} from "@halaal-vest/notifications"
+} from "@halaalvest/notifications"
+import { Toaster } from "@halaalvest/ui/toaster"
+import { toast, useToast } from "@halaalvest/ui/use-toast"
 import {
   createContext,
   type ReactNode,
@@ -17,8 +19,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
-
-import { NotificationsViewport } from "./viewport"
 
 type NotificationsContextValue = {
   clear: () => void
@@ -47,8 +47,29 @@ export function NotificationsProvider({
 }) {
   const [notificationStore] = useState<NotificationStore>(() => store ?? createMemoryNotificationStore())
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const { dismiss: dismissToast } = useToast()
+
+  function notify(input: NotificationInput) {
+    const id = notificationStore.publish(input)
+
+    toast({
+      id,
+      title: input.title,
+      description: input.description,
+      variant: input.variant,
+      duration: input.durationMs,
+      onOpenChange(open) {
+        if (!open) {
+          notificationStore.dismiss(id)
+        }
+      },
+    })
+
+    return id
+  }
+
   const [service] = useState(
-    () => new NotificationService((input) => notificationStore.publish(input)),
+    () => new NotificationService((input) => notify(input)),
   )
   const state = useNotificationStore(notificationStore)
 
@@ -87,16 +108,14 @@ export function NotificationsProvider({
     })
   }
 
-  function notify(input: NotificationInput) {
-    return notificationStore.publish(input)
-  }
-
   const value: NotificationsContextValue = {
     clear() {
       notificationStore.clear()
+      dismissToast()
     },
     dismiss(notificationId) {
       notificationStore.dismiss(notificationId)
+      dismissToast(notificationId)
     },
     notifications: state.notifications.filter((notification) => notification.status === "active"),
     notify,
@@ -118,7 +137,7 @@ export function NotificationsProvider({
   return (
     <NotificationsContext value={value}>
       {children}
-      <NotificationsViewport notifications={value.notifications} onDismiss={value.dismiss} />
+      <Toaster />
     </NotificationsContext>
   )
 }

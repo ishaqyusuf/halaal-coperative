@@ -1,4 +1,4 @@
-import { createTenantWorkspaceBootstrap, getTenantOnboardingState } from "@halaal-vest/db"
+import { createTenantWorkspaceBootstrap, getTenantOnboardingState } from "@halaalvest/db"
 import { z } from "zod"
 
 import { authenticatedProcedure, createTRPCRouter, tenantProcedure } from "../lib.trpc"
@@ -15,6 +15,7 @@ export const onboardingRouter = createTRPCRouter({
         slug: z.string().min(2),
         ownerFullName: z.string().min(2),
         ownerEmail: z.email(),
+        ownerMemberNumber: z.string().min(1).optional(),
         region: z.string().min(2).optional(),
         currencyCode: z.string().length(3).optional(),
         timezone: z.string().min(2).optional(),

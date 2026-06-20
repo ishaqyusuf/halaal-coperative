@@ -1,4 +1,4 @@
-import { formatCurrency } from "@halaal-vest/utils"
+import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardDataTable,
   DashboardTable,
@@ -18,10 +18,12 @@ import {
   WorkspacePageShell,
 } from "@/components/dashboard"
 import {
+  MemberCommitmentForm,
   MemberDocumentForm,
   MemberDocumentReviewForm,
   MemberKycForm,
 } from "@/components/forms/member-forms"
+import { BackfillHistoryModal } from "@/components/modals/backfill-history-modal"
 import { loadMemberDetailPageData } from "@/lib/members"
 
 type MemberDetailPageData = Extract<
@@ -34,10 +36,13 @@ function formatIsoDate(value: Date | null | undefined) {
 }
 
 export function MemberDetailView({
+  canManageCommitments,
   canManageMembers,
   detail,
+  tenantStartDate,
 }: MemberDetailPageData) {
   const activePlan = detail.member.contributionPlans.find((plan) => plan.isActive) ?? null
+  const today = new Date()
 
   return (
     <WorkspacePageShell
@@ -52,6 +57,14 @@ export function MemberDetailView({
         <DashboardActionLink href={`/members/${detail.member.id}/statement`}>
           Open printable statement
         </DashboardActionLink>
+        <BackfillHistoryModal
+          cooperativeStartDate={tenantStartDate ?? null}
+          joinedAt={formatIsoDate(detail.member.joinedAt) ?? ""}
+          memberId={detail.member.id}
+          memberName={detail.member.fullName}
+          memberNumber={detail.member.memberNumber}
+          triggerVariant="default"
+        />
         <a
           className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
           href={`/members/${detail.member.id}/statement-export`}
@@ -168,30 +181,96 @@ export function MemberDetailView({
           <DashboardSectionHeader
             actions={<TrendPill>{detail.member.contributionPlans.length} plans</TrendPill>}
             eyebrow="Commitment"
-            title="Commitment timeline"
+            title="Monthly commitment history"
           />
-          <div className="mt-5 space-y-3">
-            {detail.member.contributionPlans.length ? (
-              detail.member.contributionPlans.map((plan) => (
-                <DashboardSurfaceCard key={plan.id}>
-                  <p className="font-medium text-foreground">{plan.name}</p>
+          <DashboardSurfaceCard as="article" className="mt-5">
+            <details open>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium text-foreground">
+                    Current monthly commitment {formatCurrency(detail.summary?.activeCommitmentAmount ?? 0)}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {formatCurrency(Number(plan.amount))} monthly from {formatIsoDate(plan.startsAt)}
-                    {plan.endsAt ? ` to ${formatIsoDate(plan.endsAt)}` : ""}
+                    {activePlan
+                      ? `Effective from ${formatIsoDate(activePlan.startsAt)}`
+                      : "No active monthly commitment has been recorded"}
                   </p>
-                  <p className="mt-2">
-                    <TrendPill tone={plan.isActive ? "positive" : "neutral"}>
-                      {plan.isActive ? "Active" : "Closed"}
-                    </TrendPill>
-                  </p>
-                </DashboardSurfaceCard>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No commitment plan has been recorded for this member yet.
-              </p>
-            )}
-          </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <TrendPill>{detail.member.contributionPlans.length} dated updates</TrendPill>
+                  <TrendPill tone="neutral">View history</TrendPill>
+                </div>
+              </summary>
+
+              <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Commitment update history</p>
+                  <div className="mt-4 space-y-3">
+                    {detail.member.contributionPlans.length ? (
+                      detail.member.contributionPlans.map((plan) => {
+                        const startsAt = formatIsoDate(plan.startsAt)
+                        const endsAt = formatIsoDate(plan.endsAt)
+                        const isScheduled = plan.startsAt > today
+                        const statusLabel = plan.isActive
+                          ? isScheduled
+                            ? "Scheduled commitment"
+                            : "Current commitment"
+                          : "Historical commitment"
+
+                        return (
+                          <div
+                            key={plan.id}
+                            className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/80 px-4 py-3"
+                          >
+                            <div>
+                              <p className="text-sm font-medium text-foreground">
+                                {startsAt}
+                                {endsAt ? ` to ${endsAt}` : ""}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">{plan.name}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium text-foreground">
+                                {formatCurrency(Number(plan.amount))}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">{statusLabel}</p>
+                            </div>
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No commitment has been recorded for this member yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {canManageCommitments ? (
+                  <div>
+                    <p className="text-sm font-medium text-foreground">New commitment version</p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      Add the member’s next monthly commitment and the date it starts.
+                    </p>
+                    <div className="mt-5">
+                      <MemberCommitmentForm
+                        defaultAmount={
+                          activePlan ? String(Number(activePlan.amount)) : undefined
+                        }
+                        defaultStartDate={
+                          activePlan ? undefined : formatIsoDate(detail.member.joinedAt) ?? undefined
+                        }
+                        memberId={detail.member.id}
+                      />
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                      Saving closes the existing active commitment from the selected effective date.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </details>
+          </DashboardSurfaceCard>
         </DashboardSectionCard>
       </section>
 

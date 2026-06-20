@@ -1,10 +1,10 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Badge } from "@halaal-vest/ui/components/badge"
-import { Button, buttonVariants } from "@halaal-vest/ui/components/button"
-import { cn } from "@halaal-vest/ui/lib/utils"
-import { buildTenantDashboardUrl, buildTenantSiteUrl } from "@halaal-vest/utils"
+import { Badge } from "@halaalvest/ui/components/badge"
+import { Button, buttonVariants } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
+import { buildTenantDashboardUrl, buildTenantSiteUrl } from "@halaalvest/utils"
 
 export type DevTenantFabTenant = {
   id: string

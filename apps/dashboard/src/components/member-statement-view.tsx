@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { formatCurrency } from "@halaal-vest/utils"
+import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardDataTable,
   DashboardTable,

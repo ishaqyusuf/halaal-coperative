@@ -1,7 +1,7 @@
 "use client"
 
 import { Fragment, useMemo, useState } from "react"
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { getActiveLinkFromMap, isPathInLink, normalizeNavPath } from "../lib/links"
 import type { NavLink } from "../lib/types"
 import { NavItem } from "./nav-item"

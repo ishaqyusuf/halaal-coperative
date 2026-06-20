@@ -1,32 +1,41 @@
-import { cooperativeRoles, getRoleDisplayName } from "@halaal-vest/auth"
-import { createDbRuntime, listNotificationOutboxEntries, listNotificationPreferences } from "@halaal-vest/db"
-import { Button } from "@halaal-vest/ui/components/button"
-import { createNotificationFromType, platformNotificationTypes } from "@halaal-vest/notifications"
+import { cooperativeRoles, getRoleDisplayName } from "@halaalvest/auth"
+import {
+  createDbRuntime,
+  getNotificationFilterMetadata,
+  listNotificationOutboxEntries,
+  listNotificationPreferences,
+} from "@halaalvest/db"
+import { Button } from "@halaalvest/ui/components/button"
+import { createNotificationFromType, platformNotificationTypes } from "@halaalvest/notifications"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspacePageShell } from "@/components/dashboard"
-import { NotificationFilterForm } from "@/components/forms/misc-forms"
+import { NotificationsHeader } from "@/components/notifications-header"
+import { loadNotificationsFilterParams } from "@/hooks/use-notifications-filter-params"
 import { saveNotificationPreferenceAction } from "@/lib/dashboard-actions"
 import { getDashboardServerContext } from "@/lib/server-context"
 
 const managedNotificationTypes = ["workspace_invitation", "loan_approval_required", "charge.applied", "charge.waived", "charge.reversed", "repayment.posted", "domain.verification_changed", "domain.verification_checked", "collections.follow_up_recorded", "member.status_changed", "member.kyc_updated"] as const
 
 export default async function NotificationsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const params = await searchParams
+  const filters = loadNotificationsFilterParams(await searchParams)
   const context = await getDashboardServerContext()
   const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
   const runtime = createDbRuntime()
-  const search = typeof params.search === "string" ? params.search : ""
-  const status = typeof params.status === "string" ? params.status : ""
-  const type = typeof params.type === "string" ? params.type : ""
+  const search = filters.search ?? ""
+  const status = filters.status ?? ""
+  const type = filters.type ?? ""
 
   const notifications = [
     createNotificationFromType(platformNotificationTypes, "workspace_invitation", { recipientName: context.auth.user?.fullName ?? "Cooperative User", tenantName }),
     createNotificationFromType(platformNotificationTypes, "loan_approval_required", { amount: 250000, memberName: "Amina Yusuf" }),
   ]
 
-  const outboxEntries = context.tenant && runtime.status === "database-configured"
-    ? await listNotificationOutboxEntries(context.tenant.id, { limit: 25, notificationType: type || undefined, search: search || undefined, status: status === "queued" || status === "sent" || status === "failed" ? status : undefined })
-    : []
-  const preferences = context.tenant && runtime.status === "database-configured" ? await listNotificationPreferences(context.tenant.id) : []
+  const [filterList, outboxEntries, preferences] = await Promise.all([
+    context.tenant ? getNotificationFilterMetadata(context.tenant.id) : Promise.resolve([]),
+    context.tenant && runtime.status === "database-configured"
+      ? listNotificationOutboxEntries(context.tenant.id, { limit: 25, notificationType: type || undefined, search: search || undefined, status: status === "queued" || status === "sent" || status === "failed" ? status : undefined })
+      : Promise.resolve([]),
+    context.tenant && runtime.status === "database-configured" ? listNotificationPreferences(context.tenant.id) : Promise.resolve([]),
+  ])
   const roleOptions: Array<(typeof cooperativeRoles)[number] | "all"> = ["all", ...cooperativeRoles]
   const preferenceKeys = new Set(preferences.filter((preference) => preference.enabled).map((preference) => `${preference.role ?? "all"}:${preference.notificationType}:${preference.channel}`))
   const notificationTypeCounts = Array.from(outboxEntries.reduce((map, entry) => map.set(entry.notificationType, (map.get(entry.notificationType) ?? 0) + 1), new Map<string, number>())).sort((a, b) => b[1] - a[1]).slice(0, 5)
@@ -34,7 +43,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
 
   return (
     <WorkspacePageShell eyebrow="Notifications" title="Notifications" description="Review tenant delivery history, preference toggles, and shared notification previews in one support-friendly workspace.">
-      <NotificationFilterForm defaultValues={{ search, status, type }} />
+      <NotificationsHeader filterList={filterList} />
 
       <section className="grid gap-4 md:grid-cols-3">
         <DashboardStatCard label="Queued or sent" value={outboxEntries.length.toString()} detail="Notification entries loaded in the current outbox filter." />

@@ -1,20 +1,20 @@
-import "@halaal-vest/ui/globals.css"
-import { NotificationsProvider } from "@halaal-vest/notifications-react"
+import "@halaalvest/ui/globals.css"
+import { NotificationsProvider } from "@halaalvest/notifications-react"
 import { getMarketingConfig } from "@/lib/marketing-config"
 
 const marketing = getMarketingConfig()
 
 export const metadata = {
   title: !marketing.showHomePage
-    ? "halaal-vest | Signup"
+    ? "halaalvest | Signup"
     : marketing.isLaunchReady
-      ? "halaal-vest"
-      : "halaal-vest | Pre-Launch",
+      ? "halaalvest"
+      : "halaalvest | Pre-Launch",
   description: !marketing.showHomePage
-    ? "Public signup entry for halaal-vest, the multi-tenant halal cooperative operations platform."
+    ? "Public signup entry for halaalvest, the multi-tenant halal cooperative operations platform."
     : marketing.isLaunchReady
-      ? "Launch marketing site for halaal-vest, the multi-tenant halal cooperative operations platform."
-      : "Pre-launch landing page for halaal-vest. Join early access before the cooperative platform goes live.",
+      ? "Launch marketing site for halaalvest, the multi-tenant halal cooperative operations platform."
+      : "Pre-launch landing page for halaalvest. Join early access before the cooperative platform goes live.",
 }
 
 export default function RootLayout({

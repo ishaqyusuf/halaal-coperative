@@ -1,5 +1,5 @@
-import { Button } from "@halaal-vest/ui/components/button"
-import { createDbRuntime, getImportReferenceData, listImportBatches } from "@halaal-vest/db"
+import { Button } from "@halaalvest/ui/components/button"
+import { createDbRuntime, getImportReferenceData, listImportBatches } from "@halaalvest/db"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { DashboardImportForms } from "@/components/forms/import-forms"
 import { applyImportBatchAction } from "@/lib/dashboard-actions"

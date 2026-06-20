@@ -1,6 +1,6 @@
 "use client"
 
-import { Button } from "@halaal-vest/ui/components/button"
+import { Button } from "@halaalvest/ui/components/button"
 
 export function MembersEmptyState() {
   return (

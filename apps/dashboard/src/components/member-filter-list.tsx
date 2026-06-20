@@ -1,7 +1,7 @@
 "use client"
 
-import { Button } from "@halaal-vest/ui/components/button"
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { Button } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
 
 export function MemberFilterList({
   filters,

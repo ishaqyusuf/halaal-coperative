@@ -13,7 +13,7 @@ export default async function CooperativeProfilePage() {
       <section className="grid gap-4 md:grid-cols-3">
         <DashboardStatCard label="Cooperative name" value={tenant.name} detail="Current persisted tenant display name." />
         <DashboardStatCard label="Current size" value={tenant.currentSize?.toString() ?? "Not captured"} detail="Current recorded cooperative size." />
-        <DashboardStatCard label="Timezone" value={tenant.timezone} detail="Workspace timezone used in dashboard flows." />
+        <DashboardStatCard label="Member prefix" value={tenant.memberNumberPrefix ?? "Not set"} detail="Optional prefix prepended to member numbers." />
       </section>
 
       {canManageProfile ? (
@@ -21,7 +21,7 @@ export default async function CooperativeProfilePage() {
           <DashboardSectionHeader eyebrow="Edit" title="Update profile" description="Manage the cooperative’s identity, office location, and onboarding profile from one settings form." />
           <div className="mt-5">
             <CooperativeProfileForm
-              defaultValues={{ currentSize: tenant.currentSize?.toString() ?? "", name: tenant.name, officeAddress: tenant.officeAddress ?? "", region: tenant.region ?? "", startDate: tenant.startDate ?? "", timezone: tenant.timezone }}
+              defaultValues={{ currentSize: tenant.currentSize?.toString() ?? "", memberNumberPrefix: tenant.memberNumberPrefix ?? "", name: tenant.name, officeAddress: tenant.officeAddress ?? "", region: tenant.region ?? "", startDate: tenant.startDate ?? "", timezone: tenant.timezone }}
               devMode={process.env.NODE_ENV !== "production"}
             />
           </div>
@@ -32,6 +32,7 @@ export default async function CooperativeProfilePage() {
         {([
           ["Cooperative name", tenant.name],
           ["Current size", tenant.currentSize?.toString() ?? "Not captured yet"],
+          ["Member prefix", tenant.memberNumberPrefix ?? "Not captured yet"],
           ["Office address", tenant.officeAddress ?? "Not captured yet"],
           ["Start date", tenant.startDate ?? "Not captured yet"],
           ["Region", tenant.region ?? "Not captured yet"],

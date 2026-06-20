@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@halaal-vest/ui/components/button"
-import { Badge } from "@halaal-vest/ui/components/badge"
+import { Button } from "@halaalvest/ui/components/button"
+import { Badge } from "@halaalvest/ui/components/badge"
 
 export type DevLoginAccount = {
   email: string

@@ -1,5 +1,5 @@
 {
-  "name": "@halaal-vest/db",
+  "name": "@halaalvest/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -17,15 +17,17 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.0.0",
-    "@halaal-vest/utils": "workspace:*"
+    "@halaalvest/backfill": "workspace:*",
+    "@halaalvest/domain": "workspace:*",
+    "@halaalvest/utils": "workspace:*"
   },
   "prisma": {
     "seed": "bun run prisma/seed.ts"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
-    "@halaal-vest/eslint-config": "workspace:*",
-    "@halaal-vest/tsconfig": "workspace:*",
+    "@halaalvest/eslint-config": "workspace:*",
+    "@halaalvest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "prisma": "^7.0.0",
     "typescript": "^5.9.3"

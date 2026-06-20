@@ -1,7 +1,7 @@
 export const platformRootDomain =
-  process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() || "halaal-vest.com"
+  process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() || "halaalvest.com"
 export const localPlatformRootDomain =
-  process.env.HALAAL_VEST_LOCAL_ROOT_DOMAIN?.trim() || "halaal-vest.localhost"
+  process.env.HALAAL_VEST_LOCAL_ROOT_DOMAIN?.trim() || "halaalvest.localhost"
 export const localTenantRootDomain =
   process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() || `app.${localPlatformRootDomain}`
 export const dashboardSubdomainLabel = "dashboard"
@@ -75,6 +75,10 @@ export function normalizeSubdomainLabel(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
+}
+
+export function isReservedTenantSubdomainLabel(value: string) {
+  return reservedTenantLabels.has(normalizeSubdomainLabel(value))
 }
 
 export function buildTenantSiteHostname(subdomain: string) {

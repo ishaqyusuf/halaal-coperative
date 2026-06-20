@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Button } from "@halaal-vest/ui/components/button"
+import { Button } from "@halaalvest/ui/components/button"
 import { useTheme } from "next-themes"
 
 function SunIcon(props: React.ComponentProps<"svg">) {

@@ -4,13 +4,13 @@ import {
   normalizeRole,
   platformSessionScope,
   resolveRequestSessionScope,
-} from "@halaal-vest/auth"
+} from "@halaalvest/auth"
 import {
   createDbRuntime,
   findActiveMembershipAsync,
   findUserByIdAsync,
   resolveTenantAsync,
-} from "@halaal-vest/db"
+} from "@halaalvest/db"
 
 export async function buildRequestContext(headers: Headers) {
   const requestHost = headers.get("host")
@@ -25,11 +25,12 @@ export async function buildRequestContext(headers: Headers) {
       explicitScope: sessionScope ?? platformSessionScope,
     })
   const userRoleOverride = normalizeRole(headers.get("x-user-role"))
+  const user = await findUserByIdAsync(requestedUserId)
   const tenantResolution = await resolveTenantAsync({
+    fallbackTenantId: user && !user.isPlatformOwner ? user.tenantId : null,
     slug: forwardedTenantSlug,
     hostname: forwardedTenantHostname ?? requestHost,
   })
-  const user = await findUserByIdAsync(requestedUserId)
   const membership =
     (await findActiveMembershipAsync({
       tenantId: tenantResolution.tenant?.id ?? user?.tenantId ?? null,

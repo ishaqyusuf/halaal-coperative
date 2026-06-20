@@ -1,5 +1,5 @@
 {
-  "name": "@halaal-vest/eslint-config",
+  "name": "@halaalvest/eslint-config",
   "version": "0.0.0",
   "type": "module",
   "private": true,

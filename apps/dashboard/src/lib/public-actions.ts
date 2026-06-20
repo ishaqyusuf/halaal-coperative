@@ -5,11 +5,12 @@ import {
   createMemberOnboardingRequest,
   createNotificationOutboxEntry,
   getPendingMemberOnboardingForUser,
-} from "@halaal-vest/db"
-import { buildTenantDashboardUrl } from "@halaal-vest/utils"
+} from "@halaalvest/db"
+import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import { resolveMemberSignupGate } from "@/lib/member-signup-access"
 import { verifyMemberSignupLinkToken } from "@/lib/member-signup-link-token"
 import { createMemberOnboardingVerificationToken } from "@/lib/member-onboarding-token"
+import { composeMemberNumber } from "@/lib/member-number"
 import { hashPassword } from "@/lib/password"
 import { getDashboardServerContext } from "@/lib/server-context"
 
@@ -32,7 +33,10 @@ export async function submitMemberOnboardingAction(formData: FormData) {
 
   const fullName = getRequiredString(formData, "fullName")
   const email = getRequiredString(formData, "email").toLowerCase()
-  const memberNumber = getRequiredString(formData, "memberNumber")
+  const memberNumber = composeMemberNumber(
+    context.tenant.memberNumberPrefix,
+    getRequiredString(formData, "memberNumber"),
+  )
   const phoneNumber = getRequiredString(formData, "phoneNumber")
   const password = getRequiredString(formData, "password")
   const confirmPassword = getRequiredString(formData, "confirmPassword")

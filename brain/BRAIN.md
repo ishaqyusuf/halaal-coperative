@@ -1,7 +1,7 @@
 # Project Brain
 
 ## Purpose
-This folder is the structured memory for halaal-vest. It keeps product, architecture, engineering, data, API, and task context in one place so humans and AI agents can work consistently.
+This folder is the structured memory for halaalvest. It keeps product, architecture, engineering, data, API, and task context in one place so humans and AI agents can work consistently.
 
 ## How To Use
 - Update the most relevant document whenever a meaningful product or technical decision is made.

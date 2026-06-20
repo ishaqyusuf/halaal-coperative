@@ -6,6 +6,76 @@ type DashboardFormReset<TFieldValues> = {
   reset: (values?: TFieldValues) => void
 }
 
+function randomItem<TValue>(items: readonly TValue[]) {
+  return items[Math.floor(Math.random() * items.length)]!
+}
+
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function formatDate(year: number, month: number, day: number) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
+function randomRecentDate(yearStart: number, yearEnd: number) {
+  return formatDate(randomInt(yearStart, yearEnd), randomInt(1, 12), randomInt(1, 28))
+}
+
+const memberFirstNames = ["Amina", "Zainab", "Fatima", "Maryam", "Khadija", "Hauwa", "Musa", "Ibrahim", "Yusuf", "Sadiq"]
+const memberLastNames = ["Yusuf", "Bello", "Garba", "Muhammad", "Sule", "Usman", "Abdullahi", "Ilyas", "Kabir", "Lawal"]
+const memberTypes = ["individual", "civil_servant", "business"] as const
+
+function createRandomMemberCreateDefaults() {
+  const fullName = `${randomItem(memberFirstNames)} ${randomItem(memberLastNames)}`
+  const memberNumber = String(randomInt(1000, 9999))
+  const joinedAt = randomRecentDate(2021, 2026)
+  const monthlyCommitment = String(randomItem([10000, 15000, 20000, 25000, 30000, 50000]))
+  const currentSavingsBalance = String(randomItem([0, 15000, 45000, 80000, 125000, 250000]))
+  const hasServingLoan = Math.random() >= 0.5
+
+  if (!hasServingLoan) {
+    return {
+      currentSavingsBalance,
+      fullName,
+      hasServingLoan,
+      joinedAt,
+      loanAmount: "",
+      loanMonthlyCommitment: "",
+      loanPaymentMonths: "",
+      loanServed: "",
+      loanStartDate: "",
+      loanTopupAmount: "",
+      monthlyCommitment,
+      memberNumber,
+      memberType: randomItem(memberTypes),
+    }
+  }
+
+  const loanAmount = randomItem([150000, 250000, 350000, 500000, 750000, 1000000])
+  const maxServedSteps = Math.max(0, Math.floor(loanAmount / 50000) - 1)
+  const loanServed = maxServedSteps > 0 ? randomInt(0, maxServedSteps) * 50000 : 0
+  const loanPaymentMonths = randomItem([6, 9, 12, 18, 24])
+  const loanMonthlyCommitment = Number(((loanAmount - loanServed) / loanPaymentMonths).toFixed(2))
+  const loanTopupAmount = randomItem([0, 5000, 10000, 15000, 25000])
+
+  return {
+    currentSavingsBalance,
+    fullName,
+    hasServingLoan,
+    joinedAt,
+    loanAmount: String(loanAmount),
+    loanMonthlyCommitment: String(loanMonthlyCommitment),
+    loanPaymentMonths: String(loanPaymentMonths),
+    loanServed: String(loanServed),
+    loanStartDate: randomRecentDate(2022, 2026),
+    loanTopupAmount: String(loanTopupAmount),
+    monthlyCommitment,
+    memberNumber,
+    memberType: randomItem(memberTypes),
+  }
+}
+
 const dashboardDevFormDefaults = {
   audit_filters: {
     action: "loan_request",
@@ -26,6 +96,7 @@ const dashboardDevFormDefaults = {
     appliesToLoans: false,
     appliesToMembers: true,
     code: "LEVY-APR",
+    effectiveFrom: "2026-04-01",
     isMonthlyLevy: true,
     kind: "fixed",
     name: "Monthly Levy",
@@ -38,6 +109,7 @@ const dashboardDevFormDefaults = {
   },
   cooperative_profile: {
     currentSize: "125",
+    memberNumberPrefix: "MEM-",
     name: "Noor Cooperative Society",
     officeAddress: "12 Emir Road, Kaduna North, Kaduna State",
     region: "Kaduna",
@@ -58,14 +130,15 @@ const dashboardDevFormDefaults = {
   member_create: {
     fullName: "Amina Yusuf",
     joinedAt: "2026-04-14",
-    memberNumber: "MEM-1024",
+    loanTopupAmount: "",
+    memberNumber: "1024",
     memberType: "individual",
   },
   member_signup: {
     confirmPassword: "password123",
     email: "amina.yusuf@example.com",
     fullName: "Amina Yusuf",
-    memberNumber: "MEM-1024",
+    memberNumber: "1024",
     password: "password123",
     phoneNumber: "+234 800 000 0000",
   },
@@ -107,6 +180,14 @@ const dashboardDevFormDefaults = {
 
 export type DashboardDevFormKind = keyof typeof dashboardDevFormDefaults
 
+export function getDashboardRandomDevFormFill<TFieldValues extends FieldValues>(kind: DashboardDevFormKind) {
+  if (kind === "member_create") {
+    return createRandomMemberCreateDefaults() as unknown as TFieldValues
+  }
+
+  return dashboardDevFormDefaults[kind] as unknown as TFieldValues
+}
+
 export function applyDashboardDevFormFill<TFieldValues extends FieldValues>(
   form: DashboardFormReset<TFieldValues>,
   kind: DashboardDevFormKind,
@@ -114,6 +195,17 @@ export function applyDashboardDevFormFill<TFieldValues extends FieldValues>(
 ) {
   form.reset(({
     ...dashboardDevFormDefaults[kind],
+    ...overrides,
+  } as unknown) as TFieldValues)
+}
+
+export function applyDashboardRandomDevFormFill<TFieldValues extends FieldValues>(
+  form: DashboardFormReset<TFieldValues>,
+  kind: DashboardDevFormKind,
+  overrides?: Partial<TFieldValues>,
+) {
+  form.reset(({
+    ...getDashboardRandomDevFormFill<TFieldValues>(kind),
     ...overrides,
   } as unknown) as TFieldValues)
 }

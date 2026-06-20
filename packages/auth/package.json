@@ -1,5 +1,5 @@
 {
-  "name": "@halaal-vest/auth",
+  "name": "@halaalvest/auth",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,13 +10,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@halaal-vest/db": "workspace:*",
-    "@halaal-vest/utils": "workspace:*"
+    "@halaalvest/db": "workspace:*",
+    "@halaalvest/utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
-    "@halaal-vest/eslint-config": "workspace:*",
-    "@halaal-vest/tsconfig": "workspace:*",
+    "@halaalvest/eslint-config": "workspace:*",
+    "@halaalvest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   },

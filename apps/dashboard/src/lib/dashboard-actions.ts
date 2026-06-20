@@ -1,18 +1,26 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
+import { buildBackfillDraft, type BackfillDraft, type BuildBackfillDraftInput } from "@halaalvest/backfill"
 import {
+  buildBackfillDraftInputForMember,
   approveMemberOnboardingRequest,
   applyCharge,
   applyImportBatch,
   closeContributionPlan,
   createTenantCustomDomain,
+  createTenantShareStructureVersion,
   createChargeDefinition,
+  createChargeDefinitionVersion,
   createImportBatch,
   createMember,
   createMemberDocument,
   createMemberSignupLink,
   createNotificationOutboxEntry,
+  createShareBusiness,
+  createShareBusinessProfitEntry,
+  generateShareProfitAllocations,
   disburseLoan,
   getImportReferenceData,
   importCharges,
@@ -22,6 +30,9 @@ import {
   importLoanProducts,
   importMembers,
   importRepaymentMigrations,
+  applyMonthlyRecordMember,
+  cancelMonthlyRecordMember,
+  ensureMonthlyRecord,
   recordCollectionFollowUp,
   provisionTenantUserRole,
   rotateMemberSignupLinkToken,
@@ -37,6 +48,7 @@ import {
   setMemberSignupLinkEnabled,
   submitLoanRequest,
   postRepayment,
+  publishShareProfitAllocations,
   queueTenantRoleNotifications,
   upsertNotificationPreference,
   rejectMemberOnboardingRequest,
@@ -50,8 +62,15 @@ import {
   updateMemberSignupLink,
   updateTenantMemberSignupSettings,
   waiveChargeApplication,
-} from "@halaal-vest/db"
-import { buildTenantDashboardUrl } from "@halaal-vest/utils"
+} from "@halaalvest/db"
+import {
+  backfillApplyHandler,
+  backfillApplyTask,
+  backfillInitializeHandler,
+  backfillInitializeTask,
+  triggerJob,
+} from "@halaalvest/jobs"
+import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -66,6 +85,7 @@ import {
   getDashboardImportPrimaryValue,
   parseDashboardImportCsv,
 } from "@/lib/import-csv"
+import { composeMemberNumber, normalizeMemberNumberPrefix } from "@/lib/member-number"
 
 type DashboardMemberType = "civil_servant" | "individual" | "business"
 type DashboardMemberStatus = "pending" | "active" | "inactive" | "suspended" | "exited"
@@ -124,16 +144,26 @@ function getMemberStateFromFormData(formData: FormData) {
   const monthlyCommitment = getOptionalNumber(formData, "monthlyCommitment")
   const loanAmount = getOptionalNumber(formData, "loanAmount")
   const loanMonthlyCommitment = getOptionalNumber(formData, "loanMonthlyCommitment")
+  const loanPaymentMonths = getOptionalNumber(formData, "loanPaymentMonths")
+  const loanTopupAmount = getOptionalNumber(formData, "loanTopupAmount") ?? 0
   const loanServed = getOptionalNumber(formData, "loanServed") ?? 0
   const loanStartDate = (formData.get("loanStartDate") as string | null)?.trim() || undefined
 
   if (hasServingLoan) {
-    if (!loanStartDate || !loanAmount || !loanMonthlyCommitment) {
-      throw new Error("Loan start date, amount, and monthly commitment are required when serving loan is enabled.")
+    if (!loanStartDate || !loanAmount || !loanPaymentMonths || !loanMonthlyCommitment) {
+      throw new Error("Loan start date, amount, payment months, and monthly commitment are required when serving loan is enabled.")
     }
 
     if (loanServed < 0 || loanServed > loanAmount) {
       throw new Error("Served amount must be between 0 and the total loan amount.")
+    }
+
+    if (!Number.isInteger(loanPaymentMonths) || loanPaymentMonths <= 0) {
+      throw new Error("Payment months must be greater than 0.")
+    }
+
+    if (loanTopupAmount < 0) {
+      throw new Error("Topup amount cannot be negative.")
     }
   }
 
@@ -141,10 +171,12 @@ function getMemberStateFromFormData(formData: FormData) {
     currentSavingsBalance,
     monthlyCommitment,
     servingLoan:
-      hasServingLoan && loanStartDate && loanAmount && loanMonthlyCommitment
+      hasServingLoan && loanStartDate && loanAmount && loanPaymentMonths && loanMonthlyCommitment
         ? {
             amountServed: loanServed,
+            extraMonthlySavingsAmount: loanTopupAmount,
             monthlyCommitment: loanMonthlyCommitment,
+            paymentMonths: loanPaymentMonths,
             principalAmount: loanAmount,
             startDate: new Date(`${loanStartDate}T00:00:00.000Z`),
           }
@@ -161,7 +193,7 @@ export async function createMemberAction(formData: FormData) {
     currentSavingsBalance: memberState.currentSavingsBalance,
     fullName: getRequiredString(formData, "fullName"),
     joinedAt: new Date(`${getRequiredString(formData, "joinedAt")}T00:00:00.000Z`),
-    memberNumber: getRequiredString(formData, "memberNumber"),
+    memberNumber: composeMemberNumber(actor.tenant.memberNumberPrefix, getRequiredString(formData, "memberNumber")),
     memberType: getRequiredString(formData, "memberType") as DashboardMemberType,
     monthlyCommitment: memberState.monthlyCommitment,
     servingLoan: memberState.servingLoan,
@@ -366,17 +398,20 @@ export async function recordContributionAction(formData: FormData) {
 
 export async function setMemberContributionPlanAction(formData: FormData) {
   const actor = await requireDashboardActor(allStaffRoles)
+  const memberId = getRequiredString(formData, "memberId")
 
   await setMemberContributionPlan({
     actorUserId: actor.user.id,
     amount: Number(getRequiredString(formData, "amount")),
-    memberId: getRequiredString(formData, "memberId"),
+    memberId,
     name: (formData.get("name") as string | null)?.trim() || undefined,
     startsAt: new Date(`${getRequiredString(formData, "startsAt")}T00:00:00.000Z`),
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/contributions")
+  revalidatePath("/members")
+  revalidatePath(`/members/${memberId}`)
 }
 
 export async function updateContributionPlanAction(formData: FormData) {
@@ -447,11 +482,101 @@ export async function recordMemberPaymentAction(formData: FormData) {
   revalidatePath("/loans")
 }
 
+export async function createMonthlyRecordAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  const record = await ensureMonthlyRecord({
+    actorUserId: actor.user.id,
+    month: Number(getRequiredString(formData, "month")),
+    tenantId: actor.tenant.id,
+    year: Number(getRequiredString(formData, "year")),
+  })
+
+  revalidatePath("/monthly-records")
+  redirect(`/monthly-records?recordId=${record.id}`)
+}
+
+export async function applyMonthlyRecordMemberAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  const row = await applyMonthlyRecordMember({
+    actorUserId: actor.user.id,
+    monthlyRecordMemberId: getRequiredString(formData, "monthlyRecordMemberId"),
+    tenantId: actor.tenant.id,
+    totalPaidAmount: Number(getRequiredString(formData, "totalPaidAmount")),
+  })
+
+  await queueTenantRoleNotifications({
+    actionLabel: "Open monthly records",
+    actionUrl: "/monthly-records",
+    bodyText: `A monthly record payment of ${Number(row.totalPaidAmount)} was applied.`,
+    metadata: {
+      contributionId: row.contributionId,
+      memberId: row.memberId,
+      monthlyRecordId: row.monthlyRecordId,
+      monthlyRecordMemberId: row.id,
+      repaymentId: row.repaymentId,
+      status: row.status,
+      totalPaidAmount: Number(row.totalPaidAmount),
+    },
+    notificationType: "monthly_record.member_applied",
+    roles: ["tenant_admin", "finance_officer"],
+    source: "dashboard.monthly_records",
+    subject: `${actor.tenant.name}: monthly record applied`,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/monthly-records")
+  revalidatePath("/contributions")
+  revalidatePath("/repayments")
+  revalidatePath("/loans")
+  revalidatePath("/members")
+  revalidatePath("/notifications")
+}
+
+export async function cancelMonthlyRecordMemberAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  const row = await cancelMonthlyRecordMember({
+    actorUserId: actor.user.id,
+    monthlyRecordMemberId: getRequiredString(formData, "monthlyRecordMemberId"),
+    tenantId: actor.tenant.id,
+  })
+
+  await queueTenantRoleNotifications({
+    actionLabel: "Open monthly records",
+    actionUrl: "/monthly-records",
+    bodyText: `A monthly record row was cancelled. Linked contribution and repayment records were reversed when present.`,
+    metadata: {
+      contributionId: row.contributionId,
+      memberId: row.memberId,
+      monthlyRecordId: row.monthlyRecordId,
+      monthlyRecordMemberId: row.id,
+      repaymentId: row.repaymentId,
+      status: row.status,
+      totalPaidAmount: Number(row.totalPaidAmount),
+    },
+    notificationType: "monthly_record.member_cancelled",
+    roles: ["tenant_admin", "finance_officer"],
+    source: "dashboard.monthly_records",
+    subject: `${actor.tenant.name}: monthly record cancelled`,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/monthly-records")
+  revalidatePath("/contributions")
+  revalidatePath("/repayments")
+  revalidatePath("/loans")
+  revalidatePath("/members")
+  revalidatePath("/notifications")
+}
+
 export async function createChargeDefinitionAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
 
   await createChargeDefinition({
     amount: Number(getRequiredString(formData, "amount")),
+    effectiveFrom: new Date(`${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`),
     appliesToLoanRequests: formData.get("appliesToLoanRequests") === "on",
     appliesToLoans: formData.get("appliesToLoans") === "on",
     appliesToMembers: formData.get("appliesToMembers") === "on",
@@ -459,10 +584,106 @@ export async function createChargeDefinitionAction(formData: FormData) {
     isMonthlyLevy: formData.get("isMonthlyLevy") === "on",
     kind: getRequiredString(formData, "kind") as DashboardChargeKind,
     name: getRequiredString(formData, "name"),
+    purpose: getRequiredString(formData, "purpose") as
+      | "general"
+      | "member_share"
+      | "loan_fee"
+      | "membership_fee"
+      | "penalty",
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/charges")
+}
+
+export async function createTenantShareStructureVersionAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await createTenantShareStructureVersion({
+    amount: Number(getRequiredString(formData, "amount")),
+    createdByUserId: actor.user.id,
+    effectiveFrom: new Date(`${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`),
+    notes: (formData.get("notes") as string | null)?.trim() || undefined,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+}
+
+export async function createChargeDefinitionVersionAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await createChargeDefinitionVersion({
+    amount: Number(getRequiredString(formData, "amount")),
+    chargeDefinitionId: getRequiredString(formData, "chargeDefinitionId"),
+    createdByUserId: actor.user.id,
+    effectiveFrom: new Date(`${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`),
+    kind: getRequiredString(formData, "kind") as DashboardChargeKind,
+    notes: (formData.get("notes") as string | null)?.trim() || undefined,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+}
+
+export async function createShareBusinessAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await createShareBusiness({
+    capitalAmount: Number(getRequiredString(formData, "capitalAmount")),
+    createdByUserId: actor.user.id,
+    endDate: (formData.get("endDate") as string | null)?.trim()
+      ? new Date(`${getRequiredString(formData, "endDate")}T00:00:00.000Z`)
+      : undefined,
+    linkedDividendPeriodId: (formData.get("linkedDividendPeriodId") as string | null)?.trim() || undefined,
+    name: getRequiredString(formData, "name"),
+    notes: (formData.get("notes") as string | null)?.trim() || undefined,
+    profitAmount: Number(getRequiredString(formData, "profitAmount")),
+    startDate: new Date(`${getRequiredString(formData, "startDate")}T00:00:00.000Z`),
+    status: getRequiredString(formData, "status") as "planned" | "active" | "completed" | "archived",
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+}
+
+export async function createShareBusinessProfitEntryAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await createShareBusinessProfitEntry({
+    createdByUserId: actor.user.id,
+    linkedDividendPeriodId: (formData.get("linkedDividendPeriodId") as string | null)?.trim() || undefined,
+    notes: (formData.get("notes") as string | null)?.trim() || undefined,
+    profitAmount: Number(getRequiredString(formData, "profitAmount")),
+    profitDate: new Date(`${getRequiredString(formData, "profitDate")}T00:00:00.000Z`),
+    shareBusinessId: getRequiredString(formData, "shareBusinessId"),
+    sourceType: getRequiredString(formData, "sourceType") as "manual" | "backfill" | "import",
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+}
+
+export async function generateShareProfitAllocationsAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await generateShareProfitAllocations({
+    profitEntryId: getRequiredString(formData, "profitEntryId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+}
+
+export async function publishShareProfitAllocationsAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await publishShareProfitAllocations({
+    profitEntryId: getRequiredString(formData, "profitEntryId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
 }
 
 export async function updateChargeDefinitionAction(formData: FormData) {
@@ -669,6 +890,7 @@ export async function updateCooperativeProfileAction(formData: FormData) {
       const rawValue = (formData.get("currentSize") as string | null)?.trim()
       return rawValue ? Number(rawValue) : null
     })(),
+    memberNumberPrefix: normalizeMemberNumberPrefix((formData.get("memberNumberPrefix") as string | null) ?? null),
     name: getRequiredString(formData, "name"),
     officeAddress: (formData.get("officeAddress") as string | null)?.trim() || null,
     region: (formData.get("region") as string | null)?.trim() || null,
@@ -677,6 +899,26 @@ export async function updateCooperativeProfileAction(formData: FormData) {
     timezone: getRequiredString(formData, "timezone"),
   })
 
+  revalidatePath("/settings/profile")
+  revalidatePath("/")
+}
+
+export async function updateTenantFinanceStartDateAction(formData: FormData) {
+  const actor = await requireDashboardActor(workspaceConfigurationRoles)
+
+  await updateTenantProfile({
+    actorUserId: actor.user.id,
+    currentSize: actor.tenant.currentSize ?? null,
+    memberNumberPrefix: normalizeMemberNumberPrefix(actor.tenant.memberNumberPrefix ?? null),
+    name: actor.tenant.name,
+    officeAddress: actor.tenant.officeAddress ?? null,
+    region: actor.tenant.region ?? null,
+    startDate: (formData.get("startDate") as string | null)?.trim() || null,
+    tenantId: actor.tenant.id,
+    timezone: actor.tenant.timezone,
+  })
+
+  revalidatePath("/settings/finance")
   revalidatePath("/settings/profile")
   revalidatePath("/")
 }
@@ -881,7 +1123,7 @@ export async function provisionTenantUserRoleAction(formData: FormData) {
     email: getRequiredString(formData, "email"),
     fullName: getRequiredString(formData, "fullName"),
     makeDefault: formData.get("makeDefault") === "on",
-    role: getRequiredString(formData, "role") as import("@halaal-vest/db").MembershipRole,
+    role: getRequiredString(formData, "role") as import("@halaalvest/db").MembershipRole,
     tenantId: actor.tenant.id,
   })
 
@@ -1187,4 +1429,69 @@ export async function applyImportBatchAction(formData: FormData) {
   revalidatePath("/charges")
   revalidatePath("/loans")
   revalidatePath("/repayments")
+}
+
+export async function queueBackfillDraftAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  const memberId = getRequiredString(formData, "memberId")
+  const rawDraftInput = (formData.get("draftInputJson") as string | null)?.trim()
+  const draftInput = rawDraftInput ? (JSON.parse(rawDraftInput) as BuildBackfillDraftInput) : undefined
+
+  await triggerJob(
+    backfillInitializeTask,
+    async (payload) => backfillInitializeHandler(payload),
+    {
+      actorUserId: actor.user.id,
+      draftInput,
+      memberId,
+      tenantId: actor.tenant.id,
+    },
+    { baseDelayMs: 1000, maxAttempts: 3 },
+  )
+
+  revalidatePath("/members")
+  revalidatePath(`/members/${memberId}`)
+  revalidatePath("/settings/finance")
+}
+
+export async function getBackfillPreviewAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  const memberId = getRequiredString(formData, "memberId")
+
+  const draftInput = await buildBackfillDraftInputForMember({
+    tenantId: actor.tenant.id,
+    memberId,
+  })
+
+  return {
+    draft: buildBackfillDraft(draftInput),
+    draftInput,
+  }
+}
+
+export async function queueBackfillApplyAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  const memberId = getRequiredString(formData, "memberId")
+  const rawDraft = (formData.get("draftJson") as string | null)?.trim()
+  const rawDraftInput = (formData.get("draftInputJson") as string | null)?.trim()
+  const draft = rawDraft ? (JSON.parse(rawDraft) as BackfillDraft) : undefined
+  const draftInput = rawDraftInput ? (JSON.parse(rawDraftInput) as BuildBackfillDraftInput) : undefined
+
+  await triggerJob(
+    backfillApplyTask,
+    async (payload) => backfillApplyHandler(payload),
+    {
+      actorUserId: actor.user.id,
+      batchId: (formData.get("batchId") as string | null)?.trim() || undefined,
+      draft,
+      draftInput,
+      memberId,
+      tenantId: actor.tenant.id,
+    },
+    { baseDelayMs: 1000, maxAttempts: 3 },
+  )
+
+  revalidatePath("/members")
+  revalidatePath(`/members/${memberId}`)
+  revalidatePath("/settings/finance")
 }

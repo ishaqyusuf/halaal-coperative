@@ -1,11 +1,11 @@
 {
-  "name": "@halaal-vest/web",
+  "name": "@halaalvest/web",
   "version": "0.0.1",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node ../../scripts/with-workspace-env.mjs PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-1440} TZ=UTC portless halaal-vest next dev --turbopack",
-    "dev:portless": "node ../../scripts/with-workspace-env.mjs portless halaal-vest next dev --turbopack",
+    "dev": "node ../../scripts/with-workspace-env.mjs PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-1440} TZ=UTC portless halaalvest next dev --turbopack",
+    "dev:portless": "node ../../scripts/with-workspace-env.mjs portless halaalvest next dev --turbopack",
     "build": "node ../../scripts/with-workspace-env.mjs next build --webpack",
     "start": "node ../../scripts/with-workspace-env.mjs next start",
     "lint": "eslint",
@@ -13,12 +13,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@halaal-vest/db": "workspace:*",
-    "@halaal-vest/domain": "workspace:*",
-    "@halaal-vest/notifications": "workspace:*",
-    "@halaal-vest/notifications-react": "workspace:*",
-    "@halaal-vest/ui": "workspace:*",
-    "@halaal-vest/utils": "workspace:*",
+    "@halaalvest/db": "workspace:*",
+    "@halaalvest/domain": "workspace:*",
+    "@halaalvest/notifications": "workspace:*",
+    "@halaalvest/notifications-react": "workspace:*",
+    "@halaalvest/ui": "workspace:*",
+    "@halaalvest/utils": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "next": "16.1.6",
     "react": "^19.2.4",
@@ -31,8 +31,8 @@
     "@types/node": "^25.1.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
-    "@halaal-vest/eslint-config": "workspace:^",
-    "@halaal-vest/tsconfig": "workspace:*",
+    "@halaalvest/eslint-config": "workspace:^",
+    "@halaalvest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   }

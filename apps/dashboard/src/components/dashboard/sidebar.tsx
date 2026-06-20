@@ -2,8 +2,8 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { cn } from "@halaal-vest/ui/lib/utils"
-import type { NavModule } from "@halaal-vest/site-nav"
+import { cn } from "@halaalvest/ui/lib/utils"
+import type { NavModule } from "@halaalvest/site-nav"
 import {
   DASHBOARD_MOBILE_SIDEBAR_WIDTH,
   DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,

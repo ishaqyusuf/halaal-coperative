@@ -10,7 +10,7 @@ This file gives the fastest reliable summary of what the system is, who it serve
 - Default to `midday` architecture and coding standards for frontend and app-architecture decisions that affect page speed, bundle size, routing behavior, rendering strategy, and data-loading patterns unless a documented project constraint requires a different approach.
 
 ## Product Summary
-- Product name: halaal-vest.
+- Product name: halaalvest.
 - Model: multi-tenant SaaS for cooperatives, staff thrift groups, and employee savings/credit societies.
 - Financial posture: 100% halal cooperative model.
 - Primary users: cooperative admins, finance officers, and cooperative members.
@@ -65,7 +65,7 @@ This file gives the fastest reliable summary of what the system is, who it serve
 - Avoid unnecessary client-side state, duplicate fetch paths, and heavyweight page shells.
 - Keep route-level loading fast by favoring composable server loaders and shared query boundaries.
 - Dashboard app routes now live directly under the protected `(sidebar)` group rather than an extra `/app` path segment, with thin route files and shared shell behavior.
-- Dashboard UI now layers a Midday-inspired authenticated shell and dashboard-only primitives on top of that route structure, and the members list route specifically follows the local Midday invoice/customers page composition for summary, toolbar, and table ownership.
+- Dashboard UI now layers a Midday-inspired authenticated shell and dashboard-only primitives on top of that route structure, and the members list route specifically follows the local Midday invoice/customers page composition for summary, toolbar/search-filter, and table ownership.
 
 ## Out Of Scope For First Release
 - Bank integrations and automated disbursement.

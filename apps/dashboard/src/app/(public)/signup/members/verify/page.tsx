@@ -1,4 +1,4 @@
-import { verifyMemberOnboardingRequest } from "@halaal-vest/db"
+import { verifyMemberOnboardingRequest } from "@halaalvest/db"
 import { verifyMemberOnboardingVerificationToken } from "@/lib/member-onboarding-token"
 import { getDashboardServerContext } from "@/lib/server-context"
 

@@ -1,5 +1,5 @@
-import { createDbRuntime, listLoans } from "@halaal-vest/db"
-import { formatCurrency, formatPercent } from "@halaal-vest/utils"
+import { createDbRuntime, listLoans } from "@halaalvest/db"
+import { formatCurrency, formatPercent } from "@halaalvest/utils"
 import {
   DashboardActionLink,
   DashboardPageHeader,

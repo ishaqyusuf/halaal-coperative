@@ -5,7 +5,7 @@ import {
   recordContribution,
   getContributionHistory,
   getMemberSavingsTotal,
-} from "@halaal-vest/db"
+} from "@halaalvest/db"
 
 export const contributionsRouter = createTRPCRouter({
   list: tenantProcedure

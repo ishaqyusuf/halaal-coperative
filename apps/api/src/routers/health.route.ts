@@ -1,4 +1,4 @@
-import { listSeedTenants } from "@halaal-vest/db"
+import { listSeedTenants } from "@halaalvest/db"
 import { z } from "zod"
 
 import { createTRPCRouter, publicProcedure } from "../lib.trpc"

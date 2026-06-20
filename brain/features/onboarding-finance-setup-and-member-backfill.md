@@ -11,11 +11,13 @@
   - default cooperative share amount from the cooperative start date
   - dated share updates
   - charge definitions with dated amount updates
+  - historical share businesses with capital, profit, start date, end date, and optional dividend-period linkage
 - A staff user opens a member profile and records:
   - amount history entries
   - optional member-specific share override history
   - any active loan context already carried by the member record
-- A staff user opens the backfill workspace, selects a member, and chooses a date range.
+- A staff user launches backfill from the members list or member overview instead of navigating to a standalone finance route.
+- The backfill CTA opens a full-screen modal scoped to one member.
 - The system generates one monthly row per month using the member amount log, active charge versions, active share version, and loan schedule data.
 - The staff user reviews the generated rows, edits any field that needs correction, and adds extra month activities such as:
   - loan taken
@@ -24,6 +26,7 @@
   - extra share
   - manual adjustment
 - The staff user saves the backfill batch as draft, regenerates if needed before manual edits are locked in, and then applies the batch.
+- Saving and applying are queued through the jobs package so heavy history rewrites and warning-aware updates do not block the modal UI.
 - Applying the batch creates the corresponding live finance records and audit entries.
 
 ## Data Model
@@ -87,6 +90,22 @@
     - Notes:
       - Keep `ChargeDefinition` as the identity row with name/code/scope.
       - Resolve the monthly charge amount from the latest active version on or before a target month.
+  - `ShareBusiness`
+    - Purpose: register all historical business periods that will later feed accurate profit-sharing and dividend generation.
+    - Fields:
+      - `id`
+      - `tenantId`
+      - `linkedDividendPeriodId`
+      - `name`
+      - `capitalAmount`
+      - `profitAmount`
+      - `startDate`
+      - `endDate`
+      - `status`
+      - `notes`
+      - `createdByUserId`
+      - `createdAt`
+      - `updatedAt`
   - `BackfillBatch`
     - Purpose: one staged backfill run for one member over a date range.
     - Fields:
@@ -102,7 +121,7 @@
       - `updatedByUserId`
       - `createdAt`
       - `updatedAt`
-  - `BackfillMonthRow`
+- `BackfillMonthRow`
     - Purpose: the editable monthly grid row for one batch.
     - Fields:
       - `id`
@@ -117,6 +136,7 @@
       - `monthlyTopup`
       - `pendingLoanPayment`
       - `share`
+      - `dividend`
       - `totalShare`
       - `total`
       - `isGenerated`
@@ -182,6 +202,9 @@
   - `TRPC /trpc/tenantFinance.listShareVersions`
   - `TRPC /trpc/tenantFinance.createShareVersion`
   - `TRPC /trpc/tenantFinance.updateShareVersion`
+  - `TRPC /trpc/shareBusiness.list`
+  - `TRPC /trpc/shareBusiness.create`
+  - `TRPC /trpc/shareBusiness.update`
   - `TRPC /trpc/charges.listVersions`
   - `TRPC /trpc/charges.createVersion`
   - `TRPC /trpc/charges.updateVersion`
@@ -211,6 +234,11 @@
 - Recommended query modules:
   - `packages/db/src/queries/tenant-finance.ts`
   - `packages/db/src/queries/backfill.ts`
+- Recommended package boundaries:
+  - `packages/backfill`
+    - source of truth for row generation, month propagation, warning detection, and summary calculations
+  - `packages/jobs`
+    - source of truth for asynchronous draft/apply job dispatch and retry behavior
   - extend:
     - `packages/db/src/queries/charges.ts`
     - `packages/db/src/queries/members.ts`
@@ -227,6 +255,7 @@
     - cooperative start date
     - share structure history
     - charge structure history
+    - share business registry
 - Existing member detail route to extend:
   - `apps/dashboard/src/app/(app)/(sidebar)/members/[memberId]/page.tsx`
   - New sections:
@@ -234,39 +263,30 @@
       - columns: `Date | Amount | Notes | Actions`
     - share override history table
       - columns: `Date | Amount | Notes | Actions`
-- Recommended new route:
-  - `apps/dashboard/src/app/(app)/(sidebar)/backfill/page.tsx`
-  - Layout:
-    - top toolbar with member select, date range, generate button, save draft, apply batch
-    - summary cards:
-      - total months
-      - generated total amount
-      - generated total share
-      - generated total charge
-      - generated total loan collected
-    - main grid:
-      - year columns
-      - month rows
-      - columns:
-        - `Month`
-        - `Amount`
-        - `Charge`
-        - `Loan Collected`
-        - `Loan Service Amount`
-        - `Monthly Topup`
-        - `Pending Loan Payment`
-        - `Share`
-        - `Total Share`
-        - `Total`
-        - `Actions`
-    - row expansion:
-      - list month activities
-      - add activity button
-      - inline activity editor
-  - UX behavior:
-    - generated values appear with a subtle generated state
-    - manual edits appear with an edited state
-    - warnings appear for missing defaults, overlap conflicts, or invalid loan totals
+- Modal entry points:
+  - members list row actions
+  - member overview primary actions
+- Modal layout:
+  - full-screen dialog
+  - sticky controls band
+  - sticky summary rail
+  - dense monthly ledger table
+  - inline row expansion for loan start and adjustment events
+- Main grid columns:
+  - `Month Year`
+  - `Status`
+  - `Amount`
+  - `Loan Service`
+  - `Pending Loan Payment`
+  - `Share`
+  - read-only `Dividend`
+  - dynamic charge columns
+  - `Net Deposit`
+- Row expansion behavior:
+  - supports starting a loan in a selected month
+  - reveals loan amount, monthly loan service amount, top up, and duration
+  - propagates resulting monthly loan values across consequent months until the loan ends
+  - keeps future rows editable after propagation
 - Recommended components:
   - `apps/dashboard/src/components/tables/backfill/backfill-page-view.tsx`
   - `apps/dashboard/src/components/forms/tenant-finance/share-structure-form.tsx`
@@ -292,6 +312,10 @@
   - Default `loanServiceAmount` to zero and show a warning.
 - A backfill batch is regenerated after manual edits.
   - Require explicit overwrite confirmation or keep edited rows locked.
+- A month includes a dividend allocation.
+  - Show it inline as read-only context because it affects totals but should not be directly edited from backfill.
+- A business period is linked to a dividend period after the business row already exists.
+  - Support optional delayed linking so the registry can be captured before the dividend allocation flow is finalized.
 - A batch is applied twice.
   - Prevent with batch status guard and record-level idempotency keys.
 - Applying a batch would create duplicate posted finance rows for the same member/month/category.
@@ -324,3 +348,54 @@
 - Add statement rendering that marks which historical entries were created by backfill.
 - Add full dividend policy support once halal profit-sharing rules are finalized.
 - Add offline capture support for draft backfill entry if this becomes part of field operations.
+
+## Current Implementation Slice
+- Implemented package boundaries:
+  - `packages/backfill`
+    - draft generation, row recalculation, loan propagation, warnings, summaries, and profit-period context
+  - `packages/jobs`
+    - queued initialize/apply wrappers for heavy backfill workflows
+- Implemented dashboard surfaces:
+  - member list and member overview launch a backfill modal
+  - `settings/finance` now supports:
+    - cooperative start date update
+    - share structure version creation
+    - charge definition creation
+    - charge version creation
+    - share business registration
+- Implemented database/query scaffolding:
+  - `TenantShareStructureVersion`
+  - `ChargeDefinitionVersion`
+  - `ShareBusiness`
+  - `BackfillBatch`, `BackfillMonthRow`, `BackfillActivity`
+- Implemented live backfill preview and persistence flow:
+  - modal preview now hydrates from member/tenant history instead of demo-only defaults
+  - backfill initialize job builds draft input from:
+    - member amount logs
+    - member share overrides
+    - tenant share defaults
+    - charge version history
+    - dividend allocations
+    - share business profit periods
+    - existing contribution, charge, repayment, and dividend impacts
+  - saved drafts persist:
+    - input payload
+    - row status
+    - row dividend context
+    - row charge breakdown
+    - loan-event metadata
+    - summary and warnings
+- Implemented first replay-based apply path:
+  - applying a saved backfill batch now:
+    - clears member contributions, charges, repayments, and ledger transactions inside the selected range
+    - resets derived loan repayment state for the member
+    - replays contributions, charges, and loan repayments from the persisted backfill rows
+    - recalculates member savings snapshot
+    - marks the batch as applied and writes audit logs
+
+## Remaining Work
+- Tighten repayment replay when multiple concurrent loans exist for one member.
+- Add draft reopen/resume UX using persisted batches instead of always hydrating the latest preview.
+- Connect applied backfill rows into the live share system beyond `totalSavingsSnapshot`, including downstream reporting surfaces.
+- Connect `ShareBusiness` registry to real dividend-period generation and future member profit pre-generation.
+- Add migration and Prisma client regeneration so the new backfill/share-business columns are first-class typed models everywhere.

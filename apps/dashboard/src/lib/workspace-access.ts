@@ -1,4 +1,4 @@
-import type { MembershipRole } from "@halaal-vest/db"
+import type { MembershipRole } from "@halaalvest/db"
 
 export const memberManagementRoles: MembershipRole[] = [
   "super_admin",

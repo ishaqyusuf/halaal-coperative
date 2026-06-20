@@ -1,3 +1,3 @@
-import { config } from "@halaal-vest/eslint-config/base"
+import { config } from "@halaalvest/eslint-config/base"
 
 export default config

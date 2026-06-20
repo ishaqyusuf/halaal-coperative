@@ -1,6 +1,7 @@
-import { createDbRuntime, listLoans, listRepaymentScheduleItems, listRepayments, listTenantUsersWithMemberships } from "@halaal-vest/db"
+import { createDbRuntime, getRepaymentFilterMetadata, listLoans, listRepaymentScheduleItems, listRepayments, listTenantUsersWithMemberships } from "@halaalvest/db"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { RepaymentsPageView } from "@/components/repayments-page-view"
+import { loadRepaymentsFilterParams } from "@/hooks/use-repayments-filter-params"
 import { getDashboardPageData, getDashboardServerContext } from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 
@@ -9,17 +10,17 @@ export default async function RepaymentsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const params = await searchParams
+  const params = loadRepaymentsFilterParams(await searchParams)
   const { dashboard } = await getDashboardPageData()
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
-  const assignedToUserId = typeof params.assignedToUserId === "string" ? params.assignedToUserId : ""
-  const memberId = typeof params.memberId === "string" ? params.memberId : ""
-  const resolutionStatus = typeof params.resolutionStatus === "string" ? params.resolutionStatus : ""
-  const scheduleStatus = typeof params.scheduleStatus === "string" ? params.scheduleStatus : ""
-  const stage = typeof params.stage === "string" ? params.stage : ""
-  const from = typeof params.from === "string" ? params.from : ""
-  const to = typeof params.to === "string" ? params.to : ""
+  const assignedToUserId = params.assignedToUserId ?? ""
+  const memberId = params.memberId ?? ""
+  const resolutionStatus = params.resolutionStatus ?? ""
+  const scheduleStatus = params.scheduleStatus ?? ""
+  const stage = params.stage ?? ""
+  const from = params.from ?? ""
+  const to = params.to ?? ""
 
   if (!context.tenant || runtime.status !== "database-configured") {
     return (
@@ -29,7 +30,8 @@ export default async function RepaymentsPage({
     )
   }
 
-  const [loans, scheduleItems, repayments, tenantUsers] = await Promise.all([
+  const [filterList, loans, scheduleItems, repayments, tenantUsers] = await Promise.all([
+    getRepaymentFilterMetadata(context.tenant.id),
     listLoans(context.tenant.id),
     listRepaymentScheduleItems(context.tenant.id, {
       assignedToUserId: assignedToUserId || undefined,
@@ -56,5 +58,5 @@ export default async function RepaymentsPage({
   const highPriorityItems = overdueItems.filter((item) => item.collectionFollowUps[0]?.priority === "high")
   const resolvedCases = overdueItems.filter((item) => item.collectionFollowUps[0]?.resolutionStatus === "resolved")
 
-  return <RepaymentsPageView assignedToUserId={assignedToUserId} assignees={assignees} canPostRepayment={canPostRepayment} dashboard={dashboard} escalatedItems={escalatedItems} from={from} highPriorityItems={highPriorityItems} loans={loans} memberId={memberId} openCases={openCases} overdueItems={overdueItems} promiseTrackingItems={promiseTrackingItems} repayments={repayments} resolutionStatus={resolutionStatus} resolvedCases={resolvedCases} scheduleItems={scheduleItems} scheduleStatus={scheduleStatus} stage={stage} to={to} uniqueMembers={uniqueMembers} />
+  return <RepaymentsPageView assignedToUserId={assignedToUserId} assignees={assignees} canPostRepayment={canPostRepayment} dashboard={dashboard} escalatedItems={escalatedItems} filterList={filterList} from={from} highPriorityItems={highPriorityItems} loans={loans} memberId={memberId} openCases={openCases} overdueItems={overdueItems} promiseTrackingItems={promiseTrackingItems} repayments={repayments} resolutionStatus={resolutionStatus} resolvedCases={resolvedCases} scheduleItems={scheduleItems} scheduleStatus={scheduleStatus} stage={stage} to={to} uniqueMembers={uniqueMembers} />
 }

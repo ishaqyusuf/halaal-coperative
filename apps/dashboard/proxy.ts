@@ -5,7 +5,7 @@ import {
   extractDashboardTenantSlug,
   isTenantDashboardHost,
   resolveTenantSiteHostContext,
-} from "@halaal-vest/utils"
+} from "@halaalvest/utils"
 import { type NextRequest, NextResponse } from "next/server"
 
 const PUBLIC_PREFIXES = [

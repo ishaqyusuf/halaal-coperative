@@ -1,6 +1,6 @@
 "use client"
 
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { cn } from "@halaalvest/ui/lib/utils"
 import type { LinkItem } from "../lib/types"
 import { NavLink } from "./nav-link"
 

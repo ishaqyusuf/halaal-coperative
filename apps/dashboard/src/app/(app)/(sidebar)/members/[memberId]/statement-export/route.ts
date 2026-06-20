@@ -1,4 +1,4 @@
-import { getMemberStatementDetail } from "@halaal-vest/db"
+import { getMemberStatementDetail } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, allStaffRoles } from "@/lib/workspace-access"
 

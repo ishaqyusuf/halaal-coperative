@@ -1,9 +1,10 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { normalizeRole } from "@halaal-vest/auth"
-import { buildDashboardSnapshot } from "@halaal-vest/domain"
-import { formatCurrency } from "@halaal-vest/utils"
-import { Button } from "@halaal-vest/ui/components/button"
+import { normalizeRole } from "@halaalvest/auth"
+import { buildDashboardSnapshot } from "@halaalvest/domain"
+import { createDbRuntime, getDashboardMetrics } from "@halaalvest/db"
+import { formatCurrency } from "@halaalvest/utils"
+import { Button } from "@halaalvest/ui/components/button"
 import { DashboardShellClient } from "@/components/dashboard"
 import { DashboardOverviewPage } from "@/components/dashboard/overview-page"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -35,8 +36,35 @@ export default async function TenantHomePage() {
     redirect("/login")
   }
 
+  const runtime = createDbRuntime()
+  const dashboardMetrics =
+    runtime.status === "database-configured"
+      ? await getDashboardMetrics(context.tenant.id)
+      : null
   const dashboard = buildDashboardSnapshot({
-    tenant: context.tenant,
+    tenant: dashboardMetrics
+      ? {
+          ...context.tenant,
+          memberCount: dashboardMetrics.memberCount,
+        }
+      : context.tenant,
+    policy: dashboardMetrics
+      ? {
+          reserveBuffer: dashboardMetrics.reserveBuffer,
+        }
+      : undefined,
+    metrics: dashboardMetrics
+      ? {
+          activeLoans: dashboardMetrics.activeLoanCount,
+          availablePool: dashboardMetrics.availablePool,
+          collectionCoverage:
+            dashboardMetrics.totalContributions > 0
+              ? dashboardMetrics.availablePool / dashboardMetrics.totalContributions
+              : 0,
+          delinquencyRate: dashboardMetrics.delinquencyRate,
+          monthlyContributionTarget: dashboardMetrics.totalContributions,
+        }
+      : undefined,
   })
 
   return (
@@ -44,7 +72,7 @@ export default async function TenantHomePage() {
       <section className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-12 lg:px-10 lg:py-16">
         <div className="max-w-3xl">
           <p className="text-xs font-medium tracking-[0.24em] text-muted-foreground uppercase">
-            {context.tenant.slug}.halaal-vest.com
+            {context.tenant.slug}.halaalvest.com
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
             {context.tenant.name}

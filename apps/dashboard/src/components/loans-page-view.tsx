@@ -1,4 +1,4 @@
-import { formatCurrency } from "@halaal-vest/utils"
+import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardSectionCard,
   DashboardSectionHeader,

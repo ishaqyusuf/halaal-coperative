@@ -1,0 +1,90 @@
+model ShareBusiness {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String              @map("tenant_id") @db.Uuid
+  linkedDividendPeriodId String?            @map("linked_dividend_period_id") @db.Uuid
+  name                  String
+  capitalAmount         Decimal             @map("capital_amount") @db.Decimal(18, 2)
+  profitAmount          Decimal             @map("profit_amount") @db.Decimal(18, 2)
+  startDate             DateTime            @map("start_date") @db.Date
+  endDate               DateTime?           @map("end_date") @db.Date
+  status                ShareBusinessStatus @default(planned)
+  notes                 String?
+  createdByUserId       String?             @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  linkedDividendPeriod  DividendPeriod?     @relation(fields: [linkedDividendPeriodId], references: [id], onDelete: SetNull)
+  profitEntries         ShareBusinessProfitEntry[]
+
+  @@index([tenantId, status], map: "share_businesses_tenant_status_idx")
+  @@index([tenantId, startDate], map: "share_businesses_tenant_start_date_idx")
+  @@map("share_businesses")
+}
+
+model ShareBusinessProfitEntry {
+  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String                @map("tenant_id") @db.Uuid
+  shareBusinessId       String                @map("share_business_id") @db.Uuid
+  linkedDividendPeriodId String?              @map("linked_dividend_period_id") @db.Uuid
+  profitAmount          Decimal               @map("profit_amount") @db.Decimal(18, 2)
+  profitDate            DateTime              @map("profit_date") @db.Date
+  notes                 String?
+  sourceType            ProfitEntrySourceType @default(manual) @map("source_type")
+  createdByUserId       String?               @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shareBusiness         ShareBusiness         @relation(fields: [shareBusinessId], references: [id], onDelete: Cascade)
+  linkedDividendPeriod  DividendPeriod?       @relation(fields: [linkedDividendPeriodId], references: [id], onDelete: SetNull)
+  allocations           ShareProfitAllocation[]
+
+  @@index([tenantId, profitDate], map: "share_business_profit_entries_tenant_profit_date_idx")
+  @@index([tenantId, shareBusinessId, profitDate], map: "share_business_profit_entries_tenant_business_profit_date_idx")
+  @@map("share_business_profit_entries")
+}
+
+model MemberShareLedgerEntry {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String                @map("tenant_id") @db.Uuid
+  memberId        String                @map("member_id") @db.Uuid
+  sourceType      MemberShareSourceType @map("source_type")
+  sourceId        String?               @map("source_id") @db.Uuid
+  amount          Decimal               @db.Decimal(18, 2)
+  effectiveDate   DateTime              @map("effective_date") @db.Date
+  notes           String?
+  createdByUserId String?               @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member          Member                @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, memberId, effectiveDate], map: "member_share_ledger_entries_tenant_member_effective_idx")
+  @@index([tenantId, effectiveDate], map: "member_share_ledger_entries_tenant_effective_idx")
+  @@index([tenantId, sourceType, sourceId], map: "member_share_ledger_entries_tenant_source_idx")
+  @@map("member_share_ledger_entries")
+}
+
+model ShareProfitAllocation {
+  id                    String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String                      @map("tenant_id") @db.Uuid
+  memberId              String                      @map("member_id") @db.Uuid
+  profitEntryId         String                      @map("profit_entry_id") @db.Uuid
+  memberShareBalance    Decimal                     @map("member_share_balance") @db.Decimal(18, 2)
+  totalShareBalance     Decimal                     @map("total_share_balance") @db.Decimal(18, 2)
+  sharePercentage       Decimal                     @map("share_percentage") @db.Decimal(12, 8)
+  allocatedProfitAmount Decimal                     @map("allocated_profit_amount") @db.Decimal(18, 2)
+  status                ShareProfitAllocationStatus @default(draft)
+  createdAt             DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                Member                      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  profitEntry           ShareBusinessProfitEntry    @relation(fields: [profitEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([profitEntryId, memberId], map: "share_profit_allocations_profit_member_key")
+  @@index([tenantId, memberId], map: "share_profit_allocations_tenant_member_idx")
+  @@index([tenantId, status], map: "share_profit_allocations_tenant_status_idx")
+  @@map("share_profit_allocations")
+}

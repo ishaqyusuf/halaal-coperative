@@ -1,4 +1,6 @@
-import { formatCurrency } from "@halaal-vest/utils"
+import type { PageFilterData } from "@halaalvest/utils"
+import { formatCurrency } from "@halaalvest/utils"
+import { ContributionsHeader } from "@/components/contributions-header"
 import {
   DashboardSectionCard,
   DashboardSectionHeader,
@@ -14,7 +16,6 @@ import {
   MemberPaymentForm,
   MemberPaymentPreferenceForm,
 } from "@/components/forms/finance-forms"
-import { ContributionFilterForm } from "@/components/forms/misc-forms"
 import { ContributionsDataTable } from "@/components/tables/contributions/data-table"
 import { loadContributionsPageData } from "@/lib/contributions"
 
@@ -31,10 +32,11 @@ export function ContributionsPageView({
   canRecordContributions,
   commitmentPlans,
   contributions,
+  filterList,
   filters,
   loans,
   members,
-}: ContributionsPageData) {
+}: ContributionsPageData & { filterList?: PageFilterData[] }) {
   const activeCommitmentPlans = commitmentPlans.filter((plan) => plan.isActive)
   const activeLoans = loans.filter((loan) =>
     ["approved", "disbursed", "active"].includes(loan.status),
@@ -50,10 +52,7 @@ export function ContributionsPageView({
       title="Member commitments and payments"
       description="Manage variable member commitments, split payments, overpayments, and active savings plans from one Midday-style ledger workspace."
     >
-      <ContributionFilterForm
-        defaultValues={{ ...filters, status: "" }}
-        members={memberOptions}
-      />
+      <ContributionsHeader filterList={filterList} />
 
       <section className="grid gap-4 xl:grid-cols-4">
         <DashboardStatCard

@@ -634,7 +634,7 @@ function buildRepaymentSchedule(input: {
 
   return Array.from({ length: input.termMonths }, (_, index) => {
     const dueAt = new Date(input.startDate)
-    dueAt.setUTCMonth(dueAt.getUTCMonth() + index + 1)
+    dueAt.setUTCMonth(dueAt.getUTCMonth() + index)
 
     const roundedPrincipal = Number(installmentAmount.toFixed(2))
 
@@ -740,9 +740,14 @@ export async function disburseLoan(
       },
     })
 
+    const repaymentStartDate = loan.firstRepaymentDueAt ?? new Date()
+    if (!loan.firstRepaymentDueAt) {
+      repaymentStartDate.setUTCMonth(repaymentStartDate.getUTCMonth() + 1)
+    }
+
     const scheduleItems = buildRepaymentSchedule({
       principalAmount: Number(loan.principalAmount),
-      startDate: loan.firstRepaymentDueAt ?? new Date(),
+      startDate: repaymentStartDate,
       termMonths: loan.termMonths,
     })
 

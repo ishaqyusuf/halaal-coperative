@@ -1,5 +1,5 @@
-import type { CooperativeRole } from "@halaal-vest/auth"
-import { createNavLink, createNavModule, createNavSection, initRoleAccess, type NavModule } from "@halaal-vest/site-nav"
+import type { CooperativeRole } from "@halaalvest/auth"
+import { createNavLink, createNavModule, createNavSection, initRoleAccess, type NavModule } from "@halaalvest/site-nav"
 import {
   ExperienceIcon,
   FinanceIcon,
@@ -69,8 +69,10 @@ export const dashboardNavRegistry: NavModule[] = [
       createNavLink("Charges", FinanceIcon, "/charges", [], [role.in(...financeRoles)])
         .title("Charges")
         .data,
-      createNavLink("Backfill", FinanceIcon, "/backfill", [], [role.in(...financeRoles)])
-        .title("Backfill")
+      createNavLink("Monthly Records", FinanceIcon, "/monthly-records", [], [
+        role.in(...financeRoles),
+      ])
+        .title("Monthly records")
         .data,
     ]),
     createNavSection("credit", "Credit", [

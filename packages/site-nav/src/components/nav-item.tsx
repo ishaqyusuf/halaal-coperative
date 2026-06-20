@@ -1,7 +1,7 @@
 "use client"
 
 import type { MouseEvent } from "react"
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { cn } from "@halaalvest/ui/lib/utils"
 import type { NavModule, NavLink as NavLinkType } from "../lib/types"
 import { isPathInLink, normalizeNavPath } from "../lib/links"
 import { NavChildItem } from "./nav-child-item"

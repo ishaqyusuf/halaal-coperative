@@ -95,7 +95,9 @@ export type CreateMemberInput = {
   monthlyCommitment?: number
   servingLoan?: {
     amountServed: number
+    extraMonthlySavingsAmount: number
     monthlyCommitment: number
+    paymentMonths: number
     principalAmount: number
     startDate: Date
   }
@@ -123,7 +125,7 @@ function buildRepaymentSchedule(input: {
 
   return Array.from({ length: input.termMonths }, (_, index) => {
     const dueAt = new Date(input.startDate)
-    dueAt.setUTCMonth(dueAt.getUTCMonth() + index + 1)
+    dueAt.setUTCMonth(dueAt.getUTCMonth() + index)
 
     const roundedPrincipal = Number(installmentAmount.toFixed(2))
 
@@ -175,10 +177,7 @@ export async function createMemberWithState(
     const outstandingPrincipal = Number(
       Math.max(0, input.servingLoan.principalAmount - input.servingLoan.amountServed).toFixed(2),
     )
-    const termMonths = Math.max(
-      1,
-      Math.ceil(input.servingLoan.principalAmount / input.servingLoan.monthlyCommitment),
-    )
+    const termMonths = Math.max(1, input.servingLoan.paymentMonths)
     const estimatedMonthlyServicing = Number(input.servingLoan.monthlyCommitment.toFixed(2))
 
     const loanProduct = await tx.loanProduct.upsert({
@@ -210,7 +209,7 @@ export async function createMemberWithState(
           createdByUserId: input.actorUserId,
           eligibleAmountSnapshot: input.currentSavingsBalance ?? 0,
           estimatedMonthlyServicing,
-          extraMonthlySavingsAmount: 0,
+          extraMonthlySavingsAmount: input.servingLoan.extraMonthlySavingsAmount,
           loanProductId: loanProduct.id,
           memberId: member.id,
           requestedAmount: input.servingLoan.principalAmount,
@@ -237,7 +236,7 @@ export async function createMemberWithState(
         data: {
           disbursedAt: input.servingLoan.startDate,
           estimatedMonthlyServicing,
-          extraMonthlySavingsAmount: 0,
+          extraMonthlySavingsAmount: input.servingLoan.extraMonthlySavingsAmount,
           firstRepaymentDueAt: input.servingLoan.startDate,
           loanProductId: loanProduct.id,
           loanRequestId: request.id,
@@ -294,7 +293,9 @@ export async function createMemberWithState(
           servingLoan: input.servingLoan
             ? {
                 amountServed: input.servingLoan.amountServed,
+                extraMonthlySavingsAmount: input.servingLoan.extraMonthlySavingsAmount,
                 monthlyCommitment: input.servingLoan.monthlyCommitment,
+                paymentMonths: input.servingLoan.paymentMonths,
                 principalAmount: input.servingLoan.principalAmount,
                 startDate: input.servingLoan.startDate.toISOString(),
               }

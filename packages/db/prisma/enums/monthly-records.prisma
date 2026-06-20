@@ -1,0 +1,11 @@
+enum MonthlyRecordStatus {
+  draft
+  open
+  closed
+}
+
+enum MonthlyRecordMemberStatus {
+  pending
+  applied
+  cancelled
+}

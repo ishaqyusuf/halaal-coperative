@@ -1,17 +1,17 @@
-import { randomUUID } from "node:crypto"
 import {
+  createSignedSessionToken,
   getScopedAuthSessionCookieName,
   getScopedAuthUserCookieName,
   platformSessionScope,
   resolveRequestSessionScope,
-} from "@halaal-vest/auth"
+} from "@halaalvest/auth"
 import {
   findActiveMembershipAsync,
   findUserByEmailAsync,
   findUserByIdAsync,
   getPendingMemberOnboardingForUser,
   resolveTenantAsync,
-} from "@halaal-vest/db"
+} from "@halaalvest/db"
 import { NextResponse, type NextRequest } from "next/server"
 import {
   buildDashboardRedirectUrl,
@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
     request,
     `/login?next=${encodeURIComponent(nextPath)}&error=invalid-account`
   )
+
+  if (userId && process.env.NODE_ENV === "production") {
+    return NextResponse.redirect(loginPath)
+  }
 
   if (!userId && (!email || !password)) {
     return NextResponse.redirect(loginPath)
@@ -102,10 +106,14 @@ export async function POST(request: NextRequest) {
     buildDashboardRedirectUrl(request, nextPath)
   )
   const options = buildCookieOptions(request)
+  const sessionToken = await createSignedSessionToken({
+    scope,
+    userId: user.id,
+  })
 
   response.cookies.set(
     getScopedAuthSessionCookieName(scope),
-    randomUUID(),
+    sessionToken,
     options
   )
   response.cookies.set(getScopedAuthUserCookieName(scope), user.id, options)

@@ -11,11 +11,11 @@
   },
   "iconLibrary": "hugeicons",
   "aliases": {
-    "components": "@halaal-vest/ui/components",
-    "utils": "@halaal-vest/ui/lib/utils",
-    "hooks": "@halaal-vest/ui/hooks",
-    "lib": "@halaal-vest/ui/lib",
-    "ui": "@halaal-vest/ui/components"
+    "components": "@halaalvest/ui/components",
+    "utils": "@halaalvest/ui/lib/utils",
+    "hooks": "@halaalvest/ui/hooks",
+    "lib": "@halaalvest/ui/lib",
+    "ui": "@halaalvest/ui/components"
   },
   "rtl": false,
   "menuColor": "default-translucent",

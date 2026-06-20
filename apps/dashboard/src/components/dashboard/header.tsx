@@ -1,5 +1,5 @@
-import { Badge } from "@halaal-vest/ui/components/badge"
-import { cn } from "@halaal-vest/ui/lib/utils"
+import { Badge } from "@halaalvest/ui/components/badge"
+import { cn } from "@halaalvest/ui/lib/utils"
 
 export function DashboardPageHeader({
   actions,

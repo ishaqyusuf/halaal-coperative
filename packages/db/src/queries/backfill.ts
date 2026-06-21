@@ -9,7 +9,24 @@ import { createPrismaClient } from "../prisma"
 import { applyCharge } from "./charges"
 import { recordContribution } from "./contributions"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
-import { createMemberShareLedgerEntry, getResolvedShareAmountForMonth } from "./tenant-finance"
+import { getTenantInitialMigrationState } from "./migration"
+import {
+  createMemberShareLedgerEntry,
+  getResolvedShareAmountForMonth,
+} from "./tenant-finance"
+
+async function assertBackfillMutationOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (!migrationState.snapshot.canUseMigrationTools) {
+    throw new Error(
+      "Member ledger backfill is locked because initial migration is finalized.",
+    )
+  }
+}
 
 function startOfMonth(value: Date) {
   return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), 1))
@@ -36,9 +53,118 @@ function monthKeyFromDate(value: Date) {
   return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}`
 }
 
+function inclusiveMonthDifference(start: Date, end: Date) {
+  return (
+    (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    (end.getUTCMonth() - start.getUTCMonth()) +
+    1
+  )
+}
+
 function monthDateFromKey(value: string) {
   const [yearText, monthText] = value.split("-")
   return new Date(Date.UTC(Number(yearText), Number(monthText) - 1, 1))
+}
+
+function parseBackfillMonthKey(value: string, label: string) {
+  if (!/^\d{4}-\d{2}$/.test(value)) {
+    throw new Error(`${label} must use YYYY-MM format.`)
+  }
+
+  const [yearText, monthText] = value.split("-")
+  const year = Number(yearText)
+  const month = Number(monthText)
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    month < 1 ||
+    month > 12
+  ) {
+    throw new Error(`${label} must be a valid month.`)
+  }
+
+  return new Date(Date.UTC(year, month - 1, 1))
+}
+
+function assertBackfillDraftRowsMatchRange(input: {
+  draft: BackfillDraft
+  endMonth: string
+  startMonth: string
+}) {
+  const rangeStart = parseBackfillMonthKey(input.startMonth, "startMonth")
+  const rangeEnd = parseBackfillMonthKey(input.endMonth, "endMonth")
+
+  if (rangeStart > rangeEnd) {
+    throw new Error(
+      "Backfill draft startMonth must be before or equal to endMonth."
+    )
+  }
+
+  const expectedMonthCount = inclusiveMonthDifference(rangeStart, rangeEnd)
+  const seenMonths = new Set<string>()
+
+  for (const row of input.draft.rows) {
+    const rowMonth = parseBackfillMonthKey(row.month, "Backfill row month")
+
+    if (rowMonth < rangeStart || rowMonth > rangeEnd) {
+      throw new Error(
+        `Backfill draft row ${row.month} falls outside the declared ${input.startMonth} to ${input.endMonth} range.`
+      )
+    }
+
+    if (seenMonths.has(row.month)) {
+      throw new Error(
+        `Backfill draft contains duplicate row month ${row.month}.`
+      )
+    }
+
+    seenMonths.add(row.month)
+  }
+
+  if (seenMonths.size !== expectedMonthCount) {
+    throw new Error(
+      "Backfill draft must contain exactly one row for every month in the declared range."
+    )
+  }
+
+  return { rangeEnd, rangeStart }
+}
+
+async function assertMemberBackfillDraftNotAlreadyApplied(input: {
+  tenantId: string
+  memberId: string
+  tx: any
+}) {
+  const appliedMonths =
+    typeof input.tx.appliedBackfillMonth?.findMany === "function"
+      ? await input.tx.appliedBackfillMonth.findMany({
+          where: {
+            tenantId: input.tenantId,
+            memberId: input.memberId,
+          },
+          select: { id: true },
+          take: 1,
+        })
+      : []
+  const appliedBatches =
+    typeof input.tx.backfillBatch?.findMany === "function"
+      ? await input.tx.backfillBatch.findMany({
+          where: {
+            tenantId: input.tenantId,
+            memberId: input.memberId,
+            status: "applied",
+          },
+          select: { id: true },
+          take: 1,
+        })
+      : []
+
+  if (appliedMonths.length || appliedBatches.length) {
+    throw new Error(
+      "This member's historical ledger has already been applied. Use correction workflows instead of regenerating migration drafts."
+    )
+  }
 }
 
 async function resolveMemberAmountForMonth(
@@ -47,7 +173,7 @@ async function resolveMemberAmountForMonth(
     memberId: string
     month: Date
   },
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const amountLog = await prisma.memberAmountLog.findFirst({
     where: {
@@ -68,7 +194,7 @@ async function resolveChargeTotalForMonth(
     tenantId: string
     month: Date
   },
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const definitions = await prisma.chargeDefinition.findMany({
     where: {
@@ -102,7 +228,7 @@ async function resolveLoanSnapshotForMonth(
     memberId: string
     month: Date
   },
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const loans = await prisma.loan.findMany({
     where: {
@@ -132,19 +258,26 @@ async function resolveLoanSnapshotForMonth(
   const loanServiceAmount = loans.reduce(
     (sum, loan) =>
       sum +
-      loan.repaymentScheduleItems.reduce((rowSum, item) => rowSum + Number(item.totalDue), 0),
-    0,
+      loan.repaymentScheduleItems.reduce(
+        (rowSum, item) => rowSum + Number(item.totalDue),
+        0
+      ),
+    0
   )
   const pendingLoanPayment = loans.reduce(
     (sum, loan) =>
       sum +
       loan.repaymentScheduleItems.reduce(
-        (rowSum, item) => rowSum + Math.max(0, Number(item.totalDue) - Number(item.amountPaid)),
-        0,
+        (rowSum, item) =>
+          rowSum + Math.max(0, Number(item.totalDue) - Number(item.amountPaid)),
+        0
       ),
-    0,
+    0
   )
-  const monthlyTopup = loans.reduce((sum, loan) => sum + Number(loan.extraMonthlySavingsAmount), 0)
+  const monthlyTopup = loans.reduce(
+    (sum, loan) => sum + Number(loan.extraMonthlySavingsAmount),
+    0
+  )
 
   return {
     loanCollected: loanServiceAmount,
@@ -161,82 +294,83 @@ async function collectExistingHistoryImpacts(
     startMonth: Date
     endMonth: Date
   },
-  prisma: any,
+  prisma: any
 ) {
-  const [contributions, chargeApplications, repayments, dividendAllocations] = await Promise.all([
-    prisma.contribution.findMany({
-      where: {
-        tenantId: input.tenantId,
-        memberId: input.memberId,
-        postedAt: {
-          gte: input.startMonth,
-          lte: endOfMonth(input.endMonth),
-        },
-      },
-      select: {
-        id: true,
-        postedAt: true,
-        amount: true,
-      },
-    }),
-    prisma.chargeApplication.findMany({
-      where: {
-        tenantId: input.tenantId,
-        memberId: input.memberId,
-        assessedAt: {
-          gte: input.startMonth,
-          lte: endOfMonth(input.endMonth),
-        },
-      },
-      select: {
-        id: true,
-        assessedAt: true,
-        amount: true,
-        chargeDefinition: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    }),
-    prisma.repayment.findMany({
-      where: {
-        tenantId: input.tenantId,
-        memberId: input.memberId,
-        paidAt: {
-          gte: input.startMonth,
-          lte: endOfMonth(input.endMonth),
-        },
-      },
-      select: {
-        id: true,
-        paidAt: true,
-        amount: true,
-      },
-    }),
-    prisma.dividendAllocation.findMany({
-      where: {
-        tenantId: input.tenantId,
-        memberId: input.memberId,
-        dividendPeriod: {
-          periodEnd: {
+  const [contributions, chargeApplications, repayments, dividendAllocations] =
+    await Promise.all([
+      prisma.contribution.findMany({
+        where: {
+          tenantId: input.tenantId,
+          memberId: input.memberId,
+          postedAt: {
             gte: input.startMonth,
             lte: endOfMonth(input.endMonth),
           },
         },
-      },
-      select: {
-        id: true,
-        allocationAmount: true,
-        dividendPeriod: {
-          select: {
-            name: true,
-            periodEnd: true,
+        select: {
+          id: true,
+          postedAt: true,
+          amount: true,
+        },
+      }),
+      prisma.chargeApplication.findMany({
+        where: {
+          tenantId: input.tenantId,
+          memberId: input.memberId,
+          assessedAt: {
+            gte: input.startMonth,
+            lte: endOfMonth(input.endMonth),
           },
         },
-      },
-    }),
-  ])
+        select: {
+          id: true,
+          assessedAt: true,
+          amount: true,
+          chargeDefinition: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      }),
+      prisma.repayment.findMany({
+        where: {
+          tenantId: input.tenantId,
+          memberId: input.memberId,
+          paidAt: {
+            gte: input.startMonth,
+            lte: endOfMonth(input.endMonth),
+          },
+        },
+        select: {
+          id: true,
+          paidAt: true,
+          amount: true,
+        },
+      }),
+      prisma.dividendAllocation.findMany({
+        where: {
+          tenantId: input.tenantId,
+          memberId: input.memberId,
+          dividendPeriod: {
+            periodEnd: {
+              gte: input.startMonth,
+              lte: endOfMonth(input.endMonth),
+            },
+          },
+        },
+        select: {
+          id: true,
+          allocationAmount: true,
+          dividendPeriod: {
+            select: {
+              name: true,
+              periodEnd: true,
+            },
+          },
+        },
+      }),
+    ])
 
   return [
     ...contributions.map((item: any) => ({
@@ -273,7 +407,7 @@ async function buildDividendEntries(
     startMonth: Date
     endMonth: Date
   },
-  prisma: any,
+  prisma: any
 ) {
   const allocations = await prisma.dividendAllocation.findMany({
     where: {
@@ -296,12 +430,61 @@ async function buildDividendEntries(
       },
     },
   })
+  const migrationProfitAdjustments =
+    typeof prisma.migrationProfitAdjustment?.findMany === "function"
+      ? await prisma.migrationProfitAdjustment.findMany({
+          include: {
+            profitEntry: {
+              include: {
+                shareBusiness: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+          where: {
+            tenantId: input.tenantId,
+            memberId: input.memberId,
+            profitEntry: {
+              profitDate: {
+                gte: input.startMonth,
+                lte: endOfMonth(input.endMonth),
+              },
+            },
+          },
+        })
+      : []
 
-  return allocations.map((allocation: any) => ({
-    amount: Number(allocation.allocationAmount),
-    label: allocation.dividendPeriod.name,
-    month: monthKeyFromDate(allocation.dividendPeriod.periodEnd),
-  }))
+  return [
+    ...allocations.map((allocation: any) => ({
+      amount: Number(allocation.allocationAmount),
+      label: allocation.dividendPeriod.name,
+      month: monthKeyFromDate(allocation.dividendPeriod.periodEnd),
+    })),
+    ...migrationProfitAdjustments.map((adjustment: any) => {
+      const profitAmount = Number(
+        adjustment.profitEntry.allocatableProfitAmount ??
+          adjustment.profitEntry.profitAmount
+      )
+      const adjustedAmount =
+        adjustment.allocatedProfitAmount == null
+          ? profitAmount * (Number(adjustment.sharePercentage ?? 0) / 100)
+          : Number(adjustment.allocatedProfitAmount)
+
+      return {
+        amount: adjustedAmount,
+        label: `${adjustment.profitEntry.shareBusiness.name} profit`,
+        month: monthKeyFromDate(adjustment.profitEntry.profitDate),
+        profitEntryId: adjustment.profitEntryId,
+        sharePercentage:
+          adjustment.sharePercentage == null
+            ? undefined
+            : Number(adjustment.sharePercentage),
+      }
+    }),
+  ]
 }
 
 async function buildProfitPeriods(
@@ -310,18 +493,48 @@ async function buildProfitPeriods(
     startMonth: Date
     endMonth: Date
   },
-  prisma: any,
+  prisma: any
 ) {
+  if (typeof prisma.shareBusinessProfitEntry?.findMany === "function") {
+    const entries = await prisma.shareBusinessProfitEntry.findMany({
+      include: {
+        shareBusiness: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: [{ profitDate: "asc" }, { createdAt: "asc" }],
+      where: {
+        tenantId: input.tenantId,
+        profitDate: {
+          gte: input.startMonth,
+          lte: endOfMonth(input.endMonth),
+        },
+      },
+    })
+
+    if (entries.length > 0) {
+      return entries.map(
+        (entry: any): BackfillProfitPeriod => ({
+          distributableAmount: Number(
+            entry.allocatableProfitAmount ?? entry.profitAmount
+          ),
+          month: monthKeyFromDate(entry.profitDate),
+          notes: entry.reason ?? entry.shareBusiness?.name ?? "Business profit",
+          totalProfitAmount: Number(entry.profitAmount),
+        })
+      )
+    }
+  }
+
   const businesses = await prisma.shareBusiness.findMany({
     where: {
       tenantId: input.tenantId,
       startDate: {
         lte: endOfMonth(input.endMonth),
       },
-      OR: [
-        { endDate: null },
-        { endDate: { gte: input.startMonth } },
-      ],
+      OR: [{ endDate: null }, { endDate: { gte: input.startMonth } }],
     },
     orderBy: [{ startDate: "asc" }],
   })
@@ -332,19 +545,17 @@ async function buildProfitPeriods(
       month: monthKeyFromDate(business.endDate ?? business.startDate),
       notes: business.name,
       totalProfitAmount: Number(business.profitAmount),
-    }),
+    })
   )
 }
 
-async function deleteMemberLedgerTransactionsForRange(
-  input: {
-    tenantId: string
-    memberId: string
-    startDate: Date
-    endDate: Date
-    tx: any
-  },
-) {
+async function deleteMemberLedgerTransactionsForRange(input: {
+  tenantId: string
+  memberId: string
+  startDate: Date
+  endDate: Date
+  tx: any
+}) {
   const transactions = await input.tx.ledgerTransaction.findMany({
     where: {
       tenantId: input.tenantId,
@@ -380,13 +591,91 @@ async function deleteMemberLedgerTransactionsForRange(
   })
 }
 
-async function resetLoanDerivedStateForMember(
-  input: {
-    tenantId: string
-    memberId: string
-    tx: any
-  },
-) {
+async function assertNoExistingMemberFinancialRecordsForRange(input: {
+  tenantId: string
+  memberId: string
+  startDate: Date
+  endDate: Date
+  tx: any
+}) {
+  const ledgerTransactions =
+    typeof input.tx.ledgerTransaction?.findMany === "function"
+      ? await input.tx.ledgerTransaction.findMany({
+          where: {
+            tenantId: input.tenantId,
+            memberId: input.memberId,
+            postedAt: {
+              gte: input.startDate,
+              lte: input.endDate,
+            },
+          },
+          select: { id: true },
+          take: 1,
+        })
+      : []
+  const chargeApplications =
+    typeof input.tx.chargeApplication?.findMany === "function"
+      ? await input.tx.chargeApplication.findMany({
+          where: {
+            tenantId: input.tenantId,
+            memberId: input.memberId,
+            assessedAt: {
+              gte: input.startDate,
+              lte: input.endDate,
+            },
+          },
+          select: { id: true },
+          take: 1,
+        })
+      : []
+  const contributions =
+    typeof input.tx.contribution?.findMany === "function"
+      ? await input.tx.contribution.findMany({
+          where: {
+            tenantId: input.tenantId,
+            memberId: input.memberId,
+            postedAt: {
+              gte: input.startDate,
+              lte: input.endDate,
+            },
+          },
+          select: { id: true },
+          take: 1,
+        })
+      : []
+  const repayments =
+    typeof input.tx.repayment?.findMany === "function"
+      ? await input.tx.repayment.findMany({
+          where: {
+            tenantId: input.tenantId,
+            memberId: input.memberId,
+            paidAt: {
+              gte: input.startDate,
+              lte: input.endDate,
+            },
+          },
+          select: { id: true },
+          take: 1,
+        })
+      : []
+
+  if (
+    ledgerTransactions.length ||
+    chargeApplications.length ||
+    contributions.length ||
+    repayments.length
+  ) {
+    throw new Error(
+      "Existing live financial records were found in this member backfill range. Use correction or reversal workflows instead of applying migration history over posted records."
+    )
+  }
+}
+
+async function resetLoanDerivedStateForMember(input: {
+  tenantId: string
+  memberId: string
+  tx: any
+}) {
   const loans = await input.tx.loan.findMany({
     where: {
       tenantId: input.tenantId,
@@ -422,14 +711,173 @@ async function resetLoanDerivedStateForMember(
   }
 }
 
-async function allocateRepaymentAcrossScheduleItems(
-  input: {
-    tenantId: string
-    loanId: string
-    amount: number
-    tx: any
-  },
-) {
+function buildPrincipalOnlySchedule(input: {
+  principalAmount: number
+  monthlyPrincipal: number
+  startDate: Date
+  tenantId: string
+}) {
+  const rows = []
+  let remaining = input.principalAmount
+  let installmentNumber = 1
+  const dueAt = startOfMonth(input.startDate)
+
+  while (remaining > 0) {
+    const principalDue = Math.min(input.monthlyPrincipal, remaining)
+
+    rows.push({
+      amountPaid: 0,
+      chargeDue: 0,
+      dueAt: new Date(dueAt),
+      installmentNumber,
+      principalDue,
+      status: "pending",
+      tenantId: input.tenantId,
+      totalDue: principalDue,
+    })
+
+    remaining = Number((remaining - principalDue).toFixed(2))
+    installmentNumber += 1
+    dueAt.setUTCMonth(dueAt.getUTCMonth() + 1)
+  }
+
+  return rows
+}
+
+function legacyLoanEventKey(event: Record<string, any>) {
+  return [
+    event.id ?? "",
+    event.label ?? "Legacy migration loan",
+    event.startMonth,
+  ].join(":")
+}
+
+async function createLegacyBackfillLoanFromEvent(input: {
+  actorUserId: string
+  event: Record<string, any>
+  memberId: string
+  tenantId: string
+  tx: any
+}) {
+  const principalAmount = Number(input.event.loanAmount)
+  const outstandingPrincipal = Number(
+    input.event.openingOutstandingPrincipalBalance ?? input.event.loanAmount
+  )
+  const monthlyPrincipal = Number(input.event.monthlyLoanServiceAmount)
+  const startDate = monthDateFromKey(input.event.startMonth)
+  const termMonths = Math.max(1, Number(input.event.durationMonths ?? 1))
+  const loanLabel = input.event.label || "Legacy migration loan"
+
+  const loanProduct = await input.tx.loanProduct.upsert({
+    create: {
+      isActive: true,
+      loanType: "normal",
+      maxSavingsMultiple: 2,
+      name: "Legacy migration loan",
+      tenantId: input.tenantId,
+      termMonths,
+    },
+    update: {
+      isActive: true,
+      loanType: "normal",
+      maxSavingsMultiple: 2,
+      termMonths,
+    },
+    where: {
+      tenantId_name: {
+        name: "Legacy migration loan",
+        tenantId: input.tenantId,
+      },
+    },
+  })
+
+  const request = await input.tx.loanRequest.create({
+    data: {
+      availablePoolSnapshot: 0,
+      createdByUserId: input.actorUserId,
+      eligibleAmountSnapshot: 0,
+      estimatedMonthlyServicing: monthlyPrincipal,
+      extraMonthlySavingsAmount: Number(input.event.topUp ?? 0),
+      loanProductId: loanProduct.id,
+      memberId: input.memberId,
+      purpose: loanLabel,
+      requestedAmount: principalAmount,
+      requestedAt: startDate,
+      requestedTermMonths: termMonths,
+      reviewNotes:
+        "Created from legacy loan migration draft during member ledger backfill.",
+      status: "approved",
+      tenantId: input.tenantId,
+    },
+  })
+
+  await input.tx.loanApproval.create({
+    data: {
+      action: "approved",
+      actedAt: startDate,
+      actorUserId: input.actorUserId,
+      loanRequestId: request.id,
+      notes: "Approved during historical member ledger migration.",
+      tenantId: input.tenantId,
+    },
+  })
+
+  const loan = await input.tx.loan.create({
+    data: {
+      disbursedAt: startDate,
+      estimatedMonthlyServicing: monthlyPrincipal,
+      extraMonthlySavingsAmount: Number(input.event.topUp ?? 0),
+      firstRepaymentDueAt: startDate,
+      loanProductId: loanProduct.id,
+      loanRequestId: request.id,
+      memberId: input.memberId,
+      outstandingPrincipal,
+      principalAmount,
+      status: outstandingPrincipal > 0 ? "active" : "completed",
+      tenantId: input.tenantId,
+      termMonths,
+    },
+  })
+
+  await input.tx.repaymentScheduleItem.createMany({
+    data: buildPrincipalOnlySchedule({
+      monthlyPrincipal,
+      principalAmount: outstandingPrincipal,
+      startDate,
+      tenantId: input.tenantId,
+    }).map((item) => ({
+      ...item,
+      loanId: loan.id,
+    })),
+  })
+
+  await input.tx.auditLog.create({
+    data: {
+      action: "loan.legacy_backfill_created",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityId: loan.id,
+      entityType: "Loan",
+      metadata: {
+        legacyLoanEventId: input.event.id ?? null,
+        loanLabel,
+        monthlyPrincipal,
+        openingOutstandingPrincipalBalance: outstandingPrincipal,
+      },
+      occurredAt: new Date(),
+      tenantId: input.tenantId,
+    },
+  })
+
+  return loan
+}
+
+async function allocateRepaymentAcrossScheduleItems(input: {
+  tenantId: string
+  loanId: string
+  amount: number
+  tx: any
+}) {
   let remaining = input.amount
   const scheduleItems = await input.tx.repaymentScheduleItem.findMany({
     where: {
@@ -463,20 +911,26 @@ async function allocateRepaymentAcrossScheduleItems(
   }
 }
 
-async function postBackfillRepayment(
-  input: {
-    tenantId: string
-    actorUserId: string
-    memberId: string
-    loanId: string
-    amount: number
-    paidAt: Date
-    reference?: string
-    tx: any
-  },
-) {
-  const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", input.tx)
-  const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", input.tx)
+async function postBackfillRepayment(input: {
+  tenantId: string
+  actorUserId: string
+  memberId: string
+  loanId: string
+  amount: number
+  paidAt: Date
+  reference?: string
+  tx: any
+}) {
+  const cashAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "2000",
+    input.tx
+  )
+  const loanReceivableAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "1100",
+    input.tx
+  )
 
   if (!cashAccount || !loanReceivableAccount) {
     throw new Error("Ledger accounts not initialized for this tenant")
@@ -488,7 +942,9 @@ async function postBackfillRepayment(
 
   if (!loan) throw new Error("Loan not found for backfill repayment.")
   if (input.amount > Number(loan.outstandingPrincipal)) {
-    throw new Error("Backfill repayment amount exceeds the outstanding loan balance.")
+    throw new Error(
+      "Backfill repayment amount exceeds the outstanding loan balance."
+    )
   }
 
   const repayment = await input.tx.repayment.create({
@@ -510,8 +966,13 @@ async function postBackfillRepayment(
       outstandingPrincipal: {
         decrement: input.amount,
       },
-      status: Number(loan.outstandingPrincipal) - input.amount <= 0 ? "completed" : "active",
-      ...(Number(loan.outstandingPrincipal) - input.amount <= 0 ? { closedAt: input.paidAt } : {}),
+      status:
+        Number(loan.outstandingPrincipal) - input.amount <= 0
+          ? "completed"
+          : "active",
+      ...(Number(loan.outstandingPrincipal) - input.amount <= 0
+        ? { closedAt: input.paidAt }
+        : {}),
     },
   })
 
@@ -532,12 +993,21 @@ async function postBackfillRepayment(
       repaymentId: repayment.id,
       reference: input.reference,
       narration: "Backfill loan repayment",
+      sourceType: "backfill",
       entries: [
-        { ledgerAccountId: cashAccount.id, direction: "debit", amount: input.amount },
-        { ledgerAccountId: loanReceivableAccount.id, direction: "credit", amount: input.amount },
+        {
+          ledgerAccountId: cashAccount.id,
+          direction: "debit",
+          amount: input.amount,
+        },
+        {
+          ledgerAccountId: loanReceivableAccount.id,
+          direction: "credit",
+          amount: input.amount,
+        },
       ],
     },
-    input.tx,
+    input.tx
   )
 
   await input.tx.auditLog.create({
@@ -559,13 +1029,11 @@ async function postBackfillRepayment(
   return repayment
 }
 
-async function recalculateMemberSavingsSnapshot(
-  input: {
-    tenantId: string
-    memberId: string
-    tx: any
-  },
-) {
+async function recalculateMemberSavingsSnapshot(input: {
+  tenantId: string
+  memberId: string
+  tx: any
+}) {
   const [contributions, charges, dividends] = await Promise.all([
     input.tx.contribution.findMany({
       where: {
@@ -600,11 +1068,18 @@ async function recalculateMemberSavingsSnapshot(
   ])
 
   const totalContributions = contributions.reduce(
-    (sum: number, item: any) => sum + Number(item.amount) + Number(item.extraSavingsAmount),
-    0,
+    (sum: number, item: any) =>
+      sum + Number(item.amount) + Number(item.extraSavingsAmount),
+    0
   )
-  const totalCharges = charges.reduce((sum: number, item: any) => sum + Number(item.amount), 0)
-  const totalDividends = dividends.reduce((sum: number, item: any) => sum + Number(item.allocationAmount), 0)
+  const totalCharges = charges.reduce(
+    (sum: number, item: any) => sum + Number(item.amount),
+    0
+  )
+  const totalDividends = dividends.reduce(
+    (sum: number, item: any) => sum + Number(item.allocationAmount),
+    0
+  )
 
   return input.tx.member.update({
     where: {
@@ -619,7 +1094,7 @@ async function recalculateMemberSavingsSnapshot(
 
 export async function listBackfillBatches(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return []
@@ -646,7 +1121,7 @@ export async function buildBackfillDraftInputForMember(
     startMonth?: Date
     endMonth?: Date
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<BuildBackfillDraftInput> {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -671,63 +1146,86 @@ export async function buildBackfillDraftInputForMember(
     throw new Error("Member not found")
   }
 
-  const startMonth = startOfMonth(input.startMonth ?? member.tenant.startDate ?? member.joinedAt)
+  const startMonth = startOfMonth(
+    input.startMonth ?? member.tenant.startDate ?? member.joinedAt
+  )
   const endMonth = startOfMonth(input.endMonth ?? new Date())
 
-  const [amountLogs, shareOverrides, defaultShareVersions, chargeDefinitions, dividendEntries, existingHistoryImpacts, profitPeriods] =
-    await Promise.all([
-      prisma.memberAmountLog.findMany({
-        where: { tenantId: input.tenantId, memberId: input.memberId },
-        orderBy: { effectiveFrom: "asc" },
-      }),
-      prisma.memberShareOverride.findMany({
-        where: { tenantId: input.tenantId, memberId: input.memberId },
-        orderBy: { effectiveFrom: "asc" },
-      }),
-      prisma.tenantShareStructureVersion.findMany({
-        where: { tenantId: input.tenantId },
-        orderBy: { effectiveFrom: "asc" },
-      }),
-      prisma.chargeDefinition.findMany({
-        where: {
-          tenantId: input.tenantId,
-          isActive: true,
-          appliesToMembers: true,
+  const [
+    amountLogs,
+    shareOverrides,
+    defaultShareVersions,
+    chargeDefinitions,
+    dividendEntries,
+    existingHistoryImpacts,
+    profitPeriods,
+    legacyLoanDrafts,
+    rowAdjustments,
+  ] = await Promise.all([
+    prisma.memberAmountLog.findMany({
+      where: { tenantId: input.tenantId, memberId: input.memberId },
+      orderBy: { effectiveFrom: "asc" },
+    }),
+    prisma.memberShareOverride.findMany({
+      where: { tenantId: input.tenantId, memberId: input.memberId },
+      orderBy: { effectiveFrom: "asc" },
+    }),
+    prisma.tenantShareStructureVersion.findMany({
+      where: { tenantId: input.tenantId },
+      orderBy: { effectiveFrom: "asc" },
+    }),
+    prisma.chargeDefinition.findMany({
+      where: {
+        tenantId: input.tenantId,
+        isActive: true,
+        appliesToMembers: true,
+      },
+      include: {
+        versions: {
+          orderBy: { effectiveFrom: "asc" },
         },
-        include: {
-          versions: {
-            orderBy: { effectiveFrom: "asc" },
-          },
-        },
-        orderBy: { createdAt: "asc" },
-      }),
-      buildDividendEntries(
-        {
-          tenantId: input.tenantId,
-          memberId: input.memberId,
-          startMonth,
-          endMonth,
-        },
-        prisma as PrismaClient,
-      ),
-      collectExistingHistoryImpacts(
-        {
-          tenantId: input.tenantId,
-          memberId: input.memberId,
-          startMonth,
-          endMonth,
-        },
-        prisma as PrismaClient,
-      ),
-      buildProfitPeriods(
-        {
-          tenantId: input.tenantId,
-          startMonth,
-          endMonth,
-        },
-        prisma as PrismaClient,
-      ),
-    ])
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    buildDividendEntries(
+      {
+        tenantId: input.tenantId,
+        memberId: input.memberId,
+        startMonth,
+        endMonth,
+      },
+      prisma as PrismaClient
+    ),
+    collectExistingHistoryImpacts(
+      {
+        tenantId: input.tenantId,
+        memberId: input.memberId,
+        startMonth,
+        endMonth,
+      },
+      prisma as PrismaClient
+    ),
+    buildProfitPeriods(
+      {
+        tenantId: input.tenantId,
+        startMonth,
+        endMonth,
+      },
+      prisma as PrismaClient
+    ),
+    typeof prisma.legacyLoanMigrationDraft?.findMany === "function"
+      ? prisma.legacyLoanMigrationDraft.findMany({
+          where: { tenantId: input.tenantId, memberId: input.memberId },
+          orderBy: { openedAt: "asc" },
+        })
+      : [],
+    typeof prisma.migrationBackfillAdjustment?.findMany === "function"
+      ? prisma.migrationBackfillAdjustment.findMany({
+          where: { tenantId: input.tenantId, memberId: input.memberId },
+          orderBy: { month: "asc" },
+        })
+      : [],
+  ])
 
   return {
     amountLogs: amountLogs.map((item: any) => ({
@@ -737,27 +1235,76 @@ export async function buildBackfillDraftInputForMember(
     })),
     chargeDefinitions: chargeDefinitions.map((definition: any) => ({
       code: definition.code,
+      frequency: definition.chargeFrequency ?? "recurring_monthly",
       label: definition.name,
       versions: definition.versions.map((version: any) => ({
         amount: Number(version.amount),
         effectiveFrom: monthKeyFromDate(version.effectiveFrom),
+        valueType:
+          version.chargeValueType ??
+          (version.kind === "percentage" ? "percentage" : "fixed_amount"),
       })),
     })),
     defaultShareVersions: defaultShareVersions.map((item: any) => ({
       amount: Number(item.amount),
+      basis: item.basis ?? "after_charge_deductions",
       effectiveFrom: monthKeyFromDate(item.effectiveFrom),
       notes: item.notes ?? undefined,
+      valueType: item.valueType ?? "fixed_amount",
     })),
     dividendEntries,
     endMonth: monthKeyFromDate(endMonth),
     existingHistoryImpacts,
-    loanEvents: [],
+    loanEvents: legacyLoanDrafts.map((draft: any) => {
+      const openedAt = startOfMonth(draft.openedAt)
+      const closedAt = draft.closedAt ? startOfMonth(draft.closedAt) : null
+      const monthlyRepayment = Number(draft.scheduledMonthlyPrincipalRepayment)
+      const outstandingPrincipalBalance = Number(
+        draft.outstandingPrincipalBalance
+      )
+      const inferredDuration = Math.max(
+        1,
+        Math.ceil(outstandingPrincipalBalance / monthlyRepayment)
+      )
+
+      return {
+        durationMonths: closedAt
+          ? Math.max(1, inclusiveMonthDifference(openedAt, closedAt))
+          : inferredDuration,
+        id: draft.id,
+        label: draft.loanLabel,
+        loanAmount: Number(draft.principalAmount),
+        loanPeriodSavingsContribution: Number(draft.savingsDuringLoan),
+        monthlyLoanServiceAmount: monthlyRepayment,
+        openingOutstandingPrincipalBalance: outstandingPrincipalBalance,
+        startMonth: monthKeyFromDate(openedAt),
+        topUp: Number(draft.savingsDuringLoan),
+      }
+    }),
     memberJoinedMonth: monthKeyFromDate(startOfMonth(member.joinedAt)),
     profitPeriods,
+    rowAdjustments: rowAdjustments.map((adjustment: any) => ({
+      loanRepaymentOnTime:
+        adjustment.loanRepaymentOnTime == null
+          ? undefined
+          : Boolean(adjustment.loanRepaymentOnTime),
+      loanRepaymentAmount:
+        adjustment.loanRepaymentAmount == null
+          ? undefined
+          : Number(adjustment.loanRepaymentAmount),
+      month: monthKeyFromDate(adjustment.month),
+      notes: adjustment.notes ?? undefined,
+      savingsContribution:
+        adjustment.savingsContribution == null
+          ? undefined
+          : Number(adjustment.savingsContribution),
+    })),
     shareOverrideVersions: shareOverrides.map((item: any) => ({
       amount: Number(item.amount),
+      basis: item.basis ?? "after_charge_deductions",
       effectiveFrom: monthKeyFromDate(item.effectiveFrom),
       notes: item.notes ?? undefined,
+      valueType: item.valueType ?? "fixed_amount",
     })),
     startMonth: monthKeyFromDate(startMonth),
   }
@@ -771,10 +1318,11 @@ export async function createBackfillBatch(
     rangeEnd: Date
     createdByUserId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertBackfillMutationOpen(input.tenantId, prisma)
 
   return prisma.backfillBatch.create({
     data: {
@@ -792,7 +1340,7 @@ export async function createBackfillBatch(
 export async function getBackfillBatch(
   tenantId: string,
   batchId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return null
@@ -823,7 +1371,7 @@ export async function getBackfillBatch(
 export async function getLatestBackfillBatchForMember(
   tenantId: string,
   memberId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return null
@@ -853,16 +1401,26 @@ export async function saveBackfillDraft(
     draftInput: BuildBackfillDraftInput
     draft?: BackfillDraft
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
 
   const draft = input.draft ?? buildBackfillDraft(input.draftInput)
-  const rangeStart = monthDateFromKey(input.draftInput.startMonth)
-  const rangeEnd = monthDateFromKey(input.draftInput.endMonth)
+  const { rangeEnd, rangeStart } = assertBackfillDraftRowsMatchRange({
+    draft,
+    endMonth: input.draftInput.endMonth,
+    startMonth: input.draftInput.startMonth,
+  })
+  await assertBackfillMutationOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx: any) => {
+    await assertMemberBackfillDraftNotAlreadyApplied({
+      tenantId: input.tenantId,
+      memberId: input.memberId,
+      tx,
+    })
+
     const existing = await tx.backfillBatch.findFirst({
       where: {
         tenantId: input.tenantId,
@@ -929,7 +1487,7 @@ export async function saveBackfillDraft(
           amount: row.amount,
           charge: Object.values(row.chargeValues).reduce<number>(
             (sum, value) => sum + Number(value),
-            0,
+            0
           ),
           chargeBreakdown: row.chargeValues,
           dividend: row.dividend,
@@ -940,10 +1498,15 @@ export async function saveBackfillDraft(
           share: row.share,
           totalShare: draft.rows
             .filter((candidate: any) => candidate.month <= row.month)
-            .reduce<number>((sum, candidate: any) => sum + Number(candidate.share), 0),
+            .reduce<number>(
+              (sum, candidate: any) => sum + Number(candidate.share),
+              0
+            ),
           total: row.netDeposit,
           metadata: {
             dividendLabel: row.dividendLabel ?? null,
+            dividendProfitEntryId: row.dividendProfitEntryId ?? null,
+            dividendSharePercentage: row.dividendSharePercentage ?? null,
             existingHistoryImpacts: row.existingHistoryImpacts,
             loanEvent: row.loanEvent ?? null,
             monthLabel: row.monthLabel,
@@ -985,6 +1548,10 @@ export async function saveBackfillDraft(
             activityDate: monthDateFromKey(row.month),
             amount: row.dividend,
             direction: "credit",
+            metadata: {
+              profitEntryId: row.dividendProfitEntryId ?? null,
+              sharePercentage: row.dividendSharePercentage ?? null,
+            },
             notes: row.dividendLabel ?? "Dividend context",
             createdByUserId: input.actorUserId,
           },
@@ -1013,12 +1580,34 @@ export async function applyBackfillBatch(
     memberId: string
     actorUserId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertBackfillMutationOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx: any) => {
+    async function createAppliedBackfillMonthMarkers(
+      batch: any,
+      candidateMonths: Array<{ key: string; month: Date }>
+    ) {
+      if (typeof tx.appliedBackfillMonth?.createMany !== "function") {
+        return
+      }
+
+      await tx.appliedBackfillMonth.createMany({
+        data: candidateMonths.map((candidate: any) => ({
+          appliedByUserId: input.actorUserId,
+          batchId: batch.id,
+          memberId: input.memberId,
+          month: candidate.month,
+          sourceKey: `backfill:${batch.id}:${candidate.key}`,
+          tenantId: input.tenantId,
+        })),
+        skipDuplicates: true,
+      })
+    }
+
     const batch = input.batchId
       ? await tx.backfillBatch.findFirst({
           where: {
@@ -1040,7 +1629,7 @@ export async function applyBackfillBatch(
             tenantId: input.tenantId,
             memberId: input.memberId,
             status: {
-              in: ["draft", "generated", "approved"],
+              in: ["generated", "approved"],
             },
           },
           include: {
@@ -1060,8 +1649,100 @@ export async function applyBackfillBatch(
       throw new Error("Backfill batch not found")
     }
 
+    const candidateMonthKeys = new Set(
+      batch.monthRows.map(
+        (row: any) => `${row.year}-${String(row.month).padStart(2, "0")}`
+      )
+    )
+    const candidateMonths = batch.monthRows.map((row: any) => ({
+      key: `${row.year}-${String(row.month).padStart(2, "0")}`,
+      month: new Date(Date.UTC(row.year, row.month - 1, 1)),
+    }))
+
+    if (batch.status === "applied") {
+      await createAppliedBackfillMonthMarkers(batch, candidateMonths)
+      return batch
+    }
+
+    if (!["generated", "approved"].includes(batch.status)) {
+      throw new Error(
+        "Backfill batch must be generated or approved before it can be applied."
+      )
+    }
+
+    const duplicateMonthKeys =
+      typeof tx.appliedBackfillMonth?.findMany === "function"
+        ? (
+            await tx.appliedBackfillMonth.findMany({
+              select: {
+                month: true,
+              },
+              where: {
+                tenantId: input.tenantId,
+                memberId: input.memberId,
+                batchId: {
+                  not: batch.id,
+                },
+                month: {
+                  in: candidateMonths.map((candidate: any) => candidate.month),
+                },
+              },
+            })
+          ).map((appliedMonth: any) => monthKeyFromDate(appliedMonth.month))
+        : []
+
+    if (duplicateMonthKeys.length === 0) {
+      const overlappingAppliedBatches = await tx.backfillBatch.findMany({
+        where: {
+          tenantId: input.tenantId,
+          memberId: input.memberId,
+          status: "applied",
+          id: {
+            not: batch.id,
+          },
+          rangeStart: {
+            lte: batch.rangeEnd,
+          },
+          rangeEnd: {
+            gte: batch.rangeStart,
+          },
+        },
+        include: {
+          monthRows: {
+            select: {
+              month: true,
+              year: true,
+            },
+          },
+        },
+      })
+      duplicateMonthKeys.push(
+        ...overlappingAppliedBatches.flatMap((appliedBatch: any) =>
+          (appliedBatch.monthRows ?? [])
+            .map(
+              (row: any) => `${row.year}-${String(row.month).padStart(2, "0")}`
+            )
+            .filter((monthKey: string) => candidateMonthKeys.has(monthKey))
+        )
+      )
+    }
+
+    if (duplicateMonthKeys.length > 0) {
+      throw new Error(
+        `Backfill has already been applied for ${duplicateMonthKeys.slice(0, 3).join(", ")}. Use correction or reversal workflows instead of applying another migration batch for the same member/month.`
+      )
+    }
+
     const rangeStart = startOfMonth(batch.rangeStart)
     const rangeEnd = endOfMonth(batch.rangeEnd)
+
+    await assertNoExistingMemberFinancialRecordsForRange({
+      tenantId: input.tenantId,
+      memberId: input.memberId,
+      startDate: rangeStart,
+      endDate: rangeEnd,
+      tx: tx as PrismaClient,
+    })
 
     await deleteMemberLedgerTransactionsForRange({
       tenantId: input.tenantId,
@@ -1110,7 +1791,7 @@ export async function applyBackfillBatch(
       tx: tx as PrismaClient,
     })
 
-    const primaryLoan = await tx.loan.findFirst({
+    let primaryLoan = await tx.loan.findFirst({
       where: {
         tenantId: input.tenantId,
         memberId: input.memberId,
@@ -1120,6 +1801,35 @@ export async function applyBackfillBatch(
       },
       orderBy: [{ disbursedAt: "desc" }, { createdAt: "desc" }],
     })
+
+    const loansByEventKey = new Map<string, any>()
+
+    if (!primaryLoan) {
+      for (const row of batch.monthRows) {
+        const event = ((row.metadata ?? {}) as Record<string, any>).loanEvent
+
+        if (
+          !event ||
+          Number(
+            event.openingOutstandingPrincipalBalance ?? event.loanAmount
+          ) <= 0
+        ) {
+          continue
+        }
+
+        const eventKey = legacyLoanEventKey(event)
+        if (loansByEventKey.has(eventKey)) continue
+
+        const loan = await createLegacyBackfillLoanFromEvent({
+          actorUserId: input.actorUserId,
+          event,
+          memberId: input.memberId,
+          tenantId: input.tenantId,
+          tx,
+        })
+        loansByEventKey.set(eventKey, loan)
+      }
+    }
 
     const chargeDefinitions = await tx.chargeDefinition.findMany({
       where: {
@@ -1133,7 +1843,10 @@ export async function applyBackfillBatch(
     for (const row of batch.monthRows) {
       const rowMonth = new Date(Date.UTC(row.year, row.month - 1, 1))
       const metadata = (row.metadata ?? {}) as Record<string, any>
-      const chargeBreakdown = (row.chargeBreakdown ?? {}) as Record<string, number>
+      const chargeBreakdown = (row.chargeBreakdown ?? {}) as Record<
+        string,
+        number
+      >
 
       if (row.rowStatus !== "missed" && Number(row.share) > 0) {
         await recordContribution(
@@ -1142,14 +1855,18 @@ export async function applyBackfillBatch(
             amount: Number(row.share),
             channel: "manual",
             committedAmount: Number(row.amount),
-            extraSavingsAmount: Math.max(0, Number(row.total) - Number(row.share)),
+            extraSavingsAmount: Math.max(
+              0,
+              Number(row.total) - Number(row.share)
+            ),
             memberId: input.memberId,
             notes: "Posted from backfill apply",
             periodLabel: monthKeyFromDate(rowMonth),
             postedAt: rowMonth,
+            sourceType: "backfill",
             tenantId: input.tenantId,
           },
-          tx as PrismaClient,
+          tx as PrismaClient
         )
         await createMemberShareLedgerEntry(
           {
@@ -1162,14 +1879,19 @@ export async function applyBackfillBatch(
             notes: `Share posted from backfill ${batch.id}`,
             createdByUserId: input.actorUserId,
           },
-          tx as PrismaClient,
+          tx as PrismaClient
         )
       }
 
-      for (const [chargeCode, chargeAmount] of Object.entries(chargeBreakdown)) {
-        if (!chargeAmount || chargeAmount <= 0 || row.rowStatus === "missed") continue
+      for (const [chargeCode, chargeAmount] of Object.entries(
+        chargeBreakdown
+      )) {
+        if (!chargeAmount || chargeAmount <= 0 || row.rowStatus === "missed")
+          continue
 
-        const definition = chargeDefinitions.find((item: any) => item.code === chargeCode)
+        const definition = chargeDefinitions.find(
+          (item: any) => item.code === chargeCode
+        )
         if (!definition) continue
 
         await applyCharge(
@@ -1180,25 +1902,62 @@ export async function applyBackfillBatch(
             chargeDefinitionId: definition.id,
             memberId: input.memberId,
             notes: "Posted from backfill apply",
+            sourceType: "backfill",
             tenantId: input.tenantId,
           },
-          tx as PrismaClient,
+          tx as PrismaClient
         )
       }
 
-      if (primaryLoan && Number(row.loanServiceAmount) > 0 && row.rowStatus !== "missed") {
-        await postBackfillRepayment(
-          {
-            tenantId: input.tenantId,
-            actorUserId: input.actorUserId,
+      if (Number(row.loanServiceAmount) > 0 && row.rowStatus !== "missed") {
+        const loanForRow = metadata.loanEvent
+          ? (loansByEventKey.get(legacyLoanEventKey(metadata.loanEvent)) ??
+            primaryLoan)
+          : primaryLoan
+
+        if (!loanForRow) continue
+
+        await postBackfillRepayment({
+          tenantId: input.tenantId,
+          actorUserId: input.actorUserId,
+          memberId: input.memberId,
+          loanId: loanForRow.id,
+          amount: Number(row.loanServiceAmount),
+          paidAt: rowMonth,
+          reference: `backfill-${batch.id}-${row.year}-${row.month}`,
+          tx: tx as PrismaClient,
+        })
+      }
+
+      if (
+        Number(row.dividend) > 0 &&
+        metadata.dividendProfitEntryId &&
+        row.rowStatus !== "missed" &&
+        typeof tx.shareProfitAllocation?.upsert === "function"
+      ) {
+        await tx.shareProfitAllocation.upsert({
+          create: {
+            allocatedProfitAmount: Number(row.dividend),
             memberId: input.memberId,
-            loanId: primaryLoan.id,
-            amount: Number(row.loanServiceAmount),
-            paidAt: rowMonth,
-            reference: `backfill-${batch.id}-${row.year}-${row.month}`,
-            tx: tx as PrismaClient,
+            memberShareBalance: 0,
+            profitEntryId: metadata.dividendProfitEntryId,
+            sharePercentage: Number(metadata.dividendSharePercentage ?? 0),
+            status: "published",
+            tenantId: input.tenantId,
+            totalShareBalance: 0,
           },
-        )
+          update: {
+            allocatedProfitAmount: Number(row.dividend),
+            sharePercentage: Number(metadata.dividendSharePercentage ?? 0),
+            status: "published",
+          },
+          where: {
+            profitEntryId_memberId: {
+              memberId: input.memberId,
+              profitEntryId: metadata.dividendProfitEntryId,
+            },
+          },
+        })
       }
 
       if (metadata.loanEvent) {
@@ -1231,6 +1990,8 @@ export async function applyBackfillBatch(
         updatedByUserId: input.actorUserId,
       },
     })
+
+    await createAppliedBackfillMonthMarkers(batch, candidateMonths)
 
     await tx.auditLog.create({
       data: {
@@ -1269,10 +2030,11 @@ export async function generateBackfillBatch(
     batchId: string
     actorUserId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertBackfillMutationOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx: any) => {
     const batch = await tx.backfillBatch.findFirst({
@@ -1307,16 +2069,19 @@ export async function generateBackfillBatch(
       const [amount, share, chargeTotal, loanSnapshot] = await Promise.all([
         resolveMemberAmountForMonth(
           { tenantId: input.tenantId, memberId: batch.memberId, month },
-          tx as unknown as PrismaClient,
+          tx as unknown as PrismaClient
         ),
         getResolvedShareAmountForMonth(
           { tenantId: input.tenantId, memberId: batch.memberId, month },
-          tx as unknown as PrismaClient,
+          tx as unknown as PrismaClient
         ),
-        resolveChargeTotalForMonth({ tenantId: input.tenantId, month }, tx as unknown as PrismaClient),
+        resolveChargeTotalForMonth(
+          { tenantId: input.tenantId, month },
+          tx as unknown as PrismaClient
+        ),
         resolveLoanSnapshotForMonth(
           { tenantId: input.tenantId, memberId: batch.memberId, month },
-          tx as unknown as PrismaClient,
+          tx as unknown as PrismaClient
         ),
       ])
 
@@ -1374,10 +2139,11 @@ export async function updateBackfillMonthRow(
     total?: number
     notes?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertBackfillMutationOpen(input.tenantId, prisma)
 
   return prisma.backfillMonthRow.update({
     where: {
@@ -1387,12 +2153,22 @@ export async function updateBackfillMonthRow(
     data: {
       ...(input.amount !== undefined ? { amount: input.amount } : {}),
       ...(input.charge !== undefined ? { charge: input.charge } : {}),
-      ...(input.loanCollected !== undefined ? { loanCollected: input.loanCollected } : {}),
-      ...(input.loanServiceAmount !== undefined ? { loanServiceAmount: input.loanServiceAmount } : {}),
-      ...(input.monthlyTopup !== undefined ? { monthlyTopup: input.monthlyTopup } : {}),
-      ...(input.pendingLoanPayment !== undefined ? { pendingLoanPayment: input.pendingLoanPayment } : {}),
+      ...(input.loanCollected !== undefined
+        ? { loanCollected: input.loanCollected }
+        : {}),
+      ...(input.loanServiceAmount !== undefined
+        ? { loanServiceAmount: input.loanServiceAmount }
+        : {}),
+      ...(input.monthlyTopup !== undefined
+        ? { monthlyTopup: input.monthlyTopup }
+        : {}),
+      ...(input.pendingLoanPayment !== undefined
+        ? { pendingLoanPayment: input.pendingLoanPayment }
+        : {}),
       ...(input.share !== undefined ? { share: input.share } : {}),
-      ...(input.totalShare !== undefined ? { totalShare: input.totalShare } : {}),
+      ...(input.totalShare !== undefined
+        ? { totalShare: input.totalShare }
+        : {}),
       ...(input.total !== undefined ? { total: input.total } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
       isEdited: true,
@@ -1419,10 +2195,11 @@ export async function addBackfillActivity(
     metadata?: Record<string, unknown>
     createdByUserId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertBackfillMutationOpen(input.tenantId, prisma)
 
   return prisma.backfillActivity.create({
     data: {
@@ -1447,10 +2224,11 @@ export async function updateBackfillBatchStatus(
     status: "draft" | "generated" | "approved" | "applied" | "cancelled"
     actorUserId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertBackfillMutationOpen(input.tenantId, prisma)
 
   return prisma.backfillBatch.update({
     where: {

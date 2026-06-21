@@ -3,6 +3,8 @@ model TenantShareStructureVersion {
   tenantId      String   @map("tenant_id") @db.Uuid
   effectiveFrom DateTime @map("effective_from") @db.Date
   amount        Decimal  @db.Decimal(18, 2)
+  valueType     ShareValueType @default(fixed_amount) @map("value_type")
+  basis         ShareBasis @default(after_charge_deductions)
   notes         String?
   createdByUserId String? @map("created_by_user_id") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -21,6 +23,8 @@ model MemberShareOverride {
   memberId      String   @map("member_id") @db.Uuid
   effectiveFrom DateTime @map("effective_from") @db.Date
   amount        Decimal  @db.Decimal(18, 2)
+  valueType     ShareValueType @default(fixed_amount) @map("value_type")
+  basis         ShareBasis @default(after_charge_deductions)
   notes         String?
   createdByUserId String? @map("created_by_user_id") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -60,6 +64,7 @@ model ChargeDefinitionVersion {
   effectiveFrom      DateTime   @map("effective_from") @db.Date
   amount             Decimal    @db.Decimal(18, 2)
   kind               ChargeKind
+  chargeValueType    ChargeValueType @default(fixed_amount) @map("charge_value_type")
   notes              String?
   createdByUserId    String?    @map("created_by_user_id") @db.Uuid
   createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -71,6 +76,52 @@ model ChargeDefinitionVersion {
   @@unique([chargeDefinitionId, effectiveFrom], map: "charge_definition_versions_definition_effective_key")
   @@index([tenantId, chargeDefinitionId, effectiveFrom], map: "charge_definition_versions_tenant_definition_effective_idx")
   @@map("charge_definition_versions")
+}
+
+model LegacyLoanMigrationDraft {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  memberId        String   @map("member_id") @db.Uuid
+  loanLabel       String   @map("loan_label")
+  openedAt        DateTime @map("opened_at") @db.Date
+  closedAt        DateTime? @map("closed_at") @db.Date
+  principalAmount Decimal  @map("principal_amount") @db.Decimal(18, 2)
+  scheduledMonthlyPrincipalRepayment Decimal @map("scheduled_monthly_principal_repayment") @db.Decimal(18, 2)
+  savingsDuringLoan Decimal @map("savings_during_loan") @db.Decimal(18, 2)
+  outstandingPrincipalBalance Decimal @map("outstanding_principal_balance") @db.Decimal(18, 2)
+  notes           String?
+  createdByUserId String?  @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, memberId, loanLabel, openedAt], map: "legacy_loan_migration_drafts_member_label_opened_key")
+  @@index([tenantId, memberId, openedAt], map: "legacy_loan_migration_drafts_tenant_member_opened_idx")
+  @@index([tenantId, openedAt], map: "legacy_loan_migration_drafts_tenant_opened_idx")
+  @@map("legacy_loan_migration_drafts")
+}
+
+model MigrationBackfillAdjustment {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  memberId        String   @map("member_id") @db.Uuid
+  month           DateTime @db.Date
+  savingsContribution Decimal? @map("savings_contribution") @db.Decimal(18, 2)
+  loanRepaymentAmount Decimal? @map("loan_repayment_amount") @db.Decimal(18, 2)
+  loanRepaymentOnTime Boolean? @map("loan_repayment_on_time")
+  notes           String?
+  createdByUserId String?  @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, memberId, month], map: "migration_backfill_adjustments_member_month_key")
+  @@index([tenantId, memberId, month], map: "migration_backfill_adjustments_tenant_member_month_idx")
+  @@map("migration_backfill_adjustments")
 }
 
 model BackfillBatch {
@@ -95,10 +146,32 @@ model BackfillBatch {
   member     Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
   monthRows  BackfillMonthRow[]
   activities BackfillActivity[]
+  appliedMonths AppliedBackfillMonth[]
 
   @@index([tenantId, memberId, status], map: "backfill_batches_tenant_member_status_idx")
   @@index([tenantId, createdAt], map: "backfill_batches_tenant_created_at_idx")
   @@map("backfill_batches")
+}
+
+model AppliedBackfillMonth {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  memberId        String   @map("member_id") @db.Uuid
+  batchId         String   @map("batch_id") @db.Uuid
+  month           DateTime @db.Date
+  sourceKey       String   @map("source_key")
+  appliedByUserId String?  @map("applied_by_user_id") @db.Uuid
+  appliedAt       DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  batch  BackfillBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, memberId, month], map: "applied_backfill_months_member_month_key")
+  @@unique([tenantId, sourceKey], map: "applied_backfill_months_source_key_key")
+  @@index([tenantId, batchId], map: "applied_backfill_months_tenant_batch_idx")
+  @@index([tenantId, memberId, month], map: "applied_backfill_months_tenant_member_month_idx")
+  @@map("applied_backfill_months")
 }
 
 model BackfillMonthRow {

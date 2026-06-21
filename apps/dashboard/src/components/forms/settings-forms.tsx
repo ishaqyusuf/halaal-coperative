@@ -30,7 +30,6 @@ const profileSchema = z.object({
   name: z.string().min(1, "Cooperative name is required."),
   officeAddress: z.string().optional(),
   region: z.string().optional(),
-  startDate: z.string().optional(),
   timezone: z.string().min(1, "Timezone is required."),
 })
 
@@ -40,7 +39,7 @@ export function CooperativeProfileForm({
   defaultValues,
   devMode,
 }: {
-  defaultValues: ProfileValues
+  defaultValues: ProfileValues & { startDate?: string }
   devMode: boolean
 }) {
   const form = useZodForm<ProfileValues>(profileSchema, { defaultValues })
@@ -117,19 +116,15 @@ export function CooperativeProfileForm({
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="startDate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Start date</FormLabel>
-              <FormControl>
-                <Input {...field} type="date" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+          <p className="text-sm font-medium text-foreground">Finance start date</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {defaultValues.startDate || "Not set yet"}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            Managed from Finance setup because it controls historical charge, share, and member backfill calculations.
+          </p>
+        </div>
         <FormField
           control={form.control}
           name="timezone"

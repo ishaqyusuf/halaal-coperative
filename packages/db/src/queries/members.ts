@@ -8,6 +8,7 @@ import type {
 } from "@prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getMemberTransactions } from "./ledger"
+import { getTenantInitialMigrationState } from "./migration"
 
 export type ListMembersFilters = {
   kycStatus?: KycStatus
@@ -91,8 +92,12 @@ export type CreateMemberInput = {
   fullName: string
   memberType: MemberType
   joinedAt: Date
+  address?: string | null
   currentSavingsBalance?: number
+  email?: string | null
   monthlyCommitment?: number
+  occupation?: string | null
+  phoneNumber?: string | null
   servingLoan?: {
     amountServed: number
     extraMonthlySavingsAmount: number
@@ -107,6 +112,72 @@ export type CreateMemberInput = {
 }
 
 type MemberWriteClient = Prisma.TransactionClient
+
+async function assertMemberProfileMutationOpen(
+  tenantId: string,
+  prisma: PrismaClient | Prisma.TransactionClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(
+    tenantId,
+    prisma as PrismaClient,
+  )
+
+  if (migrationState.snapshot.canUseLiveFinancialWrites) {
+    return
+  }
+
+  if (!migrationState.snapshot.canUseMigrationTools) {
+    throw new Error(
+      "Member profile writes are locked until initial migration is finalized.",
+    )
+  }
+
+  const setupStepKeys = new Set([
+    "finance_start_date",
+    "charge_schedules",
+    "business_profit_pools",
+    "share_capital_plan",
+  ])
+  const blockingSteps = migrationState.snapshot.missingStepKeys.filter(
+    (stepKey) => setupStepKeys.has(stepKey),
+  )
+
+  if (blockingSteps.length > 0) {
+    const labels = migrationState.snapshot.steps
+      .filter((step) => blockingSteps.includes(step.key))
+      .map((step) => step.label)
+
+    throw new Error(
+      `Member profiles cannot be created until these setup steps are complete: ${labels.join(", ")}.`,
+    )
+  }
+
+  if (
+    migrationState.counts.appliedBackfillBatches > 0 ||
+    migrationState.counts.appliedBackfillMembers > 0 ||
+    migrationState.counts.appliedBackfillMonths > 0
+  ) {
+    throw new Error(
+      "Member profiles are locked because member ledger backfill has already started. Finish migration or create new members after go-live.",
+    )
+  }
+}
+
+async function assertLiveFinancialWritesOpen(
+  tenantId: string,
+  prisma: PrismaClient | Prisma.TransactionClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(
+    tenantId,
+    prisma as PrismaClient,
+  )
+
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    throw new Error(
+      "Live financial record writes are locked until initial migration is finalized.",
+    )
+  }
+}
 
 function buildRepaymentSchedule(input: {
   principalAmount: number
@@ -145,6 +216,8 @@ export async function createMemberWithState(
   tx: MemberWriteClient,
   input: CreateMemberInput,
 ) {
+  await assertMemberProfileMutationOpen(input.tenantId, tx)
+
   const member = await tx.member.create({
       data: {
         tenantId: input.tenantId,
@@ -152,6 +225,10 @@ export async function createMemberWithState(
         fullName: input.fullName,
         memberType: input.memberType,
         joinedAt: input.joinedAt,
+        address: input.address,
+        email: input.email,
+        occupation: input.occupation,
+        phoneNumber: input.phoneNumber,
         totalSavingsSnapshot: input.currentSavingsBalance ?? 0,
         userId: input.userId,
         deductionSourceId: input.deductionSourceId,
@@ -289,7 +366,11 @@ export async function createMemberWithState(
           memberNumber: member.memberNumber,
           monthlyCommitment: input.monthlyCommitment ?? 0,
           fullName: member.fullName,
+          address: member.address,
+          email: member.email,
           memberType: member.memberType,
+          occupation: member.occupation,
+          phoneNumber: member.phoneNumber,
           servingLoan: input.servingLoan
             ? {
                 amountServed: input.servingLoan.amountServed,
@@ -335,6 +416,8 @@ export async function updateMember(
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.$transaction(async (tx) => {
+    await assertMemberProfileMutationOpen(tenantId, tx)
+
     const member = await tx.member.update({
       where: { id: memberId, tenantId },
       data: {
@@ -375,6 +458,8 @@ export async function updateMemberStatus(
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.$transaction(async (tx) => {
+    await assertLiveFinancialWritesOpen(tenantId, tx)
+
     const member = await tx.member.update({
       where: { id: memberId, tenantId },
       data: {
@@ -417,6 +502,8 @@ export async function updateMemberKyc(
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.$transaction(async (tx) => {
+    await assertLiveFinancialWritesOpen(input.tenantId, tx)
+
     const member = await tx.member.update({
       where: { id: input.memberId, tenantId: input.tenantId },
       data: {
@@ -468,6 +555,8 @@ export async function createMemberDocument(
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.$transaction(async (tx) => {
+    await assertLiveFinancialWritesOpen(input.tenantId, tx)
+
     const document = await tx.memberDocument.create({
       data: {
         documentType: input.documentType,
@@ -515,6 +604,8 @@ export async function updateMemberDocumentReview(
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.$transaction(async (tx) => {
+    await assertLiveFinancialWritesOpen(input.tenantId, tx)
+
     const existingDocument = await tx.memberDocument.findFirst({
       where: {
         id: input.documentId,
@@ -663,7 +754,7 @@ export async function listMemberStatementSummaries(
       status: member.status,
       joinedAt: member.joinedAt,
       exitedAt: member.exitedAt,
-      email: member.user?.email ?? null,
+      email: member.email ?? member.user?.email ?? null,
       deductionSourceName: member.deductionSource?.name ?? null,
       activeCommitmentAmount: Number(activePlan?.amount ?? 0),
       activeCommitmentStartsAt: activePlan?.startsAt ?? null,

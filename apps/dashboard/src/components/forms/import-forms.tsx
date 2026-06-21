@@ -39,6 +39,7 @@ const csvImportSchema = z.object({
   confirmExistingMatches: z.boolean().default(false),
   confirmInFileDuplicates: z.boolean().default(false),
   csvText: z.string().min(1, "Paste CSV content to continue."),
+  importConfirmation: z.string().optional(),
 })
 
 type CsvImportValues = z.infer<typeof csvImportSchema>
@@ -55,6 +56,7 @@ const importActionMap = {
 
 export function DashboardImportForms({
   devMode,
+  importAvailability,
   referenceData,
   batches,
 }: {
@@ -70,6 +72,13 @@ export function DashboardImportForms({
     validRows: number
   }>
   devMode: boolean
+  importAvailability: Record<
+    DashboardImportKind,
+    {
+      blockedReason?: string
+      isAvailable: boolean
+    }
+  >
   referenceData: DashboardImportReferenceData
 }) {
   return (
@@ -82,9 +91,9 @@ export function DashboardImportForms({
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-3">
-          <CsvImportCard batches={batches} devMode={devMode} importKind="members" referenceData={referenceData} />
-          <CsvImportCard batches={batches} devMode={devMode} importKind="deduction_sources" referenceData={referenceData} />
-          <CsvImportCard batches={batches} devMode={devMode} importKind="loan_products" referenceData={referenceData} />
+          <CsvImportCard availability={importAvailability.members} batches={batches} devMode={devMode} importKind="members" referenceData={referenceData} />
+          <CsvImportCard availability={importAvailability.deduction_sources} batches={batches} devMode={devMode} importKind="deduction_sources" referenceData={referenceData} />
+          <CsvImportCard availability={importAvailability.loan_products} batches={batches} devMode={devMode} importKind="loan_products" referenceData={referenceData} />
         </div>
       </section>
 
@@ -96,8 +105,8 @@ export function DashboardImportForms({
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
-          <CsvImportCard batches={batches} devMode={devMode} importKind="contributions" referenceData={referenceData} />
-          <CsvImportCard batches={batches} devMode={devMode} importKind="charges" referenceData={referenceData} />
+          <CsvImportCard availability={importAvailability.contributions} batches={batches} devMode={devMode} importKind="contributions" referenceData={referenceData} />
+          <CsvImportCard availability={importAvailability.charges} batches={batches} devMode={devMode} importKind="charges" referenceData={referenceData} />
         </div>
       </section>
 
@@ -109,8 +118,8 @@ export function DashboardImportForms({
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
-          <CsvImportCard batches={batches} devMode={devMode} importKind="loan_migrations" referenceData={referenceData} />
-          <CsvImportCard batches={batches} devMode={devMode} importKind="repayment_migrations" referenceData={referenceData} />
+          <CsvImportCard availability={importAvailability.loan_migrations} batches={batches} devMode={devMode} importKind="loan_migrations" referenceData={referenceData} />
+          <CsvImportCard availability={importAvailability.repayment_migrations} batches={batches} devMode={devMode} importKind="repayment_migrations" referenceData={referenceData} />
         </div>
       </section>
     </div>
@@ -118,11 +127,16 @@ export function DashboardImportForms({
 }
 
 function CsvImportCard({
+  availability,
   batches,
   devMode,
   importKind,
   referenceData,
 }: {
+  availability: {
+    blockedReason?: string
+    isAvailable: boolean
+  }
   batches: Array<{
     _count: { rows: number }
     createdAt: Date
@@ -144,15 +158,26 @@ function CsvImportCard({
       confirmExistingMatches: false,
       confirmInFileDuplicates: false,
       csvText: "",
+      importConfirmation: "",
     },
   })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [isStaging, startStagingTransition] = useTransition()
   const csvText = form.watch("csvText")
+  const importConfirmation = form.watch("importConfirmation")
+  const confirmedExistingMatches = form.watch("confirmExistingMatches")
+  const confirmedInFileDuplicates = form.watch("confirmInFileDuplicates")
   const latestBatch = batches.find((batch) => batch.importType === importKind)
+  const isLocked = !availability.isAvailable
 
-  const preview = useMemo(() => parseDashboardImportCsv(importKind, csvText), [csvText, importKind])
+  const preview = useMemo(
+    () => parseDashboardImportCsv(importKind, csvText),
+    [csvText, importKind]
+  )
+  const templateLines = config.sampleCsv.split("\n")
+  const templateHeader = templateLines[0] ?? ""
+  const templateRows = templateLines.slice(1)
   const reconciliation = useMemo(() => {
     if (!preview.ok) {
       return {
@@ -191,6 +216,10 @@ function CsvImportCard({
   function onSubmit(values: CsvImportValues) {
     startTransition(async () => {
       try {
+        if (isLocked) {
+          throw new Error(availability.blockedReason ?? "This import is currently locked.")
+        }
+
         if (preview.ok && reconciliation.existingMatchCount > 0 && !values.confirmExistingMatches) {
           throw new Error("Review the rows that will update existing workspace records and confirm before importing.")
         }
@@ -199,13 +228,18 @@ function CsvImportCard({
           throw new Error("Remove or intentionally confirm in-file duplicates before importing.")
         }
 
+        if (values.importConfirmation !== "IMPORT NOW") {
+          throw new Error("Type IMPORT NOW to run a direct import without staging.")
+        }
+
         const action = importActionMap[importKind]
-        await action(objectToFormData({ csvText: values.csvText }))
+        await action(objectToFormData({ confirmation: values.importConfirmation, csvText: values.csvText }))
         showSuccess(`${config.title} imported`, `${preview.ok ? preview.rows.length : 0} rows processed successfully.`)
         form.reset({
           confirmExistingMatches: false,
           confirmInFileDuplicates: false,
           csvText: "",
+          importConfirmation: "",
         })
       } catch (error) {
         showError(
@@ -219,6 +253,10 @@ function CsvImportCard({
   function onStageBatch(values: CsvImportValues) {
     startStagingTransition(async () => {
       try {
+        if (isLocked) {
+          throw new Error(availability.blockedReason ?? "This import is currently locked.")
+        }
+
         await stageImportBatchAction(objectToFormData({ csvText: values.csvText, importKind }))
         showSuccess(`${config.title} staged`, "Import batch saved for later review and apply.")
       } catch (error) {
@@ -239,16 +277,65 @@ function CsvImportCard({
               <h4 className="text-lg font-semibold tracking-tight text-foreground">{config.title}</h4>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">{config.description}</p>
             </div>
-            {devMode ? (
+            <div className="flex shrink-0 flex-wrap justify-end gap-2">
               <Button
+                disabled={isLocked}
                 type="button"
                 variant="outline"
-                onClick={() => form.reset({ csvText: config.sampleCsv })}
+                onClick={() =>
+                  form.setValue("csvText", config.sampleCsv, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
               >
-                Quick fill
+                Use template
               </Button>
-            ) : null}
+              {devMode ? (
+                <Button
+                  disabled={isLocked}
+                  type="button"
+                  variant="outline"
+                  onClick={() => form.reset({ csvText: config.sampleCsv })}
+                >
+                  Quick fill
+                </Button>
+              ) : null}
+            </div>
           </div>
+
+          {isLocked ? (
+            <div className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              <p className="font-medium">Import locked</p>
+              <p className="mt-1">{availability.blockedReason}</p>
+            </div>
+          ) : null}
+
+          <details className="rounded-[1.25rem] border border-border/60 bg-muted/30 p-4">
+            <summary className="cursor-pointer list-none text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+              CSV template
+            </summary>
+            <div className="mt-3 space-y-3">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Required header
+                </p>
+                <pre className="mt-2 overflow-x-auto rounded-xl border border-border/60 bg-background/80 p-3 text-xs text-muted-foreground">
+                  {templateHeader}
+                </pre>
+              </div>
+              {templateRows.length > 0 ? (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Example rows
+                  </p>
+                  <pre className="mt-2 overflow-x-auto rounded-xl border border-border/60 bg-background/80 p-3 text-xs text-muted-foreground">
+                    {templateRows.join("\n")}
+                  </pre>
+                </div>
+              ) : null}
+            </div>
+          </details>
 
           <FormField
             control={form.control}
@@ -260,6 +347,7 @@ function CsvImportCard({
                   <Textarea
                     {...field}
                     className="min-h-[220px] font-mono text-xs"
+                    disabled={isLocked}
                     placeholder={config.sampleCsv}
                   />
                 </FormControl>
@@ -369,19 +457,40 @@ function CsvImportCard({
             </div>
           ) : null}
 
+          <FormField
+            control={form.control}
+            name="importConfirmation"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Type IMPORT NOW for direct import</FormLabel>
+                <FormControl>
+                  <input
+                    {...field}
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    disabled={isLocked}
+                    placeholder="IMPORT NOW"
+                    type="text"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs leading-6 text-muted-foreground">
-              Use the sample format as the template. Imports are idempotent where matching keys already exist.
+              Stage a valid file for later review, or type the direct import confirmation to post immediately.
             </p>
             <div className="flex gap-2">
               <StageBatchButton
                 disabled={
                   isPending ||
                   isStaging ||
+                  isLocked ||
                   !preview.ok ||
                   preview.rows.length === 0 ||
-                  (reconciliation.existingMatchCount > 0 && !form.watch("confirmExistingMatches")) ||
-                  (reconciliation.duplicateCount > 0 && !form.watch("confirmInFileDuplicates"))
+                  (reconciliation.existingMatchCount > 0 && !confirmedExistingMatches) ||
+                  (reconciliation.duplicateCount > 0 && !confirmedInFileDuplicates)
                 }
                 onStage={() => onStageBatch(form.getValues())}
               />
@@ -389,10 +498,12 @@ function CsvImportCard({
                 disabled={
                   isPending ||
                   isStaging ||
+                  isLocked ||
                   !preview.ok ||
                   preview.rows.length === 0 ||
-                  (reconciliation.existingMatchCount > 0 && !form.watch("confirmExistingMatches")) ||
-                  (reconciliation.duplicateCount > 0 && !form.watch("confirmInFileDuplicates"))
+                  importConfirmation !== "IMPORT NOW" ||
+                  (reconciliation.existingMatchCount > 0 && !confirmedExistingMatches) ||
+                  (reconciliation.duplicateCount > 0 && !confirmedInFileDuplicates)
                 }
                 type="submit"
               >

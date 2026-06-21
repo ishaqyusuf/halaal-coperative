@@ -1,34 +1,52 @@
+import { headers } from "next/headers"
+import { getTenantInitialMigrationState } from "@halaalvest/db"
+import { buildTenantHref } from "@halaalvest/tenant-url"
+import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { MemberSignupForm } from "@/components/onboarding/member-signup-form"
 import { resolveMemberSignupGate } from "@/lib/member-signup-access"
 import { getDashboardServerContext } from "@/lib/server-context"
-import { redirect } from "next/navigation"
+import { tenantRedirect } from "@/utils/tenant-redirect"
+import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
 export default async function MemberSignupPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
+  const headerStore = await headers()
+  const tenantUrlConfig = getDashboardTenantUrlConfig()
+  const tenantUrlContext = resolveTenantUrlContextFromHeaders({
+    config: tenantUrlConfig,
+    headers: headerStore,
+  })
   const context = await getDashboardServerContext()
   const params = await searchParams
   const signupToken = typeof params.token === "string" ? params.token : null
 
   if (context.auth.sessionToken && context.auth.user && context.auth.pendingMemberOnboarding) {
-    redirect("/awaiting-approval")
+    await tenantRedirect("/awaiting-approval")
   }
 
   if (context.auth.sessionToken && context.auth.membership) {
-    redirect("/")
+    await tenantRedirect("/")
   }
 
+  const migrationState = context.tenant
+    ? await getTenantInitialMigrationState(context.tenant.id)
+    : null
+  const memberSignupOpen = Boolean(
+    migrationState?.snapshot.canUseLiveFinancialWrites,
+  )
   const gate =
-    context.tenant && !context.auth.membership
+    context.tenant && !context.auth.membership && memberSignupOpen
       ? await resolveMemberSignupGate({
           tenantId: context.tenant.id,
           token: signupToken,
         })
       : null
+  const loginHref = buildTenantHref(tenantUrlContext, "/login", tenantUrlConfig)
 
   return (
     <main className="bg-public-canvas min-h-svh px-4 py-10 sm:px-6 lg:px-8">
@@ -44,7 +62,7 @@ export default async function MemberSignupPage({
           <div className="mt-8 flex flex-wrap gap-3">
             <a
               className={cn(buttonVariants({ size: "sm", variant: "outline" }), "px-4")}
-              href="/login"
+              href={loginHref}
             >
               Already have an account?
             </a>
@@ -74,9 +92,19 @@ export default async function MemberSignupPage({
               <p className="mt-2 leading-6">{gate.message}</p>
             </div>
           ) : null}
+
+          {context.tenant && !memberSignupOpen ? (
+            <div className="mt-8 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="font-medium">Signup is temporarily locked</p>
+              <p className="mt-2 leading-6">
+                This cooperative is still completing its one-time historical migration.
+                Member signup will reopen after the workspace goes live.
+              </p>
+            </div>
+          ) : null}
         </section>
 
-        {context.tenant && gate?.access === "granted" ? (
+        {context.tenant && memberSignupOpen && gate?.access === "granted" ? (
           <MemberSignupForm
             devMode={process.env.NODE_ENV !== "production"}
             memberNumberPrefix={context.tenant.memberNumberPrefix}

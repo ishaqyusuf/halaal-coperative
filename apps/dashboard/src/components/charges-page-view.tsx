@@ -16,7 +16,6 @@ import {
   WorkspacePageShell,
 } from "@/components/dashboard"
 import { ChargeApplicationForm, ChargeDefinitionForm } from "@/components/forms/finance-forms"
-import { ChargeDefinitionVersionForm } from "@/components/forms/tenant-finance-forms"
 import {
   reverseChargeApplicationAction,
   updateChargeDefinitionAction,
@@ -53,10 +52,11 @@ export function ChargesPageView({
     amount: number | string | { toString(): string }
     code: string
     currentEffectiveFrom: string | null
+    chargeValueType: "fixed_amount" | "percentage"
     id: string
     isActive: boolean
     isMonthlyLevy: boolean
-    kind: string
+    kind: "fixed" | "percentage"
     name: string
     versions: Array<{
       amount: number
@@ -260,19 +260,49 @@ export function ChargesPageView({
                     <div>
                       <p className="text-sm font-medium text-foreground">Add dated charge update</p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Record a new charge amount with its effective date for proper historical resolution.
+                        Schedule a live charge amount change from today or a future effective date.
                       </p>
-                      <div className="mt-4">
-                        <ChargeDefinitionVersionForm
-                          chargeDefinitions={[
-                            {
-                              id: charge.id,
-                              kind: charge.kind,
-                              label: `${charge.name} (${charge.code})`,
-                            },
-                          ]}
-                        />
-                      </div>
+                      <form
+                        action={updateChargeDefinitionAction}
+                        className="mt-4 grid gap-3 rounded-lg border border-border/70 bg-background p-4"
+                      >
+                        <input type="hidden" name="chargeDefinitionId" value={charge.id} />
+                        <input type="hidden" name="kind" value={charge.kind} />
+                        <input type="hidden" name="chargeValueType" value={charge.chargeValueType} />
+                        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                          Effective date
+                          <input
+                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                            name="effectiveFrom"
+                            required
+                            type="date"
+                          />
+                        </label>
+                        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                          New amount
+                          <input
+                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                            min="0"
+                            name="amount"
+                            placeholder="0.00"
+                            required
+                            step="0.01"
+                            type="number"
+                          />
+                        </label>
+                        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                          Notes
+                          <input
+                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                            name="notes"
+                            placeholder="Reason or board reference"
+                            type="text"
+                          />
+                        </label>
+                        <Button size="sm" type="submit" variant="outline">
+                          Save live update
+                        </Button>
+                      </form>
                     </div>
                   ) : null}
                 </div>

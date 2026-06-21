@@ -22,6 +22,7 @@
     "@halaalvest/notifications": "workspace:*",
     "@halaalvest/notifications-react": "workspace:*",
     "@halaalvest/site-nav": "workspace:*",
+    "@halaalvest/tenant-url": "workspace:*",
     "@halaalvest/ui": "workspace:*",
     "@halaalvest/utils": "workspace:*",
     "@hugeicons/core-free-icons": "^4.1.1",

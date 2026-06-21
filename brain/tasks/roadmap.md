@@ -14,3 +14,12 @@ This file gives a task-oriented view of near-term execution priorities.
 4. Implement member, contribution, and charge flows.
 5. Implement loan request, approval, and repayment workflows.
 6. Build member and admin dashboards.
+
+### Implement Initial Cooperative Migration And Member Ledger Backfill
+- Priority: Medium
+- Description: Track plan in `brain/plans/2026-06-20-feature-initial-cooperative-migration-and-member-ledger-backfill.md`.
+- Related Feature: Initial Cooperative Migration And Member Ledger Backfill
+- Status: Roadmap
+- Plan Status: Proposed
+- Plan File: brain/plans/2026-06-20-feature-initial-cooperative-migration-and-member-ledger-backfill.md
+- Created Date: 2026-06-20

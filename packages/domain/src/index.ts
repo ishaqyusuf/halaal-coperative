@@ -1,6 +1,7 @@
 export * from "./modules/dashboard"
 export * from "./modules/finance"
 export * from "./modules/marketing"
+export * from "./modules/migration"
 export * from "./modules/onboarding"
 export * from "./modules/platform"
 export * from "./modules/policies"

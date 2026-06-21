@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation"
+import { tenantRedirect } from "@/utils/tenant-redirect"
 
 export default async function LegacyMemberSignupPage({
   searchParams,
@@ -7,5 +7,5 @@ export default async function LegacyMemberSignupPage({
 }) {
   const params = await searchParams
   const token = typeof params.token === "string" ? params.token : null
-  redirect(token ? `/signup/members?token=${encodeURIComponent(token)}` : "/signup/members")
+  await tenantRedirect(token ? `/signup/members?token=${encodeURIComponent(token)}` : "/signup/members")
 }

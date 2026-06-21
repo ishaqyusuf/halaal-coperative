@@ -1,7 +1,9 @@
-import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { getRoleDisplayName } from "@halaalvest/auth"
 import type { MembershipRole } from "@halaalvest/db"
 import { listTenantUsersWithMemberships, listTenants } from "@halaalvest/db"
+import { buildTenantHref } from "@halaalvest/tenant-url"
+import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
@@ -10,6 +12,8 @@ import { buildTenantSiteHostname } from "@halaalvest/utils"
 import { DevLoginFab } from "./dev-login-fab"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { tenantRedirect } from "@/utils/tenant-redirect"
+import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
 function getTenantScopedMembership<
   TUser extends {
@@ -39,6 +43,12 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
+  const headerStore = await headers()
+  const tenantUrlConfig = getDashboardTenantUrlConfig()
+  const tenantUrlContext = resolveTenantUrlContextFromHeaders({
+    config: tenantUrlConfig,
+    headers: headerStore,
+  })
   const params = await searchParams
   const context = await getDashboardServerContext()
   const nextPath = normalizeDashboardRedirectPath(
@@ -47,7 +57,7 @@ export default async function LoginPage({
   const error = typeof params.error === "string" ? params.error : null
 
   if (context.auth.sessionToken && context.auth.user) {
-    redirect(nextPath)
+    await tenantRedirect(nextPath)
   }
 
   const tenants = await listTenants()
@@ -94,6 +104,12 @@ export default async function LoginPage({
   const supportCopy = context.tenant
     ? "Sessions stay scoped to this tenant host so the public site, login, and workspace remain isolated."
     : "Sessions stay host-scoped so each tenant site and the platform environment can keep separate logins."
+  const loginAction = buildTenantHref(tenantUrlContext, "/auth/login", tenantUrlConfig)
+  const memberSignupHref = buildTenantHref(
+    tenantUrlContext,
+    "/signup/members",
+    tenantUrlConfig,
+  )
 
   return (
     <main className="min-h-svh bg-public-canvas">
@@ -200,7 +216,7 @@ export default async function LoginPage({
                 </div>
               ) : null}
 
-              <form action="/auth/login" method="post" className="mt-6 space-y-4">
+              <form action={loginAction} method="post" className="mt-6 space-y-4">
                 <input type="hidden" name="next" value={nextPath} />
 
                 <label className="grid gap-2 text-sm text-foreground">
@@ -235,7 +251,7 @@ export default async function LoginPage({
                       buttonVariants({ size: "lg", variant: "outline" }),
                       "w-full"
                     )}
-                    href="/signup/members"
+                    href={memberSignupHref}
                   >
                     Start member signup
                   </a>
@@ -312,7 +328,7 @@ export default async function LoginPage({
                             </div>
 
                             <form
-                              action="/auth/login"
+                              action={loginAction}
                               method="post"
                               className="mt-4"
                             >
@@ -342,7 +358,11 @@ export default async function LoginPage({
         </section>
       </div>
       {process.env.NODE_ENV !== "production" ? (
-        <DevLoginFab accounts={devAccounts} nextPath={nextPath} />
+        <DevLoginFab
+          accounts={devAccounts}
+          action={loginAction}
+          nextPath={nextPath}
+        />
       ) : null}
     </main>
   )

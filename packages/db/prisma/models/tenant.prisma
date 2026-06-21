@@ -10,6 +10,12 @@ model Tenant {
   currencyCode         String             @default("NGN") @map("currency_code")
   timezone             String             @default("Africa/Lagos")
   status               TenantStatus       @default(pending)
+  initialMigrationStatus InitialMigrationStatus @default(not_started) @map("initial_migration_status")
+  migrationFinalizedAt DateTime?          @map("migration_finalized_at") @db.Timestamptz(6)
+  migrationFinalizedByUserId String?      @map("migration_finalized_by_user_id") @db.Uuid
+  migrationEmergencyUnlockUntil DateTime? @map("migration_emergency_unlock_until") @db.Timestamptz(6)
+  migrationEmergencyUnlockedByUserId String? @map("migration_emergency_unlocked_by_user_id") @db.Uuid
+  migrationEmergencyUnlockReason String?  @map("migration_emergency_unlock_reason")
   isDirectDeductionEnabled Boolean        @default(false) @map("is_direct_deduction_enabled")
   createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -55,7 +61,11 @@ model Tenant {
   monthlyRecordMembers MonthlyRecordMember[]
   memberShareOverrides MemberShareOverride[]
   memberAmountLogs     MemberAmountLog[]
+  legacyLoanMigrationDrafts LegacyLoanMigrationDraft[]
+  migrationBackfillAdjustments MigrationBackfillAdjustment[]
+  migrationProfitAdjustments MigrationProfitAdjustment[]
   backfillBatches      BackfillBatch[]
+  appliedBackfillMonths AppliedBackfillMonth[]
   backfillMonthRows    BackfillMonthRow[]
   backfillActivities   BackfillActivity[]
 

@@ -1,6 +1,7 @@
 import type { MemberSignupAccessMode, PrismaClient } from "@prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
+import { getTenantInitialMigrationState } from "./migration"
 
 export type TenantMemberSignupSettings = {
   memberSignupAccessMode: MemberSignupAccessMode
@@ -40,6 +41,19 @@ export type MemberSignupLinkAccessRecord = {
   notes: string | null
   tenantId: string
   tokenVersion: number
+}
+
+async function assertLiveFinancialWritesOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    throw new Error(
+      "Live financial record writes are locked until initial migration is finalized.",
+    )
+  }
 }
 
 function mapAnalytics(
@@ -168,6 +182,8 @@ export async function updateTenantMemberSignupSettings(
   if (!prisma) {
     throw new Error("Database not configured")
   }
+
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const policy = await prisma.tenantPolicy.upsert({
     where: {
@@ -342,6 +358,8 @@ export async function createMemberSignupLink(
     throw new Error("Database not configured")
   }
 
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
   const link = await prisma.memberSignupLink.create({
     data: {
       createdByUserId: input.actorUserId,
@@ -392,6 +410,8 @@ export async function updateMemberSignupLink(
   if (!prisma) {
     throw new Error("Database not configured")
   }
+
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const existingLink = await prisma.memberSignupLink.findFirst({
     where: {
@@ -455,6 +475,8 @@ export async function setMemberSignupLinkEnabled(
     throw new Error("Database not configured")
   }
 
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
   const existingLink = await prisma.memberSignupLink.findFirst({
     where: {
       id: input.linkId,
@@ -512,6 +534,8 @@ export async function rotateMemberSignupLinkToken(
   if (!prisma) {
     throw new Error("Database not configured")
   }
+
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const existingLink = await prisma.memberSignupLink.findFirst({
     where: {

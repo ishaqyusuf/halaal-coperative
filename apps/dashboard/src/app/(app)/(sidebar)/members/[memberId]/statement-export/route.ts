@@ -37,7 +37,7 @@ export async function GET(
     `Type: ${detail.member.memberType}`,
     `Status: ${detail.member.status}`,
     `Joined: ${detail.member.joinedAt.toISOString().slice(0, 10)}`,
-    `Email: ${detail.member.user?.email ?? "n/a"}`,
+    `Email: ${detail.member.email ?? detail.member.user?.email ?? "n/a"}`,
     ``,
     `Summary`,
     `Active Commitment: ${detail.summary?.activeCommitmentAmount ?? 0}`,

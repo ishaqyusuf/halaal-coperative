@@ -1,4 +1,4 @@
-import Link from "next/link"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 
@@ -60,13 +60,16 @@ export function DashboardSurfaceCard({
   as: Component = "div",
   children,
   className,
+  id,
 }: {
   as?: "article" | "div" | "section"
   children: React.ReactNode
   className?: string
+  id?: string
 }) {
   return (
     <Component
+      id={id}
       className={cn(
         "rounded-2xl border border-border/70 bg-muted/25 p-4",
         className,

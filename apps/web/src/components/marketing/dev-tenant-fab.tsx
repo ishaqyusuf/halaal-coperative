@@ -19,6 +19,8 @@ export function DevTenantFab({
   tenants: DevTenantFabTenant[]
 }) {
   const [open, setOpen] = useState(false)
+  const dashboardLocalPort =
+    process.env.NEXT_PUBLIC_HALAAL_VEST_DASHBOARD_APP_PORT ?? "1441"
   const currentOrigin = useMemo(
     () => (typeof window === "undefined" ? undefined : window.location.origin),
     [],
@@ -56,10 +58,12 @@ export function DevTenantFab({
               const siteUrl = buildTenantSiteUrl(tenant.slug, {
                 currentOrigin,
                 pathname: "/",
+                targetPort: dashboardLocalPort,
               })
               const dashboardUrl = buildTenantDashboardUrl(tenant.slug, {
                 currentOrigin,
                 pathname: "/login",
+                targetPort: dashboardLocalPort,
               })
 
               return (

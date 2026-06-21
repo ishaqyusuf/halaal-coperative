@@ -2,6 +2,20 @@ import type { PrismaClient, RepaymentScheduleStatus } from "@prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getDashboardMetrics } from "./dashboard"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
+import { getTenantInitialMigrationState } from "./migration"
+
+async function assertLiveFinancialWritesOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    throw new Error(
+      "Live financial record writes are locked until initial migration is finalized.",
+    )
+  }
+}
 
 export async function listLoanProducts(tenantId: string, prismaOverride?: PrismaClient) {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -268,6 +282,7 @@ export async function refreshCollectionsStatuses(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const today = new Date()
 
@@ -328,6 +343,7 @@ export async function submitLoanRequest(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const [member, loanProduct, policy, metrics] = await Promise.all([
     prisma.member.findFirst({
@@ -428,6 +444,7 @@ export async function reviewLoanRequest(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx) => {
     const existingRequest = await tx.loanRequest.findFirst({
@@ -552,6 +569,7 @@ export async function recordCollectionFollowUp(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const item = await prisma.repaymentScheduleItem.findFirst({
     where: {
@@ -700,6 +718,7 @@ export async function disburseLoan(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
   const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", prisma)
@@ -810,12 +829,16 @@ export async function postRepayment(
     loanId: string
     reference?: string
     repaymentScheduleItemId?: string
+    sourceType?: "import"
     tenantId: string
   },
   prismaOverride?: PrismaClient,
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  if (input.sourceType !== "import") {
+    await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  }
 
   const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
   const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", prisma)
@@ -875,6 +898,7 @@ export async function postRepayment(
         repaymentId: repayment.id,
         reference: input.reference,
         narration: "Loan repayment received",
+        sourceType: input.sourceType,
         entries: [
           { ledgerAccountId: cashAccount.id, direction: "debit", amount: input.amount },
           { ledgerAccountId: loanReceivableAccount.id, direction: "credit", amount: input.amount },

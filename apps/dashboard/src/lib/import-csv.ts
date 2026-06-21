@@ -41,8 +41,54 @@ type ImportParseResult<T> =
       rows: T[]
     }
 
+const canonicalHeaderNames: Record<string, string> = {
+  allocatableprofitamount: "allocatableProfitAmount",
+  address: "address",
+  assessedat: "assessedAt",
+  chargesvalue: "chargesValue",
+  committedamount: "committedAmount",
+  deductionsourcename: "deductionSourceName",
+  disbursedat: "disbursedAt",
+  documenttype: "kycDocumentType",
+  extramonthlysavingsamount: "extraMonthlySavingsAmount",
+  extrasavingsamount: "extraSavingsAmount",
+  firstrepaymentdueat: "firstRepaymentDueAt",
+  fullname: "fullName",
+  governmentidnumber: "governmentIdNumber",
+  grossprofit: "profitAmount",
+  joinedat: "joinedAt",
+  kycdocumenttype: "kycDocumentType",
+  kycnotes: "kycReviewNotes",
+  kycreviewnotes: "kycReviewNotes",
+  kycstatus: "kycStatus",
+  loanproductname: "loanProductName",
+  loantype: "loanType",
+  maxsavingsmultiple: "maxSavingsMultiple",
+  membernumber: "memberNumber",
+  membertype: "memberType",
+  monthlyrepaymentamount: "monthlyRepaymentAmount",
+  monthlyrepaymentpay: "monthlyRepaymentAmount",
+  occupation: "occupation",
+  openingbalance: "openingSavingsBalance",
+  openingsavings: "openingSavingsBalance",
+  openingsavingsbalance: "openingSavingsBalance",
+  outstandingprincipal: "outstandingPrincipal",
+  periodlabel: "periodLabel",
+  principalamount: "principalAmount",
+  profitdate: "profitDate",
+  requestedat: "requestedAt",
+  savingsduringloan: "extraMonthlySavingsAmount",
+  sourcetype: "sourceType",
+  termmonths: "termMonths",
+  phonenumber: "phoneNumber",
+  totalsavingssnapshot: "openingSavingsBalance",
+}
+
 function normalizeHeader(input: string) {
-  return input.trim().toLowerCase().replace(/[\s-]+/g, "_")
+  const normalized = input.trim().toLowerCase().replace(/[\s-]+/g, "_")
+  const compact = normalized.replace(/_/g, "")
+
+  return canonicalHeaderNames[compact] ?? normalized
 }
 
 function parseDateString(value: string, ctx: z.RefinementCtx, fieldName: string) {
@@ -211,10 +257,19 @@ function csvToRecords(csvText: string) {
 
 const membersRowSchema = z.object({
   deductionSourceName: z.string().trim().optional(),
+  address: z.string().trim().optional(),
+  email: z.string().trim().email("email must be valid.").optional().or(z.literal("")),
   fullName: z.string().trim().min(1, "fullName is required."),
+  governmentIdNumber: z.string().trim().optional(),
   joinedAt: z.string().transform((value, ctx) => parseDateString(value, ctx, "joinedAt")),
+  kycDocumentType: z.string().trim().optional(),
+  kycReviewNotes: z.string().trim().optional(),
+  kycStatus: z.enum(["not_started", "pending", "verified", "rejected"]).optional(),
   memberNumber: z.string().trim().min(1, "memberNumber is required."),
   memberType: z.enum(["civil_servant", "individual", "business"]),
+  occupation: z.string().trim().optional(),
+  openingSavingsBalance: z.string().optional().transform((value, ctx) => parseOptionalNumber(value, ctx, "openingSavingsBalance")),
+  phoneNumber: z.string().trim().optional(),
   status: z.enum(["pending", "active", "inactive", "suspended", "exited"]).optional(),
 })
 
@@ -259,6 +314,7 @@ const loanMigrationsRowSchema = z.object({
   loanProductName: z.string().trim().min(1, "loanProductName is required."),
   loanType: z.enum(["normal", "quick"]),
   memberNumber: z.string().trim().min(1, "memberNumber is required."),
+  monthlyRepaymentAmount: z.string().optional().transform((value, ctx) => parseOptionalNumber(value, ctx, "monthlyRepaymentAmount")),
   outstandingPrincipal: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "outstandingPrincipal")),
   principalAmount: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "principalAmount")),
   requestedAt: z.string().transform((value, ctx) => parseDateString(value, ctx, "requestedAt")),
@@ -287,12 +343,12 @@ export const dashboardImportConfigs: Record<
 > = {
   members: {
     title: "Members",
-    description: "Create or update member registry records, with optional deduction source mapping.",
+    description: "Create or update member registry records, opening savings, KYC references, and optional deduction source mapping.",
     schema: membersRowSchema,
     sampleCsv: [
-      "memberNumber,fullName,memberType,joinedAt,status,deductionSourceName",
-      "MEM-1001,Amina Yusuf,individual,2024-01-15,active,Kaduna Payroll Desk",
-      "MEM-1002,Usman Bello,civil_servant,2024-02-01,active,Kaduna Payroll Desk",
+      "memberNumber,fullName,memberType,joinedAt,status,openingSavingsBalance,email,phoneNumber,address,occupation,deductionSourceName,kycStatus,governmentIdNumber,kycDocumentType,kycReviewNotes",
+      "MEM-1001,Amina Yusuf,individual,2024-01-15,active,125000,amina@example.com,+2348010001001,Kaduna,Trader,Kaduna Payroll Desk,verified,NIN-1001,national_id,Imported legacy file",
+      "MEM-1002,Usman Bello,civil_servant,2024-02-01,active,78000,usman@example.com,+2348010001002,Zaria,Civil servant,Kaduna Payroll Desk,pending,NIN-1002,national_id,Awaiting document review",
     ].join("\n"),
   },
   deduction_sources: {
@@ -340,9 +396,9 @@ export const dashboardImportConfigs: Record<
     description: "Migrate legacy loan books, including active balances and generated repayment schedules.",
     schema: loanMigrationsRowSchema,
     sampleCsv: [
-      "memberNumber,loanProductName,loanType,principalAmount,outstandingPrincipal,termMonths,requestedAt,status,disbursedAt,firstRepaymentDueAt,extraMonthlySavingsAmount",
-      "MEM-1001,Standard Loan,normal,150000,90000,12,2025-10-01,active,2025-10-03,2025-11-03,5000",
-      "MEM-1002,Emergency Support,quick,60000,20000,6,2026-01-05,active,2026-01-06,2026-02-06,0",
+      "memberNumber,loanProductName,loanType,principalAmount,outstandingPrincipal,termMonths,monthly_repayment_pay,requestedAt,status,disbursedAt,firstRepaymentDueAt,savings_during_loan",
+      "MEM-1001,Standard Loan,normal,150000,90000,12,15000,2025-10-01,active,2025-10-03,2025-11-03,5000",
+      "MEM-1002,Emergency Support,quick,60000,20000,6,10000,2026-01-05,active,2026-01-06,2026-02-06,0",
     ].join("\n"),
   },
   repayment_migrations: {

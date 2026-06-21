@@ -17,6 +17,7 @@
     "@halaalvest/domain": "workspace:*",
     "@halaalvest/notifications": "workspace:*",
     "@halaalvest/notifications-react": "workspace:*",
+    "@halaalvest/tenant-url": "workspace:*",
     "@halaalvest/ui": "workspace:*",
     "@halaalvest/utils": "workspace:*",
     "@hookform/resolvers": "^5.2.2",

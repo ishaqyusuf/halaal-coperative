@@ -1,5 +1,6 @@
 import type { EntryDirection, LedgerAccountType, LedgerTransactionType, PrismaClient } from "@prisma/client"
 import { createPrismaClient } from "../prisma"
+import { getTenantInitialMigrationState } from "./migration"
 
 export type LedgerAccountSeed = {
   code: string
@@ -83,6 +84,7 @@ export type PostLedgerTransactionInput = {
   repaymentId?: string
   reference?: string
   narration?: string
+  sourceType?: "backfill" | "import"
 }
 
 export async function postLedgerTransaction(
@@ -91,6 +93,19 @@ export async function postLedgerTransaction(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+
+  if (input.sourceType !== "backfill" && input.sourceType !== "import") {
+    const migrationState = await getTenantInitialMigrationState(
+      input.tenantId,
+      prisma,
+    )
+
+    if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+      throw new Error(
+        "Ledger transaction writes are locked until initial migration is finalized.",
+      )
+    }
+  }
 
   if (input.entries.length < 2) {
     throw new Error("A ledger transaction requires at least two entries")

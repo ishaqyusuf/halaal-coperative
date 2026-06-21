@@ -1,4 +1,4 @@
-import Link from "next/link"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { DashboardThemeToggle } from "./theme-toggle"

@@ -29,6 +29,18 @@ enum ChargeKind {
   percentage
 }
 
+enum ChargeFrequency {
+  recurring_monthly
+  per_contribution
+  one_time
+  manual
+}
+
+enum ChargeValueType {
+  fixed_amount
+  percentage
+}
+
 enum ChargeApplicationStatus {
   pending
   posted

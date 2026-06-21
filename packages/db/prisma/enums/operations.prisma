@@ -12,6 +12,15 @@ enum ShareBusinessStatus {
   archived
 }
 
+enum ShareValueType {
+  fixed_amount
+  percentage
+}
+
+enum ShareBasis {
+  after_charge_deductions
+}
+
 enum ChargePurpose {
   general
   member_share
@@ -32,6 +41,13 @@ enum ProfitEntrySourceType {
   manual
   backfill
   import
+}
+
+enum ProfitEntryStatus {
+  draft
+  reviewed
+  approved
+  archived
 }
 
 enum ShareProfitAllocationStatus {

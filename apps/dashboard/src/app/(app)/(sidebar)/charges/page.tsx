@@ -50,6 +50,9 @@ export default async function ChargesPage() {
 
         return {
           amount: currentVersion ? Number(currentVersion.amount) : Number(charge.amount),
+          chargeValueType:
+            charge.chargeValueType ??
+            (charge.kind === "percentage" ? "percentage" : "fixed_amount"),
           code: charge.code,
           currentEffectiveFrom: currentVersion ? currentVersion.effectiveFrom.toISOString().slice(0, 10) : null,
           id: charge.id,

@@ -9,6 +9,9 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@halaalvest/tenant-url": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^25.1.0",
     "@halaalvest/eslint-config": "workspace:*",

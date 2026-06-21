@@ -1,7 +1,64 @@
 import type { ChargeKind, PrismaClient } from "@prisma/client"
 import { createPrismaClient } from "../prisma"
 import { postLedgerTransaction, getLedgerAccountByCode } from "./ledger"
+import { getTenantInitialMigrationState } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
+
+function startOfUtcDay(value: Date) {
+  return new Date(
+    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
+  )
+}
+
+async function getChargeDefinitionMutationMode(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (migrationState.snapshot.canUseLiveFinancialWrites) {
+    return "live_operations" as const
+  }
+
+  if (!migrationState.snapshot.canUseMigrationTools) {
+    throw new Error(
+      "Charge definition writes are locked until initial migration is finalized.",
+    )
+  }
+
+  if (
+    migrationState.counts.appliedBackfillBatches > 0 ||
+    migrationState.counts.appliedBackfillMembers > 0 ||
+    migrationState.counts.appliedBackfillMonths > 0
+  ) {
+    throw new Error(
+      "Historical charge setup is locked because member ledger backfill has already started.",
+    )
+  }
+
+  return "historical_setup" as const
+}
+
+function assertLiveChargeEffectiveDateNotBackdated(effectiveFrom: Date) {
+  if (effectiveFrom.getTime() < startOfUtcDay(new Date()).getTime()) {
+    throw new Error(
+      "Live charge definition updates cannot be backdated. Use correction workflows for past periods.",
+    )
+  }
+}
+
+async function assertLiveFinancialWritesOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    throw new Error(
+      "Live financial record writes are locked until initial migration is finalized.",
+    )
+  }
+}
 
 export async function listChargeDefinitions(
   tenantId: string,
@@ -101,6 +158,8 @@ export type CreateChargeDefinitionInput = {
   name: string
   code: string
   kind: ChargeKind
+  chargeFrequency?: "recurring_monthly" | "per_contribution" | "one_time" | "manual"
+  chargeValueType?: "fixed_amount" | "percentage"
   purpose?: "general" | "member_share" | "loan_fee" | "membership_fee" | "penalty"
   amount: number
   effectiveFrom: Date
@@ -116,6 +175,14 @@ export async function createChargeDefinition(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  const mutationMode = await getChargeDefinitionMutationMode(
+    input.tenantId,
+    prisma,
+  )
+
+  if (mutationMode === "live_operations") {
+    assertLiveChargeEffectiveDateNotBackdated(input.effectiveFrom)
+  }
 
   return prisma.$transaction(async (tx) => {
     const definition = await tx.chargeDefinition.create({
@@ -124,6 +191,9 @@ export async function createChargeDefinition(
         name: input.name,
         code: input.code,
         kind: input.kind,
+        chargeFrequency: input.chargeFrequency ?? "recurring_monthly",
+        chargeValueType:
+          input.chargeValueType ?? (input.kind === "percentage" ? "percentage" : "fixed_amount"),
         purpose: input.purpose ?? "general",
         amount: input.amount,
         isMonthlyLevy: input.isMonthlyLevy ?? false,
@@ -141,6 +211,8 @@ export async function createChargeDefinition(
         effectiveFrom: input.effectiveFrom,
         amount: input.amount,
         kind: input.kind,
+        chargeValueType:
+          input.chargeValueType ?? (input.kind === "percentage" ? "percentage" : "fixed_amount"),
       },
     })
 
@@ -158,6 +230,7 @@ export async function createChargeDefinition(
 export type UpdateChargeDefinitionInput = {
   name?: string
   kind?: ChargeKind
+  chargeValueType?: "fixed_amount" | "percentage"
   amount?: number
   effectiveFrom?: Date
   notes?: string
@@ -177,12 +250,14 @@ export async function updateChargeDefinition(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  const mutationMode = await getChargeDefinitionMutationMode(tenantId, prisma)
 
   const {
     amount,
     createdByUserId,
     effectiveFrom,
     kind,
+    chargeValueType,
     notes,
     ...definitionUpdates
   } = input
@@ -204,17 +279,26 @@ export async function updateChargeDefinition(
           })
         : currentDefinition
 
-    if (amount === undefined && kind === undefined) {
+    if (amount === undefined && kind === undefined && chargeValueType === undefined) {
       return definition
+    }
+
+    const versionEffectiveFrom = effectiveFrom ?? new Date()
+
+    if (mutationMode === "live_operations") {
+      assertLiveChargeEffectiveDateNotBackdated(versionEffectiveFrom)
     }
 
     await tx.chargeDefinitionVersion.create({
       data: {
         tenantId,
         chargeDefinitionId,
-        effectiveFrom: effectiveFrom ?? new Date(),
+        effectiveFrom: versionEffectiveFrom,
         amount: amount ?? currentDefinition.amount,
         kind: kind ?? currentDefinition.kind,
+        chargeValueType:
+          chargeValueType ??
+          ((kind ?? currentDefinition.kind) === "percentage" ? "percentage" : "fixed_amount"),
         notes,
         createdByUserId,
       },
@@ -240,6 +324,7 @@ export async function updateChargeDefinition(
       data: {
         amount: latestEffectiveVersion.amount,
         kind: latestEffectiveVersion.kind,
+        chargeValueType: latestEffectiveVersion.chargeValueType,
       },
     })
   })
@@ -256,6 +341,7 @@ export type ApplyChargeInput = {
   loanId?: string
   notes?: string
   actorUserId: string
+  sourceType?: "backfill" | "import"
 }
 
 export async function applyCharge(
@@ -264,6 +350,9 @@ export async function applyCharge(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  if (input.sourceType !== "backfill" && input.sourceType !== "import") {
+    await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  }
 
   const chargeDef = await prisma.chargeDefinition.findFirst({
     where: { id: input.chargeDefinitionId, tenantId: input.tenantId },
@@ -304,6 +393,7 @@ export async function applyCharge(
         memberId: input.memberId,
         chargeApplicationId: application.id,
         narration: `${chargeDef.name} assessed`,
+        sourceType: input.sourceType,
         entries: [
           { ledgerAccountId: savingsAccount.id, direction: "debit", amount: input.amount },
           { ledgerAccountId: incomeAccount.id, direction: "credit", amount: input.amount },
@@ -431,6 +521,7 @@ export async function waiveChargeApplication(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx) => {
     const application = await tx.chargeApplication.findFirst({
@@ -490,6 +581,7 @@ export async function reverseChargeApplication(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx) => {
     const application = await tx.chargeApplication.findFirst({

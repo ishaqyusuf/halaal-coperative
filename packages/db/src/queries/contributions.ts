@@ -6,6 +6,20 @@ import type {
 } from "@prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
+import { getTenantInitialMigrationState } from "./migration"
+
+async function assertLiveFinancialWritesOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    throw new Error(
+      "Live financial record writes are locked until initial migration is finalized.",
+    )
+  }
+}
 
 export type ListContributionsFilters = {
   channel?: ContributionChannel
@@ -102,6 +116,8 @@ export async function setMemberContributionPlan(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
   return prisma.$transaction(async (tx) => {
     const member = await tx.member.findFirst({
       where: {
@@ -184,6 +200,8 @@ export async function updateContributionPlan(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
   return prisma.$transaction(async (tx) => {
     const plan = await tx.contributionPlan.update({
       where: {
@@ -228,6 +246,8 @@ export async function closeContributionPlan(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
   return prisma.$transaction(async (tx) => {
     const plan = await tx.contributionPlan.update({
       where: {
@@ -270,6 +290,8 @@ export async function updateMemberPaymentAllocationPreference(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx) => {
     const member = await tx.member.update({
@@ -314,6 +336,7 @@ type RecordContributionInput = {
   reference?: string
   notes?: string
   actorUserId: string
+  sourceType?: "backfill" | "import"
 }
 
 export async function recordContribution(
@@ -322,6 +345,9 @@ export async function recordContribution(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  if (input.sourceType !== "backfill" && input.sourceType !== "import") {
+    await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  }
 
   const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
   const savingsAccount = await getLedgerAccountByCode(input.tenantId, "1000", prisma)
@@ -356,6 +382,7 @@ export async function recordContribution(
         memberId: input.memberId,
         contributionId: contribution.id,
         narration: `Contribution from member${input.periodLabel ? ` for ${input.periodLabel}` : ""}`,
+        sourceType: input.sourceType,
         entries: [
           { ledgerAccountId: cashAccount.id, direction: "debit", amount: input.amount },
           { ledgerAccountId: savingsAccount.id, direction: "credit", amount: input.amount },
@@ -454,6 +481,7 @@ export async function recordMemberPayment(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const member = await prisma.member.findFirst({
     where: {

@@ -1,4 +1,7 @@
 import { type NextRequest } from "next/server"
+import { buildTenantHref } from "@halaalvest/tenant-url"
+import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
+import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
 export function normalizeDashboardRedirectPath(
   value: string | null | undefined
@@ -54,6 +57,11 @@ export function buildDashboardRedirectUrl(
   request: NextRequest,
   pathname: string
 ) {
+  const tenantUrlConfig = getDashboardTenantUrlConfig()
+  const tenantUrlContext = resolveTenantUrlContextFromHeaders({
+    config: tenantUrlConfig,
+    headers: request.headers,
+  })
   const protocol =
     normalizeRequestProtocol(request.headers.get("x-forwarded-proto")) ??
     normalizeRequestProtocol(request.nextUrl.protocol) ??
@@ -63,5 +71,8 @@ export function buildDashboardRedirectUrl(
     normalizeRequestHost(request.headers.get("host")) ??
     request.nextUrl.host
 
-  return new URL(pathname, `${protocol}://${host}`)
+  return new URL(
+    buildTenantHref(tenantUrlContext, pathname, tenantUrlConfig),
+    `${protocol}://${host}`,
+  )
 }

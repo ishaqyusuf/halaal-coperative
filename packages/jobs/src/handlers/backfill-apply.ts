@@ -4,27 +4,29 @@ import {
   buildBackfillDraftInputForMember,
   saveBackfillDraft,
 } from "@halaalvest/db"
-import type { BackfillDraft, BuildBackfillDraftInput } from "@halaalvest/backfill"
 
 export type BackfillApplyPayload = {
   actorUserId: string
   batchId?: string
-  draft?: BackfillDraft
-  draftInput?: BuildBackfillDraftInput
+  endMonth?: string
   memberId: string
+  startMonth?: string
   tenantId: string
 }
 
 export async function backfillApplyHandler(payload: BackfillApplyPayload) {
-  if (payload.draftInput || payload.draft) {
-    const draftInput =
-      payload.draftInput ??
-      (await buildBackfillDraftInputForMember({
-        tenantId: payload.tenantId,
-        memberId: payload.memberId,
-      }))
-
-    const draft = payload.draft ?? buildBackfillDraft(draftInput)
+  if (!payload.batchId) {
+    const draftInput = await buildBackfillDraftInputForMember({
+      tenantId: payload.tenantId,
+      memberId: payload.memberId,
+      startMonth: payload.startMonth
+        ? new Date(`${payload.startMonth}-01T00:00:00.000Z`)
+        : undefined,
+      endMonth: payload.endMonth
+        ? new Date(`${payload.endMonth}-01T00:00:00.000Z`)
+        : undefined,
+    })
+    const draft = buildBackfillDraft(draftInput)
     const saved = await saveBackfillDraft({
       tenantId: payload.tenantId,
       memberId: payload.memberId,

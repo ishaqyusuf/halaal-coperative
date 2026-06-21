@@ -15,9 +15,11 @@ export type DevLoginAccount = {
 
 export function DevLoginFab({
   accounts,
+  action,
   nextPath,
 }: {
   accounts: DevLoginAccount[]
+  action: string
   nextPath: string
 }) {
   const [open, setOpen] = useState(false)
@@ -54,7 +56,7 @@ export function DevLoginFab({
             {accounts.map((account) => (
               <form
                 key={account.userId}
-                action="/auth/login"
+                action={action}
                 method="post"
                 className="rounded-[1.25rem] border border-border/60 bg-muted/20 p-3"
               >

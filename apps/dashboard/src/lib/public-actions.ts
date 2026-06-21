@@ -4,6 +4,7 @@ import { headers } from "next/headers"
 import {
   createMemberOnboardingRequest,
   createNotificationOutboxEntry,
+  getTenantInitialMigrationState,
   getPendingMemberOnboardingForUser,
 } from "@halaalvest/db"
 import { buildTenantDashboardUrl } from "@halaalvest/utils"
@@ -23,6 +24,17 @@ function getRequiredString(formData: FormData, key: string) {
   return value.trim()
 }
 
+const memberSignupLockedMessage =
+  "Member signup is locked until this cooperative finishes its one-time historical migration and goes live."
+
+async function requireMemberSignupOpen(tenantId: string) {
+  const migrationState = await getTenantInitialMigrationState(tenantId)
+
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    throw new Error(memberSignupLockedMessage)
+  }
+}
+
 export async function submitMemberOnboardingAction(formData: FormData) {
   const context = await getDashboardServerContext()
   const headerStore = await headers()
@@ -30,6 +42,8 @@ export async function submitMemberOnboardingAction(formData: FormData) {
   if (!context.tenant) {
     throw new Error("Member signup is only available on a cooperative tenant host.")
   }
+
+  await requireMemberSignupOpen(context.tenant.id)
 
   const fullName = getRequiredString(formData, "fullName")
   const email = getRequiredString(formData, "email").toLowerCase()
@@ -121,6 +135,8 @@ export async function resendMemberVerificationAction() {
   if (!context.tenant || !context.auth.user) {
     throw new Error("You must be signed in to resend verification.")
   }
+
+  await requireMemberSignupOpen(context.tenant.id)
 
   const request = await getPendingMemberOnboardingForUser({
     tenantId: context.tenant.id,

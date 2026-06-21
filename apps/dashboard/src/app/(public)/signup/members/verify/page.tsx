@@ -1,15 +1,30 @@
-import { verifyMemberOnboardingRequest } from "@halaalvest/db"
+import { headers } from "next/headers"
+import {
+  getTenantInitialMigrationState,
+  verifyMemberOnboardingRequest,
+} from "@halaalvest/db"
+import { buildTenantHref } from "@halaalvest/tenant-url"
+import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { verifyMemberOnboardingVerificationToken } from "@/lib/member-onboarding-token"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
 export default async function MemberSignupVerificationPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
+  const headerStore = await headers()
+  const tenantUrlConfig = getDashboardTenantUrlConfig()
+  const tenantUrlContext = resolveTenantUrlContextFromHeaders({
+    config: tenantUrlConfig,
+    headers: headerStore,
+  })
   const params = await searchParams
   const context = await getDashboardServerContext()
   const token = typeof params.token === "string" ? params.token : null
+  const loginHref = buildTenantHref(tenantUrlContext, "/login", tenantUrlConfig)
+  const signupHref = buildTenantHref(tenantUrlContext, "/signup/members", tenantUrlConfig)
 
   let title = "Verification required"
   let description = "We could not verify this signup link."
@@ -18,6 +33,10 @@ export default async function MemberSignupVerificationPage({
   if (!context.tenant) {
     title = "Missing cooperative host"
     description = "Open this verification link on the cooperative tenant host where the signup started."
+  } else if (!(await getTenantInitialMigrationState(context.tenant.id)).snapshot.canUseLiveFinancialWrites) {
+    title = "Signup is locked"
+    description =
+      "This cooperative is still completing its one-time historical migration. Member signup verification will reopen after the workspace goes live."
   } else if (!token) {
     description = "The verification link is missing a token."
   } else {
@@ -53,10 +72,10 @@ export default async function MemberSignupVerificationPage({
         <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-foreground">{title}</h1>
         <p className="mt-4 text-sm leading-7 text-muted-foreground">{description}</p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <a className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground transition hover:bg-primary/80" href="/login">
+          <a className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground transition hover:bg-primary/80" href={loginHref}>
             {tone === "success" ? "Go to login" : "Back to login"}
           </a>
-          <a className="inline-flex h-8 items-center justify-center rounded-md border border-border px-4 text-xs font-medium text-foreground transition hover:bg-input/50" href="/signup/members">
+          <a className="inline-flex h-8 items-center justify-center rounded-md border border-border px-4 text-xs font-medium text-foreground transition hover:bg-input/50" href={signupHref}>
             Open signup
           </a>
         </div>

@@ -105,6 +105,7 @@ const shareStructureVersionSchema = z.object({
   amount: z.string().min(1, "Amount is required."),
   effectiveFrom: z.string().min(1, "Effective date is required."),
   notes: z.string().optional(),
+  valueType: z.enum(["fixed_amount", "percentage"]),
 })
 
 type ShareStructureVersionValues = z.infer<typeof shareStructureVersionSchema>
@@ -115,6 +116,7 @@ export function ShareStructureVersionForm() {
       amount: "",
       effectiveFrom: "",
       notes: "",
+      valueType: "fixed_amount",
     },
   })
   const { showError, showSuccess } = useNotifications()
@@ -125,7 +127,7 @@ export function ShareStructureVersionForm() {
       try {
         await createTenantShareStructureVersionAction(objectToFormData(values))
         showSuccess("Share update saved", "Cooperative default share history updated.")
-        form.reset({ amount: "", effectiveFrom: "", notes: "" })
+        form.reset({ amount: "", effectiveFrom: "", notes: "", valueType: "fixed_amount" })
       } catch (error) {
         showError("Could not save share update", error instanceof Error ? error.message : "Something went wrong.")
       }
@@ -150,12 +152,28 @@ export function ShareStructureVersionForm() {
         />
         <FormField
           control={form.control}
+          name="valueType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Share rule</FormLabel>
+              <FormControl>
+                <Select {...field}>
+                  <option value="fixed_amount">Fixed amount</option>
+                  <option value="percentage">Percentage after charges</option>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Monthly share amount</FormLabel>
+              <FormLabel>Share value</FormLabel>
               <FormControl>
-                <CurrencyFormInput {...field} placeholder="15000" />
+                <CurrencyFormInput {...field} placeholder="15000 or 10" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -189,6 +207,8 @@ const chargeDefinitionSchema = z.object({
   appliesToLoanRequests: z.boolean().default(false),
   appliesToLoans: z.boolean().default(false),
   appliesToMembers: z.boolean().default(true),
+  chargeFrequency: z.enum(["recurring_monthly", "per_contribution", "one_time", "manual"]),
+  chargeValueType: z.enum(["fixed_amount", "percentage"]),
   code: z.string().min(1, "Code is required."),
   effectiveFrom: z.string().min(1, "Start date is required."),
   isMonthlyLevy: z.boolean().default(false),
@@ -206,6 +226,8 @@ export function ChargeDefinitionForm() {
       appliesToLoanRequests: false,
       appliesToLoans: false,
       appliesToMembers: true,
+      chargeFrequency: "recurring_monthly",
+      chargeValueType: "fixed_amount",
       code: "",
       effectiveFrom: "",
       isMonthlyLevy: false,
@@ -227,6 +249,8 @@ export function ChargeDefinitionForm() {
           appliesToLoanRequests: false,
           appliesToLoans: false,
           appliesToMembers: true,
+          chargeFrequency: "recurring_monthly",
+          chargeValueType: "fixed_amount",
           code: "",
           effectiveFrom: "",
           isMonthlyLevy: false,
@@ -264,6 +288,40 @@ export function ChargeDefinitionForm() {
               <FormLabel>Code</FormLabel>
               <FormControl>
                 <Input {...field} placeholder="ADM" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="chargeFrequency"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Frequency</FormLabel>
+              <FormControl>
+                <Select {...field}>
+                  <option value="recurring_monthly">Recurring monthly</option>
+                  <option value="per_contribution">Per contribution</option>
+                  <option value="one_time">One time</option>
+                  <option value="manual">Manual</option>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="chargeValueType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Value type</FormLabel>
+              <FormControl>
+                <Select {...field}>
+                  <option value="fixed_amount">Fixed amount</option>
+                  <option value="percentage">Percentage</option>
+                </Select>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -343,6 +401,7 @@ export function ChargeDefinitionForm() {
 const chargeVersionSchema = z.object({
   amount: z.string().min(1, "Amount is required."),
   chargeDefinitionId: z.string().min(1, "Charge is required."),
+  chargeValueType: z.enum(["fixed_amount", "percentage"]),
   effectiveFrom: z.string().min(1, "Effective date is required."),
   kind: z.enum(["fixed", "percentage"]),
   notes: z.string().optional(),
@@ -359,6 +418,7 @@ export function ChargeDefinitionVersionForm({
     defaultValues: {
       amount: "",
       chargeDefinitionId: chargeDefinitions[0]?.id ?? "",
+      chargeValueType: (chargeDefinitions[0]?.kind === "percentage" ? "percentage" : "fixed_amount"),
       effectiveFrom: "",
       kind: (chargeDefinitions[0]?.kind as "fixed" | "percentage" | undefined) ?? "fixed",
       notes: "",
@@ -375,6 +435,7 @@ export function ChargeDefinitionVersionForm({
         form.reset({
           amount: "",
           chargeDefinitionId: chargeDefinitions[0]?.id ?? "",
+          chargeValueType: (chargeDefinitions[0]?.kind === "percentage" ? "percentage" : "fixed_amount"),
           effectiveFrom: "",
           kind: (chargeDefinitions[0]?.kind as "fixed" | "percentage" | undefined) ?? "fixed",
           notes: "",
@@ -430,6 +491,22 @@ export function ChargeDefinitionVersionForm({
               <FormControl>
                 <Select {...field}>
                   <option value="fixed">Fixed</option>
+                  <option value="percentage">Percentage</option>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="chargeValueType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Value type</FormLabel>
+              <FormControl>
+                <Select {...field}>
+                  <option value="fixed_amount">Fixed amount</option>
                   <option value="percentage">Percentage</option>
                 </Select>
               </FormControl>
@@ -657,12 +734,16 @@ export function ShareBusinessForm({
 }
 
 const shareBusinessProfitEntrySchema = z.object({
+  allocatableProfitAmount: z.string().min(1, "Final allocatable profit is required."),
+  expenseAmount: z.string().optional(),
   linkedDividendPeriodId: z.string().optional(),
   notes: z.string().optional(),
   profitAmount: z.string().min(1, "Profit amount is required."),
   profitDate: z.string().min(1, "Profit date is required."),
+  reason: z.string().optional(),
   shareBusinessId: z.string().min(1, "Business is required."),
   sourceType: z.enum(["manual", "backfill", "import"]),
+  status: z.enum(["draft", "reviewed", "approved", "archived"]),
 })
 
 type ShareBusinessProfitEntryValues = z.infer<typeof shareBusinessProfitEntrySchema>
@@ -676,12 +757,16 @@ export function ShareBusinessProfitEntryForm({
 }) {
   const form = useZodForm<ShareBusinessProfitEntryValues>(shareBusinessProfitEntrySchema, {
     defaultValues: {
+      allocatableProfitAmount: "",
+      expenseAmount: "",
       linkedDividendPeriodId: "",
       notes: "",
       profitAmount: "",
       profitDate: "",
+      reason: "",
       shareBusinessId: businesses[0]?.id ?? "",
       sourceType: "manual",
+      status: "draft",
     },
   })
   const { showError, showSuccess } = useNotifications()
@@ -693,12 +778,16 @@ export function ShareBusinessProfitEntryForm({
         await createShareBusinessProfitEntryAction(objectToFormData(values))
         showSuccess("Profit recorded", "Business profit entry saved for share allocation.")
         form.reset({
+          allocatableProfitAmount: "",
+          expenseAmount: "",
           linkedDividendPeriodId: "",
           notes: "",
           profitAmount: "",
           profitDate: "",
+          reason: "",
           shareBusinessId: businesses[0]?.id ?? "",
           sourceType: "manual",
+          status: "draft",
         })
       } catch (error) {
         showError("Could not save profit", error instanceof Error ? error.message : "Something went wrong.")
@@ -733,9 +822,35 @@ export function ShareBusinessProfitEntryForm({
           name="profitAmount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Profit amount</FormLabel>
+              <FormLabel>Recorded profit</FormLabel>
               <FormControl>
                 <CurrencyFormInput {...field} placeholder="85000" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="expenseAmount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Expenses / charges</FormLabel>
+              <FormControl>
+                <CurrencyFormInput {...field} placeholder="5000" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="allocatableProfitAmount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Final allocatable profit</FormLabel>
+              <FormControl>
+                <CurrencyFormInput {...field} placeholder="80000" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -749,6 +864,24 @@ export function ShareBusinessProfitEntryForm({
               <FormLabel>Profit date</FormLabel>
               <FormControl>
                 <Input {...field} type="date" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <FormControl>
+                <Select {...field}>
+                  <option value="draft">Draft</option>
+                  <option value="reviewed">Reviewed</option>
+                  <option value="approved">Approved</option>
+                  <option value="archived">Archived</option>
+                </Select>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -786,6 +919,19 @@ export function ShareBusinessProfitEntryForm({
                     </option>
                   ))}
                 </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="reason"
+          render={({ field }) => (
+            <FormItem className="md:col-span-2">
+              <FormLabel>Reason</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ""} placeholder="Board-approved historical profit distribution" />
               </FormControl>
               <FormMessage />
             </FormItem>

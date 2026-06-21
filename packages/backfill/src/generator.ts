@@ -6,6 +6,7 @@ import type {
   BackfillMonthStatus,
   BackfillProfitPeriod,
   BackfillRow,
+  BackfillRowAdjustment,
   BackfillShareVersion,
   BackfillWarning,
   BuildBackfillDraftInput,
@@ -23,11 +24,13 @@ function formatMonthKey(value: Date) {
 }
 
 function formatMonthLabel(value: Date) {
-  return value.toLocaleString("en-US", {
-    month: "short",
-    timeZone: "UTC",
-    year: "numeric",
-  }).toUpperCase()
+  return value
+    .toLocaleString("en-US", {
+      month: "short",
+      timeZone: "UTC",
+      year: "numeric",
+    })
+    .toUpperCase()
 }
 
 function listMonthsBetween(startMonth: string, endMonth: string) {
@@ -45,66 +48,165 @@ function listMonthsBetween(startMonth: string, endMonth: string) {
 }
 
 function resolveVersionAmount(month: string, versions: BackfillShareVersion[]) {
+  return resolveVersion(month, versions)?.amount ?? 0
+}
+
+function resolveVersion(month: string, versions: BackfillShareVersion[]) {
   const monthDate = parseMonthKey(month)
-  const sorted = [...versions].sort((left, right) =>
-    parseMonthKey(left.effectiveFrom).getTime() - parseMonthKey(right.effectiveFrom).getTime(),
+  const sorted = [...versions].sort(
+    (left, right) =>
+      parseMonthKey(left.effectiveFrom).getTime() -
+      parseMonthKey(right.effectiveFrom).getTime()
   )
 
-  let resolved = 0
+  let resolved: BackfillShareVersion | null = null
   for (const version of sorted) {
     if (parseMonthKey(version.effectiveFrom) <= monthDate) {
-      resolved = version.amount
+      resolved = version
     }
   }
 
   return resolved
 }
 
-function resolveChargeValues(month: string, chargeDefinitions: BackfillChargeDefinition[]) {
+function resolveChargeVersion(
+  month: string,
+  definition: BackfillChargeDefinition
+) {
   const monthDate = parseMonthKey(month)
-
-  return Object.fromEntries(
-    chargeDefinitions.map((definition) => {
-      const sorted = [...definition.versions].sort((left, right) =>
-        parseMonthKey(left.effectiveFrom).getTime() - parseMonthKey(right.effectiveFrom).getTime(),
-      )
-      let resolved = 0
-      for (const version of sorted) {
-        if (parseMonthKey(version.effectiveFrom) <= monthDate) {
-          resolved = version.amount
-        }
-      }
-
-      return [definition.code, resolved]
-    }),
+  const sorted = [...definition.versions].sort(
+    (left, right) =>
+      parseMonthKey(left.effectiveFrom).getTime() -
+      parseMonthKey(right.effectiveFrom).getTime()
   )
+
+  let resolved: BackfillChargeDefinition["versions"][number] | null = null
+  for (const version of sorted) {
+    const versionMonth = parseMonthKey(version.effectiveFrom)
+    if ((definition.frequency ?? "recurring_monthly") === "one_time") {
+      if (formatMonthKey(versionMonth) === month) {
+        resolved = version
+      }
+      continue
+    }
+
+    if (versionMonth <= monthDate) {
+      resolved = version
+    }
+  }
+
+  return resolved
 }
 
 function resolveAmount(month: string, versions: BackfillShareVersion[]) {
   return resolveVersionAmount(month, versions)
 }
 
-function resolveDividend(month: string, dividends: Array<{ amount: number; label: string; month: string }>) {
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+function resolveShareVersion(month: string, input: BuildBackfillDraftInput) {
+  return (
+    resolveVersion(month, input.shareOverrideVersions ?? []) ??
+    resolveVersion(month, input.defaultShareVersions)
+  )
+}
+
+function calculateShareAmount(
+  row: BackfillRow,
+  version: BackfillShareVersion | null
+) {
+  if (!version) {
+    return 0
+  }
+
+  if ((version.valueType ?? "fixed_amount") === "fixed_amount") {
+    return version.amount
+  }
+
+  const chargesTotal = Object.values(row.chargeValues).reduce(
+    (sum, value) => sum + value,
+    0
+  )
+  const savingsBeforeShare = Math.max(
+    0,
+    row.amount - row.loanService - chargesTotal
+  )
+  return roundCurrency(savingsBeforeShare * (version.amount / 100))
+}
+
+function calculateChargeAmount(
+  row: BackfillRow,
+  version: BackfillChargeDefinition["versions"][number] | null
+) {
+  if (!version) {
+    return 0
+  }
+
+  if ((version.valueType ?? "fixed_amount") === "fixed_amount") {
+    return version.amount
+  }
+
+  const savingsContribution = Math.max(0, row.amount - row.loanService)
+  return roundCurrency(savingsContribution * (version.amount / 100))
+}
+
+function applyChargeResolution(
+  rows: BackfillRow[],
+  input: BuildBackfillDraftInput
+) {
+  return rows.map((row) => {
+    row.chargeValues = Object.fromEntries(
+      input.chargeDefinitions.map((definition) => {
+        if ((definition.frequency ?? "recurring_monthly") === "manual") {
+          return [definition.code, 0]
+        }
+
+        return [
+          definition.code,
+          calculateChargeAmount(
+            row,
+            resolveChargeVersion(row.month, definition)
+          ),
+        ]
+      })
+    )
+    row.netDeposit = calculateNetDeposit(row)
+    return row
+  })
+}
+
+function resolveDividend(
+  month: string,
+  dividends: Array<{ amount: number; label: string; month: string }>
+) {
   return dividends.find((entry) => entry.month === month) ?? null
 }
 
 function resolveHistoryImpacts(
   month: string,
-  impacts: BackfillExistingHistoryImpact[],
+  impacts: BackfillExistingHistoryImpact[]
 ) {
   return impacts.filter((impact) => impact.month === month)
 }
 
-function applyLoanPropagation(rows: BackfillRow[], loanEvents: BackfillLoanEvent[]) {
-  const sortedEvents = [...loanEvents].sort((left, right) =>
-    parseMonthKey(left.startMonth).getTime() - parseMonthKey(right.startMonth).getTime(),
+function applyLoanPropagation(
+  rows: BackfillRow[],
+  loanEvents: BackfillLoanEvent[]
+) {
+  const sortedEvents = [...loanEvents].sort(
+    (left, right) =>
+      parseMonthKey(left.startMonth).getTime() -
+      parseMonthKey(right.startMonth).getTime()
   )
 
   for (const event of sortedEvents) {
     const startIndex = rows.findIndex((row) => row.month === event.startMonth)
     if (startIndex === -1) continue
 
-    let remainingPrincipal = event.loanAmount
+    let remainingPrincipal =
+      event.openingOutstandingPrincipalBalance ?? event.loanAmount
 
     for (let index = startIndex; index < rows.length; index += 1) {
       const row = rows[index]
@@ -112,18 +214,21 @@ function applyLoanPropagation(rows: BackfillRow[], loanEvents: BackfillLoanEvent
         break
       }
 
-      row.loanEvent = index === startIndex ? event : row.loanEvent
+      row.loanEvent = event
       row.loanService = event.monthlyLoanServiceAmount
       row.status = event.status ?? row.status
 
       if (!row.isEdited) {
-        row.amount = event.monthlyLoanServiceAmount + event.topUp
+        row.amount =
+          event.monthlyLoanServiceAmount +
+          (event.loanPeriodSavingsContribution ?? event.topUp)
       }
 
-      const scheduledPayment = event.monthlyLoanServiceAmount
+      const scheduledPayment = row.loanService
       const paidTowardLoan = Math.min(row.amount, scheduledPayment)
       remainingPrincipal = Math.max(0, remainingPrincipal - paidTowardLoan)
-      row.pendingLoanPayment = Math.max(0, scheduledPayment - paidTowardLoan) + remainingPrincipal
+      row.pendingLoanPayment =
+        Math.max(0, scheduledPayment - paidTowardLoan) + remainingPrincipal
       row.netDeposit = calculateNetDeposit(row)
     }
   }
@@ -131,8 +236,78 @@ function applyLoanPropagation(rows: BackfillRow[], loanEvents: BackfillLoanEvent
   return rows
 }
 
+function applyRowAdjustments(
+  rows: BackfillRow[],
+  adjustments: BackfillRowAdjustment[]
+) {
+  const adjustmentByMonth = new Map(
+    adjustments.map((adjustment) => [adjustment.month, adjustment])
+  )
+
+  return rows.map((row) => {
+    const adjustment = adjustmentByMonth.get(row.month)
+    if (!adjustment) {
+      return row
+    }
+
+    const savingsContribution =
+      adjustment.savingsContribution ??
+      Math.max(0, row.amount - row.loanService)
+    const loanRepaymentAmount =
+      adjustment.loanRepaymentAmount ?? row.loanService
+
+    row.loanService = loanRepaymentAmount
+    row.loanRepaymentOnTime = adjustment.loanRepaymentOnTime
+    row.amount = savingsContribution + loanRepaymentAmount
+    row.isEdited = true
+    row.notes = adjustment.notes
+    row.netDeposit = calculateNetDeposit(row)
+    return row
+  })
+}
+
+function applyShareResolution(
+  rows: BackfillRow[],
+  input: BuildBackfillDraftInput
+) {
+  return rows.map((row) => {
+    row.share = calculateShareAmount(row, resolveShareVersion(row.month, input))
+    row.netDeposit = calculateNetDeposit(row)
+    return row
+  })
+}
+
+function recalculateLoanBalances(rows: BackfillRow[]) {
+  const remainingPrincipalByLoan = new Map<string, number>()
+
+  for (const row of rows) {
+    if (!row.loanEvent || row.loanService <= 0) {
+      continue
+    }
+
+    const loanKey =
+      row.loanEvent.id ??
+      `${row.loanEvent.label ?? "legacy-loan"}-${row.loanEvent.startMonth}`
+    const startingPrincipal =
+      remainingPrincipalByLoan.get(loanKey) ??
+      row.loanEvent.openingOutstandingPrincipalBalance ??
+      row.loanEvent.loanAmount
+    const paidTowardLoan = Math.min(row.loanService, startingPrincipal)
+    const remainingPrincipal = Math.max(0, startingPrincipal - paidTowardLoan)
+
+    row.pendingLoanPayment = remainingPrincipal
+    row.netDeposit = calculateNetDeposit(row)
+    remainingPrincipalByLoan.set(loanKey, remainingPrincipal)
+  }
+
+  return rows
+}
+
 function calculateNetDeposit(row: BackfillRow) {
-  const chargesTotal = Object.values(row.chargeValues).reduce((sum, value) => sum + value, 0)
+  const chargesTotal = Object.values(row.chargeValues).reduce(
+    (sum, value) => sum + value,
+    0
+  )
   return row.amount - row.loanService - row.share - chargesTotal + row.dividend
 }
 
@@ -143,7 +318,7 @@ export function deriveBackfillWarnings(rows: BackfillRow[]) {
       message: impact.message,
       month: row.month,
       severity: impact.severity,
-    })),
+    }))
   )
 
   const missedRows = rows.filter((row) => row.status === "missed")
@@ -164,18 +339,28 @@ export function deriveBackfillSummary(rows: BackfillRow[]) {
     editedRows: rows.filter((row) => row.isEdited).length,
     monthsGenerated: rows.length,
     totalCharges: rows.reduce(
-      (sum, row) => sum + Object.values(row.chargeValues).reduce((rowSum, value) => rowSum + value, 0),
-      0,
+      (sum, row) =>
+        sum +
+        Object.values(row.chargeValues).reduce(
+          (rowSum, value) => rowSum + value,
+          0
+        ),
+      0
     ),
     totalDividend: rows.reduce((sum, row) => sum + row.dividend, 0),
     totalLoanService: rows.reduce((sum, row) => sum + row.loanService, 0),
     totalNetDeposit: rows.reduce((sum, row) => sum + row.netDeposit, 0),
-    totalPendingLoanPayment: rows.reduce((sum, row) => sum + row.pendingLoanPayment, 0),
+    totalPendingLoanPayment: rows.reduce(
+      (sum, row) => sum + row.pendingLoanPayment,
+      0
+    ),
     totalShare: rows.reduce((sum, row) => sum + row.share, 0),
   }
 }
 
-export function buildBackfillDraft(input: BuildBackfillDraftInput): BackfillDraft {
+export function buildBackfillDraft(
+  input: BuildBackfillDraftInput
+): BackfillDraft {
   const effectiveStart =
     parseMonthKey(input.memberJoinedMonth) > parseMonthKey(input.startMonth)
       ? input.memberJoinedMonth
@@ -183,17 +368,19 @@ export function buildBackfillDraft(input: BuildBackfillDraftInput): BackfillDraf
   const months = listMonthsBetween(effectiveStart, input.endMonth)
   const baseRows: BackfillRow[] = months.map((monthDate) => {
     const month = formatMonthKey(monthDate)
-    const chargeValues = resolveChargeValues(month, input.chargeDefinitions)
-    const share = resolveVersionAmount(month, input.shareOverrideVersions ?? [])
-      || resolveVersionAmount(month, input.defaultShareVersions)
     const amount = resolveAmount(month, input.amountLogs)
     const dividend = resolveDividend(month, input.dividendEntries ?? [])
-    const historyImpacts = resolveHistoryImpacts(month, input.existingHistoryImpacts ?? [])
+    const historyImpacts = resolveHistoryImpacts(
+      month,
+      input.existingHistoryImpacts ?? []
+    )
     const row: BackfillRow = {
       amount,
-      chargeValues,
+      chargeValues: {},
       dividend: dividend?.amount ?? 0,
       dividendLabel: dividend?.label,
+      dividendProfitEntryId: dividend?.profitEntryId,
+      dividendSharePercentage: dividend?.sharePercentage,
       existingHistoryImpacts: historyImpacts,
       isEdited: false,
       loanService: 0,
@@ -201,7 +388,7 @@ export function buildBackfillDraft(input: BuildBackfillDraftInput): BackfillDraf
       monthLabel: formatMonthLabel(monthDate),
       netDeposit: 0,
       pendingLoanPayment: 0,
-      share,
+      share: 0,
       status: "active",
     }
 
@@ -209,7 +396,18 @@ export function buildBackfillDraft(input: BuildBackfillDraftInput): BackfillDraf
     return row
   })
 
-  const rows = applyLoanPropagation(baseRows, input.loanEvents ?? [])
+  const rows = recalculateLoanBalances(
+    applyShareResolution(
+      applyChargeResolution(
+        applyRowAdjustments(
+          applyLoanPropagation(baseRows, input.loanEvents ?? []),
+          input.rowAdjustments ?? []
+        ),
+        input
+      ),
+      input
+    )
+  )
   const warnings = deriveBackfillWarnings(rows)
 
   return {
@@ -226,7 +424,7 @@ export function buildBackfillDraft(input: BuildBackfillDraftInput): BackfillDraf
 
 export function applyLoanEventToDraft(
   rows: BackfillRow[],
-  event: BackfillLoanEvent,
+  event: BackfillLoanEvent
 ) {
   const clonedRows = rows.map((row) => ({
     ...row,
@@ -240,7 +438,7 @@ export function applyLoanEventToDraft(
 export function markRowStatus(
   rows: BackfillRow[],
   month: string,
-  status: BackfillMonthStatus,
+  status: BackfillMonthStatus
 ) {
   return rows.map((row) =>
     row.month === month
@@ -248,12 +446,10 @@ export function markRowStatus(
           ...row,
           isEdited: true,
           netDeposit:
-            status === "missed"
-              ? 0
-              : calculateNetDeposit({ ...row, status }),
+            status === "missed" ? 0 : calculateNetDeposit({ ...row, status }),
           status,
         }
-      : row,
+      : row
   )
 }
 
@@ -267,6 +463,6 @@ export function summarizeProfitPeriods(periods: BackfillProfitPeriod[]) {
     {
       totalDistributable: 0,
       totalProfit: 0,
-    },
+    }
   )
 }

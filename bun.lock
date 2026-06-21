@@ -48,6 +48,7 @@
         "@halaalvest/notifications": "workspace:*",
         "@halaalvest/notifications-react": "workspace:*",
         "@halaalvest/site-nav": "workspace:*",
+        "@halaalvest/tenant-url": "workspace:*",
         "@halaalvest/ui": "workspace:*",
         "@halaalvest/utils": "workspace:*",
         "@hugeicons/core-free-icons": "^4.1.1",
@@ -79,6 +80,7 @@
         "@halaalvest/domain": "workspace:*",
         "@halaalvest/notifications": "workspace:*",
         "@halaalvest/notifications-react": "workspace:*",
+        "@halaalvest/tenant-url": "workspace:*",
         "@halaalvest/ui": "workspace:*",
         "@halaalvest/utils": "workspace:*",
         "@hookform/resolvers": "^5.2.2",
@@ -239,6 +241,23 @@
         "typescript": "^5.9.3",
       },
     },
+    "packages/tenant-url": {
+      "name": "@halaalvest/tenant-url",
+      "version": "1.0.0",
+      "devDependencies": {
+        "@halaalvest/eslint-config": "workspace:*",
+        "@halaalvest/tsconfig": "workspace:*",
+        "@types/react": "^19.2.10",
+        "eslint": "^9.39.2",
+        "next": "16.1.6",
+        "react": "^19.2.4",
+        "typescript": "^5.9.3",
+      },
+      "peerDependencies": {
+        "next": "^16.0.0",
+        "react": "^19.0.0",
+      },
+    },
     "packages/tsconfig": {
       "name": "@halaalvest/tsconfig",
       "version": "0.0.0",
@@ -289,6 +308,9 @@
     "packages/utils": {
       "name": "@halaalvest/utils",
       "version": "0.0.0",
+      "dependencies": {
+        "@halaalvest/tenant-url": "workspace:*",
+      },
       "devDependencies": {
         "@halaalvest/eslint-config": "workspace:*",
         "@halaalvest/tsconfig": "workspace:*",
@@ -476,6 +498,8 @@
     "@halaalvest/notifications-react": ["@halaalvest/notifications-react@workspace:packages/notifications-react"],
 
     "@halaalvest/site-nav": ["@halaalvest/site-nav@workspace:packages/site-nav"],
+
+    "@halaalvest/tenant-url": ["@halaalvest/tenant-url@workspace:packages/tenant-url"],
 
     "@halaalvest/tsconfig": ["@halaalvest/tsconfig@workspace:packages/tsconfig"],
 

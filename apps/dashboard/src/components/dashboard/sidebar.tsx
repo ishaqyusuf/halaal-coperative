@@ -1,7 +1,7 @@
 "use client"
 
-import Link from "next/link"
 import { useState } from "react"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { cn } from "@halaalvest/ui/lib/utils"
 import type { NavModule } from "@halaalvest/site-nav"
 import {

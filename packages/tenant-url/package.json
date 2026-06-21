@@ -1,0 +1,32 @@
+{
+  "name": "@halaalvest/tenant-url",
+  "version": "1.0.0",
+  "private": true,
+  "sideEffects": false,
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./react": "./src/react.tsx",
+    "./next": "./src/next.tsx",
+    "./next/server": "./src/next-server.ts"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@halaalvest/eslint-config": "workspace:*",
+    "@halaalvest/tsconfig": "workspace:*",
+    "@types/react": "^19.2.10",
+    "eslint": "^9.39.2",
+    "next": "16.1.6",
+    "react": "^19.2.4",
+    "typescript": "^5.9.3"
+  }
+}

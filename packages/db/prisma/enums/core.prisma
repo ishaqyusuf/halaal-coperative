@@ -5,6 +5,15 @@ enum TenantStatus {
   archived
 }
 
+enum InitialMigrationStatus {
+  not_started
+  historical_setup_in_progress
+  member_migration_in_progress
+  migration_review
+  finalized
+  live_operations
+}
+
 enum MembershipRole {
   super_admin
   tenant_admin

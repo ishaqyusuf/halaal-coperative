@@ -141,13 +141,31 @@ export function MemberDetailView({
             <div>
               <dt className="text-muted-foreground">Primary email</dt>
               <dd className="mt-1 font-medium text-foreground">
-                {detail.member.user?.email ?? "No linked user"}
+                {detail.member.email ?? detail.member.user?.email ?? "Not provided"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Phone number</dt>
+              <dd className="mt-1 font-medium text-foreground">
+                {detail.member.phoneNumber ?? "Not provided"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Occupation</dt>
+              <dd className="mt-1 font-medium text-foreground">
+                {detail.member.occupation ?? "Not provided"}
               </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Deduction source</dt>
               <dd className="mt-1 font-medium text-foreground">
                 {detail.member.deductionSource?.name ?? "Not set"}
+              </dd>
+            </div>
+            <div className="md:col-span-2">
+              <dt className="text-muted-foreground">Address</dt>
+              <dd className="mt-1 font-medium text-foreground">
+                {detail.member.address ?? "Not provided"}
               </dd>
             </div>
             <div>

@@ -1,15 +1,26 @@
 import Link from "next/link"
-import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { normalizeRole } from "@halaalvest/auth"
 import { buildDashboardSnapshot } from "@halaalvest/domain"
 import { createDbRuntime, getDashboardMetrics } from "@halaalvest/db"
+import { buildTenantHref } from "@halaalvest/tenant-url"
+import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
+import { TenantUrlProvider } from "@halaalvest/tenant-url/react"
 import { formatCurrency } from "@halaalvest/utils"
 import { Button } from "@halaalvest/ui/components/button"
 import { DashboardShellClient } from "@/components/dashboard"
 import { DashboardOverviewPage } from "@/components/dashboard/overview-page"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { tenantRedirect } from "@/utils/tenant-redirect"
+import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
 export default async function TenantHomePage() {
+  const headerStore = await headers()
+  const tenantUrlConfig = getDashboardTenantUrlConfig()
+  const tenantUrlContext = resolveTenantUrlContextFromHeaders({
+    config: tenantUrlConfig,
+    headers: headerStore,
+  })
   const context = await getDashboardServerContext()
 
   if (context.auth.sessionToken && context.auth.membership) {
@@ -18,22 +29,24 @@ export default async function TenantHomePage() {
     const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
 
     return (
-      <DashboardShellClient
-        role={role}
-        tenantName={tenantName}
-        userName={userName}
-      >
-        <DashboardOverviewPage />
-      </DashboardShellClient>
+      <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
+        <DashboardShellClient
+          role={role}
+          tenantName={tenantName}
+          userName={userName}
+        >
+          <DashboardOverviewPage />
+        </DashboardShellClient>
+      </TenantUrlProvider>
     )
   }
 
   if (context.auth.sessionToken && context.auth.pendingMemberOnboarding) {
-    redirect("/awaiting-approval")
+    await tenantRedirect("/awaiting-approval")
   }
 
   if (!context.tenant) {
-    redirect("/login")
+    await tenantRedirect("/login")
   }
 
   const runtime = createDbRuntime()
@@ -66,6 +79,13 @@ export default async function TenantHomePage() {
         }
       : undefined,
   })
+  const memberSignupHref = buildTenantHref(
+    tenantUrlContext,
+    "/signup/members",
+    tenantUrlConfig,
+  )
+  const loginHref = buildTenantHref(tenantUrlContext, "/login", tenantUrlConfig)
+  const appHref = buildTenantHref(tenantUrlContext, "/", tenantUrlConfig)
 
   return (
     <main className="bg-public-canvas min-h-svh">
@@ -111,17 +131,17 @@ export default async function TenantHomePage() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <a href="/signup/members">
+          <a href={memberSignupHref}>
             <Button size="lg" className="rounded-full px-5">
               Become a member
             </Button>
           </a>
-          <a href="/login">
+          <a href={loginHref}>
             <Button size="lg" variant="outline" className="rounded-full px-5">
               Login
             </Button>
           </a>
-          <Link href="/">
+          <Link href={appHref}>
             <Button size="lg" variant="outline" className="rounded-full px-5">
               Open app
             </Button>

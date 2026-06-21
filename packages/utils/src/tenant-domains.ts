@@ -1,3 +1,5 @@
+import { buildTenantAppUrl, normalizeHost } from "@halaalvest/tenant-url"
+
 export const platformRootDomain =
   process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() || "halaalvest.com"
 export const localPlatformRootDomain =
@@ -22,10 +24,14 @@ const reservedTenantLabels = new Set([
 
 function parseOriginLike(value: string) {
   try {
-    return new URL(value)
+    return new URL(value.includes("://") ? value : `http://${value}`)
   } catch {
     return null
   }
+}
+
+function resolveCurrentHost(value: string | null | undefined) {
+  return value ? normalizeHost(value) : ""
 }
 
 function extractSingleLabelSubdomain(hostname: string, rootDomain: string): string | null {
@@ -191,13 +197,44 @@ export function buildTenantDashboardUrl(
     tenantHostname?: string | null
     pathname?: string
     protocol?: "http" | "https"
+    targetPort?: number | string | null
   },
 ) {
-  return buildTenantSiteUrl(subdomain, {
-    currentOrigin: options?.currentOrigin,
-    pathname: options?.pathname ?? "/app",
-    protocol: options?.protocol,
-    tenantHostname: options?.tenantHostname,
+  const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
+
+  if (!normalizedSubdomain) {
+    return ""
+  }
+
+  const parsedOrigin = options?.currentOrigin ? parseOriginLike(options.currentOrigin) : null
+  const tenantHostname = extractTenantHostname(options?.tenantHostname)
+  const currentHost = resolveCurrentHost(parsedOrigin?.host ?? options?.currentOrigin)
+  const isLocalPathStyleHost =
+    currentHost === "localhost" ||
+    currentHost.startsWith("localhost:") ||
+    currentHost.startsWith("127.0.0.1") ||
+    currentHost.startsWith("0.0.0.0")
+
+  if (!isLocalPathStyleHost) {
+    return buildTenantSiteUrl(normalizedSubdomain, {
+      currentOrigin: options?.currentOrigin,
+      pathname: options?.pathname ?? "/app",
+      protocol: options?.protocol,
+      targetPort: options?.targetPort,
+      tenantHostname,
+    })
+  }
+
+  return buildTenantAppUrl({
+    tenantSlug: normalizedSubdomain,
+    path: options?.pathname ?? "/app",
+    currentHost,
+    currentProtocol: options?.protocol ?? parsedOrigin?.protocol,
+    targetRootDomain: localDashboardRootDomain,
+    targetPort: options?.targetPort ?? parsedOrigin?.port,
+    pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
+    enablePathStyleHosts: process.env.NODE_ENV !== "production",
+    defaultProtocol: process.env.NODE_ENV === "production" ? "https" : "http",
   })
 }
 
@@ -208,6 +245,7 @@ export function buildTenantSiteUrl(
     tenantHostname?: string | null
     pathname?: string
     protocol?: "http" | "https"
+    targetPort?: number | string | null
   },
 ) {
   const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
@@ -217,22 +255,34 @@ export function buildTenantSiteUrl(
   }
 
   const parsedOrigin = options?.currentOrigin ? parseOriginLike(options.currentOrigin) : null
-  const protocol = options?.protocol ?? parsedOrigin?.protocol.replace(":", "") ?? "https"
-  const pathname = options?.pathname ?? ""
-  const normalizedPathname = pathname ? (pathname.startsWith("/") ? pathname : `/${pathname}`) : ""
-  const port = parsedOrigin?.port ? `:${parsedOrigin.port}` : ""
-
-  if (isAnyLocalPlatformHostname(parsedOrigin?.hostname)) {
-    return `${protocol}://${buildLocalTenantSiteHostname(normalizedSubdomain)}${port}${normalizedPathname}`
-  }
+  const currentHost = resolveCurrentHost(parsedOrigin?.host ?? options?.currentOrigin)
+  const isLocalPathStyleHost =
+    currentHost === "localhost" ||
+    currentHost.startsWith("localhost:") ||
+    currentHost.startsWith("127.0.0.1") ||
+    currentHost.startsWith("0.0.0.0")
 
   const tenantHostname = extractTenantHostname(options?.tenantHostname)
 
-  if (tenantHostname) {
+  if (tenantHostname && !isLocalPathStyleHost) {
+    const protocol = options?.protocol ?? parsedOrigin?.protocol.replace(":", "") ?? "https"
+    const pathname = options?.pathname ?? ""
+    const normalizedPathname = pathname ? (pathname.startsWith("/") ? pathname : `/${pathname}`) : ""
+
     return `${protocol}://${tenantHostname}${normalizedPathname}`
   }
 
-  return `${protocol}://${buildTenantSiteHostname(normalizedSubdomain)}${normalizedPathname}`
+  return buildTenantAppUrl({
+    tenantSlug: normalizedSubdomain,
+    path: options?.pathname ?? "/",
+    currentHost,
+    currentProtocol: options?.protocol ?? parsedOrigin?.protocol,
+    targetRootDomain: process.env.NODE_ENV === "production" ? platformRootDomain : localTenantRootDomain,
+    targetPort: options?.targetPort ?? parsedOrigin?.port,
+    pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
+    enablePathStyleHosts: process.env.NODE_ENV !== "production",
+    defaultProtocol: process.env.NODE_ENV === "production" ? "https" : "http",
+  })
 }
 
 export function buildPlatformAppUrl(options?: {

@@ -1,24 +1,35 @@
-import { redirect } from "next/navigation"
+import { headers } from "next/headers"
+import { buildTenantHref } from "@halaalvest/tenant-url"
+import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { Button } from "@halaalvest/ui/components/button"
 import { resendMemberVerificationAction } from "@/lib/public-actions"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { tenantRedirect } from "@/utils/tenant-redirect"
+import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
 export default async function AwaitingApprovalPage() {
+  const headerStore = await headers()
+  const tenantUrlConfig = getDashboardTenantUrlConfig()
+  const tenantUrlContext = resolveTenantUrlContextFromHeaders({
+    config: tenantUrlConfig,
+    headers: headerStore,
+  })
   const context = await getDashboardServerContext()
 
   if (!context.auth.sessionToken || !context.auth.user) {
-    redirect("/login")
+    await tenantRedirect("/login")
   }
 
   if (context.auth.membership) {
-    redirect("/")
+    await tenantRedirect("/")
   }
 
   const request = context.auth.pendingMemberOnboarding
 
   if (!request) {
-    redirect("/login?error=invalid-account")
+    await tenantRedirect("/login?error=invalid-account")
   }
+  const logoutHref = buildTenantHref(tenantUrlContext, "/auth/logout", tenantUrlConfig)
 
   return (
     <main className="bg-waiting-canvas min-h-svh px-4 py-10 sm:px-6 lg:px-8">
@@ -47,7 +58,7 @@ export default async function AwaitingApprovalPage() {
               <Button type="submit" size="lg">Resend verification email</Button>
             </form>
           ) : null}
-          <a className="inline-flex h-8 items-center justify-center rounded-md border border-border px-4 text-xs font-medium text-foreground transition hover:bg-input/50" href="/auth/logout">
+          <a className="inline-flex h-8 items-center justify-center rounded-md border border-border px-4 text-xs font-medium text-foreground transition hover:bg-input/50" href={logoutHref}>
             Sign out
           </a>
         </div>

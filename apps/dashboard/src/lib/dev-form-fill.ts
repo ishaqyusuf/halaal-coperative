@@ -33,9 +33,17 @@ function createRandomMemberCreateDefaults() {
   const monthlyCommitment = String(randomItem([10000, 15000, 20000, 25000, 30000, 50000]))
   const currentSavingsBalance = String(randomItem([0, 15000, 45000, 80000, 125000, 250000]))
   const hasServingLoan = Math.random() >= 0.5
+  const email = `${fullName.toLowerCase().replace(/\s+/g, ".")}@example.com`
+  const profileDefaults = {
+    address: `${randomInt(1, 48)} Cooperative Road, Kaduna`,
+    email,
+    occupation: randomItem(["Trader", "Teacher", "Civil servant", "Business owner", "Tailor"]),
+    phoneNumber: `+23480${randomInt(10000000, 99999999)}`,
+  }
 
   if (!hasServingLoan) {
     return {
+      ...profileDefaults,
       currentSavingsBalance,
       fullName,
       hasServingLoan,
@@ -60,6 +68,7 @@ function createRandomMemberCreateDefaults() {
   const loanTopupAmount = randomItem([0, 5000, 10000, 15000, 25000])
 
   return {
+    ...profileDefaults,
     currentSavingsBalance,
     fullName,
     hasServingLoan,
@@ -128,11 +137,15 @@ const dashboardDevFormDefaults = {
     requestedTermMonths: "12",
   },
   member_create: {
+    address: "12 Cooperative Road, Kaduna",
+    email: "amina.yusuf@example.com",
     fullName: "Amina Yusuf",
     joinedAt: "2026-04-14",
     loanTopupAmount: "",
     memberNumber: "1024",
     memberType: "individual",
+    occupation: "Trader",
+    phoneNumber: "+234 800 000 0000",
   },
   member_signup: {
     confirmPassword: "password123",

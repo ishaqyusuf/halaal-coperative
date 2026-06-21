@@ -4,6 +4,8 @@ model ChargeDefinition {
   name                  String
   code                  String
   kind                  ChargeKind
+  chargeFrequency       ChargeFrequency @default(recurring_monthly) @map("charge_frequency")
+  chargeValueType       ChargeValueType @default(fixed_amount) @map("charge_value_type")
   purpose               ChargePurpose @default(general)
   amount                Decimal     @db.Decimal(18, 2)
   isMonthlyLevy         Boolean     @default(false) @map("is_monthly_levy")

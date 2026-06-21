@@ -28,7 +28,11 @@ model ShareBusinessProfitEntry {
   shareBusinessId       String                @map("share_business_id") @db.Uuid
   linkedDividendPeriodId String?              @map("linked_dividend_period_id") @db.Uuid
   profitAmount          Decimal               @map("profit_amount") @db.Decimal(18, 2)
+  expenseAmount         Decimal               @default(0) @map("expense_amount") @db.Decimal(18, 2)
+  allocatableProfitAmount Decimal             @map("allocatable_profit_amount") @db.Decimal(18, 2)
   profitDate            DateTime              @map("profit_date") @db.Date
+  reason                String?
+  status                ProfitEntryStatus     @default(draft)
   notes                 String?
   sourceType            ProfitEntrySourceType @default(manual) @map("source_type")
   createdByUserId       String?               @map("created_by_user_id") @db.Uuid
@@ -39,10 +43,33 @@ model ShareBusinessProfitEntry {
   shareBusiness         ShareBusiness         @relation(fields: [shareBusinessId], references: [id], onDelete: Cascade)
   linkedDividendPeriod  DividendPeriod?       @relation(fields: [linkedDividendPeriodId], references: [id], onDelete: SetNull)
   allocations           ShareProfitAllocation[]
+  migrationProfitAdjustments MigrationProfitAdjustment[]
 
   @@index([tenantId, profitDate], map: "share_business_profit_entries_tenant_profit_date_idx")
   @@index([tenantId, shareBusinessId, profitDate], map: "share_business_profit_entries_tenant_business_profit_date_idx")
   @@map("share_business_profit_entries")
+}
+
+model MigrationProfitAdjustment {
+  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String                   @map("tenant_id") @db.Uuid
+  memberId              String                   @map("member_id") @db.Uuid
+  profitEntryId         String                   @map("profit_entry_id") @db.Uuid
+  allocatedProfitAmount Decimal?                 @map("allocated_profit_amount") @db.Decimal(18, 2)
+  sharePercentage       Decimal?                 @map("share_percentage") @db.Decimal(12, 8)
+  notes                 String?
+  createdByUserId       String?                  @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                Member                   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  profitEntry           ShareBusinessProfitEntry @relation(fields: [profitEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, memberId, profitEntryId], map: "migration_profit_adjustments_member_profit_key")
+  @@index([tenantId, memberId], map: "migration_profit_adjustments_tenant_member_idx")
+  @@index([tenantId, profitEntryId], map: "migration_profit_adjustments_tenant_profit_idx")
+  @@map("migration_profit_adjustments")
 }
 
 model MemberShareLedgerEntry {

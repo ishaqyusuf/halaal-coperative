@@ -30,10 +30,30 @@ function formatOnboardingError(error: unknown) {
 }
 
 function getTenantAppOrigin(currentOrigin?: string | null) {
-  return process.env.DASHBOARD_APP_URL
-    ?? process.env.NEXT_PUBLIC_DASHBOARD_APP_URL
-    ?? currentOrigin
-    ?? "http://app.halaalvest.localhost:1441"
+  const configuredOrigin =
+    process.env.DASHBOARD_APP_URL ?? process.env.NEXT_PUBLIC_DASHBOARD_APP_URL
+
+  if (configuredOrigin) {
+    return configuredOrigin
+  }
+
+  try {
+    const url = currentOrigin ? new URL(currentOrigin) : null
+    const hostname = url?.hostname ?? ""
+
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0"
+    ) {
+      const port = process.env.HALAAL_VEST_DASHBOARD_APP_PORT ?? "1441"
+      return `${url?.protocol ?? "http:"}//${hostname}:${port}`
+    }
+  } catch {
+    return currentOrigin ?? "http://app.halaalvest.localhost:1441"
+  }
+
+  return currentOrigin ?? "http://app.halaalvest.localhost:1441"
 }
 
 export async function POST(request: Request) {

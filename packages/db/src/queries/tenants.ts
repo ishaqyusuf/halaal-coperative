@@ -1,5 +1,5 @@
 import { resolveCname } from "node:dns/promises"
-import type { Prisma } from "@prisma/client"
+import type { Prisma, PrismaClient } from "@prisma/client"
 import {
   buildDashboardHostname,
   buildTenantSiteHostname,
@@ -9,6 +9,7 @@ import {
 } from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
+import { getTenantInitialMigrationState } from "./migration"
 
 export type TenantStatus = "pending" | "active" | "suspended" | "archived"
 
@@ -664,11 +665,48 @@ export async function updateTenantProfile(
     tenantId: string
     timezone: string
   },
+  prismaOverride?: PrismaClient,
 ) {
-  const prisma = createPrismaClient()
+  const prisma = prismaOverride ?? createPrismaClient()
 
   if (!prisma) {
     throw new Error("Database not configured")
+  }
+
+  const existingTenant = await prisma.tenant.findUnique({
+    select: {
+      startDate: true,
+    },
+    where: {
+      id: input.tenantId,
+    },
+  })
+  const nextStartDate = input.startDate ?? null
+  const currentStartDate = existingTenant?.startDate
+    ? existingTenant.startDate.toISOString().slice(0, 10)
+    : null
+
+  if (nextStartDate !== currentStartDate) {
+    const migrationState = await getTenantInitialMigrationState(
+      input.tenantId,
+      prisma,
+    )
+
+    if (!migrationState.snapshot.canUseMigrationTools) {
+      throw new Error(
+        "Finance start date is locked because initial migration is finalized.",
+      )
+    }
+
+    if (
+      migrationState.counts.appliedBackfillBatches > 0 ||
+      migrationState.counts.appliedBackfillMembers > 0 ||
+      migrationState.counts.appliedBackfillMonths > 0
+    ) {
+      throw new Error(
+        "Finance start date is locked because member ledger backfill has already started.",
+      )
+    }
   }
 
   const tenant = await prisma.tenant.update({

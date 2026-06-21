@@ -79,7 +79,12 @@ export const onboardingFormSchema = z.object({
 
 export type SignupIntentInput = z.infer<typeof signupIntentSchema>
 export type SignupVerificationPayload = z.infer<typeof signupVerificationPayloadSchema>
-export type OnboardingFormInput = z.infer<typeof onboardingFormSchema>
+export type OnboardingFormInput = Omit<
+  z.infer<typeof onboardingFormSchema>,
+  "currentSize"
+> & {
+  currentSize: number | string
+}
 
 export function createSignupVerificationPayload(input: SignupIntentInput): SignupVerificationPayload {
   const issuedAt = new Date()
@@ -99,7 +104,7 @@ export function createSignupVerificationPayload(input: SignupIntentInput): Signu
 export function getOnboardingDefaultsFromVerification(payload: SignupVerificationPayload) {
   return {
     cooperativeName: payload.cooperativeName,
-    currentSize: undefined,
+    currentSize: "",
     officeAddress: "",
     primaryContactEmail: payload.primaryContactEmail,
     primaryContactFullName: payload.primaryContactFullName,

@@ -1,7 +1,44 @@
 import type { PrismaClient } from "@prisma/client"
 import { allocateBusinessProfitByShare } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
+import { getTenantInitialMigrationState } from "./migration"
 import { getTenantById } from "./tenants"
+
+async function assertHistoricalFinanceSetupMutationOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (!migrationState.snapshot.canUseMigrationTools) {
+    throw new Error(
+      "Historical finance setup is locked because initial migration is finalized.",
+    )
+  }
+
+  if (
+    migrationState.counts.appliedBackfillBatches > 0 ||
+    migrationState.counts.appliedBackfillMembers > 0 ||
+    migrationState.counts.appliedBackfillMonths > 0
+  ) {
+    throw new Error(
+      "Historical finance setup is locked because member ledger backfill has already started.",
+    )
+  }
+}
+
+async function assertLiveFinancialWritesOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    throw new Error(
+      "Live financial record writes are locked until initial migration is finalized.",
+    )
+  }
+}
 
 export async function getTenantFinanceSetup(
   tenantId: string,
@@ -104,21 +141,68 @@ export async function createTenantShareStructureVersion(
     tenantId: string
     effectiveFrom: Date
     amount: number
+    basis?: "after_charge_deductions"
     notes?: string
+    valueType?: "fixed_amount" | "percentage"
     createdByUserId?: string
   },
   prismaOverride?: PrismaClient,
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
 
   return prisma.tenantShareStructureVersion.create({
     data: {
       tenantId: input.tenantId,
       effectiveFrom: input.effectiveFrom,
       amount: input.amount,
+      basis: input.basis ?? "after_charge_deductions",
       notes: input.notes,
+      valueType: input.valueType ?? "fixed_amount",
       createdByUserId: input.createdByUserId,
+    },
+  })
+}
+
+export async function updateTenantShareStructureVersion(
+  input: {
+    tenantId: string
+    shareStructureVersionId: string
+    effectiveFrom: Date
+    amount: number
+    basis?: "after_charge_deductions"
+    notes?: string
+    valueType?: "fixed_amount" | "percentage"
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+
+  const existing = await prisma.tenantShareStructureVersion.findFirst({
+    where: {
+      id: input.shareStructureVersionId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!existing) {
+    throw new Error("Share structure version not found")
+  }
+
+  return prisma.tenantShareStructureVersion.update({
+    where: {
+      id: input.shareStructureVersionId,
+      tenantId: input.tenantId,
+    },
+    data: {
+      amount: input.amount,
+      basis: input.basis ?? existing.basis ?? "after_charge_deductions",
+      effectiveFrom: input.effectiveFrom,
+      notes: input.notes ?? null,
+      valueType: input.valueType ?? existing.valueType ?? "fixed_amount",
     },
   })
 }
@@ -147,6 +231,7 @@ export async function createChargeDefinitionVersion(
     effectiveFrom: Date
     amount: number
     kind: "fixed" | "percentage"
+    chargeValueType?: "fixed_amount" | "percentage"
     notes?: string
     createdByUserId?: string
   },
@@ -154,6 +239,7 @@ export async function createChargeDefinitionVersion(
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx: any) => {
     const version = await tx.chargeDefinitionVersion.create({
@@ -163,6 +249,7 @@ export async function createChargeDefinitionVersion(
         effectiveFrom: input.effectiveFrom,
         amount: input.amount,
         kind: input.kind,
+        chargeValueType: input.chargeValueType ?? (input.kind === "percentage" ? "percentage" : "fixed_amount"),
         notes: input.notes,
         createdByUserId: input.createdByUserId,
       },
@@ -187,6 +274,82 @@ export async function createChargeDefinitionVersion(
         },
         data: {
           amount: latestVersion.amount,
+          kind: latestVersion.kind,
+          chargeValueType: latestVersion.chargeValueType,
+        },
+      })
+    }
+
+    return version
+  })
+}
+
+export async function updateChargeDefinitionVersion(
+  input: {
+    tenantId: string
+    chargeDefinitionVersionId: string
+    effectiveFrom: Date
+    amount: number
+    chargeValueType?: "fixed_amount" | "percentage"
+    notes?: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+
+  return prisma.$transaction(async (tx: any) => {
+    const existing = await tx.chargeDefinitionVersion.findFirst({
+      where: {
+        id: input.chargeDefinitionVersionId,
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (!existing) {
+      throw new Error("Charge version not found")
+    }
+
+    const chargeValueType =
+      input.chargeValueType ??
+      existing.chargeValueType ??
+      (existing.kind === "percentage" ? "percentage" : "fixed_amount")
+    const kind = chargeValueType === "percentage" ? "percentage" : "fixed"
+    const version = await tx.chargeDefinitionVersion.update({
+      where: {
+        id: input.chargeDefinitionVersionId,
+        tenantId: input.tenantId,
+      },
+      data: {
+        amount: input.amount,
+        chargeValueType,
+        effectiveFrom: input.effectiveFrom,
+        kind,
+        notes: input.notes ?? null,
+      },
+    })
+
+    const latestVersion = await tx.chargeDefinitionVersion.findFirst({
+      where: {
+        tenantId: input.tenantId,
+        chargeDefinitionId: existing.chargeDefinitionId,
+        effectiveFrom: {
+          lte: new Date(),
+        },
+      },
+      orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+    })
+
+    if (latestVersion) {
+      await tx.chargeDefinition.update({
+        where: {
+          id: existing.chargeDefinitionId,
+          tenantId: input.tenantId,
+        },
+        data: {
+          amount: latestVersion.amount,
+          chargeValueType: latestVersion.chargeValueType,
           kind: latestVersion.kind,
         },
       })
@@ -248,6 +411,7 @@ export async function createShareBusiness(
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx: any) => {
     const business = await tx.shareBusiness.create({
@@ -272,8 +436,12 @@ export async function createShareBusiness(
           shareBusinessId: business.id,
           linkedDividendPeriodId: input.linkedDividendPeriodId,
           profitAmount: input.profitAmount,
+          expenseAmount: 0,
+          allocatableProfitAmount: input.profitAmount,
           profitDate: input.endDate ?? input.startDate,
           notes: input.notes,
+          reason: input.notes,
+          status: input.status === "completed" ? "reviewed" : "draft",
           sourceType: "manual",
           createdByUserId: input.createdByUserId,
         },
@@ -294,6 +462,54 @@ export async function createShareBusiness(
   })
 }
 
+export async function updateShareBusiness(
+  input: {
+    tenantId: string
+    shareBusinessId: string
+    name: string
+    capitalAmount: number
+    profitAmount: number
+    startDate: Date
+    endDate?: Date | null
+    status?: "planned" | "active" | "completed" | "archived"
+    notes?: string
+    linkedDividendPeriodId?: string | null
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+
+  const existing = await prisma.shareBusiness.findFirst({
+    where: {
+      id: input.shareBusinessId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!existing) {
+    throw new Error("Share business not found")
+  }
+
+  return prisma.shareBusiness.update({
+    where: {
+      id: input.shareBusinessId,
+      tenantId: input.tenantId,
+    },
+    data: {
+      capitalAmount: input.capitalAmount,
+      endDate: input.endDate ?? null,
+      linkedDividendPeriodId: input.linkedDividendPeriodId ?? null,
+      name: input.name,
+      notes: input.notes ?? null,
+      profitAmount: input.profitAmount,
+      startDate: input.startDate,
+      status: input.status ?? existing.status,
+    },
+  })
+}
+
 export async function createMemberShareLedgerEntry(
   input: {
     tenantId: string
@@ -309,6 +525,10 @@ export async function createMemberShareLedgerEntry(
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+
+  if (input.sourceType !== "backfill" && input.sourceType !== "import") {
+    await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  }
 
   return prisma.memberShareLedgerEntry.create({
     data: {
@@ -423,7 +643,11 @@ export async function createShareBusinessProfitEntry(
     tenantId: string
     shareBusinessId: string
     profitAmount: number
+    expenseAmount?: number
+    allocatableProfitAmount?: number
     profitDate: Date
+    reason?: string
+    status?: "draft" | "reviewed" | "approved" | "archived"
     sourceType?: "manual" | "backfill" | "import"
     linkedDividendPeriodId?: string
     notes?: string
@@ -433,6 +657,18 @@ export async function createShareBusinessProfitEntry(
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+  const expenseAmount = input.expenseAmount ?? 0
+  const allocatableProfitAmount =
+    input.allocatableProfitAmount ?? Math.max(0, input.profitAmount - expenseAmount)
+
+  if (expenseAmount < 0) {
+    throw new Error("Expense amount cannot be negative.")
+  }
+
+  if (allocatableProfitAmount < 0 || allocatableProfitAmount > input.profitAmount) {
+    throw new Error("Allocatable profit must be between zero and the recorded profit amount.")
+  }
 
   return prisma.shareBusinessProfitEntry.create({
     data: {
@@ -440,11 +676,95 @@ export async function createShareBusinessProfitEntry(
       shareBusinessId: input.shareBusinessId,
       linkedDividendPeriodId: input.linkedDividendPeriodId,
       profitAmount: input.profitAmount,
+      expenseAmount,
+      allocatableProfitAmount,
       profitDate: input.profitDate,
+      reason: input.reason,
+      status: input.status ?? "draft",
       sourceType: input.sourceType ?? "manual",
       notes: input.notes,
       createdByUserId: input.createdByUserId,
     },
+  })
+}
+
+export async function updateShareBusinessProfitEntry(
+  input: {
+    tenantId: string
+    profitEntryId: string
+    profitAmount: number
+    expenseAmount?: number
+    allocatableProfitAmount?: number
+    profitDate: Date
+    reason?: string
+    status?: "draft" | "reviewed" | "approved" | "archived"
+    sourceType?: "manual" | "backfill" | "import"
+    linkedDividendPeriodId?: string | null
+    notes?: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+  const expenseAmount = input.expenseAmount ?? 0
+  const allocatableProfitAmount =
+    input.allocatableProfitAmount ?? Math.max(0, input.profitAmount - expenseAmount)
+
+  if (expenseAmount < 0) {
+    throw new Error("Expense amount cannot be negative.")
+  }
+
+  if (allocatableProfitAmount < 0 || allocatableProfitAmount > input.profitAmount) {
+    throw new Error("Allocatable profit must be between zero and the recorded profit amount.")
+  }
+
+  return prisma.$transaction(async (tx: any) => {
+    const existing = await tx.shareBusinessProfitEntry.findFirst({
+      where: {
+        id: input.profitEntryId,
+        tenantId: input.tenantId,
+      },
+      include: {
+        allocations: {
+          select: { status: true },
+        },
+      },
+    })
+
+    if (!existing) {
+      throw new Error("Business profit entry not found")
+    }
+
+    if (existing.allocations.some((allocation: { status: string }) => allocation.status === "published")) {
+      throw new Error("Published profit allocations cannot be edited.")
+    }
+
+    await tx.shareProfitAllocation.deleteMany({
+      where: {
+        tenantId: input.tenantId,
+        profitEntryId: input.profitEntryId,
+        status: "draft",
+      },
+    })
+
+    return tx.shareBusinessProfitEntry.update({
+      where: {
+        id: input.profitEntryId,
+        tenantId: input.tenantId,
+      },
+      data: {
+        allocatableProfitAmount,
+        expenseAmount,
+        linkedDividendPeriodId: input.linkedDividendPeriodId ?? null,
+        notes: input.notes ?? null,
+        profitAmount: input.profitAmount,
+        profitDate: input.profitDate,
+        reason: input.reason ?? null,
+        sourceType: input.sourceType ?? existing.sourceType,
+        status: input.status ?? existing.status,
+      },
+    })
   })
 }
 
@@ -457,6 +777,7 @@ export async function generateShareProfitAllocations(
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx: any) => {
     const profitEntry = await tx.shareBusinessProfitEntry.findFirst({
@@ -480,7 +801,7 @@ export async function generateShareProfitAllocations(
     }
 
     const allocations = allocateBusinessProfitByShare({
-      profitAmount: Number(profitEntry.profitAmount),
+      profitAmount: Number(profitEntry.allocatableProfitAmount ?? profitEntry.profitAmount),
       balances,
     })
 
@@ -537,6 +858,7 @@ export async function publishShareProfitAllocations(
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx: any) => {
     const profitEntry = await tx.shareBusinessProfitEntry.findFirst({

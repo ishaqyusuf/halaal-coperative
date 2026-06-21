@@ -3,10 +3,24 @@ import { createPrismaClient } from "../prisma"
 import { applyCharge } from "./charges"
 import { recordMemberPayment } from "./contributions"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
+import { getTenantInitialMigrationState } from "./migration"
 
 export type MonthlyRecordMemberStatusValue = "pending" | "applied" | "cancelled"
 export type MonthlyRecordStatusValue = "draft" | "open" | "closed"
 const activeMonthlyRecordLoanStatuses: LoanStatus[] = ["approved", "active", "disbursed"]
+
+async function assertLiveFinancialWritesOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    throw new Error(
+      "Live financial record writes are locked until initial migration is finalized.",
+    )
+  }
+}
 
 export type MonthlyRecordSummary = {
   id: string
@@ -192,6 +206,8 @@ async function seedMonthlyRecordMembers(input: {
   month: number
   prisma: PrismaClient
 }) {
+  await assertLiveFinancialWritesOpen(input.tenantId, input.prisma)
+
   const { end, start } = getPeriodRange(input.year, input.month)
   const members = await input.prisma.member.findMany({
     where: {
@@ -311,6 +327,7 @@ export async function ensureMonthlyRecord(
   if (!prisma) throw new Error("Database not configured")
 
   assertPeriod(input.year, input.month)
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const record = await prisma.monthlyRecord.upsert({
     where: {
@@ -608,6 +625,7 @@ export async function applyMonthlyRecordMember(
   if (!Number.isFinite(input.totalPaidAmount) || input.totalPaidAmount <= 0) {
     throw new Error("Enter a payment amount greater than zero.")
   }
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   const row = await prisma.monthlyRecordMember.findFirst({
     where: {
@@ -896,6 +914,8 @@ export async function cancelMonthlyRecordMember(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx) => {
     const row = await tx.monthlyRecordMember.findFirst({

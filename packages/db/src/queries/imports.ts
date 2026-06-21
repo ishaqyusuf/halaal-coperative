@@ -1,5 +1,6 @@
 import type {
   DeductionSourceType,
+  KycStatus,
   LoanStatus,
   MemberStatus,
   MemberType,
@@ -16,7 +17,7 @@ type ImportResult = {
   processed: number
 }
 
-type ImportKind =
+export type ImportKind =
   | "members"
   | "deduction_sources"
   | "loan_products"
@@ -52,6 +53,58 @@ function castImportRows(kind: ImportKind, rows: Prisma.JsonValue[]) {
       return rows as unknown as Parameters<typeof importRepaymentMigrations>[0]["rows"]
     default:
       throw new Error("Unsupported import kind")
+  }
+}
+
+async function assertMemberRecordImportsOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const tenant =
+    typeof (prisma as any).tenant?.findUnique === "function"
+      ? await (prisma as any).tenant.findUnique({
+          select: {
+            initialMigrationStatus: true,
+            migrationFinalizedAt: true,
+          },
+          where: { id: tenantId },
+        })
+      : null
+
+  if (
+    tenant?.migrationFinalizedAt ||
+    tenant?.initialMigrationStatus === "finalized" ||
+    tenant?.initialMigrationStatus === "live_operations"
+  ) {
+    throw new Error(
+      "Member record imports are locked because initial migration is finalized. Use live correction workflows after go-live.",
+    )
+  }
+
+  const appliedMonths =
+    typeof (prisma as any).appliedBackfillMonth?.findMany === "function"
+      ? await (prisma as any).appliedBackfillMonth.findMany({
+          where: { tenantId },
+          select: { id: true },
+          take: 1,
+        })
+      : []
+  const appliedBatches =
+    typeof (prisma as any).backfillBatch?.findMany === "function"
+      ? await (prisma as any).backfillBatch.findMany({
+          where: {
+            tenantId,
+            status: "applied",
+          },
+          select: { id: true },
+          take: 1,
+        })
+      : []
+
+  if (appliedMonths.length || appliedBatches.length) {
+    throw new Error(
+      "Member record imports are locked because member ledger backfill has already started. Finish migration or use live correction workflows after go-live.",
+    )
   }
 }
 
@@ -131,6 +184,7 @@ export async function createImportBatch(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx) => {
     const batch = await tx.importBatch.create({
@@ -210,6 +264,33 @@ export async function listImportBatches(
   })
 }
 
+export async function getImportBatchKind(
+  input: {
+    batchId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const batch = await prisma.importBatch.findFirst({
+    select: {
+      importType: true,
+    },
+    where: {
+      id: input.batchId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!batch) {
+    throw new Error("Import batch not found")
+  }
+
+  return batch.importType as ImportKind
+}
+
 export async function applyImportBatch(
   input: {
     actorUserId: string
@@ -240,6 +321,8 @@ export async function applyImportBatch(
   if (batch.status === "applied") {
     throw new Error("This import batch has already been applied.")
   }
+
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   try {
     const result = await applyImportRows({
@@ -334,11 +417,15 @@ export async function getImportReferenceData(
 }
 
 function buildRepaymentSchedule(input: {
+  monthlyRepaymentAmount?: number
   principalAmount: number
   startDate: Date
   termMonths: number
 }) {
-  const monthlyAmount = Number((input.principalAmount / input.termMonths).toFixed(2))
+  const monthlyAmount =
+    input.monthlyRepaymentAmount && input.monthlyRepaymentAmount > 0
+      ? Number(input.monthlyRepaymentAmount.toFixed(2))
+      : Number((input.principalAmount / input.termMonths).toFixed(2))
 
   return Array.from({ length: input.termMonths }, (_, index) => {
     const dueAt = new Date(input.startDate)
@@ -370,6 +457,7 @@ export async function importDeductionSources(
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   let processed = 0
 
@@ -423,6 +511,7 @@ export async function importLoanProducts(
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   let processed = 0
 
@@ -469,10 +558,19 @@ export async function importMembers(
     actorUserId: string
     rows: Array<{
       deductionSourceName?: string
+      address?: string
+      email?: string
       fullName: string
+      governmentIdNumber?: string
       joinedAt: Date
+      kycDocumentType?: string
+      kycReviewNotes?: string
+      kycStatus?: KycStatus
       memberNumber: string
       memberType: MemberType
+      occupation?: string
+      openingSavingsBalance?: number
+      phoneNumber?: string
       status?: MemberStatus
     }>
     tenantId: string
@@ -481,6 +579,8 @@ export async function importMembers(
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   let processed = 0
 
@@ -507,15 +607,49 @@ export async function importMembers(
         joinedAt: row.joinedAt,
         memberType: row.memberType,
         status: row.status ?? "active",
+        ...(row.address !== undefined && {
+          address: row.address.trim() || null,
+        }),
+        ...(row.email !== undefined && {
+          email: row.email.trim() || null,
+        }),
+        ...(row.governmentIdNumber !== undefined && {
+          governmentIdNumber: row.governmentIdNumber.trim() || null,
+        }),
+        ...(row.kycDocumentType !== undefined && {
+          kycDocumentType: row.kycDocumentType.trim() || null,
+        }),
+        ...(row.kycReviewNotes !== undefined && {
+          kycReviewNotes: row.kycReviewNotes.trim() || null,
+        }),
+        ...(row.kycStatus !== undefined && { kycStatus: row.kycStatus }),
+        ...(row.occupation !== undefined && {
+          occupation: row.occupation.trim() || null,
+        }),
+        ...(row.openingSavingsBalance !== undefined && {
+          totalSavingsSnapshot: row.openingSavingsBalance,
+        }),
+        ...(row.phoneNumber !== undefined && {
+          phoneNumber: row.phoneNumber.trim() || null,
+        }),
       },
       create: {
+        address: row.address?.trim() || null,
         deductionSourceId: deductionSource?.id ?? null,
+        email: row.email?.trim() || null,
         fullName: row.fullName,
+        governmentIdNumber: row.governmentIdNumber?.trim() || null,
         joinedAt: row.joinedAt,
+        kycDocumentType: row.kycDocumentType?.trim() || null,
+        kycReviewNotes: row.kycReviewNotes?.trim() || null,
+        kycStatus: row.kycStatus ?? "not_started",
         memberNumber: row.memberNumber,
         memberType: row.memberType,
+        occupation: row.occupation?.trim() || null,
+        phoneNumber: row.phoneNumber?.trim() || null,
         status: row.status ?? "active",
         tenantId: input.tenantId,
+        totalSavingsSnapshot: row.openingSavingsBalance ?? 0,
       },
     })
     processed += 1
@@ -553,6 +687,8 @@ export async function importContributions(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
+
   let processed = 0
 
   for (const row of input.rows) {
@@ -577,6 +713,7 @@ export async function importContributions(
       periodLabel: row.periodLabel,
       postedAt: row.postedAt,
       reference: row.reference,
+      sourceType: "import",
       tenantId: input.tenantId,
     }, prisma)
 
@@ -613,6 +750,8 @@ export async function importCharges(
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   let processed = 0
 
@@ -659,6 +798,7 @@ export async function importCharges(
       chargeDefinitionId: chargeDefinition.id,
       memberId: member.id,
       notes: row.notes,
+      sourceType: "import",
       tenantId: input.tenantId,
     }, prisma)
 
@@ -687,6 +827,7 @@ export async function importLoanMigrations(
       loanProductName: string
       loanType: "normal" | "quick"
       memberNumber: string
+      monthlyRepaymentAmount?: number
       outstandingPrincipal: number
       principalAmount: number
       requestedAt: Date
@@ -699,6 +840,8 @@ export async function importLoanMigrations(
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   let processed = 0
 
@@ -737,7 +880,10 @@ export async function importLoanMigrations(
       },
     })
 
-    const estimatedMonthlyServicing = Number((row.principalAmount / row.termMonths).toFixed(2))
+    const estimatedMonthlyServicing =
+      row.monthlyRepaymentAmount && row.monthlyRepaymentAmount > 0
+        ? Number(row.monthlyRepaymentAmount.toFixed(2))
+        : Number((row.principalAmount / row.termMonths).toFixed(2))
 
     await prisma.$transaction(async (tx) => {
       const request = await tx.loanRequest.create({
@@ -788,6 +934,7 @@ export async function importLoanMigrations(
 
       if (row.firstRepaymentDueAt) {
         const repaymentSchedule = buildRepaymentSchedule({
+          monthlyRepaymentAmount: row.monthlyRepaymentAmount,
           principalAmount: row.principalAmount,
           startDate: row.firstRepaymentDueAt,
           termMonths: row.termMonths,
@@ -847,6 +994,8 @@ export async function importRepaymentMigrations(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
+
   let processed = 0
 
   for (const row of input.rows) {
@@ -872,6 +1021,7 @@ export async function importRepaymentMigrations(
       amount: row.amount,
       loanId: loan.id,
       reference: row.reference,
+      sourceType: "import",
       tenantId: input.tenantId,
     }, prisma)
 

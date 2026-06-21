@@ -6,7 +6,12 @@ import {
   isTenantDashboardHost,
   resolveTenantSiteHostContext,
 } from "@halaalvest/utils"
+import {
+  getTenantUrlHeaderNames,
+  resolveTenantUrlContext,
+} from "@halaalvest/tenant-url"
 import { type NextRequest, NextResponse } from "next/server"
+import { getDashboardTenantUrlConfig } from "./src/utils/tenant-url-config"
 
 const PUBLIC_PREFIXES = [
   "/api/",
@@ -25,14 +30,31 @@ function isPublicPath(pathname: string) {
 }
 
 export function proxy(request: NextRequest) {
+  const config = getDashboardTenantUrlConfig()
+  const headerNames = getTenantUrlHeaderNames(config)
   const { pathname } = request.nextUrl
   const host = request.headers.get("host") ?? ""
+  const tenantUrlContext = resolveTenantUrlContext(
+    {
+      host,
+      pathname,
+      protocol: request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol,
+    },
+    config,
+  )
+  const productPath = tenantUrlContext.productPath
   const dashboardTenantHostname = extractDashboardHostname(host)
   const dashboardTenantSlug = extractDashboardTenantSlug(host)
   const tenantHostContext = resolveTenantSiteHostContext(host)
-  const tenantHostname = tenantHostContext.tenantHostname ?? dashboardTenantHostname
-  const tenantSlug = tenantHostContext.tenantSubdomain ?? dashboardTenantSlug
-  const isTenantMode = isTenantDashboardHost(host)
+  const tenantHostname =
+    tenantUrlContext.customDomainLookupHost ??
+    tenantHostContext.tenantHostname ??
+    dashboardTenantHostname
+  const tenantSlug =
+    tenantUrlContext.tenantSlug ??
+    tenantHostContext.tenantSubdomain ??
+    dashboardTenantSlug
+  const isTenantMode = isTenantDashboardHost(host) || Boolean(tenantSlug)
   const requestHeaders = new Headers(request.headers)
 
   if (dashboardTenantSlug && dashboardTenantHostname) {
@@ -50,12 +72,23 @@ export function proxy(request: NextRequest) {
   }
   if (tenantSlug) {
     requestHeaders.set("x-tenant-subdomain", tenantSlug)
+    requestHeaders.set(headerNames.domain, tenantSlug)
   }
-  requestHeaders.set("x-pathname", pathname)
+  requestHeaders.set("x-pathname", productPath)
+  requestHeaders.set(headerNames.pathname, productPath)
+  requestHeaders.set(headerNames.urlStyle, tenantUrlContext.style)
+  requestHeaders.set(headerNames.externalBasePath, tenantUrlContext.externalBasePath)
+  requestHeaders.set(headerNames.externalPath, tenantUrlContext.externalPath)
   requestHeaders.set("x-tenant-dashboard-mode", isTenantMode ? "tenant" : "platform")
 
-  if (!isPublicPath(pathname)) {
+  if (!isPublicPath(productPath)) {
     requestHeaders.set("x-dashboard-protected-route", "true")
+  }
+
+  if (tenantUrlContext.style === "path" && productPath !== pathname) {
+    const rewriteUrl = request.nextUrl.clone()
+    rewriteUrl.pathname = productPath
+    return NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
   }
 
   return NextResponse.next({ request: { headers: requestHeaders } })

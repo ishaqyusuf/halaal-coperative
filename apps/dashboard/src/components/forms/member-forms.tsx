@@ -55,7 +55,9 @@ function CurrencyFormInput({
 }
 
 const memberCreateSchema = z.object({
+  address: z.string().optional(),
   currentSavingsBalance: z.string().optional(),
+  email: z.string().email("Enter a valid email.").optional().or(z.literal("")),
   fullName: z.string().min(1, "Full name is required."),
   hasServingLoan: z.boolean().default(false),
   joinedAt: z.string().min(1, "Joined date is required."),
@@ -68,6 +70,8 @@ const memberCreateSchema = z.object({
   monthlyCommitment: z.string().optional(),
   memberNumber: z.string().min(1, "Member number is required."),
   memberType: z.enum(["individual", "civil_servant", "business"]),
+  occupation: z.string().optional(),
+  phoneNumber: z.string().optional(),
 }).superRefine((values, ctx) => {
   if (!values.hasServingLoan) {
     return
@@ -213,7 +217,9 @@ export function MemberCreateForm({
 }) {
   const form = useZodForm<MemberCreateValues>(memberCreateSchema, {
     defaultValues: {
+      address: "",
       currentSavingsBalance: "",
+      email: "",
       fullName: "",
       hasServingLoan: false,
       joinedAt: "",
@@ -226,6 +232,8 @@ export function MemberCreateForm({
       monthlyCommitment: "",
       memberNumber: "",
       memberType: "individual",
+      occupation: "",
+      phoneNumber: "",
     },
   })
   const { showError, showSuccess } = useNotifications()
@@ -289,7 +297,9 @@ export function MemberCreateForm({
         await createMemberAction(objectToFormData(values))
         showSuccess("Member added", "Member record created.")
         form.reset({
+          address: "",
           currentSavingsBalance: "",
+          email: "",
           fullName: "",
           hasServingLoan: false,
           joinedAt: "",
@@ -302,6 +312,8 @@ export function MemberCreateForm({
           monthlyCommitment: "",
           memberNumber: "",
           memberType: "individual",
+          occupation: "",
+          phoneNumber: "",
         })
         onSuccess?.()
       } catch (error) {
@@ -396,12 +408,64 @@ export function MemberCreateForm({
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="occupation"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Occupation</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Trader" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone number</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="+234 800 000 0000" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="amina@example.com" type="email" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem className="xl:col-span-2">
+                  <FormLabel>Address</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="No. 12 Cooperative Road" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
           <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4">
             <div className="mb-4">
               <h4 className="text-sm font-semibold text-foreground">Current state</h4>
-              <p className="mt-1 text-sm text-muted-foreground">Set the member’s existing savings and active commitment at the point of onboarding.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Set the member’s opening savings balance and active commitment at the point of onboarding.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <FormField
@@ -409,7 +473,7 @@ export function MemberCreateForm({
                 name="currentSavingsBalance"
                 render={({ field }) => (
                   <FormItem>
-                      <FormLabel>Current balance</FormLabel>
+                      <FormLabel>Opening savings balance</FormLabel>
                       <FormControl>
                       <CurrencyFormInput {...field} placeholder="0.00" />
                       </FormControl>

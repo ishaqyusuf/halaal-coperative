@@ -1,12 +1,26 @@
 import type { MemberOnboardingStatus, PrismaClient } from "@prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createMemberWithState, type CreateMemberInput } from "./members"
+import { getTenantInitialMigrationState } from "./migration"
 
 export type ListMemberOnboardingFilters = {
   page?: number
   pageSize?: number
   search?: string
   status?: MemberOnboardingStatus
+}
+
+async function assertMemberOnboardingWritesOpen(
+  tenantId: string,
+  prisma: PrismaClient,
+) {
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    throw new Error(
+      "Member onboarding writes are locked until initial migration is finalized.",
+    )
+  }
 }
 
 export async function createMemberOnboardingRequest(
@@ -24,6 +38,7 @@ export async function createMemberOnboardingRequest(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertMemberOnboardingWritesOpen(input.tenantId, prisma)
 
   const normalizedEmail = input.email.trim().toLowerCase()
   const normalizedMemberNumber = input.memberNumber.trim()
@@ -177,6 +192,7 @@ export async function verifyMemberOnboardingRequest(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertMemberOnboardingWritesOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx) => {
     const request = await tx.memberOnboardingRequest.findFirst({
@@ -346,6 +362,17 @@ export async function approveMemberOnboardingRequest(
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.$transaction(async (tx) => {
+    const migrationState = await getTenantInitialMigrationState(
+      input.tenantId,
+      tx as PrismaClient,
+    )
+
+    if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+      throw new Error(
+        "Member onboarding approvals are locked until initial migration is finalized.",
+      )
+    }
+
     const request = await tx.memberOnboardingRequest.findFirst({
       where: {
         id: input.requestId,
@@ -411,11 +438,13 @@ export async function approveMemberOnboardingRequest(
       actorUserId: input.actorUserId,
       currentSavingsBalance: input.memberState?.currentSavingsBalance,
       deductionSourceId: undefined,
+      email: request.email,
       fullName: request.fullName,
       joinedAt: new Date(),
       memberNumber: request.memberNumber,
       memberType: "individual",
       monthlyCommitment: input.memberState?.monthlyCommitment,
+      phoneNumber: request.phoneNumber,
       servingLoan: input.memberState?.servingLoan,
       tenantId: input.tenantId,
       userId: request.userId,
@@ -469,6 +498,7 @@ export async function rejectMemberOnboardingRequest(
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  await assertMemberOnboardingWritesOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx) => {
     const request = await tx.memberOnboardingRequest.findFirst({

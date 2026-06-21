@@ -4,7 +4,13 @@ import {
   isTenantDashboardHost,
   resolveDashboardSessionScope,
 } from "@halaalvest/utils"
+import {
+  buildTenantHref,
+  getTenantUrlHeaderNames,
+  resolveTenantUrlContext,
+} from "@halaalvest/tenant-url"
 import { type NextRequest, NextResponse } from "next/server"
+import { getDashboardTenantUrlConfig } from "./utils/tenant-url-config"
 
 const authSessionCookieName = "halaalvest_session"
 const platformSessionScope = "platform"
@@ -46,16 +52,33 @@ function hasSessionCookie(request: NextRequest) {
 }
 
 export function proxy(request: NextRequest) {
+  const config = getDashboardTenantUrlConfig()
+  const headerNames = getTenantUrlHeaderNames(config)
   const { pathname } = request.nextUrl
   const host = request.headers.get("host") ?? ""
-  const tenantHostname = extractDashboardHostname(host)
-  const tenantSlug = extractDashboardTenantSlug(host)
+  const tenantUrlContext = resolveTenantUrlContext(
+    {
+      host,
+      pathname,
+      protocol: request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol,
+    },
+    config,
+  )
+  const productPath = tenantUrlContext.productPath
+  const tenantHostname =
+    tenantUrlContext.customDomainLookupHost ?? extractDashboardHostname(host)
+  const tenantSlug = tenantUrlContext.tenantSlug ?? extractDashboardTenantSlug(host)
   const requestHeaders = new Headers(request.headers)
 
   requestHeaders.delete("x-user-id")
   requestHeaders.delete("x-session-token")
   requestHeaders.delete("x-tenant-hostname")
   requestHeaders.delete("x-tenant-subdomain")
+  requestHeaders.delete(headerNames.domain)
+  requestHeaders.delete(headerNames.pathname)
+  requestHeaders.delete(headerNames.urlStyle)
+  requestHeaders.delete(headerNames.externalBasePath)
+  requestHeaders.delete(headerNames.externalPath)
 
   if (tenantHostname) {
     requestHeaders.set("x-tenant-hostname", tenantHostname)
@@ -63,17 +86,26 @@ export function proxy(request: NextRequest) {
 
   if (tenantSlug) {
     requestHeaders.set("x-tenant-subdomain", tenantSlug)
+    requestHeaders.set(headerNames.domain, tenantSlug)
   }
 
-  requestHeaders.set("x-pathname", pathname)
+  requestHeaders.set("x-pathname", productPath)
+  requestHeaders.set(headerNames.pathname, productPath)
+  requestHeaders.set(headerNames.urlStyle, tenantUrlContext.style)
+  requestHeaders.set(headerNames.externalBasePath, tenantUrlContext.externalBasePath)
+  requestHeaders.set(headerNames.externalPath, tenantUrlContext.externalPath)
 
   if (
-    isTenantDashboardHost(host) &&
-    pathname.startsWith("/signup/member") &&
-    !pathname.startsWith("/signup/members")
+    (isTenantDashboardHost(host) || Boolean(tenantSlug)) &&
+    productPath.startsWith("/signup/member") &&
+    !productPath.startsWith("/signup/members")
   ) {
     const redirectUrl = new URL(
-      pathname.replace("/signup/member", "/signup/members"),
+      buildTenantHref(
+        tenantUrlContext,
+        productPath.replace("/signup/member", "/signup/members"),
+        config,
+      ),
       request.url
     )
     redirectUrl.search = request.nextUrl.search
@@ -81,10 +113,22 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  if (!isPublicPath(pathname) && !hasSessionCookie(request)) {
-    const signInUrl = new URL("/login", request.url)
-    signInUrl.searchParams.set("next", pathname)
+  if (!isPublicPath(productPath) && !hasSessionCookie(request)) {
+    const signInUrl = new URL(
+      buildTenantHref(
+        tenantUrlContext,
+        `/login?next=${encodeURIComponent(productPath)}`,
+        config,
+      ),
+      request.url,
+    )
     return NextResponse.redirect(signInUrl)
+  }
+
+  if (tenantUrlContext.style === "path" && productPath !== pathname) {
+    const rewriteUrl = request.nextUrl.clone()
+    rewriteUrl.pathname = productPath
+    return NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
   }
 
   return NextResponse.next({ request: { headers: requestHeaders } })

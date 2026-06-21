@@ -1,7 +1,7 @@
 "use client"
 
 import { Input } from "@halaalvest/ui/components/input"
-import { Select } from "@halaalvest/ui/components/select"
+import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import type { PageFilterData } from "@halaalvest/utils"
 import type { SearchFilterValue } from "./types"
 
@@ -16,14 +16,16 @@ export function SearchFilterField({
   onOptionSelect: (value: string, label?: string) => void
   value: SearchFilterValue
 }) {
-  const filterValue = Array.isArray(value) ? value : value ?? ""
+  const filterValue = Array.isArray(value) ? value : (value ?? "")
 
   if (filter.type === "date-range") {
     const [from = "", to = ""] = Array.isArray(value) ? value : []
 
     return (
       <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">{filter.label ?? filter.value}</p>
+        <p className="text-sm font-medium text-foreground">
+          {filter.label ?? filter.value}
+        </p>
         <div className="grid gap-2 sm:grid-cols-2">
           <Input
             onChange={(event) => {
@@ -49,7 +51,9 @@ export function SearchFilterField({
   if (filter.type === "date") {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">{filter.label ?? filter.value}</p>
+        <p className="text-sm font-medium text-foreground">
+          {filter.label ?? filter.value}
+        </p>
         <Input
           onChange={(event) => onChange(event.target.value || null)}
           type="date"
@@ -62,8 +66,10 @@ export function SearchFilterField({
   if (filter.type === "checkbox" && filter.options?.length) {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">{filter.label ?? filter.value}</p>
-        <Select
+        <p className="text-sm font-medium text-foreground">
+          {filter.label ?? filter.value}
+        </p>
+        <NativeSelect
           onChange={(event) => {
             const nextValue = event.target.value
             if (!nextValue) {
@@ -71,7 +77,9 @@ export function SearchFilterField({
               return
             }
 
-            const label = filter.options?.find((option) => option.value === nextValue)?.label
+            const label = filter.options?.find(
+              (option) => option.value === nextValue
+            )?.label
             onOptionSelect(nextValue, label)
           }}
           value={String(filterValue)}
@@ -82,14 +90,16 @@ export function SearchFilterField({
               {option.label}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
       </div>
     )
   }
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">{filter.label ?? filter.value}</p>
+      <p className="text-sm font-medium text-foreground">
+        {filter.label ?? filter.value}
+      </p>
       <Input
         onChange={(event) => onChange(event.target.value || null)}
         placeholder={filter.label ?? String(filter.value)}

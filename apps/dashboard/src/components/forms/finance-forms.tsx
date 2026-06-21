@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import { Select } from "@halaalvest/ui/components/select"
+import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
@@ -32,7 +32,10 @@ import {
   updateMemberPaymentAllocationPreferenceAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
-import { closeContributionPlanAction, disburseLoanAction } from "@/lib/dashboard-actions"
+import {
+  closeContributionPlanAction,
+  disburseLoanAction,
+} from "@/lib/dashboard-actions"
 
 function CurrencyFormInput({
   onChange,
@@ -95,7 +98,10 @@ export function ContributionPlanForm({
           startsAt: "",
         })
       } catch (error) {
-        showError("Could not save commitment", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save commitment",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -106,9 +112,11 @@ export function ContributionPlanForm({
         className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="md:col-span-2 flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 md:col-span-2">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">Set monthly commitment</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+              Set monthly commitment
+            </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Commitments are member-specific and can change over time.
             </p>
@@ -135,14 +143,14 @@ export function ContributionPlanForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Member</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="">Select a member</option>
                   {members.map((member) => (
                     <option key={member.id} value={member.id}>
                       {member.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -181,14 +189,20 @@ export function ContributionPlanForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Plan label</FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} placeholder="Monthly commitment" />
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="Monthly commitment"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">Save commitment plan</Button>
+          <Button disabled={isPending} type="submit">
+            Save commitment plan
+          </Button>
         </div>
       </form>
     </Form>
@@ -197,7 +211,9 @@ export function ContributionPlanForm({
 
 const memberPaymentSchema = z.object({
   channel: z.enum(["payroll", "transfer", "cash", "manual"]),
-  committedSavingsAmount: z.string().min(1, "Committed savings amount is required."),
+  committedSavingsAmount: z
+    .string()
+    .min(1, "Committed savings amount is required."),
   contributionPlanId: z.string().optional(),
   extraLoanPaymentAmount: z.string().optional(),
   extraSavingsAmount: z.string().optional(),
@@ -262,7 +278,10 @@ export function MemberPaymentForm({
           totalAmount: "",
         })
       } catch (error) {
-        showError("Could not record payment", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not record payment",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -273,11 +292,14 @@ export function MemberPaymentForm({
         className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="md:col-span-2 flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 md:col-span-2">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">Record member payment</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+              Record member payment
+            </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              One payment can include savings, scheduled loan servicing, and extra payoff.
+              One payment can include savings, scheduled loan servicing, and
+              extra payoff.
             </p>
           </div>
           {devMode ? (
@@ -304,14 +326,14 @@ export function MemberPaymentForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Member</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="">Select a member</option>
                   {members.map((member) => (
                     <option key={member.id} value={member.id}>
                       {member.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -324,14 +346,14 @@ export function MemberPaymentForm({
             <FormItem>
               <FormLabel>Commitment plan</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="">No linked plan</option>
                   {commitmentPlans.map((plan) => (
                     <option key={plan.id} value={plan.id}>
                       {plan.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -344,14 +366,14 @@ export function MemberPaymentForm({
             <FormItem>
               <FormLabel>Loan</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="">No loan allocation</option>
                   {loans.map((loan) => (
                     <option key={loan.id} value={loan.id}>
                       {loan.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -390,12 +412,12 @@ export function MemberPaymentForm({
             <FormItem>
               <FormLabel>Channel</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="payroll">Payroll</option>
                   <option value="transfer">Transfer</option>
                   <option value="cash">Cash</option>
                   <option value="manual">Manual</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -421,7 +443,11 @@ export function MemberPaymentForm({
             <FormItem>
               <FormLabel>Period label</FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} placeholder="April 2026" />
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="April 2026"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -434,14 +460,20 @@ export function MemberPaymentForm({
             <FormItem>
               <FormLabel>Reference</FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} placeholder="TRX-001" />
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="TRX-001"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">Record payment allocation</Button>
+          <Button disabled={isPending} type="submit">
+            Record payment allocation
+          </Button>
         </div>
       </form>
     </Form>
@@ -496,7 +528,10 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
           name: "",
         })
       } catch (error) {
-        showError("Could not create charge", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not create charge",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -507,54 +542,90 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
         className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="md:col-span-2 flex items-start justify-between gap-4">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">Create charge definition</h3>
+        <div className="flex items-start justify-between gap-4 md:col-span-2">
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            Create charge definition
+          </h3>
           {devMode ? (
-            <Button type="button" variant="outline" onClick={() => applyDashboardDevFormFill(form, "charge_definition")}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                applyDashboardDevFormFill(form, "charge_definition")
+              }
+            >
               Quick fill
             </Button>
           ) : null}
         </div>
-        <FormField control={form.control} name="name" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Name</FormLabel>
-            <FormControl><Input {...field} placeholder="Monthly Levy" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="code" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Code</FormLabel>
-            <FormControl><Input {...field} placeholder="LEVY-001" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="kind" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Kind</FormLabel>
-            <FormControl>
-              <Select {...field}>
-                <option value="fixed">Fixed</option>
-                <option value="percentage">Percentage</option>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="amount" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount</FormLabel>
-            <FormControl><CurrencyFormInput {...field} placeholder="2500" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="effectiveFrom" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Start date</FormLabel>
-            <FormControl><Input {...field} type="date" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Monthly Levy" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="code"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Code</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="LEVY-001" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="kind"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Kind</FormLabel>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="fixed">Fixed</option>
+                  <option value="percentage">Percentage</option>
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Amount</FormLabel>
+              <FormControl>
+                <CurrencyFormInput {...field} placeholder="2500" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="effectiveFrom"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Start date</FormLabel>
+              <FormControl>
+                <Input {...field} type="date" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         {[
           ["isMonthlyLevy", "Monthly levy"],
           ["appliesToMembers", "Applies to members"],
@@ -568,7 +639,12 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
             render={({ field }) => (
               <FormItem className="flex flex-row items-center gap-3">
                 <FormControl>
-                  <Checkbox checked={Boolean(field.value)} onChange={(event) => field.onChange(event.target.checked)} />
+                  <Checkbox
+                    checked={Boolean(field.value)}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
                 </FormControl>
                 <FormLabel>{label}</FormLabel>
               </FormItem>
@@ -576,7 +652,9 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
           />
         ))}
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">Create charge definition</Button>
+          <Button disabled={isPending} type="submit">
+            Create charge definition
+          </Button>
         </div>
       </form>
     </Form>
@@ -627,7 +705,10 @@ export function ChargeApplicationForm({
           notes: "",
         })
       } catch (error) {
-        showError("Could not apply charge", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not apply charge",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -638,8 +719,10 @@ export function ChargeApplicationForm({
         className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="md:col-span-2 flex items-start justify-between gap-4">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">Apply charge</h3>
+        <div className="flex items-start justify-between gap-4 md:col-span-2">
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            Apply charge
+          </h3>
           {devMode ? (
             <Button
               type="button"
@@ -655,61 +738,93 @@ export function ChargeApplicationForm({
             </Button>
           ) : null}
         </div>
-        <FormField control={form.control} name="chargeDefinitionId" render={({ field }) => (
-          <FormItem className="md:col-span-2">
-            <FormLabel>Charge definition</FormLabel>
-            <FormControl>
-              <Select {...field}>
-                <option value="">Select a charge definition</option>
-                {chargeDefinitions.map((charge) => (
-                  <option key={charge.id} value={charge.id}>
-                    {charge.label}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="memberId" render={({ field }) => (
-          <FormItem className="md:col-span-2">
-            <FormLabel>Member</FormLabel>
-            <FormControl>
-              <Select {...field}>
-                <option value="">Select a member</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.label}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="amount" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount</FormLabel>
-            <FormControl><CurrencyFormInput {...field} placeholder="2500" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="assessedAt" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Assessed date</FormLabel>
-            <FormControl><Input {...field} type="date" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="notes" render={({ field }) => (
-          <FormItem className="md:col-span-2">
-            <FormLabel>Notes</FormLabel>
-            <FormControl><Textarea {...field} value={field.value ?? ""} className="min-h-20" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="chargeDefinitionId"
+          render={({ field }) => (
+            <FormItem className="md:col-span-2">
+              <FormLabel>Charge definition</FormLabel>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="">Select a charge definition</option>
+                  {chargeDefinitions.map((charge) => (
+                    <option key={charge.id} value={charge.id}>
+                      {charge.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="memberId"
+          render={({ field }) => (
+            <FormItem className="md:col-span-2">
+              <FormLabel>Member</FormLabel>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="">Select a member</option>
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Amount</FormLabel>
+              <FormControl>
+                <CurrencyFormInput {...field} placeholder="2500" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="assessedAt"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Assessed date</FormLabel>
+              <FormControl>
+                <Input {...field} type="date" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem className="md:col-span-2">
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  value={field.value ?? ""}
+                  className="min-h-20"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">Apply charge</Button>
+          <Button disabled={isPending} type="submit">
+            Apply charge
+          </Button>
         </div>
       </form>
     </Form>
@@ -763,7 +878,10 @@ export function LoanRequestForm({
           requestedTermMonths: "",
         })
       } catch (error) {
-        showError("Could not submit loan request", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not submit loan request",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -774,11 +892,14 @@ export function LoanRequestForm({
         className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-6"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="xl:col-span-6 flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 xl:col-span-6">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">Submit loan request</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+              Submit loan request
+            </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Repayment duration drives the estimated servicing amount while extra monthly savings stays in the member account.
+              Repayment duration drives the estimated servicing amount while
+              extra monthly savings stays in the member account.
             </p>
           </div>
           {devMode ? (
@@ -796,68 +917,110 @@ export function LoanRequestForm({
             </Button>
           ) : null}
         </div>
-        <FormField control={form.control} name="memberId" render={({ field }) => (
-          <FormItem className="xl:col-span-2">
-            <FormLabel>Member</FormLabel>
-            <FormControl>
-              <Select {...field}>
-                <option value="">Select a member</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.label}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="loanProductId" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Product</FormLabel>
-            <FormControl>
-              <Select {...field}>
-                <option value="">Select a loan product</option>
-                {loanProducts.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.label}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="requestedAmount" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Requested amount</FormLabel>
-            <FormControl><CurrencyFormInput {...field} placeholder="150000" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="requestedTermMonths" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Repayment months</FormLabel>
-            <FormControl><Input {...field} inputMode="numeric" placeholder="12" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="extraMonthlySavingsAmount" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Extra monthly savings</FormLabel>
-            <FormControl><CurrencyFormInput {...field} value={field.value ?? ""} placeholder="5000" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="purpose" render={({ field }) => (
-          <FormItem className="xl:col-span-6">
-            <FormLabel>Purpose</FormLabel>
-            <FormControl><Textarea {...field} value={field.value ?? ""} className="min-h-20" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="memberId"
+          render={({ field }) => (
+            <FormItem className="xl:col-span-2">
+              <FormLabel>Member</FormLabel>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="">Select a member</option>
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="loanProductId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Product</FormLabel>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="">Select a loan product</option>
+                  {loanProducts.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="requestedAmount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Requested amount</FormLabel>
+              <FormControl>
+                <CurrencyFormInput {...field} placeholder="150000" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="requestedTermMonths"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Repayment months</FormLabel>
+              <FormControl>
+                <Input {...field} inputMode="numeric" placeholder="12" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="extraMonthlySavingsAmount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Extra monthly savings</FormLabel>
+              <FormControl>
+                <CurrencyFormInput
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="5000"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="purpose"
+          render={({ field }) => (
+            <FormItem className="xl:col-span-6">
+              <FormLabel>Purpose</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  value={field.value ?? ""}
+                  className="min-h-20"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="xl:col-span-6">
-          <Button disabled={isPending} type="submit">Submit loan request</Button>
+          <Button disabled={isPending} type="submit">
+            Submit loan request
+          </Button>
         </div>
       </form>
     </Form>
@@ -905,7 +1068,10 @@ export function RepaymentPostForm({
           repaymentScheduleItemId: "",
         })
       } catch (error) {
-        showError("Could not post repayment", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not post repayment",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -916,8 +1082,10 @@ export function RepaymentPostForm({
         className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-4"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="xl:col-span-4 flex items-start justify-between gap-4">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">Post repayment</h3>
+        <div className="flex items-start justify-between gap-4 xl:col-span-4">
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            Post repayment
+          </h3>
           {devMode ? (
             <Button
               type="button"
@@ -933,54 +1101,80 @@ export function RepaymentPostForm({
             </Button>
           ) : null}
         </div>
-        <FormField control={form.control} name="loanId" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Loan</FormLabel>
-            <FormControl>
-              <Select {...field}>
-                <option value="">Select a loan</option>
-                {loans.map((loan) => (
-                  <option key={loan.id} value={loan.id}>
-                    {loan.label}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="repaymentScheduleItemId" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Schedule item</FormLabel>
-            <FormControl>
-              <Select {...field}>
-                <option value="">No linked schedule item</option>
-                {scheduleItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="amount" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount</FormLabel>
-            <FormControl><CurrencyFormInput {...field} placeholder="25000" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="reference" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Reference</FormLabel>
-            <FormControl><Input {...field} value={field.value ?? ""} placeholder="PMT-001" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="loanId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Loan</FormLabel>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="">Select a loan</option>
+                  {loans.map((loan) => (
+                    <option key={loan.id} value={loan.id}>
+                      {loan.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="repaymentScheduleItemId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Schedule item</FormLabel>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="">No linked schedule item</option>
+                  {scheduleItems.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Amount</FormLabel>
+              <FormControl>
+                <CurrencyFormInput {...field} placeholder="25000" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="reference"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Reference</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="PMT-001"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="xl:col-span-4">
-          <Button disabled={isPending} type="submit">Post repayment</Button>
+          <Button disabled={isPending} type="submit">
+            Post repayment
+          </Button>
         </div>
       </form>
     </Form>
@@ -1001,17 +1195,24 @@ export function MemberPaymentPreferenceForm({
   defaultValues: PaymentPreferenceValues
   title: string
 }) {
-  const form = useZodForm<PaymentPreferenceValues>(paymentPreferenceSchema, { defaultValues })
+  const form = useZodForm<PaymentPreferenceValues>(paymentPreferenceSchema, {
+    defaultValues,
+  })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: PaymentPreferenceValues) {
     startTransition(async () => {
       try {
-        await updateMemberPaymentAllocationPreferenceAction(objectToFormData(values))
+        await updateMemberPaymentAllocationPreferenceAction(
+          objectToFormData(values)
+        )
         showSuccess("Preset saved", "Member payment preset updated.")
       } catch (error) {
-        showError("Could not save preset", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save preset",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -1031,18 +1232,25 @@ export function MemberPaymentPreferenceForm({
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="manual_split">Manual split</option>
                   <option value="savings_first">Savings first</option>
                   <option value="loan_first">Loan first</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
         <div className="flex items-center">
-          <Button disabled={isPending} size="sm" type="submit" variant="outline">Save preset</Button>
+          <Button
+            disabled={isPending}
+            size="sm"
+            type="submit"
+            variant="outline"
+          >
+            Save preset
+          </Button>
         </div>
       </form>
     </Form>
@@ -1062,7 +1270,10 @@ export function ContributionPlanUpdateForm({
 }: {
   defaultValues: ContributionPlanUpdateValues
 }) {
-  const form = useZodForm<ContributionPlanUpdateValues>(contributionPlanUpdateSchema, { defaultValues })
+  const form = useZodForm<ContributionPlanUpdateValues>(
+    contributionPlanUpdateSchema,
+    { defaultValues }
+  )
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
 
@@ -1072,27 +1283,47 @@ export function ContributionPlanUpdateForm({
         await updateContributionPlanAction(objectToFormData(values))
         showSuccess("Plan updated", "Commitment plan updated.")
       } catch (error) {
-        showError("Could not update plan", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not update plan",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
     <Form {...form}>
-      <form className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_auto]" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField control={form.control} name="name" render={({ field }) => (
-          <FormItem>
-            <FormControl><Input {...field} value={field.value ?? ""} /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="amount" render={({ field }) => (
-          <FormItem>
-            <FormControl><CurrencyFormInput {...field} /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <Button disabled={isPending} size="sm" type="submit" variant="outline">Update plan</Button>
+      <form
+        className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_auto]"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input {...field} value={field.value ?? ""} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <CurrencyFormInput {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button disabled={isPending} size="sm" type="submit" variant="outline">
+          Update plan
+        </Button>
       </form>
     </Form>
   )
@@ -1105,17 +1336,16 @@ const contributionPlanCloseSchema = z.object({
 
 type ContributionPlanCloseValues = z.infer<typeof contributionPlanCloseSchema>
 
-export function ContributionPlanCloseForm({
-  planId,
-}: {
-  planId: string
-}) {
-  const form = useZodForm<ContributionPlanCloseValues>(contributionPlanCloseSchema, {
-    defaultValues: {
-      endsAt: "",
-      planId,
-    },
-  })
+export function ContributionPlanCloseForm({ planId }: { planId: string }) {
+  const form = useZodForm<ContributionPlanCloseValues>(
+    contributionPlanCloseSchema,
+    {
+      defaultValues: {
+        endsAt: "",
+        planId,
+      },
+    }
+  )
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
 
@@ -1125,21 +1355,35 @@ export function ContributionPlanCloseForm({
         await closeContributionPlanAction(objectToFormData(values))
         showSuccess("Plan closed", "Commitment plan closed.")
       } catch (error) {
-        showError("Could not close plan", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not close plan",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
     <Form {...form}>
-      <form className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField control={form.control} name="endsAt" render={({ field }) => (
-          <FormItem>
-            <FormControl><Input {...field} type="date" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <Button disabled={isPending} size="sm" type="submit" variant="outline">Close plan</Button>
+      <form
+        className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <FormField
+          control={form.control}
+          name="endsAt"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input {...field} type="date" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button disabled={isPending} size="sm" type="submit" variant="outline">
+          Close plan
+        </Button>
       </form>
     </Form>
   )
@@ -1170,23 +1414,44 @@ export function LoanReviewForm({
     startTransition(async () => {
       try {
         await reviewLoanRequestAction(objectToFormData(values))
-        showSuccess("Review saved", `Loan request marked ${values.status.replace(/_/g, " ")}.`)
+        showSuccess(
+          "Review saved",
+          `Loan request marked ${values.status.replace(/_/g, " ")}.`
+        )
       } catch (error) {
-        showError("Could not save review", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save review",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
     <Form {...form}>
-      <form className="flex flex-wrap gap-2" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField control={form.control} name="notes" render={({ field }) => (
-          <FormItem>
-            <FormControl><Input {...field} value={field.value ?? ""} placeholder={`${label} note`} /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <Button disabled={isPending} size="xs" type="submit" variant={variant}>{label}</Button>
+      <form
+        className="flex flex-wrap gap-2"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder={`${label} note`}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button disabled={isPending} size="xs" type="submit" variant={variant}>
+          {label}
+        </Button>
       </form>
     </Form>
   )
@@ -1199,11 +1464,7 @@ const loanDisbursementSchema = z.object({
 
 type LoanDisbursementValues = z.infer<typeof loanDisbursementSchema>
 
-export function LoanDisbursementForm({
-  loanId,
-}: {
-  loanId: string
-}) {
+export function LoanDisbursementForm({ loanId }: { loanId: string }) {
   const form = useZodForm<LoanDisbursementValues>(loanDisbursementSchema, {
     defaultValues: {
       firstRepaymentDueAt: "",
@@ -1219,22 +1480,38 @@ export function LoanDisbursementForm({
         await disburseLoanAction(objectToFormData(values))
         showSuccess("Loan disbursed", "Loan disbursement posted.")
       } catch (error) {
-        showError("Could not disburse loan", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not disburse loan",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
     <Form {...form}>
-      <form className="flex flex-wrap items-end gap-3" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField control={form.control} name="firstRepaymentDueAt" render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-xs uppercase tracking-[0.18em] text-muted-foreground">First repayment due</FormLabel>
-            <FormControl><Input {...field} value={field.value ?? ""} type="date" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <Button disabled={isPending} size="xs" type="submit">Disburse loan</Button>
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <FormField
+          control={form.control}
+          name="firstRepaymentDueAt"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                First repayment due
+              </FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ""} type="date" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button disabled={isPending} size="xs" type="submit">
+          Disburse loan
+        </Button>
       </form>
     </Form>
   )
@@ -1294,7 +1571,10 @@ export function CollectionFollowUpForm({
           status: values.status,
         })
       } catch (error) {
-        showError("Could not save follow-up", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save follow-up",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -1305,87 +1585,129 @@ export function CollectionFollowUpForm({
         className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-[170px_170px_170px_170px_170px_minmax(0,1fr)_auto]"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <FormField control={form.control} name="status" render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <Select {...field}>
-                <option value="reminded">Reminded</option>
-                <option value="promise_to_pay">Promise to pay</option>
-                <option value="unreachable">Unreachable</option>
-                <option value="settled">Settled</option>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="caseStage" render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <Select {...field}>
-                <option value="active">Active</option>
-                <option value="promise_tracking">Promise tracking</option>
-                <option value="escalated">Escalated</option>
-                <option value="resolved">Resolved</option>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="priority" render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <Select {...field}>
-                <option value="low">Low priority</option>
-                <option value="normal">Normal priority</option>
-                <option value="high">High priority</option>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="resolutionStatus" render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <Select {...field}>
-                <option value="open">Open</option>
-                <option value="resolved">Resolved</option>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="assignedToUserId" render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <Select {...field}>
-                <option value="">Unassigned</option>
-                {assignees.map((assignee) => (
-                  <option key={assignee.id} value={assignee.id}>{assignee.label}</option>
-                ))}
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="nextActionAt" render={({ field }) => (
-          <FormItem>
-            <FormControl><Input {...field} value={field.value ?? ""} type="date" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="promiseToPayAt" render={({ field }) => (
-          <FormItem>
-            <FormControl><Input {...field} value={field.value ?? ""} type="date" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="note" render={({ field }) => (
-          <FormItem>
-            <FormControl><Input {...field} placeholder="Follow-up note" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <Button disabled={isPending} size="sm" type="submit" variant="outline">Save follow-up</Button>
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="reminded">Reminded</option>
+                  <option value="promise_to_pay">Promise to pay</option>
+                  <option value="unreachable">Unreachable</option>
+                  <option value="settled">Settled</option>
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="caseStage"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="active">Active</option>
+                  <option value="promise_tracking">Promise tracking</option>
+                  <option value="escalated">Escalated</option>
+                  <option value="resolved">Resolved</option>
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="priority"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="low">Low priority</option>
+                  <option value="normal">Normal priority</option>
+                  <option value="high">High priority</option>
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="resolutionStatus"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="open">Open</option>
+                  <option value="resolved">Resolved</option>
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="assignedToUserId"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <NativeSelect {...field}>
+                  <option value="">Unassigned</option>
+                  {assignees.map((assignee) => (
+                    <option key={assignee.id} value={assignee.id}>
+                      {assignee.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="nextActionAt"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input {...field} value={field.value ?? ""} type="date" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="promiseToPayAt"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input {...field} value={field.value ?? ""} type="date" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="note"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input {...field} placeholder="Follow-up note" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button disabled={isPending} size="sm" type="submit" variant="outline">
+          Save follow-up
+        </Button>
       </form>
     </Form>
   )

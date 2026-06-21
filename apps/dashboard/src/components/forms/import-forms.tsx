@@ -85,41 +85,91 @@ export function DashboardImportForms({
     <div className="space-y-8">
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">Foundation imports</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            Foundation imports
+          </h3>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
             Start with cooperative records that other migrations depend on.
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-3">
-          <CsvImportCard availability={importAvailability.members} batches={batches} devMode={devMode} importKind="members" referenceData={referenceData} />
-          <CsvImportCard availability={importAvailability.deduction_sources} batches={batches} devMode={devMode} importKind="deduction_sources" referenceData={referenceData} />
-          <CsvImportCard availability={importAvailability.loan_products} batches={batches} devMode={devMode} importKind="loan_products" referenceData={referenceData} />
+          <CsvImportCard
+            availability={importAvailability.members}
+            batches={batches}
+            devMode={devMode}
+            importKind="members"
+            referenceData={referenceData}
+          />
+          <CsvImportCard
+            availability={importAvailability.deduction_sources}
+            batches={batches}
+            devMode={devMode}
+            importKind="deduction_sources"
+            referenceData={referenceData}
+          />
+          <CsvImportCard
+            availability={importAvailability.loan_products}
+            batches={batches}
+            devMode={devMode}
+            importKind="loan_products"
+            referenceData={referenceData}
+          />
         </div>
       </section>
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">Record imports</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            Record imports
+          </h3>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Bring in historical savings and charge activity after the base registry is ready.
+            Bring in historical savings and charge activity after the base
+            registry is ready.
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
-          <CsvImportCard availability={importAvailability.contributions} batches={batches} devMode={devMode} importKind="contributions" referenceData={referenceData} />
-          <CsvImportCard availability={importAvailability.charges} batches={batches} devMode={devMode} importKind="charges" referenceData={referenceData} />
+          <CsvImportCard
+            availability={importAvailability.contributions}
+            batches={batches}
+            devMode={devMode}
+            importKind="contributions"
+            referenceData={referenceData}
+          />
+          <CsvImportCard
+            availability={importAvailability.charges}
+            batches={batches}
+            devMode={devMode}
+            importKind="charges"
+            referenceData={referenceData}
+          />
         </div>
       </section>
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">Migration imports</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            Migration imports
+          </h3>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Use these when moving an existing cooperative loan book into the platform.
+            Use these when moving an existing cooperative loan book into the
+            platform.
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
-          <CsvImportCard availability={importAvailability.loan_migrations} batches={batches} devMode={devMode} importKind="loan_migrations" referenceData={referenceData} />
-          <CsvImportCard availability={importAvailability.repayment_migrations} batches={batches} devMode={devMode} importKind="repayment_migrations" referenceData={referenceData} />
+          <CsvImportCard
+            availability={importAvailability.loan_migrations}
+            batches={batches}
+            devMode={devMode}
+            importKind="loan_migrations"
+            referenceData={referenceData}
+          />
+          <CsvImportCard
+            availability={importAvailability.repayment_migrations}
+            batches={batches}
+            devMode={devMode}
+            importKind="repayment_migrations"
+            referenceData={referenceData}
+          />
         </div>
       </section>
     </div>
@@ -192,7 +242,10 @@ function CsvImportCard({
     let existingMatchCount = 0
 
     preview.rows.forEach((row) => {
-      const primaryValue = getDashboardImportPrimaryValue(importKind, row as Record<string, unknown>)
+      const primaryValue = getDashboardImportPrimaryValue(
+        importKind,
+        row as Record<string, unknown>
+      )
       if (primaryValue) {
         if (seen.has(primaryValue)) {
           duplicates.add(primaryValue)
@@ -201,7 +254,13 @@ function CsvImportCard({
         }
       }
 
-      if (getDashboardImportExistingMatches(importKind, referenceData, row as Record<string, unknown>)) {
+      if (
+        getDashboardImportExistingMatches(
+          importKind,
+          referenceData,
+          row as Record<string, unknown>
+        )
+      ) {
         existingMatchCount += 1
       }
     })
@@ -217,24 +276,48 @@ function CsvImportCard({
     startTransition(async () => {
       try {
         if (isLocked) {
-          throw new Error(availability.blockedReason ?? "This import is currently locked.")
+          throw new Error(
+            availability.blockedReason ?? "This import is currently locked."
+          )
         }
 
-        if (preview.ok && reconciliation.existingMatchCount > 0 && !values.confirmExistingMatches) {
-          throw new Error("Review the rows that will update existing workspace records and confirm before importing.")
+        if (
+          preview.ok &&
+          reconciliation.existingMatchCount > 0 &&
+          !values.confirmExistingMatches
+        ) {
+          throw new Error(
+            "Review the rows that will update existing workspace records and confirm before importing."
+          )
         }
 
-        if (preview.ok && reconciliation.duplicateCount > 0 && !values.confirmInFileDuplicates) {
-          throw new Error("Remove or intentionally confirm in-file duplicates before importing.")
+        if (
+          preview.ok &&
+          reconciliation.duplicateCount > 0 &&
+          !values.confirmInFileDuplicates
+        ) {
+          throw new Error(
+            "Remove or intentionally confirm in-file duplicates before importing."
+          )
         }
 
         if (values.importConfirmation !== "IMPORT NOW") {
-          throw new Error("Type IMPORT NOW to run a direct import without staging.")
+          throw new Error(
+            "Type IMPORT NOW to run a direct import without staging."
+          )
         }
 
         const action = importActionMap[importKind]
-        await action(objectToFormData({ confirmation: values.importConfirmation, csvText: values.csvText }))
-        showSuccess(`${config.title} imported`, `${preview.ok ? preview.rows.length : 0} rows processed successfully.`)
+        await action(
+          objectToFormData({
+            confirmation: values.importConfirmation,
+            csvText: values.csvText,
+          })
+        )
+        showSuccess(
+          `${config.title} imported`,
+          `${preview.ok ? preview.rows.length : 0} rows processed successfully.`
+        )
         form.reset({
           confirmExistingMatches: false,
           confirmInFileDuplicates: false,
@@ -244,7 +327,7 @@ function CsvImportCard({
       } catch (error) {
         showError(
           `Could not import ${config.title.toLowerCase()}`,
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -254,15 +337,22 @@ function CsvImportCard({
     startStagingTransition(async () => {
       try {
         if (isLocked) {
-          throw new Error(availability.blockedReason ?? "This import is currently locked.")
+          throw new Error(
+            availability.blockedReason ?? "This import is currently locked."
+          )
         }
 
-        await stageImportBatchAction(objectToFormData({ csvText: values.csvText, importKind }))
-        showSuccess(`${config.title} staged`, "Import batch saved for later review and apply.")
+        await stageImportBatchAction(
+          objectToFormData({ csvText: values.csvText, importKind })
+        )
+        showSuccess(
+          `${config.title} staged`,
+          "Import batch saved for later review and apply."
+        )
       } catch (error) {
         showError(
           `Could not stage ${config.title.toLowerCase()}`,
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -274,8 +364,12 @@ function CsvImportCard({
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h4 className="text-lg font-semibold tracking-tight text-foreground">{config.title}</h4>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">{config.description}</p>
+              <h4 className="text-lg font-semibold tracking-tight text-foreground">
+                {config.title}
+              </h4>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                {config.description}
+              </p>
             </div>
             <div className="flex shrink-0 flex-wrap justify-end gap-2">
               <Button
@@ -358,11 +452,29 @@ function CsvImportCard({
 
           <div className="rounded-[1.25rem] border border-border/60 bg-muted/30 p-4">
             <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-              <span>{preview.headers.length > 0 ? `${preview.headers.length} columns` : "No headers yet"}</span>
-              <span>{preview.previewRows.length > 0 ? `${preview.previewRows.length} preview rows` : "No preview rows"}</span>
-              <span>{preview.ok ? `${preview.rows.length} valid rows` : `${preview.errors.length} validation issues`}</span>
-              {preview.ok ? <span>{reconciliation.existingMatchCount} existing matches</span> : null}
-              {preview.ok ? <span>{reconciliation.duplicateCount} in-file duplicates</span> : null}
+              <span>
+                {preview.headers.length > 0
+                  ? `${preview.headers.length} columns`
+                  : "No headers yet"}
+              </span>
+              <span>
+                {preview.previewRows.length > 0
+                  ? `${preview.previewRows.length} preview rows`
+                  : "No preview rows"}
+              </span>
+              <span>
+                {preview.ok
+                  ? `${preview.rows.length} valid rows`
+                  : `${preview.errors.length} validation issues`}
+              </span>
+              {preview.ok ? (
+                <span>
+                  {reconciliation.existingMatchCount} existing matches
+                </span>
+              ) : null}
+              {preview.ok ? (
+                <span>{reconciliation.duplicateCount} in-file duplicates</span>
+              ) : null}
             </div>
 
             {preview.headers.length > 0 ? (
@@ -398,7 +510,10 @@ function CsvImportCard({
             {preview.ok ? (
               <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
                 <p>
-                  Existing matches in workspace: {reconciliation.existingMatchCount}. Matching keys will be updated or linked where the import path supports idempotent upserts.
+                  Existing matches in workspace:{" "}
+                  {reconciliation.existingMatchCount}. Matching keys will be
+                  updated or linked where the import path supports idempotent
+                  upserts.
                 </p>
                 <p>
                   In-file duplicates: {reconciliation.duplicateCount}
@@ -410,9 +525,13 @@ function CsvImportCard({
             ) : null}
           </div>
 
-          {preview.ok && (reconciliation.existingMatchCount > 0 || reconciliation.duplicateCount > 0) ? (
+          {preview.ok &&
+          (reconciliation.existingMatchCount > 0 ||
+            reconciliation.duplicateCount > 0) ? (
             <div className="space-y-3 rounded-[1.25rem] border border-border/60 bg-background/80 p-4">
-              <p className="text-sm font-medium text-foreground">Import review gate</p>
+              <p className="text-sm font-medium text-foreground">
+                Import review gate
+              </p>
               {reconciliation.existingMatchCount > 0 ? (
                 <FormField
                   control={form.control}
@@ -420,10 +539,18 @@ function CsvImportCard({
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-start gap-3 space-y-0">
                       <FormControl>
-                        <Checkbox checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(checked) =>
+                            field.onChange(checked === true)
+                          }
+                        />
                       </FormControl>
                       <div className="space-y-1">
-                        <FormLabel>I reviewed the {reconciliation.existingMatchCount} rows that will match existing workspace records.</FormLabel>
+                        <FormLabel>
+                          I reviewed the {reconciliation.existingMatchCount}{" "}
+                          rows that will match existing workspace records.
+                        </FormLabel>
                         <FormMessage />
                       </div>
                     </FormItem>
@@ -437,10 +564,18 @@ function CsvImportCard({
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-start gap-3 space-y-0">
                       <FormControl>
-                        <Checkbox checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(checked) =>
+                            field.onChange(checked === true)
+                          }
+                        />
                       </FormControl>
                       <div className="space-y-1">
-                        <FormLabel>I understand this file contains duplicate keys and want to continue anyway.</FormLabel>
+                        <FormLabel>
+                          I understand this file contains duplicate keys and
+                          want to continue anyway.
+                        </FormLabel>
                         <FormMessage />
                       </div>
                     </FormItem>
@@ -452,7 +587,8 @@ function CsvImportCard({
 
           {latestBatch ? (
             <div className="rounded-[1.25rem] border border-border/60 bg-background/80 p-4 text-xs text-muted-foreground">
-              Latest staged batch: {latestBatch.status} · {latestBatch.validRows}/{latestBatch._count.rows} rows ·{" "}
+              Latest staged batch: {latestBatch.status} ·{" "}
+              {latestBatch.validRows}/{latestBatch._count.rows} rows ·{" "}
               {latestBatch.createdAt.toISOString().slice(0, 10)}
             </div>
           ) : null}
@@ -479,7 +615,8 @@ function CsvImportCard({
 
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs leading-6 text-muted-foreground">
-              Stage a valid file for later review, or type the direct import confirmation to post immediately.
+              Stage a valid file for later review, or type the direct import
+              confirmation to post immediately.
             </p>
             <div className="flex gap-2">
               <StageBatchButton
@@ -489,8 +626,10 @@ function CsvImportCard({
                   isLocked ||
                   !preview.ok ||
                   preview.rows.length === 0 ||
-                  (reconciliation.existingMatchCount > 0 && !confirmedExistingMatches) ||
-                  (reconciliation.duplicateCount > 0 && !confirmedInFileDuplicates)
+                  (reconciliation.existingMatchCount > 0 &&
+                    !confirmedExistingMatches) ||
+                  (reconciliation.duplicateCount > 0 &&
+                    !confirmedInFileDuplicates)
                 }
                 onStage={() => onStageBatch(form.getValues())}
               />
@@ -502,8 +641,10 @@ function CsvImportCard({
                   !preview.ok ||
                   preview.rows.length === 0 ||
                   importConfirmation !== "IMPORT NOW" ||
-                  (reconciliation.existingMatchCount > 0 && !confirmedExistingMatches) ||
-                  (reconciliation.duplicateCount > 0 && !confirmedInFileDuplicates)
+                  (reconciliation.existingMatchCount > 0 &&
+                    !confirmedExistingMatches) ||
+                  (reconciliation.duplicateCount > 0 &&
+                    !confirmedInFileDuplicates)
                 }
                 type="submit"
               >
@@ -525,7 +666,12 @@ function StageBatchButton({
   onStage: () => void
 }) {
   return (
-    <Button disabled={disabled} onClick={onStage} type="button" variant="outline">
+    <Button
+      disabled={disabled}
+      onClick={onStage}
+      type="button"
+      variant="outline"
+    >
       Stage batch
     </Button>
   )

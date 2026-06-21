@@ -15,7 +15,11 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import { InputGroup, InputGroupInput, InputGroupText } from "@halaalvest/ui/components/input-group"
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupText,
+} from "@halaalvest/ui/components/input-group"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { objectToFormData } from "@/lib/form-submit"
@@ -70,25 +74,61 @@ const membershipApprovalSchema = z
     const topup = Number(values.loanTopupAmount ?? "0")
 
     if (!values.loanStartDate) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Loan start date is required.", path: ["loanStartDate"] })
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Loan start date is required.",
+        path: ["loanStartDate"],
+      })
     }
     if (!values.loanAmount || Number.isNaN(amount) || amount <= 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Loan amount must be greater than 0.", path: ["loanAmount"] })
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Loan amount must be greater than 0.",
+        path: ["loanAmount"],
+      })
     }
-    if (!values.loanMonthlyCommitment || Number.isNaN(monthly) || monthly <= 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Monthly servicing must be greater than 0.", path: ["loanMonthlyCommitment"] })
+    if (
+      !values.loanMonthlyCommitment ||
+      Number.isNaN(monthly) ||
+      monthly <= 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Monthly servicing must be greater than 0.",
+        path: ["loanMonthlyCommitment"],
+      })
     }
-    if (!values.loanPaymentMonths || !Number.isInteger(paymentMonths) || paymentMonths <= 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Payment months must be greater than 0.", path: ["loanPaymentMonths"] })
+    if (
+      !values.loanPaymentMonths ||
+      !Number.isInteger(paymentMonths) ||
+      paymentMonths <= 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Payment months must be greater than 0.",
+        path: ["loanPaymentMonths"],
+      })
     }
     if (values.loanTopupAmount && (Number.isNaN(topup) || topup < 0)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Topup amount cannot be negative.", path: ["loanTopupAmount"] })
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Topup amount cannot be negative.",
+        path: ["loanTopupAmount"],
+      })
     }
     if (Number.isNaN(served) || served < 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Served amount cannot be negative.", path: ["loanServed"] })
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Served amount cannot be negative.",
+        path: ["loanServed"],
+      })
     }
     if (!Number.isNaN(amount) && !Number.isNaN(served) && served > amount) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Served amount cannot be more than the loan amount.", path: ["loanServed"] })
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Served amount cannot be more than the loan amount.",
+        path: ["loanServed"],
+      })
     }
   })
 
@@ -123,7 +163,12 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
   const pendingAmount = Math.max(0, loanAmount - loanServed)
   const totalMonthlyDeduction = loanMonthlyCommitment + loanTopupAmount
   const estimatedEndMonth = useMemo(() => {
-    if (!hasServingLoan || !loanStartDate || !loanPaymentMonths || pendingAmount <= 0) {
+    if (
+      !hasServingLoan ||
+      !loanStartDate ||
+      !loanPaymentMonths ||
+      pendingAmount <= 0
+    ) {
       return null
     }
 
@@ -137,27 +182,48 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
     })
   }, [hasServingLoan, loanPaymentMonths, loanStartDate, pendingAmount])
 
-  function calculateMonthlyService(amount: string | number, served: string | number, paymentMonths: string | number) {
+  function calculateMonthlyService(
+    amount: string | number,
+    served: string | number,
+    paymentMonths: string | number
+  ) {
     const principalAmount = Number(amount || 0)
     const amountServed = Number(served || 0)
     const months = Number(paymentMonths || 0)
 
-    if (!Number.isFinite(principalAmount) || !Number.isFinite(amountServed) || !Number.isInteger(months) || months <= 0) {
+    if (
+      !Number.isFinite(principalAmount) ||
+      !Number.isFinite(amountServed) ||
+      !Number.isInteger(months) ||
+      months <= 0
+    ) {
       return ""
     }
 
-    return String(Number((Math.max(0, principalAmount - amountServed) / months).toFixed(2)))
+    return String(
+      Number((Math.max(0, principalAmount - amountServed) / months).toFixed(2))
+    )
   }
 
-  function updateCalculatedMonthlyService(nextValues: Partial<Pick<MembershipApprovalValues, "loanAmount" | "loanPaymentMonths" | "loanServed">>) {
+  function updateCalculatedMonthlyService(
+    nextValues: Partial<
+      Pick<
+        MembershipApprovalValues,
+        "loanAmount" | "loanPaymentMonths" | "loanServed"
+      >
+    >
+  ) {
     const monthlyService = calculateMonthlyService(
       nextValues.loanAmount ?? form.getValues("loanAmount") ?? "",
       nextValues.loanServed ?? form.getValues("loanServed") ?? "",
-      nextValues.loanPaymentMonths ?? form.getValues("loanPaymentMonths") ?? "",
+      nextValues.loanPaymentMonths ?? form.getValues("loanPaymentMonths") ?? ""
     )
 
     if (monthlyService) {
-      form.setValue("loanMonthlyCommitment", monthlyService, { shouldDirty: true, shouldValidate: true })
+      form.setValue("loanMonthlyCommitment", monthlyService, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
     }
   }
 
@@ -167,7 +233,10 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
         await approveMemberOnboardingAction(objectToFormData(values))
         showSuccess("Member approved", "The member now has dashboard access.")
       } catch (error) {
-        showError("Could not approve member", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not approve member",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -177,11 +246,20 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
       try {
         const values = form.getValues()
         await rejectMemberOnboardingAction(
-          objectToFormData({ requestId: values.requestId, reason: values.reason }),
+          objectToFormData({
+            requestId: values.requestId,
+            reason: values.reason,
+          })
         )
-        showSuccess("Request rejected", "The applicant was updated with the rejection status.")
+        showSuccess(
+          "Request rejected",
+          "The applicant was updated with the rejection status."
+        )
       } catch (error) {
-        showError("Could not reject request", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not reject request",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -191,8 +269,13 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
       <form className="space-y-6" onSubmit={form.handleSubmit(onApprove)}>
         <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4">
           <div className="mb-4">
-            <h3 className="text-base font-semibold text-foreground">Approval metadata</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Confirm the member’s existing balance and monthly cooperative commitments before approval.</p>
+            <h3 className="text-base font-semibold text-foreground">
+              Approval metadata
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Confirm the member’s existing balance and monthly cooperative
+              commitments before approval.
+            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -232,11 +315,19 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
             render={({ field }) => (
               <FormItem className="flex flex-row items-start gap-3 space-y-0">
                 <FormControl>
-                  <Checkbox checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
                 </FormControl>
                 <div className="space-y-1">
                   <FormLabel>Serving loan</FormLabel>
-                  <p className="text-sm text-muted-foreground">Seed an active loan snapshot with separate repayment and savings topup amounts.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Seed an active loan snapshot with separate repayment and
+                    savings topup amounts.
+                  </p>
                   <FormMessage />
                 </div>
               </FormItem>
@@ -294,7 +385,9 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
                           type="number"
                           onChange={(event) => {
                             field.onChange(event)
-                            updateCalculatedMonthlyService({ loanPaymentMonths: event.target.value })
+                            updateCalculatedMonthlyService({
+                              loanPaymentMonths: event.target.value,
+                            })
                           }}
                         />
                         <InputGroupText>months</InputGroupText>
@@ -344,26 +437,48 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
                   <FormItem>
                     <FormLabel>Topup amount</FormLabel>
                     <FormControl>
-                      <CurrencyFormInput {...field} value={field.value ?? ""} placeholder="5000" />
+                      <CurrencyFormInput
+                        {...field}
+                        value={field.value ?? ""}
+                        placeholder="5000"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="md:col-span-2 xl:col-span-5 grid gap-3 rounded-[1.25rem] border border-border/60 bg-muted/25 p-4 sm:grid-cols-3">
+              <div className="grid gap-3 rounded-[1.25rem] border border-border/60 bg-muted/25 p-4 sm:grid-cols-3 md:col-span-2 xl:col-span-5">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Pending</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{Number.isFinite(pendingAmount) ? pendingAmount.toLocaleString() : "0"}</p>
+                  <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                    Pending
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {Number.isFinite(pendingAmount)
+                      ? pendingAmount.toLocaleString()
+                      : "0"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Total monthly</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{Number.isFinite(totalMonthlyDeduction) ? totalMonthlyDeduction.toLocaleString() : "0"}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Loan service + topup to member savings</p>
+                  <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                    Total monthly
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {Number.isFinite(totalMonthlyDeduction)
+                      ? totalMonthlyDeduction.toLocaleString()
+                      : "0"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Loan service + topup to member savings
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Estimated end month</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{estimatedEndMonth ?? "Waiting for loan inputs"}</p>
+                  <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                    Estimated end month
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {estimatedEndMonth ?? "Waiting for loan inputs"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -378,7 +493,11 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
               <FormItem>
                 <FormLabel>Rejection reason</FormLabel>
                 <FormControl>
-                  <Textarea {...field} value={field.value ?? ""} placeholder="Optional reason if you need to reject this request." />
+                  <Textarea
+                    {...field}
+                    value={field.value ?? ""}
+                    placeholder="Optional reason if you need to reject this request."
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -387,7 +506,11 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button disabled={isApproving} type="submit" className="rounded-full px-5">
+          <Button
+            disabled={isApproving}
+            type="submit"
+            className="rounded-full px-5"
+          >
             Approve member
           </Button>
           <Button

@@ -49,38 +49,57 @@ export function Toaster() {
 
   return (
     <ToastProvider>
-      {toasts.map(({ id, title, description, progress = 0, action, footer, ...props }) => (
-        <Toast key={id} {...props} className="flex flex-col">
-          <div className="flex w-full">
-            <div className="w-full justify-center space-y-2">
-              <div className="flex justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  {props.variant ? (
-                    <div className="flex size-5 shrink-0 items-center">
-                      <ToastIcon variant={props.variant} />
-                    </div>
+      {toasts.map(
+        ({
+          id,
+          title,
+          description,
+          progress = 0,
+          action,
+          footer,
+          ...props
+        }) => (
+          <Toast key={id} {...props} className="flex flex-col">
+            <div className="flex w-full">
+              <div className="w-full justify-center space-y-2">
+                <div className="flex justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {props.variant ? (
+                      <div className="flex size-5 shrink-0 items-center">
+                        <ToastIcon variant={props.variant} />
+                      </div>
+                    ) : null}
+                    {title ? <ToastTitle>{title}</ToastTitle> : null}
+                  </div>
+
+                  {props.variant === "progress" ? (
+                    <span className="shrink-0 text-sm text-muted-foreground">
+                      {progress}%
+                    </span>
                   ) : null}
-                  {title ? <ToastTitle>{title}</ToastTitle> : null}
                 </div>
 
                 {props.variant === "progress" ? (
-                  <span className="shrink-0 text-sm text-muted-foreground">{progress}%</span>
+                  <Progress
+                    value={progress}
+                    className="w-full rounded-none [&_[data-slot=progress-track]]:h-[3px] [&_[data-slot=progress-track]]:rounded-none"
+                  />
+                ) : null}
+
+                {description ? (
+                  <ToastDescription>{description}</ToastDescription>
                 ) : null}
               </div>
-
-              {props.variant === "progress" ? (
-                <Progress value={progress} className="w-full rounded-none [&_[data-slot=progress-track]]:h-[3px] [&_[data-slot=progress-track]]:rounded-none" />
-              ) : null}
-
-              {description ? <ToastDescription>{description}</ToastDescription> : null}
+              {action}
+              <ToastClose />
             </div>
-            {action}
-            <ToastClose />
-          </div>
 
-          {footer ? <div className="flex w-full justify-end">{footer}</div> : null}
-        </Toast>
-      ))}
+            {footer ? (
+              <div className="flex w-full justify-end">{footer}</div>
+            ) : null}
+          </Toast>
+        )
+      )}
       <ToastViewport />
     </ToastProvider>
   )

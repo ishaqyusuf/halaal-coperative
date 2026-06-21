@@ -64,6 +64,7 @@ This file records completed work and important outcomes.
 - 2026-05-01: Refactored the members page search/filter architecture toward the Midday invoice search-filter pattern by introducing `components/search-filter`, moving member page widgets into `components/members`, preserving URL/server filter behavior, improving filter labels, and documenting the updated folder ownership.
 
 ### Add automatic local database readiness to dev starters
+
 - Priority: Medium
 - Description: Track plan in `brain/plans/2026-06-20-feature-automatic-local-database-readiness-for-dev-starters.md`.
 - Related Feature: Automatic Local Database Readiness for Dev Starters
@@ -71,3 +72,13 @@ This file records completed work and important outcomes.
 - Plan Status: Done
 - Plan File: brain/plans/2026-06-20-feature-automatic-local-database-readiness-for-dev-starters.md
 - Created Date: 2026-06-20
+
+### Add Midday Finance Secondary Menu
+
+- Priority: Medium
+- Description: Track plan in `brain/plans/2026-06-21-feature-midday-finance-secondary-menu.md`.
+- Related Feature: Midday Finance Secondary Menu
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-06-21-feature-midday-finance-secondary-menu.md
+- Created Date: 2026-06-21

@@ -13,7 +13,7 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import { Select } from "@halaalvest/ui/components/select"
+import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import {
@@ -57,11 +57,7 @@ type MemberSignupLinkView = {
   signupUrl: string
 }
 
-function AccessModeForm({
-  defaultMode,
-}: {
-  defaultMode: SignupAccessMode
-}) {
+function AccessModeForm({ defaultMode }: { defaultMode: SignupAccessMode }) {
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const form = useZodForm<z.infer<typeof accessModeSchema>>(accessModeSchema, {
@@ -80,25 +76,34 @@ function AccessModeForm({
           "Signup access updated",
           values.memberSignupAccessMode === "public"
             ? "Member signup is now open to the public on this tenant host."
-            : "Member signup is now restricted to in-office use unless a staff link is issued.",
+            : "Member signup is now restricted to in-office use unless a staff link is issued."
         )
       } catch (error) {
         showError(
           "Could not update signup access",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
   }
 
   return (
-    <section id="signup-access-mode" className="rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm">
+    <section
+      id="signup-access-mode"
+      className="rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm"
+    >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Access mode</p>
-          <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">Member signup gate</h3>
+          <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+            Access mode
+          </p>
+          <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">
+            Member signup gate
+          </h3>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            `In-office` blocks public signup unless the applicant uses a valid staff-issued link. `Public` keeps the signup page open without a token.
+            `In-office` blocks public signup unless the applicant uses a valid
+            staff-issued link. `Public` keeps the signup page open without a
+            token.
           </p>
         </div>
         <Form {...form}>
@@ -113,10 +118,10 @@ function AccessModeForm({
                 <FormItem className="min-w-[220px]">
                   <FormLabel className="sr-only">Access mode</FormLabel>
                   <FormControl>
-                    <Select {...field}>
+                    <NativeSelect {...field}>
                       <option value="in_office">In-office only</option>
                       <option value="public">Public signup</option>
-                    </Select>
+                    </NativeSelect>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -153,24 +158,35 @@ function CreateLinkForm() {
         formData.set("maxSignups", values.maxSignups ?? "")
         formData.set("notes", values.notes ?? "")
         await createMemberSignupLinkAction(formData)
-        showSuccess("Signup link created", "A new member signup link is now available below.")
+        showSuccess(
+          "Signup link created",
+          "A new member signup link is now available below."
+        )
         form.reset()
       } catch (error) {
         showError(
           "Could not create signup link",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
   }
 
   return (
-    <section id="create-signup-link" className="rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm">
+    <section
+      id="create-signup-link"
+      className="rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm"
+    >
       <div className="mb-4">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Generator</p>
-        <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">Create a staff signup link</h3>
+        <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+          Generator
+        </p>
+        <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">
+          Create a staff signup link
+        </h3>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Generate a controlled signup URL for remote applicants when public signup is closed.
+          Generate a controlled signup URL for remote applicants when public
+          signup is closed.
         </p>
       </div>
       <Form {...form}>
@@ -209,7 +225,11 @@ function CreateLinkForm() {
                 <FormItem>
                   <FormLabel>Maximum signups</FormLabel>
                   <FormControl>
-                    <Input {...field} inputMode="numeric" placeholder="Optional" />
+                    <Input
+                      {...field}
+                      inputMode="numeric"
+                      placeholder="Optional"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -245,11 +265,7 @@ function CreateLinkForm() {
   )
 }
 
-function MemberSignupLinkCard({
-  link,
-}: {
-  link: MemberSignupLinkView
-}) {
+function MemberSignupLinkCard({ link }: { link: MemberSignupLinkView }) {
   const { showError, showSuccess } = useNotifications()
   const [isSaving, startSaveTransition] = useTransition()
   const [isRotating, startRotateTransition] = useTransition()
@@ -277,7 +293,7 @@ function MemberSignupLinkCard({
       } catch (error) {
         showError(
           "Could not save signup link",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -292,12 +308,12 @@ function MemberSignupLinkCard({
         await toggleMemberSignupLinkAction(formData)
         showSuccess(
           link.isEnabled ? "Signup link disabled" : "Signup link enabled",
-          `${link.name} is now ${link.isEnabled ? "disabled" : "enabled"}.`,
+          `${link.name} is now ${link.isEnabled ? "disabled" : "enabled"}.`
         )
       } catch (error) {
         showError(
           "Could not update signup link",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -309,11 +325,14 @@ function MemberSignupLinkCard({
         const formData = new FormData()
         formData.set("linkId", link.id)
         await rotateMemberSignupLinkAction(formData)
-        showSuccess("Signup link regenerated", "The previous token is now invalid.")
+        showSuccess(
+          "Signup link regenerated",
+          "The previous token is now invalid."
+        )
       } catch (error) {
         showError(
           "Could not regenerate signup link",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -322,9 +341,15 @@ function MemberSignupLinkCard({
   async function onCopy() {
     try {
       await navigator.clipboard.writeText(link.signupUrl)
-      showSuccess("Signup link copied", "The full signup URL is now in your clipboard.")
+      showSuccess(
+        "Signup link copied",
+        "The full signup URL is now in your clipboard."
+      )
     } catch {
-      showError("Could not copy signup link", "Copy the link manually from the field.")
+      showError(
+        "Could not copy signup link",
+        "Copy the link manually from the field."
+      )
     }
   }
 
@@ -333,44 +358,56 @@ function MemberSignupLinkCard({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-lg font-semibold tracking-tight text-foreground">{link.name}</p>
-            <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${link.isEnabled ? "bg-emerald-100 text-emerald-900" : "bg-muted text-muted-foreground"}`}>
+            <p className="text-lg font-semibold tracking-tight text-foreground">
+              {link.name}
+            </p>
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${link.isEnabled ? "bg-emerald-100 text-emerald-900" : "bg-muted text-muted-foreground"}`}
+            >
               {link.isEnabled ? "Enabled" : "Disabled"}
             </span>
           </div>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Created on {link.createdAt}. {link.lastUsedAt ? `Last used on ${link.lastUsedAt}.` : "Not used yet."}
+            Created on {link.createdAt}.{" "}
+            {link.lastUsedAt
+              ? `Last used on ${link.lastUsedAt}.`
+              : "Not used yet."}
           </p>
         </div>
 
         <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 xl:min-w-[360px]">
           <div className="rounded-2xl border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs uppercase tracking-[0.16em]">Signups</p>
-            <p className="mt-2 text-xl font-semibold text-foreground">{link.analytics.totalRequests}</p>
-          </div>
-          <div className="rounded-2xl border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs uppercase tracking-[0.16em]">Remaining</p>
+            <p className="text-xs tracking-[0.16em] uppercase">Signups</p>
             <p className="mt-2 text-xl font-semibold text-foreground">
-              {link.analytics.remainingSlots === null ? "Unlimited" : link.analytics.remainingSlots}
+              {link.analytics.totalRequests}
             </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs uppercase tracking-[0.16em]">Verified</p>
-            <p className="mt-2 text-xl font-semibold text-foreground">{link.analytics.verifiedCount}</p>
+            <p className="text-xs tracking-[0.16em] uppercase">Remaining</p>
+            <p className="mt-2 text-xl font-semibold text-foreground">
+              {link.analytics.remainingSlots === null
+                ? "Unlimited"
+                : link.analytics.remainingSlots}
+            </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs uppercase tracking-[0.16em]">Approved</p>
-            <p className="mt-2 text-xl font-semibold text-foreground">{link.analytics.approvedCount}</p>
+            <p className="text-xs tracking-[0.16em] uppercase">Verified</p>
+            <p className="mt-2 text-xl font-semibold text-foreground">
+              {link.analytics.verifiedCount}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-muted/20 p-3">
+            <p className="text-xs tracking-[0.16em] uppercase">Approved</p>
+            <p className="mt-2 text-xl font-semibold text-foreground">
+              {link.analytics.approvedCount}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <Form {...form}>
-          <form
-            className="contents"
-            onSubmit={form.handleSubmit(onSave)}
-          >
+          <form className="contents" onSubmit={form.handleSubmit(onSave)}>
             <FormField
               control={form.control}
               name="name"
@@ -404,7 +441,11 @@ function MemberSignupLinkCard({
                 <FormItem>
                   <FormLabel>Maximum signups</FormLabel>
                   <FormControl>
-                    <Input {...field} inputMode="numeric" placeholder="Unlimited" />
+                    <Input
+                      {...field}
+                      inputMode="numeric"
+                      placeholder="Unlimited"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -435,10 +476,20 @@ function MemberSignupLinkCard({
               <Button type="button" variant="outline" onClick={onCopy}>
                 Copy link
               </Button>
-              <Button disabled={isRotating} type="button" variant="outline" onClick={onRotate}>
+              <Button
+                disabled={isRotating}
+                type="button"
+                variant="outline"
+                onClick={onRotate}
+              >
                 Regenerate token
               </Button>
-              <Button disabled={isToggling} type="button" variant="outline" onClick={onToggle}>
+              <Button
+                disabled={isToggling}
+                type="button"
+                variant="outline"
+                onClick={onToggle}
+              >
                 {link.isEnabled ? "Disable link" : "Enable link"}
               </Button>
             </div>
@@ -468,10 +519,13 @@ export function MemberSignupLinkManager({
       <CreateLinkForm />
       <div className="space-y-4">
         {links.length > 0 ? (
-          links.map((link) => <MemberSignupLinkCard key={link.id} link={link} />)
+          links.map((link) => (
+            <MemberSignupLinkCard key={link.id} link={link} />
+          ))
         ) : (
           <section className="rounded-[1.75rem] border border-dashed border-border/70 bg-background/92 p-6 text-sm text-muted-foreground shadow-sm">
-            No signup links yet. Generate one when you need controlled remote member signup.
+            No signup links yet. Generate one when you need controlled remote
+            member signup.
           </section>
         )}
       </div>

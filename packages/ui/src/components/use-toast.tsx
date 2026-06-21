@@ -2,7 +2,10 @@
 
 import * as React from "react"
 
-import type { ToastActionElement, ToastProps } from "@halaalvest/ui/components/toast"
+import type {
+  ToastActionElement,
+  ToastProps,
+} from "@halaalvest/ui/components/toast"
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
@@ -66,13 +69,17 @@ const addToRemoveQueue = (toastId: string) => {
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST": {
-      const existingIndex = state.toasts.findIndex((toast) => toast.id === action.toast.id)
+      const existingIndex = state.toasts.findIndex(
+        (toast) => toast.id === action.toast.id
+      )
 
       if (existingIndex !== -1) {
         return {
           ...state,
           toasts: state.toasts.map((toast) =>
-            toast.id === action.toast.id ? { ...toast, ...action.toast, open: true } : toast,
+            toast.id === action.toast.id
+              ? { ...toast, ...action.toast, open: true }
+              : toast
           ),
         }
       }
@@ -87,7 +94,7 @@ export const reducer = (state: State, action: Action): State => {
       return {
         ...state,
         toasts: state.toasts.map((toast) =>
-          toast.id === action.toast.id ? { ...toast, ...action.toast } : toast,
+          toast.id === action.toast.id ? { ...toast, ...action.toast } : toast
         ),
       }
 
@@ -110,7 +117,7 @@ export const reducer = (state: State, action: Action): State => {
                 ...toast,
                 open: false,
               }
-            : toast,
+            : toast
         ),
       }
     }

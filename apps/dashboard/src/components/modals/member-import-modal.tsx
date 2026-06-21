@@ -24,7 +24,10 @@ import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { stageImportBatchAction } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
-import { downloadDashboardImportTemplate, readDashboardImportFileAsCsv } from "@/lib/import-excel"
+import {
+  downloadDashboardImportTemplate,
+  readDashboardImportFileAsCsv,
+} from "@/lib/import-excel"
 import {
   dashboardImportConfigs,
   getDashboardImportExistingMatches,
@@ -75,10 +78,17 @@ export function MemberImportModal({
   const csvText = form.watch("csvText")
   const latestBatch = batches.find((batch) => batch.importType === "members")
 
-  const preview = useMemo(() => parseDashboardImportCsv("members", csvText), [csvText])
+  const preview = useMemo(
+    () => parseDashboardImportCsv("members", csvText),
+    [csvText]
+  )
   const reconciliation = useMemo(() => {
     if (!preview.ok) {
-      return { duplicateCount: 0, duplicates: [] as string[], existingMatchCount: 0 }
+      return {
+        duplicateCount: 0,
+        duplicates: [] as string[],
+        existingMatchCount: 0,
+      }
     }
 
     const seen = new Set<string>()
@@ -86,7 +96,10 @@ export function MemberImportModal({
     let existingMatchCount = 0
 
     preview.rows.forEach((row) => {
-      const primaryValue = getDashboardImportPrimaryValue("members", row as Record<string, unknown>)
+      const primaryValue = getDashboardImportPrimaryValue(
+        "members",
+        row as Record<string, unknown>
+      )
       if (primaryValue) {
         if (seen.has(primaryValue)) {
           duplicates.add(primaryValue)
@@ -95,7 +108,13 @@ export function MemberImportModal({
         }
       }
 
-      if (getDashboardImportExistingMatches("members", referenceData, row as Record<string, unknown>)) {
+      if (
+        getDashboardImportExistingMatches(
+          "members",
+          referenceData,
+          row as Record<string, unknown>
+        )
+      ) {
         existingMatchCount += 1
       }
     })
@@ -132,7 +151,9 @@ export function MemberImportModal({
       } catch (error) {
         showError(
           "Could not read import file",
-          error instanceof Error ? error.message : "Upload a CSV, XLS, or XLSX file.",
+          error instanceof Error
+            ? error.message
+            : "Upload a CSV, XLS, or XLSX file."
         )
       } finally {
         if (fileInputRef.current) {
@@ -145,22 +166,39 @@ export function MemberImportModal({
   function onStage(values: MemberImportValues) {
     startTransition(async () => {
       try {
-        if (preview.ok && reconciliation.existingMatchCount > 0 && !values.confirmExistingMatches) {
-          throw new Error("Review the rows that will match existing members and confirm before staging.")
+        if (
+          preview.ok &&
+          reconciliation.existingMatchCount > 0 &&
+          !values.confirmExistingMatches
+        ) {
+          throw new Error(
+            "Review the rows that will match existing members and confirm before staging."
+          )
         }
 
-        if (preview.ok && reconciliation.duplicateCount > 0 && !values.confirmInFileDuplicates) {
-          throw new Error("Review the duplicate rows in the file and confirm before staging.")
+        if (
+          preview.ok &&
+          reconciliation.duplicateCount > 0 &&
+          !values.confirmInFileDuplicates
+        ) {
+          throw new Error(
+            "Review the duplicate rows in the file and confirm before staging."
+          )
         }
 
-        await stageImportBatchAction(objectToFormData({ csvText: values.csvText, importKind: "members" }))
-        showSuccess("Members import staged", "Batch saved for review and later apply in the import workspace.")
+        await stageImportBatchAction(
+          objectToFormData({ csvText: values.csvText, importKind: "members" })
+        )
+        showSuccess(
+          "Members import staged",
+          "Batch saved for review and later apply in the import workspace."
+        )
         resetImportForm()
         setOpen(false)
       } catch (error) {
         showError(
           "Could not stage members import",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -168,17 +206,25 @@ export function MemberImportModal({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button type="button" variant={open ? "default" : "outline"} className="rounded-full" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant={open ? "default" : "outline"}
+        className="rounded-full"
+        onClick={() => setOpen(true)}
+      >
         Import members
       </Button>
 
       <DialogContent className="max-w-5xl">
         <DialogHeader>
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">Import</p>
+            <p className="text-[11px] font-medium tracking-[0.24em] text-muted-foreground uppercase">
+              Import
+            </p>
             <DialogTitle>Import members</DialogTitle>
             <DialogDescription>
-              Paste member CSV, validate it, then stage the batch for apply. This is the fast-path entry to the existing import pipeline.
+              Paste member CSV, validate it, then stage the batch for apply.
+              This is the fast-path entry to the existing import pipeline.
             </DialogDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -216,14 +262,22 @@ export function MemberImportModal({
                 Quick fill
               </Button>
             ) : null}
-            <Button type="button" variant="ghost" className="rounded-full" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-full"
+              onClick={() => setOpen(false)}
+            >
               Close
             </Button>
           </div>
         </DialogHeader>
 
         <Form {...form}>
-          <form className="space-y-4 overflow-y-auto px-6 py-5" onSubmit={form.handleSubmit(onStage)}>
+          <form
+            className="space-y-4 overflow-y-auto px-6 py-5"
+            onSubmit={form.handleSubmit(onStage)}
+          >
             <FormField
               control={form.control}
               name="csvText"
@@ -231,7 +285,11 @@ export function MemberImportModal({
                 <FormItem>
                   <FormLabel>CSV content</FormLabel>
                   <FormControl>
-                    <Textarea {...field} className="min-h-[220px] font-mono text-xs" placeholder={config.sampleCsv} />
+                    <Textarea
+                      {...field}
+                      className="min-h-[220px] font-mono text-xs"
+                      placeholder={config.sampleCsv}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -240,15 +298,37 @@ export function MemberImportModal({
 
             <div className="rounded-[1.25rem] border border-border/60 bg-muted/30 p-4">
               <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                <span>{preview.headers.length > 0 ? `${preview.headers.length} columns` : "No headers yet"}</span>
-                <span>{preview.previewRows.length > 0 ? `${preview.previewRows.length} preview rows` : "No preview rows"}</span>
-                <span>{preview.ok ? `${preview.rows.length} valid rows` : `${preview.errors.length} validation issues`}</span>
-                {preview.ok ? <span>{reconciliation.existingMatchCount} existing matches</span> : null}
-                {preview.ok ? <span>{reconciliation.duplicateCount} in-file duplicates</span> : null}
+                <span>
+                  {preview.headers.length > 0
+                    ? `${preview.headers.length} columns`
+                    : "No headers yet"}
+                </span>
+                <span>
+                  {preview.previewRows.length > 0
+                    ? `${preview.previewRows.length} preview rows`
+                    : "No preview rows"}
+                </span>
+                <span>
+                  {preview.ok
+                    ? `${preview.rows.length} valid rows`
+                    : `${preview.errors.length} validation issues`}
+                </span>
+                {preview.ok ? (
+                  <span>
+                    {reconciliation.existingMatchCount} existing matches
+                  </span>
+                ) : null}
+                {preview.ok ? (
+                  <span>
+                    {reconciliation.duplicateCount} in-file duplicates
+                  </span>
+                ) : null}
               </div>
 
               {preview.headers.length > 0 ? (
-                <p className="mt-3 text-xs leading-6 text-muted-foreground">Headers: {preview.headers.join(", ")}</p>
+                <p className="mt-3 text-xs leading-6 text-muted-foreground">
+                  Headers: {preview.headers.join(", ")}
+                </p>
               ) : null}
 
               {!preview.ok && preview.errors.length > 0 ? (
@@ -261,22 +341,32 @@ export function MemberImportModal({
 
               {preview.ok ? (
                 <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
-                  <p>Existing member matches: {reconciliation.existingMatchCount}. Matching rows will update or link where the import supports idempotent upserts.</p>
+                  <p>
+                    Existing member matches: {reconciliation.existingMatchCount}
+                    . Matching rows will update or link where the import
+                    supports idempotent upserts.
+                  </p>
                   <p>
                     In-file duplicates: {reconciliation.duplicateCount}
-                    {reconciliation.duplicates.length ? ` (${reconciliation.duplicates.join(", ")})` : "."}
+                    {reconciliation.duplicates.length
+                      ? ` (${reconciliation.duplicates.join(", ")})`
+                      : "."}
                   </p>
                 </div>
               ) : null}
 
               {latestBatch ? (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Latest staged batch: {latestBatch.status} · {latestBatch.validRows}/{latestBatch._count.rows} rows · {latestBatch.createdAt.toISOString().slice(0, 10)}
+                  Latest staged batch: {latestBatch.status} ·{" "}
+                  {latestBatch.validRows}/{latestBatch._count.rows} rows ·{" "}
+                  {latestBatch.createdAt.toISOString().slice(0, 10)}
                 </p>
               ) : null}
             </div>
 
-            {preview.ok && (reconciliation.existingMatchCount > 0 || reconciliation.duplicateCount > 0) ? (
+            {preview.ok &&
+            (reconciliation.existingMatchCount > 0 ||
+              reconciliation.duplicateCount > 0) ? (
               <div className="space-y-3 rounded-[1.25rem] border border-border/60 bg-background/80 p-4">
                 {reconciliation.existingMatchCount > 0 ? (
                   <FormField
@@ -285,10 +375,17 @@ export function MemberImportModal({
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start gap-3 space-y-0">
                         <FormControl>
-                          <Checkbox checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(checked) =>
+                              field.onChange(checked === true)
+                            }
+                          />
                         </FormControl>
                         <div className="space-y-1">
-                          <FormLabel>I reviewed the rows that match existing members.</FormLabel>
+                          <FormLabel>
+                            I reviewed the rows that match existing members.
+                          </FormLabel>
                           <FormMessage />
                         </div>
                       </FormItem>
@@ -302,10 +399,17 @@ export function MemberImportModal({
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start gap-3 space-y-0">
                         <FormControl>
-                          <Checkbox checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(checked) =>
+                              field.onChange(checked === true)
+                            }
+                          />
                         </FormControl>
                         <div className="space-y-1">
-                          <FormLabel>I reviewed the duplicate rows inside this file.</FormLabel>
+                          <FormLabel>
+                            I reviewed the duplicate rows inside this file.
+                          </FormLabel>
                           <FormMessage />
                         </div>
                       </FormItem>
@@ -316,12 +420,23 @@ export function MemberImportModal({
             ) : null}
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
-              <p className="text-sm text-muted-foreground">Apply the staged batch later from `/settings/imports`.</p>
+              <p className="text-sm text-muted-foreground">
+                Apply the staged batch later from `/settings/imports`.
+              </p>
               <div className="flex items-center gap-3">
-                <Button type="button" variant="ghost" className="rounded-full" onClick={() => setOpen(false)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="rounded-full"
+                  onClick={() => setOpen(false)}
+                >
                   Cancel
                 </Button>
-                <Button disabled={!preview.ok || isPending || isReadingFile} type="submit" className="rounded-full">
+                <Button
+                  disabled={!preview.ok || isPending || isReadingFile}
+                  type="submit"
+                  className="rounded-full"
+                >
                   {isPending ? "Staging..." : "Stage members import"}
                 </Button>
               </div>

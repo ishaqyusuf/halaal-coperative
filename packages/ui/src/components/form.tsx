@@ -106,14 +106,17 @@ function FormControl({ children }: FormControlProps) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
   const childProps = children.props as Record<string, unknown>
 
-  return React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
-    ...childProps,
-    id: formItemId,
-    "aria-describedby": error
-      ? `${formDescriptionId} ${formMessageId}`
-      : formDescriptionId,
-    "aria-invalid": Boolean(error),
-  })
+  return React.cloneElement(
+    children as React.ReactElement<Record<string, unknown>>,
+    {
+      ...childProps,
+      id: formItemId,
+      "aria-describedby": error
+        ? `${formDescriptionId} ${formMessageId}`
+        : formDescriptionId,
+      "aria-invalid": Boolean(error),
+    }
+  )
 }
 
 const FormDescription = React.forwardRef<

@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import { Select } from "@halaalvest/ui/components/select"
+import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
@@ -52,7 +52,10 @@ export function CooperativeProfileForm({
         await updateCooperativeProfileAction(objectToFormData(values))
         showSuccess("Profile saved", "Cooperative profile updated.")
       } catch (error) {
-        showError("Could not save profile", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save profile",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -63,15 +66,23 @@ export function CooperativeProfileForm({
         className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="md:col-span-2 flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 md:col-span-2">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">Update cooperative profile</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+              Update cooperative profile
+            </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Standardized on the shared dashboard form system.
             </p>
           </div>
           {devMode ? (
-            <Button type="button" variant="outline" onClick={() => applyDashboardDevFormFill(form, "cooperative_profile")}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                applyDashboardDevFormFill(form, "cooperative_profile")
+              }
+            >
               Quick fill
             </Button>
           ) : null}
@@ -110,19 +121,26 @@ export function CooperativeProfileForm({
             <FormItem>
               <FormLabel>Member prefix</FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} placeholder="MEM-" />
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="MEM-"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
         <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-          <p className="text-sm font-medium text-foreground">Finance start date</p>
+          <p className="text-sm font-medium text-foreground">
+            Finance start date
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {defaultValues.startDate || "Not set yet"}
           </p>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            Managed from Finance setup because it controls historical charge, share, and member backfill calculations.
+            Managed from Finance setup because it controls historical charge,
+            share, and member backfill calculations.
           </p>
         </div>
         <FormField
@@ -165,7 +183,9 @@ export function CooperativeProfileForm({
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">Save cooperative profile</Button>
+          <Button disabled={isPending} type="submit">
+            Save cooperative profile
+          </Button>
         </div>
       </form>
     </Form>
@@ -206,7 +226,10 @@ export function RoleAssignmentForm({
         showSuccess("Role saved", "Workspace role provisioned.")
         form.reset()
       } catch (error) {
-        showError("Could not save role", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save role",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -217,15 +240,22 @@ export function RoleAssignmentForm({
         className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="md:col-span-2 flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 md:col-span-2">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">Assign workspace role</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+              Assign workspace role
+            </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Add a role to an existing tenant user or create the tenant user and role together.
+              Add a role to an existing tenant user or create the tenant user
+              and role together.
             </p>
           </div>
           {devMode ? (
-            <Button type="button" variant="outline" onClick={() => applyDashboardDevFormFill(form, "role_assignment")}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => applyDashboardDevFormFill(form, "role_assignment")}
+            >
               Quick fill
             </Button>
           ) : null}
@@ -264,13 +294,13 @@ export function RoleAssignmentForm({
             <FormItem>
               <FormLabel>Role</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   {roles.map((role) => (
                     <option key={role.value} value={role.value}>
                       {role.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -282,14 +312,21 @@ export function RoleAssignmentForm({
           render={({ field }) => (
             <FormItem className="flex flex-row items-center gap-3 pt-8">
               <FormControl>
-                <Checkbox checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={(checked) =>
+                    field.onChange(checked === true)
+                  }
+                />
               </FormControl>
               <FormLabel>Make this the default workspace role</FormLabel>
             </FormItem>
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">Save workspace role</Button>
+          <Button disabled={isPending} type="submit">
+            Save workspace role
+          </Button>
         </div>
       </form>
     </Form>

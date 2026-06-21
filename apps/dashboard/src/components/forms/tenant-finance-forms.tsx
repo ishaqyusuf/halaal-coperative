@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import { Select } from "@halaalvest/ui/components/select"
+import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { objectToFormData } from "@/lib/form-submit"
@@ -57,7 +57,11 @@ const startDateSchema = z.object({
 
 type StartDateValues = z.infer<typeof startDateSchema>
 
-export function FinanceStartDateForm({ defaultStartDate }: { defaultStartDate?: string | null }) {
+export function FinanceStartDateForm({
+  defaultStartDate,
+}: {
+  defaultStartDate?: string | null
+}) {
   const form = useZodForm<StartDateValues>(startDateSchema, {
     defaultValues: {
       startDate: defaultStartDate ?? "",
@@ -72,7 +76,10 @@ export function FinanceStartDateForm({ defaultStartDate }: { defaultStartDate?: 
         await updateTenantFinanceStartDateAction(objectToFormData(values))
         showSuccess("Start date updated", "Finance history anchor saved.")
       } catch (error) {
-        showError("Could not update start date", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not update start date",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -111,14 +118,17 @@ const shareStructureVersionSchema = z.object({
 type ShareStructureVersionValues = z.infer<typeof shareStructureVersionSchema>
 
 export function ShareStructureVersionForm() {
-  const form = useZodForm<ShareStructureVersionValues>(shareStructureVersionSchema, {
-    defaultValues: {
-      amount: "",
-      effectiveFrom: "",
-      notes: "",
-      valueType: "fixed_amount",
-    },
-  })
+  const form = useZodForm<ShareStructureVersionValues>(
+    shareStructureVersionSchema,
+    {
+      defaultValues: {
+        amount: "",
+        effectiveFrom: "",
+        notes: "",
+        valueType: "fixed_amount",
+      },
+    }
+  )
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
 
@@ -126,17 +136,31 @@ export function ShareStructureVersionForm() {
     startTransition(async () => {
       try {
         await createTenantShareStructureVersionAction(objectToFormData(values))
-        showSuccess("Share update saved", "Cooperative default share history updated.")
-        form.reset({ amount: "", effectiveFrom: "", notes: "", valueType: "fixed_amount" })
+        showSuccess(
+          "Share update saved",
+          "Cooperative default share history updated."
+        )
+        form.reset({
+          amount: "",
+          effectiveFrom: "",
+          notes: "",
+          valueType: "fixed_amount",
+        })
       } catch (error) {
-        showError("Could not save share update", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save share update",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
     <Form {...form}>
-      <form className="grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        className="grid gap-4 md:grid-cols-2"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
         <FormField
           control={form.control}
           name="effectiveFrom"
@@ -157,10 +181,10 @@ export function ShareStructureVersionForm() {
             <FormItem>
               <FormLabel>Share rule</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="fixed_amount">Fixed amount</option>
                   <option value="percentage">Percentage after charges</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -186,7 +210,11 @@ export function ShareStructureVersionForm() {
             <FormItem className="md:col-span-2">
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Textarea {...field} value={field.value ?? ""} placeholder="Annual review adjustment" />
+                <Textarea
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="Annual review adjustment"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -207,14 +235,25 @@ const chargeDefinitionSchema = z.object({
   appliesToLoanRequests: z.boolean().default(false),
   appliesToLoans: z.boolean().default(false),
   appliesToMembers: z.boolean().default(true),
-  chargeFrequency: z.enum(["recurring_monthly", "per_contribution", "one_time", "manual"]),
+  chargeFrequency: z.enum([
+    "recurring_monthly",
+    "per_contribution",
+    "one_time",
+    "manual",
+  ]),
   chargeValueType: z.enum(["fixed_amount", "percentage"]),
   code: z.string().min(1, "Code is required."),
   effectiveFrom: z.string().min(1, "Start date is required."),
   isMonthlyLevy: z.boolean().default(false),
   kind: z.enum(["fixed", "percentage"]),
   name: z.string().min(1, "Name is required."),
-  purpose: z.enum(["general", "member_share", "loan_fee", "membership_fee", "penalty"]),
+  purpose: z.enum([
+    "general",
+    "member_share",
+    "loan_fee",
+    "membership_fee",
+    "penalty",
+  ]),
 })
 
 type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
@@ -243,7 +282,10 @@ export function ChargeDefinitionForm() {
     startTransition(async () => {
       try {
         await createChargeDefinitionAction(objectToFormData(values))
-        showSuccess("Charge created", "New charge definition added to finance setup.")
+        showSuccess(
+          "Charge created",
+          "New charge definition added to finance setup."
+        )
         form.reset({
           amount: "",
           appliesToLoanRequests: false,
@@ -259,14 +301,20 @@ export function ChargeDefinitionForm() {
           purpose: "general",
         })
       } catch (error) {
-        showError("Could not create charge", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not create charge",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
     <Form {...form}>
-      <form className="grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        className="grid gap-4 md:grid-cols-2"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
         <FormField
           control={form.control}
           name="name"
@@ -300,12 +348,12 @@ export function ChargeDefinitionForm() {
             <FormItem>
               <FormLabel>Frequency</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="recurring_monthly">Recurring monthly</option>
                   <option value="per_contribution">Per contribution</option>
                   <option value="one_time">One time</option>
                   <option value="manual">Manual</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -318,10 +366,10 @@ export function ChargeDefinitionForm() {
             <FormItem>
               <FormLabel>Value type</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="fixed_amount">Fixed amount</option>
                   <option value="percentage">Percentage</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -334,10 +382,10 @@ export function ChargeDefinitionForm() {
             <FormItem>
               <FormLabel>Kind</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="fixed">Fixed</option>
                   <option value="percentage">Percentage</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -363,13 +411,13 @@ export function ChargeDefinitionForm() {
             <FormItem>
               <FormLabel>Purpose</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="general">General charge</option>
                   <option value="member_share">Member share</option>
                   <option value="loan_fee">Loan fee</option>
                   <option value="membership_fee">Membership fee</option>
                   <option value="penalty">Penalty</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -388,7 +436,7 @@ export function ChargeDefinitionForm() {
             </FormItem>
           )}
         />
-        <div className="md:col-span-2 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 md:col-span-2">
           <Button disabled={isPending} type="submit" className="rounded-full">
             Add charge
           </Button>
@@ -418,9 +466,14 @@ export function ChargeDefinitionVersionForm({
     defaultValues: {
       amount: "",
       chargeDefinitionId: chargeDefinitions[0]?.id ?? "",
-      chargeValueType: (chargeDefinitions[0]?.kind === "percentage" ? "percentage" : "fixed_amount"),
+      chargeValueType:
+        chargeDefinitions[0]?.kind === "percentage"
+          ? "percentage"
+          : "fixed_amount",
       effectiveFrom: "",
-      kind: (chargeDefinitions[0]?.kind as "fixed" | "percentage" | undefined) ?? "fixed",
+      kind:
+        (chargeDefinitions[0]?.kind as "fixed" | "percentage" | undefined) ??
+        "fixed",
       notes: "",
     },
   })
@@ -435,20 +488,33 @@ export function ChargeDefinitionVersionForm({
         form.reset({
           amount: "",
           chargeDefinitionId: chargeDefinitions[0]?.id ?? "",
-          chargeValueType: (chargeDefinitions[0]?.kind === "percentage" ? "percentage" : "fixed_amount"),
+          chargeValueType:
+            chargeDefinitions[0]?.kind === "percentage"
+              ? "percentage"
+              : "fixed_amount",
           effectiveFrom: "",
-          kind: (chargeDefinitions[0]?.kind as "fixed" | "percentage" | undefined) ?? "fixed",
+          kind:
+            (chargeDefinitions[0]?.kind as
+              | "fixed"
+              | "percentage"
+              | undefined) ?? "fixed",
           notes: "",
         })
       } catch (error) {
-        showError("Could not save charge update", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save charge update",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
     <Form {...form}>
-      <form className="grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        className="grid gap-4 md:grid-cols-2"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
         <FormField
           control={form.control}
           name="chargeDefinitionId"
@@ -456,14 +522,14 @@ export function ChargeDefinitionVersionForm({
             <FormItem>
               <FormLabel>Charge</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="">Select a charge</option>
                   {chargeDefinitions.map((charge) => (
                     <option key={charge.id} value={charge.id}>
                       {charge.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -489,10 +555,10 @@ export function ChargeDefinitionVersionForm({
             <FormItem>
               <FormLabel>Kind</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="fixed">Fixed</option>
                   <option value="percentage">Percentage</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -505,10 +571,10 @@ export function ChargeDefinitionVersionForm({
             <FormItem>
               <FormLabel>Value type</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="fixed_amount">Fixed amount</option>
                   <option value="percentage">Percentage</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -534,7 +600,11 @@ export function ChargeDefinitionVersionForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Textarea {...field} value={field.value ?? ""} placeholder="Updated for new fiscal period" />
+                <Textarea
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="Updated for new fiscal period"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -587,7 +657,10 @@ export function ShareBusinessForm({
     startTransition(async () => {
       try {
         await createShareBusinessAction(objectToFormData(values))
-        showSuccess("Business recorded", "Historical business and profit record saved.")
+        showSuccess(
+          "Business recorded",
+          "Historical business and profit record saved."
+        )
         form.reset({
           capitalAmount: "",
           endDate: "",
@@ -599,14 +672,20 @@ export function ShareBusinessForm({
           status: "planned",
         })
       } catch (error) {
-        showError("Could not save business", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save business",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
     <Form {...form}>
-      <form className="grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        className="grid gap-4 md:grid-cols-2"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
         <FormField
           control={form.control}
           name="name"
@@ -679,12 +758,12 @@ export function ShareBusinessForm({
             <FormItem>
               <FormLabel>Status</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="planned">Planned</option>
                   <option value="active">Active</option>
                   <option value="completed">Completed</option>
                   <option value="archived">Archived</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -697,14 +776,14 @@ export function ShareBusinessForm({
             <FormItem>
               <FormLabel>Linked dividend period</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="">Not linked yet</option>
                   {dividendPeriods.map((period) => (
                     <option key={period.id} value={period.id}>
                       {period.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -717,7 +796,11 @@ export function ShareBusinessForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Textarea {...field} value={field.value ?? ""} placeholder="Used for seasonal trading profit distribution." />
+                <Textarea
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="Used for seasonal trading profit distribution."
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -734,7 +817,9 @@ export function ShareBusinessForm({
 }
 
 const shareBusinessProfitEntrySchema = z.object({
-  allocatableProfitAmount: z.string().min(1, "Final allocatable profit is required."),
+  allocatableProfitAmount: z
+    .string()
+    .min(1, "Final allocatable profit is required."),
   expenseAmount: z.string().optional(),
   linkedDividendPeriodId: z.string().optional(),
   notes: z.string().optional(),
@@ -746,7 +831,9 @@ const shareBusinessProfitEntrySchema = z.object({
   status: z.enum(["draft", "reviewed", "approved", "archived"]),
 })
 
-type ShareBusinessProfitEntryValues = z.infer<typeof shareBusinessProfitEntrySchema>
+type ShareBusinessProfitEntryValues = z.infer<
+  typeof shareBusinessProfitEntrySchema
+>
 
 export function ShareBusinessProfitEntryForm({
   businesses,
@@ -755,20 +842,23 @@ export function ShareBusinessProfitEntryForm({
   businesses: Array<{ id: string; label: string }>
   dividendPeriods: Array<{ id: string; label: string }>
 }) {
-  const form = useZodForm<ShareBusinessProfitEntryValues>(shareBusinessProfitEntrySchema, {
-    defaultValues: {
-      allocatableProfitAmount: "",
-      expenseAmount: "",
-      linkedDividendPeriodId: "",
-      notes: "",
-      profitAmount: "",
-      profitDate: "",
-      reason: "",
-      shareBusinessId: businesses[0]?.id ?? "",
-      sourceType: "manual",
-      status: "draft",
-    },
-  })
+  const form = useZodForm<ShareBusinessProfitEntryValues>(
+    shareBusinessProfitEntrySchema,
+    {
+      defaultValues: {
+        allocatableProfitAmount: "",
+        expenseAmount: "",
+        linkedDividendPeriodId: "",
+        notes: "",
+        profitAmount: "",
+        profitDate: "",
+        reason: "",
+        shareBusinessId: businesses[0]?.id ?? "",
+        sourceType: "manual",
+        status: "draft",
+      },
+    }
+  )
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
 
@@ -776,7 +866,10 @@ export function ShareBusinessProfitEntryForm({
     startTransition(async () => {
       try {
         await createShareBusinessProfitEntryAction(objectToFormData(values))
-        showSuccess("Profit recorded", "Business profit entry saved for share allocation.")
+        showSuccess(
+          "Profit recorded",
+          "Business profit entry saved for share allocation."
+        )
         form.reset({
           allocatableProfitAmount: "",
           expenseAmount: "",
@@ -790,14 +883,20 @@ export function ShareBusinessProfitEntryForm({
           status: "draft",
         })
       } catch (error) {
-        showError("Could not save profit", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not save profit",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
     <Form {...form}>
-      <form className="grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        className="grid gap-4 md:grid-cols-2"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
         <FormField
           control={form.control}
           name="shareBusinessId"
@@ -805,13 +904,13 @@ export function ShareBusinessProfitEntryForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Business</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   {businesses.map((business) => (
                     <option key={business.id} value={business.id}>
                       {business.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -876,12 +975,12 @@ export function ShareBusinessProfitEntryForm({
             <FormItem>
               <FormLabel>Status</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="draft">Draft</option>
                   <option value="reviewed">Reviewed</option>
                   <option value="approved">Approved</option>
                   <option value="archived">Archived</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -894,11 +993,11 @@ export function ShareBusinessProfitEntryForm({
             <FormItem>
               <FormLabel>Source</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="manual">Manual</option>
                   <option value="backfill">Backfill</option>
                   <option value="import">Import</option>
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -911,14 +1010,14 @@ export function ShareBusinessProfitEntryForm({
             <FormItem>
               <FormLabel>Linked dividend period</FormLabel>
               <FormControl>
-                <Select {...field}>
+                <NativeSelect {...field}>
                   <option value="">Not linked yet</option>
                   {dividendPeriods.map((period) => (
                     <option key={period.id} value={period.id}>
                       {period.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -931,7 +1030,11 @@ export function ShareBusinessProfitEntryForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Reason</FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} placeholder="Board-approved historical profit distribution" />
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="Board-approved historical profit distribution"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -944,14 +1047,22 @@ export function ShareBusinessProfitEntryForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Textarea {...field} value={field.value ?? ""} placeholder="Historical profit backfill for this business." />
+                <Textarea
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="Historical profit backfill for this business."
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending || businesses.length === 0} type="submit" className="rounded-full">
+          <Button
+            disabled={isPending || businesses.length === 0}
+            type="submit"
+            className="rounded-full"
+          >
             Record profit
           </Button>
         </div>
@@ -971,16 +1082,30 @@ export function GenerateShareProfitAllocationsButton({
   function onClick() {
     startTransition(async () => {
       try {
-        await generateShareProfitAllocationsAction(objectToFormData({ profitEntryId }))
-        showSuccess("Allocations generated", "Profit was split by member share percentage.")
+        await generateShareProfitAllocationsAction(
+          objectToFormData({ profitEntryId })
+        )
+        showSuccess(
+          "Allocations generated",
+          "Profit was split by member share percentage."
+        )
       } catch (error) {
-        showError("Could not generate allocations", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not generate allocations",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
 
   return (
-    <Button disabled={isPending} type="button" variant="outline" className="rounded-full" onClick={onClick}>
+    <Button
+      disabled={isPending}
+      type="button"
+      variant="outline"
+      className="rounded-full"
+      onClick={onClick}
+    >
       Generate allocations
     </Button>
   )
@@ -999,10 +1124,18 @@ export function PublishShareProfitAllocationsButton({
   function onClick() {
     startTransition(async () => {
       try {
-        await publishShareProfitAllocationsAction(objectToFormData({ profitEntryId }))
-        showSuccess("Allocations published", "Share profit allocations were pushed to the linked dividend period.")
+        await publishShareProfitAllocationsAction(
+          objectToFormData({ profitEntryId })
+        )
+        showSuccess(
+          "Allocations published",
+          "Share profit allocations were pushed to the linked dividend period."
+        )
       } catch (error) {
-        showError("Could not publish allocations", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not publish allocations",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }

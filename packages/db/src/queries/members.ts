@@ -24,7 +24,7 @@ export type ListMembersFilters = {
 export async function listMembers(
   tenantId: string,
   filters?: ListMembersFilters,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -45,8 +45,15 @@ export async function listMembers(
     }),
     ...(filters?.search && {
       OR: [
-        { fullName: { contains: filters.search, mode: "insensitive" as const } },
-        { memberNumber: { contains: filters.search, mode: "insensitive" as const } },
+        {
+          fullName: { contains: filters.search, mode: "insensitive" as const },
+        },
+        {
+          memberNumber: {
+            contains: filters.search,
+            mode: "insensitive" as const,
+          },
+        },
       ],
     }),
   }
@@ -71,7 +78,7 @@ export async function listMembers(
 export async function getMemberById(
   tenantId: string,
   memberId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -96,6 +103,23 @@ export type CreateMemberInput = {
   currentSavingsBalance?: number
   email?: string | null
   monthlyCommitment?: number
+  commitmentHistory?: Array<{
+    amount: number
+    effectiveFrom: Date
+    notes?: string | null
+  }>
+  legacyLoanHistory?: Array<{
+    closedAt?: Date | null
+    guarantorOneMemberId?: string | null
+    guarantorTwoMemberId?: string | null
+    loanLabel?: string | null
+    openedAt: Date
+    outstandingPrincipalBalance?: number | null
+    principalAmount: number
+    savingsDuringLoan: number
+    scheduledMonthlyPrincipalRepayment: number
+    notes?: string | null
+  }>
   occupation?: string | null
   phoneNumber?: string | null
   servingLoan?: {
@@ -115,11 +139,11 @@ type MemberWriteClient = Prisma.TransactionClient
 
 async function assertMemberProfileMutationOpen(
   tenantId: string,
-  prisma: PrismaClient | Prisma.TransactionClient,
+  prisma: PrismaClient | Prisma.TransactionClient
 ) {
   const migrationState = await getTenantInitialMigrationState(
     tenantId,
-    prisma as PrismaClient,
+    prisma as PrismaClient
   )
 
   if (migrationState.snapshot.canUseLiveFinancialWrites) {
@@ -128,7 +152,7 @@ async function assertMemberProfileMutationOpen(
 
   if (!migrationState.snapshot.canUseMigrationTools) {
     throw new Error(
-      "Member profile writes are locked until initial migration is finalized.",
+      "Member profile writes are locked until initial migration is finalized."
     )
   }
 
@@ -139,7 +163,7 @@ async function assertMemberProfileMutationOpen(
     "share_capital_plan",
   ])
   const blockingSteps = migrationState.snapshot.missingStepKeys.filter(
-    (stepKey) => setupStepKeys.has(stepKey),
+    (stepKey) => setupStepKeys.has(stepKey)
   )
 
   if (blockingSteps.length > 0) {
@@ -148,7 +172,7 @@ async function assertMemberProfileMutationOpen(
       .map((step) => step.label)
 
     throw new Error(
-      `Member profiles cannot be created until these setup steps are complete: ${labels.join(", ")}.`,
+      `Member profiles cannot be created until these setup steps are complete: ${labels.join(", ")}.`
     )
   }
 
@@ -158,23 +182,23 @@ async function assertMemberProfileMutationOpen(
     migrationState.counts.appliedBackfillMonths > 0
   ) {
     throw new Error(
-      "Member profiles are locked because member ledger backfill has already started. Finish migration or create new members after go-live.",
+      "Member profiles are locked because member ledger backfill has already started. Finish migration or create new members after go-live."
     )
   }
 }
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
-  prisma: PrismaClient | Prisma.TransactionClient,
+  prisma: PrismaClient | Prisma.TransactionClient
 ) {
   const migrationState = await getTenantInitialMigrationState(
     tenantId,
-    prisma as PrismaClient,
+    prisma as PrismaClient
   )
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
     throw new Error(
-      "Live financial record writes are locked until initial migration is finalized.",
+      "Live financial record writes are locked until initial migration is finalized."
     )
   }
 }
@@ -212,119 +236,170 @@ function buildRepaymentSchedule(input: {
   })
 }
 
-export async function createMemberWithState(
-  tx: MemberWriteClient,
-  input: CreateMemberInput,
-) {
-  await assertMemberProfileMutationOpen(input.tenantId, tx)
-
-  const member = await tx.member.create({
-      data: {
-        tenantId: input.tenantId,
-        memberNumber: input.memberNumber,
-        fullName: input.fullName,
-        memberType: input.memberType,
-        joinedAt: input.joinedAt,
-        address: input.address,
-        email: input.email,
-        occupation: input.occupation,
-        phoneNumber: input.phoneNumber,
-        totalSavingsSnapshot: input.currentSavingsBalance ?? 0,
-        userId: input.userId,
-        deductionSourceId: input.deductionSourceId,
-        status: "active",
-      },
-    })
+function normalizeCommitmentHistory(input: CreateMemberInput) {
+  const byDate = new Map<
+    string,
+    {
+      amount: number
+      effectiveFrom: Date
+      notes?: string | null
+    }
+  >()
 
   if (input.monthlyCommitment && input.monthlyCommitment > 0) {
+    byDate.set(input.joinedAt.toISOString().slice(0, 10), {
+      amount: input.monthlyCommitment,
+      effectiveFrom: input.joinedAt,
+      notes: "Initial monthly commitment.",
+    })
+  }
+
+  for (const entry of input.commitmentHistory ?? []) {
+    if (!entry.amount || entry.amount <= 0) continue
+    byDate.set(entry.effectiveFrom.toISOString().slice(0, 10), entry)
+  }
+
+  return [...byDate.values()].sort(
+    (left, right) =>
+      left.effectiveFrom.getTime() - right.effectiveFrom.getTime()
+  )
+}
+
+export async function createMemberWithState(
+  tx: MemberWriteClient,
+  input: CreateMemberInput
+) {
+  await assertMemberProfileMutationOpen(input.tenantId, tx)
+  const commitmentHistory = normalizeCommitmentHistory(input)
+  const activeCommitment =
+    commitmentHistory[commitmentHistory.length - 1] ?? null
+
+  const member = await tx.member.create({
+    data: {
+      tenantId: input.tenantId,
+      memberNumber: input.memberNumber,
+      fullName: input.fullName,
+      memberType: input.memberType,
+      joinedAt: input.joinedAt,
+      address: input.address,
+      email: input.email,
+      occupation: input.occupation,
+      phoneNumber: input.phoneNumber,
+      totalSavingsSnapshot: input.currentSavingsBalance ?? 0,
+      userId: input.userId,
+      deductionSourceId: input.deductionSourceId,
+      status: "active",
+    },
+  })
+
+  if (activeCommitment) {
     await tx.contributionPlan.create({
-        data: {
-          amount: input.monthlyCommitment,
-          interval: "monthly",
-          isActive: true,
-          memberId: member.id,
-          name: "Monthly commitment",
-          startsAt: input.joinedAt,
-          tenantId: input.tenantId,
-        },
-      })
+      data: {
+        amount: activeCommitment.amount,
+        interval: "monthly",
+        isActive: true,
+        memberId: member.id,
+        name: "Monthly commitment",
+        startsAt: activeCommitment.effectiveFrom,
+        tenantId: input.tenantId,
+      },
+    })
+  }
+
+  if (commitmentHistory.length > 0) {
+    await tx.memberAmountLog.createMany({
+      data: commitmentHistory.map((entry) => ({
+        amount: entry.amount,
+        createdByUserId: input.actorUserId,
+        effectiveFrom: entry.effectiveFrom,
+        memberId: member.id,
+        notes: entry.notes?.trim() || null,
+        tenantId: input.tenantId,
+      })),
+      skipDuplicates: true,
+    })
   }
 
   if (input.servingLoan) {
     const outstandingPrincipal = Number(
-      Math.max(0, input.servingLoan.principalAmount - input.servingLoan.amountServed).toFixed(2),
+      Math.max(
+        0,
+        input.servingLoan.principalAmount - input.servingLoan.amountServed
+      ).toFixed(2)
     )
     const termMonths = Math.max(1, input.servingLoan.paymentMonths)
-    const estimatedMonthlyServicing = Number(input.servingLoan.monthlyCommitment.toFixed(2))
+    const estimatedMonthlyServicing = Number(
+      input.servingLoan.monthlyCommitment.toFixed(2)
+    )
 
     const loanProduct = await tx.loanProduct.upsert({
-        where: {
-          tenantId_name: {
-            name: "Imported active loan",
-            tenantId: input.tenantId,
-          },
-        },
-        update: {
-          isActive: true,
-          loanType: "normal",
-          maxSavingsMultiple: 2,
-          termMonths,
-        },
-        create: {
-          isActive: true,
-          loanType: "normal",
-          maxSavingsMultiple: 2,
+      where: {
+        tenantId_name: {
           name: "Imported active loan",
           tenantId: input.tenantId,
-          termMonths,
         },
-      })
+      },
+      update: {
+        isActive: true,
+        loanType: "normal",
+        maxSavingsMultiple: 2,
+        termMonths,
+      },
+      create: {
+        isActive: true,
+        loanType: "normal",
+        maxSavingsMultiple: 2,
+        name: "Imported active loan",
+        tenantId: input.tenantId,
+        termMonths,
+      },
+    })
 
     const request = await tx.loanRequest.create({
-        data: {
-          availablePoolSnapshot: 0,
-          createdByUserId: input.actorUserId,
-          eligibleAmountSnapshot: input.currentSavingsBalance ?? 0,
-          estimatedMonthlyServicing,
-          extraMonthlySavingsAmount: input.servingLoan.extraMonthlySavingsAmount,
-          loanProductId: loanProduct.id,
-          memberId: member.id,
-          requestedAmount: input.servingLoan.principalAmount,
-          requestedAt: input.servingLoan.startDate,
-          requestedTermMonths: termMonths,
-          reviewNotes: "Created from member onboarding current-state form.",
-          status: "approved",
-          tenantId: input.tenantId,
-        },
-      })
+      data: {
+        availablePoolSnapshot: 0,
+        createdByUserId: input.actorUserId,
+        eligibleAmountSnapshot: input.currentSavingsBalance ?? 0,
+        estimatedMonthlyServicing,
+        extraMonthlySavingsAmount: input.servingLoan.extraMonthlySavingsAmount,
+        loanProductId: loanProduct.id,
+        memberId: member.id,
+        requestedAmount: input.servingLoan.principalAmount,
+        requestedAt: input.servingLoan.startDate,
+        requestedTermMonths: termMonths,
+        reviewNotes: "Created from member onboarding current-state form.",
+        status: "approved",
+        tenantId: input.tenantId,
+      },
+    })
 
     await tx.loanApproval.create({
-        data: {
-          action: "approved",
-          actedAt: input.servingLoan.startDate,
-          actorUserId: input.actorUserId,
-          loanRequestId: request.id,
-          notes: "Approved during member creation current-state capture.",
-          tenantId: input.tenantId,
-        },
-      })
+      data: {
+        action: "approved",
+        actedAt: input.servingLoan.startDate,
+        actorUserId: input.actorUserId,
+        loanRequestId: request.id,
+        notes: "Approved during member creation current-state capture.",
+        tenantId: input.tenantId,
+      },
+    })
 
     const loan = await tx.loan.create({
-        data: {
-          disbursedAt: input.servingLoan.startDate,
-          estimatedMonthlyServicing,
-          extraMonthlySavingsAmount: input.servingLoan.extraMonthlySavingsAmount,
-          firstRepaymentDueAt: input.servingLoan.startDate,
-          loanProductId: loanProduct.id,
-          loanRequestId: request.id,
-          memberId: member.id,
-          outstandingPrincipal,
-          principalAmount: input.servingLoan.principalAmount,
-          status: outstandingPrincipal > 0 ? "active" : "completed",
-          tenantId: input.tenantId,
-          termMonths,
-        },
-      })
+      data: {
+        disbursedAt: input.servingLoan.startDate,
+        estimatedMonthlyServicing,
+        extraMonthlySavingsAmount: input.servingLoan.extraMonthlySavingsAmount,
+        firstRepaymentDueAt: input.servingLoan.startDate,
+        loanProductId: loanProduct.id,
+        loanRequestId: request.id,
+        memberId: member.id,
+        outstandingPrincipal,
+        principalAmount: input.servingLoan.principalAmount,
+        status: outstandingPrincipal > 0 ? "active" : "completed",
+        tenantId: input.tenantId,
+        termMonths,
+      },
+    })
 
     const repaymentSchedule = buildRepaymentSchedule({
       principalAmount: input.servingLoan.principalAmount,
@@ -334,64 +409,97 @@ export async function createMemberWithState(
     let remainingPaid = Math.max(0, input.servingLoan.amountServed)
 
     await tx.repaymentScheduleItem.createMany({
-        data: repaymentSchedule.map((item) => {
-          const applied = Math.min(remainingPaid, item.totalDue)
-          remainingPaid -= applied
+      data: repaymentSchedule.map((item) => {
+        const applied = Math.min(remainingPaid, item.totalDue)
+        remainingPaid -= applied
 
-          return {
-            amountPaid: applied,
-            chargeDue: item.chargeDue,
-            dueAt: item.dueAt,
-            installmentNumber: item.installmentNumber,
-            loanId: loan.id,
-            principalDue: item.principalDue,
-            status: applied >= item.totalDue ? "paid" : applied > 0 ? "partially_paid" : item.status,
-            tenantId: input.tenantId,
-            totalDue: item.totalDue,
-          }
-        }),
-      })
+        return {
+          amountPaid: applied,
+          chargeDue: item.chargeDue,
+          dueAt: item.dueAt,
+          installmentNumber: item.installmentNumber,
+          loanId: loan.id,
+          principalDue: item.principalDue,
+          status:
+            applied >= item.totalDue
+              ? "paid"
+              : applied > 0
+                ? "partially_paid"
+                : item.status,
+          tenantId: input.tenantId,
+          totalDue: item.totalDue,
+        }
+      }),
+    })
+  }
+
+  if (input.legacyLoanHistory?.length) {
+    await tx.legacyLoanMigrationDraft.createMany({
+      data: input.legacyLoanHistory
+        .filter((loan) => loan.principalAmount > 0)
+        .map((loan, index) => ({
+          closedAt: loan.closedAt ?? null,
+          createdByUserId: input.actorUserId,
+          guarantorOneMemberId: loan.guarantorOneMemberId?.trim() || null,
+          guarantorTwoMemberId: loan.guarantorTwoMemberId?.trim() || null,
+          loanLabel:
+            loan.loanLabel?.trim() ||
+            `Legacy loan ${String(index + 1).padStart(2, "0")}`,
+          memberId: member.id,
+          notes: loan.notes?.trim() || null,
+          openedAt: loan.openedAt,
+          outstandingPrincipalBalance:
+            loan.outstandingPrincipalBalance ?? loan.principalAmount,
+          principalAmount: loan.principalAmount,
+          savingsDuringLoan: loan.savingsDuringLoan,
+          scheduledMonthlyPrincipalRepayment:
+            loan.scheduledMonthlyPrincipalRepayment,
+          tenantId: input.tenantId,
+        })),
+      skipDuplicates: true,
+    })
   }
 
   await tx.auditLog.create({
-      data: {
-        tenantId: input.tenantId,
-        actorUserId: input.actorUserId,
-        actorType: "user",
-        action: "member.created",
-        entityType: "Member",
-        entityId: member.id,
-        metadata: {
-          currentSavingsBalance: input.currentSavingsBalance ?? 0,
-          memberNumber: member.memberNumber,
-          monthlyCommitment: input.monthlyCommitment ?? 0,
-          fullName: member.fullName,
-          address: member.address,
-          email: member.email,
-          memberType: member.memberType,
-          occupation: member.occupation,
-          phoneNumber: member.phoneNumber,
-          servingLoan: input.servingLoan
-            ? {
-                amountServed: input.servingLoan.amountServed,
-                extraMonthlySavingsAmount: input.servingLoan.extraMonthlySavingsAmount,
-                monthlyCommitment: input.servingLoan.monthlyCommitment,
-                paymentMonths: input.servingLoan.paymentMonths,
-                principalAmount: input.servingLoan.principalAmount,
-                startDate: input.servingLoan.startDate.toISOString(),
-              }
-            : null,
-        },
-        occurredAt: new Date(),
+    data: {
+      tenantId: input.tenantId,
+      actorUserId: input.actorUserId,
+      actorType: "user",
+      action: "member.created",
+      entityType: "Member",
+      entityId: member.id,
+      metadata: {
+        currentSavingsBalance: input.currentSavingsBalance ?? 0,
+        memberNumber: member.memberNumber,
+        monthlyCommitment: input.monthlyCommitment ?? 0,
+        fullName: member.fullName,
+        address: member.address,
+        email: member.email,
+        memberType: member.memberType,
+        occupation: member.occupation,
+        phoneNumber: member.phoneNumber,
+        servingLoan: input.servingLoan
+          ? {
+              amountServed: input.servingLoan.amountServed,
+              extraMonthlySavingsAmount:
+                input.servingLoan.extraMonthlySavingsAmount,
+              monthlyCommitment: input.servingLoan.monthlyCommitment,
+              paymentMonths: input.servingLoan.paymentMonths,
+              principalAmount: input.servingLoan.principalAmount,
+              startDate: input.servingLoan.startDate.toISOString(),
+            }
+          : null,
       },
-    })
+      occurredAt: new Date(),
+    },
+  })
 
   return member
 }
 
 export async function createMember(
   input: CreateMemberInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -410,7 +518,7 @@ export async function updateMember(
   tenantId: string,
   memberId: string,
   input: UpdateMemberInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -423,7 +531,9 @@ export async function updateMember(
       data: {
         ...(input.fullName !== undefined && { fullName: input.fullName }),
         ...(input.memberType !== undefined && { memberType: input.memberType }),
-        ...(input.deductionSourceId !== undefined && { deductionSourceId: input.deductionSourceId }),
+        ...(input.deductionSourceId !== undefined && {
+          deductionSourceId: input.deductionSourceId,
+        }),
       },
     })
 
@@ -452,7 +562,7 @@ export async function updateMemberStatus(
   memberId: string,
   newStatus: MemberStatus,
   actorUserId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -496,7 +606,7 @@ export async function updateMemberKyc(
     memberId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -549,7 +659,7 @@ export async function createMemberDocument(
     reviewStatus?: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -564,7 +674,10 @@ export async function createMemberDocument(
         memberId: input.memberId,
         reviewNotes: input.reviewNotes ?? null,
         reviewStatus: input.reviewStatus ?? "pending",
-        reviewedAt: input.reviewStatus && input.reviewStatus !== "pending" ? new Date() : null,
+        reviewedAt:
+          input.reviewStatus && input.reviewStatus !== "pending"
+            ? new Date()
+            : null,
         tenantId: input.tenantId,
       },
     })
@@ -598,7 +711,7 @@ export async function updateMemberDocumentReview(
     reviewStatus: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -676,68 +789,73 @@ export type MemberStatementSummary = {
 
 export async function listMemberStatementSummaries(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MemberStatementSummary[]> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const [members, contributionTotals, repaymentTotals, loanTotals] = await Promise.all([
-    prisma.member.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        deductionSource: { select: { name: true } },
-        user: { select: { email: true } },
-        contributionPlans: {
-          where: { isActive: true },
-          orderBy: { startsAt: "desc" },
-          take: 1,
+  const [members, contributionTotals, repaymentTotals, loanTotals] =
+    await Promise.all([
+      prisma.member.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          deductionSource: { select: { name: true } },
+          user: { select: { email: true } },
+          contributionPlans: {
+            where: { isActive: true },
+            orderBy: { startsAt: "desc" },
+            take: 1,
+          },
         },
-      },
-    }),
-    prisma.contribution.groupBy({
-      by: ["memberId"],
-      where: {
-        tenantId,
-        status: "posted",
-      },
-      _count: { _all: true },
-      _sum: {
-        amount: true,
-        committedAmount: true,
-        extraSavingsAmount: true,
-      },
-      _max: { postedAt: true },
-    }),
-    prisma.repayment.groupBy({
-      by: ["memberId"],
-      where: {
-        tenantId,
-        status: "posted",
-      },
-      _sum: { amount: true },
-      _max: { paidAt: true },
-    }),
-    prisma.loan.groupBy({
-      by: ["memberId"],
-      where: {
-        tenantId,
-        status: {
-          in: ["approved", "disbursed", "active", "defaulted"],
+      }),
+      prisma.contribution.groupBy({
+        by: ["memberId"],
+        where: {
+          tenantId,
+          status: "posted",
         },
-      },
-      _count: { _all: true },
-      _sum: {
-        principalAmount: true,
-        outstandingPrincipal: true,
-        estimatedMonthlyServicing: true,
-        extraMonthlySavingsAmount: true,
-      },
-    }),
-  ])
+        _count: { _all: true },
+        _sum: {
+          amount: true,
+          committedAmount: true,
+          extraSavingsAmount: true,
+        },
+        _max: { postedAt: true },
+      }),
+      prisma.repayment.groupBy({
+        by: ["memberId"],
+        where: {
+          tenantId,
+          status: "posted",
+        },
+        _sum: { amount: true },
+        _max: { paidAt: true },
+      }),
+      prisma.loan.groupBy({
+        by: ["memberId"],
+        where: {
+          tenantId,
+          status: {
+            in: ["approved", "disbursed", "active", "defaulted"],
+          },
+        },
+        _count: { _all: true },
+        _sum: {
+          principalAmount: true,
+          outstandingPrincipal: true,
+          estimatedMonthlyServicing: true,
+          extraMonthlySavingsAmount: true,
+        },
+      }),
+    ])
 
-  const contributionMap = new Map(contributionTotals.map((item) => [item.memberId, item]))
-  const repaymentMap = new Map(repaymentTotals.map((item) => [item.memberId, item]))
+  const contributionMap = new Map(
+    contributionTotals.map((item) => [item.memberId, item])
+  )
+  const repaymentMap = new Map(
+    repaymentTotals.map((item) => [item.memberId, item])
+  )
   const loanMap = new Map(loanTotals.map((item) => [item.memberId, item]))
 
   return members.map((member) => {
@@ -760,15 +878,25 @@ export async function listMemberStatementSummaries(
       activeCommitmentStartsAt: activePlan?.startsAt ?? null,
       totalSavingsSnapshot: Number(member.totalSavingsSnapshot),
       totalContributions: Number(contributionTotal?._sum.amount ?? 0),
-      totalCommittedContributions: Number(contributionTotal?._sum.committedAmount ?? 0),
-      totalExtraSavingsContributions: Number(contributionTotal?._sum.extraSavingsAmount ?? 0),
+      totalCommittedContributions: Number(
+        contributionTotal?._sum.committedAmount ?? 0
+      ),
+      totalExtraSavingsContributions: Number(
+        contributionTotal?._sum.extraSavingsAmount ?? 0
+      ),
       contributionsCount: contributionTotal?._count._all ?? 0,
       lastContributionAt: contributionTotal?._max.postedAt ?? null,
       totalLoanPrincipal: Number(loanTotal?._sum.principalAmount ?? 0),
-      totalOutstandingPrincipal: Number(loanTotal?._sum.outstandingPrincipal ?? 0),
+      totalOutstandingPrincipal: Number(
+        loanTotal?._sum.outstandingPrincipal ?? 0
+      ),
       activeLoanCount: loanTotal?._count._all ?? 0,
-      totalEstimatedMonthlyServicing: Number(loanTotal?._sum.estimatedMonthlyServicing ?? 0),
-      totalLoanExtraSavingsAmount: Number(loanTotal?._sum.extraMonthlySavingsAmount ?? 0),
+      totalEstimatedMonthlyServicing: Number(
+        loanTotal?._sum.estimatedMonthlyServicing ?? 0
+      ),
+      totalLoanExtraSavingsAmount: Number(
+        loanTotal?._sum.extraMonthlySavingsAmount ?? 0
+      ),
       totalRepaymentsPosted: Number(repaymentTotal?._sum.amount ?? 0),
       lastRepaymentAt: repaymentTotal?._max.paidAt ?? null,
     }
@@ -778,7 +906,7 @@ export async function listMemberStatementSummaries(
 export async function getMemberStatementDetail(
   tenantId: string,
   memberId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -803,43 +931,44 @@ export async function getMemberStatementDetail(
     return null
   }
 
-  const [contributions, loans, repayments, ledgerTransactions, summary] = await Promise.all([
-    prisma.contribution.findMany({
-      where: { tenantId, memberId },
-      include: {
-        contributionPlan: true,
-      },
-      orderBy: { postedAt: "desc" },
-      take: 25,
-    }),
-    prisma.loan.findMany({
-      where: { tenantId, memberId },
-      include: {
-        loanProduct: true,
-        repaymentScheduleItems: {
-          orderBy: { installmentNumber: "asc" },
-          take: 6,
+  const [contributions, loans, repayments, ledgerTransactions, summary] =
+    await Promise.all([
+      prisma.contribution.findMany({
+        where: { tenantId, memberId },
+        include: {
+          contributionPlan: true,
         },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
-    prisma.repayment.findMany({
-      where: { tenantId, memberId },
-      include: {
-        loan: {
-          include: {
-            loanProduct: true,
+        orderBy: { postedAt: "desc" },
+        take: 25,
+      }),
+      prisma.loan.findMany({
+        where: { tenantId, memberId },
+        include: {
+          loanProduct: true,
+          repaymentScheduleItems: {
+            orderBy: { installmentNumber: "asc" },
+            take: 6,
           },
         },
-        repaymentScheduleItem: true,
-      },
-      orderBy: { paidAt: "desc" },
-      take: 25,
-    }),
-    getMemberTransactions(tenantId, memberId, prisma),
-    listMemberStatementSummaries(tenantId, prisma),
-  ])
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      prisma.repayment.findMany({
+        where: { tenantId, memberId },
+        include: {
+          loan: {
+            include: {
+              loanProduct: true,
+            },
+          },
+          repaymentScheduleItem: true,
+        },
+        orderBy: { paidAt: "desc" },
+        take: 25,
+      }),
+      getMemberTransactions(tenantId, memberId, prisma),
+      listMemberStatementSummaries(tenantId, prisma),
+    ])
 
   return {
     member,
@@ -853,19 +982,29 @@ export async function getMemberStatementDetail(
 
 export async function getMemberKycSummary(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const [notStarted, pending, verified, rejected, legacyWithDocuments, memberDocuments, approvedDocuments] = await Promise.all([
+  const [
+    notStarted,
+    pending,
+    verified,
+    rejected,
+    legacyWithDocuments,
+    memberDocuments,
+    approvedDocuments,
+  ] = await Promise.all([
     prisma.member.count({ where: { tenantId, kycStatus: "not_started" } }),
     prisma.member.count({ where: { tenantId, kycStatus: "pending" } }),
     prisma.member.count({ where: { tenantId, kycStatus: "verified" } }),
     prisma.member.count({ where: { tenantId, kycStatus: "rejected" } }),
     prisma.member.count({ where: { tenantId, kycDocumentUrl: { not: null } } }),
     prisma.memberDocument.count({ where: { tenantId } }),
-    prisma.memberDocument.count({ where: { tenantId, reviewStatus: "verified" } }),
+    prisma.memberDocument.count({
+      where: { tenantId, reviewStatus: "verified" },
+    }),
   ])
 
   return {

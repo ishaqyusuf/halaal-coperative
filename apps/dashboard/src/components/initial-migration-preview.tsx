@@ -15,9 +15,7 @@ import {
 import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardDataTable,
-  DashboardSectionCard,
   DashboardSectionHeader,
-  DashboardStatCard,
   DashboardSurfaceCard,
   DashboardTable,
   DashboardTableBody,
@@ -27,18 +25,22 @@ import {
   DashboardTableRow,
   TrendPill,
 } from "@/components/dashboard"
-import { MemberCreateForm } from "@/components/forms/member-forms"
+import { MemberPreviewPicker } from "@/components/migration/member-preview-picker"
 import { MemberLedgerBackfillTable } from "@/components/migration/member-ledger-backfill-table"
+import { MemberAutocompleteSelect } from "@/components/migration/member-autocomplete-select"
+import { MemberMigrationInputPanels } from "@/components/migration/member-migration-input-panels"
+import { MissedMonthsRangeGrid } from "@/components/migration/missed-months-range-grid"
+import { MemberCreateModal } from "@/components/modals/member-create-modal"
 import {
   createLegacyLoanMigrationDraftAction,
   finalizeInitialMigrationAction,
-  queueBackfillApplyAction,
-  queueBackfillDraftAction,
   markLegacyLoansReviewedAction,
-  unlockInitialMigrationAction,
+  deleteMemberActivityEventAction,
+  setMigrationBackfillDefaultingMonthsAction,
   updateLegacyLoanMigrationDraftAction,
+  upsertMemberActivityEventAction,
+  upsertMemberAmountLogAction,
   upsertMigrationBackfillAdjustmentAction,
-  upsertMigrationProfitAdjustmentAction,
 } from "@/lib/dashboard-actions"
 
 const previewRows: MemberLedgerBackfillRow[] = [
@@ -175,6 +177,8 @@ const previewRows: MemberLedgerBackfillRow[] = [
 const demoLegacyLoanDrafts = [
   {
     closedAt: null,
+    guarantorOneMemberId: null,
+    guarantorTwoMemberId: null,
     id: "legacy-loan-demo-1",
     loanLabel: "Loan A",
     memberId: "member-demo-1",
@@ -189,6 +193,8 @@ const demoLegacyLoanDrafts = [
   },
   {
     closedAt: null,
+    guarantorOneMemberId: null,
+    guarantorTwoMemberId: null,
     id: "legacy-loan-demo-2",
     loanLabel: "Loan A override",
     memberId: "member-demo-1",
@@ -203,6 +209,8 @@ const demoLegacyLoanDrafts = [
   },
   {
     closedAt: "2026-04-01",
+    guarantorOneMemberId: null,
+    guarantorTwoMemberId: null,
     id: "legacy-loan-demo-3",
     loanLabel: "Loan A settlement",
     memberId: "member-demo-1",
@@ -217,8 +225,19 @@ const demoLegacyLoanDrafts = [
   },
 ]
 
+const demoMemberAmountLogs = [
+  {
+    amount: 5000,
+    effectiveFrom: "2025-01-01",
+    id: "member-amount-demo-1",
+    notes: "Initial commitment",
+  },
+]
+
 type LegacyLoanDraftRow = {
   closedAt: string | null
+  guarantorOneMemberId?: string | null
+  guarantorTwoMemberId?: string | null
   id: string
   loanLabel: string
   memberId: string
@@ -236,18 +255,32 @@ type MemberOption = {
   label: string
 }
 
-type ProfitAdjustmentOption = {
-  allocatableProfitAmount?: number
-  availableAmount: number
-  businessName: string
-  editableAvailableAmount?: number
-  expenseAmount?: number
+function formatGuarantorMember(
+  memberId: string | null | undefined,
+  memberOptions: MemberOption[]
+) {
+  if (!memberId) {
+    return "None"
+  }
+
+  return (
+    memberOptions.find((member) => member.id === memberId)?.label ?? memberId
+  )
+}
+
+type MemberAmountLogRow = {
+  amount: number
+  effectiveFrom: string
   id: string
-  label: string
-  memberAllocatedAmount?: number
-  profitAmount: number
-  profitDate: string
-  totalDisbursedAmount: number
+  notes?: string | null
+}
+
+type MemberActivityEventRow = {
+  effectiveMonth: string
+  id: string
+  notes?: string | null
+  reason?: string | null
+  status: "active" | "inactive"
 }
 
 type MigrationMemberReviewRow = {
@@ -271,220 +304,6 @@ const statusLabels: Record<InitialMigrationSnapshot["status"], string> = {
   member_migration_in_progress: "Member migration",
   migration_review: "Migration review",
   not_started: "Not started",
-}
-
-const memberReviewStatusLabels: Record<
-  MigrationMemberReviewRow["status"],
-  string
-> = {
-  backfill_applied: "Applied",
-  backfill_draft: "Drafted",
-  configured: "Configured",
-  profile_only: "Profile only",
-}
-
-function MemberProfitAllocationDialog({
-  disabled,
-  memberId,
-  period,
-  profitAdjustmentOptions,
-  rowDividendCredit,
-}: {
-  disabled: boolean
-  memberId: string | null | undefined
-  period: string
-  profitAdjustmentOptions?: ProfitAdjustmentOption[]
-  rowDividendCredit: number
-}) {
-  const hasProfitPools = Boolean(profitAdjustmentOptions?.length)
-  const totalProfitPool = (profitAdjustmentOptions ?? []).reduce(
-    (total, entry) => total + entry.profitAmount,
-    0
-  )
-  const totalRemainingProfit = (profitAdjustmentOptions ?? []).reduce(
-    (total, entry) => total + entry.availableAmount,
-    0
-  )
-  const totalMemberProfit = (profitAdjustmentOptions ?? []).reduce(
-    (total, entry) => total + (entry.memberAllocatedAmount ?? 0),
-    0
-  )
-
-  return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button
-            className="rounded-full"
-            disabled={disabled || !memberId || !hasProfitPools}
-            size="sm"
-            variant="outline"
-          />
-        }
-      >
-        Profit
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-            Dividend allocation
-          </p>
-          <DialogTitle>Set member profit for {period}</DialogTitle>
-          <DialogDescription>
-            Review the business profit pool before assigning this member's
-            migration allocation.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-            <p className="text-xs text-muted-foreground">Current row credit</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {formatCurrency(rowDividendCredit)}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-            <p className="text-xs text-muted-foreground">Profit pools</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {hasProfitPools ? formatCurrency(totalProfitPool) : "-"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-            <p className="text-xs text-muted-foreground">Remaining</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {hasProfitPools ? formatCurrency(totalRemainingProfit) : "-"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-            <p className="text-xs text-muted-foreground">This member</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {hasProfitPools ? formatCurrency(totalMemberProfit) : "-"}
-            </p>
-          </div>
-        </div>
-
-        {profitAdjustmentOptions?.length ? (
-          <div className="overflow-x-auto rounded-lg border border-border/70">
-            <div className="grid min-w-[620px] grid-cols-[minmax(0,1fr)_repeat(4,100px)] gap-2 border-b border-border/70 px-3 py-2 text-xs font-medium text-muted-foreground">
-              <span>Business profit</span>
-              <span className="text-right">Disbursed</span>
-              <span className="text-right">Remaining</span>
-              <span className="text-right">This member</span>
-              <span className="text-right">Editable max</span>
-            </div>
-            <div className="max-h-48 overflow-y-auto">
-              {profitAdjustmentOptions.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="grid min-w-[620px] grid-cols-[minmax(0,1fr)_repeat(4,100px)] gap-2 border-b border-border/50 px-3 py-2 text-xs last:border-b-0"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium text-foreground">
-                      {entry.businessName}
-                    </span>
-                    <span className="mt-0.5 block text-muted-foreground">
-                      {entry.profitDate} · expenses{" "}
-                      {formatCurrency(entry.expenseAmount ?? 0)}
-                    </span>
-                  </span>
-                  <span className="text-right">
-                    {formatCurrency(entry.totalDisbursedAmount)}
-                  </span>
-                  <span className="text-right">
-                    {formatCurrency(entry.availableAmount)}
-                  </span>
-                  <span className="text-right">
-                    {formatCurrency(entry.memberAllocatedAmount ?? 0)}
-                  </span>
-                  <span className="text-right">
-                    {formatCurrency(
-                      entry.editableAvailableAmount ?? entry.availableAmount
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            Add a reviewed business profit pool before assigning member
-            allocations.
-          </div>
-        )}
-
-        <form
-          action={upsertMigrationProfitAdjustmentAction}
-          className="grid gap-3 sm:grid-cols-2"
-        >
-          <input name="memberId" type="hidden" value={memberId ?? ""} />
-          <label className="space-y-1 text-xs font-medium text-muted-foreground sm:col-span-2">
-            Business profit
-            <select
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              disabled={disabled || !hasProfitPools}
-              name="profitEntryId"
-              required
-            >
-              <option value="">Select profit pool</option>
-              {(profitAdjustmentOptions ?? []).map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.label} |{" "}
-                  {formatCurrency(
-                    entry.editableAvailableAmount ?? entry.availableAmount
-                  )}{" "}
-                  editable
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
-            Member amount
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
-              disabled={disabled}
-              min="0"
-              name="allocatedProfitAmount"
-              placeholder="Amount"
-              step="0.01"
-              type="number"
-            />
-          </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
-            Member percentage
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
-              disabled={disabled}
-              max="100"
-              min="0"
-              name="sharePercentage"
-              placeholder="%"
-              step="0.0001"
-              type="number"
-            />
-          </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground sm:col-span-2">
-            Notes
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              disabled={disabled}
-              name="notes"
-              placeholder="Board minute, basis, or source file reference"
-              type="text"
-            />
-          </label>
-          <div className="flex justify-end sm:col-span-2">
-            <Button
-              disabled={disabled || !memberId || !hasProfitPools}
-              size="sm"
-              type="submit"
-            >
-              Save allocation
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
 }
 
 function MemberBackfillAdjustmentDialog({
@@ -640,13 +459,255 @@ function MemberBackfillAdjustmentDialog({
   )
 }
 
+function CommitmentHistoryPanel({
+  disabled,
+  memberAmountLogs,
+  memberId,
+  memberJoinedAt,
+}: {
+  disabled: boolean
+  memberAmountLogs: MemberAmountLogRow[]
+  memberId: string | null | undefined
+  memberJoinedAt?: string | null
+}) {
+  return (
+    <div>
+      <form
+        action={upsertMemberAmountLogAction}
+        className="mb-3 grid gap-3 rounded-lg border border-border/70 bg-background p-3 sm:grid-cols-[minmax(160px,0.7fr)_minmax(160px,0.7fr)_auto]"
+      >
+        <input name="memberId" type="hidden" value={memberId ?? ""} />
+        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          Date
+          <input
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            disabled={disabled || !memberId}
+            min={memberJoinedAt ?? undefined}
+            name="effectiveFrom"
+            required
+            type="date"
+          />
+        </label>
+        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          Amount
+          <input
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+            disabled={disabled || !memberId}
+            min="0"
+            name="amount"
+            required
+            step="0.01"
+            type="number"
+          />
+        </label>
+        <div className="flex items-end justify-end">
+          <Button disabled={disabled || !memberId} size="sm" type="submit">
+            Save commitment
+          </Button>
+        </div>
+      </form>
+
+      <DashboardDataTable>
+        <DashboardTable className="min-w-[420px]">
+          <DashboardTableHead>
+            <DashboardTableHeaderCell>Date</DashboardTableHeaderCell>
+            <DashboardTableHeaderCell align="right">
+              Amount
+            </DashboardTableHeaderCell>
+          </DashboardTableHead>
+          <DashboardTableBody>
+            {memberAmountLogs.length > 0 ? (
+              memberAmountLogs.map((log) => (
+                <DashboardTableRow key={log.id}>
+                  <DashboardTableCell>{log.effectiveFrom}</DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    {formatCurrency(log.amount)}
+                  </DashboardTableCell>
+                </DashboardTableRow>
+              ))
+            ) : (
+              <DashboardTableRow>
+                <DashboardTableCell className="text-muted-foreground">
+                  No commitment history yet.
+                </DashboardTableCell>
+                <DashboardTableCell align="right">-</DashboardTableCell>
+              </DashboardTableRow>
+            )}
+          </DashboardTableBody>
+        </DashboardTable>
+      </DashboardDataTable>
+    </div>
+  )
+}
+
+function LoanHistoryPanel({
+  disabled,
+  loans,
+  memberId,
+  memberJoinedAt,
+  memberOptions,
+}: {
+  disabled: boolean
+  loans: Array<LegacyLoanDraftRow & { status: string }>
+  memberId: string | null | undefined
+  memberJoinedAt?: string | null
+  memberOptions: MemberOption[]
+}) {
+  const guarantorOptions = memberOptions.filter(
+    (member) => member.id !== memberId
+  )
+
+  return (
+    <div>
+      <form action={createLegacyLoanMigrationDraftAction}>
+        <input name="memberId" type="hidden" value={memberId ?? ""} />
+        <input name="loanLabel" type="hidden" value="Legacy loan" />
+        <DashboardDataTable>
+          <DashboardTable className="min-w-[980px]">
+            <DashboardTableHead>
+              <DashboardTableHeaderCell>Date</DashboardTableHeaderCell>
+              <DashboardTableHeaderCell align="right">
+                Amount
+              </DashboardTableHeaderCell>
+              <DashboardTableHeaderCell>G1 ID</DashboardTableHeaderCell>
+              <DashboardTableHeaderCell>G2 ID</DashboardTableHeaderCell>
+              <DashboardTableHeaderCell align="right">
+                Repayment
+              </DashboardTableHeaderCell>
+              <DashboardTableHeaderCell align="right">
+                Commitment
+              </DashboardTableHeaderCell>
+              <DashboardTableHeaderCell align="right">
+                Action
+              </DashboardTableHeaderCell>
+            </DashboardTableHead>
+            <DashboardTableBody>
+              <DashboardTableRow>
+                <DashboardTableCell>
+                  <input
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    disabled={disabled || !memberId}
+                    min={memberJoinedAt ?? undefined}
+                    name="openedAt"
+                    required
+                    type="date"
+                  />
+                </DashboardTableCell>
+                <DashboardTableCell align="right">
+                  <input
+                    className="h-9 w-32 rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                    disabled={disabled || !memberId}
+                    min="0"
+                    name="principalAmount"
+                    required
+                    step="0.01"
+                    type="number"
+                  />
+                </DashboardTableCell>
+                <DashboardTableCell>
+                  <MemberAutocompleteSelect
+                    disabled={disabled || !memberId}
+                    label="Guarantor 1"
+                    name="guarantorOneMemberId"
+                    options={guarantorOptions}
+                    placeholder="Search G1"
+                  />
+                </DashboardTableCell>
+                <DashboardTableCell>
+                  <MemberAutocompleteSelect
+                    disabled={disabled || !memberId}
+                    label="Guarantor 2"
+                    name="guarantorTwoMemberId"
+                    options={guarantorOptions}
+                    placeholder="Search G2"
+                  />
+                </DashboardTableCell>
+                <DashboardTableCell align="right">
+                  <input
+                    className="h-9 w-32 rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                    disabled={disabled || !memberId}
+                    min="0"
+                    name="scheduledMonthlyPrincipalRepayment"
+                    required
+                    step="0.01"
+                    type="number"
+                  />
+                </DashboardTableCell>
+                <DashboardTableCell align="right">
+                  <input
+                    className="h-9 w-32 rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                    disabled={disabled || !memberId}
+                    min="0"
+                    name="savingsDuringLoan"
+                    required
+                    step="0.01"
+                    type="number"
+                  />
+                </DashboardTableCell>
+                <DashboardTableCell align="right">
+                  <Button
+                    disabled={disabled || !memberId}
+                    size="sm"
+                    type="submit"
+                  >
+                    Save loan
+                  </Button>
+                </DashboardTableCell>
+              </DashboardTableRow>
+              {loans.map((loan) => (
+                <DashboardTableRow key={loan.id}>
+                  <DashboardTableCell>{loan.openedAt}</DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    {formatCurrency(loan.principalAmount)}
+                  </DashboardTableCell>
+                  <DashboardTableCell>
+                    {formatGuarantorMember(
+                      loan.guarantorOneMemberId,
+                      memberOptions
+                    )}
+                  </DashboardTableCell>
+                  <DashboardTableCell>
+                    {formatGuarantorMember(
+                      loan.guarantorTwoMemberId,
+                      memberOptions
+                    )}
+                  </DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    {formatCurrency(loan.scheduledMonthlyPrincipalRepayment)}
+                  </DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    {formatCurrency(loan.savingsDuringLoan)}
+                  </DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    <LegacyLoanDraftEditDialog
+                      disabled={disabled}
+                      loan={loan}
+                      memberOptions={memberOptions}
+                    />
+                  </DashboardTableCell>
+                </DashboardTableRow>
+              ))}
+            </DashboardTableBody>
+          </DashboardTable>
+        </DashboardDataTable>
+      </form>
+    </div>
+  )
+}
+
 function LegacyLoanDraftEditDialog({
   disabled,
   loan,
+  memberOptions,
 }: {
   disabled: boolean
   loan: LegacyLoanDraftRow & { status: string }
+  memberOptions: MemberOption[]
 }) {
+  const guarantorOptions = memberOptions.filter(
+    (member) => member.id !== loan.memberId
+  )
+
   return (
     <Dialog>
       <DialogTrigger
@@ -754,6 +815,30 @@ function LegacyLoanDraftEditDialog({
               type="number"
             />
           </label>
+          <div className="space-y-1">
+            <span className="block text-xs font-medium text-muted-foreground">
+              Guarantor 1
+            </span>
+            <MemberAutocompleteSelect
+              label="Guarantor 1"
+              name="guarantorOneMemberId"
+              options={guarantorOptions}
+              placeholder="Search member"
+              value={loan.guarantorOneMemberId}
+            />
+          </div>
+          <div className="space-y-1">
+            <span className="block text-xs font-medium text-muted-foreground">
+              Guarantor 2
+            </span>
+            <MemberAutocompleteSelect
+              label="Guarantor 2"
+              name="guarantorTwoMemberId"
+              options={guarantorOptions}
+              placeholder="Search member"
+              value={loan.guarantorTwoMemberId}
+            />
+          </div>
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
             Outstanding principal
             <input
@@ -786,28 +871,295 @@ function LegacyLoanDraftEditDialog({
   )
 }
 
+function DefaultingMonthsDialog({
+  disabled,
+  memberId,
+  rows,
+  selectedMonth,
+  triggerVariant = "ghost",
+  triggerLabel = "Missed months",
+}: {
+  disabled: boolean
+  memberId: string | null | undefined
+  rows: MemberLedgerBackfillRow[]
+  selectedMonth?: string
+  triggerLabel?: string
+  triggerVariant?: "default" | "ghost"
+}) {
+  const usableRows = rows.filter((row) => row.month)
+
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={
+          <Button
+            disabled={disabled || !memberId}
+            size="xs"
+            type="button"
+            variant={triggerVariant}
+          />
+        }
+      >
+        {triggerLabel}
+      </DialogTrigger>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-none sm:w-[min(96vw,96rem)] sm:max-w-none">
+        <DialogHeader>
+          <div>
+            <DialogTitle>Missed commitment months</DialogTitle>
+            <DialogDescription>
+              Toggle months where this member made no commitment during
+              migration. These months will not add savings, share capital, or
+              charges.
+            </DialogDescription>
+          </div>
+        </DialogHeader>
+        <form
+          action={setMigrationBackfillDefaultingMonthsAction}
+          className="space-y-4"
+        >
+          <input name="memberId" type="hidden" value={memberId ?? ""} />
+          <MissedMonthsRangeGrid
+            disabled={disabled}
+            rows={usableRows.map((row) => ({
+              month: row.month ?? "",
+              period: row.period,
+              savingsContribution: row.savingsContribution,
+              status: row.status,
+            }))}
+            selectedMonth={selectedMonth}
+          />
+          <div className="flex justify-end">
+            <Button disabled={disabled || !memberId} size="sm" type="submit">
+              Save missed months
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function MonthStatusControl({
+  disabled,
+  memberId,
+  row,
+  rows,
+}: {
+  disabled: boolean
+  memberId: string | null | undefined
+  row: MemberLedgerBackfillRow
+  rows: MemberLedgerBackfillRow[]
+}) {
+  const usableRows = rows.filter((candidate) => candidate.month)
+  const targetMonth = row.month
+  const isMissed = row.status === "missed"
+
+  function defaultingMonthsFor(nextStatus: "committed" | "missed") {
+    return usableRows
+      .filter((candidate) => {
+        if (candidate.month === targetMonth) {
+          return nextStatus === "missed"
+        }
+
+        return candidate.status === "missed"
+      })
+      .map((candidate) => candidate.month)
+      .filter((month): month is string => Boolean(month))
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      {(["committed", "missed"] as const).map((nextStatus) => {
+        const active =
+          nextStatus === "missed" ? isMissed : row.status !== "missed"
+
+        return (
+          <form
+            action={setMigrationBackfillDefaultingMonthsAction}
+            key={nextStatus}
+          >
+            <input name="memberId" type="hidden" value={memberId ?? ""} />
+            {usableRows.map((candidate) => (
+              <input
+                key={candidate.month}
+                name="month"
+                type="hidden"
+                value={candidate.month ?? ""}
+              />
+            ))}
+            {defaultingMonthsFor(nextStatus).map((month) => (
+              <input
+                key={month}
+                name="defaultingMonth"
+                type="hidden"
+                value={month}
+              />
+            ))}
+            <Button
+              disabled={disabled || !memberId || !targetMonth}
+              size="xs"
+              type="submit"
+              variant={active ? "secondary" : "ghost"}
+            >
+              {nextStatus === "missed" ? "Missed" : "Committed"}
+            </Button>
+          </form>
+        )
+      })}
+    </div>
+  )
+}
+
+function ActivityHistoryPanel({
+  disabled,
+  events,
+  memberId,
+  memberJoinedAt,
+}: {
+  disabled: boolean
+  events: MemberActivityEventRow[]
+  memberId: string | null | undefined
+  memberJoinedAt?: string | null
+}) {
+  const minMonth = memberJoinedAt?.slice(0, 7)
+
+  return (
+    <div>
+      <form
+        action={upsertMemberActivityEventAction}
+        className="mb-3 grid gap-3 rounded-lg border border-border/70 bg-background p-3 sm:grid-cols-[150px_150px_minmax(160px,1fr)_auto]"
+      >
+        <input name="memberId" type="hidden" value={memberId ?? ""} />
+        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          Month
+          <input
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            disabled={disabled || !memberId}
+            min={minMonth}
+            name="effectiveMonth"
+            required
+            type="month"
+          />
+        </label>
+        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          Status
+          <select
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            disabled={disabled || !memberId}
+            name="status"
+            required
+          >
+            <option value="inactive">Inactive</option>
+            <option value="active">Active again</option>
+          </select>
+        </label>
+        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          Reason
+          <input
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            disabled={disabled || !memberId}
+            name="reason"
+            placeholder="Inactive, resumed, leave, transfer"
+            type="text"
+          />
+        </label>
+        <div className="flex items-end justify-end">
+          <Button disabled={disabled || !memberId} size="sm" type="submit">
+            Save activity
+          </Button>
+        </div>
+      </form>
+
+      <DashboardDataTable>
+        <DashboardTable className="min-w-[560px]">
+          <DashboardTableHead>
+            <DashboardTableHeaderCell>Month</DashboardTableHeaderCell>
+            <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
+            <DashboardTableHeaderCell>Reason</DashboardTableHeaderCell>
+            <DashboardTableHeaderCell align="right">
+              Action
+            </DashboardTableHeaderCell>
+          </DashboardTableHead>
+          <DashboardTableBody>
+            {events.length > 0 ? (
+              events.map((event) => (
+                <DashboardTableRow key={event.id}>
+                  <DashboardTableCell>
+                    {event.effectiveMonth.slice(0, 7)}
+                  </DashboardTableCell>
+                  <DashboardTableCell>
+                    {event.status === "inactive" ? "Inactive" : "Active again"}
+                  </DashboardTableCell>
+                  <DashboardTableCell>
+                    {event.reason || event.notes || "-"}
+                  </DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    <form action={deleteMemberActivityEventAction}>
+                      <input
+                        name="memberId"
+                        type="hidden"
+                        value={memberId ?? ""}
+                      />
+                      <input name="eventId" type="hidden" value={event.id} />
+                      <Button
+                        disabled={disabled || !memberId}
+                        size="xs"
+                        type="submit"
+                        variant="ghost"
+                      >
+                        Remove
+                      </Button>
+                    </form>
+                  </DashboardTableCell>
+                </DashboardTableRow>
+              ))
+            ) : (
+              <DashboardTableRow>
+                <DashboardTableCell className="text-muted-foreground">
+                  No activity windows yet.
+                </DashboardTableCell>
+                <DashboardTableCell>-</DashboardTableCell>
+                <DashboardTableCell>-</DashboardTableCell>
+                <DashboardTableCell align="right">-</DashboardTableCell>
+              </DashboardTableRow>
+            )}
+          </DashboardTableBody>
+        </DashboardTable>
+      </DashboardDataTable>
+    </div>
+  )
+}
+
 export function InitialMigrationPreview({
   generatedLedgerRows,
   legacyLoanDrafts,
+  memberActivityEvents,
+  memberAmountLogs,
   memberOptions,
+  memberNumberPrefix,
   migrationSnapshot,
   migrationMemberReview,
-  profitAdjustmentOptions,
   selectedMigrationMemberId,
   selectedMigrationMemberLabel,
-  section = "all",
+  section = "overview",
 }: {
   generatedLedgerRows?: MemberLedgerBackfillRow[]
   legacyLoanDrafts?: LegacyLoanDraftRow[]
+  memberActivityEvents?: MemberActivityEventRow[]
+  memberAmountLogs?: MemberAmountLogRow[]
   memberOptions?: MemberOption[]
+  memberNumberPrefix?: string | null
   migrationSnapshot?: InitialMigrationSnapshot
   migrationMemberReview?: MigrationMemberReviewRow[]
-  profitAdjustmentOptions?: ProfitAdjustmentOption[]
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
-  section?: "all" | "loans"
+  section?: "loans" | "member-preview" | "overview"
 }) {
   const isLoansOnly = section === "loans"
+  const isMemberPreview = section === "member-preview"
+  const isMigrationOverview = section === "overview"
+  const hasSelectedMigrationOverviewMember =
+    isMigrationOverview && Boolean(selectedMigrationMemberId)
   const hasRealMigrationContext = Boolean(migrationSnapshot)
   const displayedLedgerRows =
     generatedLedgerRows && generatedLedgerRows.length > 0
@@ -823,6 +1175,9 @@ export function InitialMigrationPreview({
           status: loan.outstandingPrincipalBalance > 0 ? "Active" : "Settled",
         }))
       : demoLegacyLoanDrafts
+  const displayedMemberAmountLogs =
+    memberAmountLogs !== undefined ? memberAmountLogs : demoMemberAmountLogs
+  const displayedMemberActivityEvents = memberActivityEvents ?? []
   const reviewRows = migrationMemberReview ?? []
   const selectedMemberReview =
     reviewRows.find((member) => member.id === selectedMigrationMemberId) ?? null
@@ -854,23 +1209,38 @@ export function InitialMigrationPreview({
   const activeLegacyLoanDrafts = displayedLegacyLoanDrafts.filter(
     (loan) => loan.outstandingPrincipalBalance > 0
   )
+  const selectedMemberLegacyLoanDrafts = selectedMigrationMemberId
+    ? displayedLegacyLoanDrafts.filter(
+        (loan) => loan.memberId === selectedMigrationMemberId
+      )
+    : []
   const legacyLoansReviewed =
     migrationSnapshot?.steps.find((step) => step.key === "legacy_loans")
       ?.complete ?? false
-  const totalOutstandingLegacyPrincipal = activeLegacyLoanDrafts.reduce(
+  const latestLedgerRow = displayedLedgerRows[displayedLedgerRows.length - 1]
+  const projectedShareCapital = latestLedgerRow?.runningShareCapitalBalance ?? 0
+  const projectedTotalSavings = latestLedgerRow?.runningSavingsBalance ?? 0
+  const firstLedgerRow = displayedLedgerRows[0]
+  const latestLoanColumns = latestLedgerRow?.loanColumns ?? []
+  const activeLoanColumns = latestLoanColumns.filter(
+    (loan) => loan.outstandingPrincipalBalance > 0
+  )
+  const historicalLoanCount =
+    new Set(
+      displayedLedgerRows.flatMap((row) =>
+        row.loanColumns.map((loan) => loan.id)
+      )
+    ).size || selectedMemberLegacyLoanDrafts.length
+  const activeLoanBalance = activeLoanColumns.reduce(
     (total, loan) => total + loan.outstandingPrincipalBalance,
     0
   )
-  const latestLedgerRow = displayedLedgerRows[displayedLedgerRows.length - 1]
-  const activeLoanRows = displayedLedgerRows.filter(
-    (row) => row.loanColumns.length > 0
-  )
-  const projectedShareCapital = latestLedgerRow?.runningShareCapitalBalance ?? 0
-  const projectedDividendCredit = displayedLedgerRows.reduce(
-    (total, row) => total + row.dividendCredit,
-    0
-  )
-  const firstLedgerRow = displayedLedgerRows[0]
+  const loanStatusLabel =
+    activeLoanColumns.length > 0
+      ? `${activeLoanColumns.length} active • ${formatCurrency(activeLoanBalance)}`
+      : historicalLoanCount > 0
+        ? "Settled"
+        : "No loan"
   const selectedMemberHeadline = selectedMemberReview
     ? {
         fullName: selectedMemberReview.fullName,
@@ -884,25 +1254,6 @@ export function InitialMigrationPreview({
           memberNumber: null,
         }
       : null
-  const totalAllocatableBusinessProfit = (profitAdjustmentOptions ?? []).reduce(
-    (total, profitEntry) =>
-      total + (profitEntry.allocatableProfitAmount ?? profitEntry.profitAmount),
-    0
-  )
-  const totalBusinessProfitPool = (profitAdjustmentOptions ?? []).reduce(
-    (total, profitEntry) => total + profitEntry.profitAmount,
-    0
-  )
-  const totalDisbursedBusinessProfit = (profitAdjustmentOptions ?? []).reduce(
-    (total, profitEntry) => total + profitEntry.totalDisbursedAmount,
-    0
-  )
-  const availableBusinessProfit =
-    totalAllocatableBusinessProfit - totalDisbursedBusinessProfit
-  const outstandingPrincipal = displayedLedgerRows.reduce((latest, row) => {
-    const loan = row.loanColumns[0]
-    return loan ? loan.outstandingPrincipalBalance : latest
-  }, 0)
   const migrationStatus = migrationSnapshot
     ? statusLabels[migrationSnapshot.status]
     : "Preview mode"
@@ -915,7 +1266,7 @@ export function InitialMigrationPreview({
     ) ?? []
   const blockingFinalizationLabels =
     migrationSnapshot?.steps
-      .filter((step) => blockingFinalizationSteps.includes(step.key))
+      .filter((step) => blockingFinalizationSteps.includes(step.key as never))
       .map((step) => step.label) ?? []
   const memberBackfillBlockingStepKeys =
     migrationSnapshot?.missingStepKeys.filter(
@@ -929,7 +1280,9 @@ export function InitialMigrationPreview({
     ) ?? []
   const memberBackfillBlockingLabels =
     migrationSnapshot?.steps
-      .filter((step) => memberBackfillBlockingStepKeys.includes(step.key))
+      .filter((step) =>
+        memberBackfillBlockingStepKeys.includes(step.key as never)
+      )
       .map((step) => step.label) ?? []
   const memberProfileBlockingStepKeys =
     migrationSnapshot?.missingStepKeys.filter(
@@ -941,12 +1294,11 @@ export function InitialMigrationPreview({
     ) ?? []
   const memberProfileBlockingLabels =
     migrationSnapshot?.steps
-      .filter((step) => memberProfileBlockingStepKeys.includes(step.key))
+      .filter((step) =>
+        memberProfileBlockingStepKeys.includes(step.key as never)
+      )
       .map((step) => step.label) ?? []
   const canStartMemberBackfill = memberBackfillBlockingStepKeys.length === 0
-  const unappliedMemberBackfills = reviewRows.filter(
-    (member) => member.status !== "backfill_applied"
-  ).length
   const canCreateMigrationMemberProfile =
     Boolean(migrationSnapshot?.canUseMigrationTools) &&
     !migrationSnapshot?.canUseLiveFinancialWrites &&
@@ -956,15 +1308,6 @@ export function InitialMigrationPreview({
     Boolean(migrationSnapshot?.canUseMigrationTools) &&
     !migrationSnapshot?.canUseLiveFinancialWrites &&
     blockingFinalizationSteps.length === 0
-  const canRequestEmergencyUnlock = migrationSnapshot
-    ? !migrationSnapshot.canUseMigrationTools
-    : false
-  const canQueueSelectedMemberBackfill =
-    Boolean(selectedMigrationMemberId) &&
-    Boolean(generatedLedgerRows?.length) &&
-    Boolean(migrationSnapshot?.canUseMigrationTools) &&
-    canStartMemberBackfill &&
-    !selectedMemberBackfillApplied
   const finalizationWarnings = [
     blockingFinalizationLabels.length > 0
       ? `Missing setup: ${blockingFinalizationLabels.join(", ")}.`
@@ -978,137 +1321,207 @@ export function InitialMigrationPreview({
   ].filter((warning): warning is string => Boolean(warning))
 
   return (
-    <DashboardSectionCard>
+    <section>
       <DashboardSectionHeader
         eyebrow="Initial migration"
         title={
-          isLoansOnly ? "Legacy loan setup" : "Member ledger backfill preview"
+          isLoansOnly
+            ? "Legacy loan setup"
+            : isMemberPreview
+              ? "Member ledger preview"
+              : "Migration overview"
         }
         description={
           isLoansOnly
             ? "Configure principal-only opening loan positions, monthly repayment, and savings during loan before member ledger backfill."
-            : "Generate and review the member ledger history that will become authoritative when the one-time migration is applied."
+            : isMemberPreview
+              ? "Review the selected member's generated ledger history before saving or applying the one-time migration backfill."
+              : "Track migration readiness and choose the next focused workflow without mixing member creation, loans, and generated ledger rows on one page."
         }
         actions={
           <>
             <TrendPill
-              tone={generatedLedgerRows?.length ? "positive" : "warning"}
+              tone={
+                isMigrationOverview || generatedLedgerRows?.length
+                  ? "positive"
+                  : "warning"
+              }
             >
-              {generatedLedgerRows?.length
-                ? "Generated preview"
-                : "Select member"}
+              {isLoansOnly
+                ? "Loan domain"
+                : isMemberPreview
+                  ? generatedLedgerRows?.length
+                    ? "Generated preview"
+                    : "No preview"
+                  : migrationStatus}
             </TrendPill>
-            <TrendPill tone="neutral">Principal-only loan balance</TrendPill>
+            <TrendPill tone="neutral">
+              {isMigrationOverview
+                ? readinessDetail
+                : "Principal-only loan balance"}
+            </TrendPill>
           </>
         }
       />
 
-      {!isLoansOnly ? (
-        <DashboardSurfaceCard
-          as="section"
-          className="mt-5 scroll-mt-24 bg-background/70"
-          id="member-profiles"
+      {isMigrationOverview && migrationSnapshot ? (
+        <section
+          className={`mt-4 border-l-2 px-3 py-2 text-sm ${
+            memberBackfillBlockingLabels.length > 0
+              ? "border-amber-300 bg-amber-50 text-amber-950"
+              : "border-emerald-300 bg-emerald-50 text-emerald-950"
+          }`}
         >
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-foreground">
-                Migration member profiles
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Create the member profile first, then configure legacy loans and
-                generate that member's historical ledger.
-              </p>
-            </div>
-            <TrendPill
-              tone={canCreateMigrationMemberProfile ? "positive" : "warning"}
-            >
-              {canCreateMigrationMemberProfile
-                ? "Profiles open"
-                : "Profiles locked"}
-            </TrendPill>
-          </div>
-
-          {canCreateMigrationMemberProfile ? (
-            <MemberCreateForm
-              devMode={process.env.NODE_ENV !== "production"}
-              inModal
-            />
-          ) : (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
               <p className="font-medium">
-                Member profile creation is not open.
+                {memberBackfillBlockingLabels.length > 0
+                  ? "Setup blockers"
+                  : "Ready for member preview"}
               </p>
-              <p className="mt-1">
-                {memberProfileBlockingLabels.length > 0
-                  ? `Finish setup first: ${memberProfileBlockingLabels.join(", ")}.`
-                  : appliedBackfillMembers > 0
-                    ? "Member backfill has already started, so migration profiles are locked."
-                    : migrationSnapshot?.canUseLiveFinancialWrites
-                      ? "Live operations are open. Create new members from the members area."
-                      : "Migration tools must be open before creating migration member profiles."}
+              <p className="mt-1 text-xs">
+                {memberBackfillBlockingLabels.length > 0
+                  ? `Missing: ${memberBackfillBlockingLabels.join(", ")}.`
+                  : "Select a member to review generated opening ledger rows."}
               </p>
             </div>
-          )}
-        </DashboardSurfaceCard>
+            <div className="flex flex-wrap gap-2">
+              <TrendPill
+                tone={
+                  migrationSnapshot.canUseMigrationTools
+                    ? "warning"
+                    : "positive"
+                }
+              >
+                {migrationSnapshot.canUseMigrationTools
+                  ? "Migration tools open"
+                  : "Migration tools locked"}
+              </TrendPill>
+              <TrendPill tone="neutral">{readinessDetail}</TrendPill>
+            </div>
+          </div>
+        </section>
       ) : null}
 
-      {!isLoansOnly ? (
-        <DashboardSurfaceCard
-          as="section"
-          className="mt-5 scroll-mt-24 bg-background/70"
+      {isMigrationOverview ? (
+        <section
+          className="mt-5 scroll-mt-24 border-t border-border/70 pt-4"
           id="member-backfill-preview"
         >
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-foreground">
-                Generated member preview
+                {hasSelectedMigrationOverviewMember
+                  ? "Selected member preview"
+                  : "Member backfill preview"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {selectedMigrationMemberLabel
-                  ? `Showing generated ledger rows for ${selectedMigrationMemberLabel}.`
-                  : "Select a member to generate ledger rows from migration setup data."}
+                {hasSelectedMigrationOverviewMember
+                  ? "Generated ledger rows are shown below."
+                  : "Select a member to load the generated ledger preview here."}
               </p>
             </div>
-            <form
-              className="flex flex-col gap-2 sm:flex-row sm:items-end"
-              method="get"
-            >
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
-                Member
-                <select
-                  className="h-9 min-w-[260px] rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                  defaultValue={selectedMigrationMemberId ?? ""}
-                  name="migrationMemberId"
-                >
-                  <option value="">Select a member</option>
-                  {(memberOptions ?? []).map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button
-                disabled={!memberOptions || memberOptions.length === 0}
-                size="sm"
-                type="submit"
-                variant="outline"
-              >
-                Preview member
-              </Button>
-            </form>
+            <div className="flex flex-wrap items-end gap-2">
+              {canCreateMigrationMemberProfile ? (
+                <MemberCreateModal
+                  description="Create the member profile before generating historical ledger rows."
+                  devMode={process.env.NODE_ENV !== "production"}
+                  eyebrow="Initial migration"
+                  memberNumberPrefix={memberNumberPrefix}
+                  title="Create migration member"
+                  triggerLabel="Create member"
+                />
+              ) : null}
+              <MemberPreviewPicker
+                memberOptions={memberOptions ?? []}
+                selectedMemberId={selectedMigrationMemberId}
+              />
+            </div>
           </div>
-          {selectedMemberHeadline ? (
-            <div className="mt-4 rounded-lg border border-border/70 bg-muted/30 p-3">
-              <div className="mb-3">
-                <p className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                  Member history headline
+
+          {!canCreateMigrationMemberProfile &&
+          !hasSelectedMigrationOverviewMember &&
+          memberProfileBlockingLabels.length > 0 ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Create member is locked until:{" "}
+              {memberProfileBlockingLabels.join(", ")}.
+            </p>
+          ) : null}
+
+          {hasSelectedMigrationOverviewMember && selectedMemberHeadline ? (
+            <div className="mt-4 grid gap-3 border-t border-border/70 pt-3 text-sm sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Member
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Snapshot used to review the generated month-to-date ledger.
+                <p className="mt-1 font-semibold text-foreground">
+                  {selectedMemberHeadline.fullName}
                 </p>
               </div>
-              <div className="grid gap-3 md:grid-cols-4">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Member ID
+                </p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {selectedMemberHeadline.memberNumber ?? "Not available"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Joined
+                </p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {selectedMemberHeadline.joinedAt ?? "Not available"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  First saving plan
+                </p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {firstLedgerRow
+                    ? `${formatCurrency(firstLedgerRow.savingsContribution)} from ${firstLedgerRow.period}`
+                    : "Not generated"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Total savings
+                </p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {latestLedgerRow
+                    ? formatCurrency(projectedTotalSavings)
+                    : "Not generated"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Total shares
+                </p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {latestLedgerRow
+                    ? formatCurrency(projectedShareCapital)
+                    : "Not generated"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Loan status
+                </p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {loanStatusLabel}
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {isMemberPreview ? (
+        <section className="mt-5 space-y-4">
+          {selectedMemberHeadline ? (
+            <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">
                     Member
@@ -1140,277 +1553,88 @@ export function InitialMigrationPreview({
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {firstLedgerRow
                       ? `${formatCurrency(firstLedgerRow.savingsContribution)} from ${firstLedgerRow.period}`
-                      : "Generate preview"}
+                      : "Not generated here"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Total savings
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {latestLedgerRow
+                      ? formatCurrency(projectedTotalSavings)
+                      : "Not generated"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Total shares
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {latestLedgerRow
+                      ? formatCurrency(projectedShareCapital)
+                      : "Not generated"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Loan status
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {loanStatusLabel}
                   </p>
                 </div>
               </div>
             </div>
           ) : null}
-          <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(360px,1fr)]">
-            <div
-              className={`rounded-lg border px-3 py-2 text-xs ${
-                selectedMemberBackfillApplied
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                  : generatedLedgerRows?.length
-                    ? "border-blue-200 bg-blue-50 text-blue-900"
-                    : "border-amber-200 bg-amber-50 text-amber-900"
-              }`}
-            >
-              <p className="font-medium">
-                {selectedMemberBackfillApplied
-                  ? "Historical ledger already applied."
-                  : memberBackfillBlockingLabels.length > 0
-                    ? `Missing setup: ${memberBackfillBlockingLabels.join(", ")}.`
-                    : generatedLedgerRows?.length
-                      ? "Generated ledger is ready for review."
-                      : "Live member data is required before posting history."}
-              </p>
-              <p className="mt-1">
-                Applying creates immutable opening ledger months for the
-                selected member. After go-live, use live corrections instead.
-              </p>
-            </div>
-            <form
-              action={queueBackfillDraftAction}
-              className="grid gap-2 rounded-lg border border-border/70 bg-muted/30 p-3 sm:grid-cols-[1fr_auto]"
-            >
-              <input
-                name="memberId"
-                type="hidden"
-                value={selectedMigrationMemberId ?? ""}
+          <MemberMigrationInputPanels
+            activity={
+              <ActivityHistoryPanel
+                disabled={
+                  !hasRealMigrationContext ||
+                  !canStartMemberBackfill ||
+                  selectedMemberBackfillApplied
+                }
+                events={displayedMemberActivityEvents}
+                memberId={selectedMigrationMemberId}
+                memberJoinedAt={selectedMemberHeadline?.joinedAt ?? null}
               />
-              <div>
-                <p className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                  Member backfill posting
-                </p>
-                <p className="mt-1 text-sm text-foreground">
-                  Save the generated ledger as a draft, then apply it after
-                  review.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-end justify-end gap-2">
-                <Button
-                  disabled={
-                    !selectedMigrationMemberId ||
-                    !generatedLedgerRows?.length ||
-                    !migrationSnapshot?.canUseMigrationTools ||
-                    !canStartMemberBackfill ||
-                    selectedMemberBackfillApplied
-                  }
-                  size="sm"
-                  type="submit"
-                  variant="outline"
-                >
-                  Save draft
-                </Button>
-              </div>
-            </form>
-            <form
-              action={queueBackfillApplyAction}
-              className="grid gap-3 rounded-lg border border-border/70 bg-muted/30 p-3 lg:col-start-2"
-            >
-              <input
-                name="memberId"
-                type="hidden"
-                value={selectedMigrationMemberId ?? ""}
-              />
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
-                Type APPLY BACKFILL
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                  name="confirmation"
-                  placeholder="APPLY BACKFILL"
-                  required
-                  type="text"
-                />
-              </label>
-              <Button
-                disabled={!canQueueSelectedMemberBackfill}
-                size="sm"
-                type="submit"
-              >
-                Apply historical ledger
-              </Button>
-            </form>
-          </div>
-        </DashboardSurfaceCard>
-      ) : null}
-
-      {!isLoansOnly ? (
-        <section className="mt-5 grid gap-4 md:grid-cols-4">
-          <DashboardStatCard
-            label="Preview member"
-            value={selectedMigrationMemberLabel ?? "No member"}
-            detail={
-              generatedLedgerRows?.length
-                ? "Generated from tenant setup."
-                : hasRealMigrationContext
-                  ? "Select a member to generate rows."
-                  : "Sample rows show the expected ledger structure."
             }
-          />
-          <DashboardStatCard
-            label="Segments"
-            value={segments.length.toString()}
-            detail="Split by charge, loan, and savings changes."
-          />
-          <DashboardStatCard
-            label="Active loan rows"
-            value={activeLoanRows.length.toString()}
-            detail="Loan columns disappear after settlement."
-            tone="warning"
-          />
-          <DashboardStatCard
-            label="Loan principal balance"
-            value={formatCurrency(outstandingPrincipal)}
-            detail="Fees, profit, and charges stay separate."
-            tone="positive"
+            commitment={
+              <CommitmentHistoryPanel
+                disabled={
+                  !hasRealMigrationContext ||
+                  !canStartMemberBackfill ||
+                  selectedMemberBackfillApplied
+                }
+                memberAmountLogs={displayedMemberAmountLogs}
+                memberId={selectedMigrationMemberId}
+                memberJoinedAt={selectedMemberHeadline?.joinedAt ?? null}
+              />
+            }
+            loan={
+              <LoanHistoryPanel
+                disabled={
+                  !hasRealMigrationContext ||
+                  !canStartMemberBackfill ||
+                  selectedMemberBackfillApplied
+                }
+                loans={selectedMemberLegacyLoanDrafts}
+                memberId={selectedMigrationMemberId}
+                memberJoinedAt={selectedMemberHeadline?.joinedAt ?? null}
+                memberOptions={memberOptions ?? []}
+              />
+            }
           />
         </section>
       ) : null}
 
-      {!isLoansOnly && migrationSnapshot ? (
-        <DashboardSurfaceCard className="mt-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                Tenant readiness
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Migration tools stay available until finalization. Live
-                financial writes should only open after live operations.
-              </p>
-            </div>
-            <TrendPill
-              tone={
-                migrationSnapshot.canUseMigrationTools ? "warning" : "positive"
-              }
-            >
-              {migrationSnapshot.canUseMigrationTools
-                ? "Migration tools open"
-                : "Migration tools locked"}
-            </TrendPill>
-          </div>
-          <div className="mt-4 grid gap-2 md:grid-cols-4">
-            {migrationSnapshot.steps.map((step) => (
-              <div
-                key={step.key}
-                className="rounded-xl border border-border/70 bg-background px-3 py-2"
-              >
-                <p className="text-xs font-medium text-foreground">
-                  {step.label}
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  {step.complete ? "Complete" : "Missing"}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
-            <form
-              action={finalizeInitialMigrationAction}
-              className="rounded-lg border border-border/70 bg-muted/30 p-3"
-            >
-              <p className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                Go live lock
-              </p>
-              <p className="mt-2 text-sm text-foreground">
-                Finalization closes historical migration tools and opens live
-                financial operations.
-              </p>
-              <div
-                className={`mt-3 rounded-md border px-3 py-2 text-xs ${
-                  canFinalizeMigration
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                    : "border-amber-200 bg-amber-50 text-amber-900"
-                }`}
-              >
-                {canFinalizeMigration ? (
-                  <p>
-                    Ready to go live. Historical migration will be locked after
-                    finalization.
-                  </p>
-                ) : (
-                  <div className="space-y-1">
-                    <p className="font-medium">Finalization is blocked.</p>
-                    {blockingFinalizationLabels.length > 0 ? (
-                      <p>Missing: {blockingFinalizationLabels.join(", ")}.</p>
-                    ) : null}
-                    {unappliedMemberBackfills > 0 ? (
-                      <p>
-                        {unappliedMemberBackfills} member backfill record(s)
-                        still need to be applied.
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-              <label className="mt-3 block space-y-1 text-xs font-medium text-muted-foreground">
-                Type FINALIZE MIGRATION
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                  name="confirmation"
-                  placeholder="FINALIZE MIGRATION"
-                  required
-                  type="text"
-                />
-              </label>
-              <Button
-                className="mt-3"
-                disabled={!canFinalizeMigration}
-                size="sm"
-                type="submit"
-              >
-                Finalize migration
-              </Button>
-            </form>
-            <form
-              action={unlockInitialMigrationAction}
-              className="rounded-lg border border-border/70 bg-muted/30 p-3"
-            >
-              <p className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                Emergency unlock
-              </p>
-              <p className="mt-2 text-sm text-foreground">
-                Temporarily reopen migration tools only for post-finalization
-                remediation.
-              </p>
-              <div className="mt-3 grid gap-2">
-                <input
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  disabled={!canRequestEmergencyUnlock}
-                  name="unlockUntil"
-                  type="datetime-local"
-                />
-                <input
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  disabled={!canRequestEmergencyUnlock}
-                  name="reason"
-                  placeholder="Board approval reason"
-                  type="text"
-                />
-              </div>
-              <Button
-                className="mt-3"
-                disabled={!canRequestEmergencyUnlock}
-                size="sm"
-                type="submit"
-                variant="outline"
-              >
-                Unlock migration tools
-              </Button>
-            </form>
-          </div>
-        </DashboardSurfaceCard>
-      ) : null}
-
-      {!isLoansOnly ? (
-        <DashboardSurfaceCard
-          as="section"
-          className="mt-5 scroll-mt-24 bg-background/70"
+      {isMigrationOverview && !hasSelectedMigrationOverviewMember ? (
+        <section
+          className="mt-6 scroll-mt-24 border-t border-border/70 pt-4"
           id="finalization-review"
         >
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-foreground">
                 Finalization review
@@ -1424,107 +1648,37 @@ export function InitialMigrationPreview({
               {appliedBackfillMembers}/{reviewRows.length} applied
             </TrendPill>
           </div>
-          <section className="mb-4 grid gap-3 md:grid-cols-4">
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+            <div className="border-l border-border/70 pl-3">
               <p className="text-xs font-medium text-muted-foreground">
                 Member profiles
               </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
+              <p className="mt-1 font-semibold text-foreground">
                 {reviewRows.length}
               </p>
             </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+            <div className="border-l border-border/70 pl-3">
               <p className="text-xs font-medium text-muted-foreground">
                 Applied member backfills
               </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
+              <p className="mt-1 font-semibold text-foreground">
                 {appliedBackfillMembers}/{reviewRows.length}
               </p>
             </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+            <div className="border-l border-border/70 pl-3">
               <p className="text-xs font-medium text-muted-foreground">
                 Missing histories
               </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
+              <p className="mt-1 font-semibold text-foreground">
                 {membersMissingAppliedBackfill}
               </p>
             </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Active legacy loans
-              </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {activeLegacyLoanDrafts.length}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Outstanding principal
-              </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {formatCurrency(totalOutstandingLegacyPrincipal)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Selected preview savings
-              </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {formatCurrency(latestLedgerRow?.runningSavingsBalance ?? 0)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Selected preview share
-              </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {formatCurrency(projectedShareCapital)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Selected preview dividend
-              </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {formatCurrency(projectedDividendCredit)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Business profit pool
-              </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {formatCurrency(totalBusinessProfitPool)}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {formatCurrency(totalAllocatableBusinessProfit)} allocatable
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Profit pool available
-              </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {formatCurrency(availableBusinessProfit)}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {formatCurrency(totalDisbursedBusinessProfit)} allocated
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Review warnings
-              </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {finalizationWarnings.length}
-              </p>
-            </div>
-          </section>
+          </div>
           <div
-            className={`mb-4 rounded-lg border px-3 py-2 text-xs ${
+            className={`mt-4 border-l-2 px-3 py-2 text-xs ${
               finalizationWarnings.length > 0
-                ? "border-amber-200 bg-amber-50 text-amber-900"
-                : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                ? "border-amber-300 bg-amber-50 text-amber-900"
+                : "border-emerald-300 bg-emerald-50 text-emerald-900"
             }`}
           >
             {finalizationWarnings.length > 0 ? (
@@ -1537,69 +1691,278 @@ export function InitialMigrationPreview({
               <p>All visible migration review checks are clear.</p>
             )}
           </div>
+          <form
+            action={finalizeInitialMigrationAction}
+            className="mt-4 grid gap-3 border-t border-border/70 pt-4 md:grid-cols-[minmax(0,1fr)_220px_auto]"
+          >
+            <div>
+              <p className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                Go live lock
+              </p>
+              <p className="mt-1 text-sm text-foreground">
+                Finalization closes historical migration tools and opens live
+                financial operations.
+              </p>
+            </div>
+            <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              Type FINALIZE MIGRATION
+              <input
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                name="confirmation"
+                placeholder="FINALIZE MIGRATION"
+                required
+                type="text"
+              />
+            </label>
+            <div className="flex items-end justify-end">
+              <Button disabled={!canFinalizeMigration} size="sm" type="submit">
+                Finalize migration
+              </Button>
+            </div>
+          </form>
+        </section>
+      ) : null}
+
+      {isLoansOnly ? (
+        <DashboardSurfaceCard
+          as="section"
+          className="mt-5 scroll-mt-24 bg-background/70"
+          id="legacy-loans"
+        >
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Legacy loan setup
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Principal-only balances, scheduled repayment, and savings during
+                loan feed the member ledger before backfill generation.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <TrendPill tone="warning">Before member backfill</TrendPill>
+              <TrendPill tone="neutral">Savings during loan</TrendPill>
+            </div>
+          </div>
+          {!legacyLoansReviewed && displayedLegacyLoanDrafts.length === 0 ? (
+            <form
+              action={markLegacyLoansReviewedAction}
+              className="mb-5 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950 md:grid-cols-[minmax(0,1fr)_180px_auto]"
+            >
+              <div>
+                <p className="text-sm font-semibold">
+                  No legacy loan balances?
+                </p>
+                <p className="mt-1 text-xs leading-5 text-amber-900">
+                  Record an auditable review before member ledger backfill when
+                  the cooperative has no historical loans to migrate.
+                </p>
+              </div>
+              <label className="space-y-1 text-xs font-medium text-amber-900">
+                Type NO LEGACY LOANS
+                <input
+                  className="h-9 w-full rounded-md border border-amber-200 bg-background px-3 text-sm text-foreground"
+                  name="confirmation"
+                  placeholder="NO LEGACY LOANS"
+                  required
+                  type="text"
+                />
+              </label>
+              <div className="flex items-end justify-end">
+                <Button size="sm" type="submit" variant="outline">
+                  Mark reviewed
+                </Button>
+              </div>
+              <label className="space-y-1 text-xs font-medium text-amber-900 md:col-span-3">
+                Notes
+                <input
+                  className="h-9 w-full rounded-md border border-amber-200 bg-background px-3 text-sm text-foreground"
+                  name="notes"
+                  placeholder="Board minute, review source, or officer note"
+                  type="text"
+                />
+              </label>
+            </form>
+          ) : null}
+          {mutableMigrationMemberOptions.length === 0 ? (
+            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <p className="font-medium">Legacy loan drafts are locked</p>
+              <p className="mt-1">
+                Every available member has an applied historical ledger. Use
+                correction workflows instead of adding migration loan drafts.
+              </p>
+            </div>
+          ) : (
+            <form
+              action={createLegacyLoanMigrationDraftAction}
+              className="mb-5 grid gap-3 rounded-lg border border-border/70 bg-muted/30 p-3 md:grid-cols-2 xl:grid-cols-4"
+            >
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Member
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  name="memberId"
+                  required
+                >
+                  <option value="">Select member</option>
+                  {mutableMigrationMemberOptions.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Loan label
+                <input
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  name="loanLabel"
+                  placeholder="Loan A"
+                  required
+                  type="text"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Loan date
+                <input
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  name="openedAt"
+                  required
+                  type="date"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Closed date
+                <input
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  name="closedAt"
+                  type="date"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Principal
+                <input
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  min="0"
+                  name="principalAmount"
+                  required
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Monthly principal repayment
+                <input
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  min="0"
+                  name="scheduledMonthlyPrincipalRepayment"
+                  required
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Savings during loan
+                <input
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  min="0"
+                  name="savingsDuringLoan"
+                  required
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Outstanding principal
+                <input
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  min="0"
+                  name="outstandingPrincipalBalance"
+                  required
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-muted-foreground md:col-span-2 xl:col-span-3">
+                Notes
+                <input
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  name="notes"
+                  placeholder="Board approval, source file, or correction note"
+                  type="text"
+                />
+              </label>
+              <div className="flex items-end justify-end">
+                <Button size="sm" type="submit">
+                  Add loan draft
+                </Button>
+              </div>
+            </form>
+          )}
           <DashboardDataTable>
-            <DashboardTable className="min-w-[980px]">
+            <DashboardTable className="min-w-[920px]">
               <DashboardTableHead>
-                <DashboardTableHeaderCell>Member</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Joined</DashboardTableHeaderCell>
+                <DashboardTableHeaderCell>Loan date</DashboardTableHeaderCell>
                 <DashboardTableHeaderCell align="right">
-                  Loans
+                  Principal amount
                 </DashboardTableHeaderCell>
                 <DashboardTableHeaderCell align="right">
-                  Row edits
+                  Monthly repayment
                 </DashboardTableHeaderCell>
                 <DashboardTableHeaderCell align="right">
-                  Profit edits
+                  Savings during loan
                 </DashboardTableHeaderCell>
                 <DashboardTableHeaderCell align="right">
-                  Backfill
+                  Outstanding principal
                 </DashboardTableHeaderCell>
+                <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
                 <DashboardTableHeaderCell align="right">
-                  Status
+                  Action
                 </DashboardTableHeaderCell>
               </DashboardTableHead>
               <DashboardTableBody>
-                {reviewRows.map((member) => (
-                  <DashboardTableRow key={member.id}>
+                {displayedLegacyLoanDrafts.map((loan) => (
+                  <DashboardTableRow key={loan.id}>
                     <DashboardTableCell>
-                      <p className="font-medium text-foreground">
-                        {member.fullName}
+                      <p className="text-sm font-medium text-foreground">
+                        {loan.openedAt}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {member.memberNumber}
+                        {loan.memberName} · {loan.memberNumber}
                       </p>
                     </DashboardTableCell>
-                    <DashboardTableCell>{member.joinedAt}</DashboardTableCell>
                     <DashboardTableCell align="right">
-                      {member.legacyLoanDrafts}
+                      {formatCurrency(loan.principalAmount)}
                     </DashboardTableCell>
                     <DashboardTableCell align="right">
-                      {member.rowAdjustments}
+                      {formatCurrency(loan.scheduledMonthlyPrincipalRepayment)}
                     </DashboardTableCell>
                     <DashboardTableCell align="right">
-                      {member.profitAdjustments}
+                      {formatCurrency(loan.savingsDuringLoan)}
                     </DashboardTableCell>
                     <DashboardTableCell align="right">
-                      {member.appliedBackfillBatches} applied /{" "}
-                      {member.backfillDraftBatches} draft
-                      {member.appliedBackfillMonths > 0 ? (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {member.appliedBackfillMonths} month(s)
-                        </p>
-                      ) : null}
+                      {formatCurrency(loan.outstandingPrincipalBalance)}
                     </DashboardTableCell>
-                    <DashboardTableCell align="right">
+                    <DashboardTableCell>
                       <TrendPill
                         tone={
-                          member.status === "backfill_applied"
-                            ? "positive"
-                            : member.status === "profile_only"
-                              ? "warning"
-                              : "neutral"
+                          loan.outstandingPrincipalBalance > 0
+                            ? "warning"
+                            : "positive"
                         }
                       >
-                        {memberReviewStatusLabels[member.status]}
+                        {loan.status}
                       </TrendPill>
+                    </DashboardTableCell>
+                    <DashboardTableCell align="right">
+                      <LegacyLoanDraftEditDialog
+                        disabled={
+                          !hasRealMigrationContext ||
+                          !mutableMigrationMemberIds.has(loan.memberId)
+                        }
+                        loan={loan}
+                        memberOptions={memberOptions ?? []}
+                      />
                     </DashboardTableCell>
                   </DashboardTableRow>
                 ))}
@@ -1609,251 +1972,7 @@ export function InitialMigrationPreview({
         </DashboardSurfaceCard>
       ) : null}
 
-      <DashboardSurfaceCard
-        as="section"
-        className="mt-5 scroll-mt-24 bg-background/70"
-        id="legacy-loans"
-      >
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              Legacy loan setup
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Principal-only balances, scheduled repayment, and savings during
-              loan feed the member ledger before backfill generation.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <TrendPill tone="warning">Before member backfill</TrendPill>
-            <TrendPill tone="neutral">Savings during loan</TrendPill>
-          </div>
-        </div>
-        {!legacyLoansReviewed && displayedLegacyLoanDrafts.length === 0 ? (
-          <form
-            action={markLegacyLoansReviewedAction}
-            className="mb-5 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950 md:grid-cols-[minmax(0,1fr)_180px_auto]"
-          >
-            <div>
-              <p className="text-sm font-semibold">No legacy loan balances?</p>
-              <p className="mt-1 text-xs leading-5 text-amber-900">
-                Record an auditable review before member ledger backfill when
-                the cooperative has no historical loans to migrate.
-              </p>
-            </div>
-            <label className="space-y-1 text-xs font-medium text-amber-900">
-              Type NO LEGACY LOANS
-              <input
-                className="h-9 w-full rounded-md border border-amber-200 bg-background px-3 text-sm text-foreground"
-                name="confirmation"
-                placeholder="NO LEGACY LOANS"
-                required
-                type="text"
-              />
-            </label>
-            <div className="flex items-end justify-end">
-              <Button size="sm" type="submit" variant="outline">
-                Mark reviewed
-              </Button>
-            </div>
-            <label className="space-y-1 text-xs font-medium text-amber-900 md:col-span-3">
-              Notes
-              <input
-                className="h-9 w-full rounded-md border border-amber-200 bg-background px-3 text-sm text-foreground"
-                name="notes"
-                placeholder="Board minute, review source, or officer note"
-                type="text"
-              />
-            </label>
-          </form>
-        ) : null}
-        {mutableMigrationMemberOptions.length === 0 ? (
-          <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            <p className="font-medium">Legacy loan drafts are locked</p>
-            <p className="mt-1">
-              Every available member has an applied historical ledger. Use
-              correction workflows instead of adding migration loan drafts.
-            </p>
-          </div>
-        ) : (
-          <form
-            action={createLegacyLoanMigrationDraftAction}
-            className="mb-5 grid gap-3 rounded-lg border border-border/70 bg-muted/30 p-3 md:grid-cols-2 xl:grid-cols-4"
-          >
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Member
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                name="memberId"
-                required
-              >
-                <option value="">Select member</option>
-                {mutableMigrationMemberOptions.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Loan label
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                name="loanLabel"
-                placeholder="Loan A"
-                required
-                type="text"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Loan date
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                name="openedAt"
-                required
-                type="date"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Closed date
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                name="closedAt"
-                type="date"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Principal
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                min="0"
-                name="principalAmount"
-                required
-                step="0.01"
-                type="number"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Monthly principal repayment
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                min="0"
-                name="scheduledMonthlyPrincipalRepayment"
-                required
-                step="0.01"
-                type="number"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Savings during loan
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                min="0"
-                name="savingsDuringLoan"
-                required
-                step="0.01"
-                type="number"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Outstanding principal
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                min="0"
-                name="outstandingPrincipalBalance"
-                required
-                step="0.01"
-                type="number"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground md:col-span-2 xl:col-span-3">
-              Notes
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                name="notes"
-                placeholder="Board approval, source file, or correction note"
-                type="text"
-              />
-            </label>
-            <div className="flex items-end justify-end">
-              <Button size="sm" type="submit">
-                Add loan draft
-              </Button>
-            </div>
-          </form>
-        )}
-        <DashboardDataTable>
-          <DashboardTable className="min-w-[920px]">
-            <DashboardTableHead>
-              <DashboardTableHeaderCell>Loan date</DashboardTableHeaderCell>
-              <DashboardTableHeaderCell align="right">
-                Principal amount
-              </DashboardTableHeaderCell>
-              <DashboardTableHeaderCell align="right">
-                Monthly repayment
-              </DashboardTableHeaderCell>
-              <DashboardTableHeaderCell align="right">
-                Savings during loan
-              </DashboardTableHeaderCell>
-              <DashboardTableHeaderCell align="right">
-                Outstanding principal
-              </DashboardTableHeaderCell>
-              <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
-              <DashboardTableHeaderCell align="right">
-                Action
-              </DashboardTableHeaderCell>
-            </DashboardTableHead>
-            <DashboardTableBody>
-              {displayedLegacyLoanDrafts.map((loan) => (
-                <DashboardTableRow key={loan.id}>
-                  <DashboardTableCell>
-                    <p className="text-sm font-medium text-foreground">
-                      {loan.openedAt}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {loan.memberName} · {loan.memberNumber}
-                    </p>
-                  </DashboardTableCell>
-                  <DashboardTableCell align="right">
-                    {formatCurrency(loan.principalAmount)}
-                  </DashboardTableCell>
-                  <DashboardTableCell align="right">
-                    {formatCurrency(loan.scheduledMonthlyPrincipalRepayment)}
-                  </DashboardTableCell>
-                  <DashboardTableCell align="right">
-                    {formatCurrency(loan.savingsDuringLoan)}
-                  </DashboardTableCell>
-                  <DashboardTableCell align="right">
-                    {formatCurrency(loan.outstandingPrincipalBalance)}
-                  </DashboardTableCell>
-                  <DashboardTableCell>
-                    <TrendPill
-                      tone={
-                        loan.outstandingPrincipalBalance > 0
-                          ? "warning"
-                          : "positive"
-                      }
-                    >
-                      {loan.status}
-                    </TrendPill>
-                  </DashboardTableCell>
-                  <DashboardTableCell align="right">
-                    <LegacyLoanDraftEditDialog
-                      disabled={
-                        !hasRealMigrationContext ||
-                        !mutableMigrationMemberIds.has(loan.memberId)
-                      }
-                      loan={loan}
-                    />
-                  </DashboardTableCell>
-                </DashboardTableRow>
-              ))}
-            </DashboardTableBody>
-          </DashboardTable>
-        </DashboardDataTable>
-      </DashboardSurfaceCard>
-
-      {!isLoansOnly ? (
+      {(isMigrationOverview || isMemberPreview) && selectedMigrationMemberId ? (
         <div className="mt-5">
           <MemberLedgerBackfillTable
             isRowAdjustmentDisabled={(row) =>
@@ -1861,15 +1980,6 @@ export function InitialMigrationPreview({
               !row.month ||
               selectedMemberBackfillApplied
             }
-            renderProfitControl={(row) => (
-              <MemberProfitAllocationDialog
-                disabled={selectedMemberBackfillApplied}
-                memberId={selectedMigrationMemberId}
-                period={row.period}
-                profitAdjustmentOptions={profitAdjustmentOptions}
-                rowDividendCredit={row.dividendCredit}
-              />
-            )}
             renderRepaymentControl={(row, loan, disabled) => (
               <MemberBackfillAdjustmentDialog
                 disabled={disabled}
@@ -1892,10 +2002,30 @@ export function InitialMigrationPreview({
                 savingsContribution={row.savingsContribution}
               />
             )}
+            renderDefaultingControl={(row, disabled, triggerLabel) => (
+              <DefaultingMonthsDialog
+                disabled={disabled}
+                memberId={selectedMigrationMemberId}
+                rows={displayedLedgerRows}
+                selectedMonth={row.month}
+                triggerLabel={triggerLabel}
+                triggerVariant={
+                  triggerLabel === "Commitment status" ? "default" : "ghost"
+                }
+              />
+            )}
+            renderMonthStatusControl={(row, disabled) => (
+              <MonthStatusControl
+                disabled={disabled}
+                memberId={selectedMigrationMemberId}
+                row={row}
+                rows={displayedLedgerRows}
+              />
+            )}
             segments={segments}
           />
         </div>
       ) : null}
-    </DashboardSectionCard>
+    </section>
   )
 }

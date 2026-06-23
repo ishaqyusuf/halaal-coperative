@@ -40,17 +40,25 @@ function castImportRows(kind: ImportKind, rows: Prisma.JsonValue[]) {
     case "members":
       return rows as unknown as Parameters<typeof importMembers>[0]["rows"]
     case "deduction_sources":
-      return rows as unknown as Parameters<typeof importDeductionSources>[0]["rows"]
+      return rows as unknown as Parameters<
+        typeof importDeductionSources
+      >[0]["rows"]
     case "loan_products":
       return rows as unknown as Parameters<typeof importLoanProducts>[0]["rows"]
     case "contributions":
-      return rows as unknown as Parameters<typeof importContributions>[0]["rows"]
+      return rows as unknown as Parameters<
+        typeof importContributions
+      >[0]["rows"]
     case "charges":
       return rows as unknown as Parameters<typeof importCharges>[0]["rows"]
     case "loan_migrations":
-      return rows as unknown as Parameters<typeof importLoanMigrations>[0]["rows"]
+      return rows as unknown as Parameters<
+        typeof importLoanMigrations
+      >[0]["rows"]
     case "repayment_migrations":
-      return rows as unknown as Parameters<typeof importRepaymentMigrations>[0]["rows"]
+      return rows as unknown as Parameters<
+        typeof importRepaymentMigrations
+      >[0]["rows"]
     default:
       throw new Error("Unsupported import kind")
   }
@@ -58,7 +66,7 @@ function castImportRows(kind: ImportKind, rows: Prisma.JsonValue[]) {
 
 async function assertMemberRecordImportsOpen(
   tenantId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const tenant =
     typeof (prisma as any).tenant?.findUnique === "function"
@@ -77,7 +85,7 @@ async function assertMemberRecordImportsOpen(
     tenant?.initialMigrationStatus === "live_operations"
   ) {
     throw new Error(
-      "Member record imports are locked because initial migration is finalized. Use live correction workflows after go-live.",
+      "Member record imports are locked because initial migration is finalized. Use live correction workflows after go-live."
     )
   }
 
@@ -103,7 +111,7 @@ async function assertMemberRecordImportsOpen(
 
   if (appliedMonths.length || appliedBatches.length) {
     throw new Error(
-      "Member record imports are locked because member ledger backfill has already started. Finish migration or use live correction workflows after go-live.",
+      "Member record imports are locked because member ledger backfill has already started. Finish migration or use live correction workflows after go-live."
     )
   }
 }
@@ -115,51 +123,87 @@ async function applyImportRows(
     rows: Prisma.JsonValue[]
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   switch (input.kind) {
     case "members":
-      return importMembers({
-        actorUserId: input.actorUserId,
-        rows: castImportRows("members", input.rows) as Parameters<typeof importMembers>[0]["rows"],
-        tenantId: input.tenantId,
-      }, prismaOverride)
+      return importMembers(
+        {
+          actorUserId: input.actorUserId,
+          rows: castImportRows("members", input.rows) as Parameters<
+            typeof importMembers
+          >[0]["rows"],
+          tenantId: input.tenantId,
+        },
+        prismaOverride
+      )
     case "deduction_sources":
-      return importDeductionSources({
-        actorUserId: input.actorUserId,
-        rows: castImportRows("deduction_sources", input.rows) as Parameters<typeof importDeductionSources>[0]["rows"],
-        tenantId: input.tenantId,
-      }, prismaOverride)
+      return importDeductionSources(
+        {
+          actorUserId: input.actorUserId,
+          rows: castImportRows("deduction_sources", input.rows) as Parameters<
+            typeof importDeductionSources
+          >[0]["rows"],
+          tenantId: input.tenantId,
+        },
+        prismaOverride
+      )
     case "loan_products":
-      return importLoanProducts({
-        actorUserId: input.actorUserId,
-        rows: castImportRows("loan_products", input.rows) as Parameters<typeof importLoanProducts>[0]["rows"],
-        tenantId: input.tenantId,
-      }, prismaOverride)
+      return importLoanProducts(
+        {
+          actorUserId: input.actorUserId,
+          rows: castImportRows("loan_products", input.rows) as Parameters<
+            typeof importLoanProducts
+          >[0]["rows"],
+          tenantId: input.tenantId,
+        },
+        prismaOverride
+      )
     case "contributions":
-      return importContributions({
-        actorUserId: input.actorUserId,
-        rows: castImportRows("contributions", input.rows) as Parameters<typeof importContributions>[0]["rows"],
-        tenantId: input.tenantId,
-      }, prismaOverride)
+      return importContributions(
+        {
+          actorUserId: input.actorUserId,
+          rows: castImportRows("contributions", input.rows) as Parameters<
+            typeof importContributions
+          >[0]["rows"],
+          tenantId: input.tenantId,
+        },
+        prismaOverride
+      )
     case "charges":
-      return importCharges({
-        actorUserId: input.actorUserId,
-        rows: castImportRows("charges", input.rows) as Parameters<typeof importCharges>[0]["rows"],
-        tenantId: input.tenantId,
-      }, prismaOverride)
+      return importCharges(
+        {
+          actorUserId: input.actorUserId,
+          rows: castImportRows("charges", input.rows) as Parameters<
+            typeof importCharges
+          >[0]["rows"],
+          tenantId: input.tenantId,
+        },
+        prismaOverride
+      )
     case "loan_migrations":
-      return importLoanMigrations({
-        actorUserId: input.actorUserId,
-        rows: castImportRows("loan_migrations", input.rows) as Parameters<typeof importLoanMigrations>[0]["rows"],
-        tenantId: input.tenantId,
-      }, prismaOverride)
+      return importLoanMigrations(
+        {
+          actorUserId: input.actorUserId,
+          rows: castImportRows("loan_migrations", input.rows) as Parameters<
+            typeof importLoanMigrations
+          >[0]["rows"],
+          tenantId: input.tenantId,
+        },
+        prismaOverride
+      )
     case "repayment_migrations":
-      return importRepaymentMigrations({
-        actorUserId: input.actorUserId,
-        rows: castImportRows("repayment_migrations", input.rows) as Parameters<typeof importRepaymentMigrations>[0]["rows"],
-        tenantId: input.tenantId,
-      }, prismaOverride)
+      return importRepaymentMigrations(
+        {
+          actorUserId: input.actorUserId,
+          rows: castImportRows(
+            "repayment_migrations",
+            input.rows
+          ) as Parameters<typeof importRepaymentMigrations>[0]["rows"],
+          tenantId: input.tenantId,
+        },
+        prismaOverride
+      )
   }
 }
 
@@ -180,7 +224,7 @@ export async function createImportBatch(
     tenantId: string
     validRows: number
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -218,21 +262,24 @@ export async function createImportBatch(
       },
     })
 
-    await createAuditLogEntry({
-      action: "import_batch.created",
-      actorType: "user",
-      actorUserId: input.actorUserId,
-      entityId: batch.id,
-      entityType: "ImportBatch",
-      metadata: {
-        duplicateRowCount: input.duplicateRowCount,
-        existingMatchCount: input.existingMatchCount,
-        importType: input.importType,
-        totalRows: input.rows.length,
-        validRows: input.validRows,
+    await createAuditLogEntry(
+      {
+        action: "import_batch.created",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: batch.id,
+        entityType: "ImportBatch",
+        metadata: {
+          duplicateRowCount: input.duplicateRowCount,
+          existingMatchCount: input.existingMatchCount,
+          importType: input.importType,
+          totalRows: input.rows.length,
+          validRows: input.validRows,
+        },
+        tenantId: input.tenantId,
       },
-      tenantId: input.tenantId,
-    }, tx as unknown as PrismaClient)
+      tx as unknown as PrismaClient
+    )
 
     return batch
   })
@@ -240,7 +287,7 @@ export async function createImportBatch(
 
 export async function listImportBatches(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -269,7 +316,7 @@ export async function getImportBatchKind(
     batchId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -297,7 +344,7 @@ export async function applyImportBatch(
     batchId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -325,12 +372,15 @@ export async function applyImportBatch(
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   try {
-    const result = await applyImportRows({
-      actorUserId: input.actorUserId,
-      kind: batch.importType as ImportKind,
-      rows: batch.rows.map((row) => row.payload),
-      tenantId: input.tenantId,
-    }, prisma)
+    const result = await applyImportRows(
+      {
+        actorUserId: input.actorUserId,
+        kind: batch.importType as ImportKind,
+        rows: batch.rows.map((row) => row.payload),
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
 
     await prisma.importBatch.update({
       where: { id: batch.id },
@@ -341,25 +391,31 @@ export async function applyImportBatch(
       },
     })
 
-    await createAuditLogEntry({
-      action: "import_batch.applied",
-      actorType: "user",
-      actorUserId: input.actorUserId,
-      entityId: batch.id,
-      entityType: "ImportBatch",
-      metadata: {
-        importType: batch.importType,
-        processed: result.processed,
+    await createAuditLogEntry(
+      {
+        action: "import_batch.applied",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: batch.id,
+        entityType: "ImportBatch",
+        metadata: {
+          importType: batch.importType,
+          processed: result.processed,
+        },
+        tenantId: input.tenantId,
       },
-      tenantId: input.tenantId,
-    }, prisma)
+      prisma
+    )
 
     return result
   } catch (error) {
     await prisma.importBatch.update({
       where: { id: batch.id },
       data: {
-        errorMessage: error instanceof Error ? error.message : "Import batch application failed.",
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : "Import batch application failed.",
         status: "failed",
       },
     })
@@ -370,37 +426,38 @@ export async function applyImportBatch(
 
 export async function getImportReferenceData(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const [members, deductionSources, loanProducts, chargeDefinitions] = await Promise.all([
-    prisma.member.findMany({
-      where: { tenantId },
-      select: { id: true, fullName: true, memberNumber: true },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    }),
-    prisma.deductionSource.findMany({
-      where: { tenantId },
-      select: { id: true, name: true },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
-    prisma.loanProduct.findMany({
-      where: { tenantId },
-      select: { id: true, name: true, loanType: true, termMonths: true },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
-    prisma.chargeDefinition.findMany({
-      where: { tenantId },
-      select: { id: true, code: true, name: true },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
-  ])
+  const [members, deductionSources, loanProducts, chargeDefinitions] =
+    await Promise.all([
+      prisma.member.findMany({
+        where: { tenantId },
+        select: { id: true, fullName: true, memberNumber: true },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      }),
+      prisma.deductionSource.findMany({
+        where: { tenantId },
+        select: { id: true, name: true },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      }),
+      prisma.loanProduct.findMany({
+        where: { tenantId },
+        select: { id: true, name: true, loanType: true, termMonths: true },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      }),
+      prisma.chargeDefinition.findMany({
+        where: { tenantId },
+        select: { id: true, code: true, name: true },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      }),
+    ])
 
   return {
     chargeDefinitionCodes: chargeDefinitions.map((item) => item.code),
@@ -453,7 +510,7 @@ export async function importDeductionSources(
     }>
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -484,14 +541,17 @@ export async function importDeductionSources(
     processed += 1
   }
 
-  await createAuditLogEntry({
-    action: "import.deduction_sources",
-    actorType: "user",
-    actorUserId: input.actorUserId,
-    entityType: "DeductionSource",
-    metadata: { processed },
-    tenantId: input.tenantId,
-  }, prisma)
+  await createAuditLogEntry(
+    {
+      action: "import.deduction_sources",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityType: "DeductionSource",
+      metadata: { processed },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
 
   return { processed }
 }
@@ -507,7 +567,7 @@ export async function importLoanProducts(
     }>
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -541,14 +601,17 @@ export async function importLoanProducts(
     processed += 1
   }
 
-  await createAuditLogEntry({
-    action: "import.loan_products",
-    actorType: "user",
-    actorUserId: input.actorUserId,
-    entityType: "LoanProduct",
-    metadata: { processed },
-    tenantId: input.tenantId,
-  }, prisma)
+  await createAuditLogEntry(
+    {
+      action: "import.loan_products",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityType: "LoanProduct",
+      metadata: { processed },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
 
   return { processed }
 }
@@ -568,6 +631,7 @@ export async function importMembers(
       kycStatus?: KycStatus
       memberNumber: string
       memberType: MemberType
+      monthlyCommitment?: number
       occupation?: string
       openingSavingsBalance?: number
       phoneNumber?: string
@@ -575,7 +639,7 @@ export async function importMembers(
     }>
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -594,7 +658,7 @@ export async function importMembers(
         })
       : null
 
-    await prisma.member.upsert({
+    const member = await prisma.member.upsert({
       where: {
         tenantId_memberNumber: {
           memberNumber: row.memberNumber,
@@ -652,17 +716,83 @@ export async function importMembers(
         totalSavingsSnapshot: row.openingSavingsBalance ?? 0,
       },
     })
+
+    if (row.monthlyCommitment && row.monthlyCommitment > 0) {
+      const existingPlan = await prisma.contributionPlan.findFirst({
+        orderBy: { startsAt: "desc" },
+        where: {
+          isActive: true,
+          memberId: member.id,
+          tenantId: input.tenantId,
+        },
+      })
+
+      if (existingPlan) {
+        await prisma.contributionPlan.update({
+          data: {
+            amount: row.monthlyCommitment,
+            name: "Monthly commitment",
+            startsAt: row.joinedAt,
+          },
+          where: { id: existingPlan.id },
+        })
+      } else {
+        await prisma.contributionPlan.create({
+          data: {
+            amount: row.monthlyCommitment,
+            interval: "monthly",
+            isActive: true,
+            memberId: member.id,
+            name: "Monthly commitment",
+            startsAt: row.joinedAt,
+            tenantId: input.tenantId,
+          },
+        })
+      }
+
+      const existingAmountLog = await prisma.memberAmountLog.findFirst({
+        where: {
+          effectiveFrom: row.joinedAt,
+          memberId: member.id,
+          tenantId: input.tenantId,
+        },
+      })
+
+      if (existingAmountLog) {
+        await prisma.memberAmountLog.update({
+          data: {
+            amount: row.monthlyCommitment,
+            notes: "Imported initial monthly commitment.",
+          },
+          where: { id: existingAmountLog.id },
+        })
+      } else {
+        await prisma.memberAmountLog.create({
+          data: {
+            amount: row.monthlyCommitment,
+            createdByUserId: input.actorUserId,
+            effectiveFrom: row.joinedAt,
+            memberId: member.id,
+            notes: "Imported initial monthly commitment.",
+            tenantId: input.tenantId,
+          },
+        })
+      }
+    }
     processed += 1
   }
 
-  await createAuditLogEntry({
-    action: "import.members",
-    actorType: "user",
-    actorUserId: input.actorUserId,
-    entityType: "Member",
-    metadata: { processed },
-    tenantId: input.tenantId,
-  }, prisma)
+  await createAuditLogEntry(
+    {
+      action: "import.members",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityType: "Member",
+      metadata: { processed },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
 
   return { processed }
 }
@@ -682,7 +812,7 @@ export async function importContributions(
     }>
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -700,34 +830,42 @@ export async function importContributions(
     })
 
     if (!member) {
-      throw new Error(`Member not found for contribution import: ${row.memberNumber}`)
+      throw new Error(
+        `Member not found for contribution import: ${row.memberNumber}`
+      )
     }
 
-    await recordContribution({
-      actorUserId: input.actorUserId,
-      amount: row.amount,
-      channel: row.channel,
-      committedAmount: row.committedAmount,
-      extraSavingsAmount: row.extraSavingsAmount,
-      memberId: member.id,
-      periodLabel: row.periodLabel,
-      postedAt: row.postedAt,
-      reference: row.reference,
-      sourceType: "import",
-      tenantId: input.tenantId,
-    }, prisma)
+    await recordContribution(
+      {
+        actorUserId: input.actorUserId,
+        amount: row.amount,
+        channel: row.channel,
+        committedAmount: row.committedAmount,
+        extraSavingsAmount: row.extraSavingsAmount,
+        memberId: member.id,
+        periodLabel: row.periodLabel,
+        postedAt: row.postedAt,
+        reference: row.reference,
+        sourceType: "import",
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
 
     processed += 1
   }
 
-  await createAuditLogEntry({
-    action: "import.contributions",
-    actorType: "user",
-    actorUserId: input.actorUserId,
-    entityType: "Contribution",
-    metadata: { processed },
-    tenantId: input.tenantId,
-  }, prisma)
+  await createAuditLogEntry(
+    {
+      action: "import.contributions",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityType: "Contribution",
+      metadata: { processed },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
 
   return { processed }
 }
@@ -746,7 +884,7 @@ export async function importCharges(
     }>
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -791,28 +929,34 @@ export async function importCharges(
       },
     })
 
-    await applyCharge({
-      actorUserId: input.actorUserId,
-      amount: row.amount,
-      assessedAt: row.assessedAt,
-      chargeDefinitionId: chargeDefinition.id,
-      memberId: member.id,
-      notes: row.notes,
-      sourceType: "import",
-      tenantId: input.tenantId,
-    }, prisma)
+    await applyCharge(
+      {
+        actorUserId: input.actorUserId,
+        amount: row.amount,
+        assessedAt: row.assessedAt,
+        chargeDefinitionId: chargeDefinition.id,
+        memberId: member.id,
+        notes: row.notes,
+        sourceType: "import",
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
 
     processed += 1
   }
 
-  await createAuditLogEntry({
-    action: "import.charges",
-    actorType: "user",
-    actorUserId: input.actorUserId,
-    entityType: "ChargeApplication",
-    metadata: { processed },
-    tenantId: input.tenantId,
-  }, prisma)
+  await createAuditLogEntry(
+    {
+      action: "import.charges",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityType: "ChargeApplication",
+      metadata: { processed },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
 
   return { processed }
 }
@@ -836,7 +980,7 @@ export async function importLoanMigrations(
     }>
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -939,7 +1083,10 @@ export async function importLoanMigrations(
           startDate: row.firstRepaymentDueAt,
           termMonths: row.termMonths,
         })
-        const repaidAmount = Math.max(0, row.principalAmount - row.outstandingPrincipal)
+        const repaidAmount = Math.max(
+          0,
+          row.principalAmount - row.outstandingPrincipal
+        )
         let remainingPaid = repaidAmount
 
         await tx.repaymentScheduleItem.createMany({
@@ -954,7 +1101,12 @@ export async function importLoanMigrations(
               installmentNumber: item.installmentNumber,
               loanId: loan.id,
               principalDue: item.principalDue,
-              status: applied >= item.totalDue ? "paid" : applied > 0 ? "partially_paid" : item.status,
+              status:
+                applied >= item.totalDue
+                  ? "paid"
+                  : applied > 0
+                    ? "partially_paid"
+                    : item.status,
               tenantId: input.tenantId,
               totalDue: item.totalDue,
             }
@@ -966,14 +1118,17 @@ export async function importLoanMigrations(
     processed += 1
   }
 
-  await createAuditLogEntry({
-    action: "import.loans",
-    actorType: "user",
-    actorUserId: input.actorUserId,
-    entityType: "Loan",
-    metadata: { processed },
-    tenantId: input.tenantId,
-  }, prisma)
+  await createAuditLogEntry(
+    {
+      action: "import.loans",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityType: "Loan",
+      metadata: { processed },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
 
   return { processed }
 }
@@ -989,7 +1144,7 @@ export async function importRepaymentMigrations(
     }>
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -1013,29 +1168,37 @@ export async function importRepaymentMigrations(
     })
 
     if (!loan) {
-      throw new Error(`Loan not found for repayment import: ${row.memberNumber} / ${row.loanProductName}`)
+      throw new Error(
+        `Loan not found for repayment import: ${row.memberNumber} / ${row.loanProductName}`
+      )
     }
 
-    await postRepayment({
-      actorUserId: input.actorUserId,
-      amount: row.amount,
-      loanId: loan.id,
-      reference: row.reference,
-      sourceType: "import",
-      tenantId: input.tenantId,
-    }, prisma)
+    await postRepayment(
+      {
+        actorUserId: input.actorUserId,
+        amount: row.amount,
+        loanId: loan.id,
+        reference: row.reference,
+        sourceType: "import",
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
 
     processed += 1
   }
 
-  await createAuditLogEntry({
-    action: "import.repayments",
-    actorType: "user",
-    actorUserId: input.actorUserId,
-    entityType: "Repayment",
-    metadata: { processed },
-    tenantId: input.tenantId,
-  }, prisma)
+  await createAuditLogEntry(
+    {
+      action: "import.repayments",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityType: "Repayment",
+      metadata: { processed },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
 
   return { processed }
 }

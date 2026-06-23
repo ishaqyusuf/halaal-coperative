@@ -48,15 +48,18 @@ export function DashboardTableHead({
 export function DashboardTableHeaderCell({
   align = "left",
   children,
+  className,
 }: {
   align?: "left" | "right"
   children: React.ReactNode
+  className?: string
 }) {
   return (
     <th
       className={cn(
         "px-4 py-3 text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase",
-        align === "right" ? "text-right" : "text-left"
+        align === "right" ? "text-right" : "text-left",
+        className
       )}
     >
       {children}

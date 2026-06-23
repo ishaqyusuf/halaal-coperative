@@ -1,8 +1,10 @@
 import type {
   BackfillChargeDefinition,
+  BackfillDividendEntry,
   BackfillDraft,
   BackfillExistingHistoryImpact,
   BackfillLoanEvent,
+  BackfillMemberActivityEvent,
   BackfillMonthStatus,
   BackfillProfitPeriod,
   BackfillRow,
@@ -117,6 +119,10 @@ function calculateShareAmount(
   row: BackfillRow,
   version: BackfillShareVersion | null
 ) {
+  if (row.status === "missed" || row.status === "paused") {
+    return 0
+  }
+
   if (!version) {
     return 0
   }
@@ -140,6 +146,10 @@ function calculateChargeAmount(
   row: BackfillRow,
   version: BackfillChargeDefinition["versions"][number] | null
 ) {
+  if (row.status === "missed" || row.status === "paused") {
+    return 0
+  }
+
   if (!version) {
     return 0
   }
@@ -157,6 +167,36 @@ function applyChargeResolution(
   input: BuildBackfillDraftInput
 ) {
   return rows.map((row) => {
+    const plannedRow =
+      row.status === "missed" && row.plannedSavingsContribution != null
+        ? {
+            ...row,
+            amount:
+              row.plannedSavingsContribution +
+              (row.plannedLoanRepaymentAmount ?? 0),
+            loanService: row.plannedLoanRepaymentAmount ?? 0,
+            status: "active" as const,
+          }
+        : null
+
+    if (plannedRow) {
+      row.plannedChargeValues = Object.fromEntries(
+        input.chargeDefinitions.map((definition) => {
+          if ((definition.frequency ?? "recurring_monthly") === "manual") {
+            return [definition.code, 0]
+          }
+
+          return [
+            definition.code,
+            calculateChargeAmount(
+              plannedRow,
+              resolveChargeVersion(row.month, definition)
+            ),
+          ]
+        })
+      )
+    }
+
     row.chargeValues = Object.fromEntries(
       input.chargeDefinitions.map((definition) => {
         if ((definition.frequency ?? "recurring_monthly") === "manual") {
@@ -177,10 +217,7 @@ function applyChargeResolution(
   })
 }
 
-function resolveDividend(
-  month: string,
-  dividends: Array<{ amount: number; label: string; month: string }>
-) {
+function resolveDividend(month: string, dividends: BackfillDividendEntry[]) {
   return dividends.find((entry) => entry.month === month) ?? null
 }
 
@@ -250,17 +287,88 @@ function applyRowAdjustments(
       return row
     }
 
+    if (adjustment.status === "missed" || adjustment.status === "paused") {
+      row.plannedLoanRepaymentAmount = row.loanService
+      row.plannedSavingsContribution = Math.max(0, row.amount - row.loanService)
+      row.amount = 0
+      row.loanService = 0
+      row.loanRepaymentOnTime = undefined
+      row.isEdited = true
+      row.notes = adjustment.notes
+      row.status = adjustment.status
+      row.statusReason =
+        adjustment.status === "missed" ? "Defaulting" : "Inactive"
+      row.netDeposit = calculateNetDeposit(row)
+      return row
+    }
+
+    if (row.status === "paused") {
+      return row
+    }
+
     const savingsContribution =
       adjustment.savingsContribution ??
       Math.max(0, row.amount - row.loanService)
     const loanRepaymentAmount =
       adjustment.loanRepaymentAmount ?? row.loanService
 
+    row.plannedLoanRepaymentAmount = row.loanService
+    row.plannedSavingsContribution = Math.max(0, row.amount - row.loanService)
     row.loanService = loanRepaymentAmount
     row.loanRepaymentOnTime = adjustment.loanRepaymentOnTime
     row.amount = savingsContribution + loanRepaymentAmount
+    row.hasManualRepaymentAdjustment = adjustment.loanRepaymentAmount != null
+    row.hasManualSavingsAdjustment = adjustment.savingsContribution != null
     row.isEdited = true
     row.notes = adjustment.notes
+    row.status = adjustment.status ?? "adjusted"
+    row.statusReason = "One-time override"
+    row.netDeposit = calculateNetDeposit(row)
+    return row
+  })
+}
+
+function resolveActivityEvent(
+  month: string,
+  events: BackfillMemberActivityEvent[]
+) {
+  const monthDate = parseMonthKey(month)
+  const sorted = [...events].sort(
+    (left, right) =>
+      parseMonthKey(left.effectiveFrom).getTime() -
+      parseMonthKey(right.effectiveFrom).getTime()
+  )
+
+  let resolved: BackfillMemberActivityEvent | null = null
+  for (const event of sorted) {
+    if (parseMonthKey(event.effectiveFrom) <= monthDate) {
+      resolved = event
+    }
+  }
+
+  return resolved
+}
+
+function applyActivityWindows(
+  rows: BackfillRow[],
+  events: BackfillMemberActivityEvent[]
+) {
+  if (events.length === 0) {
+    return rows
+  }
+
+  return rows.map((row) => {
+    const activity = resolveActivityEvent(row.month, events)
+    if (!activity || activity.status === "active") {
+      return row
+    }
+
+    row.amount = 0
+    row.loanService = 0
+    row.loanRepaymentOnTime = undefined
+    row.status = "paused"
+    row.statusReason = activity.reason ?? "Inactive"
+    row.notes = activity.notes ?? row.notes
     row.netDeposit = calculateNetDeposit(row)
     return row
   })
@@ -271,6 +379,21 @@ function applyShareResolution(
   input: BuildBackfillDraftInput
 ) {
   return rows.map((row) => {
+    if (row.status === "missed" && row.plannedSavingsContribution != null) {
+      row.plannedShare = calculateShareAmount(
+        {
+          ...row,
+          amount:
+            row.plannedSavingsContribution +
+            (row.plannedLoanRepaymentAmount ?? 0),
+          chargeValues: row.plannedChargeValues ?? row.chargeValues,
+          loanService: row.plannedLoanRepaymentAmount ?? 0,
+          status: "active",
+        },
+        resolveShareVersion(row.month, input)
+      )
+    }
+
     row.share = calculateShareAmount(row, resolveShareVersion(row.month, input))
     row.netDeposit = calculateNetDeposit(row)
     return row
@@ -281,7 +404,7 @@ function recalculateLoanBalances(rows: BackfillRow[]) {
   const remainingPrincipalByLoan = new Map<string, number>()
 
   for (const row of rows) {
-    if (!row.loanEvent || row.loanService <= 0) {
+    if (!row.loanEvent) {
       continue
     }
 
@@ -292,7 +415,10 @@ function recalculateLoanBalances(rows: BackfillRow[]) {
       remainingPrincipalByLoan.get(loanKey) ??
       row.loanEvent.openingOutstandingPrincipalBalance ??
       row.loanEvent.loanAmount
-    const paidTowardLoan = Math.min(row.loanService, startingPrincipal)
+    const paidTowardLoan = Math.min(
+      Math.max(0, row.loanService),
+      startingPrincipal
+    )
     const remainingPrincipal = Math.max(0, startingPrincipal - paidTowardLoan)
 
     row.pendingLoanPayment = remainingPrincipal
@@ -326,6 +452,16 @@ export function deriveBackfillWarnings(rows: BackfillRow[]) {
     warnings.push({
       code: "missed-months",
       message: `${missedRows.length} month(s) are marked missed and will reduce the generated contribution history.`,
+      month: undefined,
+      severity: "medium",
+    })
+  }
+
+  const pausedRows = rows.filter((row) => row.status === "paused")
+  if (pausedRows.length) {
+    warnings.push({
+      code: "paused-months",
+      message: `${pausedRows.length} month(s) are marked inactive and will pause generated contribution history.`,
       month: undefined,
       severity: "medium",
     })
@@ -400,7 +536,10 @@ export function buildBackfillDraft(
     applyShareResolution(
       applyChargeResolution(
         applyRowAdjustments(
-          applyLoanPropagation(baseRows, input.loanEvents ?? []),
+          applyActivityWindows(
+            applyLoanPropagation(baseRows, input.loanEvents ?? []),
+            input.activityEvents ?? []
+          ),
           input.rowAdjustments ?? []
         ),
         input
@@ -444,10 +583,34 @@ export function markRowStatus(
     row.month === month
       ? {
           ...row,
+          amount: status === "missed" || status === "paused" ? 0 : row.amount,
           isEdited: true,
+          loanRepaymentOnTime:
+            status === "missed" || status === "paused"
+              ? undefined
+              : row.loanRepaymentOnTime,
+          loanService:
+            status === "missed" || status === "paused" ? 0 : row.loanService,
           netDeposit:
-            status === "missed" ? 0 : calculateNetDeposit({ ...row, status }),
+            status === "missed" || status === "paused"
+              ? calculateNetDeposit({
+                  ...row,
+                  amount: 0,
+                  loanService: 0,
+                  status,
+                })
+              : calculateNetDeposit({ ...row, status }),
+          ...(status === "missed"
+            ? {
+                plannedLoanRepaymentAmount: row.loanService,
+                plannedSavingsContribution: Math.max(
+                  0,
+                  row.amount - row.loanService
+                ),
+              }
+            : {}),
           status,
+          statusReason: status === "missed" ? "Defaulting" : row.statusReason,
         }
       : row
   )

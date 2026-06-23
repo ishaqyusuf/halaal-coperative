@@ -10,10 +10,7 @@ import {
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
 import { Textarea } from "@halaalvest/ui/components/textarea"
-import {
-  ChargeDefinitionForm,
-  ChargeDefinitionVersionForm,
-} from "@/components/forms/tenant-finance-forms"
+import { ChargeDefinitionVersionForm } from "@/components/forms/tenant-finance-forms"
 import { useChargeParams } from "@/hooks/use-charge-params"
 import {
   createChargeDefinitionVersionAction,
@@ -22,17 +19,18 @@ import {
 import type { Charge } from "@/components/tables/charges/columns"
 
 export function ChargeSheet({
+  financeStartDate,
   isLocked,
   rows,
 }: {
+  financeStartDate?: string | null
   isLocked: boolean
   rows: Charge[]
 }) {
   const { chargeId, chargeType, chargeVersionId, setParams } = useChargeParams()
-  const isCreate = chargeType === "create"
   const isUpdate = chargeType === "update"
   const isEdit = chargeType === "edit"
-  const isOpen = isCreate || isUpdate || isEdit
+  const isOpen = isUpdate || isEdit
   const charge = rows.find((row) => row.id === chargeId)
   const version =
     charge?.versions.find((item) => item.id === chargeVersionId) ??
@@ -43,11 +41,7 @@ export function ChargeSheet({
     kind: row.kind,
     label: `${row.name} (${row.code})`,
   }))
-  const title = isCreate
-    ? "Create charge"
-    : isUpdate
-      ? "Add charge update"
-      : "Edit charge update"
+  const title = isUpdate ? "Add charge update" : "Edit charge update"
 
   const handleOnOpenChange = (open: boolean) => {
     if (!open) {
@@ -66,11 +60,7 @@ export function ChargeSheet({
           </SheetDescription>
         </SheetHeader>
 
-        {isCreate ? (
-          <div className="px-6">
-            <ChargeDefinitionForm />
-          </div>
-        ) : isUpdate && charge ? (
+        {isUpdate && charge ? (
           <form
             action={createChargeDefinitionVersionAction}
             className="grid gap-4 px-6"
@@ -90,6 +80,7 @@ export function ChargeSheet({
               Effective date
               <Input
                 disabled={isLocked}
+                min={financeStartDate ?? undefined}
                 name="effectiveFrom"
                 required
                 type="date"
@@ -121,7 +112,10 @@ export function ChargeSheet({
           </form>
         ) : isUpdate ? (
           <div className="px-6">
-            <ChargeDefinitionVersionForm chargeDefinitions={chargeOptions} />
+            <ChargeDefinitionVersionForm
+              chargeDefinitions={chargeOptions}
+              financeStartDate={financeStartDate}
+            />
           </div>
         ) : version ? (
           <form
@@ -143,6 +137,7 @@ export function ChargeSheet({
               <Input
                 defaultValue={version.effectiveFrom}
                 disabled={isLocked}
+                min={financeStartDate ?? undefined}
                 name="effectiveFrom"
                 required
                 type="date"

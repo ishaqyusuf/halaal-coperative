@@ -34,6 +34,15 @@ import {
   type DashboardImportReferenceData,
 } from "@/lib/import-csv"
 import { objectToFormData } from "@/lib/form-submit"
+import {
+  DashboardDataTable,
+  DashboardTable,
+  DashboardTableBody,
+  DashboardTableCell,
+  DashboardTableHead,
+  DashboardTableHeaderCell,
+  DashboardTableRow,
+} from "@/components/dashboard"
 
 const csvImportSchema = z.object({
   confirmExistingMatches: z.boolean().default(false),
@@ -43,6 +52,59 @@ const csvImportSchema = z.object({
 })
 
 type CsvImportValues = z.infer<typeof csvImportSchema>
+
+function formatPreviewValue(value: unknown) {
+  if (value == null || value === "") {
+    return "-"
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value)
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No"
+  }
+
+  return JSON.stringify(value)
+}
+
+function ImportPreviewTable({
+  headers,
+  rows,
+}: {
+  headers: string[]
+  rows: Array<Record<string, unknown>>
+}) {
+  if (headers.length === 0 || rows.length === 0) {
+    return null
+  }
+
+  return (
+    <DashboardDataTable className="mt-3 rounded-xl bg-background/80">
+      <DashboardTable className="min-w-max table-fixed text-xs [&_td]:max-w-48 [&_td]:px-2 [&_td]:py-2 [&_th]:px-2 [&_th]:py-2">
+        <DashboardTableHead>
+          {headers.map((header) => (
+            <DashboardTableHeaderCell className="w-40" key={header}>
+              {header}
+            </DashboardTableHeaderCell>
+          ))}
+        </DashboardTableHead>
+        <DashboardTableBody>
+          {rows.map((row, rowIndex) => (
+            <DashboardTableRow key={`preview-row-${rowIndex}`}>
+              {headers.map((header) => (
+                <DashboardTableCell className="truncate" key={header}>
+                  {formatPreviewValue(row[header])}
+                </DashboardTableCell>
+              ))}
+            </DashboardTableRow>
+          ))}
+        </DashboardTableBody>
+      </DashboardTable>
+    </DashboardDataTable>
+  )
+}
 
 const importActionMap = {
   charges: importChargesCsvAction,
@@ -54,31 +116,35 @@ const importActionMap = {
   repayment_migrations: importRepaymentMigrationsCsvAction,
 } satisfies Record<DashboardImportKind, (formData: FormData) => Promise<void>>
 
+export type ImportAvailability = Record<
+  DashboardImportKind,
+  {
+    blockedReason?: string
+    isAvailable: boolean
+  }
+>
+
+export type ImportBatchSummary = {
+  _count: { rows: number }
+  createdAt: Date
+  createdByUser: { email: string; fullName: string; id: string }
+  duplicateRowCount: number
+  existingMatchCount: number
+  id: string
+  importType: string
+  status: string
+  validRows: number
+}
+
 export function DashboardImportForms({
   devMode,
   importAvailability,
   referenceData,
   batches,
 }: {
-  batches: Array<{
-    _count: { rows: number }
-    createdAt: Date
-    createdByUser: { email: string; fullName: string; id: string }
-    duplicateRowCount: number
-    existingMatchCount: number
-    id: string
-    importType: string
-    status: string
-    validRows: number
-  }>
+  batches: ImportBatchSummary[]
   devMode: boolean
-  importAvailability: Record<
-    DashboardImportKind,
-    {
-      blockedReason?: string
-      isAvailable: boolean
-    }
-  >
+  importAvailability: ImportAvailability
   referenceData: DashboardImportReferenceData
 }) {
   return (
@@ -93,21 +159,21 @@ export function DashboardImportForms({
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-3">
-          <CsvImportCard
+          <DashboardImportForm
             availability={importAvailability.members}
             batches={batches}
             devMode={devMode}
             importKind="members"
             referenceData={referenceData}
           />
-          <CsvImportCard
+          <DashboardImportForm
             availability={importAvailability.deduction_sources}
             batches={batches}
             devMode={devMode}
             importKind="deduction_sources"
             referenceData={referenceData}
           />
-          <CsvImportCard
+          <DashboardImportForm
             availability={importAvailability.loan_products}
             batches={batches}
             devMode={devMode}
@@ -128,14 +194,14 @@ export function DashboardImportForms({
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
-          <CsvImportCard
+          <DashboardImportForm
             availability={importAvailability.contributions}
             batches={batches}
             devMode={devMode}
             importKind="contributions"
             referenceData={referenceData}
           />
-          <CsvImportCard
+          <DashboardImportForm
             availability={importAvailability.charges}
             batches={batches}
             devMode={devMode}
@@ -156,14 +222,14 @@ export function DashboardImportForms({
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
-          <CsvImportCard
+          <DashboardImportForm
             availability={importAvailability.loan_migrations}
             batches={batches}
             devMode={devMode}
             importKind="loan_migrations"
             referenceData={referenceData}
           />
-          <CsvImportCard
+          <DashboardImportForm
             availability={importAvailability.repayment_migrations}
             batches={batches}
             devMode={devMode}
@@ -176,30 +242,22 @@ export function DashboardImportForms({
   )
 }
 
-function CsvImportCard({
+export function DashboardImportForm({
   availability,
   batches,
   devMode,
   importKind,
+  onSuccess,
   referenceData,
 }: {
   availability: {
     blockedReason?: string
     isAvailable: boolean
   }
-  batches: Array<{
-    _count: { rows: number }
-    createdAt: Date
-    createdByUser: { email: string; fullName: string; id: string }
-    duplicateRowCount: number
-    existingMatchCount: number
-    id: string
-    importType: string
-    status: string
-    validRows: number
-  }>
+  batches: ImportBatchSummary[]
   devMode: boolean
   importKind: DashboardImportKind
+  onSuccess?: () => void
   referenceData: DashboardImportReferenceData
 }) {
   const config = dashboardImportConfigs[importKind]
@@ -324,6 +382,7 @@ function CsvImportCard({
           csvText: "",
           importConfirmation: "",
         })
+        onSuccess?.()
       } catch (error) {
         showError(
           `Could not import ${config.title.toLowerCase()}`,
@@ -349,6 +408,7 @@ function CsvImportCard({
           `${config.title} staged`,
           "Import batch saved for later review and apply."
         )
+        onSuccess?.()
       } catch (error) {
         showError(
           `Could not stage ${config.title.toLowerCase()}`,
@@ -484,16 +544,10 @@ function CsvImportCard({
             ) : null}
 
             {preview.previewRows.length > 0 ? (
-              <div className="mt-3 space-y-2">
-                {preview.previewRows.map((row, index) => (
-                  <pre
-                    key={`${importKind}-row-${index}`}
-                    className="overflow-x-auto rounded-xl border border-border/60 bg-background/80 p-3 text-xs text-muted-foreground"
-                  >
-                    {JSON.stringify(row, null, 2)}
-                  </pre>
-                ))}
-              </div>
+              <ImportPreviewTable
+                headers={preview.headers}
+                rows={preview.previewRows}
+              />
             ) : null}
 
             {!preview.ok && preview.errors.length > 0 ? (

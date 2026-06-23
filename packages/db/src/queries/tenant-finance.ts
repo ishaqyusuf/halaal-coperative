@@ -619,6 +619,116 @@ export async function getMemberShareBalancesAtDate(
     .sort((a, b) => b.shareBalance - a.shareBalance || a.memberName.localeCompare(b.memberName))
 }
 
+async function getEligibleMemberShareBalancesAtDate(
+  tenantId: string,
+  asOfDate: Date,
+  prisma: any,
+) {
+  const [shareLedgerEntries, amountLogs] = await Promise.all([
+    prisma.memberShareLedgerEntry.findMany({
+      where: {
+        tenantId,
+        effectiveDate: {
+          lte: asOfDate,
+        },
+        member: {
+          joinedAt: {
+            lte: asOfDate,
+          },
+        },
+      },
+      include: {
+        member: {
+          select: {
+            fullName: true,
+            joinedAt: true,
+            memberNumber: true,
+            status: true,
+          },
+        },
+      },
+    }),
+    prisma.memberAmountLog.findMany({
+      where: {
+        tenantId,
+        effectiveFrom: {
+          lte: asOfDate,
+        },
+        member: {
+          joinedAt: {
+            lte: asOfDate,
+          },
+        },
+      },
+      include: {
+        member: {
+          select: {
+            fullName: true,
+            joinedAt: true,
+            memberNumber: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+    }),
+  ])
+  const balances = new Map<
+    string,
+    {
+      joinedAt: Date
+      memberId: string
+      memberName: string
+      memberNumber: string
+      shareBalance: number
+    }
+  >()
+
+  for (const entry of shareLedgerEntries) {
+    const current = balances.get(entry.memberId) ?? {
+      joinedAt: entry.member.joinedAt,
+      memberId: entry.memberId,
+      memberName: entry.member.fullName,
+      memberNumber: entry.member.memberNumber,
+      shareBalance: 0,
+    }
+    current.shareBalance += Number(entry.amount)
+    balances.set(entry.memberId, current)
+  }
+
+  const latestAmountLogMemberIds = new Set<string>()
+
+  for (const log of amountLogs) {
+    if (
+      balances.has(log.memberId) ||
+      latestAmountLogMemberIds.has(log.memberId)
+    ) {
+      continue
+    }
+
+    latestAmountLogMemberIds.add(log.memberId)
+    balances.set(log.memberId, {
+      joinedAt: log.member.joinedAt,
+      memberId: log.memberId,
+      memberName: log.member.fullName,
+      memberNumber: log.member.memberNumber,
+      shareBalance: Number(log.amount),
+    })
+  }
+
+  return Array.from(balances.values())
+    .filter((balance) => balance.shareBalance > 0)
+    .sort(
+      (a, b) =>
+        b.shareBalance - a.shareBalance ||
+        a.memberName.localeCompare(b.memberName),
+    )
+}
+
+function roundCurrency(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
 export async function getSharePoolSummary(
   tenantId: string,
   asOfDate = new Date(),
@@ -916,6 +1026,356 @@ export async function publishShareProfitAllocations(
       where: {
         tenantId: input.tenantId,
         profitEntryId: input.profitEntryId,
+      },
+      include: {
+        member: {
+          select: {
+            fullName: true,
+            memberNumber: true,
+          },
+        },
+      },
+      orderBy: { allocatedProfitAmount: "desc" },
+    })
+  })
+}
+
+export async function getBusinessProfitMigrationWorksheet(
+  input: {
+    profitEntryId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const profitEntry = await prisma.shareBusinessProfitEntry.findFirst({
+    where: {
+      id: input.profitEntryId,
+      tenantId: input.tenantId,
+    },
+    include: {
+      allocations: {
+        include: {
+          member: {
+            select: {
+              fullName: true,
+              joinedAt: true,
+              memberNumber: true,
+            },
+          },
+        },
+        orderBy: { allocatedProfitAmount: "desc" },
+      },
+      expenseLines: {
+        orderBy: [{ createdAt: "asc" }],
+      },
+      linkedDividendPeriod: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+        },
+      },
+      shareBusiness: true,
+    },
+  })
+
+  if (!profitEntry) {
+    throw new Error("Business profit entry not found")
+  }
+
+  const eligibilityDate = profitEntry.shareBusiness.startDate
+  const eligibleMembers = await getEligibleMemberShareBalancesAtDate(
+    input.tenantId,
+    eligibilityDate,
+    prisma,
+  )
+  const totalShareBalance = roundCurrency(
+    eligibleMembers.reduce((total, member) => total + member.shareBalance, 0),
+  )
+  const expenseLines =
+    (profitEntry.expenseLines ?? []).length > 0
+      ? (profitEntry.expenseLines ?? []).map((line: any) => ({
+          amount: Number(line.amount),
+          id: line.id,
+          reason: line.reason,
+        }))
+      : Number(profitEntry.expenseAmount ?? 0) > 0
+        ? [
+            {
+              amount: Number(profitEntry.expenseAmount ?? 0),
+              id: "legacy-expense-total",
+              reason: "Historical expenses",
+            },
+          ]
+        : []
+  const expenseTotal = roundCurrency(
+    expenseLines.reduce((total: number, line: any) => total + line.amount, 0),
+  )
+  const shareableDividend = roundCurrency(
+    Number(profitEntry.profitAmount) - expenseTotal,
+  )
+  const existingAllocations = new Map(
+    (profitEntry.allocations ?? []).map((allocation: any) => [
+      allocation.memberId,
+      allocation,
+    ]),
+  )
+  const allocatedTotal = roundCurrency(
+    (profitEntry.allocations ?? []).reduce(
+      (total: number, allocation: any) =>
+        total + Number(allocation.allocatedProfitAmount),
+      0,
+    ),
+  )
+
+  return {
+    allocatedTotal,
+    allocations: eligibleMembers.map((member) => {
+      const allocation = existingAllocations.get(member.memberId) as
+        | any
+        | undefined
+
+      return {
+        allocatedProfitAmount: allocation
+          ? Number(allocation.allocatedProfitAmount)
+          : 0,
+        joinedAt: member.joinedAt,
+        memberId: member.memberId,
+        memberName: member.memberName,
+        memberNumber: member.memberNumber,
+        shareBalance: member.shareBalance,
+        sharePercentage: allocation
+          ? Number(allocation.sharePercentage)
+          : totalShareBalance > 0
+            ? (member.shareBalance / totalShareBalance) * 100
+            : 0,
+        status: allocation?.status ?? "draft",
+      }
+    }),
+    eligibleMemberCount: eligibleMembers.length,
+    expenseLines,
+    expenseTotal,
+    profitEntry: {
+      allocatableProfitAmount: Number(profitEntry.allocatableProfitAmount),
+      hasPublishedAllocations: (profitEntry.allocations ?? []).some(
+        (allocation: any) => allocation.status === "published",
+      ),
+      id: profitEntry.id,
+      linkedDividendPeriod: profitEntry.linkedDividendPeriod,
+      profitAmount: Number(profitEntry.profitAmount),
+      profitDate: profitEntry.profitDate,
+      reason: profitEntry.reason,
+      status: profitEntry.status,
+    },
+    remainingAmount: roundCurrency(shareableDividend - allocatedTotal),
+    shareableDividend,
+    shareBusiness: {
+      id: profitEntry.shareBusiness.id,
+      name: profitEntry.shareBusiness.name,
+      startDate: profitEntry.shareBusiness.startDate,
+    },
+    totalShareBalance,
+  }
+}
+
+export async function saveBusinessProfitMigrationWorksheet(
+  input: {
+    allocationMode: "percentage" | "value"
+    allocations: Array<{
+      allocatedProfitAmount?: number | null
+      memberId: string
+      sharePercentage?: number | null
+    }>
+    expenseLines: Array<{
+      amount: number
+      reason: string
+    }>
+    profitAmount: number
+    profitDate: Date
+    profitEntryId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+
+  return prisma.$transaction(async (tx: any) => {
+    const profitEntry = await tx.shareBusinessProfitEntry.findFirst({
+      where: {
+        id: input.profitEntryId,
+        tenantId: input.tenantId,
+      },
+      include: {
+        allocations: true,
+        shareBusiness: true,
+      },
+    })
+
+    if (!profitEntry) {
+      throw new Error("Business profit entry not found")
+    }
+
+    if (
+      (profitEntry.allocations ?? []).some(
+        (allocation: any) => allocation.status === "published",
+      )
+    ) {
+      throw new Error("Published profit allocations cannot be edited.")
+    }
+
+    const normalizedExpenseLines = input.expenseLines
+      .map((line) => ({
+        amount: roundCurrency(Number(line.amount)),
+        reason: line.reason.trim(),
+      }))
+      .filter((line) => line.reason || line.amount > 0)
+
+    for (const line of normalizedExpenseLines) {
+      if (!line.reason) {
+        throw new Error("Every expense line needs a charge reason.")
+      }
+
+      if (line.amount < 0) {
+        throw new Error("Expense line amounts cannot be negative.")
+      }
+    }
+
+    const expenseTotal = roundCurrency(
+      normalizedExpenseLines.reduce((total, line) => total + line.amount, 0),
+    )
+    const shareableDividend = roundCurrency(input.profitAmount - expenseTotal)
+
+    if (shareableDividend < 0) {
+      throw new Error("Shareable dividend cannot be negative.")
+    }
+
+    const eligibleMembers = await getEligibleMemberShareBalancesAtDate(
+      input.tenantId,
+      profitEntry.shareBusiness.startDate,
+      tx,
+    )
+    const eligibleById = new Map(
+      eligibleMembers.map((member) => [member.memberId, member]),
+    )
+    const totalShareBalance = roundCurrency(
+      eligibleMembers.reduce((total, member) => total + member.shareBalance, 0),
+    )
+
+    if (eligibleMembers.length === 0 || totalShareBalance <= 0) {
+      throw new Error("No eligible member share balances exist on this business start date.")
+    }
+
+    const allocationRows = input.allocations
+      .map((allocation) => {
+        const member = eligibleById.get(allocation.memberId)
+
+        if (!member) {
+          return null
+        }
+
+        const sharePercentage =
+          input.allocationMode === "percentage"
+            ? Number(allocation.sharePercentage ?? 0)
+            : shareableDividend > 0
+              ? (Number(allocation.allocatedProfitAmount ?? 0) /
+                  shareableDividend) *
+                100
+              : 0
+        const allocatedProfitAmount =
+          input.allocationMode === "percentage"
+            ? roundCurrency(shareableDividend * (sharePercentage / 100))
+            : roundCurrency(Number(allocation.allocatedProfitAmount ?? 0))
+
+        if (sharePercentage < 0 || sharePercentage > 100) {
+          throw new Error("Member percentage must be between 0 and 100.")
+        }
+
+        if (allocatedProfitAmount < 0) {
+          throw new Error("Member dividend value cannot be negative.")
+        }
+
+        return {
+          allocatedProfitAmount,
+          member,
+          sharePercentage,
+        }
+      })
+      .filter((allocation): allocation is NonNullable<typeof allocation> =>
+        Boolean(allocation),
+      )
+
+    const allocatedTotal = roundCurrency(
+      allocationRows.reduce(
+        (total, allocation) => total + allocation.allocatedProfitAmount,
+        0,
+      ),
+    )
+
+    if (Math.abs(allocatedTotal - shareableDividend) > 0.01) {
+      throw new Error("Allocated total must equal the shareable dividend.")
+    }
+
+    await tx.shareBusinessProfitEntry.update({
+      where: {
+        id: input.profitEntryId,
+        tenantId: input.tenantId,
+      },
+      data: {
+        allocatableProfitAmount: shareableDividend,
+        expenseAmount: expenseTotal,
+        profitAmount: input.profitAmount,
+        profitDate: input.profitDate,
+      },
+    })
+
+    await tx.shareBusinessProfitExpenseLine.deleteMany({
+      where: {
+        profitEntryId: input.profitEntryId,
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (normalizedExpenseLines.length > 0) {
+      await tx.shareBusinessProfitExpenseLine.createMany({
+        data: normalizedExpenseLines.map((line) => ({
+          amount: line.amount,
+          profitEntryId: input.profitEntryId,
+          reason: line.reason,
+          tenantId: input.tenantId,
+        })),
+      })
+    }
+
+    await tx.shareProfitAllocation.deleteMany({
+      where: {
+        profitEntryId: input.profitEntryId,
+        status: "draft",
+        tenantId: input.tenantId,
+      },
+    })
+
+    await tx.shareProfitAllocation.createMany({
+      data: allocationRows.map((allocation) => ({
+        allocatedProfitAmount: allocation.allocatedProfitAmount,
+        memberId: allocation.member.memberId,
+        memberShareBalance: allocation.member.shareBalance,
+        profitEntryId: input.profitEntryId,
+        sharePercentage: allocation.sharePercentage,
+        status: "draft",
+        tenantId: input.tenantId,
+        totalShareBalance,
+      })),
+    })
+
+    return tx.shareProfitAllocation.findMany({
+      where: {
+        profitEntryId: input.profitEntryId,
+        tenantId: input.tenantId,
       },
       include: {
         member: {

@@ -8,6 +8,7 @@ import { getTenantInitialMigrationState } from "./migration"
 export type MonthlyRecordMemberStatusValue = "pending" | "applied" | "cancelled"
 export type MonthlyRecordStatusValue = "draft" | "open" | "closed"
 const activeMonthlyRecordLoanStatuses: LoanStatus[] = ["approved", "active", "disbursed"]
+const defaultGenerationDayOfMonth = 1
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
@@ -34,6 +35,11 @@ export type MonthlyRecordSummary = {
   totalMembers: number
   totalPayableAmount: number
   totalReceivedAmount: number
+}
+
+export type MonthlyRecordSettingView = {
+  autoGenerateEnabled: boolean
+  generationDayOfMonth: number
 }
 
 export type MonthlyRecordMemberRow = {
@@ -173,6 +179,71 @@ function assertPeriod(year: number, month: number) {
   if (!Number.isInteger(month) || month < 1 || month > 12) {
     throw new Error("Enter a valid record month.")
   }
+}
+
+function clampGenerationDay(day: number) {
+  if (!Number.isInteger(day) || day < 1 || day > 28) {
+    throw new Error("Monthly record generation day must be between 1 and 28.")
+  }
+
+  return day
+}
+
+function settingView(row: {
+  autoGenerateEnabled: boolean
+  generationDayOfMonth: number
+}): MonthlyRecordSettingView {
+  return {
+    autoGenerateEnabled: row.autoGenerateEnabled,
+    generationDayOfMonth: row.generationDayOfMonth,
+  }
+}
+
+export async function getMonthlyRecordSettings(
+  tenantId: string,
+  prismaOverride?: PrismaClient,
+): Promise<MonthlyRecordSettingView> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const row = await (prisma as any).monthlyRecordSetting.upsert({
+    where: { tenantId },
+    create: {
+      tenantId,
+      autoGenerateEnabled: true,
+      generationDayOfMonth: defaultGenerationDayOfMonth,
+    },
+    update: {},
+  })
+
+  return settingView(row)
+}
+
+export async function updateMonthlyRecordSettings(
+  input: {
+    autoGenerateEnabled: boolean
+    generationDayOfMonth: number
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+): Promise<MonthlyRecordSettingView> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const row = await (prisma as any).monthlyRecordSetting.upsert({
+    where: { tenantId: input.tenantId },
+    create: {
+      tenantId: input.tenantId,
+      autoGenerateEnabled: input.autoGenerateEnabled,
+      generationDayOfMonth: clampGenerationDay(input.generationDayOfMonth),
+    },
+    update: {
+      autoGenerateEnabled: input.autoGenerateEnabled,
+      generationDayOfMonth: clampGenerationDay(input.generationDayOfMonth),
+    },
+  })
+
+  return settingView(row)
 }
 
 export async function listMonthlyRecords(
@@ -357,6 +428,109 @@ export async function ensureMonthlyRecord(
   })
 
   return record
+}
+
+export async function ensureMemberInGeneratedMonthlyRecord(
+  input: {
+    actorUserId: string
+    joinedAt: Date
+    memberId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const migrationState = await getTenantInitialMigrationState(input.tenantId, prisma)
+  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    return null
+  }
+
+  const year = input.joinedAt.getUTCFullYear()
+  const month = input.joinedAt.getUTCMonth() + 1
+  const record = await prisma.monthlyRecord.findUnique({
+    where: {
+      tenantId_periodYear_periodMonth: {
+        tenantId: input.tenantId,
+        periodMonth: month,
+        periodYear: year,
+      },
+    },
+  })
+
+  if (!record || record.status === "closed") {
+    return null
+  }
+
+  await seedMonthlyRecordMembers({
+    monthlyRecordId: record.id,
+    month,
+    prisma,
+    tenantId: input.tenantId,
+    year,
+  })
+
+  return prisma.monthlyRecordMember.findUnique({
+    where: {
+      monthlyRecordId_memberId: {
+        memberId: input.memberId,
+        monthlyRecordId: record.id,
+      },
+    },
+  })
+}
+
+export async function generateDueMonthlyRecords(
+  input: {
+    actorUserId: string
+    now?: Date
+    tenantId?: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const now = input.now ?? new Date()
+  const dayOfMonth = now.getUTCDate()
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      ...(input.tenantId ? { id: input.tenantId } : {}),
+      initialMigrationStatus: "live_operations",
+      status: "active",
+    },
+    select: { id: true },
+  })
+  const generated: Array<{ monthlyRecordId: string; tenantId: string }> = []
+  const skipped: Array<{ reason: string; tenantId: string }> = []
+
+  for (const tenant of tenants) {
+    const settings = await getMonthlyRecordSettings(tenant.id, prisma)
+    if (!settings.autoGenerateEnabled) {
+      skipped.push({ reason: "disabled", tenantId: tenant.id })
+      continue
+    }
+
+    if (dayOfMonth < settings.generationDayOfMonth) {
+      skipped.push({ reason: "not_due", tenantId: tenant.id })
+      continue
+    }
+
+    const record = await ensureMonthlyRecord(
+      {
+        actorUserId: input.actorUserId,
+        month: now.getUTCMonth() + 1,
+        tenantId: tenant.id,
+        year: now.getUTCFullYear(),
+      },
+      prisma,
+    )
+
+    generated.push({ monthlyRecordId: record.id, tenantId: tenant.id })
+  }
+
+  return { generated, skipped }
 }
 
 export async function getMonthlyRecordDetail(

@@ -23,3 +23,21 @@ This file gives a task-oriented view of near-term execution priorities.
 - Plan Status: Proposed
 - Plan File: brain/plans/2026-06-20-feature-initial-cooperative-migration-and-member-ledger-backfill.md
 - Created Date: 2026-06-20
+
+### Member Defaulting And Activity Windows
+- Priority: Medium
+- Description: Track plan in `brain/plans/2026-06-23-feature-member-defaulting-and-activity-windows.md`.
+- Related Feature: Member Defaulting And Activity Windows
+- Status: Roadmap
+- Plan Status: Proposed
+- Plan File: brain/plans/2026-06-23-feature-member-defaulting-and-activity-windows.md
+- Created Date: 2026-06-23
+
+### Migration Segment Column Reduction And Manual Override Grouping
+- Priority: Medium
+- Description: Track plan in `brain/plans/2026-06-23-feature-migration-segment-column-reduction-and-manual-override-grouping.md`.
+- Related Feature: Migration Segment Column Reduction And Manual Override Grouping
+- Status: Roadmap
+- Plan Status: Proposed
+- Plan File: brain/plans/2026-06-23-feature-migration-segment-column-reduction-and-manual-override-grouping.md
+- Created Date: 2026-06-23

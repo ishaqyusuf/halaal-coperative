@@ -181,6 +181,7 @@ async function FinanceChargesPageContent({
 
   let isLocked = false
   let rows = withCurrentVersion(demoChargeDefinitions)
+  let financeStartDate = context.tenant?.startDate ?? "2024-01-01"
   let tenantName = context.tenant?.name ?? "Demo cooperative"
 
   if (context.tenant && runtime.status === "database-configured") {
@@ -198,6 +199,8 @@ async function FinanceChargesPageContent({
 
     isLocked =
       !migrationState.snapshot.canUseMigrationTools || hasAppliedMemberBackfill
+    financeStartDate =
+      data.tenant?.startDate?.toISOString().slice(0, 10) ?? null
     tenantName = data.tenant?.name ?? context.tenant.name
     rows = mapChargeRows(data.chargeDefinitions)
   }
@@ -220,8 +223,9 @@ async function FinanceChargesPageContent({
           </p>
         </div>
 
-        <ChargeHeader isLocked={isLocked} />
+        <ChargeHeader financeStartDate={financeStartDate} isLocked={isLocked} />
         <DataTable
+          financeStartDate={financeStartDate}
           hasSourceRows={rows.length > 0}
           isLocked={isLocked}
           rows={rows}

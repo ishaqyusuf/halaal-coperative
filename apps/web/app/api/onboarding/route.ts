@@ -8,13 +8,10 @@ import {
   updateNotificationOutboxDelivery,
 } from "@halaalvest/db"
 import { createWorkspaceReadyEmail } from "@halaalvest/notifications"
-import {
-  buildTenantDashboardUrl,
-  buildTenantSiteUrl,
-} from "@halaalvest/utils"
 import { normalizeWorkspaceSlug, onboardingFormSchema } from "@/lib/signup-flow"
 import { createServerNotificationService } from "@/lib/server-notifications"
 import { verifySignedSignupToken } from "@/lib/signup-token"
+import { buildOnboardingWorkspaceUrls } from "@/lib/tenant-workspace-urls"
 import { provisionTenantDomainOnVercel } from "@/lib/vercel-domains.server"
 
 function formatOnboardingError(error: unknown) {
@@ -27,33 +24,6 @@ function formatOnboardingError(error: unknown) {
   }
 
   return error.message
-}
-
-function getTenantAppOrigin(currentOrigin?: string | null) {
-  const configuredOrigin =
-    process.env.DASHBOARD_APP_URL ?? process.env.NEXT_PUBLIC_DASHBOARD_APP_URL
-
-  if (configuredOrigin) {
-    return configuredOrigin
-  }
-
-  try {
-    const url = currentOrigin ? new URL(currentOrigin) : null
-    const hostname = url?.hostname ?? ""
-
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "0.0.0.0"
-    ) {
-      const port = process.env.HALAAL_VEST_DASHBOARD_APP_PORT ?? "1441"
-      return `${url?.protocol ?? "http:"}//${hostname}:${port}`
-    }
-  } catch {
-    return currentOrigin ?? "http://app.halaalvest.localhost:1441"
-  }
-
-  return currentOrigin ?? "http://app.halaalvest.localhost:1441"
 }
 
 export async function POST(request: Request) {
@@ -88,14 +58,9 @@ export async function POST(request: Request) {
       startDate: input.startDate,
     })
 
-    const dashboardUrl = buildTenantDashboardUrl(result.tenant.slug, {
-      currentOrigin: getTenantAppOrigin(request.url),
-      pathname: "/",
-      tenantHostname: result.primarySiteHostname,
-    })
-    const siteUrl = buildTenantSiteUrl(result.tenant.slug, {
-      currentOrigin: getTenantAppOrigin(request.url),
-      tenantHostname: result.primarySiteHostname,
+    const { dashboardUrl, siteUrl } = buildOnboardingWorkspaceUrls({
+      currentOrigin: request.url,
+      tenantSlug: result.tenant.slug,
     })
     const vercelDomainProvisioning = await provisionTenantDomainOnVercel(result.primarySiteHostname)
 

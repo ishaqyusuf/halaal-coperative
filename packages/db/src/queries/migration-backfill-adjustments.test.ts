@@ -89,9 +89,11 @@ describe("migration backfill adjustments", () => {
           month: new Date("2025-09-10T00:00:00.000Z"),
           tenantId: "tenant-1",
         },
-        createAdjustmentPrismaStub() as never,
-      ),
-    ).rejects.toThrow("Set a savings contribution, loan repayment amount, or loan repayment status adjustment.")
+        createAdjustmentPrismaStub() as never
+      )
+    ).rejects.toThrow(
+      "Set a savings contribution, loan repayment amount, loan repayment status, or row status adjustment."
+    )
   })
 
   test("upserts and audits an adjustment by member month", async () => {
@@ -105,10 +107,11 @@ describe("migration backfill adjustments", () => {
         memberId: "member-1",
         month: new Date("2025-09-10T00:00:00.000Z"),
         notes: "Catch-up",
+        rowStatus: null,
         savingsContribution: 1000,
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.adjustmentUpserts[0]).toMatchObject({
@@ -150,8 +153,8 @@ describe("migration backfill adjustments", () => {
           savingsContribution: 1000,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Migration adjustments are locked")
 
     expect(prisma.adjustmentUpserts).toHaveLength(0)
@@ -172,8 +175,8 @@ describe("migration backfill adjustments", () => {
           savingsContribution: 1000,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("historical ledger has already been applied")
 
     expect(prisma.adjustmentUpserts).toHaveLength(0)

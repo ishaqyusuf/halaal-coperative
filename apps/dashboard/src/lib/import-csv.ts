@@ -66,6 +66,8 @@ const canonicalHeaderNames: Record<string, string> = {
   maxsavingsmultiple: "maxSavingsMultiple",
   membernumber: "memberNumber",
   membertype: "memberType",
+  monthlycommitment: "monthlyCommitment",
+  monthlysavings: "monthlyCommitment",
   monthlyrepaymentamount: "monthlyRepaymentAmount",
   monthlyrepaymentpay: "monthlyRepaymentAmount",
   occupation: "occupation",
@@ -85,13 +87,20 @@ const canonicalHeaderNames: Record<string, string> = {
 }
 
 function normalizeHeader(input: string) {
-  const normalized = input.trim().toLowerCase().replace(/[\s-]+/g, "_")
+  const normalized = input
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
   const compact = normalized.replace(/_/g, "")
 
   return canonicalHeaderNames[compact] ?? normalized
 }
 
-function parseDateString(value: string, ctx: z.RefinementCtx, fieldName: string) {
+function parseDateString(
+  value: string,
+  ctx: z.RefinementCtx,
+  fieldName: string
+) {
   const trimmed = value.trim()
 
   if (!trimmed) {
@@ -115,7 +124,11 @@ function parseDateString(value: string, ctx: z.RefinementCtx, fieldName: string)
   return date
 }
 
-function parseOptionalDateString(value: string | undefined, ctx: z.RefinementCtx, fieldName: string) {
+function parseOptionalDateString(
+  value: string | undefined,
+  ctx: z.RefinementCtx,
+  fieldName: string
+) {
   const trimmed = value?.trim()
   if (!trimmed) {
     return undefined
@@ -134,7 +147,11 @@ function parseOptionalDateString(value: string | undefined, ctx: z.RefinementCtx
   return date
 }
 
-function parseOptionalNumber(value: string | undefined, ctx: z.RefinementCtx, fieldName: string) {
+function parseOptionalNumber(
+  value: string | undefined,
+  ctx: z.RefinementCtx,
+  fieldName: string
+) {
   const trimmed = value?.trim()
   if (!trimmed) {
     return undefined
@@ -153,7 +170,11 @@ function parseOptionalNumber(value: string | undefined, ctx: z.RefinementCtx, fi
   return numericValue
 }
 
-function parseRequiredNumber(value: string, ctx: z.RefinementCtx, fieldName: string) {
+function parseRequiredNumber(
+  value: string,
+  ctx: z.RefinementCtx,
+  fieldName: string
+) {
   const numericValue = Number(value.trim())
 
   if (!Number.isFinite(numericValue)) {
@@ -177,9 +198,9 @@ function parseCsvRows(csvText: string) {
     const character = csvText[index]
     const nextCharacter = csvText[index + 1]
 
-    if (character === "\"") {
-      if (inQuotes && nextCharacter === "\"") {
-        currentCell += "\""
+    if (character === '"') {
+      if (inQuotes && nextCharacter === '"') {
+        currentCell += '"'
         index += 1
       } else {
         inQuotes = !inQuotes
@@ -258,48 +279,101 @@ function csvToRecords(csvText: string) {
 const membersRowSchema = z.object({
   deductionSourceName: z.string().trim().optional(),
   address: z.string().trim().optional(),
-  email: z.string().trim().email("email must be valid.").optional().or(z.literal("")),
+  email: z
+    .string()
+    .trim()
+    .email("email must be valid.")
+    .optional()
+    .or(z.literal("")),
   fullName: z.string().trim().min(1, "fullName is required."),
   governmentIdNumber: z.string().trim().optional(),
-  joinedAt: z.string().transform((value, ctx) => parseDateString(value, ctx, "joinedAt")),
+  joinedAt: z
+    .string()
+    .transform((value, ctx) => parseDateString(value, ctx, "joinedAt")),
   kycDocumentType: z.string().trim().optional(),
   kycReviewNotes: z.string().trim().optional(),
-  kycStatus: z.enum(["not_started", "pending", "verified", "rejected"]).optional(),
+  kycStatus: z
+    .enum(["not_started", "pending", "verified", "rejected"])
+    .optional(),
   memberNumber: z.string().trim().min(1, "memberNumber is required."),
   memberType: z.enum(["civil_servant", "individual", "business"]),
+  monthlyCommitment: z
+    .string()
+    .optional()
+    .transform((value, ctx) =>
+      parseOptionalNumber(value, ctx, "monthlyCommitment")
+    ),
   occupation: z.string().trim().optional(),
-  openingSavingsBalance: z.string().optional().transform((value, ctx) => parseOptionalNumber(value, ctx, "openingSavingsBalance")),
+  openingSavingsBalance: z
+    .string()
+    .optional()
+    .transform((value, ctx) =>
+      parseOptionalNumber(value, ctx, "openingSavingsBalance")
+    ),
   phoneNumber: z.string().trim().optional(),
-  status: z.enum(["pending", "active", "inactive", "suspended", "exited"]).optional(),
+  status: z
+    .enum(["pending", "active", "inactive", "suspended", "exited"])
+    .optional(),
 })
 
 const deductionSourcesRowSchema = z.object({
   externalReference: z.string().trim().optional(),
   name: z.string().trim().min(1, "name is required."),
-  type: z.enum(["ministry_payroll", "employer_payroll", "bank_transfer", "card", "cash", "manual"]),
+  type: z.enum([
+    "ministry_payroll",
+    "employer_payroll",
+    "bank_transfer",
+    "card",
+    "cash",
+    "manual",
+  ]),
 })
 
 const loanProductsRowSchema = z.object({
   loanType: z.enum(["normal", "quick"]),
-  maxSavingsMultiple: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "maxSavingsMultiple")),
+  maxSavingsMultiple: z
+    .string()
+    .transform((value, ctx) =>
+      parseRequiredNumber(value, ctx, "maxSavingsMultiple")
+    ),
   name: z.string().trim().min(1, "name is required."),
-  termMonths: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "termMonths")),
+  termMonths: z
+    .string()
+    .transform((value, ctx) => parseRequiredNumber(value, ctx, "termMonths")),
 })
 
 const contributionsRowSchema = z.object({
-  amount: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "amount")),
+  amount: z
+    .string()
+    .transform((value, ctx) => parseRequiredNumber(value, ctx, "amount")),
   channel: z.enum(["payroll", "transfer", "cash", "manual"]),
-  committedAmount: z.string().optional().transform((value, ctx) => parseOptionalNumber(value, ctx, "committedAmount")),
-  extraSavingsAmount: z.string().optional().transform((value, ctx) => parseOptionalNumber(value, ctx, "extraSavingsAmount")),
+  committedAmount: z
+    .string()
+    .optional()
+    .transform((value, ctx) =>
+      parseOptionalNumber(value, ctx, "committedAmount")
+    ),
+  extraSavingsAmount: z
+    .string()
+    .optional()
+    .transform((value, ctx) =>
+      parseOptionalNumber(value, ctx, "extraSavingsAmount")
+    ),
   memberNumber: z.string().trim().min(1, "memberNumber is required."),
   periodLabel: z.string().trim().optional(),
-  postedAt: z.string().transform((value, ctx) => parseDateString(value, ctx, "postedAt")),
+  postedAt: z
+    .string()
+    .transform((value, ctx) => parseDateString(value, ctx, "postedAt")),
   reference: z.string().trim().optional(),
 })
 
 const chargesRowSchema = z.object({
-  amount: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "amount")),
-  assessedAt: z.string().transform((value, ctx) => parseDateString(value, ctx, "assessedAt")),
+  amount: z
+    .string()
+    .transform((value, ctx) => parseRequiredNumber(value, ctx, "amount")),
+  assessedAt: z
+    .string()
+    .transform((value, ctx) => parseDateString(value, ctx, "assessedAt")),
   code: z.string().trim().min(1, "code is required."),
   kind: z.enum(["fixed", "percentage"]),
   memberNumber: z.string().trim().min(1, "memberNumber is required."),
@@ -308,22 +382,63 @@ const chargesRowSchema = z.object({
 })
 
 const loanMigrationsRowSchema = z.object({
-  disbursedAt: z.string().optional().transform((value, ctx) => parseOptionalDateString(value, ctx, "disbursedAt")),
-  extraMonthlySavingsAmount: z.string().optional().transform((value, ctx) => parseOptionalNumber(value, ctx, "extraMonthlySavingsAmount")),
-  firstRepaymentDueAt: z.string().optional().transform((value, ctx) => parseOptionalDateString(value, ctx, "firstRepaymentDueAt")),
+  disbursedAt: z
+    .string()
+    .optional()
+    .transform((value, ctx) =>
+      parseOptionalDateString(value, ctx, "disbursedAt")
+    ),
+  extraMonthlySavingsAmount: z
+    .string()
+    .optional()
+    .transform((value, ctx) =>
+      parseOptionalNumber(value, ctx, "extraMonthlySavingsAmount")
+    ),
+  firstRepaymentDueAt: z
+    .string()
+    .optional()
+    .transform((value, ctx) =>
+      parseOptionalDateString(value, ctx, "firstRepaymentDueAt")
+    ),
   loanProductName: z.string().trim().min(1, "loanProductName is required."),
   loanType: z.enum(["normal", "quick"]),
   memberNumber: z.string().trim().min(1, "memberNumber is required."),
-  monthlyRepaymentAmount: z.string().optional().transform((value, ctx) => parseOptionalNumber(value, ctx, "monthlyRepaymentAmount")),
-  outstandingPrincipal: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "outstandingPrincipal")),
-  principalAmount: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "principalAmount")),
-  requestedAt: z.string().transform((value, ctx) => parseDateString(value, ctx, "requestedAt")),
-  status: z.enum(["approved", "disbursed", "active", "completed", "defaulted", "written_off"]),
-  termMonths: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "termMonths")),
+  monthlyRepaymentAmount: z
+    .string()
+    .optional()
+    .transform((value, ctx) =>
+      parseOptionalNumber(value, ctx, "monthlyRepaymentAmount")
+    ),
+  outstandingPrincipal: z
+    .string()
+    .transform((value, ctx) =>
+      parseRequiredNumber(value, ctx, "outstandingPrincipal")
+    ),
+  principalAmount: z
+    .string()
+    .transform((value, ctx) =>
+      parseRequiredNumber(value, ctx, "principalAmount")
+    ),
+  requestedAt: z
+    .string()
+    .transform((value, ctx) => parseDateString(value, ctx, "requestedAt")),
+  status: z.enum([
+    "approved",
+    "disbursed",
+    "active",
+    "completed",
+    "defaulted",
+    "written_off",
+  ]),
+  termMonths: z
+    .string()
+    .transform((value, ctx) => parseRequiredNumber(value, ctx, "termMonths")),
 })
 
 const repaymentMigrationsRowSchema = z.object({
-  amount: z.string().transform((value, ctx) => parseRequiredNumber(value, ctx, "amount")),
+  amount: z
+    .string()
+    .transform((value, ctx) => parseRequiredNumber(value, ctx, "amount")),
   loanProductName: z.string().trim().min(1, "loanProductName is required."),
   memberNumber: z.string().trim().min(1, "memberNumber is required."),
   reference: z.string().trim().optional(),
@@ -343,17 +458,19 @@ export const dashboardImportConfigs: Record<
 > = {
   members: {
     title: "Members",
-    description: "Create or update member registry records, opening savings, KYC references, and optional deduction source mapping.",
+    description:
+      "Create or update member registry records, opening savings, KYC references, and optional deduction source mapping.",
     schema: membersRowSchema,
     sampleCsv: [
-      "memberNumber,fullName,memberType,joinedAt,status,openingSavingsBalance,email,phoneNumber,address,occupation,deductionSourceName,kycStatus,governmentIdNumber,kycDocumentType,kycReviewNotes",
-      "MEM-1001,Amina Yusuf,individual,2024-01-15,active,125000,amina@example.com,+2348010001001,Kaduna,Trader,Kaduna Payroll Desk,verified,NIN-1001,national_id,Imported legacy file",
-      "MEM-1002,Usman Bello,civil_servant,2024-02-01,active,78000,usman@example.com,+2348010001002,Zaria,Civil servant,Kaduna Payroll Desk,pending,NIN-1002,national_id,Awaiting document review",
+      "memberNumber,fullName,memberType,joinedAt,status,openingSavingsBalance,monthlyCommitment,email,phoneNumber,address,occupation,deductionSourceName,kycStatus,governmentIdNumber,kycDocumentType,kycReviewNotes",
+      "MEM-1001,Amina Yusuf,individual,2024-01-15,active,125000,25000,amina@example.com,+2348010001001,Kaduna,Trader,Kaduna Payroll Desk,verified,NIN-1001,national_id,Imported legacy file",
+      "MEM-1002,Usman Bello,civil_servant,2024-02-01,active,78000,20000,usman@example.com,+2348010001002,Zaria,Civil servant,Kaduna Payroll Desk,pending,NIN-1002,national_id,Awaiting document review",
     ].join("\n"),
   },
   deduction_sources: {
     title: "Deduction sources",
-    description: "Quick setup for payroll desks and other deduction source records.",
+    description:
+      "Quick setup for payroll desks and other deduction source records.",
     schema: deductionSourcesRowSchema,
     sampleCsv: [
       "name,type,externalReference",
@@ -363,7 +480,8 @@ export const dashboardImportConfigs: Record<
   },
   loan_products: {
     title: "Loan products",
-    description: "Import or refresh supported loan products before loan migration work.",
+    description:
+      "Import or refresh supported loan products before loan migration work.",
     schema: loanProductsRowSchema,
     sampleCsv: [
       "name,loanType,termMonths,maxSavingsMultiple",
@@ -373,7 +491,8 @@ export const dashboardImportConfigs: Record<
   },
   contributions: {
     title: "Contributions",
-    description: "Bring in historical savings postings and commitment records against existing members.",
+    description:
+      "Bring in historical savings postings and commitment records against existing members.",
     schema: contributionsRowSchema,
     sampleCsv: [
       "memberNumber,amount,channel,postedAt,periodLabel,reference,committedAmount,extraSavingsAmount",
@@ -383,7 +502,8 @@ export const dashboardImportConfigs: Record<
   },
   charges: {
     title: "Charges",
-    description: "Import charge definitions and historical member charge applications in one pass.",
+    description:
+      "Import charge definitions and historical member charge applications in one pass.",
     schema: chargesRowSchema,
     sampleCsv: [
       "memberNumber,code,name,kind,amount,assessedAt,notes",
@@ -393,7 +513,8 @@ export const dashboardImportConfigs: Record<
   },
   loan_migrations: {
     title: "Loans migration",
-    description: "Migrate legacy loan books, including active balances and generated repayment schedules.",
+    description:
+      "Migrate legacy loan books, including active balances and generated repayment schedules.",
     schema: loanMigrationsRowSchema,
     sampleCsv: [
       "memberNumber,loanProductName,loanType,principalAmount,outstandingPrincipal,termMonths,monthly_repayment_pay,requestedAt,status,disbursedAt,firstRepaymentDueAt,savings_during_loan",
@@ -403,7 +524,8 @@ export const dashboardImportConfigs: Record<
   },
   repayment_migrations: {
     title: "Repayment migrations",
-    description: "Post historical repayments against imported loans using member number plus loan product matching.",
+    description:
+      "Post historical repayments against imported loans using member number plus loan product matching.",
     schema: repaymentMigrationsRowSchema,
     sampleCsv: [
       "memberNumber,loanProductName,amount,reference",
@@ -415,7 +537,7 @@ export const dashboardImportConfigs: Record<
 
 export function parseDashboardImportCsv<T = unknown>(
   kind: DashboardImportKind,
-  csvText: string,
+  csvText: string
 ): ImportParseResult<T> {
   const config = dashboardImportConfigs[kind]
   const trimmedText = csvText.trim()
@@ -449,7 +571,9 @@ export function parseDashboardImportCsv<T = unknown>(
     const result = config.schema.safeParse(record)
 
     if (!result.success) {
-      const issueSummary = result.error.issues.map((issue) => issue.message).join("; ")
+      const issueSummary = result.error.issues
+        .map((issue) => issue.message)
+        .join("; ")
       errors.push(`Row ${index + 2}: ${issueSummary}`)
       return
     }
@@ -478,7 +602,7 @@ export function parseDashboardImportCsv<T = unknown>(
 
 export function getDashboardImportPrimaryValue(
   kind: DashboardImportKind,
-  row: Record<string, unknown>,
+  row: Record<string, unknown>
 ) {
   switch (kind) {
     case "members":
@@ -498,20 +622,32 @@ export function getDashboardImportPrimaryValue(
 export function getDashboardImportExistingMatches(
   kind: DashboardImportKind,
   referenceData: DashboardImportReferenceData,
-  row: Record<string, unknown>,
+  row: Record<string, unknown>
 ) {
   switch (kind) {
     case "members":
     case "contributions":
     case "loan_migrations":
     case "repayment_migrations":
-      return typeof row.memberNumber === "string" && referenceData.memberNumbers.includes(row.memberNumber)
+      return (
+        typeof row.memberNumber === "string" &&
+        referenceData.memberNumbers.includes(row.memberNumber)
+      )
     case "deduction_sources":
-      return typeof row.name === "string" && referenceData.deductionSourceNames.includes(row.name)
+      return (
+        typeof row.name === "string" &&
+        referenceData.deductionSourceNames.includes(row.name)
+      )
     case "loan_products":
-      return typeof row.name === "string" && referenceData.loanProductNames.includes(row.name)
+      return (
+        typeof row.name === "string" &&
+        referenceData.loanProductNames.includes(row.name)
+      )
     case "charges":
-      return typeof row.code === "string" && referenceData.chargeDefinitionCodes.includes(row.code)
+      return (
+        typeof row.code === "string" &&
+        referenceData.chargeDefinitionCodes.includes(row.code)
+      )
     default:
       return false
   }

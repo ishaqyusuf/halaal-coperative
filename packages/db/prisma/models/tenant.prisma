@@ -1,92 +1,95 @@
 model Tenant {
-  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug                 String             @unique
-  name                 String
-  memberNumberPrefix   String?            @map("member_number_prefix")
-  currentSize          Int?               @map("current_size")
-  officeAddress        String?            @map("office_address")
-  startDate            DateTime?          @map("start_date") @db.Date
-  region               String?
-  currencyCode         String             @default("NGN") @map("currency_code")
-  timezone             String             @default("Africa/Lagos")
-  status               TenantStatus       @default(pending)
-  initialMigrationStatus InitialMigrationStatus @default(not_started) @map("initial_migration_status")
-  migrationFinalizedAt DateTime?          @map("migration_finalized_at") @db.Timestamptz(6)
-  migrationFinalizedByUserId String?      @map("migration_finalized_by_user_id") @db.Uuid
-  migrationEmergencyUnlockUntil DateTime? @map("migration_emergency_unlock_until") @db.Timestamptz(6)
-  migrationEmergencyUnlockedByUserId String? @map("migration_emergency_unlocked_by_user_id") @db.Uuid
-  migrationEmergencyUnlockReason String?  @map("migration_emergency_unlock_reason")
-  isDirectDeductionEnabled Boolean        @default(false) @map("is_direct_deduction_enabled")
-  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                               String                 @unique
+  name                               String
+  memberNumberPrefix                 String?                @map("member_number_prefix")
+  currentSize                        Int?                   @map("current_size")
+  officeAddress                      String?                @map("office_address")
+  startDate                          DateTime?              @map("start_date") @db.Date
+  region                             String?
+  currencyCode                       String                 @default("NGN") @map("currency_code")
+  timezone                           String                 @default("Africa/Lagos")
+  status                             TenantStatus           @default(pending)
+  initialMigrationStatus             InitialMigrationStatus @default(not_started) @map("initial_migration_status")
+  migrationFinalizedAt               DateTime?              @map("migration_finalized_at") @db.Timestamptz(6)
+  migrationFinalizedByUserId         String?                @map("migration_finalized_by_user_id") @db.Uuid
+  migrationEmergencyUnlockUntil      DateTime?              @map("migration_emergency_unlock_until") @db.Timestamptz(6)
+  migrationEmergencyUnlockedByUserId String?                @map("migration_emergency_unlocked_by_user_id") @db.Uuid
+  migrationEmergencyUnlockReason     String?                @map("migration_emergency_unlock_reason")
+  isDirectDeductionEnabled           Boolean                @default(false) @map("is_direct_deduction_enabled")
+  createdAt                          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  policies             TenantPolicy?
-  domains              TenantDomain[]
-  users                User[]
-  memberships          Membership[]
-  members              Member[]
-  memberDocuments      MemberDocument[]
-  importBatches        ImportBatch[]
-  importBatchRows      ImportBatchRow[]
-  deductionSources     DeductionSource[]
-  contributionPlans    ContributionPlan[]
-  contributions        Contribution[]
-  tenantShareStructureVersions TenantShareStructureVersion[]
-  chargeDefinitions    ChargeDefinition[]
-  chargeDefinitionVersions ChargeDefinitionVersion[]
-  chargeApplications   ChargeApplication[]
-  loanProducts         LoanProduct[]
-  loanRequests         LoanRequest[]
-  loanApprovals        LoanApproval[]
-  loans                Loan[]
-  repaymentSchedules   RepaymentScheduleItem[]
-  collectionFollowUps  CollectionFollowUp[]
-  repayments           Repayment[]
-  ledgerAccounts       LedgerAccount[]
-  ledgerTransactions   LedgerTransaction[]
-  ledgerEntries        LedgerEntry[]
-  dividendPeriods      DividendPeriod[]
-  dividendAllocations  DividendAllocation[]
-  shareBusinesses      ShareBusiness[]
-  shareBusinessProfitEntries ShareBusinessProfitEntry[]
-  shareLedgerEntries   MemberShareLedgerEntry[]
-  shareProfitAllocations ShareProfitAllocation[]
-  offlineSyncEvents    OfflineSyncEvent[]
-  auditLogs            AuditLog[]
-  notificationOutbox   NotificationOutbox[]
-  notificationPreferences NotificationPreference[]
-  memberOnboardingRequests MemberOnboardingRequest[]
-  memberSignupLinks    MemberSignupLink[]
-  monthlyRecords       MonthlyRecord[]
-  monthlyRecordMembers MonthlyRecordMember[]
-  memberShareOverrides MemberShareOverride[]
-  memberAmountLogs     MemberAmountLog[]
-  legacyLoanMigrationDrafts LegacyLoanMigrationDraft[]
-  migrationBackfillAdjustments MigrationBackfillAdjustment[]
-  migrationProfitAdjustments MigrationProfitAdjustment[]
-  backfillBatches      BackfillBatch[]
-  appliedBackfillMonths AppliedBackfillMonth[]
-  backfillMonthRows    BackfillMonthRow[]
-  backfillActivities   BackfillActivity[]
+  policies                        TenantPolicy?
+  domains                         TenantDomain[]
+  users                           User[]
+  memberships                     Membership[]
+  members                         Member[]
+  memberDocuments                 MemberDocument[]
+  importBatches                   ImportBatch[]
+  importBatchRows                 ImportBatchRow[]
+  deductionSources                DeductionSource[]
+  contributionPlans               ContributionPlan[]
+  contributions                   Contribution[]
+  tenantShareStructureVersions    TenantShareStructureVersion[]
+  chargeDefinitions               ChargeDefinition[]
+  chargeDefinitionVersions        ChargeDefinitionVersion[]
+  chargeApplications              ChargeApplication[]
+  loanProducts                    LoanProduct[]
+  loanRequests                    LoanRequest[]
+  loanApprovals                   LoanApproval[]
+  loans                           Loan[]
+  repaymentSchedules              RepaymentScheduleItem[]
+  collectionFollowUps             CollectionFollowUp[]
+  repayments                      Repayment[]
+  ledgerAccounts                  LedgerAccount[]
+  ledgerTransactions              LedgerTransaction[]
+  ledgerEntries                   LedgerEntry[]
+  dividendPeriods                 DividendPeriod[]
+  dividendAllocations             DividendAllocation[]
+  shareBusinesses                 ShareBusiness[]
+  shareBusinessProfitEntries      ShareBusinessProfitEntry[]
+  shareBusinessProfitExpenseLines ShareBusinessProfitExpenseLine[]
+  shareLedgerEntries              MemberShareLedgerEntry[]
+  shareProfitAllocations          ShareProfitAllocation[]
+  offlineSyncEvents               OfflineSyncEvent[]
+  auditLogs                       AuditLog[]
+  notificationOutbox              NotificationOutbox[]
+  notificationPreferences         NotificationPreference[]
+  memberOnboardingRequests        MemberOnboardingRequest[]
+  memberSignupLinks               MemberSignupLink[]
+  monthlyRecordSetting            MonthlyRecordSetting?
+  monthlyRecords                  MonthlyRecord[]
+  monthlyRecordMembers            MonthlyRecordMember[]
+  memberShareOverrides            MemberShareOverride[]
+  memberAmountLogs                MemberAmountLog[]
+  memberActivityEvents            MemberActivityEvent[]
+  legacyLoanMigrationDrafts       LegacyLoanMigrationDraft[]
+  migrationBackfillAdjustments    MigrationBackfillAdjustment[]
+  migrationProfitAdjustments      MigrationProfitAdjustment[]
+  backfillBatches                 BackfillBatch[]
+  appliedBackfillMonths           AppliedBackfillMonth[]
+  backfillMonthRows               BackfillMonthRow[]
+  backfillActivities              BackfillActivity[]
 
   @@map("tenants")
 }
 
 model TenantPolicy {
-  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId                   String   @unique @map("tenant_id") @db.Uuid
-  loanEligibilityMultiple    Decimal  @default(2.0) @map("loan_eligibility_multiple") @db.Decimal(10, 2)
-  quickLoanTermMonths        Int      @default(3) @map("quick_loan_term_months")
-  normalLoanTermMonths       Int      @default(18) @map("normal_loan_term_months")
-  reserveBufferAmount        Decimal  @default(0) @map("reserve_buffer_amount") @db.Decimal(18, 2)
-  monthlyLevyAmount          Decimal? @map("monthly_levy_amount") @db.Decimal(18, 2)
-  requiresDualLoanApproval   Boolean  @default(false) @map("requires_dual_loan_approval")
-  allowOfflineFinancialCapture Boolean @default(true) @map("allow_offline_financial_capture")
-  memberSignupAccessMode     MemberSignupAccessMode @default(in_office) @map("member_signup_access_mode")
-  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                     String                 @unique @map("tenant_id") @db.Uuid
+  loanEligibilityMultiple      Decimal                @default(2.0) @map("loan_eligibility_multiple") @db.Decimal(10, 2)
+  quickLoanTermMonths          Int                    @default(3) @map("quick_loan_term_months")
+  normalLoanTermMonths         Int                    @default(18) @map("normal_loan_term_months")
+  reserveBufferAmount          Decimal                @default(0) @map("reserve_buffer_amount") @db.Decimal(18, 2)
+  monthlyLevyAmount            Decimal?               @map("monthly_levy_amount") @db.Decimal(18, 2)
+  requiresDualLoanApproval     Boolean                @default(false) @map("requires_dual_loan_approval")
+  allowOfflineFinancialCapture Boolean                @default(true) @map("allow_offline_financial_capture")
+  memberSignupAccessMode       MemberSignupAccessMode @default(in_office) @map("member_signup_access_mode")
+  createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_policies")
 }

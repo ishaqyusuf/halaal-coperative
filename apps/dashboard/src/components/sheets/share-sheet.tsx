@@ -11,24 +11,23 @@ import {
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
 import { Textarea } from "@halaalvest/ui/components/textarea"
-import { ShareStructureVersionForm } from "@/components/forms/tenant-finance-forms"
 import { useShareParams } from "@/hooks/use-share-params"
 import { updateTenantShareStructureVersionAction } from "@/lib/dashboard-actions"
 import type { Share } from "@/components/tables/shares/columns"
 
 export function ShareSheet({
+  financeStartDate,
   isLocked,
   rows,
 }: {
+  financeStartDate?: string | null
   isLocked: boolean
   rows: Share[]
 }) {
   const { setParams, shareId, shareType } = useShareParams()
-  const isCreate = shareType === "create"
   const isEdit = shareType === "edit"
-  const isOpen = isCreate || isEdit
+  const isOpen = isEdit
   const version = rows.find((row) => row.id === shareId)
-  const title = isCreate ? "Create share rule" : "Edit share rule"
 
   const handleOnOpenChange = (open: boolean) => {
     if (!open) {
@@ -40,19 +39,14 @@ export function ShareSheet({
     <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
+          <SheetTitle>Edit share rule</SheetTitle>
           <SheetDescription>
-            {isCreate
-              ? "Add a dated fixed or percentage share capital rule for historical migration."
-              : "Update the dated share rule used by historical member ledger generation."}
+            Update the dated share rule used by historical member ledger
+            generation.
           </SheetDescription>
         </SheetHeader>
 
-        {isCreate ? (
-          <div className="px-6">
-            <ShareStructureVersionForm />
-          </div>
-        ) : version ? (
+        {version ? (
           <form
             action={updateTenantShareStructureVersionAction}
             className="grid gap-4 px-6"
@@ -67,6 +61,7 @@ export function ShareSheet({
               <Input
                 defaultValue={version.effectiveFrom}
                 disabled={isLocked}
+                min={financeStartDate ?? undefined}
                 name="effectiveFrom"
                 required
                 type="date"

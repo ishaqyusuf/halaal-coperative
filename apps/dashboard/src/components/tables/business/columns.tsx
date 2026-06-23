@@ -1,7 +1,8 @@
 "use client"
 
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button } from "@halaalvest/ui/components/button"
+import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import { formatCurrency } from "@halaalvest/utils"
 import type { ColumnDef } from "@tanstack/react-table"
 
@@ -168,6 +169,21 @@ export const columns: ColumnDef<Business>[] = [
           >
             Entry
           </Button>
+          {latest?.id ? (
+            <Link
+              className={buttonVariants({ size: "sm", variant: "outline" })}
+              href={`/settings/finance/business/profits/${latest.id}/migration`}
+              onClick={(event) => {
+                event.stopPropagation()
+              }}
+            >
+              Migrate
+            </Link>
+          ) : (
+            <Button disabled size="sm" type="button" variant="outline">
+              Migrate
+            </Button>
+          )}
         </div>
       )
     },

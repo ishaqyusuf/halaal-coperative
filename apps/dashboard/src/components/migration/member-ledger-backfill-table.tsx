@@ -2,23 +2,38 @@ import type {
   EffectiveDateSegment,
   MemberLedgerBackfillLoanColumn,
   MemberLedgerBackfillRow,
+  MonthlyLedgerSegment,
 } from "@halaalvest/backfill"
+import { Button } from "@halaalvest/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@halaalvest/ui/components/dropdown-menu"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardDataTable,
-  DashboardSurfaceCard,
   DashboardTable,
   DashboardTableBody,
   DashboardTableCell,
   DashboardTableHead,
   DashboardTableHeaderCell,
   DashboardTableRow,
-  TrendPill,
 } from "@/components/dashboard"
+import { LedgerColumnVisibilityFrame } from "@/components/migration/ledger-column-visibility-frame"
 
 type MemberLedgerBackfillTableProps = {
   isRowAdjustmentDisabled: (row: MemberLedgerBackfillRow) => boolean
-  renderProfitControl: (row: MemberLedgerBackfillRow) => React.ReactNode
+  renderDefaultingControl?: (
+    row: MemberLedgerBackfillRow,
+    disabled: boolean,
+    triggerLabel?: string
+  ) => React.ReactNode
+  renderMonthStatusControl?: (
+    row: MemberLedgerBackfillRow,
+    disabled: boolean
+  ) => React.ReactNode
   renderRepaymentControl: (
     row: MemberLedgerBackfillRow,
     loan: MemberLedgerBackfillLoanColumn,
@@ -42,7 +57,7 @@ function formatAmountRange(values: number[]) {
   }
 
   if (uniqueValues.length === 1) {
-    return formatCurrency(uniqueValues[0])
+    return formatCurrency(uniqueValues[0] ?? 0)
   }
 
   return `${formatCurrency(Math.min(...uniqueValues))} - ${formatCurrency(
@@ -54,28 +69,20 @@ function formatHeaderAmount(label: string, values: number[]) {
   return `${label} (${formatAmountRange(values)})`
 }
 
-function getDividendHeaderLabel(segment: EffectiveDateSegment) {
-  const labels = Array.from(
-    new Set(
-      segment.rows
-        .filter((row) => row.dividendCredit > 0)
-        .map((row) => row.dividendLabel)
-        .filter((label): label is string => Boolean(label))
-    )
-  )
-
-  if (labels.length === 1) {
-    return `Dividend - ${labels[0]}`
+function formatSegmentAmountSummary(summary: {
+  maxAmount: number
+  minAmount: number
+}) {
+  if (summary.minAmount === summary.maxAmount) {
+    return formatCurrency(summary.minAmount)
   }
 
-  if (labels.length > 1) {
-    return `Dividend / profit (${labels.length} pools)`
-  }
-
-  return "Dividend / profit"
+  return `${formatCurrency(summary.minAmount)} - ${formatCurrency(
+    summary.maxAmount
+  )}`
 }
 
-function getSegmentLoanColumns(segment: EffectiveDateSegment) {
+function getSegmentLoanColumns(segment: MonthlyLedgerSegment) {
   const loans: MemberLedgerBackfillLoanColumn[] = []
   const seen = new Set<string>()
 
@@ -94,7 +101,7 @@ function getSegmentLoanColumns(segment: EffectiveDateSegment) {
 }
 
 function getLoanColumnValues(
-  segment: EffectiveDateSegment,
+  segment: MonthlyLedgerSegment,
   loanId: string,
   field: "outstandingPrincipalBalance" | "repaymentAmount"
 ) {
@@ -112,37 +119,514 @@ function getLoanColumnLabel(
   return `${loan.label} ${suffix}`
 }
 
-function getSegmentDriftDetails(segment: EffectiveDateSegment) {
-  return {
-    dividendRows: segment.rows.filter((row) => row.dividendCredit > 0).length,
-    grossSavingsRange: formatAmountRange(
-      segment.rows.map((row) => row.savingsContribution)
-    ),
-    overrideCount: segment.rows.filter((row) => row.isEdited).length,
-    shareRange: formatAmountRange(
-      segment.rows.map((row) => row.shareCapitalContribution)
-    ),
-    loanRepaymentRange: formatAmountRange(
-      segment.rows.flatMap((row) =>
-        row.loanColumns.map((loan) => loan.repaymentAmount)
-      )
-    ),
-    totalShareRange: formatAmountRange(
-      segment.rows.map((row) => row.runningShareCapitalBalance)
-    ),
+function formatCompactPeriod(period: string) {
+  const [month, year] = period.split(/\s+/)
+
+  if (!month || !year) {
+    return period
   }
+
+  return `${month.slice(0, 3).toUpperCase()} ${year.slice(-2)}`
+}
+
+const compactTableClass =
+  "w-max min-w-full table-fixed text-xs [&_td]:border-r [&_td]:border-border/60 [&_td]:px-1.5 [&_td]:py-1.5 [&_td]:whitespace-nowrap [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:border-border/60 [&_th]:px-1.5 [&_th]:py-1.5 [&_th]:leading-3 [&_th]:whitespace-normal [&_th:last-child]:border-r-0"
+
+const columnClass = {
+  label: "w-28",
+  money: "w-20",
+  period: "w-16",
+  percent: "w-14",
+  source: "w-28",
+  term: "w-14",
+}
+
+const ledgerDomainColor = {
+  charge: {
+    dot: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-300",
+    value:
+      "text-amber-700 dark:text-amber-300 [&_button]:text-amber-700 dark:[&_button]:text-amber-300",
+  },
+  loan: {
+    dot: "bg-indigo-500",
+    text: "text-indigo-700 dark:text-indigo-300",
+    value:
+      "text-indigo-700 dark:text-indigo-300 [&_button]:text-indigo-700 dark:[&_button]:text-indigo-300",
+  },
+  profit: {
+    dot: "bg-violet-500",
+    text: "text-violet-700 dark:text-violet-300",
+    value:
+      "text-violet-700 dark:text-violet-300 [&_button]:text-violet-700 dark:[&_button]:text-violet-300",
+  },
+  repayment: {
+    dot: "bg-rose-500",
+    text: "text-rose-700 dark:text-rose-300",
+    value:
+      "text-rose-700 dark:text-rose-300 [&_button]:text-rose-700 dark:[&_button]:text-rose-300",
+  },
+  saving: {
+    dot: "bg-emerald-500",
+    text: "text-emerald-700 dark:text-emerald-300",
+    value:
+      "text-emerald-700 dark:text-emerald-300 [&_button]:text-emerald-700 dark:[&_button]:text-emerald-300",
+  },
+  share: {
+    dot: "bg-sky-500",
+    text: "text-sky-700 dark:text-sky-300",
+    value:
+      "text-sky-700 dark:text-sky-300 [&_button]:text-sky-700 dark:[&_button]:text-sky-300",
+  },
+}
+
+type LedgerDomainKey = keyof typeof ledgerDomainColor
+
+const ledgerLegendItems: Array<{ key: LedgerDomainKey; label: string }> = [
+  { key: "saving", label: "Saving" },
+  { key: "repayment", label: "Loan payment" },
+  { key: "loan", label: "Loan" },
+  { key: "charge", label: "Charge" },
+  { key: "share", label: "Share capital" },
+  { key: "profit", label: "Business profit" },
+]
+
+function domainHeaderClass(domain: LedgerDomainKey, className?: string) {
+  return cn(className, ledgerDomainColor[domain].text)
+}
+
+function LedgerDomainValue({
+  children,
+  className,
+  domain,
+}: {
+  children: React.ReactNode
+  className?: string
+  domain: LedgerDomainKey
+}) {
+  return (
+    <span
+      className={cn("font-medium", ledgerDomainColor[domain].value, className)}
+    >
+      {children}
+    </span>
+  )
+}
+
+function LedgerColorLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium">
+      {ledgerLegendItems.map((item) => (
+        <span className="inline-flex items-center gap-1.5" key={item.key}>
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-2 rounded-full",
+              ledgerDomainColor[item.key].dot
+            )}
+          />
+          <span className={ledgerDomainColor[item.key].text}>{item.label}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function LedgerActionMenu({ children }: { children: React.ReactNode }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="Open row actions"
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <span aria-hidden="true" className="text-base leading-none">
+          ...
+        </span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-max min-w-40 p-1">
+        <div className="grid gap-1">{children}</div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function LedgerActionItem({
+  children,
+  label,
+}: {
+  children: React.ReactNode
+  label: string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-2 py-1 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  )
+}
+
+function SegmentReasonList({ reasons }: { reasons: string[] }) {
+  return (
+    <div className="mb-1 flex flex-wrap gap-1.5">
+      {reasons.map((reason) => (
+        <span
+          className="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase"
+          key={reason}
+        >
+          {reason}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function SegmentMetaItem({
+  children,
+  domain,
+  label,
+}: {
+  children: React.ReactNode
+  domain: LedgerDomainKey
+  label: string
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 border border-border/70 px-2 py-1 text-[11px]">
+      <span className={cn("font-medium", ledgerDomainColor[domain].text)}>
+        {label}
+      </span>
+      <span className="text-foreground">{children}</span>
+    </span>
+  )
+}
+
+function MonthlyLedgerSegmentTable({
+  isRowAdjustmentDisabled,
+  renderDefaultingControl,
+  renderMonthStatusControl,
+  renderRepaymentControl,
+  renderSavingsControl,
+  segment,
+}: {
+  isRowAdjustmentDisabled: (row: MemberLedgerBackfillRow) => boolean
+  renderDefaultingControl?: (
+    row: MemberLedgerBackfillRow,
+    disabled: boolean,
+    triggerLabel?: string
+  ) => React.ReactNode
+  renderMonthStatusControl?: (
+    row: MemberLedgerBackfillRow,
+    disabled: boolean
+  ) => React.ReactNode
+  renderRepaymentControl: (
+    row: MemberLedgerBackfillRow,
+    loan: MemberLedgerBackfillLoanColumn,
+    disabled: boolean
+  ) => React.ReactNode
+  renderSavingsControl: (
+    row: MemberLedgerBackfillRow,
+    loans: MemberLedgerBackfillLoanColumn[],
+    disabled: boolean
+  ) => React.ReactNode
+  segment: MonthlyLedgerSegment
+}) {
+  const segmentLoanColumns = getSegmentLoanColumns(segment)
+  const forceSavingsColumn = segment.summary.hasManualSavingsAdjustment
+  const forceRepaymentColumns = segment.summary.hasManualRepaymentAdjustment
+  const firstSegmentRow = segment.rows[0]
+  const segmentStatusControl =
+    renderDefaultingControl && firstSegmentRow
+      ? renderDefaultingControl(
+          firstSegmentRow,
+          isRowAdjustmentDisabled(firstSegmentRow),
+          "Commitment status"
+        )
+      : null
+  const segmentMetadata = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {segment.summary.chargeSummaries.map((charge) => (
+        <SegmentMetaItem
+          domain="charge"
+          key={charge.label}
+          label={charge.label}
+        >
+          {formatSegmentAmountSummary(charge)}
+        </SegmentMetaItem>
+      ))}
+      <SegmentMetaItem domain="share" label="Share capital">
+        {formatSegmentAmountSummary(segment.summary.shareCapitalSummary)}
+      </SegmentMetaItem>
+      <SegmentMetaItem domain="saving" label="Savings">
+        {formatAmountRange(segment.rows.map((row) => row.savingsContribution))}
+      </SegmentMetaItem>
+      {segmentLoanColumns.length > 0 ? (
+        <SegmentMetaItem domain="repayment" label="Loan repayment">
+          {formatAmountRange(
+            segment.rows.flatMap((row) =>
+              row.loanColumns.map((loan) => loan.repaymentAmount)
+            )
+          )}
+        </SegmentMetaItem>
+      ) : null}
+    </div>
+  )
+
+  return (
+    <div>
+      <SegmentReasonList reasons={segment.reasonList} />
+      <LedgerColumnVisibilityFrame
+        afterSavingsControl={segmentStatusControl}
+        forceRepaymentColumns={forceRepaymentColumns}
+        forceSavingsColumn={forceSavingsColumn}
+        hasLoanColumns={segmentLoanColumns.length > 0}
+        metadata={segmentMetadata}
+      >
+        <DashboardDataTable className="rounded-none">
+          <DashboardTable className={compactTableClass}>
+            <colgroup>
+              <col className={columnClass.period} />
+              {segmentLoanColumns.map((loan) => (
+                <col
+                  className={cn(columnClass.money, "repayment-column")}
+                  key={`${loan.id}-repayment-col`}
+                />
+              ))}
+              <col className={cn(columnClass.money, "savings-column")} />
+              <col className={columnClass.money} />
+              <col className={columnClass.money} />
+              {segmentLoanColumns.map((loan) => (
+                <col
+                  className={columnClass.money}
+                  key={`${loan.id}-balance-col`}
+                />
+              ))}
+              <col />
+              <col />
+            </colgroup>
+            <DashboardTableHead>
+              <DashboardTableHeaderCell className={columnClass.period}>
+                Period
+              </DashboardTableHeaderCell>
+              {segmentLoanColumns.map((loan) => (
+                <DashboardTableHeaderCell
+                  align="right"
+                  className={domainHeaderClass(
+                    "repayment",
+                    cn(columnClass.money, "repayment-column")
+                  )}
+                  key={`${loan.id}-repayment-header`}
+                >
+                  {formatHeaderAmount(
+                    getLoanColumnLabel(loan, "repayment"),
+                    getLoanColumnValues(segment, loan.id, "repaymentAmount")
+                  )}
+                </DashboardTableHeaderCell>
+              ))}
+              <DashboardTableHeaderCell
+                align="right"
+                className={domainHeaderClass(
+                  "saving",
+                  cn(columnClass.money, "savings-column")
+                )}
+              >
+                {formatHeaderAmount(
+                  "Savings",
+                  segment.rows.map((row) => row.savingsContribution)
+                )}
+              </DashboardTableHeaderCell>
+              <DashboardTableHeaderCell
+                align="right"
+                className={columnClass.money}
+              >
+                Total share value
+              </DashboardTableHeaderCell>
+              <DashboardTableHeaderCell
+                align="right"
+                className={columnClass.money}
+              >
+                Final saving
+              </DashboardTableHeaderCell>
+              {segmentLoanColumns.map((loan) => (
+                <DashboardTableHeaderCell
+                  align="right"
+                  className={columnClass.money}
+                  key={`${loan.id}-balance-header`}
+                >
+                  {getLoanColumnLabel(loan, "balance")}
+                </DashboardTableHeaderCell>
+              ))}
+              <DashboardTableHeaderCell align="right">
+                Total saving
+              </DashboardTableHeaderCell>
+              <DashboardTableHeaderCell align="right">
+                Action
+              </DashboardTableHeaderCell>
+            </DashboardTableHead>
+            <DashboardTableBody>
+              {segment.rows.map((row) => {
+                const adjustmentsDisabled = isRowAdjustmentDisabled(row)
+
+                return (
+                  <DashboardTableRow key={`${segment.key}-${row.period}`}>
+                    <DashboardTableCell className={columnClass.period}>
+                      <div>
+                        <p className="font-medium">
+                          {formatCompactPeriod(row.period)}
+                        </p>
+                        {row.isEdited &&
+                        row.status !== "missed" &&
+                        row.status !== "paused" ? (
+                          <p className="mt-1 text-xs text-amber-700">
+                            One-time override
+                          </p>
+                        ) : null}
+                        {row.status === "missed" || row.status === "paused" ? (
+                          <p className="mt-1 text-xs font-medium text-muted-foreground">
+                            {row.statusReason ??
+                              (row.status === "missed"
+                                ? "Defaulting"
+                                : "Inactive")}
+                          </p>
+                        ) : null}
+                      </div>
+                    </DashboardTableCell>
+                    {segmentLoanColumns.map((segmentLoan) => {
+                      const rowLoan = row.loanColumns.find(
+                        (item) => item.id === segmentLoan.id
+                      )
+
+                      return (
+                        <DashboardTableCell
+                          align="right"
+                          className={cn(columnClass.money, "repayment-column")}
+                          key={`${segmentLoan.id}-repayment`}
+                        >
+                          {rowLoan ? (
+                            <LedgerDomainValue domain="repayment">
+                              {renderRepaymentControl(
+                                row,
+                                rowLoan,
+                                adjustmentsDisabled
+                              )}
+                            </LedgerDomainValue>
+                          ) : (
+                            "-"
+                          )}
+                        </DashboardTableCell>
+                      )
+                    })}
+                    <DashboardTableCell
+                      align="right"
+                      className={cn(columnClass.money, "savings-column")}
+                    >
+                      <LedgerDomainValue domain="saving">
+                        {renderSavingsControl(
+                          row,
+                          row.loanColumns,
+                          adjustmentsDisabled
+                        )}
+                      </LedgerDomainValue>
+                    </DashboardTableCell>
+                    <DashboardTableCell
+                      align="right"
+                      className={columnClass.money}
+                    >
+                      {formatCurrency(row.runningShareCapitalBalance)}
+                    </DashboardTableCell>
+                    <DashboardTableCell
+                      align="right"
+                      className={columnClass.money}
+                    >
+                      {formatCurrency(row.netSavingsContribution)}
+                    </DashboardTableCell>
+                    {segmentLoanColumns.map((segmentLoan) => {
+                      const rowLoan = row.loanColumns.find(
+                        (item) => item.id === segmentLoan.id
+                      )
+
+                      return (
+                        <DashboardTableCell
+                          align="right"
+                          className={columnClass.money}
+                          key={`${segmentLoan.id}-balance`}
+                        >
+                          {rowLoan
+                            ? formatCurrency(
+                                rowLoan.outstandingPrincipalBalance
+                              )
+                            : "-"}
+                        </DashboardTableCell>
+                      )
+                    })}
+                    <DashboardTableCell align="right">
+                      {formatCurrency(row.runningSavingsBalance)}
+                    </DashboardTableCell>
+                    <DashboardTableCell align="right">
+                      <LedgerActionMenu>
+                        <LedgerActionItem label="Savings">
+                          <LedgerDomainValue domain="saving">
+                            {renderSavingsControl(
+                              row,
+                              row.loanColumns,
+                              adjustmentsDisabled
+                            )}
+                          </LedgerDomainValue>
+                        </LedgerActionItem>
+                        {row.loanColumns.map((rowLoan) => (
+                          <LedgerActionItem
+                            key={rowLoan.id}
+                            label={rowLoan.label}
+                          >
+                            <div className="flex items-center gap-1">
+                              <LedgerDomainValue domain="repayment">
+                                {renderRepaymentControl(
+                                  row,
+                                  rowLoan,
+                                  adjustmentsDisabled
+                                )}
+                              </LedgerDomainValue>
+                              {rowLoan.repaymentOnTime ? (
+                                <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                                  On-time
+                                </span>
+                              ) : null}
+                            </div>
+                          </LedgerActionItem>
+                        ))}
+                        {renderMonthStatusControl ? (
+                          <LedgerActionItem label="Month status">
+                            {renderMonthStatusControl(row, adjustmentsDisabled)}
+                          </LedgerActionItem>
+                        ) : null}
+                      </LedgerActionMenu>
+                    </DashboardTableCell>
+                  </DashboardTableRow>
+                )
+              })}
+            </DashboardTableBody>
+          </DashboardTable>
+        </DashboardDataTable>
+      </LedgerColumnVisibilityFrame>
+    </div>
+  )
 }
 
 export function MemberLedgerBackfillTable({
   isRowAdjustmentDisabled,
-  renderProfitControl,
+  renderDefaultingControl,
+  renderMonthStatusControl,
   renderRepaymentControl,
   renderSavingsControl,
   segments,
 }: MemberLedgerBackfillTableProps) {
   if (segments.length === 0) {
     return (
-      <DashboardSurfaceCard className="bg-background/70">
+      <div>
         <p className="text-sm font-semibold text-foreground">
           No generated ledger preview
         </p>
@@ -150,249 +634,258 @@ export function MemberLedgerBackfillTable({
           Select a member above to load historical ledger rows from the current
           migration setup.
         </p>
-      </DashboardSurfaceCard>
+      </div>
     )
   }
 
   return (
     <div className="space-y-4">
+      <LedgerColorLegend />
       {segments.map((segment) => {
-        const driftDetails = getSegmentDriftDetails(segment)
-        const segmentLoanColumns = getSegmentLoanColumns(segment)
+        if (segment.kind === "profit") {
+          const row = segment.row
+          const profitRunningSavingsBalance =
+            row.runningSavingsBalance -
+            row.netSavingsContribution +
+            row.dividendCredit
+
+          return (
+            <div key={segment.key}>
+              <SegmentReasonList reasons={segment.reasonList} />
+              <DashboardDataTable className="rounded-none">
+                <DashboardTable className={compactTableClass}>
+                  <colgroup>
+                    <col className={columnClass.period} />
+                    <col className={columnClass.label} />
+                    <col className={columnClass.percent} />
+                    <col className={columnClass.money} />
+                    <col className={columnClass.source} />
+                    <col />
+                    <col />
+                  </colgroup>
+                  <DashboardTableHead>
+                    <DashboardTableHeaderCell className={columnClass.period}>
+                      Period
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell
+                      className={domainHeaderClass("profit", columnClass.label)}
+                    >
+                      Business profit
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell
+                      align="right"
+                      className={domainHeaderClass(
+                        "profit",
+                        columnClass.percent
+                      )}
+                    >
+                      Share %
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell
+                      align="right"
+                      className={domainHeaderClass("profit", columnClass.money)}
+                    >
+                      Member amount
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell className={columnClass.source}>
+                      Source/label
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell align="right">
+                      Total saving
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell align="right">
+                      Action
+                    </DashboardTableHeaderCell>
+                  </DashboardTableHead>
+                  <DashboardTableBody>
+                    <DashboardTableRow>
+                      <DashboardTableCell className={columnClass.period}>
+                        <p className="font-medium">
+                          {formatCompactPeriod(row.period)}
+                        </p>
+                      </DashboardTableCell>
+                      <DashboardTableCell className={columnClass.label}>
+                        <p
+                          className={cn(
+                            "truncate font-medium",
+                            ledgerDomainColor.profit.text
+                          )}
+                        >
+                          {row.dividendLabel ?? "Business profit"}
+                        </p>
+                      </DashboardTableCell>
+                      <DashboardTableCell
+                        align="right"
+                        className={columnClass.percent}
+                      >
+                        <LedgerDomainValue domain="profit">
+                          {row.dividendSharePercentage == null
+                            ? "-"
+                            : `${row.dividendSharePercentage}%`}
+                        </LedgerDomainValue>
+                      </DashboardTableCell>
+                      <DashboardTableCell
+                        align="right"
+                        className={columnClass.money}
+                      >
+                        <LedgerDomainValue domain="profit">
+                          {formatCurrency(row.dividendCredit)}
+                        </LedgerDomainValue>
+                      </DashboardTableCell>
+                      <DashboardTableCell className={columnClass.source}>
+                        <p className="truncate text-muted-foreground">
+                          {row.dividendProfitEntryId
+                            ? "Migration profit allocation"
+                            : "Existing dividend allocation"}
+                        </p>
+                      </DashboardTableCell>
+                      <DashboardTableCell align="right">
+                        {formatCurrency(profitRunningSavingsBalance)}
+                      </DashboardTableCell>
+                      <DashboardTableCell align="right">-</DashboardTableCell>
+                    </DashboardTableRow>
+                  </DashboardTableBody>
+                </DashboardTable>
+              </DashboardDataTable>
+            </div>
+          )
+        }
+
+        if (segment.kind === "loan_taken") {
+          const { loan, row } = segment
+
+          return (
+            <div key={segment.key}>
+              <SegmentReasonList reasons={segment.reasonList} />
+              <DashboardDataTable className="rounded-none">
+                <DashboardTable className={compactTableClass}>
+                  <colgroup>
+                    <col className={columnClass.period} />
+                    <col className={columnClass.money} />
+                    <col className={columnClass.money} />
+                    <col className={columnClass.money} />
+                    <col className={columnClass.term} />
+                    <col className={columnClass.money} />
+                    <col className={columnClass.label} />
+                    <col />
+                  </colgroup>
+                  <DashboardTableHead>
+                    <DashboardTableHeaderCell className={columnClass.period}>
+                      Period
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell
+                      align="right"
+                      className={domainHeaderClass("loan", columnClass.money)}
+                    >
+                      Amount
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell
+                      align="right"
+                      className={domainHeaderClass("loan", columnClass.money)}
+                    >
+                      Repay amount
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell
+                      align="right"
+                      className={domainHeaderClass("loan", columnClass.money)}
+                    >
+                      Commitment
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell
+                      align="right"
+                      className={columnClass.term}
+                    >
+                      Term
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell
+                      align="right"
+                      className={domainHeaderClass("loan", columnClass.money)}
+                    >
+                      Opening pending
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell
+                      className={domainHeaderClass("loan", columnClass.label)}
+                    >
+                      Loan
+                    </DashboardTableHeaderCell>
+                    <DashboardTableHeaderCell align="right">
+                      Action
+                    </DashboardTableHeaderCell>
+                  </DashboardTableHead>
+                  <DashboardTableBody>
+                    <DashboardTableRow>
+                      <DashboardTableCell className={columnClass.period}>
+                        <p className="font-medium">
+                          {formatCompactPeriod(row.period)}
+                        </p>
+                      </DashboardTableCell>
+                      <DashboardTableCell
+                        align="right"
+                        className={columnClass.money}
+                      >
+                        <LedgerDomainValue domain="loan">
+                          {formatCurrency(loan.amount)}
+                        </LedgerDomainValue>
+                      </DashboardTableCell>
+                      <DashboardTableCell
+                        align="right"
+                        className={columnClass.money}
+                      >
+                        <LedgerDomainValue domain="loan">
+                          {formatCurrency(loan.repaymentAmount)}
+                        </LedgerDomainValue>
+                      </DashboardTableCell>
+                      <DashboardTableCell
+                        align="right"
+                        className={columnClass.money}
+                      >
+                        <LedgerDomainValue domain="loan">
+                          {formatCurrency(loan.commitmentAmount)}
+                        </LedgerDomainValue>
+                      </DashboardTableCell>
+                      <DashboardTableCell
+                        align="right"
+                        className={columnClass.term}
+                      >
+                        {loan.termMonths} mo
+                      </DashboardTableCell>
+                      <DashboardTableCell
+                        align="right"
+                        className={columnClass.money}
+                      >
+                        <LedgerDomainValue domain="loan">
+                          {formatCurrency(loan.openingPendingAmount)}
+                        </LedgerDomainValue>
+                      </DashboardTableCell>
+                      <DashboardTableCell className={columnClass.label}>
+                        <p
+                          className={cn(
+                            "truncate",
+                            ledgerDomainColor.loan.text
+                          )}
+                        >
+                          {loan.label}
+                        </p>
+                      </DashboardTableCell>
+                      <DashboardTableCell align="right">-</DashboardTableCell>
+                    </DashboardTableRow>
+                  </DashboardTableBody>
+                </DashboardTable>
+              </DashboardDataTable>
+            </div>
+          )
+        }
 
         return (
-          <DashboardSurfaceCard key={segment.key} className="bg-background/70">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {segment.label}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {segment.summary.hasLegacyLoan
-                    ? "Legacy loan active. Loan-period savings replaces normal savings."
-                    : "Loan settled. Normal savings restored."}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {segment.summary.chargeLabels.map((chargeLabel) => (
-                    <TrendPill key={chargeLabel} tone="neutral">
-                      {chargeLabel}
-                    </TrendPill>
-                  ))}
-                  <TrendPill tone="neutral">
-                    Savings {driftDetails.grossSavingsRange}
-                  </TrendPill>
-                  {segment.summary.hasLegacyLoan ? (
-                    <TrendPill tone="neutral">
-                      Repayment {driftDetails.loanRepaymentRange}
-                    </TrendPill>
-                  ) : null}
-                  <TrendPill tone="neutral">
-                    Share {driftDetails.shareRange}
-                  </TrendPill>
-                  <TrendPill tone="neutral">
-                    Total share {driftDetails.totalShareRange}
-                  </TrendPill>
-                  {driftDetails.dividendRows > 0 ? (
-                    <TrendPill tone="positive">
-                      {driftDetails.dividendRows} dividend rows
-                    </TrendPill>
-                  ) : null}
-                  {driftDetails.overrideCount > 0 ? (
-                    <TrendPill tone="warning">
-                      {driftDetails.overrideCount} overrides
-                    </TrendPill>
-                  ) : null}
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-2">
-                <TrendPill
-                  tone={segment.summary.hasLegacyLoan ? "warning" : "positive"}
-                >
-                  {segment.summary.hasLegacyLoan
-                    ? "Loan active"
-                    : "No loan columns"}
-                </TrendPill>
-                <TrendPill tone="neutral">
-                  {segment.summary.rowCount} rows
-                </TrendPill>
-              </div>
-            </div>
-
-            <DashboardDataTable>
-              <DashboardTable className="min-w-[1580px]">
-                <DashboardTableHead>
-                  <DashboardTableHeaderCell>Period</DashboardTableHeaderCell>
-                  {segmentLoanColumns.map((loan) => (
-                    <DashboardTableHeaderCell
-                      align="right"
-                      key={`${loan.id}-repayment-header`}
-                    >
-                      {formatHeaderAmount(
-                        getLoanColumnLabel(loan, "repayment"),
-                        getLoanColumnValues(
-                          segment,
-                          loan.id,
-                          "repaymentAmount"
-                        )
-                      )}
-                    </DashboardTableHeaderCell>
-                  ))}
-                  <DashboardTableHeaderCell align="right">
-                    {formatHeaderAmount(
-                      "Savings",
-                      segment.rows.map((row) => row.savingsContribution)
-                    )}
-                  </DashboardTableHeaderCell>
-                  {segment.summary.chargeLabels.map((chargeLabel) => (
-                    <DashboardTableHeaderCell key={chargeLabel} align="right">
-                      {formatHeaderAmount(
-                        chargeLabel,
-                        segment.rows.map(
-                          (row) => row.chargeDeductions[chargeLabel] ?? 0
-                        )
-                      )}
-                    </DashboardTableHeaderCell>
-                  ))}
-                  <DashboardTableHeaderCell align="right">
-                    {formatHeaderAmount(
-                      "Share capital",
-                      segment.rows.map((row) => row.shareCapitalContribution)
-                    )}
-                  </DashboardTableHeaderCell>
-                  <DashboardTableHeaderCell align="right">
-                    Total share value
-                  </DashboardTableHeaderCell>
-                  <DashboardTableHeaderCell align="right">
-                    {formatHeaderAmount(
-                      getDividendHeaderLabel(segment),
-                      segment.rows.map((row) => row.dividendCredit)
-                    )}
-                  </DashboardTableHeaderCell>
-                  <DashboardTableHeaderCell align="right">
-                    Final saving
-                  </DashboardTableHeaderCell>
-                  {segmentLoanColumns.map((loan) => (
-                    <DashboardTableHeaderCell
-                      align="right"
-                      key={`${loan.id}-balance-header`}
-                    >
-                      {getLoanColumnLabel(loan, "balance")}
-                    </DashboardTableHeaderCell>
-                  ))}
-                  <DashboardTableHeaderCell align="right">
-                    Total saving
-                  </DashboardTableHeaderCell>
-                </DashboardTableHead>
-                <DashboardTableBody>
-                  {segment.rows.map((row) => {
-                    const loan = row.loanColumns[0]
-                    const adjustmentsDisabled = isRowAdjustmentDisabled(row)
-
-                    return (
-                      <DashboardTableRow key={`${segment.key}-${row.period}`}>
-                        <DashboardTableCell>
-                          <div>
-                            <p className="font-medium">{row.period}</p>
-                            {row.isEdited ? (
-                              <p className="mt-1 text-xs text-amber-700">
-                                One-time override
-                              </p>
-                            ) : null}
-                          </div>
-                        </DashboardTableCell>
-                        {segmentLoanColumns.map((segmentLoan) => {
-                          const rowLoan = row.loanColumns.find(
-                            (item) => item.id === segmentLoan.id
-                          )
-
-                          return (
-                            <DashboardTableCell
-                              align="right"
-                              key={`${segmentLoan.id}-repayment`}
-                            >
-                              {rowLoan ? (
-                                <div className="flex flex-col items-end gap-1">
-                                  {renderRepaymentControl(
-                                    row,
-                                    rowLoan,
-                                    adjustmentsDisabled
-                                  )}
-                                  {rowLoan.repaymentOnTime ? (
-                                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                                      On-time
-                                    </span>
-                                  ) : null}
-                                </div>
-                              ) : (
-                                "-"
-                              )}
-                            </DashboardTableCell>
-                          )
-                        })}
-                        <DashboardTableCell align="right">
-                          {renderSavingsControl(
-                            row,
-                            row.loanColumns,
-                            adjustmentsDisabled
-                          )}
-                        </DashboardTableCell>
-                        {segment.summary.chargeLabels.map((chargeLabel) => (
-                          <DashboardTableCell key={chargeLabel} align="right">
-                            {formatCurrency(
-                              row.chargeDeductions[chargeLabel] ?? 0
-                            )}
-                          </DashboardTableCell>
-                        ))}
-                        <DashboardTableCell align="right">
-                          {formatCurrency(row.shareCapitalContribution)}
-                        </DashboardTableCell>
-                        <DashboardTableCell align="right">
-                          {formatCurrency(row.runningShareCapitalBalance)}
-                        </DashboardTableCell>
-                        <DashboardTableCell align="right">
-                          <div className="flex min-w-[180px] flex-col items-end gap-2">
-                            <p className="font-medium">
-                              {formatCurrency(row.dividendCredit)}
-                            </p>
-                            {row.dividendLabel ? (
-                              <p className="max-w-[220px] text-xs text-muted-foreground">
-                                {row.dividendLabel}
-                              </p>
-                            ) : null}
-                            {renderProfitControl(row)}
-                          </div>
-                        </DashboardTableCell>
-                        <DashboardTableCell align="right">
-                          {formatCurrency(row.netSavingsContribution)}
-                        </DashboardTableCell>
-                        {segmentLoanColumns.map((segmentLoan) => {
-                          const rowLoan = row.loanColumns.find(
-                            (item) => item.id === segmentLoan.id
-                          )
-
-                          return (
-                            <DashboardTableCell
-                              align="right"
-                              key={`${segmentLoan.id}-balance`}
-                            >
-                              {rowLoan
-                                ? formatCurrency(
-                                    rowLoan.outstandingPrincipalBalance
-                                  )
-                                : "-"}
-                            </DashboardTableCell>
-                          )
-                        })}
-                        <DashboardTableCell align="right">
-                          {formatCurrency(row.runningSavingsBalance)}
-                        </DashboardTableCell>
-                      </DashboardTableRow>
-                    )
-                  })}
-                </DashboardTableBody>
-              </DashboardTable>
-            </DashboardDataTable>
-          </DashboardSurfaceCard>
+          <MonthlyLedgerSegmentTable
+            isRowAdjustmentDisabled={isRowAdjustmentDisabled}
+            key={segment.key}
+            renderDefaultingControl={renderDefaultingControl}
+            renderMonthStatusControl={renderMonthStatusControl}
+            renderRepaymentControl={renderRepaymentControl}
+            renderSavingsControl={renderSavingsControl}
+            segment={segment}
+          />
         )
       })}
     </div>

@@ -140,6 +140,8 @@ describe("legacy loan migration drafts", () => {
     expect(rows).toEqual([
       {
         closedAt: null,
+        guarantorOneMemberId: null,
+        guarantorTwoMemberId: null,
         id: "draft-1",
         loanLabel: "Loan A",
         member: {

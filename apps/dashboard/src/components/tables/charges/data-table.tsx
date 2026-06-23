@@ -22,12 +22,18 @@ import { columns, type Charge } from "./columns"
 import { EmptyState, NoResults } from "./empty-states"
 
 type Props = {
+  financeStartDate?: string | null
   hasSourceRows?: boolean
   isLocked: boolean
   rows: Charge[]
 }
 
-export function DataTable({ hasSourceRows, isLocked, rows }: Props) {
+export function DataTable({
+  financeStartDate,
+  hasSourceRows,
+  isLocked,
+  rows,
+}: Props) {
   const hasRows = hasSourceRows ?? rows.length > 0
   const { filter } = useChargeFilterParams()
   const { setParams } = useChargeParams()
@@ -134,7 +140,11 @@ export function DataTable({ hasSourceRows, isLocked, rows }: Props) {
       {!hasRows ? <EmptyState /> : null}
       {hasRows && !hasFilteredRows ? <NoResults /> : null}
 
-      <ChargeSheet isLocked={isLocked} rows={rows} />
+      <ChargeSheet
+        financeStartDate={financeStartDate}
+        isLocked={isLocked}
+        rows={rows}
+      />
     </div>
   )
 }

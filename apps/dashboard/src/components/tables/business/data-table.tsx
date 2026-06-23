@@ -24,6 +24,7 @@ import { EmptyState, NoResults } from "./empty-states"
 type Props = {
   canReviewNoProfit: boolean
   dividendPeriods: DividendPeriodOption[]
+  financeStartDate?: string | null
   hasSourceRows?: boolean
   isLocked: boolean
   rows: Business[]
@@ -32,6 +33,7 @@ type Props = {
 export function DataTable({
   canReviewNoProfit,
   dividendPeriods,
+  financeStartDate,
   hasSourceRows,
   isLocked,
   rows,
@@ -151,6 +153,7 @@ export function DataTable({
       <BusinessSheet
         canReviewNoProfit={canReviewNoProfit}
         dividendPeriods={dividendPeriods}
+        financeStartDate={financeStartDate}
         isLocked={isLocked}
         rows={rows}
       />

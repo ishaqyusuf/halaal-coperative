@@ -194,6 +194,7 @@ async function FinanceBusinessPageContent({
   let canReviewNoProfit = false
   let isLocked = false
   let rows = demoShareBusinesses
+  let financeStartDate = context.tenant?.startDate ?? "2024-01-01"
   let tenantName = context.tenant?.name ?? "Demo cooperative"
   let dividendPeriods: DividendPeriodOption[] = demoDividendPeriods
 
@@ -216,6 +217,8 @@ async function FinanceBusinessPageContent({
 
     isLocked =
       !migrationState.snapshot.canUseMigrationTools || hasAppliedMemberBackfill
+    financeStartDate =
+      data.tenant?.startDate?.toISOString().slice(0, 10) ?? null
     tenantName = data.tenant?.name ?? context.tenant.name
     rows = mapBusinessRows(data.shareBusinesses)
     canReviewNoProfit =
@@ -247,11 +250,14 @@ async function FinanceBusinessPageContent({
 
         <BusinessHeader
           canReviewNoProfit={canReviewNoProfit}
+          dividendPeriods={dividendPeriods}
+          financeStartDate={financeStartDate}
           isLocked={isLocked}
         />
         <DataTable
           canReviewNoProfit={canReviewNoProfit}
           dividendPeriods={dividendPeriods}
+          financeStartDate={financeStartDate}
           hasSourceRows={rows.length > 0}
           isLocked={isLocked}
           rows={rows}

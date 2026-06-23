@@ -14,10 +14,10 @@ import {
 import {
   DashboardSectionCard,
   DashboardSectionHeader,
+  DashboardPageShell,
   DashboardStatCard,
   DashboardSurfaceCard,
   TrendPill,
-  WorkspacePageShell,
 } from "@/components/dashboard"
 import {
   ChargeDefinitionForm,
@@ -46,6 +46,14 @@ type ShareVersionRow = {
   basis: "after_charge_deductions"
   notes?: string | null
   valueType: "fixed_amount" | "percentage"
+}
+
+type MemberActivityEventRow = {
+  effectiveMonth: string
+  id: string
+  notes?: string | null
+  reason?: string | null
+  status: "active" | "inactive"
 }
 
 type ChargeVersionRow = {
@@ -118,8 +126,11 @@ type DividendPeriodRow = {
 
 type LegacyLoanDraftRow = {
   closedAt: string | null
+  guarantorOneMemberId?: string | null
+  guarantorTwoMemberId?: string | null
   id: string
   loanLabel: string
+  memberId: string
   memberName: string
   memberNumber: string
   openedAt: string
@@ -134,17 +145,11 @@ type MemberOption = {
   label: string
 }
 
-type ProfitAdjustmentOption = {
-  allocatableProfitAmount?: number
-  availableAmount: number
-  businessName: string
-  editableAvailableAmount?: number
-  expenseAmount?: number
+type MemberAmountLogRow = {
+  amount: number
+  effectiveFrom: string
   id: string
-  label: string
-  profitAmount: number
-  profitDate: string
-  totalDisbursedAmount: number
+  notes?: string | null
 }
 
 type MigrationMemberReviewRow = {
@@ -166,6 +171,7 @@ export type TenantFinanceSection =
   | "charges"
   | "loan"
   | "migration"
+  | "migration-member"
   | "overview"
   | "shares"
 
@@ -192,9 +198,11 @@ export function TenantFinancePageView({
   generatedLedgerRows,
   initialMigrationSnapshot,
   legacyLoanDrafts,
+  memberActivityEvents,
+  memberAmountLogs,
   memberOptions,
+  memberNumberPrefix,
   migrationMemberReview,
-  profitAdjustmentOptions,
   selectedMigrationMemberId,
   selectedMigrationMemberLabel,
   section = "overview",
@@ -208,9 +216,11 @@ export function TenantFinancePageView({
   generatedLedgerRows?: MemberLedgerBackfillRow[]
   initialMigrationSnapshot?: InitialMigrationSnapshot
   legacyLoanDrafts: LegacyLoanDraftRow[]
+  memberActivityEvents?: MemberActivityEventRow[]
+  memberAmountLogs?: MemberAmountLogRow[]
   memberOptions: MemberOption[]
+  memberNumberPrefix?: string | null
   migrationMemberReview: MigrationMemberReviewRow[]
-  profitAdjustmentOptions: ProfitAdjustmentOption[]
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   section?: TenantFinanceSection
@@ -289,13 +299,10 @@ export function TenantFinancePageView({
   const showBusiness = section === "business"
   const showLoan = section === "loan"
   const showMigration = section === "migration"
+  const showMigrationMember = section === "migration-member"
 
   return (
-    <WorkspacePageShell
-      eyebrow="Settings"
-      title="Finance setup"
-      description={`Configure ${tenantName}'s cooperative start date, dated share defaults, and charge history before posting member backfill.`}
-    >
+    <DashboardPageShell>
       <div className="max-w-[800px]">
         <SecondaryMenu items={financeMenuItems} />
 
@@ -379,18 +386,26 @@ export function TenantFinancePageView({
             </section>
           ) : null}
 
-          {showLoan || showMigration ? (
+          {showLoan || showMigration || showMigrationMember ? (
             <section className="scroll-mt-24" id="migration-workbench">
               <InitialMigrationPreview
                 generatedLedgerRows={generatedLedgerRows}
                 legacyLoanDrafts={legacyLoanDrafts}
+                memberActivityEvents={memberActivityEvents}
+                memberAmountLogs={memberAmountLogs}
                 memberOptions={memberOptions}
+                memberNumberPrefix={memberNumberPrefix}
                 migrationSnapshot={initialMigrationSnapshot}
                 migrationMemberReview={migrationMemberReview}
-                profitAdjustmentOptions={profitAdjustmentOptions}
                 selectedMigrationMemberId={selectedMigrationMemberId}
                 selectedMigrationMemberLabel={selectedMigrationMemberLabel}
-                section={showLoan ? "loans" : "all"}
+                section={
+                  showLoan
+                    ? "loans"
+                    : showMigrationMember
+                      ? "member-preview"
+                      : "overview"
+                }
               />
             </section>
           ) : null}
@@ -461,6 +476,7 @@ export function TenantFinancePageView({
                 ) : null}
                 <div className="mt-1">
                   <ShareDataTable
+                    financeStartDate={tenantStartDate}
                     isLocked={historicalSetupLocked}
                     rows={shareStructureVersions.map((version, index) => ({
                       ...version,
@@ -521,7 +537,9 @@ export function TenantFinancePageView({
                       {historicalSetupLocked ? (
                         <HistoricalSetupLockedNotice label="Charge creation is locked" />
                       ) : (
-                        <ChargeDefinitionForm />
+                        <ChargeDefinitionForm
+                          financeStartDate={tenantStartDate}
+                        />
                       )}
                     </div>
                   </DashboardSurfaceCard>
@@ -540,6 +558,7 @@ export function TenantFinancePageView({
                       ) : (
                         <ChargeDefinitionVersionForm
                           chargeDefinitions={chargeDefinitionOptions}
+                          financeStartDate={tenantStartDate}
                         />
                       )}
                     </div>
@@ -615,6 +634,7 @@ export function TenantFinancePageView({
                                           <input
                                             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
                                             defaultValue={version.effectiveFrom}
+                                            min={tenantStartDate ?? undefined}
                                             name="effectiveFrom"
                                             required
                                             type="date"
@@ -726,6 +746,7 @@ export function TenantFinancePageView({
                                     <input
                                       aria-label={`${charge.name} effective date`}
                                       className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                      min={tenantStartDate ?? undefined}
                                       name="effectiveFrom"
                                       required
                                       type="date"
@@ -832,6 +853,7 @@ export function TenantFinancePageView({
                           ) : (
                             <ShareBusinessForm
                               dividendPeriods={dividendPeriodOptions}
+                              financeStartDate={tenantStartDate}
                             />
                           )}
                         </div>
@@ -904,6 +926,7 @@ export function TenantFinancePageView({
                         <ShareBusinessProfitEntryForm
                           businesses={shareBusinessOptions}
                           dividendPeriods={dividendPeriodOptions}
+                          financeStartDate={tenantStartDate}
                         />
                       )}
                     </div>
@@ -1018,6 +1041,7 @@ export function TenantFinancePageView({
                                           <input
                                             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
                                             defaultValue={business.startDate}
+                                            min={tenantStartDate ?? undefined}
                                             name="startDate"
                                             required
                                             type="date"
@@ -1029,6 +1053,11 @@ export function TenantFinancePageView({
                                             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
                                             defaultValue={
                                               business.endDate ?? ""
+                                            }
+                                            min={
+                                              business.startDate ||
+                                              tenantStartDate ||
+                                              undefined
                                             }
                                             name="endDate"
                                             type="date"
@@ -1177,6 +1206,9 @@ export function TenantFinancePageView({
                                                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
                                                 defaultValue={
                                                   latestProfitEntry.profitDate
+                                                }
+                                                min={
+                                                  tenantStartDate ?? undefined
                                                 }
                                                 name="profitDate"
                                                 required
@@ -1411,6 +1443,6 @@ export function TenantFinancePageView({
           ) : null}
         </main>
       </div>
-    </WorkspacePageShell>
+    </DashboardPageShell>
   )
 }

@@ -51,6 +51,35 @@ function CurrencyFormInput({
   )
 }
 
+function isBeforeFinanceStartDate(
+  value: string | undefined,
+  min?: string | null
+) {
+  return Boolean(value && min && value < min)
+}
+
+function setDateBeforeFinanceStartError<
+  TName extends "effectiveFrom" | "endDate" | "profitDate" | "startDate",
+>(
+  form: {
+    setError: (
+      name: TName,
+      error: {
+        message: string
+        type: "manual"
+      }
+    ) => void
+  },
+  name: TName,
+  label: string,
+  financeStartDate?: string | null
+) {
+  form.setError(name, {
+    message: `${label} cannot be before the cooperative start date (${financeStartDate}).`,
+    type: "manual",
+  })
+}
+
 const startDateSchema = z.object({
   startDate: z.string().min(1, "Start date is required."),
 })
@@ -117,7 +146,13 @@ const shareStructureVersionSchema = z.object({
 
 type ShareStructureVersionValues = z.infer<typeof shareStructureVersionSchema>
 
-export function ShareStructureVersionForm() {
+export function ShareStructureVersionForm({
+  financeStartDate,
+  onSuccess,
+}: {
+  financeStartDate?: string | null
+  onSuccess?: () => void
+}) {
   const form = useZodForm<ShareStructureVersionValues>(
     shareStructureVersionSchema,
     {
@@ -133,6 +168,16 @@ export function ShareStructureVersionForm() {
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: ShareStructureVersionValues) {
+    if (isBeforeFinanceStartDate(values.effectiveFrom, financeStartDate)) {
+      setDateBeforeFinanceStartError(
+        form,
+        "effectiveFrom",
+        "Effective date",
+        financeStartDate
+      )
+      return
+    }
+
     startTransition(async () => {
       try {
         await createTenantShareStructureVersionAction(objectToFormData(values))
@@ -146,6 +191,7 @@ export function ShareStructureVersionForm() {
           notes: "",
           valueType: "fixed_amount",
         })
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not save share update",
@@ -168,7 +214,11 @@ export function ShareStructureVersionForm() {
             <FormItem>
               <FormLabel>Effective date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <Input
+                  {...field}
+                  min={financeStartDate ?? undefined}
+                  type="date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -258,7 +308,13 @@ const chargeDefinitionSchema = z.object({
 
 type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
 
-export function ChargeDefinitionForm() {
+export function ChargeDefinitionForm({
+  financeStartDate,
+  onSuccess,
+}: {
+  financeStartDate?: string | null
+  onSuccess?: () => void
+}) {
   const form = useZodForm<ChargeDefinitionValues>(chargeDefinitionSchema, {
     defaultValues: {
       amount: "",
@@ -279,6 +335,16 @@ export function ChargeDefinitionForm() {
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: ChargeDefinitionValues) {
+    if (isBeforeFinanceStartDate(values.effectiveFrom, financeStartDate)) {
+      setDateBeforeFinanceStartError(
+        form,
+        "effectiveFrom",
+        "Start date",
+        financeStartDate
+      )
+      return
+    }
+
     startTransition(async () => {
       try {
         await createChargeDefinitionAction(objectToFormData(values))
@@ -300,6 +366,7 @@ export function ChargeDefinitionForm() {
           name: "",
           purpose: "general",
         })
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not create charge",
@@ -430,7 +497,11 @@ export function ChargeDefinitionForm() {
             <FormItem>
               <FormLabel>Start date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <Input
+                  {...field}
+                  min={financeStartDate ?? undefined}
+                  type="date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -459,8 +530,10 @@ type ChargeVersionValues = z.infer<typeof chargeVersionSchema>
 
 export function ChargeDefinitionVersionForm({
   chargeDefinitions,
+  financeStartDate,
 }: {
   chargeDefinitions: Array<{ id: string; kind: string; label: string }>
+  financeStartDate?: string | null
 }) {
   const form = useZodForm<ChargeVersionValues>(chargeVersionSchema, {
     defaultValues: {
@@ -481,6 +554,16 @@ export function ChargeDefinitionVersionForm({
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: ChargeVersionValues) {
+    if (isBeforeFinanceStartDate(values.effectiveFrom, financeStartDate)) {
+      setDateBeforeFinanceStartError(
+        form,
+        "effectiveFrom",
+        "Effective date",
+        financeStartDate
+      )
+      return
+    }
+
     startTransition(async () => {
       try {
         await createChargeDefinitionVersionAction(objectToFormData(values))
@@ -542,7 +625,11 @@ export function ChargeDefinitionVersionForm({
             <FormItem>
               <FormLabel>Effective date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <Input
+                  {...field}
+                  min={financeStartDate ?? undefined}
+                  type="date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -635,8 +722,12 @@ type ShareBusinessValues = z.infer<typeof shareBusinessSchema>
 
 export function ShareBusinessForm({
   dividendPeriods,
+  financeStartDate,
+  onSuccess,
 }: {
   dividendPeriods: Array<{ id: string; label: string }>
+  financeStartDate?: string | null
+  onSuccess?: () => void
 }) {
   const form = useZodForm<ShareBusinessValues>(shareBusinessSchema, {
     defaultValues: {
@@ -652,8 +743,29 @@ export function ShareBusinessForm({
   })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
+  const watchedStartDate = form.watch("startDate")
 
   function onSubmit(values: ShareBusinessValues) {
+    if (isBeforeFinanceStartDate(values.startDate, financeStartDate)) {
+      setDateBeforeFinanceStartError(
+        form,
+        "startDate",
+        "Start date",
+        financeStartDate
+      )
+      return
+    }
+
+    if (isBeforeFinanceStartDate(values.endDate, financeStartDate)) {
+      setDateBeforeFinanceStartError(
+        form,
+        "endDate",
+        "End date",
+        financeStartDate
+      )
+      return
+    }
+
     startTransition(async () => {
       try {
         await createShareBusinessAction(objectToFormData(values))
@@ -671,6 +783,7 @@ export function ShareBusinessForm({
           startDate: "",
           status: "planned",
         })
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not save business",
@@ -732,7 +845,11 @@ export function ShareBusinessForm({
             <FormItem>
               <FormLabel>Start date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <Input
+                  {...field}
+                  min={financeStartDate ?? undefined}
+                  type="date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -745,7 +862,11 @@ export function ShareBusinessForm({
             <FormItem>
               <FormLabel>End date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <Input
+                  {...field}
+                  min={watchedStartDate || financeStartDate || undefined}
+                  type="date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -838,9 +959,11 @@ type ShareBusinessProfitEntryValues = z.infer<
 export function ShareBusinessProfitEntryForm({
   businesses,
   dividendPeriods,
+  financeStartDate,
 }: {
   businesses: Array<{ id: string; label: string }>
   dividendPeriods: Array<{ id: string; label: string }>
+  financeStartDate?: string | null
 }) {
   const form = useZodForm<ShareBusinessProfitEntryValues>(
     shareBusinessProfitEntrySchema,
@@ -863,6 +986,16 @@ export function ShareBusinessProfitEntryForm({
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: ShareBusinessProfitEntryValues) {
+    if (isBeforeFinanceStartDate(values.profitDate, financeStartDate)) {
+      setDateBeforeFinanceStartError(
+        form,
+        "profitDate",
+        "Profit date",
+        financeStartDate
+      )
+      return
+    }
+
     startTransition(async () => {
       try {
         await createShareBusinessProfitEntryAction(objectToFormData(values))
@@ -962,7 +1095,11 @@ export function ShareBusinessProfitEntryForm({
             <FormItem>
               <FormLabel>Profit date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <Input
+                  {...field}
+                  min={financeStartDate ?? undefined}
+                  type="date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

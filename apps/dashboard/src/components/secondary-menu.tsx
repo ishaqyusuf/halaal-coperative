@@ -23,7 +23,8 @@ export function SecondaryMenu({ items }: Props) {
           <Link
             className={cn(
               "text-[#606060]",
-              pathname === item.path &&
+              (pathname === item.path ||
+                pathname.startsWith(`${item.path}/`)) &&
                 "font-medium text-primary underline underline-offset-8"
             )}
             href={item.path}

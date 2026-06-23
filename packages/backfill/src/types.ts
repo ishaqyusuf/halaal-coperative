@@ -1,5 +1,7 @@
 export type BackfillMonthStatus = "active" | "missed" | "paused" | "adjusted"
 
+export type BackfillMemberActivityStatus = "active" | "inactive"
+
 export type ChargeFrequency =
   | "recurring_monthly"
   | "per_contribution"
@@ -30,15 +32,29 @@ export type MemberLedgerBackfillLoanColumn = {
   repaymentAmount: number
 }
 
+export type MemberLedgerBackfillLoanTakenEvent = {
+  amount: number
+  commitmentAmount: number
+  id: string
+  label: string
+  openingPendingAmount: number
+  repaymentAmount: number
+  termMonths: number
+}
+
 export type MemberLedgerBackfillRow = {
   chargeDeductions: Record<string, number>
   dividendCredit: number
   dividendLabel?: string
   dividendProfitEntryId?: string
+  dividendSharePercentage?: number
   effectiveDateSegmentKey: string
   grossContribution: number
+  hasManualRepaymentAdjustment?: boolean
+  hasManualSavingsAdjustment?: boolean
   isEdited?: boolean
   loanColumns: MemberLedgerBackfillLoanColumn[]
+  loanTakenEvent?: MemberLedgerBackfillLoanTakenEvent
   month?: string
   netSavingsContribution: number
   period: string
@@ -46,18 +62,56 @@ export type MemberLedgerBackfillRow = {
   runningShareCapitalBalance: number
   savingsContribution: number
   shareCapitalContribution: number
+  status?: BackfillMonthStatus
+  statusReason?: string
 }
 
-export type EffectiveDateSegment = {
+export type MonthlyLedgerSegment = {
+  kind: "monthly"
   key: string
   label: string
+  reasonList: string[]
   rows: MemberLedgerBackfillRow[]
   summary: {
-    chargeLabels: string[]
+    chargeSummaries: Array<{
+      label: string
+      maxAmount: number
+      minAmount: number
+    }>
+    hasManualRepaymentAdjustment: boolean
+    hasManualSavingsAdjustment: boolean
     hasLegacyLoan: boolean
     rowCount: number
+    shareCapitalSummary: {
+      maxAmount: number
+      minAmount: number
+    }
   }
 }
+
+export type ProfitLedgerSegment = {
+  kind: "profit"
+  key: string
+  label: string
+  reasonList: string[]
+  row: MemberLedgerBackfillRow
+}
+
+export type LoanTakenLedgerSegment = {
+  kind: "loan_taken"
+  key: string
+  label: string
+  reasonList: string[]
+  loan: MemberLedgerBackfillLoanTakenEvent
+  row: MemberLedgerBackfillRow
+}
+
+export type MemberLedgerBackfillSegment =
+  | MonthlyLedgerSegment
+  | ProfitLedgerSegment
+  | LoanTakenLedgerSegment
+
+export type EffectiveDateSegment = MemberLedgerBackfillSegment
 
 export type BackfillAmountLog = {
   amount: number
@@ -113,6 +167,14 @@ export type BackfillRowAdjustment = {
   month: string
   notes?: string
   savingsContribution?: number
+  status?: BackfillMonthStatus
+}
+
+export type BackfillMemberActivityEvent = {
+  effectiveFrom: string
+  notes?: string
+  reason?: string
+  status: BackfillMemberActivityStatus
 }
 
 export type BackfillExistingHistoryImpact = {
@@ -137,6 +199,8 @@ export type BackfillRow = {
   dividendProfitEntryId?: string
   dividendSharePercentage?: number
   existingHistoryImpacts: BackfillExistingHistoryImpact[]
+  hasManualRepaymentAdjustment?: boolean
+  hasManualSavingsAdjustment?: boolean
   isEdited: boolean
   loanEvent?: BackfillLoanEvent
   loanRepaymentOnTime?: boolean
@@ -146,8 +210,13 @@ export type BackfillRow = {
   monthLabel: string
   netDeposit: number
   pendingLoanPayment: number
+  plannedChargeValues?: Record<string, number>
+  plannedLoanRepaymentAmount?: number
+  plannedSavingsContribution?: number
+  plannedShare?: number
   share: number
   status: BackfillMonthStatus
+  statusReason?: string
 }
 
 export type BackfillWarning = {
@@ -169,6 +238,7 @@ export type BackfillSummary = {
 }
 
 export type BuildBackfillDraftInput = {
+  activityEvents?: BackfillMemberActivityEvent[]
   amountLogs: BackfillAmountLog[]
   chargeDefinitions: BackfillChargeDefinition[]
   defaultShareVersions: BackfillShareVersion[]

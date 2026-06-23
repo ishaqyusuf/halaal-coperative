@@ -8,6 +8,7 @@ import type { PrismaClient } from "@prisma/client"
 import { createPrismaClient } from "../prisma"
 import { applyCharge } from "./charges"
 import { recordContribution } from "./contributions"
+import { createAuditLogEntry } from "./audit"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
 import {
@@ -17,13 +18,13 @@ import {
 
 async function assertBackfillMutationOpen(
   tenantId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseMigrationTools) {
     throw new Error(
-      "Member ledger backfill is locked because initial migration is finalized.",
+      "Member ledger backfill is locked because initial migration is finalized."
     )
   }
 }
@@ -51,6 +52,10 @@ function eachMonthBetween(start: Date, end: Date) {
 
 function monthKeyFromDate(value: Date) {
   return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}`
+}
+
+function isSkippedBackfillRow(rowStatus: string | null | undefined) {
+  return rowStatus === "missed" || rowStatus === "paused"
 }
 
 function inclusiveMonthDifference(start: Date, end: Date) {
@@ -456,6 +461,37 @@ async function buildDividendEntries(
           },
         })
       : []
+  const shareProfitAllocations =
+    typeof prisma.shareProfitAllocation?.findMany === "function"
+      ? await prisma.shareProfitAllocation.findMany({
+          include: {
+            profitEntry: {
+              include: {
+                shareBusiness: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+          where: {
+            tenantId: input.tenantId,
+            memberId: input.memberId,
+            profitEntry: {
+              profitDate: {
+                gte: input.startMonth,
+                lte: endOfMonth(input.endMonth),
+              },
+            },
+          },
+        })
+      : []
+  const publishedDividendPeriodMonths = new Set(
+    allocations.map((allocation: any) =>
+      monthKeyFromDate(allocation.dividendPeriod.periodEnd)
+    )
+  )
 
   return [
     ...allocations.map((allocation: any) => ({
@@ -463,6 +499,19 @@ async function buildDividendEntries(
       label: allocation.dividendPeriod.name,
       month: monthKeyFromDate(allocation.dividendPeriod.periodEnd),
     })),
+    ...shareProfitAllocations
+      .filter((allocation: any) => {
+        const profitMonth = monthKeyFromDate(allocation.profitEntry.profitDate)
+
+        return !publishedDividendPeriodMonths.has(profitMonth)
+      })
+      .map((allocation: any) => ({
+        amount: Number(allocation.allocatedProfitAmount),
+        label: `${allocation.profitEntry.shareBusiness.name} profit`,
+        month: monthKeyFromDate(allocation.profitEntry.profitDate),
+        profitEntryId: allocation.profitEntryId,
+        sharePercentage: Number(allocation.sharePercentage),
+      })),
     ...migrationProfitAdjustments.map((adjustment: any) => {
       const profitAmount = Number(
         adjustment.profitEntry.allocatableProfitAmount ??
@@ -1114,6 +1163,126 @@ export async function listBackfillBatches(
   })
 }
 
+export type MemberAmountLogRow = {
+  amount: number
+  effectiveFrom: Date
+  id: string
+  notes: string | null
+}
+
+export async function listMemberAmountLogs(
+  input: {
+    memberId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MemberAmountLogRow[]> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  if (typeof prisma.memberAmountLog?.findMany !== "function") {
+    return []
+  }
+
+  const rows = await prisma.memberAmountLog.findMany({
+    orderBy: [{ effectiveFrom: "asc" }, { createdAt: "asc" }],
+    where: {
+      memberId: input.memberId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  return rows.map((row: any) => ({
+    amount: Number(row.amount),
+    effectiveFrom: row.effectiveFrom,
+    id: row.id,
+    notes: row.notes,
+  }))
+}
+
+export async function upsertMemberAmountLog(
+  input: {
+    actorUserId: string
+    amount: number
+    effectiveFrom: Date
+    memberId: string
+    notes?: string | null
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  if (
+    typeof prisma.memberAmountLog?.findFirst !== "function" ||
+    typeof prisma.memberAmountLog?.create !== "function" ||
+    typeof prisma.memberAmountLog?.update !== "function"
+  ) {
+    throw new Error(
+      "Member commitment history requires the latest Prisma migration and generated client."
+    )
+  }
+
+  if (input.amount < 0) {
+    throw new Error("Commitment amount cannot be negative.")
+  }
+
+  await assertBackfillMutationOpen(input.tenantId, prisma)
+  await assertMemberBackfillDraftNotAlreadyApplied({
+    memberId: input.memberId,
+    tenantId: input.tenantId,
+    tx: prisma,
+  })
+
+  const existing = await prisma.memberAmountLog.findFirst({
+    where: {
+      effectiveFrom: input.effectiveFrom,
+      memberId: input.memberId,
+      tenantId: input.tenantId,
+    },
+  })
+  const data = {
+    amount: input.amount,
+    notes: input.notes?.trim() || null,
+  }
+  const row = existing
+    ? await prisma.memberAmountLog.update({
+        data,
+        where: { id: existing.id },
+      })
+    : await prisma.memberAmountLog.create({
+        data: {
+          ...data,
+          createdByUserId: input.actorUserId,
+          effectiveFrom: input.effectiveFrom,
+          memberId: input.memberId,
+          tenantId: input.tenantId,
+        },
+      })
+
+  await createAuditLogEntry(
+    {
+      action: existing
+        ? "migration.member_commitment.updated"
+        : "migration.member_commitment.created",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityId: row.id,
+      entityType: "MemberAmountLog",
+      metadata: {
+        amount: input.amount,
+        effectiveFrom: input.effectiveFrom.toISOString(),
+        memberId: input.memberId,
+      },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return row
+}
+
 export async function buildBackfillDraftInputForMember(
   input: {
     tenantId: string
@@ -1161,6 +1330,7 @@ export async function buildBackfillDraftInputForMember(
     profitPeriods,
     legacyLoanDrafts,
     rowAdjustments,
+    memberActivityEvents,
   ] = await Promise.all([
     prisma.memberAmountLog.findMany({
       where: { tenantId: input.tenantId, memberId: input.memberId },
@@ -1225,9 +1395,21 @@ export async function buildBackfillDraftInputForMember(
           orderBy: { month: "asc" },
         })
       : [],
+    typeof prisma.memberActivityEvent?.findMany === "function"
+      ? prisma.memberActivityEvent.findMany({
+          where: { tenantId: input.tenantId, memberId: input.memberId },
+          orderBy: { effectiveMonth: "asc" },
+        })
+      : [],
   ])
 
   return {
+    activityEvents: memberActivityEvents.map((event: any) => ({
+      effectiveFrom: monthKeyFromDate(event.effectiveMonth),
+      notes: event.notes ?? undefined,
+      reason: event.reason ?? undefined,
+      status: event.status === "inactive" ? "inactive" : "active",
+    })),
     amountLogs: amountLogs.map((item: any) => ({
       amount: Number(item.amount),
       effectiveFrom: monthKeyFromDate(item.effectiveFrom),
@@ -1294,6 +1476,7 @@ export async function buildBackfillDraftInputForMember(
           : Number(adjustment.loanRepaymentAmount),
       month: monthKeyFromDate(adjustment.month),
       notes: adjustment.notes ?? undefined,
+      status: adjustment.rowStatus ?? undefined,
       savingsContribution:
         adjustment.savingsContribution == null
           ? undefined
@@ -1405,14 +1588,32 @@ export async function saveBackfillDraft(
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
+  const canValidateSuppliedDraftBeforeGuard =
+    Boolean(input.draft) &&
+    typeof input.draftInput.endMonth === "string" &&
+    typeof input.draftInput.startMonth === "string"
+  let draft = input.draft
+  let rangeEnd: Date
+  let rangeStart: Date
 
-  const draft = input.draft ?? buildBackfillDraft(input.draftInput)
-  const { rangeEnd, rangeStart } = assertBackfillDraftRowsMatchRange({
-    draft,
-    endMonth: input.draftInput.endMonth,
-    startMonth: input.draftInput.startMonth,
-  })
+  if (canValidateSuppliedDraftBeforeGuard && draft) {
+    ;({ rangeEnd, rangeStart } = assertBackfillDraftRowsMatchRange({
+      draft,
+      endMonth: input.draftInput.endMonth,
+      startMonth: input.draftInput.startMonth,
+    }))
+  }
+
   await assertBackfillMutationOpen(input.tenantId, prisma)
+
+  if (!canValidateSuppliedDraftBeforeGuard) {
+    draft = input.draft ?? buildBackfillDraft(input.draftInput)
+    ;({ rangeEnd, rangeStart } = assertBackfillDraftRowsMatchRange({
+      draft,
+      endMonth: input.draftInput.endMonth,
+      startMonth: input.draftInput.startMonth,
+    }))
+  }
 
   return prisma.$transaction(async (tx: any) => {
     await assertMemberBackfillDraftNotAlreadyApplied({
@@ -1510,6 +1711,7 @@ export async function saveBackfillDraft(
             existingHistoryImpacts: row.existingHistoryImpacts,
             loanEvent: row.loanEvent ?? null,
             monthLabel: row.monthLabel,
+            statusReason: row.statusReason ?? null,
           },
           isGenerated: true,
           isEdited: row.isEdited,
@@ -1848,7 +2050,7 @@ export async function applyBackfillBatch(
         number
       >
 
-      if (row.rowStatus !== "missed" && Number(row.share) > 0) {
+      if (!isSkippedBackfillRow(row.rowStatus) && Number(row.share) > 0) {
         await recordContribution(
           {
             actorUserId: input.actorUserId,
@@ -1886,7 +2088,11 @@ export async function applyBackfillBatch(
       for (const [chargeCode, chargeAmount] of Object.entries(
         chargeBreakdown
       )) {
-        if (!chargeAmount || chargeAmount <= 0 || row.rowStatus === "missed")
+        if (
+          !chargeAmount ||
+          chargeAmount <= 0 ||
+          isSkippedBackfillRow(row.rowStatus)
+        )
           continue
 
         const definition = chargeDefinitions.find(
@@ -1909,7 +2115,10 @@ export async function applyBackfillBatch(
         )
       }
 
-      if (Number(row.loanServiceAmount) > 0 && row.rowStatus !== "missed") {
+      if (
+        Number(row.loanServiceAmount) > 0 &&
+        !isSkippedBackfillRow(row.rowStatus)
+      ) {
         const loanForRow = metadata.loanEvent
           ? (loansByEventKey.get(legacyLoanEventKey(metadata.loanEvent)) ??
             primaryLoan)
@@ -1932,7 +2141,7 @@ export async function applyBackfillBatch(
       if (
         Number(row.dividend) > 0 &&
         metadata.dividendProfitEntryId &&
-        row.rowStatus !== "missed" &&
+        !isSkippedBackfillRow(row.rowStatus) &&
         typeof tx.shareProfitAllocation?.upsert === "function"
       ) {
         await tx.shareProfitAllocation.upsert({

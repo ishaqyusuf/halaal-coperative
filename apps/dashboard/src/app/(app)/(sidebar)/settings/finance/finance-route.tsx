@@ -9,7 +9,8 @@ import {
   getTenantInitialMigrationState,
   listInitialMigrationMemberReview,
   listLegacyLoanMigrationDrafts,
-  listMigrationProfitAdjustmentOptions,
+  listMemberActivityEvents,
+  listMemberAmountLogs,
   listMembers,
 } from "@halaalvest/db"
 import { TenantFinancePageView } from "@/components/tenant-finance-page-view"
@@ -144,6 +145,8 @@ const demoMemberOptions = [
 const demoLegacyLoanDrafts = [
   {
     closedAt: null,
+    guarantorOneMemberId: null,
+    guarantorTwoMemberId: null,
     id: "legacy-loan-demo-1",
     loanLabel: "Loan A",
     memberId: "member-demo-1",
@@ -157,18 +160,12 @@ const demoLegacyLoanDrafts = [
   },
 ]
 
-const demoProfitAdjustmentOptions = [
+const demoMemberAmountLogs = [
   {
-    allocatableProfitAmount: 80000,
-    availableAmount: 80000,
-    businessName: "Ramadan retail pool",
-    editableAvailableAmount: 80000,
-    expenseAmount: 5000,
-    id: "profit-1",
-    label: "Ramadan retail pool - 2024-04-30",
-    profitAmount: 85000,
-    profitDate: "2024-04-30",
-    totalDisbursedAmount: 0,
+    amount: 5000,
+    effectiveFrom: "2025-01-01",
+    id: "amount-log-demo-1",
+    notes: "Initial commitment",
   },
 ]
 
@@ -189,17 +186,20 @@ const demoMigrationMemberReview = [
 ]
 
 export async function FinanceSettingsRoute({
+  migrationMemberId,
   searchParams,
   section = "overview",
 }: {
+  migrationMemberId?: string
   searchParams?: Promise<Record<string, string | string[] | undefined>>
   section?: TenantFinanceSection
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const requestedMigrationMemberId =
-    typeof resolvedSearchParams.migrationMemberId === "string"
+    migrationMemberId ??
+    (typeof resolvedSearchParams.migrationMemberId === "string"
       ? resolvedSearchParams.migrationMemberId
-      : undefined
+      : undefined)
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
   const today = new Date()
@@ -223,12 +223,17 @@ export async function FinanceSettingsRoute({
           (member: any) => member.id === requestedMigrationMemberId
         ) ?? null)
       : null
-    const profitAdjustmentOptions = previewMember
-      ? await listMigrationProfitAdjustmentOptions(
-          context.tenant.id,
-          undefined,
-          previewMember.id
-        )
+    const selectedMemberAmountLogs = previewMember
+      ? await listMemberAmountLogs({
+          memberId: previewMember.id,
+          tenantId: context.tenant.id,
+        })
+      : []
+    const selectedMemberActivityEvents = previewMember
+      ? await listMemberActivityEvents({
+          memberId: previewMember.id,
+          tenantId: context.tenant.id,
+        })
       : []
     const canGenerateMemberBackfillPreview =
       !migrationState.snapshot.missingStepKeys.some((stepKey) =>
@@ -241,7 +246,9 @@ export async function FinanceSettingsRoute({
         ].includes(stepKey)
       )
     const generatedLedgerRows =
-      previewMember && canGenerateMemberBackfillPreview
+      (section === "migration" || section === "migration-member") &&
+      previewMember &&
+      canGenerateMemberBackfillPreview
         ? projectBackfillDraftToMemberLedgerRows(
             buildBackfillDraft(
               await buildBackfillDraftInputForMember({
@@ -363,6 +370,8 @@ export async function FinanceSettingsRoute({
             ? draft.closedAt.toISOString().slice(0, 10)
             : null,
           id: draft.id,
+          guarantorOneMemberId: draft.guarantorOneMemberId,
+          guarantorTwoMemberId: draft.guarantorTwoMemberId,
           loanLabel: draft.loanLabel,
           memberId: draft.memberId,
           memberName: draft.member.fullName,
@@ -378,22 +387,31 @@ export async function FinanceSettingsRoute({
           id: member.id,
           label: `${member.fullName} (${member.memberNumber})`,
         }))}
+        memberNumberPrefix={context.tenant.memberNumberPrefix}
+        memberAmountLogs={selectedMemberAmountLogs.map((row) => ({
+          amount: row.amount,
+          effectiveFrom: row.effectiveFrom.toISOString().slice(0, 10),
+          id: row.id,
+          notes: row.notes,
+        }))}
+        memberActivityEvents={selectedMemberActivityEvents.map(
+          (event: {
+            effectiveMonth: Date
+            id: string
+            notes?: string | null
+            reason?: string | null
+            status: string
+          }) => ({
+            effectiveMonth: event.effectiveMonth.toISOString().slice(0, 10),
+            id: event.id,
+            notes: event.notes,
+            reason: event.reason,
+            status: event.status === "inactive" ? "inactive" : "active",
+          })
+        )}
         migrationMemberReview={migrationMemberReview.map((row) => ({
           ...row,
           joinedAt: row.joinedAt.toISOString().slice(0, 10),
-        }))}
-        profitAdjustmentOptions={profitAdjustmentOptions.map((entry) => ({
-          allocatableProfitAmount: entry.allocatableProfitAmount,
-          availableAmount: entry.availableAmount,
-          businessName: entry.businessName,
-          editableAvailableAmount: entry.editableAvailableAmount,
-          expenseAmount: entry.expenseAmount,
-          id: entry.id,
-          label: `${entry.businessName} - ${entry.profitDate.toISOString().slice(0, 10)}`,
-          memberAllocatedAmount: entry.memberAllocatedAmount,
-          profitAmount: entry.profitAmount,
-          profitDate: entry.profitDate.toISOString().slice(0, 10),
-          totalDisbursedAmount: entry.totalDisbursedAmount,
         }))}
         selectedMigrationMemberId={previewMember?.id ?? null}
         selectedMigrationMemberLabel={
@@ -420,9 +438,10 @@ export async function FinanceSettingsRoute({
       dividendPeriods={demoDividendPeriods}
       initialMigrationSnapshot={migrationState.snapshot}
       legacyLoanDrafts={demoLegacyLoanDrafts}
+      memberAmountLogs={demoMemberAmountLogs}
       memberOptions={demoMemberOptions}
+      memberNumberPrefix={context.tenant?.memberNumberPrefix ?? null}
       migrationMemberReview={demoMigrationMemberReview}
-      profitAdjustmentOptions={demoProfitAdjustmentOptions}
       selectedMigrationMemberId={demoMemberOptions[0]?.id ?? null}
       selectedMigrationMemberLabel={demoMemberOptions[0]?.label ?? null}
       section={section}

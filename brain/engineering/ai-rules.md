@@ -14,4 +14,5 @@ This file defines repository-specific delivery rules for AI contributors.
 - Treat ledger, loans, charges, and balances as high-risk areas requiring extra caution.
 - Prefer safe defaults when requirements are underspecified.
 - Do not bypass tenant scoping in queries or service calls.
+- Run `bun run db:migrate` and `bun run db:push` only when a change touches Prisma schema, migrations, database tables, constraints, indexes, or DB behavior that may require schema synchronization; skip them for UI-only, routing-only, and component-only changes.
 - When useful, consult `~/Documents/code/_kitchen_sink/midday`, `~/Documents/code/_turbo/gnd`, `~/Documents/code/ewatrade`, and `~/Documents/code/plotkeys` as standing reference projects for coding standards, architecture, and implementation patterns.

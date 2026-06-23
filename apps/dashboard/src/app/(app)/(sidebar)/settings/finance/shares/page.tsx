@@ -93,6 +93,7 @@ async function ShareSettingsPageContent({
 
   let isLocked = false
   let rows = toShareRows(demoShareVersions)
+  let financeStartDate = context.tenant?.startDate ?? "2024-01-01"
   let tenantName = context.tenant?.name ?? "Demo cooperative"
 
   if (context.tenant && runtime.status === "database-configured") {
@@ -110,6 +111,8 @@ async function ShareSettingsPageContent({
 
     isLocked =
       !migrationState.snapshot.canUseMigrationTools || hasAppliedMemberBackfill
+    financeStartDate =
+      data.tenant?.startDate?.toISOString().slice(0, 10) ?? null
     tenantName = data.tenant?.name ?? context.tenant.name
     rows = toShareRows(
       data.shareStructureVersions.map((version: RawShareVersion) => ({
@@ -141,8 +144,9 @@ async function ShareSettingsPageContent({
           </p>
         </div>
 
-        <ShareHeader isLocked={isLocked} />
+        <ShareHeader financeStartDate={financeStartDate} isLocked={isLocked} />
         <DataTable
+          financeStartDate={financeStartDate}
           hasSourceRows={rows.length > 0}
           isLocked={isLocked}
           rows={rows}

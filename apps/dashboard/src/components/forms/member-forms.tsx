@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
 import { z } from "zod"
 import { Tick02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -58,6 +58,40 @@ function CurrencyFormInput({
       valueIsNumericString
       onValueChange={(values) => onChange(values.value)}
     />
+  )
+}
+
+const commitmentHistoryRowSchema = z.object({
+  amount: z.string().optional(),
+  effectiveFrom: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+const legacyLoanHistoryRowSchema = z.object({
+  closedAt: z.string().optional(),
+  guarantorOneMemberId: z.string().optional(),
+  guarantorTwoMemberId: z.string().optional(),
+  loanLabel: z.string().optional(),
+  openedAt: z.string().optional(),
+  outstandingPrincipalBalance: z.string().optional(),
+  principalAmount: z.string().optional(),
+  savingsDuringLoan: z.string().optional(),
+  scheduledMonthlyPrincipalRepayment: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+type CommitmentHistoryRow = z.infer<typeof commitmentHistoryRowSchema> & {
+  id: string
+}
+
+type LegacyLoanHistoryRow = z.infer<typeof legacyLoanHistoryRowSchema> & {
+  id: string
+}
+
+function createMemberFormRowId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`
   )
 }
 
@@ -290,9 +324,16 @@ export function MemberCreateForm({
   })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
+  const [commitmentHistoryRows, setCommitmentHistoryRows] = useState<
+    CommitmentHistoryRow[]
+  >([])
+  const [legacyLoanHistoryRows, setLegacyLoanHistoryRows] = useState<
+    LegacyLoanHistoryRow[]
+  >([])
   const hasServingLoan = form.watch("hasServingLoan")
   const currentSavingsBalance = Number(form.watch("currentSavingsBalance") || 0)
   const fullName = form.watch("fullName")
+  const joinedAt = form.watch("joinedAt")
   const loanAmount = Number(form.watch("loanAmount") || 0)
   const loanPaymentMonths = Number(form.watch("loanPaymentMonths") || 0)
   const loanServed = Number(form.watch("loanServed") || 0)
@@ -369,11 +410,100 @@ export function MemberCreateForm({
     }
   }
 
+  function appendCommitmentHistoryRow() {
+    setCommitmentHistoryRows((rows) => [
+      ...rows,
+      {
+        id: createMemberFormRowId(),
+        amount: form.getValues("monthlyCommitment") ?? "",
+        effectiveFrom: joinedAt || "",
+        notes: "",
+      },
+    ])
+  }
+
+  function updateCommitmentHistoryRow(
+    rowId: string,
+    values: Partial<CommitmentHistoryRow>
+  ) {
+    setCommitmentHistoryRows((rows) =>
+      rows.map((row) => (row.id === rowId ? { ...row, ...values } : row))
+    )
+  }
+
+  function removeCommitmentHistoryRow(rowId: string) {
+    setCommitmentHistoryRows((rows) => rows.filter((row) => row.id !== rowId))
+  }
+
+  function appendLegacyLoanHistoryRow() {
+    setLegacyLoanHistoryRows((rows) => [
+      ...rows,
+      {
+        id: createMemberFormRowId(),
+        closedAt: "",
+        guarantorOneMemberId: "",
+        guarantorTwoMemberId: "",
+        loanLabel: "",
+        openedAt: form.getValues("loanStartDate") || joinedAt || "",
+        outstandingPrincipalBalance: "",
+        principalAmount: "",
+        savingsDuringLoan: form.getValues("monthlyCommitment") ?? "",
+        scheduledMonthlyPrincipalRepayment: "",
+        notes: "",
+      },
+    ])
+  }
+
+  function updateLegacyLoanHistoryRow(
+    rowId: string,
+    values: Partial<LegacyLoanHistoryRow>
+  ) {
+    setLegacyLoanHistoryRows((rows) =>
+      rows.map((row) => (row.id === rowId ? { ...row, ...values } : row))
+    )
+  }
+
+  function removeLegacyLoanHistoryRow(rowId: string) {
+    setLegacyLoanHistoryRows((rows) => rows.filter((row) => row.id !== rowId))
+  }
+
+  function serializeCommitmentRows(rows: CommitmentHistoryRow[]) {
+    return rows.map(({ id: _id, ...row }) => row)
+  }
+
+  function serializeLegacyLoanRows(rows: LegacyLoanHistoryRow[]) {
+    return rows.map(({ id: _id, ...row }) => row)
+  }
+
   function onSubmit(values: MemberCreateValues) {
     startTransition(async () => {
       try {
-        await createMemberAction(objectToFormData(values))
+        const formData = objectToFormData(values)
+        formData.append(
+          "commitmentHistoryJson",
+          JSON.stringify(
+            serializeCommitmentRows(
+              commitmentHistoryRows.filter(
+                (row) => row.effectiveFrom?.trim() || row.amount?.trim()
+              )
+            )
+          )
+        )
+        formData.append(
+          "legacyLoanHistoryJson",
+          JSON.stringify(
+            serializeLegacyLoanRows(
+              legacyLoanHistoryRows.filter(
+                (row) => row.openedAt?.trim() || row.principalAmount?.trim()
+              )
+            )
+          )
+        )
+
+        await createMemberAction(formData)
         showSuccess("Member added", "Member record created.")
+        setCommitmentHistoryRows([])
+        setLegacyLoanHistoryRows([])
         form.reset({
           address: "",
           currentSavingsBalance: "",
@@ -616,6 +746,104 @@ export function MemberCreateForm({
                   )}
                 />
               </div>
+              <div className="mt-5 rounded-[1rem] border border-border/60 bg-background/70">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Commitment updates
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Dated savings changes used to prefill migration months.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 rounded-full px-3 text-xs"
+                    onClick={appendCommitmentHistoryRow}
+                  >
+                    Add row
+                  </Button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[680px] text-sm">
+                    <thead className="bg-muted/35 text-left text-xs font-medium text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2">Date</th>
+                        <th className="px-3 py-2">Amount</th>
+                        <th className="px-3 py-2">Notes</th>
+                        <th className="w-24 px-3 py-2 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commitmentHistoryRows.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-3 py-4 text-sm text-muted-foreground"
+                          >
+                            No dated updates added.
+                          </td>
+                        </tr>
+                      ) : (
+                        commitmentHistoryRows.map((row) => (
+                          <tr
+                            key={row.id}
+                            className="border-t border-border/60"
+                          >
+                            <td className="px-3 py-2 align-top">
+                              <Input
+                                min={joinedAt || undefined}
+                                type="date"
+                                value={row.effectiveFrom ?? ""}
+                                onChange={(event) =>
+                                  updateCommitmentHistoryRow(row.id, {
+                                    effectiveFrom: event.target.value,
+                                  })
+                                }
+                              />
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <CurrencyFormInput
+                                placeholder="25000"
+                                value={row.amount ?? ""}
+                                onChange={(value) =>
+                                  updateCommitmentHistoryRow(row.id, {
+                                    amount: value,
+                                  })
+                                }
+                              />
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <Input
+                                placeholder="Optional"
+                                value={row.notes ?? ""}
+                                onChange={(event) =>
+                                  updateCommitmentHistoryRow(row.id, {
+                                    notes: event.target.value,
+                                  })
+                                }
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-right align-top">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-8 rounded-full px-3 text-xs"
+                                onClick={() =>
+                                  removeCommitmentHistoryRow(row.id)
+                                }
+                              >
+                                Remove
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
 
             <div className="rounded-[1.5rem] border border-border/70 bg-background/80 p-4">
@@ -653,7 +881,11 @@ export function MemberCreateForm({
                       <FormItem>
                         <FormLabel>Loan start date</FormLabel>
                         <FormControl>
-                          <Input {...field} type="date" />
+                          <Input
+                            {...field}
+                            min={joinedAt || undefined}
+                            type="date"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -797,6 +1029,176 @@ export function MemberCreateForm({
                   </div>
                 </div>
               ) : null}
+            </div>
+
+            <div className="rounded-[1.5rem] border border-border/70 bg-background/80 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">
+                    Loan history
+                  </h4>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Backfill legacy loans with dated repayment and savings
+                    commitments.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 rounded-full px-3 text-xs"
+                  onClick={appendLegacyLoanHistoryRow}
+                >
+                  Add row
+                </Button>
+              </div>
+              <div className="mt-4 overflow-x-auto rounded-[1rem] border border-border/60">
+                <table className="w-full min-w-[1180px] text-sm">
+                  <thead className="bg-muted/35 text-left text-xs font-medium text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">Date</th>
+                      <th className="px-3 py-2">Amount</th>
+                      <th className="px-3 py-2">Guarantor 1 ID</th>
+                      <th className="px-3 py-2">Guarantor 2 ID</th>
+                      <th className="px-3 py-2">Repayment</th>
+                      <th className="px-3 py-2">Commitment</th>
+                      <th className="px-3 py-2">Outstanding</th>
+                      <th className="px-3 py-2">Closed</th>
+                      <th className="px-3 py-2">Label</th>
+                      <th className="w-24 px-3 py-2 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {legacyLoanHistoryRows.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={10}
+                          className="px-3 py-4 text-sm text-muted-foreground"
+                        >
+                          No loan history rows added.
+                        </td>
+                      </tr>
+                    ) : (
+                      legacyLoanHistoryRows.map((row) => (
+                        <tr key={row.id} className="border-t border-border/60">
+                          <td className="px-3 py-2 align-top">
+                            <Input
+                              min={joinedAt || undefined}
+                              type="date"
+                              value={row.openedAt ?? ""}
+                              onChange={(event) =>
+                                updateLegacyLoanHistoryRow(row.id, {
+                                  openedAt: event.target.value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <CurrencyFormInput
+                              placeholder="500000"
+                              value={row.principalAmount ?? ""}
+                              onChange={(value) =>
+                                updateLegacyLoanHistoryRow(row.id, {
+                                  principalAmount: value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input
+                              placeholder="Member ID"
+                              value={row.guarantorOneMemberId ?? ""}
+                              onChange={(event) =>
+                                updateLegacyLoanHistoryRow(row.id, {
+                                  guarantorOneMemberId: event.target.value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input
+                              placeholder="Member ID"
+                              value={row.guarantorTwoMemberId ?? ""}
+                              onChange={(event) =>
+                                updateLegacyLoanHistoryRow(row.id, {
+                                  guarantorTwoMemberId: event.target.value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <CurrencyFormInput
+                              placeholder="50000"
+                              value={
+                                row.scheduledMonthlyPrincipalRepayment ?? ""
+                              }
+                              onChange={(value) =>
+                                updateLegacyLoanHistoryRow(row.id, {
+                                  scheduledMonthlyPrincipalRepayment: value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <CurrencyFormInput
+                              placeholder="10000"
+                              value={row.savingsDuringLoan ?? ""}
+                              onChange={(value) =>
+                                updateLegacyLoanHistoryRow(row.id, {
+                                  savingsDuringLoan: value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <CurrencyFormInput
+                              placeholder="Optional"
+                              value={row.outstandingPrincipalBalance ?? ""}
+                              onChange={(value) =>
+                                updateLegacyLoanHistoryRow(row.id, {
+                                  outstandingPrincipalBalance: value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input
+                              min={joinedAt || undefined}
+                              type="date"
+                              value={row.closedAt ?? ""}
+                              onChange={(event) =>
+                                updateLegacyLoanHistoryRow(row.id, {
+                                  closedAt: event.target.value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input
+                              placeholder="Optional"
+                              value={row.loanLabel ?? ""}
+                              onChange={(event) =>
+                                updateLegacyLoanHistoryRow(row.id, {
+                                  loanLabel: event.target.value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-right align-top">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-8 rounded-full px-3 text-xs"
+                              onClick={() => removeLegacyLoanHistoryRow(row.id)}
+                            >
+                              Remove
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 

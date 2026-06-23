@@ -15,6 +15,7 @@ import {
   createChargeDefinitionVersion,
   createImportBatch,
   createLegacyLoanMigrationDraft,
+  deleteMemberActivityEvent,
   createMember,
   createMemberDocument,
   createMemberSignupLink,
@@ -35,7 +36,6 @@ import {
   importMembers,
   importRepaymentMigrations,
   getInitialMigrationMemberReview,
-  listInitialMigrationMemberReview,
   markTenantBusinessProfitPoolsReviewed,
   markTenantLegacyLoansReviewed,
   applyMonthlyRecordMember,
@@ -46,6 +46,7 @@ import {
   rotateMemberSignupLinkToken,
   refreshCollectionsStatuses,
   recordMemberPayment,
+  saveBusinessProfitMigrationWorksheet,
   upsertMigrationProfitAdjustment,
   recordContribution,
   reverseChargeApplication,
@@ -62,6 +63,7 @@ import {
   postRepayment,
   publishShareProfitAllocations,
   queueTenantRoleNotifications,
+  setMigrationBackfillDefaultingMonths,
   upsertNotificationPreference,
   rejectMemberOnboardingRequest,
   updateContributionPlan,
@@ -76,8 +78,10 @@ import {
   updateMemberSignupLink,
   updateTenantMemberSignupSettings,
   updateLegacyLoanMigrationDraft,
+  upsertMemberActivityEvent,
   upsertMigrationBackfillAdjustment,
   waiveChargeApplication,
+  upsertMemberAmountLog,
 } from "@halaalvest/db"
 import {
   backfillApplyHandler,
@@ -444,6 +448,86 @@ function getRequiredString(formData: FormData, key: string) {
   return value.trim()
 }
 
+function tenantStartDateString(
+  actor: Awaited<ReturnType<typeof requireDashboardActor>>
+) {
+  const startDate = actor.tenant.startDate as Date | string | null | undefined
+
+  if (!startDate) {
+    return null
+  }
+
+  if (typeof startDate === "string") {
+    return startDate.slice(0, 10)
+  }
+
+  return startDate.toISOString().slice(0, 10)
+}
+
+function dateOnlyString(value: Date | string | null | undefined) {
+  if (!value) {
+    return null
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10)
+  }
+
+  return value.slice(0, 10)
+}
+
+function requireDateOnOrAfterTenantStartDate(
+  actor: Awaited<ReturnType<typeof requireDashboardActor>>,
+  value: Date | string | null | undefined,
+  label: string
+) {
+  const minDate = tenantStartDateString(actor)
+  const actualDate = dateOnlyString(value)
+
+  if (!actualDate || !minDate || actualDate >= minDate) {
+    return
+  }
+
+  throw new Error(
+    `${label} cannot be before the cooperative start date (${minDate}).`
+  )
+}
+
+function requireImportRowsOnOrAfterTenantStartDate(
+  actor: Awaited<ReturnType<typeof requireDashboardActor>>,
+  importKind: DashboardImportKind,
+  rows: Record<string, unknown>[]
+) {
+  const dateFieldsByKind: Partial<Record<DashboardImportKind, string[]>> = {
+    charges: ["assessedAt"],
+    contributions: ["postedAt"],
+    loan_migrations: ["requestedAt", "disbursedAt", "firstRepaymentDueAt"],
+    members: ["joinedAt"],
+  }
+  const fields = dateFieldsByKind[importKind]
+  const minDate = tenantStartDateString(actor)
+
+  if (!fields || !minDate) {
+    return
+  }
+
+  const errors = rows.flatMap((row, index) =>
+    fields.flatMap((field) => {
+      const value = dateOnlyString(row[field] as Date | string | null)
+
+      return value && value < minDate
+        ? [
+            `Row ${index + 2}: ${field} cannot be before the cooperative start date (${minDate}).`,
+          ]
+        : []
+    })
+  )
+
+  if (errors.length > 0) {
+    throw new Error(errors[0])
+  }
+}
+
 function requireDirectImportConfirmation(formData: FormData) {
   const confirmation = getRequiredString(formData, "confirmation")
 
@@ -470,7 +554,215 @@ function getOptionalBoolean(formData: FormData, key: string) {
   return value === "on" || value === "true"
 }
 
-function getMemberStateFromFormData(formData: FormData) {
+function parseOptionalJsonArray(formData: FormData, key: string) {
+  const value = formData.get(key)
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) {
+      throw new Error(`${key} must be an array.`)
+    }
+
+    return parsed as Record<string, unknown>[]
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("must be an array")) {
+      throw error
+    }
+
+    throw new Error(`${key} is not valid JSON.`)
+  }
+}
+
+function getRowString(
+  row: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const value = row[key]
+  if (typeof value !== "string" && typeof value !== "number") {
+    return undefined
+  }
+
+  const stringValue = String(value).trim()
+  return stringValue.length > 0 ? stringValue : undefined
+}
+
+function getRowRequiredDate(
+  row: Record<string, unknown>,
+  key: string,
+  label: string
+) {
+  const value = getRowString(row, key)
+  if (!value) {
+    throw new Error(`${label} date is required.`)
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`)
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`${label} date is invalid.`)
+  }
+
+  return date
+}
+
+function getRowOptionalDate(row: Record<string, unknown>, key: string) {
+  const value = getRowString(row, key)
+  if (!value) {
+    return null
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`)
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`${key} date is invalid.`)
+  }
+
+  return date
+}
+
+function getRowRequiredNumber(
+  row: Record<string, unknown>,
+  key: string,
+  label: string
+) {
+  const value = getRowString(row, key)
+  if (!value) {
+    throw new Error(`${label} is required.`)
+  }
+
+  const numberValue = Number(value)
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    throw new Error(`${label} must be greater than 0.`)
+  }
+
+  return numberValue
+}
+
+function getRowOptionalNumber(row: Record<string, unknown>, key: string) {
+  const value = getRowString(row, key)
+  if (!value) {
+    return null
+  }
+
+  const numberValue = Number(value)
+  if (!Number.isFinite(numberValue) || numberValue < 0) {
+    throw new Error(`${key} cannot be negative.`)
+  }
+
+  return numberValue
+}
+
+function requireDateOnOrAfterJoinedAt(
+  value: Date,
+  joinedAt: Date | undefined,
+  label: string
+) {
+  if (!joinedAt) {
+    return
+  }
+
+  const actualDate = value.toISOString().slice(0, 10)
+  const minDate = joinedAt.toISOString().slice(0, 10)
+
+  if (actualDate < minDate) {
+    throw new Error(`${label} cannot be before the member joined date.`)
+  }
+}
+
+function parseMemberCommitmentHistory(
+  formData: FormData,
+  joinedAt: Date | undefined
+) {
+  if (!joinedAt) {
+    return []
+  }
+
+  return parseOptionalJsonArray(formData, "commitmentHistoryJson").map(
+    (row, index) => {
+      const effectiveFrom = getRowRequiredDate(
+        row,
+        "effectiveFrom",
+        `Commitment row ${index + 1}`
+      )
+      requireDateOnOrAfterJoinedAt(
+        effectiveFrom,
+        joinedAt,
+        `Commitment row ${index + 1}`
+      )
+
+      return {
+        amount: getRowRequiredNumber(
+          row,
+          "amount",
+          `Commitment row ${index + 1} amount`
+        ),
+        effectiveFrom,
+        notes: getRowString(row, "notes") ?? null,
+      }
+    }
+  )
+}
+
+function parseMemberLegacyLoanHistory(
+  formData: FormData,
+  joinedAt: Date | undefined
+) {
+  if (!joinedAt) {
+    return []
+  }
+
+  return parseOptionalJsonArray(formData, "legacyLoanHistoryJson").map(
+    (row, index) => {
+      const openedAt = getRowRequiredDate(
+        row,
+        "openedAt",
+        `Loan row ${index + 1}`
+      )
+      const closedAt = getRowOptionalDate(row, "closedAt")
+
+      requireDateOnOrAfterJoinedAt(openedAt, joinedAt, `Loan row ${index + 1}`)
+
+      if (closedAt) {
+        requireDateOnOrAfterJoinedAt(
+          closedAt,
+          openedAt,
+          `Loan row ${index + 1} closed date`
+        )
+      }
+
+      return {
+        closedAt,
+        guarantorOneMemberId: getRowString(row, "guarantorOneMemberId") ?? null,
+        guarantorTwoMemberId: getRowString(row, "guarantorTwoMemberId") ?? null,
+        loanLabel: getRowString(row, "loanLabel") ?? null,
+        openedAt,
+        outstandingPrincipalBalance: getRowOptionalNumber(
+          row,
+          "outstandingPrincipalBalance"
+        ),
+        principalAmount: getRowRequiredNumber(
+          row,
+          "principalAmount",
+          `Loan row ${index + 1} amount`
+        ),
+        savingsDuringLoan: getRowRequiredNumber(
+          row,
+          "savingsDuringLoan",
+          `Loan row ${index + 1} commitment`
+        ),
+        scheduledMonthlyPrincipalRepayment: getRowRequiredNumber(
+          row,
+          "scheduledMonthlyPrincipalRepayment",
+          `Loan row ${index + 1} repayment`
+        ),
+        notes: getRowString(row, "notes") ?? null,
+      }
+    }
+  )
+}
+
+function getMemberStateFromFormData(formData: FormData, joinedAt?: Date) {
   const hasServingLoan = getOptionalBoolean(formData, "hasServingLoan")
   const currentSavingsBalance = getOptionalNumber(
     formData,
@@ -513,10 +805,19 @@ function getMemberStateFromFormData(formData: FormData) {
     if (loanTopupAmount < 0) {
       throw new Error("Topup amount cannot be negative.")
     }
+
+    const parsedLoanStartDate = new Date(`${loanStartDate}T00:00:00.000Z`)
+    requireDateOnOrAfterJoinedAt(
+      parsedLoanStartDate,
+      joinedAt,
+      "Serving loan start date"
+    )
   }
 
   return {
+    commitmentHistory: parseMemberCommitmentHistory(formData, joinedAt),
     currentSavingsBalance,
+    legacyLoanHistory: parseMemberLegacyLoanHistory(formData, joinedAt),
     monthlyCommitment,
     servingLoan:
       hasServingLoan &&
@@ -539,7 +840,10 @@ function getMemberStateFromFormData(formData: FormData) {
 export async function createMemberAction(formData: FormData) {
   const actor = await requireDashboardActor(memberManagementRoles)
   await requireMemberProfileWritesOpen(actor)
-  const memberState = getMemberStateFromFormData(formData)
+  const joinedAtValue = getRequiredString(formData, "joinedAt")
+  const joinedAt = new Date(`${joinedAtValue}T00:00:00.000Z`)
+  requireDateOnOrAfterTenantStartDate(actor, joinedAt, "Joined date")
+  const memberState = getMemberStateFromFormData(formData, joinedAt)
 
   await createMember({
     actorUserId: actor.user.id,
@@ -547,9 +851,9 @@ export async function createMemberAction(formData: FormData) {
     currentSavingsBalance: memberState.currentSavingsBalance,
     email: getOptionalTrimmedString(formData, "email")?.toLowerCase() ?? null,
     fullName: getRequiredString(formData, "fullName"),
-    joinedAt: new Date(
-      `${getRequiredString(formData, "joinedAt")}T00:00:00.000Z`
-    ),
+    joinedAt,
+    commitmentHistory: memberState.commitmentHistory,
+    legacyLoanHistory: memberState.legacyLoanHistory,
     memberNumber: composeMemberNumber(
       actor.tenant.memberNumberPrefix,
       getRequiredString(formData, "memberNumber")
@@ -995,34 +1299,37 @@ export async function createChargeDefinitionAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireChargeDefinitionWritesOpen(actor)
   const kind = getRequiredString(formData, "kind") as DashboardChargeKind
-  const chargeValueType =
-    ((formData.get("chargeValueType") as string | null)?.trim() ||
-      (kind === "percentage" ? "percentage" : "fixed_amount")) as
-      DashboardChargeValueType
+  const effectiveFrom = getRequiredString(formData, "effectiveFrom")
+  const chargeValueType = ((
+    formData.get("chargeValueType") as string | null
+  )?.trim() ||
+    (kind === "percentage"
+      ? "percentage"
+      : "fixed_amount")) as DashboardChargeValueType
+
+  requireDateOnOrAfterTenantStartDate(actor, effectiveFrom, "Start date")
 
   await createChargeDefinition({
     amount: Number(getRequiredString(formData, "amount")),
-    effectiveFrom: new Date(
-      `${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`
-    ),
+    effectiveFrom: new Date(`${effectiveFrom}T00:00:00.000Z`),
     appliesToLoanRequests: formData.get("appliesToLoanRequests") === "on",
     appliesToLoans: formData.get("appliesToLoans") === "on",
     appliesToMembers: formData.get("appliesToMembers") === "on",
     code: getRequiredString(formData, "code"),
-    chargeFrequency:
-      (((formData.get("chargeFrequency") as string | null)?.trim() ||
-        "recurring_monthly") as DashboardChargeFrequency),
+    chargeFrequency: ((
+      formData.get("chargeFrequency") as string | null
+    )?.trim() || "recurring_monthly") as DashboardChargeFrequency,
     chargeValueType,
     isMonthlyLevy: formData.get("isMonthlyLevy") === "on",
     kind: chargeValueType === "percentage" ? "percentage" : kind,
     name: getRequiredString(formData, "name"),
-    purpose:
-      (((formData.get("purpose") as string | null)?.trim() || "general") as
-        | "general"
-        | "member_share"
-        | "loan_fee"
-        | "membership_fee"
-        | "penalty"),
+    purpose: ((formData.get("purpose") as string | null)?.trim() ||
+      "general") as
+      | "general"
+      | "member_share"
+      | "loan_fee"
+      | "membership_fee"
+      | "penalty",
     tenantId: actor.tenant.id,
   })
 
@@ -1034,14 +1341,15 @@ export async function createTenantShareStructureVersionAction(
 ) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
+  const effectiveFrom = getRequiredString(formData, "effectiveFrom")
+
+  requireDateOnOrAfterTenantStartDate(actor, effectiveFrom, "Effective date")
 
   await createTenantShareStructureVersion({
     amount: Number(getRequiredString(formData, "amount")),
     basis: "after_charge_deductions",
     createdByUserId: actor.user.id,
-    effectiveFrom: new Date(
-      `${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`
-    ),
+    effectiveFrom: new Date(`${effectiveFrom}T00:00:00.000Z`),
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
     tenantId: actor.tenant.id,
     valueType: getRequiredString(formData, "valueType") as
@@ -1057,13 +1365,14 @@ export async function updateTenantShareStructureVersionAction(
 ) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
+  const effectiveFrom = getRequiredString(formData, "effectiveFrom")
+
+  requireDateOnOrAfterTenantStartDate(actor, effectiveFrom, "Effective date")
 
   await updateTenantShareStructureVersion({
     amount: Number(getRequiredString(formData, "amount")),
     basis: "after_charge_deductions",
-    effectiveFrom: new Date(
-      `${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`
-    ),
+    effectiveFrom: new Date(`${effectiveFrom}T00:00:00.000Z`),
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
     shareStructureVersionId: getRequiredString(
       formData,
@@ -1076,24 +1385,26 @@ export async function updateTenantShareStructureVersionAction(
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/migration")
 }
 
 export async function createChargeDefinitionVersionAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
+  const effectiveFrom = getRequiredString(formData, "effectiveFrom")
   const chargeValueType = getRequiredString(
     formData,
     "chargeValueType"
   ) as DashboardChargeValueType
+
+  requireDateOnOrAfterTenantStartDate(actor, effectiveFrom, "Effective date")
 
   await createChargeDefinitionVersion({
     amount: Number(getRequiredString(formData, "amount")),
     chargeDefinitionId: getRequiredString(formData, "chargeDefinitionId"),
     chargeValueType,
     createdByUserId: actor.user.id,
-    effectiveFrom: new Date(
-      `${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`
-    ),
+    effectiveFrom: new Date(`${effectiveFrom}T00:00:00.000Z`),
     kind: chargeValueType === "percentage" ? "percentage" : "fixed",
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
     tenantId: actor.tenant.id,
@@ -1105,10 +1416,13 @@ export async function createChargeDefinitionVersionAction(formData: FormData) {
 export async function updateChargeDefinitionVersionAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
+  const effectiveFrom = getRequiredString(formData, "effectiveFrom")
   const chargeValueType = getRequiredString(
     formData,
     "chargeValueType"
   ) as DashboardChargeValueType
+
+  requireDateOnOrAfterTenantStartDate(actor, effectiveFrom, "Effective date")
 
   await updateChargeDefinitionVersion({
     amount: Number(getRequiredString(formData, "amount")),
@@ -1117,9 +1431,7 @@ export async function updateChargeDefinitionVersionAction(formData: FormData) {
       "chargeDefinitionVersionId"
     ),
     chargeValueType,
-    effectiveFrom: new Date(
-      `${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`
-    ),
+    effectiveFrom: new Date(`${effectiveFrom}T00:00:00.000Z`),
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
     tenantId: actor.tenant.id,
   })
@@ -1130,22 +1442,23 @@ export async function updateChargeDefinitionVersionAction(formData: FormData) {
 export async function createShareBusinessAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
+  const endDate = (formData.get("endDate") as string | null)?.trim()
+  const startDate = getRequiredString(formData, "startDate")
+
+  requireDateOnOrAfterTenantStartDate(actor, startDate, "Start date")
+  requireDateOnOrAfterTenantStartDate(actor, endDate, "End date")
 
   await createShareBusiness({
     capitalAmount: Number(getRequiredString(formData, "capitalAmount")),
     createdByUserId: actor.user.id,
-    endDate: (formData.get("endDate") as string | null)?.trim()
-      ? new Date(`${getRequiredString(formData, "endDate")}T00:00:00.000Z`)
-      : undefined,
+    endDate: endDate ? new Date(`${endDate}T00:00:00.000Z`) : undefined,
     linkedDividendPeriodId:
       (formData.get("linkedDividendPeriodId") as string | null)?.trim() ||
       undefined,
     name: getRequiredString(formData, "name"),
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
     profitAmount: Number(getRequiredString(formData, "profitAmount")),
-    startDate: new Date(
-      `${getRequiredString(formData, "startDate")}T00:00:00.000Z`
-    ),
+    startDate: new Date(`${startDate}T00:00:00.000Z`),
     status: getRequiredString(formData, "status") as
       | "planned"
       | "active"
@@ -1160,22 +1473,22 @@ export async function createShareBusinessAction(formData: FormData) {
 export async function updateShareBusinessAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
+  const endDate = (formData.get("endDate") as string | null)?.trim()
+  const startDate = getRequiredString(formData, "startDate")
+
+  requireDateOnOrAfterTenantStartDate(actor, startDate, "Start date")
+  requireDateOnOrAfterTenantStartDate(actor, endDate, "End date")
 
   await updateShareBusiness({
     capitalAmount: Number(getRequiredString(formData, "capitalAmount")),
-    endDate: (formData.get("endDate") as string | null)?.trim()
-      ? new Date(`${getRequiredString(formData, "endDate")}T00:00:00.000Z`)
-      : null,
+    endDate: endDate ? new Date(`${endDate}T00:00:00.000Z`) : null,
     linkedDividendPeriodId:
-      (formData.get("linkedDividendPeriodId") as string | null)?.trim() ||
-      null,
+      (formData.get("linkedDividendPeriodId") as string | null)?.trim() || null,
     name: getRequiredString(formData, "name"),
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
     profitAmount: Number(getRequiredString(formData, "profitAmount")),
     shareBusinessId: getRequiredString(formData, "shareBusinessId"),
-    startDate: new Date(
-      `${getRequiredString(formData, "startDate")}T00:00:00.000Z`
-    ),
+    startDate: new Date(`${startDate}T00:00:00.000Z`),
     status: getRequiredString(formData, "status") as
       | "planned"
       | "active"
@@ -1190,6 +1503,9 @@ export async function updateShareBusinessAction(formData: FormData) {
 export async function createShareBusinessProfitEntryAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
+  const profitDate = getRequiredString(formData, "profitDate")
+
+  requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
 
   await createShareBusinessProfitEntry({
     allocatableProfitAmount: Number(
@@ -1202,9 +1518,7 @@ export async function createShareBusinessProfitEntryAction(formData: FormData) {
       undefined,
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
     profitAmount: Number(getRequiredString(formData, "profitAmount")),
-    profitDate: new Date(
-      `${getRequiredString(formData, "profitDate")}T00:00:00.000Z`
-    ),
+    profitDate: new Date(`${profitDate}T00:00:00.000Z`),
     reason: (formData.get("reason") as string | null)?.trim() || undefined,
     shareBusinessId: getRequiredString(formData, "shareBusinessId"),
     sourceType: getRequiredString(formData, "sourceType") as
@@ -1225,6 +1539,9 @@ export async function createShareBusinessProfitEntryAction(formData: FormData) {
 export async function updateShareBusinessProfitEntryAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
+  const profitDate = getRequiredString(formData, "profitDate")
+
+  requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
 
   await updateShareBusinessProfitEntry({
     allocatableProfitAmount: Number(
@@ -1232,13 +1549,10 @@ export async function updateShareBusinessProfitEntryAction(formData: FormData) {
     ),
     expenseAmount: getOptionalNumber(formData, "expenseAmount") ?? 0,
     linkedDividendPeriodId:
-      (formData.get("linkedDividendPeriodId") as string | null)?.trim() ||
-      null,
+      (formData.get("linkedDividendPeriodId") as string | null)?.trim() || null,
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
     profitAmount: Number(getRequiredString(formData, "profitAmount")),
-    profitDate: new Date(
-      `${getRequiredString(formData, "profitDate")}T00:00:00.000Z`
-    ),
+    profitDate: new Date(`${profitDate}T00:00:00.000Z`),
     profitEntryId: getRequiredString(formData, "profitEntryId"),
     reason: (formData.get("reason") as string | null)?.trim() || undefined,
     sourceType: getRequiredString(formData, "sourceType") as
@@ -1271,13 +1585,83 @@ export async function generateShareProfitAllocationsAction(formData: FormData) {
 export async function publishShareProfitAllocationsAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
+  const profitEntryId = getRequiredString(formData, "profitEntryId")
 
   await publishShareProfitAllocations({
-    profitEntryId: getRequiredString(formData, "profitEntryId"),
+    profitEntryId,
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath(
+    `/settings/finance/business/profits/${profitEntryId}/migration`
+  )
+}
+
+export async function saveBusinessProfitMigrationWorksheetAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireHistoricalFinanceSetupMutable(actor)
+  const profitDate = getRequiredString(formData, "profitDate")
+  const profitEntryId = getRequiredString(formData, "profitEntryId")
+  const allocationMode = getRequiredString(formData, "allocationMode") as
+    | "percentage"
+    | "value"
+
+  requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
+
+  if (allocationMode !== "percentage" && allocationMode !== "value") {
+    throw new Error("Allocation mode must be value or percentage.")
+  }
+
+  const profitAmount = Number(getRequiredString(formData, "profitAmount"))
+
+  if (!Number.isFinite(profitAmount) || profitAmount < 0) {
+    throw new Error("Profit amount must be a valid positive number.")
+  }
+
+  const expenseIndexes = Array.from(
+    new Set(
+      Array.from(formData.keys()).flatMap((key) => {
+        const match = key.match(/^expenseReason-(\d+)$/)
+        return match?.[1] ? [match[1]] : []
+      })
+    )
+  )
+  const memberIds = Array.from(
+    new Set(
+      Array.from(formData.keys()).flatMap((key) => {
+        const match = key.match(/^allocation(?:Value|Percent)-(.+)$/)
+        return match?.[1] ? [match[1]] : []
+      })
+    )
+  )
+
+  await saveBusinessProfitMigrationWorksheet({
+    allocationMode,
+    allocations: memberIds.map((memberId) => ({
+      allocatedProfitAmount:
+        getOptionalNumber(formData, `allocationValue-${memberId}`) ?? null,
+      memberId,
+      sharePercentage:
+        getOptionalNumber(formData, `allocationPercent-${memberId}`) ?? null,
+    })),
+    expenseLines: expenseIndexes.map((index) => ({
+      amount: getOptionalNumber(formData, `expenseAmount-${index}`) ?? 0,
+      reason:
+        (formData.get(`expenseReason-${index}`) as string | null)?.trim() || "",
+    })),
+    profitAmount,
+    profitDate: new Date(`${profitDate}T00:00:00.000Z`),
+    profitEntryId,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath(
+    `/settings/finance/business/profits/${profitEntryId}/migration`
+  )
+  revalidatePath("/settings/finance/business")
 }
 
 export async function updateChargeDefinitionAction(formData: FormData) {
@@ -1291,6 +1675,8 @@ export async function updateChargeDefinitionAction(formData: FormData) {
     formData.get("chargeValueType") as string | null
   )?.trim()
   const notes = (formData.get("notes") as string | null)?.trim()
+
+  requireDateOnOrAfterTenantStartDate(actor, effectiveFrom, "Effective date")
 
   await updateChargeDefinition(
     actor.tenant.id,
@@ -1315,13 +1701,14 @@ export async function updateChargeDefinitionAction(formData: FormData) {
 export async function applyChargeAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
+  const assessedAt = getRequiredString(formData, "assessedAt")
+
+  requireDateOnOrAfterTenantStartDate(actor, assessedAt, "Charge date")
 
   const charge = await applyCharge({
     actorUserId: actor.user.id,
     amount: Number(getRequiredString(formData, "amount")),
-    assessedAt: new Date(
-      `${getRequiredString(formData, "assessedAt")}T00:00:00.000Z`
-    ),
+    assessedAt: new Date(`${assessedAt}T00:00:00.000Z`),
     chargeDefinitionId: getRequiredString(formData, "chargeDefinitionId"),
     memberId: getRequiredString(formData, "memberId"),
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
@@ -1466,12 +1853,19 @@ export async function reviewLoanRequestAction(formData: FormData) {
 export async function disburseLoanAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
+  const firstRepaymentDueAt = (
+    formData.get("firstRepaymentDueAt") as string | null
+  )?.trim()
+
+  requireDateOnOrAfterTenantStartDate(
+    actor,
+    firstRepaymentDueAt,
+    "First repayment date"
+  )
 
   await disburseLoan({
     actorUserId: actor.user.id,
-    firstRepaymentDueAt:
-      (formData.get("firstRepaymentDueAt") as string | null)?.trim() ||
-      undefined,
+    firstRepaymentDueAt: firstRepaymentDueAt || undefined,
     loanId: getRequiredString(formData, "loanId"),
     tenantId: actor.tenant.id,
   })
@@ -1627,16 +2021,20 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
   await createLegacyLoanMigrationDraft({
     actorUserId: actor.user.id,
     closedAt: closedAt ? new Date(`${closedAt}T00:00:00.000Z`) : null,
+    guarantorOneMemberId:
+      (formData.get("guarantorOneMemberId") as string | null)?.trim() || null,
+    guarantorTwoMemberId:
+      (formData.get("guarantorTwoMemberId") as string | null)?.trim() || null,
     loanLabel: getRequiredString(formData, "loanLabel"),
     memberId,
     notes: (formData.get("notes") as string | null)?.trim() || null,
     openedAt: new Date(
       `${getRequiredString(formData, "openedAt")}T00:00:00.000Z`
     ),
-    outstandingPrincipalBalance: Number(
-      getRequiredString(formData, "outstandingPrincipalBalance")
-    ),
     principalAmount: Number(getRequiredString(formData, "principalAmount")),
+    outstandingPrincipalBalance:
+      getOptionalNumber(formData, "outstandingPrincipalBalance") ??
+      Number(getRequiredString(formData, "principalAmount")),
     savingsDuringLoan: Number(getRequiredString(formData, "savingsDuringLoan")),
     scheduledMonthlyPrincipalRepayment: Number(
       getRequiredString(formData, "scheduledMonthlyPrincipalRepayment")
@@ -1645,6 +2043,8 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath(`/settings/finance/migration/${memberId}`)
+  revalidatePath("/settings/finance/loan")
 }
 
 export async function updateLegacyLoanMigrationDraftAction(formData: FormData) {
@@ -1657,16 +2057,20 @@ export async function updateLegacyLoanMigrationDraftAction(formData: FormData) {
     actorUserId: actor.user.id,
     closedAt: closedAt ? new Date(`${closedAt}T00:00:00.000Z`) : null,
     draftId: getRequiredString(formData, "draftId"),
+    guarantorOneMemberId:
+      (formData.get("guarantorOneMemberId") as string | null)?.trim() || null,
+    guarantorTwoMemberId:
+      (formData.get("guarantorTwoMemberId") as string | null)?.trim() || null,
     loanLabel: getRequiredString(formData, "loanLabel"),
     memberId,
     notes: (formData.get("notes") as string | null)?.trim() || null,
     openedAt: new Date(
       `${getRequiredString(formData, "openedAt")}T00:00:00.000Z`
     ),
-    outstandingPrincipalBalance: Number(
-      getRequiredString(formData, "outstandingPrincipalBalance")
-    ),
     principalAmount: Number(getRequiredString(formData, "principalAmount")),
+    outstandingPrincipalBalance:
+      getOptionalNumber(formData, "outstandingPrincipalBalance") ??
+      Number(getRequiredString(formData, "principalAmount")),
     savingsDuringLoan: Number(getRequiredString(formData, "savingsDuringLoan")),
     scheduledMonthlyPrincipalRepayment: Number(
       getRequiredString(formData, "scheduledMonthlyPrincipalRepayment")
@@ -1675,6 +2079,28 @@ export async function updateLegacyLoanMigrationDraftAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath(`/settings/finance/migration/${memberId}`)
+  revalidatePath("/settings/finance/loan")
+}
+
+export async function upsertMemberAmountLogAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+  await requireMemberMigrationDraftMutable(actor, memberId)
+
+  await upsertMemberAmountLog({
+    actorUserId: actor.user.id,
+    amount: Number(getRequiredString(formData, "amount")),
+    effectiveFrom: new Date(
+      `${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`
+    ),
+    memberId,
+    notes: (formData.get("notes") as string | null)?.trim() || null,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath(`/settings/finance/migration/${memberId}`)
 }
 
 export async function markLegacyLoansReviewedAction(formData: FormData) {
@@ -1739,12 +2165,96 @@ export async function upsertMigrationBackfillAdjustmentAction(
     memberId,
     month: new Date(`${rawMonth}-01T00:00:00.000Z`),
     notes: (formData.get("notes") as string | null)?.trim() || null,
+    rowStatus: (formData.get("rowStatus") as any) || null,
     savingsContribution:
       getOptionalNumber(formData, "savingsContribution") ?? null,
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/migration")
+  revalidatePath(`/settings/finance/migration/${memberId}`)
+}
+
+export async function setMigrationBackfillDefaultingMonthsAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+  await requireMemberMigrationDraftMutable(actor, memberId)
+  const allMonthValues = formData
+    .getAll("month")
+    .filter(
+      (value): value is string => typeof value === "string" && value.length > 0
+    )
+  const defaultingMonthValues = formData
+    .getAll("defaultingMonth")
+    .filter(
+      (value): value is string => typeof value === "string" && value.length > 0
+    )
+
+  if (allMonthValues.length === 0) {
+    throw new Error("Select at least one migration month.")
+  }
+
+  await setMigrationBackfillDefaultingMonths({
+    actorUserId: actor.user.id,
+    defaultingMonths: defaultingMonthValues.map(
+      (month) => new Date(`${month}-01T00:00:00.000Z`)
+    ),
+    memberId,
+    months: allMonthValues.map(
+      (month) => new Date(`${month}-01T00:00:00.000Z`)
+    ),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/migration")
+  revalidatePath(`/settings/finance/migration/${memberId}`)
+}
+
+export async function upsertMemberActivityEventAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+  await requireMemberMigrationDraftMutable(actor, memberId)
+  const rawEffectiveMonth = getRequiredString(formData, "effectiveMonth")
+  const status = getRequiredString(formData, "status")
+
+  if (status !== "active" && status !== "inactive") {
+    throw new Error("Member activity status must be active or inactive.")
+  }
+
+  await upsertMemberActivityEvent({
+    actorUserId: actor.user.id,
+    effectiveMonth: new Date(`${rawEffectiveMonth}-01T00:00:00.000Z`),
+    memberId,
+    notes: (formData.get("notes") as string | null)?.trim() || null,
+    reason: (formData.get("reason") as string | null)?.trim() || null,
+    status,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/migration")
+  revalidatePath(`/settings/finance/migration/${memberId}`)
+}
+
+export async function deleteMemberActivityEventAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+  await requireMemberMigrationDraftMutable(actor, memberId)
+
+  await deleteMemberActivityEvent({
+    actorUserId: actor.user.id,
+    eventId: getRequiredString(formData, "eventId"),
+    memberId,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/migration")
+  revalidatePath(`/settings/finance/migration/${memberId}`)
 }
 
 export async function upsertMigrationProfitAdjustmentAction(
@@ -2081,6 +2591,22 @@ export async function recordCollectionFollowUpAction(formData: FormData) {
   revalidatePath("/repayments")
 }
 
+const importSettingsPaths = [
+  "/settings/imports",
+  "/settings/imports/members",
+  "/settings/imports/deduction-sources",
+  "/settings/imports/loan-products",
+  "/settings/imports/contributions",
+  "/settings/imports/charges",
+  "/settings/imports/loan-migrations",
+  "/settings/imports/repayment-migrations",
+  "/settings/imports/batches",
+]
+
+function revalidateImportSettingsPaths() {
+  importSettingsPaths.forEach((path) => revalidatePath(path))
+}
+
 export async function importMembersCsvAction(formData: FormData) {
   const actor = await requireDashboardActor(workspaceConfigurationRoles)
   await requireMemberDataImportPrerequisitesComplete(actor, "members")
@@ -2092,6 +2618,11 @@ export async function importMembersCsvAction(formData: FormData) {
   if (!parsed.ok) {
     throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
   }
+  requireImportRowsOnOrAfterTenantStartDate(
+    actor,
+    "members",
+    parsed.rows as unknown as Record<string, unknown>[]
+  )
 
   await importMembers({
     actorUserId: actor.user.id,
@@ -2099,7 +2630,7 @@ export async function importMembersCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
+  revalidateImportSettingsPaths()
   revalidatePath("/members")
 }
 
@@ -2121,7 +2652,7 @@ export async function importDeductionSourcesCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
+  revalidateImportSettingsPaths()
   revalidatePath("/members")
 }
 
@@ -2143,7 +2674,7 @@ export async function importLoanProductsCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
+  revalidateImportSettingsPaths()
   revalidatePath("/loans")
 }
 
@@ -2158,6 +2689,11 @@ export async function importContributionsCsvAction(formData: FormData) {
   if (!parsed.ok) {
     throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
   }
+  requireImportRowsOnOrAfterTenantStartDate(
+    actor,
+    "contributions",
+    parsed.rows as unknown as Record<string, unknown>[]
+  )
 
   await importContributions({
     actorUserId: actor.user.id,
@@ -2165,7 +2701,7 @@ export async function importContributionsCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
+  revalidateImportSettingsPaths()
   revalidatePath("/contributions")
   revalidatePath("/members")
 }
@@ -2181,6 +2717,11 @@ export async function importChargesCsvAction(formData: FormData) {
   if (!parsed.ok) {
     throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
   }
+  requireImportRowsOnOrAfterTenantStartDate(
+    actor,
+    "charges",
+    parsed.rows as unknown as Record<string, unknown>[]
+  )
 
   await importCharges({
     actorUserId: actor.user.id,
@@ -2188,7 +2729,7 @@ export async function importChargesCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
+  revalidateImportSettingsPaths()
   revalidatePath("/charges")
   revalidatePath("/members")
 }
@@ -2204,6 +2745,11 @@ export async function importLoanMigrationsCsvAction(formData: FormData) {
   if (!parsed.ok) {
     throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
   }
+  requireImportRowsOnOrAfterTenantStartDate(
+    actor,
+    "loan_migrations",
+    parsed.rows as unknown as Record<string, unknown>[]
+  )
 
   await importLoanMigrations({
     actorUserId: actor.user.id,
@@ -2211,7 +2757,7 @@ export async function importLoanMigrationsCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
+  revalidateImportSettingsPaths()
   revalidatePath("/loans")
   revalidatePath("/repayments")
   revalidatePath("/members")
@@ -2238,7 +2784,7 @@ export async function importRepaymentMigrationsCsvAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
+  revalidateImportSettingsPaths()
   revalidatePath("/repayments")
   revalidatePath("/loans")
   revalidatePath("/members")
@@ -2269,6 +2815,7 @@ export async function stageImportBatchAction(formData: FormData) {
   if (!parsed.ok) {
     throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
   }
+  requireImportRowsOnOrAfterTenantStartDate(actor, importKind, parsed.rows)
 
   const referenceData = await getImportReferenceData(actor.tenant.id)
   const seen = new Set<string>()
@@ -2314,7 +2861,7 @@ export async function stageImportBatchAction(formData: FormData) {
     validRows: parsed.rows.length,
   })
 
-  revalidatePath("/settings/imports")
+  revalidateImportSettingsPaths()
   revalidatePath("/members")
 }
 
@@ -2344,7 +2891,7 @@ export async function applyImportBatchAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  revalidatePath("/settings/imports")
+  revalidateImportSettingsPaths()
   revalidatePath("/members")
   revalidatePath("/contributions")
   revalidatePath("/charges")

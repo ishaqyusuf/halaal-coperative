@@ -5,6 +5,8 @@ import { getTenantInitialMigrationState } from "./migration"
 
 export type LegacyLoanMigrationDraftRow = {
   closedAt: Date | null
+  guarantorOneMemberId: string | null
+  guarantorTwoMemberId: string | null
   id: string
   loanLabel: string
   member: {
@@ -22,6 +24,8 @@ export type LegacyLoanMigrationDraftRow = {
 
 type LegacyLoanMigrationDraftInput = {
   closedAt?: Date | null
+  guarantorOneMemberId?: string | null
+  guarantorTwoMemberId?: string | null
   loanLabel: string
   memberId: string
   notes?: string | null
@@ -59,6 +63,28 @@ function validateLegacyLoanMigrationDraftInput(
 
   if (input.closedAt && input.closedAt < input.openedAt) {
     throw new Error("Closed date cannot be before the loan date.")
+  }
+
+  if (
+    input.guarantorOneMemberId &&
+    input.guarantorOneMemberId === input.memberId
+  ) {
+    throw new Error("Guarantor 1 cannot be the borrowing member.")
+  }
+
+  if (
+    input.guarantorTwoMemberId &&
+    input.guarantorTwoMemberId === input.memberId
+  ) {
+    throw new Error("Guarantor 2 cannot be the borrowing member.")
+  }
+
+  if (
+    input.guarantorOneMemberId &&
+    input.guarantorTwoMemberId &&
+    input.guarantorOneMemberId === input.guarantorTwoMemberId
+  ) {
+    throw new Error("Guarantor 1 and guarantor 2 must be different members.")
   }
 }
 
@@ -137,6 +163,8 @@ export async function listLegacyLoanMigrationDrafts(
 
   return rows.map((row: any) => ({
     closedAt: row.closedAt,
+    guarantorOneMemberId: row.guarantorOneMemberId ?? null,
+    guarantorTwoMemberId: row.guarantorTwoMemberId ?? null,
     id: row.id,
     loanLabel: row.loanLabel,
     member: row.member,
@@ -174,6 +202,8 @@ export async function createLegacyLoanMigrationDraft(
     data: {
       closedAt: input.closedAt ?? null,
       createdByUserId: input.actorUserId,
+      guarantorOneMemberId: input.guarantorOneMemberId ?? null,
+      guarantorTwoMemberId: input.guarantorTwoMemberId ?? null,
       loanLabel: input.loanLabel,
       memberId: input.memberId,
       notes: input.notes?.trim() || null,
@@ -195,6 +225,8 @@ export async function createLegacyLoanMigrationDraft(
       entityId: created.id,
       entityType: "LegacyLoanMigrationDraft",
       metadata: {
+        guarantorOneMemberId: input.guarantorOneMemberId ?? null,
+        guarantorTwoMemberId: input.guarantorTwoMemberId ?? null,
         memberId: input.memberId,
         openedAt: input.openedAt.toISOString(),
         outstandingPrincipalBalance: input.outstandingPrincipalBalance,
@@ -245,6 +277,8 @@ export async function updateLegacyLoanMigrationDraft(
   const updated = await prisma.legacyLoanMigrationDraft.update({
     data: {
       closedAt: input.closedAt ?? null,
+      guarantorOneMemberId: input.guarantorOneMemberId ?? null,
+      guarantorTwoMemberId: input.guarantorTwoMemberId ?? null,
       loanLabel: input.loanLabel,
       notes: input.notes?.trim() || null,
       openedAt: input.openedAt,
@@ -267,6 +301,8 @@ export async function updateLegacyLoanMigrationDraft(
       metadata: {
         after: {
           closedAt: input.closedAt?.toISOString() ?? null,
+          guarantorOneMemberId: input.guarantorOneMemberId ?? null,
+          guarantorTwoMemberId: input.guarantorTwoMemberId ?? null,
           loanLabel: input.loanLabel,
           openedAt: input.openedAt.toISOString(),
           outstandingPrincipalBalance: input.outstandingPrincipalBalance,
@@ -277,6 +313,8 @@ export async function updateLegacyLoanMigrationDraft(
         },
         before: {
           closedAt: existing.closedAt?.toISOString?.() ?? null,
+          guarantorOneMemberId: existing.guarantorOneMemberId ?? null,
+          guarantorTwoMemberId: existing.guarantorTwoMemberId ?? null,
           loanLabel: existing.loanLabel,
           openedAt: existing.openedAt?.toISOString?.() ?? null,
           outstandingPrincipalBalance: Number(

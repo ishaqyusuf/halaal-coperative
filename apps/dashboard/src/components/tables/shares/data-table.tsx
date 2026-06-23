@@ -22,12 +22,18 @@ import { columns, type Share } from "./columns"
 import { EmptyState, NoResults } from "./empty-states"
 
 type Props = {
+  financeStartDate?: string | null
   hasSourceRows?: boolean
   isLocked: boolean
   rows: Share[]
 }
 
-export function DataTable({ hasSourceRows, isLocked, rows }: Props) {
+export function DataTable({
+  financeStartDate,
+  hasSourceRows,
+  isLocked,
+  rows,
+}: Props) {
   const hasRows = hasSourceRows ?? rows.length > 0
   const { filter } = useShareFilterParams()
   const { setParams } = useShareParams()
@@ -137,7 +143,11 @@ export function DataTable({ hasSourceRows, isLocked, rows }: Props) {
       {!hasRows ? <EmptyState /> : null}
       {hasRows && !hasFilteredRows ? <NoResults /> : null}
 
-      <ShareSheet isLocked={isLocked} rows={rows} />
+      <ShareSheet
+        financeStartDate={financeStartDate}
+        isLocked={isLocked}
+        rows={rows}
+      />
     </div>
   )
 }

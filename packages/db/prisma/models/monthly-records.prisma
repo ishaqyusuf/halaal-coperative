@@ -18,6 +18,19 @@ model MonthlyRecord {
   @@map("monthly_records")
 }
 
+model MonthlyRecordSetting {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String   @unique @map("tenant_id") @db.Uuid
+  autoGenerateEnabled  Boolean  @default(true) @map("auto_generate_enabled")
+  generationDayOfMonth Int      @default(1) @map("generation_day_of_month")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("monthly_record_settings")
+}
+
 model MonthlyRecordMember {
   id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId                String                    @map("tenant_id") @db.Uuid

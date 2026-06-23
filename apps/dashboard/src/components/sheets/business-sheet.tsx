@@ -11,10 +11,7 @@ import {
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
 import { Textarea } from "@halaalvest/ui/components/textarea"
-import {
-  ShareBusinessForm,
-  ShareBusinessProfitEntryForm,
-} from "@/components/forms/tenant-finance-forms"
+import { ShareBusinessProfitEntryForm } from "@/components/forms/tenant-finance-forms"
 import { useBusinessParams } from "@/hooks/use-business-params"
 import {
   markBusinessProfitPoolsReviewedAction,
@@ -60,34 +57,33 @@ function getSelectedProfitEntry(
 export function BusinessSheet({
   canReviewNoProfit,
   dividendPeriods,
+  financeStartDate,
   isLocked,
   rows,
 }: {
   canReviewNoProfit: boolean
   dividendPeriods: DividendPeriodOption[]
+  financeStartDate?: string | null
   isLocked: boolean
   rows: Business[]
 }) {
   const { businessId, businessType, profitEntryId, setParams } =
     useBusinessParams()
-  const isCreate = businessType === "create"
   const isProfit = businessType === "profit"
   const isEdit = businessType === "edit"
   const isEditProfit = businessType === "editProfit"
   const isReviewNone = businessType === "reviewNone"
-  const isOpen = isCreate || isProfit || isEdit || isEditProfit || isReviewNone
+  const isOpen = isProfit || isEdit || isEditProfit || isReviewNone
   const business = rows.find((row) => row.id === businessId)
   const profitEntry = getSelectedProfitEntry(business, profitEntryId)
   const businessOptions = rows.map((row) => ({ id: row.id, label: row.name }))
-  const title = isCreate
-    ? "Record business"
-    : isProfit
-      ? "Add profit entry"
-      : isEdit
-        ? "Edit business"
-        : isEditProfit
-          ? "Edit profit entry"
-          : "Review no business profits"
+  const title = isProfit
+    ? "Add profit entry"
+    : isEdit
+      ? "Edit business"
+      : isEditProfit
+        ? "Edit profit entry"
+        : "Review no business profits"
 
   const handleOnOpenChange = (open: boolean) => {
     if (!open) {
@@ -106,11 +102,7 @@ export function BusinessSheet({
           </SheetDescription>
         </SheetHeader>
 
-        {isCreate ? (
-          <div className="px-6">
-            <ShareBusinessForm dividendPeriods={dividendPeriods} />
-          </div>
-        ) : isProfit && business ? (
+        {isProfit && business ? (
           <form
             action={createShareBusinessProfitEntryAction}
             className="grid gap-4 px-6"
@@ -124,6 +116,7 @@ export function BusinessSheet({
               Profit date
               <Input
                 disabled={isLocked}
+                min={financeStartDate ?? undefined}
                 name="profitDate"
                 required
                 type="date"
@@ -222,6 +215,7 @@ export function BusinessSheet({
             <ShareBusinessProfitEntryForm
               businesses={businessOptions}
               dividendPeriods={dividendPeriods}
+              financeStartDate={financeStartDate}
             />
           </div>
         ) : isEdit && business ? (
@@ -266,6 +260,7 @@ export function BusinessSheet({
               <Input
                 defaultValue={business.startDate}
                 disabled={isLocked}
+                min={financeStartDate ?? undefined}
                 name="startDate"
                 required
                 type="date"
@@ -276,6 +271,7 @@ export function BusinessSheet({
               <Input
                 defaultValue={business.endDate ?? ""}
                 disabled={isLocked}
+                min={business.startDate || financeStartDate || undefined}
                 name="endDate"
                 type="date"
               />
@@ -332,6 +328,7 @@ export function BusinessSheet({
               <Input
                 defaultValue={profitEntry.profitDate}
                 disabled={isLocked}
+                min={financeStartDate ?? undefined}
                 name="profitDate"
                 required
                 type="date"

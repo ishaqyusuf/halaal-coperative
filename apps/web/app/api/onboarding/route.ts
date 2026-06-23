@@ -78,7 +78,6 @@ export async function POST(request: Request) {
       })
     }
 
-    const dashboardHostname = new URL(dashboardUrl).host
     const siteHostname = new URL(siteUrl).host
     const notificationService = createServerNotificationService()
     const workspaceReadyEmail = createWorkspaceReadyEmail({
@@ -127,7 +126,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       dashboardUrl,
-      primaryDashboardHostname: dashboardHostname,
+      primaryDashboardHostname: siteHostname,
       primarySiteHostname: siteHostname,
       siteUrl,
       tenantId: result.tenant.id,

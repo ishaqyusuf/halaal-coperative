@@ -7,7 +7,8 @@ export type MonthlyRecordGeneratePayload = {
   tenantId?: string
 }
 
-export const monthlyRecordGenerateTask: BackgroundTask<MonthlyRecordGeneratePayload> = {
-  id: "monthly-record-generate",
-  run: monthlyRecordGenerateHandler,
-}
+export const monthlyRecordGenerateTask: BackgroundTask<MonthlyRecordGeneratePayload> =
+  {
+    id: "monthly-record-generate",
+    run: monthlyRecordGenerateHandler,
+  }

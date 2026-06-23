@@ -1,7 +1,6 @@
 import { resolveCname } from "node:dns/promises"
 import type { Prisma, PrismaClient } from "@prisma/client"
 import {
-  buildDashboardHostname,
   buildTenantSiteHostname,
   isReservedTenantSubdomainLabel,
   normalizeSubdomainLabel,
@@ -110,45 +109,12 @@ const seedTenantDomains: TenantDomainRecord[] = [
     verifiedAt: "2026-04-14T00:00:00.000Z",
   },
   {
-    id: "tenant-domain-amanah-dashboard",
-    tenantId: "tenant-amanah-demo",
-    hostname: buildDashboardHostname("amanah"),
-    kind: "dashboard",
-    routingScope: "dashboard",
-    isPrimary: false,
-    verificationStatus: "verified",
-    verificationCheckedAt: "2026-04-14T00:00:00.000Z",
-    verifiedAt: "2026-04-14T00:00:00.000Z",
-  },
-  {
-    id: "tenant-domain-amanah-custom",
-    tenantId: "tenant-amanah-demo",
-    hostname: "app.amanah.example",
-    kind: "custom",
-    routingScope: "site",
-    isPrimary: false,
-    verificationStatus: "pending_dns",
-    verificationCheckedAt: null,
-    verifiedAt: null,
-  },
-  {
     id: "tenant-domain-barakah-site",
     tenantId: "tenant-barakah-demo",
     hostname: buildTenantSiteHostname("barakah"),
     kind: "site",
     routingScope: "site",
     isPrimary: true,
-    verificationStatus: "verified",
-    verificationCheckedAt: "2026-04-14T00:00:00.000Z",
-    verifiedAt: "2026-04-14T00:00:00.000Z",
-  },
-  {
-    id: "tenant-domain-barakah-dashboard",
-    tenantId: "tenant-barakah-demo",
-    hostname: buildDashboardHostname("barakah"),
-    kind: "dashboard",
-    routingScope: "dashboard",
-    isPrimary: false,
     verificationStatus: "verified",
     verificationCheckedAt: "2026-04-14T00:00:00.000Z",
     verifiedAt: "2026-04-14T00:00:00.000Z",
@@ -269,14 +235,8 @@ function mapPrismaTenantRecord(input: {
 
 const platformIngressHostname = platformAppHostname
 
-function getTenantDomainRoutingScope(input: {
-  hostname: string
-  kind: TenantDomainKind
-}): "site" | "dashboard" {
-  if (input.kind === "site") return "site"
-  if (input.kind === "dashboard") return "dashboard"
-
-  return input.hostname.startsWith("dashboard.") ? "dashboard" : "site"
+function getTenantDomainRoutingScope(): "site" | "dashboard" {
+  return "site"
 }
 
 function getTenantDomainVerificationGuide(input: {
@@ -285,7 +245,7 @@ function getTenantDomainVerificationGuide(input: {
   verificationStatus: string
   verificationDetails?: Record<string, unknown> | null
 }) {
-  const routingScope = getTenantDomainRoutingScope(input)
+  const routingScope = getTenantDomainRoutingScope()
 
   const details = input.verificationDetails
   const dnsSummary =
@@ -300,9 +260,7 @@ function getTenantDomainVerificationGuide(input: {
       verificationRecordType: "ALIAS" as const,
       verificationTarget: null,
       verificationNote:
-        routingScope === "dashboard"
-          ? "Platform-managed legacy dashboard alias. Verification is handled by the platform."
-          : "Platform-managed canonical tenant hostname. Verification is handled by the platform.",
+        "Platform-managed canonical tenant hostname. Verification is handled by the platform.",
     }
   }
 
@@ -317,9 +275,7 @@ function getTenantDomainVerificationGuide(input: {
           : "DNS target looks ready and the domain is approved for promotion within its routing scope."
         : input.verificationStatus === "failed" && errorSummary
           ? `Verification failed. ${errorSummary}`
-        : routingScope === "dashboard"
-          ? `Point this legacy dashboard alias to ${platformIngressHostname}, then run a verification check before making it primary.`
-          : `Point this canonical tenant hostname to ${platformIngressHostname}, then run a verification check before making it primary.`,
+        : `Point this canonical tenant hostname to ${platformIngressHostname}, then run a verification check before making it primary.`,
   }
 }
 
@@ -834,25 +790,16 @@ export async function setTenantDomainPrimary(input: {
       throw new Error("Custom domains must be verified before they can become primary.")
     }
 
-    const routingScope = getTenantDomainRoutingScope({
-      hostname: domain.hostname,
-      kind: domain.kind,
-    })
-
     const scopedDomains = await tx.tenantDomain.findMany({
       where: {
         tenantId: input.tenantId,
       },
       select: {
         id: true,
-        hostname: true,
-        kind: true,
       },
     })
 
-    const scopedDomainIds = scopedDomains
-      .filter((item) => getTenantDomainRoutingScope({ hostname: item.hostname, kind: item.kind }) === routingScope)
-      .map((item) => item.id)
+    const scopedDomainIds = scopedDomains.map((item) => item.id)
 
     await tx.tenantDomain.updateMany({
       where: {

@@ -7,18 +7,22 @@ import { getTenantInitialMigrationState } from "./migration"
 
 export type MonthlyRecordMemberStatusValue = "pending" | "applied" | "cancelled"
 export type MonthlyRecordStatusValue = "draft" | "open" | "closed"
-const activeMonthlyRecordLoanStatuses: LoanStatus[] = ["approved", "active", "disbursed"]
+const activeMonthlyRecordLoanStatuses: LoanStatus[] = [
+  "approved",
+  "active",
+  "disbursed",
+]
 const defaultGenerationDayOfMonth = 1
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
     throw new Error(
-      "Live financial record writes are locked until initial migration is finalized.",
+      "Live financial record writes are locked until initial migration is finalized."
     )
   }
 }
@@ -106,29 +110,49 @@ function allocateMonthlyRecordPayment(input: {
   totalPaidAmount: number
 }) {
   if (input.paymentAllocationPreference === "loan_first") {
-    const scheduledLoanServicingAmount = Math.min(input.loanTarget, input.totalPaidAmount)
-    const remainingAfterLoan = Math.max(0, input.totalPaidAmount - scheduledLoanServicingAmount)
-    const contributionAmount = Math.min(input.contributionTarget, remainingAfterLoan)
+    const scheduledLoanServicingAmount = Math.min(
+      input.loanTarget,
+      input.totalPaidAmount
+    )
+    const remainingAfterLoan = Math.max(
+      0,
+      input.totalPaidAmount - scheduledLoanServicingAmount
+    )
+    const contributionAmount = Math.min(
+      input.contributionTarget,
+      remainingAfterLoan
+    )
 
     return {
       contributionAmount,
       extraSavingsAmount: Math.max(
         0,
-        input.totalPaidAmount - scheduledLoanServicingAmount - contributionAmount,
+        input.totalPaidAmount -
+          scheduledLoanServicingAmount -
+          contributionAmount
       ),
       scheduledLoanServicingAmount,
     }
   }
 
-  const contributionAmount = Math.min(input.contributionTarget, input.totalPaidAmount)
-  const remainingAfterContribution = Math.max(0, input.totalPaidAmount - contributionAmount)
-  const scheduledLoanServicingAmount = Math.min(input.loanTarget, remainingAfterContribution)
+  const contributionAmount = Math.min(
+    input.contributionTarget,
+    input.totalPaidAmount
+  )
+  const remainingAfterContribution = Math.max(
+    0,
+    input.totalPaidAmount - contributionAmount
+  )
+  const scheduledLoanServicingAmount = Math.min(
+    input.loanTarget,
+    remainingAfterContribution
+  )
 
   return {
     contributionAmount,
     extraSavingsAmount: Math.max(
       0,
-      input.totalPaidAmount - contributionAmount - scheduledLoanServicingAmount,
+      input.totalPaidAmount - contributionAmount - scheduledLoanServicingAmount
     ),
     scheduledLoanServicingAmount,
   }
@@ -146,9 +170,15 @@ function summarizeRows(record: {
     totalPaidAmount: unknown
   }>
 }): MonthlyRecordSummary {
-  const recordedRows = record.memberRows.filter((row) => row.status === "applied")
-  const pendingRows = record.memberRows.filter((row) => row.status === "pending")
-  const cancelledRows = record.memberRows.filter((row) => row.status === "cancelled")
+  const recordedRows = record.memberRows.filter(
+    (row) => row.status === "applied"
+  )
+  const pendingRows = record.memberRows.filter(
+    (row) => row.status === "pending"
+  )
+  const cancelledRows = record.memberRows.filter(
+    (row) => row.status === "cancelled"
+  )
 
   return {
     id: record.id,
@@ -162,11 +192,11 @@ function summarizeRows(record: {
     totalMembers: record.memberRows.length,
     totalPayableAmount: record.memberRows.reduce(
       (total, row) => total + Number(row.calculatedPayableAmount),
-      0,
+      0
     ),
     totalReceivedAmount: recordedRows.reduce(
       (total, row) => total + Number(row.totalPaidAmount),
-      0,
+      0
     ),
   }
 }
@@ -201,7 +231,7 @@ function settingView(row: {
 
 export async function getMonthlyRecordSettings(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MonthlyRecordSettingView> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -225,7 +255,7 @@ export async function updateMonthlyRecordSettings(
     generationDayOfMonth: number
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MonthlyRecordSettingView> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -248,7 +278,7 @@ export async function updateMonthlyRecordSettings(
 
 export async function listMonthlyRecords(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MonthlyRecordSummary[]> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -324,19 +354,25 @@ async function seedMonthlyRecordMembers(input: {
     } as any,
     orderBy: [{ isMonthlyLevy: "desc" }, { createdAt: "asc" }],
   })
-  const shareChargeAmount = shareChargeDefinition ? Number(shareChargeDefinition.amount) : 0
+  const shareChargeAmount = shareChargeDefinition
+    ? Number(shareChargeDefinition.amount)
+    : 0
 
   for (const member of members) {
     const plan = member.contributionPlans[0]
     const contributionAmount = plan ? Number(plan.amount) : 0
-    const loan = member.loans.find((item) => item.repaymentScheduleItems.length > 0) ?? member.loans[0]
+    const loan =
+      member.loans.find((item) => item.repaymentScheduleItems.length > 0) ??
+      member.loans[0]
     const loanPayable = loan
       ? Math.min(
           Number(loan.outstandingPrincipal),
           loan.repaymentScheduleItems.reduce(
-            (total, item) => total + Math.max(0, Number(item.totalDue) - Number(item.amountPaid)),
-            0,
-          ),
+            (total, item) =>
+              total +
+              Math.max(0, Number(item.totalDue) - Number(item.amountPaid)),
+            0
+          )
         )
       : 0
     const calculatedPayableAmount = contributionAmount + loanPayable
@@ -392,7 +428,7 @@ export async function ensureMonthlyRecord(
     year: number
     month: number
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -432,24 +468,41 @@ export async function ensureMonthlyRecord(
 
 export async function ensureMemberInGeneratedMonthlyRecord(
   input: {
-    actorUserId: string
     joinedAt: Date
     memberId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  const prismaWithMonthlyRecords = prisma as unknown as {
+    monthlyRecord?: {
+      findUnique: PrismaClient["monthlyRecord"]["findUnique"]
+    }
+    monthlyRecordMember?: {
+      findUnique: PrismaClient["monthlyRecordMember"]["findUnique"]
+    }
+  }
+  const monthlyRecordDelegate = prismaWithMonthlyRecords.monthlyRecord
+  const monthlyRecordMemberDelegate =
+    prismaWithMonthlyRecords.monthlyRecordMember
 
-  const migrationState = await getTenantInitialMigrationState(input.tenantId, prisma)
+  if (!monthlyRecordDelegate || !monthlyRecordMemberDelegate) {
+    return null
+  }
+
+  const migrationState = await getTenantInitialMigrationState(
+    input.tenantId,
+    prisma
+  )
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
     return null
   }
 
   const year = input.joinedAt.getUTCFullYear()
   const month = input.joinedAt.getUTCMonth() + 1
-  const record = await prisma.monthlyRecord.findUnique({
+  const record = await monthlyRecordDelegate.findUnique({
     where: {
       tenantId_periodYear_periodMonth: {
         tenantId: input.tenantId,
@@ -471,7 +524,7 @@ export async function ensureMemberInGeneratedMonthlyRecord(
     year,
   })
 
-  return prisma.monthlyRecordMember.findUnique({
+  return monthlyRecordMemberDelegate.findUnique({
     where: {
       monthlyRecordId_memberId: {
         memberId: input.memberId,
@@ -487,7 +540,7 @@ export async function generateDueMonthlyRecords(
     now?: Date
     tenantId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -524,7 +577,7 @@ export async function generateDueMonthlyRecords(
         tenantId: tenant.id,
         year: now.getUTCFullYear(),
       },
-      prisma,
+      prisma
     )
 
     generated.push({ monthlyRecordId: record.id, tenantId: tenant.id })
@@ -536,7 +589,7 @@ export async function generateDueMonthlyRecords(
 export async function getMonthlyRecordDetail(
   tenantId: string,
   monthlyRecordId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MonthlyRecordDetail | null> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -574,7 +627,10 @@ export async function getMonthlyRecordDetail(
             },
           },
         },
-        orderBy: [{ member: { memberNumber: "asc" } }, { member: { fullName: "asc" } }],
+        orderBy: [
+          { member: { memberNumber: "asc" } },
+          { member: { fullName: "asc" } },
+        ],
       },
     },
   })
@@ -628,9 +684,13 @@ export async function getMonthlyRecordDetail(
     orderBy: [{ isMonthlyLevy: "desc" }, { name: "asc" }],
   })
   const totalPaidByMemberId = new Map(
-    record.memberRows.map((row) => [row.memberId, Number(row.totalPaidAmount)]),
+    record.memberRows.map((row) => [row.memberId, Number(row.totalPaidAmount)])
   )
-  const calculateChargeAmount = (amount: number, kind: string, memberId: string) =>
+  const calculateChargeAmount = (
+    amount: number,
+    kind: string,
+    memberId: string
+  ) =>
     kind === "percentage"
       ? (totalPaidByMemberId.get(memberId) ?? 0) * (amount / 100)
       : amount
@@ -641,9 +701,14 @@ export async function getMonthlyRecordDetail(
       row.memberId,
       memberChargeDefinitions.reduce(
         (total, charge) =>
-          total + calculateChargeAmount(Number(charge.amount), charge.kind, row.memberId),
-        0,
-      ),
+          total +
+          calculateChargeAmount(
+            Number(charge.amount),
+            charge.kind,
+            row.memberId
+          ),
+        0
+      )
     )
   }
   const appliedCharges = memberIds.length
@@ -667,19 +732,22 @@ export async function getMonthlyRecordDetail(
   for (const charge of appliedCharges) {
     actualChargesByMemberId.set(
       charge.memberId,
-      (actualChargesByMemberId.get(charge.memberId) ?? 0) + Number(charge.amount),
+      (actualChargesByMemberId.get(charge.memberId) ?? 0) +
+        Number(charge.amount)
     )
     actualChargesByDefinitionId.set(
       charge.chargeDefinitionId,
-      (actualChargesByDefinitionId.get(charge.chargeDefinitionId) ?? 0) + Number(charge.amount),
+      (actualChargesByDefinitionId.get(charge.chargeDefinitionId) ?? 0) +
+        Number(charge.amount)
     )
   }
 
   const chargeBreakdown = memberChargeDefinitions.map((charge) => {
     const amount = Number(charge.amount)
     const totalAmount = record.memberRows.reduce(
-      (total, row) => total + calculateChargeAmount(amount, charge.kind, row.memberId),
-      0,
+      (total, row) =>
+        total + calculateChargeAmount(amount, charge.kind, row.memberId),
+      0
     )
     const appliedTotalAmount = actualChargesByDefinitionId.get(charge.id) ?? 0
 
@@ -697,7 +765,7 @@ export async function getMonthlyRecordDetail(
   })
   const totalChargeAmount = chargeBreakdown.reduce(
     (total, charge) => total + charge.totalAmount,
-    0,
+    0
   )
 
   return {
@@ -707,12 +775,18 @@ export async function getMonthlyRecordDetail(
     rows: record.memberRows.map((row) => {
       const totalPaidAmount = Number(row.totalPaidAmount)
       const actualChargesAmount = actualChargesByMemberId.get(row.memberId) ?? 0
-      const calculatedChargesAmount = calculatedChargesByMemberId.get(row.memberId) ?? 0
+      const calculatedChargesAmount =
+        calculatedChargesByMemberId.get(row.memberId) ?? 0
       const isApplied = row.status === "applied"
-      const allChargesAmount = isApplied ? actualChargesAmount : calculatedChargesAmount
+      const allChargesAmount = isApplied
+        ? actualChargesAmount
+        : calculatedChargesAmount
       const actualFinalIncomeAmount = totalPaidAmount - actualChargesAmount
-      const calculatedFinalIncomeAmount = totalPaidAmount - calculatedChargesAmount
-      const finalIncomeAmount = isApplied ? actualFinalIncomeAmount : calculatedFinalIncomeAmount
+      const calculatedFinalIncomeAmount =
+        totalPaidAmount - calculatedChargesAmount
+      const finalIncomeAmount = isApplied
+        ? actualFinalIncomeAmount
+        : calculatedFinalIncomeAmount
 
       const loanStatus = row.loanId
         ? (loanStatusById.get(row.loanId) ?? "active")
@@ -726,8 +800,13 @@ export async function getMonthlyRecordDetail(
         finalIncomeAmount,
         actualFinalIncomeAmount,
         calculatedFinalIncomeAmount,
-        hasChargeDifference: isApplied && Math.abs(actualChargesAmount - calculatedChargesAmount) > 0.009,
-        hasFinalIncomeDifference: isApplied && Math.abs(actualFinalIncomeAmount - calculatedFinalIncomeAmount) > 0.009,
+        hasChargeDifference:
+          isApplied &&
+          Math.abs(actualChargesAmount - calculatedChargesAmount) > 0.009,
+        hasFinalIncomeDifference:
+          isApplied &&
+          Math.abs(actualFinalIncomeAmount - calculatedFinalIncomeAmount) >
+            0.009,
         id: row.id,
         memberId: row.member.id,
         memberNumber: row.member.memberNumber,
@@ -750,7 +829,7 @@ export async function getOrCreateMonthlyRecordsPageData(
     selectedRecordId?: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -766,7 +845,7 @@ export async function getOrCreateMonthlyRecordsPageData(
         year: now.getUTCFullYear(),
         month: now.getUTCMonth() + 1,
       },
-      prisma,
+      prisma
     )
     summaries = await listMonthlyRecords(input.tenantId, prisma)
     input.selectedRecordId = record.id
@@ -781,6 +860,7 @@ export async function getOrCreateMonthlyRecordsPageData(
   return {
     records: summaries,
     selectedRecord,
+    settings: await getMonthlyRecordSettings(input.tenantId, prisma),
   }
 }
 
@@ -791,7 +871,7 @@ export async function applyMonthlyRecordMember(
     tenantId: string
     totalPaidAmount: number
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -812,8 +892,10 @@ export async function applyMonthlyRecordMember(
   })
 
   if (!row) throw new Error("Monthly record member row not found.")
-  if (row.status === "applied") throw new Error("This monthly record row has already been applied.")
-  if (row.monthlyRecord.status === "closed") throw new Error("Closed monthly records cannot be changed.")
+  if (row.status === "applied")
+    throw new Error("This monthly record row has already been applied.")
+  if (row.monthlyRecord.status === "closed")
+    throw new Error("Closed monthly records cannot be changed.")
 
   const member = await prisma.member.findFirst({
     where: {
@@ -845,15 +927,21 @@ export async function applyMonthlyRecordMember(
       committedSavingsAmount: contributionAmount,
       contributionPlanId: row.contributionPlanId ?? undefined,
       extraSavingsAmount,
-      loanId: scheduledLoanServicingAmount > 0 ? row.loanId ?? undefined : undefined,
+      loanId:
+        scheduledLoanServicingAmount > 0
+          ? (row.loanId ?? undefined)
+          : undefined,
       memberId: row.memberId,
       periodLabel: row.monthlyRecord.periodLabel,
-      postedAt: getPeriodRange(row.monthlyRecord.periodYear, row.monthlyRecord.periodMonth).start,
+      postedAt: getPeriodRange(
+        row.monthlyRecord.periodYear,
+        row.monthlyRecord.periodMonth
+      ).start,
       reference: `monthly-record:${row.monthlyRecord.id}:${row.id}`,
       scheduledLoanServicingAmount,
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
   const memberChargeDefinitions = await prisma.chargeDefinition.findMany({
     where: {
@@ -863,12 +951,16 @@ export async function applyMonthlyRecordMember(
     },
     orderBy: [{ isMonthlyLevy: "desc" }, { name: "asc" }],
   })
-  const assessedAt = getPeriodRange(row.monthlyRecord.periodYear, row.monthlyRecord.periodMonth).start
+  const assessedAt = getPeriodRange(
+    row.monthlyRecord.periodYear,
+    row.monthlyRecord.periodMonth
+  ).start
 
   for (const charge of memberChargeDefinitions) {
-    const amount = charge.kind === "percentage"
-      ? input.totalPaidAmount * (Number(charge.amount) / 100)
-      : Number(charge.amount)
+    const amount =
+      charge.kind === "percentage"
+        ? input.totalPaidAmount * (Number(charge.amount) / 100)
+        : Number(charge.amount)
 
     if (amount <= 0) continue
 
@@ -882,7 +974,7 @@ export async function applyMonthlyRecordMember(
         notes: `Posted from monthly record ${row.monthlyRecord.periodLabel}`,
         tenantId: input.tenantId,
       },
-      prisma,
+      prisma
     )
   }
 
@@ -915,8 +1007,16 @@ async function reverseMonthlyContribution(input: {
   if (!contribution || contribution.status === "reversed") return
 
   const amount = Number(contribution.amount)
-  const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", input.tx)
-  const savingsAccount = await getLedgerAccountByCode(input.tenantId, "1000", input.tx)
+  const cashAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "2000",
+    input.tx
+  )
+  const savingsAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "1000",
+    input.tx
+  )
 
   if (!cashAccount || !savingsAccount) {
     throw new Error("Ledger accounts not initialized for this tenant")
@@ -947,7 +1047,7 @@ async function reverseMonthlyContribution(input: {
         { ledgerAccountId: cashAccount.id, direction: "credit", amount },
       ],
     },
-    input.tx,
+    input.tx
   )
 
   await input.tx.auditLog.create({
@@ -1019,8 +1119,16 @@ async function reverseMonthlyRepayment(input: {
   if (!repayment || repayment.status === "reversed") return
 
   const amount = Number(repayment.amount)
-  const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", input.tx)
-  const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", input.tx)
+  const cashAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "2000",
+    input.tx
+  )
+  const loanReceivableAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "1100",
+    input.tx
+  )
 
   if (!cashAccount || !loanReceivableAccount) {
     throw new Error("Ledger accounts not initialized for this tenant")
@@ -1057,11 +1165,15 @@ async function reverseMonthlyRepayment(input: {
       reference: `monthly-record-cancel:repayment:${repayment.id}`,
       narration: "Monthly record repayment cancellation",
       entries: [
-        { ledgerAccountId: loanReceivableAccount.id, direction: "debit", amount },
+        {
+          ledgerAccountId: loanReceivableAccount.id,
+          direction: "debit",
+          amount,
+        },
         { ledgerAccountId: cashAccount.id, direction: "credit", amount },
       ],
     },
-    input.tx,
+    input.tx
   )
 
   await input.tx.auditLog.create({
@@ -1072,7 +1184,11 @@ async function reverseMonthlyRepayment(input: {
       action: "repayment.reversed",
       entityType: "Repayment",
       entityId: repayment.id,
-      metadata: { amount, loanId: repayment.loanId, source: "monthly_record.cancel" },
+      metadata: {
+        amount,
+        loanId: repayment.loanId,
+        source: "monthly_record.cancel",
+      },
       occurredAt: new Date(),
     },
   })
@@ -1084,7 +1200,7 @@ export async function cancelMonthlyRecordMember(
     monthlyRecordMemberId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -1101,7 +1217,8 @@ export async function cancelMonthlyRecordMember(
     })
 
     if (!row) throw new Error("Monthly record member row not found.")
-    if (row.status === "cancelled") throw new Error("This monthly record row is already cancelled.")
+    if (row.status === "cancelled")
+      throw new Error("This monthly record row is already cancelled.")
     if (row.monthlyRecord.status === "closed") {
       throw new Error("Closed monthly records cannot be changed.")
     }

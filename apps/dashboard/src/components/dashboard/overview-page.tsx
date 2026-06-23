@@ -227,15 +227,15 @@ export async function DashboardOverviewPage() {
                 Tenant host
               </p>
               <p className="mt-2 text-sm font-medium text-foreground">
-                {onboarding?.primaryDashboardHostname ?? "Not configured yet"}
+                {onboarding?.primarySiteHostname ?? "Not configured yet"}
               </p>
             </DashboardSurfaceCard>
             <DashboardSurfaceCard>
               <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                Legacy dashboard alias
+                Workspace route
               </p>
               <p className="mt-2 text-sm font-medium text-foreground">
-                {onboarding?.primarySiteHostname ?? "Not configured yet"}
+                {onboarding?.primarySiteHostname ? `${onboarding.primarySiteHostname}/app` : "Not configured yet"}
               </p>
             </DashboardSurfaceCard>
             <DashboardSurfaceCard>

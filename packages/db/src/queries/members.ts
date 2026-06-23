@@ -9,6 +9,7 @@ import type {
 import { createPrismaClient } from "../prisma"
 import { getMemberTransactions } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
+import { ensureMemberInGeneratedMonthlyRecord } from "./monthly-records"
 
 export type ListMembersFilters = {
   kycStatus?: KycStatus
@@ -493,6 +494,15 @@ export async function createMemberWithState(
       occurredAt: new Date(),
     },
   })
+
+  await ensureMemberInGeneratedMonthlyRecord(
+    {
+      joinedAt: input.joinedAt,
+      memberId: member.id,
+      tenantId: input.tenantId,
+    },
+    tx as unknown as PrismaClient
+  )
 
   return member
 }

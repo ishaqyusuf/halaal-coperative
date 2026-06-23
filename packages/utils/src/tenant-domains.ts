@@ -7,8 +7,7 @@ export const localPlatformRootDomain =
 export const localTenantRootDomain =
   process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() || `app.${localPlatformRootDomain}`
 export const dashboardSubdomainLabel = "dashboard"
-export const localDashboardRootDomain =
-  process.env.HALAAL_VEST_DASHBOARD_ROOT_DOMAIN?.trim() || localTenantRootDomain
+export const localDashboardRootDomain = localTenantRootDomain
 export const platformAppHostname =
   process.env.HALAAL_VEST_PLATFORM_APP_HOSTNAME?.trim() || `app.${platformRootDomain}`
 
@@ -98,17 +97,11 @@ export function buildLocalTenantSiteHostname(subdomain: string) {
 }
 
 export function buildDashboardHostname(subdomain: string) {
-  const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
-  return normalizedSubdomain
-    ? `${dashboardSubdomainLabel}.${normalizedSubdomain}.${platformRootDomain}`
-    : ""
+  return buildTenantSiteHostname(subdomain)
 }
 
 export function buildLocalDashboardHostname(subdomain: string) {
-  const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
-  return normalizedSubdomain
-    ? `${dashboardSubdomainLabel}.${normalizedSubdomain}.${localTenantRootDomain}`
-    : ""
+  return buildLocalTenantSiteHostname(subdomain)
 }
 
 export function buildDashboardCustomHostname(hostname: string) {
@@ -118,9 +111,7 @@ export function buildDashboardCustomHostname(hostname: string) {
     return ""
   }
 
-  return normalizedHostname.startsWith(`${dashboardSubdomainLabel}.`)
-    ? normalizedHostname
-    : `${dashboardSubdomainLabel}.${normalizedHostname}`
+  return normalizedHostname
 }
 
 export function buildLocalDashboardCustomHostname(hostname: string) {
@@ -130,8 +121,7 @@ export function buildLocalDashboardCustomHostname(hostname: string) {
     return ""
   }
 
-  const dashboardHostname = buildDashboardCustomHostname(normalizedHostname)
-  return dashboardHostname ? `${dashboardHostname}.localhost` : ""
+  return normalizedHostname
 }
 
 export function extractSitefrontSubdomain(host: string) {

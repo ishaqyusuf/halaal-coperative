@@ -10,11 +10,6 @@ function parseOriginLike(value?: string | null) {
   }
 }
 
-function stripPort(host: string) {
-  if (host.startsWith("[")) return host.replace(/]:\d+$/, "]")
-  return host.replace(/:\d+$/, "")
-}
-
 function getDashboardAppOrigin(currentOrigin?: string | null) {
   const configuredOrigin =
     process.env.DASHBOARD_APP_URL ?? process.env.NEXT_PUBLIC_DASHBOARD_APP_URL
@@ -38,6 +33,15 @@ function getDashboardAppOrigin(currentOrigin?: string | null) {
   return currentOrigin ?? "http://app.halaalvest.localhost:1441"
 }
 
+function getTenantSiteOrigin(currentOrigin?: string | null) {
+  return (
+    process.env.TENANT_SITE_APP_URL ??
+    process.env.NEXT_PUBLIC_TENANT_SITE_APP_URL ??
+    currentOrigin ??
+    "http://halaalvest.localhost:1440"
+  )
+}
+
 function getTenantUrlDefaults(origin: string) {
   const parsedOrigin = parseOriginLike(origin)
   const currentHost = normalizeHost(parsedOrigin?.host ?? origin)
@@ -57,23 +61,19 @@ export function buildOnboardingWorkspaceUrls(input: {
   tenantSlug: string
 }) {
   const dashboardOrigin = getDashboardAppOrigin(input.currentOrigin)
-  const defaults = getTenantUrlDefaults(dashboardOrigin)
-  const dashboardRootDomain =
-    process.env.HALAAL_VEST_DASHBOARD_ROOT_DOMAIN?.trim() ||
-    process.env.APP_ROOT_DOMAIN?.trim() ||
-    stripPort(defaults.currentHost) ||
-    "app.halaalvest.localhost"
+  const siteOrigin = getTenantSiteOrigin(input.currentOrigin)
+  const dashboardDefaults = getTenantUrlDefaults(dashboardOrigin)
+  const siteDefaults = getTenantUrlDefaults(siteOrigin)
   const tenantRootDomain =
-    process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() ||
-    process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() ||
-    "halaalvest.com"
+    process.env.NODE_ENV === "production"
+      ? process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() || "halaalvest.com"
+      : process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() ||
+        process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() ||
+        "halaalvest.localhost"
   const pathStyleHosts = ["localhost", "127.0.0.1", "0.0.0.0"]
   const commonOptions = {
-    currentHost: defaults.currentHost,
-    currentProtocol: defaults.currentProtocol,
     enablePathStyleHosts: process.env.NODE_ENV !== "production",
     pathStyleHosts,
-    targetPort: defaults.targetPort,
     tenantSlug: input.tenantSlug,
     defaultProtocol: process.env.NODE_ENV === "production" ? "https" : "http",
   } as const
@@ -81,12 +81,18 @@ export function buildOnboardingWorkspaceUrls(input: {
   return {
     dashboardUrl: buildTenantAppUrl({
       ...commonOptions,
-      path: "/",
-      targetRootDomain: dashboardRootDomain,
+      currentHost: dashboardDefaults.currentHost,
+      currentProtocol: dashboardDefaults.currentProtocol,
+      path: "/app",
+      targetPort: dashboardDefaults.targetPort,
+      targetRootDomain: tenantRootDomain,
     }),
     siteUrl: buildTenantAppUrl({
       ...commonOptions,
+      currentHost: siteDefaults.currentHost,
+      currentProtocol: siteDefaults.currentProtocol,
       path: "/",
+      targetPort: siteDefaults.targetPort,
       targetRootDomain: tenantRootDomain,
     }),
   }

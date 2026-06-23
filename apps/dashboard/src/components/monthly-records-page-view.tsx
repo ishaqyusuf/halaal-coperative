@@ -26,6 +26,7 @@ import type {
   MonthlyRecordDetail,
   MonthlyRecordChargeBreakdown,
   MonthlyRecordMemberRow,
+  MonthlyRecordSettingView,
   MonthlyRecordSummary,
 } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
@@ -40,6 +41,8 @@ import {
   applyMonthlyRecordMemberAction,
   cancelMonthlyRecordMemberAction,
   createMonthlyRecordAction,
+  generateMonthlyRecordsNowAction,
+  updateMonthlyRecordSettingsAction,
 } from "@/lib/dashboard-actions"
 
 const months = [
@@ -94,10 +97,12 @@ function YearSelectForm({ selectedYear }: { selectedYear: number }) {
   const years = Array.from({ length: 8 }, (_, index) => startYear + index)
 
   return (
-    <form
-      className="flex w-full items-center gap-2"
-    >
-      <NativeSelect name="year" defaultValue={String(selectedYear)} className="w-full">
+    <form className="flex w-full items-center gap-2">
+      <NativeSelect
+        name="year"
+        defaultValue={String(selectedYear)}
+        className="w-full"
+      >
         {years.map((year) => (
           <NativeSelectOption key={year} value={String(year)}>
             {year}
@@ -108,6 +113,56 @@ function YearSelectForm({ selectedYear }: { selectedYear: number }) {
         View
       </Button>
     </form>
+  )
+}
+
+function MonthlyRecordSettingsForm({
+  settings,
+}: {
+  settings: MonthlyRecordSettingView
+}) {
+  return (
+    <DashboardSectionCard>
+      <DashboardSectionHeader
+        eyebrow="Automation"
+        title="Monthly record generation"
+        description="Choose when this workspace should create the month’s pending commitment roll."
+      />
+      <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+        <form
+          action={updateMonthlyRecordSettingsAction}
+          className="grid gap-3 sm:grid-cols-[auto_minmax(10rem,14rem)_auto] sm:items-end"
+        >
+          <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+            <input
+              className="size-4"
+              defaultChecked={settings.autoGenerateEnabled}
+              name="autoGenerateEnabled"
+              type="checkbox"
+            />
+            Auto-generate
+          </label>
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+            Day of month
+            <Input
+              defaultValue={settings.generationDayOfMonth}
+              max={28}
+              min={1}
+              name="generationDayOfMonth"
+              type="number"
+            />
+          </label>
+          <Button size="sm" type="submit">
+            Save settings
+          </Button>
+        </form>
+        <form action={generateMonthlyRecordsNowAction}>
+          <Button size="sm" type="submit" variant="outline">
+            Generate due records now
+          </Button>
+        </form>
+      </div>
+    </DashboardSectionCard>
   )
 }
 
@@ -123,7 +178,7 @@ function MonthlyRecordSideList({
   const recordsByMonth = new Map(
     records
       .filter((record) => record.periodYear === selectedYear)
-      .map((record) => [record.periodMonth, record]),
+      .map((record) => [record.periodMonth, record])
   )
   const today = new Date()
   const currentYear = today.getUTCFullYear()
@@ -155,16 +210,22 @@ function MonthlyRecordSideList({
             className={[
               isSelected ? "bg-background" : undefined,
               isFutureMonth ? "cursor-not-allowed opacity-50" : undefined,
-            ].filter(Boolean).join(" ")}
+            ]
+              .filter(Boolean)
+              .join(" ")}
           >
             <ItemContent>
-              <ItemTitle>{month} {selectedYear}</ItemTitle>
+              <ItemTitle>
+                {month} {selectedYear}
+              </ItemTitle>
               <ItemDescription>{countLabel}</ItemDescription>
               <ItemDescription>{amountLabel}</ItemDescription>
             </ItemContent>
             <ItemActions>
-              <Badge variant={record ? statusVariant(record.status) : "secondary"}>
-                {isFutureMonth ? "future" : record?.status ?? "new"}
+              <Badge
+                variant={record ? statusVariant(record.status) : "secondary"}
+              >
+                {isFutureMonth ? "future" : (record?.status ?? "new")}
               </Badge>
             </ItemActions>
           </Item>
@@ -179,7 +240,10 @@ function MonthlyRecordSideList({
             {content}
           </Link>
         ) : (
-          <form key={`${selectedYear}-${monthNumber}`} action={createMonthlyRecordAction}>
+          <form
+            key={`${selectedYear}-${monthNumber}`}
+            action={createMonthlyRecordAction}
+          >
             <input type="hidden" name="year" value={selectedYear} />
             <input type="hidden" name="month" value={monthNumber} />
             <button type="submit" className="block w-full text-left">
@@ -234,11 +298,17 @@ function MonthlyRecordMembersTable({
 
             return (
               <TableRow key={row.id}>
-                <TableCell className="font-medium">{row.memberNumber}</TableCell>
+                <TableCell className="font-medium">
+                  {row.memberNumber}
+                </TableCell>
                 <TableCell>{row.memberName}</TableCell>
                 <TableCell>{formatCurrency(row.currentBalance)}</TableCell>
                 <TableCell>
-                  <Badge variant={row.loanStatus === "none" ? "secondary" : "outline"}>
+                  <Badge
+                    variant={
+                      row.loanStatus === "none" ? "secondary" : "outline"
+                    }
+                  >
                     {loanStatusLabel(row.loanStatus)}
                   </Badge>
                 </TableCell>
@@ -274,7 +344,9 @@ function MonthlyRecordMembersTable({
                   />
                 </TableCell>
                 <TableCell>
-                  <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+                  <Badge variant={statusVariant(row.status)}>
+                    {row.status}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-2">
@@ -379,13 +451,17 @@ export function MonthlyRecordsPageView({
   records,
   selectedRecord,
   selectedYear,
+  settings,
 }: {
   records: MonthlyRecordSummary[]
   selectedRecord: MonthlyRecordDetail | null
   selectedYear: number
+  settings: MonthlyRecordSettingView
 }) {
   return (
     <div className="flex flex-col gap-6">
+      <MonthlyRecordSettingsForm settings={settings} />
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <DashboardStatCard
           detail="Members applied in the selected month."

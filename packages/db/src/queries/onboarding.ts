@@ -13,15 +13,6 @@ import {
   type TenantRecord,
 } from "./tenants"
 
-function getTenantDomainRoutingScope(input: {
-  hostname: string
-  kind: "site" | "dashboard" | "custom"
-}) {
-  if (input.kind === "site") return "site"
-  if (input.kind === "dashboard") return "dashboard"
-  return input.hostname.startsWith("dashboard.") ? "dashboard" : "site"
-}
-
 export type TenantOnboardingStepKey =
   | "tenant_profile"
   | "site_domain"
@@ -208,13 +199,7 @@ export async function getTenantOnboardingState(tenantId: string) {
     const primarySiteDomain =
       domains.find(
         (domain) =>
-          getTenantDomainRoutingScope(domain) === "site" && domain.isPrimary
-      ) ?? null
-    const primaryDashboardDomain =
-      domains.find(
-        (domain) =>
-          getTenantDomainRoutingScope(domain) === "dashboard" &&
-          domain.isPrimary
+          domain.kind === "site" && domain.isPrimary
       ) ?? null
     const hasWorkspaceOwner = listSeedMemberships().some((membership) =>
       listSeedUsers().some(
@@ -234,7 +219,7 @@ export async function getTenantOnboardingState(tenantId: string) {
       hasChargeSetup: Boolean(tenant),
       hasLedgerBootstrap: true,
       primarySiteHostname: primarySiteDomain?.hostname ?? null,
-      primaryDashboardHostname: primaryDashboardDomain?.hostname ?? null,
+      primaryDashboardHostname: primarySiteDomain?.hostname ?? null,
     })
   }
 
@@ -281,14 +266,8 @@ export async function getTenantOnboardingState(tenantId: string) {
   const primarySiteDomain =
     tenant?.domains.find(
       (domain) =>
-        getTenantDomainRoutingScope(domain) === "site" && domain.isPrimary
+        domain.kind === "site" && domain.isPrimary
     ) ?? null
-  const primaryDashboardDomain =
-    tenant?.domains.find(
-      (domain) =>
-        getTenantDomainRoutingScope(domain) === "dashboard" && domain.isPrimary
-    ) ?? null
-
   return buildTenantOnboardingSnapshot({
     hasTenantProfile: Boolean(tenant),
     hasPrimarySiteDomain: Boolean(primarySiteDomain),
@@ -300,7 +279,7 @@ export async function getTenantOnboardingState(tenantId: string) {
     hasChargeSetup: Boolean(tenant?.chargeDefinitions.length),
     hasLedgerBootstrap: Boolean(tenant?.ledgerAccounts.length),
     primarySiteHostname: primarySiteDomain?.hostname ?? null,
-    primaryDashboardHostname: primaryDashboardDomain?.hostname ?? null,
+    primaryDashboardHostname: primarySiteDomain?.hostname ?? null,
   })
 }
 
@@ -384,12 +363,6 @@ export async function createTenantWorkspaceBootstrap(
           hostname: primarySiteHostname,
           kind: "site",
           isPrimary: true,
-        },
-        {
-          tenantId: createdTenant.id,
-          hostname: `dashboard.${primarySiteHostname}`,
-          kind: "dashboard",
-          isPrimary: false,
         },
       ],
     })

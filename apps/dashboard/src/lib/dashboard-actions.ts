@@ -41,6 +41,7 @@ import {
   applyMonthlyRecordMember,
   cancelMonthlyRecordMember,
   ensureMonthlyRecord,
+  updateMonthlyRecordSettings,
   recordCollectionFollowUp,
   provisionTenantUserRole,
   rotateMemberSignupLinkToken,
@@ -88,6 +89,8 @@ import {
   backfillApplyTask,
   backfillInitializeHandler,
   backfillInitializeTask,
+  monthlyRecordGenerateHandler,
+  monthlyRecordGenerateTask,
   triggerJob,
 } from "@halaalvest/jobs"
 import { buildTenantDashboardUrl } from "@halaalvest/utils"
@@ -1216,6 +1219,38 @@ export async function createMonthlyRecordAction(formData: FormData) {
 
   revalidatePath("/monthly-records")
   redirect(`/monthly-records?recordId=${record.id}`)
+}
+
+export async function updateMonthlyRecordSettingsAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  await updateMonthlyRecordSettings({
+    autoGenerateEnabled: formData.get("autoGenerateEnabled") === "on",
+    generationDayOfMonth: Number(
+      getRequiredString(formData, "generationDayOfMonth")
+    ),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/monthly-records")
+}
+
+export async function generateMonthlyRecordsNowAction() {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  await triggerJob(
+    monthlyRecordGenerateTask,
+    async (payload) => monthlyRecordGenerateHandler(payload),
+    {
+      actorUserId: actor.user.id,
+      tenantId: actor.tenant.id,
+    },
+    { baseDelayMs: 1000, maxAttempts: 3 }
+  )
+
+  revalidatePath("/monthly-records")
 }
 
 export async function applyMonthlyRecordMemberAction(formData: FormData) {

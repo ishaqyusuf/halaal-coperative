@@ -131,6 +131,10 @@ function formatCompactPeriod(period: string) {
 
 const compactTableClass =
   "w-max min-w-full table-fixed text-xs [&_td]:border-r [&_td]:border-border/60 [&_td]:px-1.5 [&_td]:py-1.5 [&_td]:whitespace-nowrap [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:border-border/60 [&_th]:px-1.5 [&_th]:py-1.5 [&_th]:leading-3 [&_th]:whitespace-normal [&_th:last-child]:border-r-0"
+const segmentDataTableClass = "overflow-visible rounded-none"
+const segmentDataTableContentClass = "overflow-visible"
+const stickySegmentHeadClass =
+  "bg-muted/95 [&_th]:sticky [&_th]:top-[70px] [&_th]:z-20 [&_th]:bg-muted/95 [&_th]:shadow-sm [&_th]:backdrop-blur"
 
 const columnClass = {
   label: "w-28",
@@ -386,7 +390,10 @@ function MonthlyLedgerSegmentTable({
         hasLoanColumns={segmentLoanColumns.length > 0}
         metadata={segmentMetadata}
       >
-        <DashboardDataTable className="rounded-none">
+        <DashboardDataTable
+          className={segmentDataTableClass}
+          contentClassName={segmentDataTableContentClass}
+        >
           <DashboardTable className={compactTableClass}>
             <colgroup>
               <col className={columnClass.period} />
@@ -408,7 +415,7 @@ function MonthlyLedgerSegmentTable({
               <col />
               <col />
             </colgroup>
-            <DashboardTableHead>
+            <DashboardTableHead className={stickySegmentHeadClass}>
               <DashboardTableHeaderCell className={columnClass.period}>
                 Period
               </DashboardTableHeaderCell>
@@ -652,7 +659,10 @@ export function MemberLedgerBackfillTable({
           return (
             <div key={segment.key}>
               <SegmentReasonList reasons={segment.reasonList} />
-              <DashboardDataTable className="rounded-none">
+              <DashboardDataTable
+                className={segmentDataTableClass}
+                contentClassName={segmentDataTableContentClass}
+              >
                 <DashboardTable className={compactTableClass}>
                   <colgroup>
                     <col className={columnClass.period} />
@@ -663,7 +673,7 @@ export function MemberLedgerBackfillTable({
                     <col />
                     <col />
                   </colgroup>
-                  <DashboardTableHead>
+                  <DashboardTableHead className={stickySegmentHeadClass}>
                     <DashboardTableHeaderCell className={columnClass.period}>
                       Period
                     </DashboardTableHeaderCell>
@@ -757,7 +767,10 @@ export function MemberLedgerBackfillTable({
           return (
             <div key={segment.key}>
               <SegmentReasonList reasons={segment.reasonList} />
-              <DashboardDataTable className="rounded-none">
+              <DashboardDataTable
+                className={segmentDataTableClass}
+                contentClassName={segmentDataTableContentClass}
+              >
                 <DashboardTable className={compactTableClass}>
                   <colgroup>
                     <col className={columnClass.period} />
@@ -769,7 +782,7 @@ export function MemberLedgerBackfillTable({
                     <col className={columnClass.label} />
                     <col />
                   </colgroup>
-                  <DashboardTableHead>
+                  <DashboardTableHead className={stickySegmentHeadClass}>
                     <DashboardTableHeaderCell className={columnClass.period}>
                       Period
                     </DashboardTableHeaderCell>

@@ -3,9 +3,11 @@ import { cn } from "@halaalvest/ui/lib/utils"
 export function DashboardDataTable({
   children,
   className,
+  contentClassName,
 }: {
   children: React.ReactNode
   className?: string
+  contentClassName?: string
 }) {
   return (
     <div
@@ -14,7 +16,7 @@ export function DashboardDataTable({
         className
       )}
     >
-      <div className="overflow-x-auto">{children}</div>
+      <div className={contentClassName ?? "overflow-x-auto"}>{children}</div>
     </div>
   )
 }
@@ -35,11 +37,13 @@ export function DashboardTable({
 
 export function DashboardTableHead({
   children,
+  className,
 }: {
   children: React.ReactNode
+  className?: string
 }) {
   return (
-    <thead className="bg-muted/35">
+    <thead className={cn("bg-muted/35", className)}>
       <tr>{children}</tr>
     </thead>
   )

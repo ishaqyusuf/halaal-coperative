@@ -1615,6 +1615,12 @@ export async function saveBackfillDraft(
     }))
   }
 
+  if (!draft) {
+    throw new Error("Backfill draft could not be prepared")
+  }
+
+  const finalDraft = draft
+
   return prisma.$transaction(async (tx: any) => {
     await assertMemberBackfillDraftNotAlreadyApplied({
       tenantId: input.tenantId,
@@ -1642,9 +1648,9 @@ export async function saveBackfillDraft(
             rangeEnd,
             rangeStart,
             status: "generated",
-            summary: draft.summary,
+            summary: finalDraft.summary,
             updatedByUserId: input.actorUserId,
-            warnings: draft.warnings,
+            warnings: finalDraft.warnings,
           },
         })
       : await tx.backfillBatch.create({
@@ -1656,10 +1662,10 @@ export async function saveBackfillDraft(
             rangeEnd,
             rangeStart,
             status: "generated",
-            summary: draft.summary,
+            summary: finalDraft.summary,
             tenantId: input.tenantId,
             updatedByUserId: input.actorUserId,
-            warnings: draft.warnings,
+            warnings: finalDraft.warnings,
           },
         })
 
@@ -1677,7 +1683,7 @@ export async function saveBackfillDraft(
       },
     })
 
-    for (const row of draft.rows) {
+    for (const row of finalDraft.rows) {
       const monthRow = await tx.backfillMonthRow.create({
         data: {
           tenantId: input.tenantId,
@@ -1697,7 +1703,7 @@ export async function saveBackfillDraft(
           monthlyTopup: row.loanEvent?.topUp ?? 0,
           pendingLoanPayment: row.pendingLoanPayment,
           share: row.share,
-          totalShare: draft.rows
+          totalShare: finalDraft.rows
             .filter((candidate: any) => candidate.month <= row.month)
             .reduce<number>(
               (sum, candidate: any) => sum + Number(candidate.share),

@@ -1,4 +1,4 @@
-import type { CooperativeRole } from "@halaalvest/auth"
+import type { CooperativeRole } from "@halaalvest/auth/roles"
 
 export type DashboardWorkspace =
   | "overview"

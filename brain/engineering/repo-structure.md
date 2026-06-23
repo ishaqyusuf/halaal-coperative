@@ -10,9 +10,9 @@ This file documents how the repository is organized and what belongs where.
 ## Current State
 - `apps/web/`: user interfaces for members and administrators.
 - `apps/api/`: APIs, domain services, auth, and jobs.
-- `packages/auth/`: roles, guards, and future tenant-aware auth helpers.
+- `packages/auth/`: server-side session/cookie helpers plus browser-safe role metadata exposed through `@halaalvest/auth/roles`.
 - `packages/domain/`: shared business rules and domain models.
-- `packages/db/`: schema and database helpers.
+- `packages/db/`: schema, package-local generated Prisma client, and database helpers.
 - `packages/ui/`: shared UI components and design tokens.
 - `packages/utils/`: shared low-level utilities such as formatting helpers.
 - `packages/eslint-config/`: workspace lint rules.

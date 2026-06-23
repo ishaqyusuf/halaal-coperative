@@ -20,6 +20,10 @@
     "HALAAL_VEST_SIGNUP_TOKEN_SECRET",
     "HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN",
     "HALAAL_VEST_TENANT_ROOT_DOMAIN",
+    "HALAAL_VEST_VERCEL_API_TOKEN",
+    "HALAAL_VEST_VERCEL_PROJECT_ID",
+    "HALAAL_VEST_VERCEL_TEAM_ID",
+    "HALAAL_VEST_VERCEL_TEAM_SLUG",
     "HALAAL_VEST_WEB_APP_ROOT_DOMAIN",
     "HALAAL_VEST_WEB_APP_PORT",
     "HALAAL_VEST_WEB_PORTLESS_ROOT_DOMAIN",
@@ -46,6 +50,7 @@
         "!.next/cache/**",
         ".expo/**",
         "dist/**",
+        "generated/**",
         "build/**",
         "lib/**",
         "next-env.d.ts"
@@ -59,6 +64,10 @@
     },
     "typecheck": {
       "outputs": []
+    },
+    "db:generate": {
+      "cache": false,
+      "outputs": ["generated/**"]
     },
     "dev": {
       "inputs": ["$TURBO_DEFAULT$", ".env*"],

@@ -1,4 +1,4 @@
-import { cooperativeRoles, getRoleDisplayName } from "@halaalvest/auth"
+import { cooperativeRoles, getRoleDisplayName } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
   getNotificationFilterMetadata,

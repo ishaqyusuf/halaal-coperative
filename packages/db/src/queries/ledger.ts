@@ -1,4 +1,4 @@
-import type { EntryDirection, LedgerAccountType, LedgerTransactionType, PrismaClient } from "@prisma/client"
+import type { EntryDirection, LedgerAccountType, LedgerTransactionType, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getTenantInitialMigrationState } from "./migration"
 

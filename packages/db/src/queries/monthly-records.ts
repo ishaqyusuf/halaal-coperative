@@ -1,4 +1,4 @@
-import type { LoanStatus, PrismaClient } from "@prisma/client"
+import type { LoanStatus, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { applyCharge } from "./charges"
 import { recordMemberPayment } from "./contributions"

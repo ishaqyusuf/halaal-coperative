@@ -6,7 +6,7 @@ import type {
   MemberType,
   Prisma,
   PrismaClient,
-} from "@prisma/client"
+} from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 import { applyCharge } from "./charges"

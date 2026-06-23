@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { usePathname } from "next/navigation"
-import type { CooperativeRole } from "@halaalvest/auth"
+import type { CooperativeRole } from "@halaalvest/auth/roles"
 import {
   getDashboardQuickLinks,
   getDashboardRouteTitle,

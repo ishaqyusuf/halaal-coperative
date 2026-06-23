@@ -1,4 +1,4 @@
-import type { CooperativeRole } from "@halaalvest/auth"
+import type { CooperativeRole } from "@halaalvest/auth/roles"
 import { createNavLink, createNavModule, createNavSection, initRoleAccess, type NavModule } from "@halaalvest/site-nav"
 import {
   ExperienceIcon,

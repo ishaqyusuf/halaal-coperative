@@ -5,7 +5,7 @@ import type {
   Prisma,
   PrismaClient,
   RepaymentScheduleStatus,
-} from "@prisma/client"
+} from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getMemberTransactions } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"

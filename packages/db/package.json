@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "prisma generate && tsc --noEmit",
+    "build": "bun run db:generate && tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
@@ -12,7 +12,7 @@
     "db:studio": "prisma studio",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun run db:generate && tsc --noEmit",
     "test": "bun test"
   },
   "dependencies": {

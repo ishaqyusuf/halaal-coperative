@@ -1,5 +1,5 @@
 import { headers } from "next/headers"
-import { getRoleDisplayName } from "@halaalvest/auth"
+import { getRoleDisplayName } from "@halaalvest/auth/roles"
 import type { MembershipRole } from "@halaalvest/db"
 import { listTenantUsersWithMemberships, listTenants } from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"

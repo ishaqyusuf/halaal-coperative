@@ -27,7 +27,7 @@ This file tracks chosen and proposed technologies for the platform.
 - Linting: ESLint with shared workspace config.
 - Formatting: Prettier with Tailwind plugin.
 - TypeScript sharing: `@halaalvest/tsconfig`.
-- Database ORM: Prisma 7 with a file-grouped schema layout in `packages/db/prisma`.
+- Database ORM: Prisma 7 with a file-grouped schema layout in `packages/db/prisma` and a package-local generated client in `packages/db/generated/prisma`.
 
 ## Proposed Stack
 - Backend runtime: Bun/Node-compatible TypeScript service layer in `apps/api`.

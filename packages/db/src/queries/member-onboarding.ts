@@ -1,4 +1,4 @@
-import type { MemberOnboardingStatus, PrismaClient } from "@prisma/client"
+import type { MemberOnboardingStatus, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createMemberWithState, type CreateMemberInput } from "./members"
 import { getTenantInitialMigrationState } from "./migration"

@@ -1,4 +1,4 @@
-import { normalizeRole } from "@halaalvest/auth"
+import { normalizeRole } from "@halaalvest/auth/roles"
 import { getTenantInitialMigrationState } from "@halaalvest/db"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { TenantUrlProvider } from "@halaalvest/tenant-url/react"

@@ -3,7 +3,7 @@ import type {
   ContributionStatus,
   PaymentAllocationPreference,
   PrismaClient,
-} from "@prisma/client"
+} from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"

@@ -4,7 +4,7 @@ import {
   type BackfillProfitPeriod,
   type BuildBackfillDraftInput,
 } from "@halaalvest/backfill"
-import type { PrismaClient } from "@prisma/client"
+import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { applyCharge } from "./charges"
 import { recordContribution } from "./contributions"

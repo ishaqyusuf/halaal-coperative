@@ -1,4 +1,4 @@
-import { cooperativeRoles, getRoleDisplayName, getRoleScopeSummary } from "@halaalvest/auth"
+import { cooperativeRoles, getRoleDisplayName, getRoleScopeSummary } from "@halaalvest/auth/roles"
 import { createDbRuntime, listTenantUsersWithMemberships } from "@halaalvest/db"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { RoleAssignmentForm } from "@/components/forms/settings-forms"

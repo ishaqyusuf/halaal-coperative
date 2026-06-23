@@ -19,6 +19,7 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - Add tests for any non-trivial financial rule.
 - Favor pure functions for calculation logic where possible.
 - Keep authorization checks close to entry points and service boundaries.
+- Import browser-safe role metadata from `@halaalvest/auth/roles`; reserve `@halaalvest/auth` for server-side session, cookie, and token helpers.
 
 ## Financial Safety Rules
 - Never trust client-supplied balances.

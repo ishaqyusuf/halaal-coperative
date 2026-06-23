@@ -1,10 +1,10 @@
 import {
   getSessionTokenFromCookieHeader,
   getUserIdFromCookieHeader,
-  normalizeRole,
   platformSessionScope,
   resolveRequestSessionScope,
 } from "@halaalvest/auth"
+import { normalizeRole } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
   findActiveMembershipAsync,

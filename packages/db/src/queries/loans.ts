@@ -1,4 +1,4 @@
-import type { PrismaClient, RepaymentScheduleStatus } from "@prisma/client"
+import type { PrismaClient, RepaymentScheduleStatus } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getDashboardMetrics } from "./dashboard"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"

@@ -1,4 +1,4 @@
-import { getRoleDisplayName, type CooperativeRole } from "@halaalvest/auth"
+import { getRoleDisplayName, type CooperativeRole } from "@halaalvest/auth/roles"
 import {
   getActiveLinkFromMap,
   getLinkModules,

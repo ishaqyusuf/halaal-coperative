@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { headers } from "next/headers"
-import { normalizeRole } from "@halaalvest/auth"
+import { normalizeRole } from "@halaalvest/auth/roles"
 import { buildDashboardSnapshot } from "@halaalvest/domain"
 import { createDbRuntime, getDashboardMetrics } from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"

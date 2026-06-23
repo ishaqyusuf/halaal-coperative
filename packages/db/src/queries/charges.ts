@@ -1,4 +1,4 @@
-import type { ChargeKind, PrismaClient } from "@prisma/client"
+import type { ChargeKind, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { postLedgerTransaction, getLedgerAccountByCode } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"

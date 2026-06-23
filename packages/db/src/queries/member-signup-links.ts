@@ -1,4 +1,4 @@
-import type { MemberSignupAccessMode, PrismaClient } from "@prisma/client"
+import type { MemberSignupAccessMode, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"

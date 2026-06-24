@@ -1,6 +1,8 @@
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
+type ReportsExportContext = Awaited<ReturnType<typeof getDashboardServerContext>>
+
 function escapeCsvCell(value: string | number | boolean | null | undefined) {
   const stringValue = value == null ? "" : String(value)
   if (/[",\n]/.test(stringValue)) {
@@ -14,7 +16,7 @@ export function toCsv(headers: string[], rows: Array<Array<string | number | boo
   return [headers.map(escapeCsvCell).join(","), ...rows.map((row) => row.map(escapeCsvCell).join(","))].join("\n")
 }
 
-export async function requireReportsExportContext() {
+export async function requireReportsExportContext(): Promise<ReportsExportContext | null> {
   const context = await getDashboardServerContext()
 
   if (!context.tenant || !hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)) {

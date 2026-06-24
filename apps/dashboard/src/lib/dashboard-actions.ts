@@ -19,7 +19,7 @@ import {
   createMember,
   createMemberDocument,
   createMemberSignupLink,
-  createNotificationOutboxEntry,
+  createNotificationOutboxEntryFromDraft,
   createShareBusiness,
   createShareBusinessProfitEntry,
   finalizeTenantInitialMigration,
@@ -84,6 +84,7 @@ import {
   waiveChargeApplication,
   upsertMemberAmountLog,
 } from "@halaalvest/db"
+import { createEmailDraftFromType } from "@halaalvest/notifications"
 import {
   backfillApplyHandler,
   backfillApplyTask,
@@ -920,24 +921,23 @@ export async function approveMemberOnboardingAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await createNotificationOutboxEntry({
-    actionLabel: "Open dashboard",
+  const approvalDraft = createEmailDraftFromType("member.onboarding_approved", {
     actionUrl: buildTenantDashboardUrl(actor.tenant.slug, { pathname: "/" }),
-    bodyText: [
-      `Assalamu alaikum ${approved.user.fullName},`,
-      "",
-      `Your membership for ${actor.tenant.name} has been approved.`,
-      "You can now sign in to your dashboard and continue with your cooperative account.",
-    ].join("\n"),
+    memberId: approved.member.id,
+    recipientEmail: approved.user.email,
+    recipientName: approved.user.fullName,
+    requestId: approved.request.id,
+    tenantName: actor.tenant.name,
+  })
+
+  await createNotificationOutboxEntryFromDraft({
+    draft: approvalDraft,
     metadata: {
       memberId: approved.member.id,
       requestId: approved.request.id,
       userId: approved.user.id,
     },
-    notificationType: "member.onboarding_approved",
-    recipient: approved.user.email,
     source: "dashboard.membership_approvals",
-    subject: `${actor.tenant.name}: your membership has been approved`,
     tenantId: actor.tenant.id,
   })
 
@@ -960,27 +960,26 @@ export async function rejectMemberOnboardingAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await createNotificationOutboxEntry({
-    actionLabel: "Contact support",
+  const rejectionDraft = createEmailDraftFromType("member.onboarding_rejected", {
     actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
       pathname: "/login",
     }),
-    bodyText: [
-      `Assalamu alaikum ${rejected.user.fullName},`,
-      "",
-      `Your membership signup for ${actor.tenant.name} was not approved yet.`,
-      rejected.request.rejectionReason
-        ? `Reason: ${rejected.request.rejectionReason}`
-        : "Please contact the cooperative team for the next steps.",
-    ].join("\n"),
+    reason: rejected.request.rejectionReason
+      ? `Reason: ${rejected.request.rejectionReason}`
+      : null,
+    recipientEmail: rejected.user.email,
+    recipientName: rejected.user.fullName,
+    requestId: rejected.request.id,
+    tenantName: actor.tenant.name,
+  })
+
+  await createNotificationOutboxEntryFromDraft({
+    draft: rejectionDraft,
     metadata: {
       requestId: rejected.request.id,
       userId: rejected.user.id,
     },
-    notificationType: "member.onboarding_rejected",
-    recipient: rejected.user.email,
     source: "dashboard.membership_approvals",
-    subject: `${actor.tenant.name}: membership signup update`,
     tenantId: actor.tenant.id,
   })
 

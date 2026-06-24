@@ -3,10 +3,11 @@
 import { headers } from "next/headers"
 import {
   createMemberOnboardingRequest,
-  createNotificationOutboxEntry,
+  createNotificationOutboxEntryFromDraft,
   getTenantInitialMigrationState,
   getPendingMemberOnboardingForUser,
 } from "@halaalvest/db"
+import { createEmailDraftFromType } from "@halaalvest/notifications"
 import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import { resolveMemberSignupGate } from "@/lib/member-signup-access"
 import { verifyMemberSignupLinkToken } from "@/lib/member-signup-link-token"
@@ -100,25 +101,25 @@ export async function submitMemberOnboardingAction(formData: FormData) {
     tenantHostname: headerStore.get("x-tenant-hostname"),
   })
 
-  await createNotificationOutboxEntry({
-    actionLabel: "Verify email and continue",
-    actionUrl: verificationUrl,
-    bodyText: [
-      `Assalamu alaikum ${fullName},`,
-      "",
-      `Your membership signup for ${context.tenant.name} is almost complete.`,
-      "Confirm your email address to move into the cooperative approval queue.",
-      "",
-      `This verification link expires on ${expiresAt}.`,
-    ].join("\n"),
+  const verificationDraft = createEmailDraftFromType(
+    "member.onboarding_verification_requested",
+    {
+      expiresAt,
+      recipientEmail: email,
+      recipientName: fullName,
+      requestId: created.request.id,
+      tenantName: context.tenant.name,
+      verificationUrl,
+    },
+  )
+
+  await createNotificationOutboxEntryFromDraft({
+    draft: verificationDraft,
     metadata: {
       email,
       requestId: created.request.id,
     },
-    notificationType: "member.onboarding_verification_requested",
-    recipient: email,
     source: "dashboard.member_signup",
-    subject: `Verify your membership signup for ${context.tenant.name}`,
     tenantId: context.tenant.id,
   })
 
@@ -160,24 +161,25 @@ export async function resendMemberVerificationAction() {
     tenantHostname: headerStore.get("x-tenant-hostname"),
   })
 
-  await createNotificationOutboxEntry({
-    actionLabel: "Verify email and continue",
-    actionUrl: verificationUrl,
-    bodyText: [
-      `Assalamu alaikum ${request.fullName},`,
-      "",
-      `Here is a new verification link for your membership signup in ${context.tenant.name}.`,
-      "",
-      `This verification link expires on ${expiresAt}.`,
-    ].join("\n"),
+  const verificationDraft = createEmailDraftFromType(
+    "member.onboarding_verification_requested",
+    {
+      expiresAt,
+      recipientEmail: request.email,
+      recipientName: request.fullName,
+      requestId: request.id,
+      tenantName: context.tenant.name,
+      verificationUrl,
+    },
+  )
+
+  await createNotificationOutboxEntryFromDraft({
+    draft: verificationDraft,
     metadata: {
       email: request.email,
       requestId: request.id,
     },
-    notificationType: "member.onboarding_verification_requested",
-    recipient: request.email,
     source: "dashboard.member_signup",
-    subject: `Verify your membership signup for ${context.tenant.name}`,
     tenantId: context.tenant.id,
   })
 }

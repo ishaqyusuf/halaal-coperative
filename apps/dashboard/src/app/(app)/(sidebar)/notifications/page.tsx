@@ -2,18 +2,19 @@ import { cooperativeRoles, getRoleDisplayName } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
   getNotificationFilterMetadata,
+  getNotificationOutboxSummary,
   listNotificationOutboxEntries,
   listNotificationPreferences,
 } from "@halaalvest/db"
 import { Button } from "@halaalvest/ui/components/button"
-import { createNotificationFromType, platformNotificationTypes } from "@halaalvest/notifications"
+import { halaalVestNotificationTypeList } from "@halaalvest/notifications"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspacePageShell } from "@/components/dashboard"
 import { NotificationsHeader } from "@/components/notifications-header"
 import { loadNotificationsFilterParams } from "@/hooks/use-notifications-filter-params"
 import { saveNotificationPreferenceAction } from "@/lib/dashboard-actions"
 import { getDashboardServerContext } from "@/lib/server-context"
 
-const managedNotificationTypes = ["workspace_invitation", "loan_approval_required", "charge.applied", "charge.waived", "charge.reversed", "repayment.posted", "domain.verification_changed", "domain.verification_checked", "collections.follow_up_recorded", "member.status_changed", "member.kyc_updated"] as const
+const managedNotificationTypes = halaalVestNotificationTypeList
 
 export default async function NotificationsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const filters = loadNotificationsFilterParams(await searchParams)
@@ -24,17 +25,13 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const status = filters.status ?? ""
   const type = filters.type ?? ""
 
-  const notifications = [
-    createNotificationFromType(platformNotificationTypes, "workspace_invitation", { recipientName: context.auth.user?.fullName ?? "Cooperative User", tenantName }),
-    createNotificationFromType(platformNotificationTypes, "loan_approval_required", { amount: 250000, memberName: "Amina Yusuf" }),
-  ]
-
-  const [filterList, outboxEntries, preferences] = await Promise.all([
+  const [filterList, outboxEntries, preferences, outboxSummary] = await Promise.all([
     context.tenant ? getNotificationFilterMetadata(context.tenant.id) : Promise.resolve([]),
     context.tenant && runtime.status === "database-configured"
       ? listNotificationOutboxEntries(context.tenant.id, { limit: 25, notificationType: type || undefined, search: search || undefined, status: status === "queued" || status === "sent" || status === "failed" ? status : undefined })
       : Promise.resolve([]),
     context.tenant && runtime.status === "database-configured" ? listNotificationPreferences(context.tenant.id) : Promise.resolve([]),
+    context.tenant && runtime.status === "database-configured" ? getNotificationOutboxSummary(context.tenant.id) : Promise.resolve({ failedCount: 0, lastSentAt: null, queuedCount: 0, sentCount: 0 }),
   ])
   const roleOptions: Array<(typeof cooperativeRoles)[number] | "all"> = ["all", ...cooperativeRoles]
   const preferenceKeys = new Set(preferences.filter((preference) => preference.enabled).map((preference) => `${preference.role ?? "all"}:${preference.notificationType}:${preference.channel}`))
@@ -46,9 +43,9 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       <NotificationsHeader filterList={filterList} />
 
       <section className="grid gap-4 md:grid-cols-3">
-        <DashboardStatCard label="Queued or sent" value={outboxEntries.length.toString()} detail="Notification entries loaded in the current outbox filter." />
-        <DashboardStatCard label="Delivered" value={outboxEntries.filter((entry) => entry.status === "sent").length.toString()} detail="Persisted sent events in the current view." tone="positive" />
-        <DashboardStatCard label="Failed" value={outboxEntries.filter((entry) => entry.status === "failed").length.toString()} detail="Delivery failures requiring support follow-up." tone={outboxEntries.some((entry) => entry.status === "failed") ? "warning" : "default"} />
+        <DashboardStatCard label="Queued" value={outboxSummary.queuedCount.toString()} detail="Notifications waiting for the delivery worker." />
+        <DashboardStatCard label="Delivered" value={outboxSummary.sentCount.toString()} detail={outboxSummary.lastSentAt ? `Last sent ${outboxSummary.lastSentAt.toISOString().slice(0, 10)}.` : "Persisted sent notification entries."} tone="positive" />
+        <DashboardStatCard label="Failed" value={outboxSummary.failedCount.toString()} detail="Delivery failures requiring support follow-up." tone={outboxSummary.failedCount > 0 ? "warning" : "default"} />
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -61,8 +58,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           <div className="mt-5 space-y-3">{failureReasons.length ? failureReasons.map(([reason, count]) => <div key={reason} className="flex items-start justify-between gap-4 text-sm"><span>{reason}</span><span className="text-muted-foreground">{count}</span></div>) : <p className="text-sm text-muted-foreground">No delivery failures in the current view.</p>}</div>
         </DashboardSectionCard>
         <DashboardSectionCard>
-        <DashboardSectionHeader eyebrow="Preview" title="Template coverage" />
-          <div className="mt-5 space-y-3">{notifications.map((notification) => <DashboardSurfaceCard key={notification.notificationType ?? notification.title}><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{notification.notificationType ?? notification.variant}</p><h3 className="mt-2 text-sm font-medium text-foreground">{notification.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{notification.description}</p></DashboardSurfaceCard>)}</div>
+        <DashboardSectionHeader eyebrow="Coverage" title="Registry coverage" />
+          <div className="mt-5 space-y-3">{managedNotificationTypes.slice(0, 6).map((notificationType) => <DashboardSurfaceCard key={notificationType}><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">registered</p><h3 className="mt-2 text-sm font-medium text-foreground">{notificationType}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Available for preferences, outbox history, and delivery worker routing.</p></DashboardSurfaceCard>)}</div>
         </DashboardSectionCard>
       </section>
 

@@ -161,6 +161,17 @@
         "typescript": "^5.9.3",
       },
     },
+    "packages/email": {
+      "name": "@halaalvest/email",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@halaalvest/eslint-config": "workspace:*",
+        "@halaalvest/tsconfig": "workspace:*",
+        "@types/node": "^25.1.0",
+        "eslint": "^9.39.2",
+        "typescript": "^5.9.3",
+      },
+    },
     "packages/eslint-config": {
       "name": "@halaalvest/eslint-config",
       "version": "0.0.0",
@@ -198,6 +209,10 @@
     "packages/notifications": {
       "name": "@halaalvest/notifications",
       "version": "0.0.0",
+      "dependencies": {
+        "@halaalvest/email": "workspace:*",
+        "zod": "^4.1.11",
+      },
       "devDependencies": {
         "@halaalvest/eslint-config": "workspace:*",
         "@halaalvest/tsconfig": "workspace:*",
@@ -490,6 +505,8 @@
     "@halaalvest/db": ["@halaalvest/db@workspace:packages/db"],
 
     "@halaalvest/domain": ["@halaalvest/domain@workspace:packages/domain"],
+
+    "@halaalvest/email": ["@halaalvest/email@workspace:packages/email"],
 
     "@halaalvest/eslint-config": ["@halaalvest/eslint-config@workspace:packages/eslint-config"],
 

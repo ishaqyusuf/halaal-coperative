@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit",
+    "--build": "tsc --noEmit",
     "dev": "node ../../scripts/with-workspace-env.mjs bun --watch src/index.ts",
     "dev:portless": "node ../../scripts/with-workspace-env.mjs portless api.halaalvest bun --watch src/index.ts",
     "lint": "eslint .",

@@ -5,6 +5,7 @@ import { listTenantUsersWithMemberships } from "./auth"
 export type CreateNotificationOutboxEntryInput = {
   actionLabel: string
   actionUrl: string
+  bodyHtml?: string
   bodyText: string
   metadata?: Record<string, unknown>
   notificationType: string
@@ -29,7 +30,10 @@ export async function createNotificationOutboxEntry(
       actionLabel: input.actionLabel,
       actionUrl: input.actionUrl,
       bodyText: input.bodyText,
-      metadata: input.metadata as Prisma.InputJsonValue | undefined,
+      metadata: {
+        ...(input.metadata ?? {}),
+        ...(input.bodyHtml ? { bodyHtml: input.bodyHtml } : {}),
+      } as Prisma.InputJsonValue,
       notificationType: input.notificationType,
       recipient: input.recipient,
       source: input.source,
@@ -37,6 +41,50 @@ export async function createNotificationOutboxEntry(
       tenantId: input.tenantId ?? null,
     },
   })
+}
+
+export type NotificationEmailDraftInput = {
+  actionLabel: string
+  actionUrl: string
+  bodyHtml?: string
+  bodyText: string
+  notificationType: string
+  previewText: string
+  recipient: {
+    displayName?: string
+    value: string
+  }
+  subject: string
+}
+
+export async function createNotificationOutboxEntryFromDraft(
+  input: {
+    draft: NotificationEmailDraftInput
+    metadata?: Record<string, unknown>
+    source: string
+    tenantId?: string | null
+  },
+  prismaOverride?: PrismaClient,
+) {
+  return createNotificationOutboxEntry(
+    {
+      actionLabel: input.draft.actionLabel,
+      actionUrl: input.draft.actionUrl,
+      bodyHtml: input.draft.bodyHtml,
+      bodyText: input.draft.bodyText,
+      metadata: {
+        ...(input.metadata ?? {}),
+        previewText: input.draft.previewText,
+        recipientDisplayName: input.draft.recipient.displayName ?? null,
+      },
+      notificationType: input.draft.notificationType,
+      recipient: input.draft.recipient.value,
+      source: input.source,
+      subject: input.draft.subject,
+      tenantId: input.tenantId ?? null,
+    },
+    prismaOverride,
+  )
 }
 
 export type UpdateNotificationOutboxDeliveryInput = {
@@ -126,6 +174,105 @@ export async function listNotificationOutboxEntries(
   })
 }
 
+export async function claimNotificationOutboxEntries(
+  input?: {
+    includeFailed?: boolean
+    limit?: number
+    maxAttempts?: number
+    tenantId?: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+
+  if (!prisma) {
+    return []
+  }
+
+  const maxAttempts = input?.maxAttempts ?? 4
+
+  return prisma.notificationOutbox.findMany({
+    where: {
+      ...(input?.tenantId ? { tenantId: input.tenantId } : {}),
+      attempts: {
+        lt: maxAttempts,
+      },
+      OR: [
+        {
+          status: "queued",
+        },
+        ...(input?.includeFailed
+          ? [
+              {
+                status: "failed" as const,
+              },
+            ]
+          : []),
+      ],
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    take: input?.limit ?? 25,
+  })
+}
+
+export async function getNotificationOutboxSummary(
+  tenantId: string,
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+
+  if (!prisma) {
+    return {
+      failedCount: 0,
+      lastSentAt: null as Date | null,
+      queuedCount: 0,
+      sentCount: 0,
+    }
+  }
+
+  const [queuedCount, sentCount, failedCount, lastSent] = await Promise.all([
+    prisma.notificationOutbox.count({
+      where: {
+        tenantId,
+        status: "queued",
+      },
+    }),
+    prisma.notificationOutbox.count({
+      where: {
+        tenantId,
+        status: "sent",
+      },
+    }),
+    prisma.notificationOutbox.count({
+      where: {
+        tenantId,
+        status: "failed",
+      },
+    }),
+    prisma.notificationOutbox.findFirst({
+      orderBy: {
+        sentAt: "desc",
+      },
+      where: {
+        tenantId,
+        status: "sent",
+        sentAt: {
+          not: null,
+        },
+      },
+    }),
+  ])
+
+  return {
+    failedCount,
+    lastSentAt: lastSent?.sentAt ?? null,
+    queuedCount,
+    sentCount,
+  }
+}
+
 export async function listNotificationPreferences(tenantId: string, prismaOverride?: PrismaClient) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -213,6 +360,7 @@ export async function queueTenantRoleNotifications(
   input: {
     actionLabel: string
     actionUrl: string
+    bodyHtml?: string
     bodyText: string
     metadata?: Record<string, unknown>
     notificationType: string
@@ -264,6 +412,7 @@ export async function queueTenantRoleNotifications(
         {
           actionLabel: input.actionLabel,
           actionUrl: input.actionUrl,
+          bodyHtml: input.bodyHtml,
           bodyText: input.bodyText,
           metadata: {
             ...(input.metadata ?? {}),

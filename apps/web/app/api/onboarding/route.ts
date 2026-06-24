@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import {
   checkTenantSignupAvailability,
-  createNotificationOutboxEntry,
+  createNotificationOutboxEntryFromDraft,
   createTenantWorkspaceBootstrap,
   recordNotificationDeliveryAudit,
   syncTenantDomainVerificationByHostname,
@@ -87,18 +87,9 @@ export async function POST(request: Request) {
       siteUrl,
       tenantName: result.tenant.name,
     })
-    const outboxEntry = await createNotificationOutboxEntry({
-      actionLabel: workspaceReadyEmail.actionLabel,
-      actionUrl: workspaceReadyEmail.actionUrl,
-      bodyText: workspaceReadyEmail.bodyText,
-      metadata: {
-        previewText: workspaceReadyEmail.previewText,
-        recipientDisplayName: workspaceReadyEmail.recipient.displayName ?? null,
-      },
-      notificationType: workspaceReadyEmail.notificationType,
-      recipient: workspaceReadyEmail.recipient.value,
+    const outboxEntry = await createNotificationOutboxEntryFromDraft({
+      draft: workspaceReadyEmail,
       source: "apps/web/app/api/onboarding",
-      subject: workspaceReadyEmail.subject,
       tenantId: result.tenant.id,
     })
     const workspaceReadyDelivery = await notificationService.tryEmail(workspaceReadyEmail)

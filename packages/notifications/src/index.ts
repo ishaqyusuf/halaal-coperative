@@ -1,44 +1,22 @@
-export type NotificationVariant = "info" | "success" | "warning" | "error"
+import { createEmailDraftFromType } from "./types/registry"
+import type {
+  NotificationEmailDelivery,
+  NotificationEmailDraft,
+  NotificationInput,
+  NotificationRecord,
+  NotificationRecipient,
+  NotificationVariant,
+} from "./core-types"
 
-export type NotificationAction = {
-  actionId: string
-  label: string
-}
-
-export type NotificationRecipient = {
-  kind: "user" | "email" | "role"
-  value: string
-  displayName?: string
-}
-
-export type NotificationInput = {
-  id?: string
-  title: string
-  description?: string
-  variant: NotificationVariant
-  notificationType?: string
-  recipients?: NotificationRecipient[]
-  durationMs?: number
-  action?: NotificationAction
-}
-
-export type NotificationEmailDraft = {
-  actionLabel: string
-  actionUrl: string
-  bodyText: string
-  notificationType: string
-  previewText: string
-  recipient: NotificationRecipient
-  subject: string
-}
-
-export type NotificationEmailDelivery = {
-  attempts: number
-  draft: NotificationEmailDraft
-  errorMessage?: string
-  messageId: string
-  status: "failed" | "queued" | "sent"
-}
+export type {
+  NotificationActionDescriptor as NotificationAction,
+  NotificationEmailDelivery,
+  NotificationEmailDraft,
+  NotificationInput,
+  NotificationRecord,
+  NotificationRecipient,
+  NotificationVariant,
+} from "./core-types"
 
 export type NotificationEmailTransport = {
   send: (draft: NotificationEmailDraft) => NotificationEmailDelivery | Promise<NotificationEmailDelivery>
@@ -58,12 +36,6 @@ export type RetryingEmailTransportOptions = {
     error: unknown
     maxAttempts: number
   }) => void
-}
-
-export type NotificationRecord = NotificationInput & {
-  id: string
-  recipients: NotificationRecipient[]
-  status: "active" | "dismissed"
 }
 
 export type NotificationStoreState = {
@@ -281,6 +253,7 @@ export function createResendEmailTransport(
               value: draft.notificationType,
             },
           ],
+          html: draft.bodyHtml,
           text: [draft.bodyText, "", `${draft.actionLabel}: ${draft.actionUrl}`].join("\n"),
           to: [draft.recipient.value],
         }),
@@ -343,26 +316,7 @@ export function createSignupVerificationEmail(input: {
   tenantName: string
   verificationUrl: string
 }): NotificationEmailDraft {
-  return {
-    actionLabel: "Verify email and continue",
-    actionUrl: input.verificationUrl,
-    bodyText: [
-      `Assalamu alaikum ${input.recipientName},`,
-      "",
-      `Your halaalvest signup for ${input.tenantName} is almost ready.`,
-      "Confirm this email address to continue setting up the cooperative workspace.",
-      "",
-      `This verification link expires on ${input.expiresAt}.`,
-    ].join("\n"),
-    notificationType: "signup_email_verification",
-    previewText: `Verify ${input.recipientEmail} to continue setup for ${input.tenantName}.`,
-    recipient: {
-      kind: "email",
-      value: input.recipientEmail,
-      displayName: input.recipientName,
-    },
-    subject: `Verify your halaalvest signup for ${input.tenantName}`,
-  }
+  return createEmailDraftFromType("signup_email_verification", input)
 }
 
 export function createWorkspaceReadyEmail(input: {
@@ -372,25 +326,12 @@ export function createWorkspaceReadyEmail(input: {
   siteUrl: string
   tenantName: string
 }): NotificationEmailDraft {
-  return {
-    actionLabel: "Open workspace",
-    actionUrl: input.dashboardUrl,
-    bodyText: [
-      `Assalamu alaikum ${input.recipientName},`,
-      "",
-      `${input.tenantName} is ready in halaalvest.`,
-      `Dashboard: ${input.dashboardUrl}`,
-      `Public site: ${input.siteUrl}`,
-      "",
-      "You can now continue tenant setup from the dashboard workspace.",
-    ].join("\n"),
-    notificationType: "workspace_ready",
-    previewText: `${input.tenantName} is provisioned and ready to open.`,
-    recipient: {
-      kind: "email",
-      value: input.recipientEmail,
-      displayName: input.recipientName,
-    },
-    subject: `${input.tenantName} is ready in halaalvest`,
-  }
+  return createEmailDraftFromType("workspace_ready", input)
 }
+
+export * from "./actions"
+export * from "./channels"
+export * from "./core-types"
+export * from "./delivery"
+export * from "./notification-types"
+export * from "./types/registry"

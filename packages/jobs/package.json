@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@halaalvest/backfill": "workspace:*",
-    "@halaalvest/db": "workspace:*"
+    "@halaalvest/db": "workspace:*",
+    "@halaalvest/notifications": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",

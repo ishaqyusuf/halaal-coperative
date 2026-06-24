@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import {
   checkTenantSignupAvailability,
-  createNotificationOutboxEntry,
+  createNotificationOutboxEntryFromDraft,
   updateNotificationOutboxDelivery,
 } from "@halaalvest/db"
 import { createSignupVerificationEmail } from "@halaalvest/notifications"
@@ -44,18 +44,9 @@ export async function POST(request: Request) {
       tenantName: payload.cooperativeName,
       verificationUrl: onboardingUrl.toString(),
     })
-    const outboxEntry = await createNotificationOutboxEntry({
-      actionLabel: verificationEmail.actionLabel,
-      actionUrl: verificationEmail.actionUrl,
-      bodyText: verificationEmail.bodyText,
-      metadata: {
-        previewText: verificationEmail.previewText,
-        recipientDisplayName: verificationEmail.recipient.displayName ?? null,
-      },
-      notificationType: verificationEmail.notificationType,
-      recipient: verificationEmail.recipient.value,
+    const outboxEntry = await createNotificationOutboxEntryFromDraft({
+      draft: verificationEmail,
       source: "apps/web/app/api/signup",
-      subject: verificationEmail.subject,
     })
     const verificationDelivery = await notificationService.tryEmail(verificationEmail)
 

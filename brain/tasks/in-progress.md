@@ -23,3 +23,12 @@ This file tracks work currently being executed.
 - Plan File: brain/plans/2026-06-21-feature-midday-table-filter-sheet-refactor.md
 - Created Date: 2026-06-21
 - Progress: Shares, charges, and business have been moved into the Midday page/header/filter/sheet/table/hook pattern. Remaining follow-up slices: loan and migration tables, then the broader dashboard refactor.
+
+### School-Clerk-Style Notification Email And Job Implementation
+- Priority: Medium
+- Description: Track plan in `brain/plans/2026-06-23-feature-school-clerk-style-notification-email-and-job-implementation.md`.
+- Related Feature: School-Clerk-Style Notification Email And Job Implementation
+- Status: In Progress
+- Plan Status: In Progress
+- Plan File: brain/plans/2026-06-23-feature-school-clerk-style-notification-email-and-job-implementation.md
+- Created Date: 2026-06-23

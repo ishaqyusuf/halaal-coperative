@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "portless email email dev",
-    "build": "email build",
+    "--build": "email build",
     "start": "email start",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",

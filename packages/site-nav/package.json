@@ -5,7 +5,6 @@
   "private": true,
   "sideEffects": false,
   "scripts": {
-    "build": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"

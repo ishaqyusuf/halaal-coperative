@@ -42,25 +42,27 @@ export default async function TenantHomePage() {
   }
 
   if (context.auth.sessionToken && context.auth.pendingMemberOnboarding) {
-    await tenantRedirect("/awaiting-approval")
+    return tenantRedirect("/awaiting-approval")
   }
 
-  if (!context.tenant) {
-    await tenantRedirect("/login")
+  const tenant = context.tenant
+
+  if (!tenant) {
+    return tenantRedirect("/login")
   }
 
   const runtime = createDbRuntime()
   const dashboardMetrics =
     runtime.status === "database-configured"
-      ? await getDashboardMetrics(context.tenant.id)
+      ? await getDashboardMetrics(tenant.id)
       : null
   const dashboard = buildDashboardSnapshot({
     tenant: dashboardMetrics
       ? {
-          ...context.tenant,
+          ...tenant,
           memberCount: dashboardMetrics.memberCount,
         }
-      : context.tenant,
+      : tenant,
     policy: dashboardMetrics
       ? {
           reserveBuffer: dashboardMetrics.reserveBuffer,
@@ -92,10 +94,10 @@ export default async function TenantHomePage() {
       <section className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-12 lg:px-10 lg:py-16">
         <div className="max-w-3xl">
           <p className="text-xs font-medium tracking-[0.24em] text-muted-foreground uppercase">
-            {context.tenant.slug}.halaalvest.com
+            {tenant.slug}.halaalvest.com
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
-            {context.tenant.name}
+            {tenant.name}
           </h1>
           <p className="mt-5 text-base leading-7 text-muted-foreground">
             One tenant site for public discovery, member onboarding, shared

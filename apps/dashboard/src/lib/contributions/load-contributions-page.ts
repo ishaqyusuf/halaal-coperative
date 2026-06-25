@@ -9,9 +9,73 @@ import type { ContributionsFilterParams } from "@/hooks/use-contributions-filter
 import { getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
+type ContributionLedgerRow = {
+  amount: number | string | { toString(): string }
+  committedAmount: number | string | { toString(): string } | null
+  extraSavingsAmount: number | string | { toString(): string } | null
+  id: string
+  member?: {
+    fullName?: string | null
+    memberNumber?: string | null
+  } | null
+  postedAt: Date
+}
+
+type ContributionMemberRow = {
+  fullName: string
+  id: string
+  memberNumber: string
+  paymentAllocationPreference: "loan_first" | "manual_split" | "savings_first"
+}
+
+type ContributionPlanRow = {
+  amount: number | string | { toString(): string }
+  id: string
+  isActive: boolean
+  member: {
+    fullName: string
+  }
+  name: string | null
+  startsAt: Date
+}
+
+type ContributionLoanRow = {
+  id: string
+  loanProduct: {
+    name: string
+  }
+  member: {
+    fullName: string
+  }
+  status: string
+}
+
+type ContributionListResult = {
+  items: ContributionLedgerRow[]
+  total: number
+}
+
+export type ContributionsPageData =
+  | {
+      canRecordContributions: boolean
+      filters: ContributionsFilterParams
+      state: "unavailable"
+    }
+  | {
+      canRecordContributions: boolean
+      commitmentPlans: ContributionPlanRow[]
+      contributions: ContributionListResult
+      filters: ContributionsFilterParams
+      loans: ContributionLoanRow[]
+      members: {
+        items: ContributionMemberRow[]
+      }
+      state: "ready"
+    }
+
 export async function loadContributionsPageData(
   filters: ContributionsFilterParams,
-) {
+): Promise<ContributionsPageData> {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
   const canRecordContributions = hasAnyRole(context.auth.membership?.role, allStaffRoles)
@@ -47,11 +111,11 @@ export async function loadContributionsPageData(
 
   return {
     canRecordContributions,
-    commitmentPlans,
-    contributions,
+    commitmentPlans: commitmentPlans as ContributionPlanRow[],
+    contributions: contributions as ContributionListResult,
     filters,
-    loans,
-    members,
+    loans: loans as ContributionLoanRow[],
+    members: members as { items: ContributionMemberRow[] },
     state: "ready" as const,
   }
 }

@@ -2,6 +2,7 @@ import {
   getSessionTokenFromCookieHeader,
   platformSessionScope,
   resolveRequestSessionScope,
+  type SessionScope,
   verifySignedSessionToken,
 } from "@halaalvest/auth"
 import {
@@ -15,6 +16,9 @@ import {
   listContributions,
   listMembers,
   resolveTenantAsync,
+  type MembershipRecord,
+  type TenantResolution,
+  type UserRecord,
 } from "@halaalvest/db"
 import {
   buildDashboardSnapshot,
@@ -49,6 +53,24 @@ type DashboardChargeDefinitionRow = {
   amount: number
 }
 
+type DashboardServerContext = {
+  auth: {
+    membership: MembershipRecord | null
+    pendingMemberOnboarding: {
+      email: string
+      fullName: string
+      id: string
+      memberNumber: string
+      status: string
+    } | null
+    sessionScope: SessionScope | null
+    sessionToken: string | null
+    user: UserRecord | null
+  }
+  tenant: TenantResolution["tenant"]
+  tenantResolution: TenantResolution
+}
+
 type DashboardPageData = {
   dashboard: ReturnType<typeof buildDashboardSnapshot>
   hasSession: boolean
@@ -78,7 +100,7 @@ type DashboardPageData = {
   }
 }
 
-export async function getDashboardServerContext() {
+export async function getDashboardServerContext(): Promise<DashboardServerContext> {
   const headerStore = await headers()
   const cookieStore = await cookies()
   const host = headerStore.get("host")

@@ -17,17 +17,17 @@ export default async function AwaitingApprovalPage() {
   const context = await getDashboardServerContext()
 
   if (!context.auth.sessionToken || !context.auth.user) {
-    await tenantRedirect("/login")
+    return tenantRedirect("/login")
   }
 
   if (context.auth.membership) {
-    await tenantRedirect("/")
+    return tenantRedirect("/")
   }
 
   const request = context.auth.pendingMemberOnboarding
 
   if (!request) {
-    await tenantRedirect("/login?error=invalid-account")
+    return tenantRedirect("/login?error=invalid-account")
   }
   const logoutHref = buildTenantHref(tenantUrlContext, "/auth/logout", tenantUrlConfig)
 

@@ -37,7 +37,10 @@ import {
   migrationBackfillApplied,
   migrationBackfillInitialized,
 } from "./operations"
-import { createNotificationEmailDraft } from "./shared"
+import {
+  createNotificationEmailDraft,
+  type HalaalVestNotificationDefinition,
+} from "./shared"
 
 export const halaalVestNotificationTypes = {
   "charge.applied": chargeApplied,
@@ -91,7 +94,9 @@ export function createEmailDraftFromType<TType extends HalaalVestNotificationTyp
   payload: HalaalVestNotificationPayload<TType>,
   recipientOverride?: NotificationRecipient,
 ): NotificationEmailDraft {
-  const definition = halaalVestNotificationTypes[type]
+  const definition = halaalVestNotificationTypes[
+    type
+  ] as HalaalVestNotificationDefinition
   const parsed = definition.schema.parse(payload)
   const template = definition.buildEmailDraft(parsed)
 

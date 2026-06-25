@@ -24,7 +24,10 @@ export type NotificationTypeDefinition<
   variant?: Resolvable<NotificationVariant, z.infer<TSchema>>
 }
 
-export type NotificationTypeRegistry = Record<string, NotificationTypeDefinition>
+export type NotificationTypeRegistry = Record<
+  string,
+  NotificationTypeDefinition<any>
+>
 
 function resolveValue<TValue, TPayload>(
   value: Resolvable<TValue, TPayload>,
@@ -43,14 +46,16 @@ export function defineNotificationType<TSchema extends z.ZodTypeAny>(
   return definition
 }
 
-export function defineNotificationTypes<TRegistry extends NotificationTypeRegistry>(
+export function defineNotificationTypes<
+  TRegistry extends Record<string, NotificationTypeDefinition<any>>,
+>(
   registry: TRegistry,
 ) {
   return registry
 }
 
 export function createNotificationInputFromType<
-  TRegistry extends NotificationTypeRegistry,
+  TRegistry extends Record<string, NotificationTypeDefinition<any>>,
   TType extends keyof TRegistry & string,
 >(
   registry: TRegistry,
@@ -86,7 +91,7 @@ export function createNotificationInputFromType<
 }
 
 export function createNotificationDispatchFromType<
-  TRegistry extends NotificationTypeRegistry,
+  TRegistry extends Record<string, NotificationTypeDefinition<any>>,
   TType extends keyof TRegistry & string,
 >(
   registry: TRegistry,

@@ -8,7 +8,71 @@ import {
 import { getDashboardPageData, getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 
-export async function loadLoansPageData() {
+type LoanNumericValue = number | string | { toString(): string }
+
+type LoanProductOptionRow = {
+  id: string
+  name: string
+  termMonths: number
+}
+
+type LoanMemberOptionRow = {
+  fullName: string
+  id: string
+  memberNumber: string
+}
+
+type LoanRequestRow = {
+  approvals: Array<{
+    action: string
+    actedAt: Date
+    actorUser: { fullName: string }
+    id: string
+    notes?: string | null
+  }>
+  eligibleAmountSnapshot: LoanNumericValue
+  estimatedMonthlyServicing: LoanNumericValue
+  extraMonthlySavingsAmount: LoanNumericValue
+  id: string
+  loanProduct: { name: string }
+  member: { fullName: string }
+  purpose?: string | null
+  requestedAmount: LoanNumericValue
+  requestedTermMonths: number
+  reviewNotes?: string | null
+  status: string
+}
+
+type LoanPortfolioRow = {
+  estimatedMonthlyServicing: LoanNumericValue
+  extraMonthlySavingsAmount: LoanNumericValue
+  id: string
+  loanProduct: { name: string }
+  member: { fullName: string }
+  outstandingPrincipal: LoanNumericValue
+  principalAmount: LoanNumericValue
+  status: string
+  termMonths: number
+}
+
+export type LoansPageData =
+  | {
+      state: "unavailable"
+    }
+  | {
+      canReview: boolean
+      canSubmit: boolean
+      dashboard: Awaited<ReturnType<typeof getDashboardPageData>>["dashboard"]
+      loanProducts: LoanProductOptionRow[]
+      loanRequests: LoanRequestRow[]
+      loans: LoanPortfolioRow[]
+      members: {
+        items: LoanMemberOptionRow[]
+      }
+      state: "ready"
+    }
+
+export async function loadLoansPageData(): Promise<LoansPageData> {
   const { dashboard } = await getDashboardPageData()
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
@@ -30,9 +94,9 @@ export async function loadLoansPageData() {
     canReview: hasAnyRole(context.auth.membership?.role, financeManagementRoles),
     canSubmit: hasAnyRole(context.auth.membership?.role, allStaffRoles),
     dashboard,
-    loanProducts,
-    loanRequests,
-    loans,
+    loanProducts: loanProducts as LoanProductOptionRow[],
+    loanRequests: loanRequests as LoanRequestRow[],
+    loans: loans as LoanPortfolioRow[],
     members,
     state: "ready" as const,
   }

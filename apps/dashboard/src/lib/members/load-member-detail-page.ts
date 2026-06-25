@@ -2,7 +2,33 @@ import { createDbRuntime, getMemberStatementDetail } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole, memberManagementRoles } from "@/lib/workspace-access"
 
-export async function loadMemberDetailPageData(memberId: string) {
+type MemberStatementDetail = NonNullable<
+  Awaited<ReturnType<typeof getMemberStatementDetail>>
+>
+
+export type MemberDetailPageData =
+  | {
+      state: "unavailable"
+    }
+  | {
+      state: "not-found"
+    }
+  | {
+      canManageCommitments: boolean
+      canManageMembers: boolean
+      detail: MemberStatementDetail
+      state: "ready"
+      tenantStartDate: string | null
+    }
+
+function toDateString(value: Date | string | null | undefined) {
+  if (!value) return null
+  return typeof value === "string" ? value.slice(0, 10) : value.toISOString().slice(0, 10)
+}
+
+export async function loadMemberDetailPageData(
+  memberId: string,
+): Promise<MemberDetailPageData> {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
 
@@ -25,6 +51,6 @@ export async function loadMemberDetailPageData(memberId: string) {
     canManageCommitments: hasAnyRole(context.auth.membership?.role, allStaffRoles),
     canManageMembers: hasAnyRole(context.auth.membership?.role, memberManagementRoles),
     detail,
-    tenantStartDate: context.tenant.startDate ?? null,
+    tenantStartDate: toDateString(context.tenant.startDate),
   }
 }

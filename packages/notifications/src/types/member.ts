@@ -11,80 +11,113 @@ import {
   tenantEventSchema,
 } from "./shared"
 
+const memberOnboardingVerificationRequestedSchema = directEmailSchema.extend({
+  expiresAt: z.string().min(1),
+  requestId: z.string().min(1),
+  verificationUrl: z.string().min(1),
+})
+
+type MemberOnboardingVerificationRequestedPayload = z.infer<
+  typeof memberOnboardingVerificationRequestedSchema
+>
+
+function buildMemberOnboardingVerificationRequestedBody(
+  payload: MemberOnboardingVerificationRequestedPayload,
+) {
+  return [
+    `Assalamu alaikum ${payload.recipientName},`,
+    "",
+    `Your membership signup for ${payload.tenantName} is almost complete.`,
+    "Confirm your email address to move into the cooperative approval queue.",
+    "",
+    `This verification link expires on ${payload.expiresAt}.`,
+  ].join("\n")
+}
+
 export const memberOnboardingVerificationRequested = defineHalaalNotification({
-  buildBody: (payload) =>
-    [
-      `Assalamu alaikum ${payload.recipientName},`,
-      "",
-      `Your membership signup for ${payload.tenantName} is almost complete.`,
-      "Confirm your email address to move into the cooperative approval queue.",
-      "",
-      `This verification link expires on ${payload.expiresAt}.`,
-    ].join("\n"),
+  buildBody: buildMemberOnboardingVerificationRequestedBody,
   buildEmailDraft: (payload) => ({
     actionLabel: "Verify email and continue",
     actionUrl: payload.verificationUrl,
-    bodyText: memberOnboardingVerificationRequested.buildBody(payload),
+    bodyText: buildMemberOnboardingVerificationRequestedBody(payload),
     previewText: `Verify your membership signup for ${payload.tenantName}.`,
     recipient: createDirectRecipient(payload),
     subject: `Verify your membership signup for ${payload.tenantName}`,
   }),
   buildLink: (payload) => payload.verificationUrl,
   channels: channelHelpers.email(),
-  schema: directEmailSchema.extend({
-    expiresAt: z.string().min(1),
-    requestId: z.string().min(1),
-    verificationUrl: z.string().min(1),
-  }),
+  schema: memberOnboardingVerificationRequestedSchema,
   title: () => "Member signup verification",
   variant: "info",
 })
 
+const memberOnboardingApprovedSchema = directEmailSchema.extend({
+  actionUrl: z.string().optional(),
+  memberId: z.string().min(1),
+  requestId: z.string().min(1),
+})
+
+type MemberOnboardingApprovedPayload = z.infer<
+  typeof memberOnboardingApprovedSchema
+>
+
+function buildMemberOnboardingApprovedBody(
+  payload: MemberOnboardingApprovedPayload,
+) {
+  return `Assalamu alaikum ${payload.recipientName},\n\nYour membership for ${payload.tenantName} has been approved.\nYou can now sign in to your dashboard and continue with your cooperative account.`
+}
+
 export const memberOnboardingApproved = defineHalaalNotification({
-  buildBody: (payload) =>
-    `Assalamu alaikum ${payload.recipientName},\n\nYour membership for ${payload.tenantName} has been approved.\nYou can now sign in to your dashboard and continue with your cooperative account.`,
+  buildBody: buildMemberOnboardingApprovedBody,
   buildEmailDraft: (payload) => ({
     actionLabel: "Open dashboard",
     actionUrl: payload.actionUrl ?? "/",
-    bodyText: memberOnboardingApproved.buildBody(payload),
+    bodyText: buildMemberOnboardingApprovedBody(payload),
     previewText: `Your ${payload.tenantName} membership has been approved.`,
     recipient: createDirectRecipient(payload),
     subject: `${payload.tenantName}: your membership has been approved`,
   }),
   buildLink: (payload) => payload.actionUrl ?? "/",
   channels: channelHelpers.email(),
-  schema: directEmailSchema.extend({
-    actionUrl: z.string().optional(),
-    memberId: z.string().min(1),
-    requestId: z.string().min(1),
-  }),
+  schema: memberOnboardingApprovedSchema,
   title: (payload) => `${payload.recipientName} approved`,
   variant: "success",
 })
 
+const memberOnboardingRejectedSchema = directEmailSchema.extend({
+  actionUrl: z.string().optional(),
+  reason: z.string().optional().nullable(),
+  requestId: z.string().min(1),
+})
+
+type MemberOnboardingRejectedPayload = z.infer<
+  typeof memberOnboardingRejectedSchema
+>
+
+function buildMemberOnboardingRejectedBody(
+  payload: MemberOnboardingRejectedPayload,
+) {
+  return [
+    `Assalamu alaikum ${payload.recipientName},`,
+    "",
+    `Your membership signup for ${payload.tenantName} was not approved yet.`,
+    payload.reason ?? "Please contact the cooperative team for the next steps.",
+  ].join("\n")
+}
+
 export const memberOnboardingRejected = defineHalaalNotification({
-  buildBody: (payload) =>
-    [
-      `Assalamu alaikum ${payload.recipientName},`,
-      "",
-      `Your membership signup for ${payload.tenantName} was not approved yet.`,
-      payload.reason ?? "Please contact the cooperative team for the next steps.",
-    ].join("\n"),
+  buildBody: buildMemberOnboardingRejectedBody,
   buildEmailDraft: (payload) => ({
     actionLabel: "Contact support",
     actionUrl: payload.actionUrl ?? "/login",
-    bodyText: memberOnboardingRejected.buildBody(payload),
+    bodyText: buildMemberOnboardingRejectedBody(payload),
     previewText: `${payload.tenantName} membership signup update.`,
     recipient: createDirectRecipient(payload),
     subject: `${payload.tenantName}: membership signup update`,
   }),
   buildLink: (payload) => payload.actionUrl ?? "/login",
   channels: channelHelpers.email(),
-  schema: directEmailSchema.extend({
-    actionUrl: z.string().optional(),
-    reason: z.string().optional().nullable(),
-    requestId: z.string().min(1),
-  }),
+  schema: memberOnboardingRejectedSchema,
   title: (payload) => `${payload.recipientName} needs follow-up`,
   variant: "warning",
 })

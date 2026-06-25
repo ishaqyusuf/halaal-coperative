@@ -168,8 +168,9 @@ async function assertMemberProfileMutationOpen(
   )
 
   if (blockingSteps.length > 0) {
+    const blockingStepKeys: ReadonlySet<string> = new Set(blockingSteps)
     const labels = migrationState.snapshot.steps
-      .filter((step) => blockingSteps.includes(step.key))
+      .filter((step) => blockingStepKeys.has(step.key))
       .map((step) => step.label)
 
     throw new Error(

@@ -11,6 +11,7 @@ import { Button } from "@halaalvest/ui/components/button"
 import { DashboardShellClient } from "@/components/dashboard"
 import { DashboardOverviewPage } from "@/components/dashboard/overview-page"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { HydrateClient, prefetch, trpc } from "@/trpc/server"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
@@ -28,6 +29,8 @@ export default async function TenantHomePage() {
     const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
     const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
 
+    await prefetch(trpc.health.summary.queryOptions())
+
     return (
       <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
         <DashboardShellClient
@@ -35,7 +38,9 @@ export default async function TenantHomePage() {
           tenantName={tenantName}
           userName={userName}
         >
-          <DashboardOverviewPage />
+          <HydrateClient>
+            <DashboardOverviewPage />
+          </HydrateClient>
         </DashboardShellClient>
       </TenantUrlProvider>
     )

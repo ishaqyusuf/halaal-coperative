@@ -75,7 +75,6 @@ import {
   updateShareBusiness,
   updateMemberKyc,
   updateMemberDocumentReview,
-  updateMemberStatus,
   updateMemberSignupLink,
   updateTenantMemberSignupSettings,
   updateLegacyLoanMigrationDraft,
@@ -114,6 +113,7 @@ import {
   composeMemberNumber,
   normalizeMemberNumberPrefix,
 } from "@/lib/member-number"
+import { getServerCaller } from "@/trpc/server"
 
 type DashboardMemberType = "civil_servant" | "individual" | "business"
 type DashboardMemberStatus =
@@ -883,30 +883,11 @@ export async function createMemberAction(formData: FormData) {
 }
 
 export async function updateMemberStatusAction(formData: FormData) {
-  const actor = await requireDashboardActor(memberManagementRoles)
-  await requireLiveFinancialWritesOpen(actor)
+  const caller = await getServerCaller()
 
-  const member = await updateMemberStatus(
-    actor.tenant.id,
-    getRequiredString(formData, "memberId"),
-    getRequiredString(formData, "status") as DashboardMemberStatus,
-    actor.user.id
-  )
-
-  await queueTenantRoleNotifications({
-    actionLabel: "Open members",
-    actionUrl: "/members",
-    bodyText: `${member.fullName} is now marked as ${member.status.replace(/_/g, " ")}.`,
-    metadata: {
-      memberId: member.id,
-      memberNumber: member.memberNumber,
-      status: member.status,
-    },
-    notificationType: "member.status_changed",
-    roles: ["tenant_admin", "operations_officer"],
-    source: "dashboard.members",
-    subject: `${actor.tenant.name}: member status changed`,
-    tenantId: actor.tenant.id,
+  await caller.members.updateStatus({
+    memberId: getRequiredString(formData, "memberId"),
+    status: getRequiredString(formData, "status") as DashboardMemberStatus,
   })
 
   revalidatePath("/members")

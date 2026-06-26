@@ -1,10 +1,9 @@
 import { serve } from "@hono/node-server"
-import { fetchRequestHandler } from "@trpc/server/adapters/fetch"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 
-import { buildRequestContext, createTRPCContext } from "./context"
-import { appRouter } from "./routers/_app"
+import { buildRequestContext } from "./context"
+import { handleTrpcRequest } from "./internal-api"
 
 const app = new Hono()
 const dashboardOrigin = process.env.DASHBOARD_APP_URL ?? "http://localhost:1441"
@@ -41,12 +40,7 @@ app.get("/health", async (c) => {
 })
 
 app.all("/trpc/*", async (c) => {
-  return fetchRequestHandler({
-    endpoint: "/trpc",
-    req: c.req.raw,
-    router: appRouter,
-    createContext: createTRPCContext,
-  })
+  return handleTrpcRequest(c.req.raw, "/trpc")
 })
 
 const port = Number(process.env.PORT ?? 1442)

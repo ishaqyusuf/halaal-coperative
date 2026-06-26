@@ -4,6 +4,7 @@ import { cn } from "@halaalvest/ui/lib/utils"
 import { Inter } from "next/font/google"
 import { NuqsAdapter } from "nuqs/adapters/next/app"
 import { ThemeProvider } from "@/components/theme-provider"
+import { TRPCReactProvider } from "@/trpc/client"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -26,9 +27,11 @@ export default async function RootLayout({
     >
       <body>
         <NuqsAdapter>
-          <ThemeProvider>
-            <NotificationsProvider>{children}</NotificationsProvider>
-          </ThemeProvider>
+          <TRPCReactProvider>
+            <ThemeProvider>
+              <NotificationsProvider>{children}</NotificationsProvider>
+            </ThemeProvider>
+          </TRPCReactProvider>
         </NuqsAdapter>
       </body>
     </html>

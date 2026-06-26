@@ -41,3 +41,12 @@ This file gives a task-oriented view of near-term execution priorities.
 - Plan Status: Proposed
 - Plan File: brain/plans/2026-06-23-feature-migration-segment-column-reduction-and-manual-override-grouping.md
 - Created Date: 2026-06-23
+
+### After-Service tRPC Route Implementation And Usage Migration
+- Priority: Medium
+- Description: Track plan in `brain/plans/2026-06-26-feature-after-service-trpc-route-implementation-and-usage-migration.md`.
+- Related Feature: After-Service tRPC Route Implementation And Usage Migration
+- Status: Roadmap
+- Plan Status: Proposed
+- Plan File: brain/plans/2026-06-26-feature-after-service-trpc-route-implementation-and-usage-migration.md
+- Created Date: 2026-06-26

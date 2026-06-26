@@ -6,6 +6,7 @@ import {
   createMember,
   updateMember,
   updateMemberStatus,
+  queueTenantRoleNotifications,
 } from "@halaalvest/db"
 
 export const membersRouter = createTRPCRouter({
@@ -77,7 +78,7 @@ export const membersRouter = createTRPCRouter({
       })
     }),
 
-  updateStatus: minRoleProcedure("tenant_admin")
+  updateStatus: minRoleProcedure("operations_officer")
     .input(
       z.object({
         memberId: z.string().uuid(),
@@ -85,11 +86,29 @@ export const membersRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return updateMemberStatus(
+      const member = await updateMemberStatus(
         ctx.tenant.current.id,
         input.memberId,
         input.status,
         ctx.auth.session.user.id,
       )
+
+      await queueTenantRoleNotifications({
+        actionLabel: "Open members",
+        actionUrl: "/members",
+        bodyText: `${member.fullName} is now marked as ${member.status.replace(/_/g, " ")}.`,
+        metadata: {
+          memberId: member.id,
+          memberNumber: member.memberNumber,
+          status: member.status,
+        },
+        notificationType: "member.status_changed",
+        roles: ["tenant_admin", "operations_officer"],
+        source: "dashboard.members",
+        subject: `${ctx.tenant.current.name}: member status changed`,
+        tenantId: ctx.tenant.current.id,
+      })
+
+      return member
     }),
 })

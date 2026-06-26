@@ -46,14 +46,16 @@ export function prefetch<T extends { queryKey: unknown }>(queryOptions: T) {
   if (queryMeta?.type === "infinite") {
     return queryClient
       .prefetchInfiniteQuery(
-        queryOptions as Parameters<typeof queryClient.prefetchInfiniteQuery>[0],
+        queryOptions as unknown as Parameters<
+          typeof queryClient.prefetchInfiniteQuery
+        >[0],
       )
       .catch(() => {})
   }
 
   return queryClient
     .prefetchQuery(
-      queryOptions as Parameters<typeof queryClient.prefetchQuery>[0],
+      queryOptions as unknown as Parameters<typeof queryClient.prefetchQuery>[0],
     )
     .catch(() => {})
 }

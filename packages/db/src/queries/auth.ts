@@ -411,3 +411,28 @@ export async function provisionTenantUserRole(input: {
     }
   })
 }
+
+export async function updateUserPasswordHash(input: {
+  passwordHash: string
+  tenantId: string
+  userId: string
+}) {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error("Database not configured")
+  }
+
+  const updated = await prisma.user.updateMany({
+    where: {
+      deletedAt: null,
+      id: input.userId,
+      tenantId: input.tenantId,
+    },
+    data: {
+      passwordHash: input.passwordHash,
+    },
+  })
+
+  return updated.count === 1
+}

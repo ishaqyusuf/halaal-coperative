@@ -55,6 +55,7 @@ export default async function LoginPage({
     typeof params.next === "string" ? params.next : "/"
   )
   const error = typeof params.error === "string" ? params.error : null
+  const reset = typeof params.reset === "string" ? params.reset : null
 
   if (context.auth.sessionToken && context.auth.user) {
     await tenantRedirect(nextPath)
@@ -109,6 +110,11 @@ export default async function LoginPage({
     tenantUrlContext,
     "/signup/members",
     tenantUrlConfig,
+  )
+  const resetPasswordHref = buildTenantHref(
+    tenantUrlContext,
+    "/login/reset",
+    tenantUrlConfig
   )
 
   return (
@@ -216,6 +222,13 @@ export default async function LoginPage({
                 </div>
               ) : null}
 
+              {reset === "complete" ? (
+                <div className="mt-6 rounded-[1.25rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+                  Your password has been updated. Sign in with the new
+                  password.
+                </div>
+              ) : null}
+
               <form action={loginAction} method="post" className="mt-6 space-y-4">
                 <input type="hidden" name="next" value={nextPath} />
 
@@ -244,6 +257,13 @@ export default async function LoginPage({
                 <Button type="submit" size="lg" className="mt-2 w-full">
                   Sign in
                 </Button>
+
+                <a
+                  className="block text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  href={resetPasswordHref}
+                >
+                  Reset password
+                </a>
 
                 {context.tenant ? (
                   <a

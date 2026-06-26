@@ -1,0 +1,80 @@
+import {
+  createNotificationOutboxEntry,
+  findUserByEmailAsync,
+  getTenantByIdAsync,
+  resolveTenantAsync,
+} from "@halaalvest/db"
+import { buildTenantDashboardUrl } from "@halaalvest/utils"
+import { NextResponse, type NextRequest } from "next/server"
+import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
+import { createPasswordResetToken } from "@/lib/password-reset-token"
+
+export async function POST(request: NextRequest) {
+  const formData = await request.formData()
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase()
+  const host = request.headers.get("host")
+  const tenantResolution = await resolveTenantAsync({
+    hostname: request.headers.get("x-tenant-hostname") ?? host,
+    slug: request.headers.get("x-tenant-subdomain"),
+  })
+  const user = email
+    ? await findUserByEmailAsync({
+        email,
+        tenantId: tenantResolution.tenant?.id ?? null,
+      })
+    : null
+
+  let devResetUrl: string | null = null
+
+  if (user) {
+    const tenant =
+      tenantResolution.tenant ?? (await getTenantByIdAsync(user.tenantId))
+
+    if (tenant) {
+      const reset = createPasswordResetToken(user)
+      const resetUrl = buildTenantDashboardUrl(tenant.slug, {
+        currentOrigin: request.headers.get("origin") ?? request.nextUrl.origin,
+        pathname: `/login/reset/confirm?token=${encodeURIComponent(reset.token)}`,
+        tenantHostname: request.headers.get("x-tenant-hostname"),
+      })
+
+      await createNotificationOutboxEntry({
+        actionLabel: "Reset password",
+        actionUrl: resetUrl,
+        bodyText: [
+          `Assalamu alaikum ${user.fullName},`,
+          "",
+          `Use this link to set a new password for ${tenant.name}.`,
+          `This link expires on ${reset.expiresAt}.`,
+          "",
+          resetUrl,
+        ].join("\n"),
+        metadata: {
+          expiresAt: reset.expiresAt,
+          userId: user.id,
+        },
+        notificationType: "auth.password_reset_requested",
+        recipient: user.email,
+        source: "dashboard.password_reset",
+        subject: `${tenant.name}: reset your password`,
+        tenantId: tenant.id,
+      })
+
+      if (process.env.NODE_ENV !== "production") {
+        devResetUrl = resetUrl
+      }
+    }
+  }
+
+  const query = new URLSearchParams({ sent: "1" })
+  if (devResetUrl) {
+    query.set("devResetUrl", devResetUrl)
+  }
+
+  return NextResponse.redirect(
+    buildDashboardRedirectUrl(request, `/login/reset?${query.toString()}`),
+    303
+  )
+}

@@ -1,10 +1,12 @@
 import {
   claimNotificationOutboxEntries,
+  createNotificationOutboxEntryFromDraft,
   recordNotificationDeliveryAudit,
   updateNotificationOutboxDelivery,
 } from "@halaalvest/db"
 import {
   createConsoleEmailTransport,
+  createEmailDraftFromType,
   createRetryingEmailTransport,
   createResendEmailTransport,
   NotificationService,
@@ -18,8 +20,13 @@ function discardNotification() {
 
 function createJobNotificationService() {
   const apiKey = process.env.RESEND_API_KEY?.trim()
-  const from = process.env.HALAAL_VEST_EMAIL_FROM?.trim()
-  const replyTo = process.env.HALAAL_VEST_EMAIL_REPLY_TO?.trim()
+  const from =
+    process.env.HALAAL_VEST_EMAIL_FROM?.trim() ||
+    process.env.EMAIL_FROM_ADDRESS?.trim()
+  const replyTo =
+    process.env.HALAAL_VEST_EMAIL_REPLY_TO?.trim() ||
+    process.env.EMAIL_REPLY_TO?.trim()
+  const testRecipient = process.env.HALAAL_VEST_EMAIL_TEST_RECIPIENT?.trim()
 
   const baseEmailTransport =
     apiKey && from
@@ -27,6 +34,7 @@ function createJobNotificationService() {
           apiKey,
           from,
           replyTo,
+          testRecipient,
         })
       : createConsoleEmailTransport()
 
@@ -106,6 +114,11 @@ export async function notificationOutboxDeliverHandler(
     tenantId: payload.tenantId,
   })
   const notificationService = createJobNotificationService()
+  const summary = {
+    failed: 0,
+    processed: 0,
+    sent: 0,
+  }
 
   for (const entry of entries) {
     const draft = draftFromOutboxEntry(entry)
@@ -119,6 +132,13 @@ export async function notificationOutboxDeliverHandler(
       outboxId: entry.id,
       status: delivery.status,
     })
+    summary.processed += 1
+    if (delivery.status === "sent") {
+      summary.sent += 1
+    }
+    if (delivery.status === "failed") {
+      summary.failed += 1
+    }
 
     if (entry.tenantId) {
       await recordNotificationDeliveryAudit({
@@ -132,5 +152,55 @@ export async function notificationOutboxDeliverHandler(
         tenantId: entry.tenantId,
       })
     }
+  }
+
+  return summary
+}
+
+export type EmailSmokeTestPayload = {
+  email: string
+}
+
+export async function emailSmokeTestHandler(payload: EmailSmokeTestPayload) {
+  const email = payload.email.trim()
+
+  if (!email) {
+    throw new Error("email is required for the email smoke test.")
+  }
+
+  const timestamp = new Date()
+  const draft = createEmailDraftFromType("workspace_ready", {
+    dashboardUrl: "https://app.halaalvest.com",
+    recipientEmail: email,
+    recipientName: "HalaalVest email smoke test",
+    siteUrl: "https://halaalvest.com",
+    tenantName: "HalaalVest",
+  })
+  const outboxEntry = await createNotificationOutboxEntryFromDraft({
+    draft,
+    metadata: {
+      smokeTest: true,
+      timestamp: timestamp.toISOString(),
+    },
+    source: "jobs.email_smoke_test",
+  })
+  const notificationService = createJobNotificationService()
+  const delivery = await notificationService.tryEmail(draft)
+
+  if (outboxEntry) {
+    await updateNotificationOutboxDelivery({
+      attempts: delivery.attempts,
+      errorMessage: delivery.errorMessage,
+      messageId: delivery.messageId,
+      outboxId: outboxEntry.id,
+      status: delivery.status,
+    })
+  }
+
+  return {
+    messageId: delivery.messageId,
+    outboxId: outboxEntry?.id ?? null,
+    recipient: delivery.draft.recipient.value,
+    status: delivery.status,
   }
 }

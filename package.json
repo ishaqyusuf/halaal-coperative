@@ -21,6 +21,7 @@
     "dev:dashboard:portless": "bun run dev:prepare && turbo dev:portless --filter=@halaalvest/dashboard",
     "dev:portless": "bun run dev:prepare && turbo dev:portless --parallel",
     "dev:prod": "HALAALVEST_ENV=production HALAALVEST_REQUIRE_PROD_DATABASE_URL=1 turbo dev --parallel",
+    "jobs:deploy": "bun run --filter @halaalvest/jobs deploy",
     "lint": "turbo lint",
     "format": "turbo format",
     "terminal": "bash ./scripts/open-bun-script-terminal.sh",

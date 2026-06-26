@@ -12,8 +12,13 @@ function discardNotification(_input: NotificationInput) {
 
 export function createServerNotificationService() {
   const apiKey = process.env.RESEND_API_KEY?.trim()
-  const from = process.env.HALAAL_VEST_EMAIL_FROM?.trim()
-  const replyTo = process.env.HALAAL_VEST_EMAIL_REPLY_TO?.trim()
+  const from =
+    process.env.HALAAL_VEST_EMAIL_FROM?.trim() ||
+    process.env.EMAIL_FROM_ADDRESS?.trim()
+  const replyTo =
+    process.env.HALAAL_VEST_EMAIL_REPLY_TO?.trim() ||
+    process.env.EMAIL_REPLY_TO?.trim()
+  const testRecipient = process.env.HALAAL_VEST_EMAIL_TEST_RECIPIENT?.trim()
 
   const baseEmailTransport =
     apiKey && from
@@ -21,6 +26,7 @@ export function createServerNotificationService() {
           apiKey,
           from,
           replyTo,
+          testRecipient,
         })
       : createConsoleEmailTransport()
 

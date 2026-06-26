@@ -23,14 +23,26 @@ function mergeEnvFile(filePath: string) {
 }
 
 function loadEnv() {
-  const isProduction = process.env.NODE_ENV === "production"
+  const isProduction =
+    process.env.NODE_ENV === "production" ||
+    process.env.HALAALVEST_ENV === "production"
   const envFiles = [
     path.join(repoRoot, ".env"),
     path.join(repoRoot, ".env.development"),
-    ...(isProduction ? [path.join(repoRoot, ".env.production")] : []),
+    ...(isProduction
+      ? [
+          path.join(repoRoot, ".env.production"),
+          path.join(repoRoot, ".env.production.local"),
+        ]
+      : []),
     path.join(workspaceDir, ".env"),
     path.join(workspaceDir, ".env.development"),
-    ...(isProduction ? [path.join(workspaceDir, ".env.production")] : []),
+    ...(isProduction
+      ? [
+          path.join(workspaceDir, ".env.production"),
+          path.join(workspaceDir, ".env.production.local"),
+        ]
+      : []),
   ]
 
   for (const filePath of envFiles) {

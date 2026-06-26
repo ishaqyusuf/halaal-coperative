@@ -1,9 +1,10 @@
 import type { JobHandler, RetryOptions } from "./queue"
 import { runInBackground } from "./queue"
+import { tasks } from "@trigger.dev/sdk/v3"
 
 export type BackgroundTask<TPayload = unknown> = {
   id: string
-  run: (payload: TPayload) => Promise<void>
+  run: (payload: TPayload) => Promise<unknown>
 }
 
 export function isTriggerConfigured() {
@@ -17,8 +18,7 @@ export async function triggerJob<TPayload>(
   options: RetryOptions = {},
 ) {
   if (isTriggerConfigured()) {
-    // Local placeholder until Trigger.dev is added to this workspace.
-    await task.run(payload)
+    await tasks.trigger(task.id, payload as never)
     return
   }
 

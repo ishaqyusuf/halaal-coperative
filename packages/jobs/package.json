@@ -8,6 +8,8 @@
     "./tasks": "./src/tasks/index.ts"
   },
   "scripts": {
+    "deploy": "node ../../scripts/with-workspace-env.mjs HALAALVEST_ENV=production HALAALVEST_REQUIRE_PROD_DATABASE_URL=1 node --max-old-space-size=4096 ../../packages/db/node_modules/.bin/prisma generate --config ../../packages/db/prisma.config.ts && node ../../scripts/with-workspace-env.mjs HALAALVEST_ENV=production HALAALVEST_REQUIRE_PROD_DATABASE_URL=1 node ../../scripts/with-trigger-profile.mjs -- trigger deploy --skip-update-check",
+    "dev": "node ../../scripts/with-workspace-env.mjs node ../../scripts/with-trigger-profile.mjs -- trigger dev",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit"
@@ -15,7 +17,10 @@
   "dependencies": {
     "@halaalvest/backfill": "workspace:*",
     "@halaalvest/db": "workspace:*",
-    "@halaalvest/notifications": "workspace:*"
+    "@halaalvest/notifications": "workspace:*",
+    "@trigger.dev/build": "4.0.1",
+    "@trigger.dev/sdk": "4.0.1",
+    "trigger.dev": "4.0.1"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",

@@ -26,6 +26,7 @@ export type ResendEmailTransportOptions = {
   apiKey: string
   from: string
   replyTo?: string
+  testRecipient?: string
 }
 
 export type RetryingEmailTransportOptions = {
@@ -237,6 +238,14 @@ export function createResendEmailTransport(
 ): NotificationEmailTransport {
   return {
     async send(draft) {
+      const originalRecipient = draft.recipient.value.trim()
+      const testRecipient = options.testRecipient?.trim()
+      const recipients = testRecipient ? [testRecipient] : [originalRecipient]
+
+      if (!recipients[0]) {
+        throw new Error("Email delivery requires a recipient.")
+      }
+
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -254,8 +263,15 @@ export function createResendEmailTransport(
             },
           ],
           html: draft.bodyHtml,
-          text: [draft.bodyText, "", `${draft.actionLabel}: ${draft.actionUrl}`].join("\n"),
-          to: [draft.recipient.value],
+          text: [
+            draft.bodyText,
+            "",
+            `${draft.actionLabel}: ${draft.actionUrl}`,
+            ...(testRecipient
+              ? ["", `Original recipient: ${originalRecipient}`]
+              : []),
+          ].join("\n"),
+          to: recipients,
         }),
       })
 

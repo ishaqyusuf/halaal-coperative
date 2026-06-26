@@ -21,18 +21,29 @@ function mergeEnvFile(filePath, targetEnv) {
   }
 }
 
-function buildEnv() {
-  const env = { ...process.env };
-  const isProduction = env.NODE_ENV === "production";
+function buildEnv(envSeed = {}) {
+  const env = { ...process.env, ...envSeed };
+  const isProduction =
+    env.NODE_ENV === "production" || env.HALAALVEST_ENV === "production";
   const rootEnvFiles = [
     path.join(repoRoot, ".env"),
     path.join(repoRoot, ".env.development"),
-    ...(isProduction ? [path.join(repoRoot, ".env.production")] : []),
+    ...(isProduction
+      ? [
+          path.join(repoRoot, ".env.production"),
+          path.join(repoRoot, ".env.production.local"),
+        ]
+      : []),
   ];
   const workspaceEnvFiles = [
     path.join(workspaceDir, ".env"),
     path.join(workspaceDir, ".env.development"),
-    ...(isProduction ? [path.join(workspaceDir, ".env.production")] : []),
+    ...(isProduction
+      ? [
+          path.join(workspaceDir, ".env.production"),
+          path.join(workspaceDir, ".env.production.local"),
+        ]
+      : []),
   ];
 
   for (const filePath of rootEnvFiles) {
@@ -46,6 +57,34 @@ function buildEnv() {
   }
 
   return env;
+}
+
+function assertProdDatabaseUrl(env) {
+  if (env.HALAALVEST_REQUIRE_PROD_DATABASE_URL !== "1") {
+    return;
+  }
+
+  if (!env.DATABASE_URL) {
+    console.error(
+      "dev:prod requires DATABASE_URL in .env.production.local or an explicit command env assignment.",
+    );
+    process.exit(1);
+  }
+
+  let databaseUrl;
+  try {
+    databaseUrl = new URL(env.DATABASE_URL);
+  } catch {
+    console.error("dev:prod requires DATABASE_URL to be a valid database URL.");
+    process.exit(1);
+  }
+
+  if (["localhost", "127.0.0.1", "::1"].includes(databaseUrl.hostname)) {
+    console.error(
+      "dev:prod refused to use a localhost DATABASE_URL. Put the production database URL in .env.production.local.",
+    );
+    process.exit(1);
+  }
 }
 
 function parseCommand(argv) {
@@ -79,9 +118,11 @@ function parseCommand(argv) {
 
 const { envAssignments, command, args } = parseCommand(process.argv.slice(2));
 const env = {
-  ...buildEnv(),
+  ...buildEnv(envAssignments),
   ...envAssignments,
 };
+
+assertProdDatabaseUrl(env);
 
 const child = spawn(command, args, {
   cwd: workspaceDir,

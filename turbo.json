@@ -3,14 +3,18 @@
   "globalDependencies": [
     ".env",
     ".env.development",
+    ".env.production.local",
     ".env.production",
     "**/.env",
     "**/.env.development",
+    "**/.env.production.local",
     "**/.env.production"
   ],
   "globalEnv": [
     "DASHBOARD_APP_URL",
     "DATABASE_URL",
+    "HALAALVEST_ENV",
+    "HALAALVEST_REQUIRE_PROD_DATABASE_URL",
     "HALAAL_VEST_LOCAL_ROOT_DOMAIN",
     "HALAAL_VEST_LOCAL_HOSTNAME",
     "HALAAL_VEST_DASHBOARD_ROOT_DOMAIN",

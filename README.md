@@ -23,6 +23,7 @@ Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant halal cooperati
 bun install
 bun run dev
 bun run dev:portless
+bun run dev:prod
 bun run lint
 bun run typecheck
 ```
@@ -40,6 +41,14 @@ The local database uses `localhost:5432`, database `amanah_cooperative`, and a p
 ```bash
 docker compose logs postgres
 ```
+
+To run local dev against the production database, put the production `DATABASE_URL` in ignored file `.env.production.local`, then run:
+
+```bash
+bun run dev:prod
+```
+
+`dev:prod` does not start the local database or run migrations, and it refuses to run if `DATABASE_URL` still points at localhost.
 
 ## Portless
 

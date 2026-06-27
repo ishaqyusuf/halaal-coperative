@@ -15,6 +15,7 @@
     "dev": "bun run dev:prepare && turbo dev --parallel",
     "dev:api": "bun run dev:prepare && turbo dev --filter=@halaalvest/api",
     "dev:api:portless": "bun run dev:prepare && turbo dev:portless --filter=@halaalvest/api",
+    "dev:websites": "bun run dev:prepare && turbo dev --filter=@halaalvest/web --filter=@halaalvest/dashboard --filter=@halaalvest/jobs",
     "dev:web": "bun run dev:prepare && turbo dev --filter=@halaalvest/web",
     "dev:web:portless": "bun run dev:prepare && turbo dev:portless --filter=@halaalvest/web",
     "dev:dashboard": "bun run dev:prepare && turbo dev --filter=@halaalvest/dashboard",

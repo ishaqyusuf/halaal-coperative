@@ -54,7 +54,10 @@
 - `apps/dashboard/app/contributions/page.tsx`
 - `apps/dashboard/app/loans/page.tsx`
 - `apps/dashboard/app/repayments/page.tsx`
+- `/contributions` now includes a current-month staged contribution section sourced from generated monthly-record member rows.
+- `/monthly-records` labels pending monthly-record member rows as staged for operators.
 
 ## Notes
 - The current UI keeps allocation entry operator-driven rather than fully automated by member self-service flows, but it now supports operator-entered total payments plus member presets for the leftover amount.
 - Tenant-site publishing is intentionally outside this feature scope for now.
+- Staged monthly rows remain non-posted until a staff action applies them. They appear on the contributions screen only when the date filter is set to the current month.

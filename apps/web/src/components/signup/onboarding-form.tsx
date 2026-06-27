@@ -2,16 +2,40 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@halaalvest/ui/components/alert"
+import { Badge } from "@halaalvest/ui/components/badge"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@halaalvest/ui/components/card"
+import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
+import {
+  Progress,
+  ProgressLabel,
+  ProgressValue,
+} from "@halaalvest/ui/components/progress"
+import { Separator } from "@halaalvest/ui/components/separator"
+import { Spinner } from "@halaalvest/ui/components/spinner"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { useNotifications } from "@halaalvest/notifications-react"
@@ -103,80 +127,98 @@ export function OnboardingForm({
   }
 
   if (result) {
+    const domainNeedsAttention =
+      result.vercelDomainProvisioning &&
+      result.vercelDomainProvisioning.status !== "verified" &&
+      result.vercelDomainProvisioning.status !== "skipped"
+
     return (
-      <div className="space-y-6">
-        <div>
-          <p className="text-xs font-medium tracking-[0.24em] text-emerald-900/70 uppercase">
-            Workspace Ready
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-950">
-            {result.tenantName} has been provisioned.
-          </h2>
-          <p className="mt-3 text-sm leading-7 text-stone-600">
-            Your tenant host is ready. Members and staff will use the same site
-            for the public homepage, login, and the authenticated workspace
-            under <code>/app</code>.
-          </p>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardAction>
+            <Badge>Workspace ready</Badge>
+          </CardAction>
+          <CardTitle className="text-2xl">
+            {result.tenantName} is ready for guided setup.
+          </CardTitle>
+          <CardDescription>
+            The tenant workspace is provisioned. Open it now to finish charges,
+            shares, member import, migration, loans, and monthly commitments.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <Progress value={100}>
+            <ProgressLabel>Signup progress</ProgressLabel>
+            <ProgressValue>Complete</ProgressValue>
+          </Progress>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
-            <p className="text-sm font-semibold text-stone-950">
-              Authenticated app
-            </p>
-            <p className="mt-2 text-sm leading-6 text-stone-600">
-              {result.dashboardUrl}
-            </p>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="border bg-muted/35 p-3">
+              <p className="text-xs text-muted-foreground">Workspace</p>
+              <p className="mt-1 truncate text-sm font-medium">
+                {result.tenantName}
+              </p>
+            </div>
+            <div className="border bg-muted/35 p-3">
+              <p className="text-xs text-muted-foreground">Tenant host</p>
+              <p className="mt-1 truncate text-sm font-medium">
+                {result.primarySiteHostname}
+              </p>
+            </div>
+            <div className="border bg-muted/35 p-3">
+              <p className="text-xs text-muted-foreground">Next action</p>
+              <p className="mt-1 text-sm font-medium">Open guided setup</p>
+            </div>
           </div>
-          <div className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
-            <p className="text-sm font-semibold text-stone-950">Tenant host</p>
-            <p className="mt-2 text-sm leading-6 text-stone-600">
-              {result.primarySiteHostname}
-            </p>
-          </div>
-        </div>
 
-        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-sm font-semibold text-emerald-950">
-            {result.workspaceReadyEmail.subject}
-          </p>
-          <pre className="mt-4 text-sm leading-6 whitespace-pre-wrap text-emerald-950">
-            {result.workspaceReadyEmail.bodyText}
-          </pre>
-        </div>
+          <Alert>
+            <AlertTitle>Start in the dashboard</AlertTitle>
+            <AlertDescription>
+              Empty workspaces open the first-run checklist automatically, so
+              the admin lands in setup before day-to-day operations.
+            </AlertDescription>
+          </Alert>
 
-        {result.workspaceReadyDeliveryError ? (
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-950">
-              Workspace email needs attention
-            </p>
-            <p className="mt-2 text-sm leading-6 text-amber-900">
-              The tenant workspace was created, but the follow-up email could
-              not be delivered: {result.workspaceReadyDeliveryError}
-            </p>
-          </div>
-        ) : null}
+          {result.workspaceReadyDeliveryError ? (
+            <Alert>
+              <AlertTitle>Workspace email needs attention</AlertTitle>
+              <AlertDescription>
+                The workspace was created, but the follow-up email could not be
+                delivered: {result.workspaceReadyDeliveryError}
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
-        {result.vercelDomainProvisioning &&
-        result.vercelDomainProvisioning.status !== "verified" &&
-        result.vercelDomainProvisioning.status !== "skipped" ? (
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-950">
-              Tenant domain still needs attention
-            </p>
-            <p className="mt-2 text-sm leading-6 text-amber-900">
-              {result.vercelDomainProvisioning.errorMessage ??
-                "Vercel accepted the tenant hostname, but verification is still pending."}
-            </p>
-          </div>
-        ) : null}
+          {domainNeedsAttention ? (
+            <Alert>
+              <AlertTitle>Tenant domain still needs attention</AlertTitle>
+              <AlertDescription>
+                {result.vercelDomainProvisioning?.errorMessage ??
+                  "Vercel accepted the tenant hostname, but verification is still pending."}
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
-        <div className="flex flex-wrap gap-3">
+          <details className="border p-4">
+            <summary className="cursor-pointer text-sm font-medium">
+              Review workspace notification
+            </summary>
+            <div className="mt-4 flex flex-col gap-3 text-sm leading-6 text-muted-foreground">
+              <p className="font-medium text-foreground">
+                {result.workspaceReadyEmail.subject}
+              </p>
+              <pre className="whitespace-pre-wrap text-xs leading-6 text-foreground">
+                {result.workspaceReadyEmail.bodyText}
+              </pre>
+            </div>
+          </details>
+        </CardContent>
+        <CardFooter className="flex flex-wrap gap-2">
           <Link
             className={buttonVariants({ size: "lg" })}
             href={result.dashboardUrl}
           >
-            Open dashboard
+            Open guided setup
           </Link>
           <Link
             className={buttonVariants({ size: "lg", variant: "outline" })}
@@ -184,163 +226,235 @@ export function OnboardingForm({
           >
             View public site
           </Link>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     )
   }
 
   return (
     <Form {...form}>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium tracking-[0.24em] text-emerald-900/70 uppercase">
-              Onboarding
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-950">
-              Share a few details about the cooperative.
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-600">
-              The primary contact email is already verified from signup. We only
-              need a short cooperative profile now, and financial rules can be
-              configured later in the dashboard.
-            </p>
-          </div>
+      <Card>
+        <CardHeader>
           {devMode ? (
-            <Button
-              variant="outline"
-              onClick={() =>
-                applyDevFormFill(form, "onboarding", {
-                  cooperativeName: verification.cooperativeName,
-                  primaryContactEmail: verification.primaryContactEmail,
-                  primaryContactFullName: verification.primaryContactFullName,
-                  primaryContactMemberNumber: verification.primaryContactMemberNumber,
-                  token: form.getValues("token"),
-                })
-              }
-            >
-              Autofill dev data
-            </Button>
+            <CardAction>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  applyDevFormFill(form, "onboarding", {
+                    cooperativeName: verification.cooperativeName,
+                    primaryContactEmail: verification.primaryContactEmail,
+                    primaryContactFullName:
+                      verification.primaryContactFullName,
+                    primaryContactMemberNumber:
+                      verification.primaryContactMemberNumber,
+                    token: form.getValues("token"),
+                  })
+                }
+              >
+                Autofill dev data
+              </Button>
+            </CardAction>
           ) : null}
-        </div>
+          <CardTitle className="text-2xl">
+            Finish the verified workspace profile.
+          </CardTitle>
+          <CardDescription>
+            The admin email is verified. Add the operating profile and first
+            password before opening the tenant setup checklist.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <Progress value={75}>
+            <ProgressLabel>Signup progress</ProgressLabel>
+            <ProgressValue>Step 2 of 2</ProgressValue>
+          </Progress>
 
-        <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-          <input type="hidden" {...form.register("token")} />
+          <Alert>
+            <AlertTitle>Verified contact</AlertTitle>
+            <AlertDescription>
+              {verification.primaryContactEmail} will become the first tenant
+              admin for this cooperative workspace.
+            </AlertDescription>
+          </Alert>
 
-          <div className="grid gap-5 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="cooperativeName"
-              render={({ field }) => (
-                <FormItem className="md:col-span-2">
-                  <FormLabel>Cooperative name</FormLabel>
-                  <FormControl>
-                    <Input id="cooperativeName" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form
+            className="flex flex-col gap-5"
+            onSubmit={form.handleSubmit(onSubmit)}
+          >
+            <input type="hidden" {...form.register("token")} />
 
-            <FormField
-              control={form.control}
-              name="primaryContactFullName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Primary contact full name</FormLabel>
-                  <FormControl>
-                    <Input id="primaryContactFullName" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FieldGroup className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="cooperativeName"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Cooperative name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="primaryContactEmail"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Verified primary contact email</FormLabel>
-                  <FormControl>
-                    <Input id="primaryContactEmail" readOnly {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="primaryContactFullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Admin full name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="primaryContactMemberNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Primary contact cooperative number</FormLabel>
-                  <FormControl>
-                    <Input id="primaryContactMemberNumber" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="primaryContactEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Verified admin email</FormLabel>
+                    <FormControl>
+                      <Input readOnly {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      This value is locked from the verification link.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="currentSize"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Current cooperative size</FormLabel>
-                  <FormControl>
-                    <Input
-                      id="currentSize"
-                      inputMode="numeric"
-                      placeholder="125"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="primaryContactMemberNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Admin member number</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="startDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cooperative start date</FormLabel>
-                  <FormControl>
-                    <Input id="startDate" type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="currentSize"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current cooperative size</FormLabel>
+                    <FormControl>
+                      <Input
+                        inputMode="numeric"
+                        placeholder="125"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="officeAddress"
-              render={({ field }) => (
-                <FormItem className="md:col-span-2">
-                  <FormLabel>Office address</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      id="officeAddress"
-                      placeholder="12 Emir Road, Kaduna North, Kaduna State"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cooperative start date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <Button size="lg" disabled={submitting} type="submit">
-            {submitting ? "Provisioning workspace..." : "Create workspace"}
-          </Button>
-        </form>
-      </div>
+              <FormField
+                control={form.control}
+                name="officeAddress"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Office address</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="12 Emir Road, Kaduna North, Kaduna State"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FieldGroup>
+
+            <Separator />
+
+            <FieldGroup className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Admin password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="At least 8 characters"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm admin password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Repeat your password"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FieldGroup>
+
+            <Separator />
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button size="lg" disabled={submitting} type="submit">
+                {submitting ? (
+                  <>
+                    <Spinner data-icon="inline-start" />
+                    Creating workspace
+                  </>
+                ) : (
+                  "Create workspace"
+                )}
+              </Button>
+              <p className="text-xs leading-5 text-muted-foreground">
+                The dashboard will open the first-run setup checklist next.
+              </p>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </Form>
   )
 }

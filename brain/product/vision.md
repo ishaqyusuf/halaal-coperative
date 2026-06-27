@@ -35,3 +35,4 @@ This file captures the customer problem, target users, and long-term product vis
 - Alternative: digital cooperative and loan management system.
 - Operating principle: halal, interest-free cooperative finance.
 - Avoid positioning as a direct lender unless that becomes a regulated business line later.
+- Current public positioning should emphasize staged contributions, approval-controlled signup, transparent member records, halal loan operations, charges, statements, and guided setup without invented traction metrics.

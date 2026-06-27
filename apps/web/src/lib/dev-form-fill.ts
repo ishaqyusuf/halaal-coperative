@@ -58,8 +58,10 @@ const devFormDefaults = {
 
     return {
       cooperativeName: createRandomCooperativeName(),
+      confirmPassword: "password123",
       currentSize: randomInt(45, 400),
       officeAddress: createRandomOfficeAddress(),
+      password: "password123",
       primaryContactEmail: contact.primaryContactEmail,
       primaryContactFullName: contact.primaryContactFullName,
       primaryContactMemberNumber: contact.primaryContactMemberNumber,

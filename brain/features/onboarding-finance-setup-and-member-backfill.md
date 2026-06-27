@@ -350,6 +350,10 @@
 - Add offline capture support for draft backfill entry if this becomes part of field operations.
 
 ## Current Implementation Slice
+- First-run workspace guidance:
+  - empty tenant workspaces route admins to `/onboarding` after signup or login
+  - the onboarding screen computes completion from real tenant data and links through charges, shares, business, member import, member migration, loan setup, and monthly commitments
+  - established workspaces with member or finance activity bypass the wizard
 - Implemented package boundaries:
   - `packages/backfill`
     - draft generation, row recalculation, loan propagation, warnings, summaries, and profit-period context

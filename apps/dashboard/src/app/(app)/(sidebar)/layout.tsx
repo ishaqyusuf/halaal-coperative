@@ -1,5 +1,8 @@
 import { normalizeRole } from "@halaalvest/auth/roles"
-import { getTenantInitialMigrationState } from "@halaalvest/db"
+import {
+  getTenantFirstRunOnboardingState,
+  getTenantInitialMigrationState,
+} from "@halaalvest/db"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { TenantUrlProvider } from "@halaalvest/tenant-url/react"
 import { headers } from "next/headers"
@@ -12,7 +15,7 @@ import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
 const initialMigrationSetupPaths = [
-  "/settings/finance",
+  "/getting-started",
   "/settings/imports",
   "/settings/profile",
 ]
@@ -66,7 +69,7 @@ export default async function SidebarLayout({
     )
 
     if (!canProceed && isWorkspaceAdmin && !alreadyInSetup) {
-      await tenantRedirect("/settings/finance")
+      await tenantRedirect("/getting-started")
     }
 
     if (!canProceed && !isWorkspaceAdmin) {
@@ -117,6 +120,19 @@ export default async function SidebarLayout({
           </DashboardShellClient>
         </TenantUrlProvider>
       )
+    }
+
+    const alreadyInOnboarding =
+      nextPath === "/onboarding" || nextPath.startsWith("/onboarding/")
+
+    if (canProceed && isWorkspaceAdmin && !alreadyInOnboarding) {
+      const firstRunOnboarding = await getTenantFirstRunOnboardingState(
+        context.tenant.id
+      )
+
+      if (firstRunOnboarding.shouldOpenForEmptyWorkspace) {
+        await tenantRedirect("/onboarding")
+      }
     }
   }
 

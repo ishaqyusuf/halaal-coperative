@@ -3,16 +3,40 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useWatch } from "react-hook-form"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@halaalvest/ui/components/alert"
+import { Badge } from "@halaalvest/ui/components/badge"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@halaalvest/ui/components/card"
+import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
+import {
+  Progress,
+  ProgressLabel,
+  ProgressValue,
+} from "@halaalvest/ui/components/progress"
+import { Separator } from "@halaalvest/ui/components/separator"
+import { Spinner } from "@halaalvest/ui/components/spinner"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
@@ -25,8 +49,16 @@ import {
 
 type SignupApiSuccess = {
   devMode: boolean
+  deliveryTriggerError?: string | null
+  emailDeliveryConfigured: boolean
   expiresAt: string
   onboardingUrl: string
+  verificationDelivery: {
+    attempts: number
+    errorMessage?: string | null
+    messageId: string
+    status: "failed" | "queued" | "sent"
+  }
   verificationEmail: {
     actionLabel: string
     actionUrl: string
@@ -56,6 +88,13 @@ type AvailabilityState =
       }
     }
   | { status: "error"; message: string }
+
+function formatExpiry(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value))
+}
 
 export function SignupForm({ devMode }: { devMode: boolean }) {
   const form = useZodForm<SignupIntentInput>(signupIntentSchema, {
@@ -158,7 +197,10 @@ export function SignupForm({ devMode }: { devMode: boolean }) {
       (!availability.cooperativeName.available ||
         !availability.workspaceSlug.available)
     ) {
-      showError("Signup could not continue", "Choose an available name and subdomain.")
+      showError(
+        "Signup could not continue",
+        "Choose an available name and subdomain."
+      )
       return
     }
 
@@ -186,8 +228,12 @@ export function SignupForm({ devMode }: { devMode: boolean }) {
 
       setResult(payload)
       showSuccess(
-        "Verification prepared",
-        "Use the email link to continue into onboarding."
+        payload.verificationDelivery.status === "sent"
+          ? "Verification email sent"
+          : "Verification queued",
+        payload.emailDeliveryConfigured
+          ? "The delivery job is handling the verification email."
+          : "Email transport is not configured in this environment."
       )
     } catch (error) {
       showError(
@@ -200,49 +246,100 @@ export function SignupForm({ devMode }: { devMode: boolean }) {
   }
 
   if (result) {
+    const emailWasSent = result.verificationDelivery.status === "sent"
+    const deliveryTitle = emailWasSent
+      ? "Check the primary contact inbox."
+      : result.emailDeliveryConfigured
+        ? "Verification email is queued."
+        : "Email delivery is not configured."
+    const deliveryDescription = emailWasSent
+      ? `The verification email was sent to ${result.verificationEmail.recipient.value}. The secure link expires ${formatExpiry(result.expiresAt)}.`
+      : result.emailDeliveryConfigured
+        ? `The verification notice is saved in the outbox for ${result.verificationEmail.recipient.value}. The delivery job is sending it now. The secure link expires ${formatExpiry(result.expiresAt)}.`
+        : `The verification notice is saved in the outbox, but this environment has no email transport configured. The secure link expires ${formatExpiry(result.expiresAt)}.`
+    const deliveryLabel = emailWasSent
+      ? "Sent to inbox"
+      : result.emailDeliveryConfigured
+        ? "Queued for job"
+        : "Queued locally"
+    const showSecureLink = result.devMode || !result.emailDeliveryConfigured
+
     return (
-      <div className="space-y-6">
-        <div>
-          <p className="text-xs font-medium tracking-[0.24em] text-emerald-900/70 uppercase">
-            Verification Ready
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-950">
-            Continue from the verification link.
-          </h2>
-          <p className="mt-3 text-sm leading-7 text-stone-600">
-            We generated the email payload for{" "}
-            <strong>{result.verificationEmail.recipient.value}</strong>. Verify
-            the primary contact email first, then continue with a short
-            cooperative profile. The link expires on{" "}
-            {new Date(result.expiresAt).toLocaleString()}.
-          </p>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardAction>
+            <Badge>{emailWasSent ? "Email sent" : "Notification queued"}</Badge>
+          </CardAction>
+          <CardTitle className="text-2xl">{deliveryTitle}</CardTitle>
+          <CardDescription>{deliveryDescription}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <Progress value={50}>
+            <ProgressLabel>Signup progress</ProgressLabel>
+            <ProgressValue>Step 1 of 2</ProgressValue>
+          </Progress>
 
-        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-sm font-semibold text-emerald-950">
-            {result.verificationEmail.subject}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-emerald-900">
-            {result.verificationEmail.previewText}
-          </p>
-          <pre className="mt-4 text-sm leading-6 whitespace-pre-wrap text-emerald-950">
-            {result.verificationEmail.bodyText}
-          </pre>
-        </div>
+          <Alert>
+            <AlertTitle>
+              {emailWasSent
+                ? "Verification comes before setup"
+                : "Outbox job owns delivery"}
+            </AlertTitle>
+            <AlertDescription>
+              {emailWasSent
+                ? "Use the email action to continue into onboarding. The cooperative workspace is not created until the verified profile is submitted."
+                : "Signup verification is queued as an outbox notification. The cooperative workspace is not created until the verified profile is submitted."}
+            </AlertDescription>
+          </Alert>
 
-        <div className="flex flex-wrap gap-3">
-          <Link
-            className={buttonVariants({ size: "lg" })}
-            href={result.verificationEmail.actionUrl}
-          >
-            {result.verificationEmail.actionLabel}
-          </Link>
-          {result.devMode ? (
+          {result.deliveryTriggerError ? (
+            <Alert>
+              <AlertTitle>Delivery job was not started</AlertTitle>
+              <AlertDescription>{result.deliveryTriggerError}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="border bg-muted/35 p-3">
+              <p className="text-xs text-muted-foreground">Recipient</p>
+              <p className="mt-1 truncate text-sm font-medium">
+                {result.verificationEmail.recipient.value}
+              </p>
+            </div>
+            <div className="border bg-muted/35 p-3">
+              <p className="text-xs text-muted-foreground">Delivery</p>
+              <p className="mt-1 text-sm font-medium">{deliveryLabel}</p>
+            </div>
+            <div className="border bg-muted/35 p-3">
+              <p className="text-xs text-muted-foreground">Next screen</p>
+              <p className="mt-1 text-sm font-medium">Cooperative profile</p>
+            </div>
+          </div>
+
+          <details className="border p-4">
+            <summary className="cursor-pointer text-sm font-medium">
+              Review notification copy
+            </summary>
+            <div className="mt-4 flex flex-col gap-3 text-sm leading-6 text-muted-foreground">
+              <p className="font-medium text-foreground">
+                {result.verificationEmail.subject}
+              </p>
+              <p>{result.verificationEmail.previewText}</p>
+              <pre className="text-xs leading-6 whitespace-pre-wrap text-foreground">
+                {result.verificationEmail.bodyText}
+              </pre>
+            </div>
+          </details>
+        </CardContent>
+        <CardFooter className="flex flex-wrap gap-2">
+          {showSecureLink ? (
             <Link
-              className={buttonVariants({ size: "lg", variant: "outline" })}
-              href={result.onboardingUrl}
+              className={buttonVariants({ size: "lg" })}
+              href={result.verificationEmail.actionUrl}
             >
-              Continue without verification
+              {result.emailDeliveryConfigured
+                ? result.verificationEmail.actionLabel
+                : "Continue with secure link"}
             </Link>
           ) : null}
           <Button
@@ -256,182 +353,234 @@ export function SignupForm({ devMode }: { devMode: boolean }) {
           >
             Start over
           </Button>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     )
   }
 
   return (
     <Form {...form}>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium tracking-[0.24em] text-emerald-900/70 uppercase">
-              Signup
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-950">
-              Start your cooperative workspace.
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-600">
-              We verify the primary contact email first, then ask only for the
-              core cooperative information needed to open the workspace.
-            </p>
-          </div>
+      <Card>
+        <CardHeader>
           {devMode ? (
-            <Button
-              variant="outline"
-              onClick={() => applyDevFormFill(form, "signup")}
-            >
-              Autofill dev data
-            </Button>
+            <CardAction>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() => applyDevFormFill(form, "signup")}
+              >
+                Autofill dev data
+              </Button>
+            </CardAction>
           ) : null}
-        </div>
+          <CardTitle className="text-2xl">
+            Open the verification step.
+          </CardTitle>
+          <CardDescription>
+            Capture the accountable admin, reserve the tenant URL, and send the
+            secure email link before any workspace is created.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <Progress value={25}>
+            <ProgressLabel>Signup progress</ProgressLabel>
+            <ProgressValue>Step 1 of 2</ProgressValue>
+          </Progress>
 
-        <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
-          <FormField
-            control={form.control}
-            name="primaryContactFullName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Primary contact full name</FormLabel>
-                <FormControl>
-                  <Input
-                    id="primaryContactFullName"
-                    placeholder="Amina Yusuf"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <form
+            className="flex flex-col gap-5"
+            onSubmit={form.handleSubmit(onSubmit)}
+          >
+            <FieldGroup className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="primaryContactFullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Admin full name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Amina Yusuf" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="primaryContactEmail"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Primary contact email</FormLabel>
-                <FormControl>
-                  <Input
-                    id="primaryContactEmail"
-                    type="email"
-                    placeholder="admin@noorcoop.ng"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="primaryContactEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Admin email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="admin@noorcoop.ng"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="primaryContactMemberNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Primary contact cooperative number</FormLabel>
-                <FormControl>
-                  <Input
-                    id="primaryContactMemberNumber"
-                    placeholder="PC-1001"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="primaryContactMemberNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Admin member number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="PC-1001" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Use the number your cooperative already recognizes.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="cooperativeName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Cooperative name</FormLabel>
-                <FormControl>
-                  <Input
-                    id="cooperativeName"
-                    placeholder="Noor Cooperative Society"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="cooperativeName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cooperative name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Noor Cooperative Society"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="workspaceSlug"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Workspace subdomain</FormLabel>
-                <FormControl>
-                  <Input
-                    id="workspaceSlug"
-                    placeholder="noor"
-                    {...field}
-                    onChange={(event) => {
-                      setWorkspaceSlugEdited(true)
-                      field.onChange(normalizeWorkspaceSlug(event.target.value))
-                    }}
-                  />
-                </FormControl>
-                <div className="space-y-1 text-sm leading-6 text-stone-600">
-                  {availability.status === "checking" ? (
-                    <p>Checking workspace availability...</p>
-                  ) : availability.status === "ready" ? (
-                    <>
-                      <p
-                        className={
+              <FormField
+                control={form.control}
+                name="workspaceSlug"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Workspace URL</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="noor"
+                        {...field}
+                        onChange={(event) => {
+                          setWorkspaceSlugEdited(true)
+                          field.onChange(
+                            normalizeWorkspaceSlug(event.target.value)
+                          )
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      This becomes the cooperative subdomain after verification.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FieldGroup>
+
+            {availability.status === "checking" ? (
+              <Alert>
+                <AlertTitle>Checking availability</AlertTitle>
+                <AlertDescription>
+                  We are checking the cooperative name and workspace URL.
+                </AlertDescription>
+              </Alert>
+            ) : availability.status === "ready" ? (
+              <Alert
+                variant={
+                  availability.cooperativeName.available &&
+                  availability.workspaceSlug.available
+                    ? "default"
+                    : "destructive"
+                }
+              >
+                <AlertTitle>Workspace availability</AlertTitle>
+                <AlertDescription>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant={
                           availability.workspaceSlug.available
-                            ? "text-emerald-700"
-                            : "text-red-700"
+                            ? "secondary"
+                            : "destructive"
                         }
                       >
+                        URL
+                      </Badge>
+                      <span>
                         {availability.workspaceSlug.available
                           ? `${availability.workspaceSlug.hostname} is available.`
-                          : "That workspace subdomain is not available."}
-                      </p>
-                      <p
-                        className={
+                          : "That workspace URL is not available."}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant={
                           availability.cooperativeName.available
-                            ? "text-emerald-700"
-                            : "text-red-700"
+                            ? "secondary"
+                            : "destructive"
                         }
                       >
+                        Name
+                      </Badge>
+                      <span>
                         {availability.cooperativeName.available
                           ? "Cooperative name is available."
                           : "That cooperative name is already in use."}
-                      </p>
-                    </>
-                  ) : availability.status === "error" ? (
-                    <p className="text-amber-700">{availability.message}</p>
-                  ) : normalizedWorkspaceSlug ? (
-                    <p>
-                      Your workspace will use{" "}
-                      <span className="font-medium">{normalizedWorkspaceSlug}</span>.
-                    </p>
-                  ) : (
-                    <p>
-                      We will suggest one from the cooperative name without
-                      the word cooperative.
-                    </p>
-                  )}
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                      </span>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            ) : availability.status === "error" ? (
+              <Alert>
+                <AlertTitle>Availability check paused</AlertTitle>
+                <AlertDescription>{availability.message}</AlertDescription>
+              </Alert>
+            ) : normalizedWorkspaceSlug ? (
+              <Alert>
+                <AlertTitle>Suggested workspace</AlertTitle>
+                <AlertDescription>
+                  Your workspace URL will use{" "}
+                  <span className="font-medium">{normalizedWorkspaceSlug}</span>
+                  .
+                </AlertDescription>
+              </Alert>
+            ) : null}
 
-          <Button size="lg" disabled={submitting || !canSubmit} type="submit">
-            {submitting
-              ? "Preparing verification..."
-              : "Continue to verification"}
-          </Button>
-        </form>
-      </div>
+            <Separator />
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                size="lg"
+                disabled={submitting || !canSubmit}
+                type="submit"
+              >
+                {submitting ? (
+                  <>
+                    <Spinner data-icon="inline-start" />
+                    Preparing verification
+                  </>
+                ) : (
+                  "Send verification email"
+                )}
+              </Button>
+              <p className="text-xs leading-5 text-muted-foreground">
+                The workspace opens only after email verification and
+                onboarding.
+              </p>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </Form>
   )
 }

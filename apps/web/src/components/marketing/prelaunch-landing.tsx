@@ -22,7 +22,7 @@ const pillars = [
 ] as const
 
 const readiness = [
-  ["Built for", "$100M+ funds"],
+  ["Built for", "Governed funds"],
   ["Designed for", "Audit-ready ops"],
   ["Launch path", "Guided signup"],
 ] as const

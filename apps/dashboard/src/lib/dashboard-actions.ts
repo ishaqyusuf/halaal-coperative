@@ -1352,6 +1352,8 @@ export async function createChargeDefinitionAction(formData: FormData) {
   })
 
   revalidatePath("/charges")
+  revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function createTenantShareStructureVersionAction(
@@ -1376,6 +1378,7 @@ export async function createTenantShareStructureVersionAction(
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function updateTenantShareStructureVersionAction(
@@ -1404,6 +1407,7 @@ export async function updateTenantShareStructureVersionAction(
 
   revalidatePath("/settings/finance")
   revalidatePath("/settings/finance/migration")
+  revalidatePath("/getting-started")
 }
 
 export async function createChargeDefinitionVersionAction(formData: FormData) {
@@ -1429,6 +1433,7 @@ export async function createChargeDefinitionVersionAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function updateChargeDefinitionVersionAction(formData: FormData) {
@@ -1455,6 +1460,7 @@ export async function updateChargeDefinitionVersionAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function createShareBusinessAction(formData: FormData) {
@@ -1486,6 +1492,7 @@ export async function createShareBusinessAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function updateShareBusinessAction(formData: FormData) {
@@ -1516,6 +1523,7 @@ export async function updateShareBusinessAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function createShareBusinessProfitEntryAction(formData: FormData) {
@@ -1552,6 +1560,7 @@ export async function createShareBusinessProfitEntryAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function updateShareBusinessProfitEntryAction(formData: FormData) {
@@ -1586,6 +1595,7 @@ export async function updateShareBusinessProfitEntryAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function generateShareProfitAllocationsAction(formData: FormData) {
@@ -1973,6 +1983,7 @@ export async function updateTenantFinanceStartDateAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath("/settings/profile")
   revalidatePath("/")
 }
@@ -2004,6 +2015,7 @@ export async function finalizeInitialMigrationAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath("/")
 }
 
@@ -2027,6 +2039,7 @@ export async function unlockInitialMigrationAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath("/")
 }
 
@@ -2061,6 +2074,7 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath(`/settings/finance/migration/${memberId}`)
   revalidatePath("/settings/finance/loan")
 }
@@ -2097,6 +2111,7 @@ export async function updateLegacyLoanMigrationDraftAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath(`/settings/finance/migration/${memberId}`)
   revalidatePath("/settings/finance/loan")
 }
@@ -2118,6 +2133,7 @@ export async function upsertMemberAmountLogAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath(`/settings/finance/migration/${memberId}`)
 }
 
@@ -2139,6 +2155,7 @@ export async function markLegacyLoansReviewedAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function markBusinessProfitPoolsReviewedAction(
@@ -2161,6 +2178,7 @@ export async function markBusinessProfitPoolsReviewedAction(
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function upsertMigrationBackfillAdjustmentAction(
@@ -2190,6 +2208,7 @@ export async function upsertMigrationBackfillAdjustmentAction(
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath("/settings/finance/migration")
   revalidatePath(`/settings/finance/migration/${memberId}`)
 }
@@ -2228,6 +2247,7 @@ export async function setMigrationBackfillDefaultingMonthsAction(
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath("/settings/finance/migration")
   revalidatePath(`/settings/finance/migration/${memberId}`)
 }
@@ -2254,6 +2274,7 @@ export async function upsertMemberActivityEventAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath("/settings/finance/migration")
   revalidatePath(`/settings/finance/migration/${memberId}`)
 }
@@ -2271,6 +2292,7 @@ export async function deleteMemberActivityEventAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
   revalidatePath("/settings/finance/migration")
   revalidatePath(`/settings/finance/migration/${memberId}`)
 }
@@ -2294,6 +2316,7 @@ export async function upsertMigrationProfitAdjustmentAction(
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 function getOptionalPositiveInteger(formData: FormData, key: string) {
@@ -2331,13 +2354,26 @@ function getOptionalDateValue(formData: FormData, key: string) {
 export async function updateMemberSignupAccessModeAction(formData: FormData) {
   const actor = await requireDashboardActor(memberManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
+  const memberSignupAccessMode = getRequiredString(
+    formData,
+    "memberSignupAccessMode"
+  )
+
+  if (
+    !["disabled", "hidden", "in_office", "public"].includes(
+      memberSignupAccessMode
+    )
+  ) {
+    throw new Error("Choose a valid member signup access mode.")
+  }
 
   await updateTenantMemberSignupSettings({
     actorUserId: actor.user.id,
-    memberSignupAccessMode: getRequiredString(
-      formData,
-      "memberSignupAccessMode"
-    ) as "in_office" | "public",
+    memberSignupAccessMode: memberSignupAccessMode as
+      | "disabled"
+      | "hidden"
+      | "in_office"
+      | "public",
     tenantId: actor.tenant.id,
   })
 
@@ -2623,6 +2659,7 @@ const importSettingsPaths = [
 
 function revalidateImportSettingsPaths() {
   importSettingsPaths.forEach((path) => revalidatePath(path))
+  revalidatePath("/getting-started")
 }
 
 export async function importMembersCsvAction(formData: FormData) {
@@ -2943,6 +2980,7 @@ export async function queueBackfillDraftAction(formData: FormData) {
   revalidatePath("/members")
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function getBackfillPreviewAction(formData: FormData) {
@@ -2996,4 +3034,5 @@ export async function queueBackfillApplyAction(formData: FormData) {
   revalidatePath("/members")
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }

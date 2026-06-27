@@ -6,9 +6,9 @@ export default function SignupPage() {
 
   return (
     <SignupShell
-      eyebrow="Public Signup"
-      title="Verify the primary contact email before cooperative setup begins."
-      description="This public flow keeps signup lightweight, confirms the primary contact first, then moves into a short cooperative profile before the workspace is created."
+      eyebrow="Cooperative signup"
+      title="Create a governed cooperative workspace."
+      description="Start with the accountable admin, reserve the tenant URL, and continue only after the primary contact verifies their email."
     >
       <SignupForm devMode={devMode} />
     </SignupShell>

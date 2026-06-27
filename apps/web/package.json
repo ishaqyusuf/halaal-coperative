@@ -15,6 +15,7 @@
   "dependencies": {
     "@halaalvest/db": "workspace:*",
     "@halaalvest/domain": "workspace:*",
+    "@halaalvest/jobs": "workspace:*",
     "@halaalvest/notifications": "workspace:*",
     "@halaalvest/notifications-react": "workspace:*",
     "@halaalvest/tenant-url": "workspace:*",

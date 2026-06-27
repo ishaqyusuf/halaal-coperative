@@ -1,4 +1,4 @@
-# Plan: School-Clerk-Style Notification Email And Job Implementation
+# Plan: Reference-Style Notification Dispatcher, Inbox, And Message Logs
 
 ## Type
 Feature
@@ -10,158 +10,143 @@ In Progress
 2026-06-23
 
 ## Last Updated
-2026-06-23
+2026-06-27
 
 ## Goal Or Problem
-Implement a complete notification system for HalaalVest using the local `school-clerk` repository as the reference pattern: typed notification definitions, matching email templates, in-app notification rendering, durable outbox delivery, background jobs, preference-aware routing, and dashboard visibility for all cooperative workflows that currently queue or should queue notifications.
+Migrate HalaalVest notifications to the same product shape used by the local `gnd`, `school-clerk`, and `after-service` projects: typed notification definitions, shared email templates, immediate or task-triggered dispatch, persisted in-app notifications, unread/read dashboard behavior, preference-aware routing, and delivery message logs. Do not build or preserve the `notification-outbox-deliver` feature as the target architecture.
+
+## Explicit Non-Goal
+- Do not add a worker that claims queued notification outbox rows and drains them later.
+- Do not use `NotificationOutbox` as the primary notification architecture for new workflow notifications.
+- Do not make dashboard notification UX revolve around queued/outbox delivery-worker health.
+- Do not keep plan language that tells future agents to implement `notification-outbox-deliver`.
+
+## Reference Behavior To Match
+- `gnd`: typed handler registry, channel trigger helpers, `Notifications.create(...)`, Trigger task named `notification`, channel subscribers, React Email templates, Resend service, and activity records.
+- `school-clerk`: typed `createNotificationFromType(...)`, `dispatchSchoolNotification(...)`, persisted `Notification`, `NotificationRecipient`, `NotificationContact`, unread count, mark-read APIs, notification bell, and full notifications page.
+- `after-service`: small `Notifications.send(...)` service, task-triggered notification payloads, direct dispatch controlled by `sendEmail`, and `messageLog` delivery records.
 
 ## Current Context
-The current app already has the base pieces but they are not wired into a complete implementation:
-
-- `packages/notifications/src/index.ts` defines simple notification inputs, an in-memory store, email transport primitives, Resend delivery, retries, and two email draft builders: `signup_email_verification` and `workspace_ready`.
-- `packages/notifications-react/src/provider.tsx` renders toast-style client notifications through a provider, but there is no persisted notification bell, unread state, action routing, or dashboard inbox equivalent.
-- `packages/db/prisma/models/notification.prisma` has durable `NotificationOutbox` and `NotificationPreference` models, but no persisted in-app notification model yet.
-- `packages/db/src/queries/notifications.ts` can create outbox entries, update delivery status, list delivery history, update preferences, and queue role-based email outbox entries.
-- `packages/jobs/src/queue.ts` and `packages/jobs/src/trigger.ts` provide local background execution and retry fallback, while existing tasks cover backfill and monthly record generation.
-- `apps/dashboard/src/lib/dashboard-actions.ts`, `apps/dashboard/src/lib/public-actions.ts`, `apps/web/app/api/signup/route.ts`, and `apps/web/app/api/onboarding/route.ts` already create notification outbox entries for many workflows, but those entries are inconsistent strings rather than typed templates and most dashboard-created entries are not delivered by a worker.
-- `apps/dashboard/src/app/(app)/(sidebar)/notifications/page.tsx` shows delivery history and preference toggles, but its managed notification type list is manually curated and incomplete.
+- `packages/notifications/src/types/registry.ts` already has a useful typed HalaalVest notification catalog.
+- `packages/email` already exists and should remain the React Email boundary instead of moving React rendering into the notification core.
+- `packages/notifications-react` currently provides transient toast behavior, but no persisted notification bell or inbox.
+- `packages/db/prisma/models/notification.prisma` currently has `NotificationOutbox` and role-level `NotificationPreference`, but no reference-style persisted in-app notification model.
+- `packages/db/src/queries/notifications.ts` currently creates outbox entries, updates outbox delivery status, lists delivery history, updates preferences, and queues role-based email outbox entries.
+- `packages/jobs/src/handlers/notification-outbox-deliver.ts` and `packages/jobs/src/tasks/notification-outbox-deliver.task.ts` are the wrong target for this feature and should be retired or replaced.
 - `apps/api/src/routers/notifications.route.ts` currently returns sample notifications instead of persisted user notifications.
-- `school-clerk` reference patterns inspected:
-  - `/Users/M1PRO/Documents/code/school-clerk/packages/notifications/src/types/registry.ts`
-  - `/Users/M1PRO/Documents/code/school-clerk/packages/notifications/src/types/shared.ts`
-  - `/Users/M1PRO/Documents/code/school-clerk/apps/api/src/lib/notifications.ts`
-  - `/Users/M1PRO/Documents/code/school-clerk/apps/api/src/trpc/routers/notifications.routes.ts`
-  - `/Users/M1PRO/Documents/code/school-clerk/apps/dashboard/src/components/notifications/notification-bell.tsx`
-  - `/Users/M1PRO/Documents/code/school-clerk/apps/dashboard/src/components/notifications/notifications-page.tsx`
-  - `/Users/M1PRO/Documents/code/school-clerk/packages/email/emails/finance-notification.tsx`
+- `apps/dashboard/src/app/(app)/(sidebar)/notifications/page.tsx` currently presents delivery history and queued/sent/failed outbox status instead of a user-facing inbox.
 
-The school-clerk shape to adapt is: define typed notification payload schemas, build in-app content and email template content from the same definition, dispatch to role audiences with preference checks, persist in-app records, send email, and expose unread/read dashboard routes.
+## Proposed Architecture
+Use the notification registry as the single source of type truth, then route each workflow event through a dispatcher that:
 
-## Proposed Approach
-Add a typed notification catalog to `@halaalvest/notifications`, add a React email template layer, route all workflow notifications through shared builders, and add a job-backed outbox delivery worker. Keep the existing `NotificationOutbox` as the delivery ledger, add persisted in-app notification storage if product scope requires unread/read behavior, and update `@halaalvest/notifications-react` plus dashboard/API routes to show real notifications instead of samples.
+1. Validates payload against the notification type schema.
+2. Builds in-app title/body/action/link from the same definition used for email content.
+3. Resolves tenant users, role audiences, direct recipients, and optional channel subscribers.
+4. Applies per-user notification preferences with default-enabled semantics.
+5. Persists in-app notification rows for recipients.
+6. Sends email immediately for synchronous flows, or through a `notification` Trigger/local background task for async flows.
+7. Writes a message log for every attempted external delivery.
 
-Implementation should be staged:
-
-1. Introduce shared notification definitions that mirror school-clerk's registry pattern but use cooperative domain language.
-2. Add reusable email templates and builders for onboarding, membership, finance, loan, repayment, domain, migration, import, and collection events.
-3. Replace ad hoc outbox entry creation in dashboard/web flows with typed `createNotificationFromType(...)` or `createEmailDraftFromType(...)` helpers.
-4. Add a notification delivery job that claims queued outbox entries, sends with `NotificationService`, updates status, retries safely, and records audit metadata.
-5. Expand React notification UI from toast-only behavior to persisted notification bell/inbox behavior once the DB model and API endpoints exist.
-6. Update the notifications dashboard to derive managed type coverage from the registry, preview every template, and show delivery/job health.
+`NotificationOutbox` may remain temporarily for legacy signup history and existing data, but new workflow paths should move to persisted notifications plus message logs.
 
 ## Visual Plan
 ```mermaid
 flowchart TD
-  A["Current ad hoc outbox entries"] --> B["Typed cooperative notification registry"]
-  B --> C["Shared in-app + email template builders"]
-  C --> D["Workflow dispatch helpers"]
-  D --> E["NotificationOutbox queued records"]
-  E --> F["jobs: outbox delivery worker"]
-  F --> G["Delivery status, audit log, retries"]
-  D --> H["Persisted in-app notifications"]
-  H --> I["notification-react bell and inbox"]
-  G --> J["Dashboard history, preferences, exports"]
-  I --> J
-  J --> K["Tests and seeded coverage checks"]
+  A["Workflow event"] --> B["Typed notification registry"]
+  B --> C["Reference-style dispatcher"]
+  C --> D["Audience and preference resolver"]
+  D --> E["Persisted in-app notifications"]
+  D --> F["Email/SMS/WhatsApp dispatches"]
+  F --> G["MessageLog delivery records"]
+  E --> H["tRPC notifications router"]
+  H --> I["Bell, unread count, inbox page"]
+  G --> J["Support/reporting delivery history"]
 ```
 
-## Implementation Steps
-- Add a school-clerk-style registry in `packages/notifications/src/`:
-  - `core-types.ts` for variants, channels, actions, recipients, and delivery metadata.
-  - `notification-types.ts` with `defineNotificationTypes` and typed `createNotificationFromType`.
-  - `types/shared.ts` for cooperative base schemas and common helpers.
-  - `types/registry.ts` as the single exported source of notification type truth.
-  - `payload-utils/` for audience helpers, recipient normalization, absolute dashboard links, and channel-specific trigger helpers.
-- Create the complete initial cooperative notification catalog:
-  - `signup.email_verification`: primary contact verifies pre-tenant signup email.
-  - `workspace.ready`: primary contact receives dashboard and site links after tenant bootstrap.
-  - `workspace.invitation`: staff/admin invitation to join a cooperative workspace.
-  - `member.onboarding_verification_requested`: public member signup email verification.
-  - `member.onboarding_approved`: applicant membership approved.
-  - `member.onboarding_rejected`: applicant membership rejected or needs follow-up.
-  - `member.status_changed`: member active, suspended, inactive, exited, or pending status changed.
-  - `member.kyc_updated`: member KYC review status changed.
-  - `monthly_record.generated`: scheduled monthly records generated.
-  - `monthly_record.member_applied`: member monthly record payment applied.
-  - `monthly_record.member_cancelled`: member monthly record payment cancelled/reversed.
-  - `contribution.recorded`: contribution posted for a member.
-  - `contribution.plan_changed`: member contribution commitment changed or closed.
-  - `charge.applied`: charge posted to a member.
-  - `charge.waived`: charge waived.
-  - `charge.reversed`: charge reversed.
-  - `loan.request_submitted`: loan request submitted and needs review.
-  - `loan.request_status_changed`: loan request approved, rejected, or under review.
-  - `loan.disbursed`: loan disbursed.
-  - `repayment.posted`: repayment posted.
-  - `collections.follow_up_recorded`: collection follow-up recorded.
-  - `domain.verification_changed`: manual domain verification status changed.
-  - `domain.verification_checked`: DNS/domain check completed.
-  - `import.completed`: import batch completed.
-  - `import.failed`: import batch failed or needs correction.
-  - `migration.backfill_initialized`: historical member ledger backfill initialized.
-  - `migration.backfill_applied`: historical member ledger backfill applied.
-  - `share.profit_published`: share/business profit allocations published.
-- Add a React email package or email submodule:
-  - Preferred: create `packages/email` to match school-clerk's boundary and keep React Email dependencies out of the non-React notification core.
-  - Add shared components: shell, logo/header, footer, button, detail table, amount card, warning block.
-  - Add templates: onboarding email, member lifecycle email, finance event email, loan event email, domain event email, import/migration job email, and collection follow-up email.
-  - Export render helpers so server routes/jobs can convert templates to HTML.
-- Extend `packages/notifications` email support:
-  - Keep `NotificationEmailDraft` for transport compatibility.
-  - Add typed `buildEmailDraftFromType(type, payload)` and `buildNotificationRecordFromType(type, payload)` helpers.
-  - Add subject, preview text, body text, action label, action URL, recipient/audience, and template metadata per type.
-  - Keep console and Resend transports, but make provider result parsing stable and testable.
-- Update DB notification persistence:
-  - Keep `NotificationOutbox` for email delivery history.
-  - Add migration for persisted in-app notifications if unread/read bell behavior is in scope:
-    - `Notification`
-    - `NotificationRecipient`
-    - optional tag or metadata relation as JSON for type/action data.
-  - Add indexes for `tenantId`, `userId`, `status`, `notificationType`, and `createdAt`.
-  - Add query helpers for creating in-app notifications, listing user notifications, unread count, mark read, mark all read, and archiving/dismissing.
-- Refactor `packages/db/src/queries/notifications.ts`:
-  - Add `queueNotificationFromType` and `queueTenantRoleNotificationFromType`.
-  - Resolve role audiences through `listTenantUsersWithMemberships`.
-  - Respect `NotificationPreference` for email and, if added, in-app channel separately.
-  - Deduplicate recipients by email/user ID.
-  - Persist outbox entries with normalized metadata and absolute action URLs.
-  - Add a claim/update API for queued outbox delivery: claim limited batch, mark running if a status is added, mark sent/failed, increment attempts, and preserve last error.
-- Add jobs implementation in `packages/jobs`:
-  - `tasks/notification-outbox-deliver.task.ts`.
-  - `handlers/notification-outbox-deliver.ts`.
-  - Optional scheduled task entry for recurring processing.
-  - Handler flow: claim queued entries, build draft from persisted data, send through server notification service, update outbox status, record audit logs, and stop retrying after max attempts.
-  - Trigger the delivery job after queueing high-priority notifications, and expose a cron/API route for periodic catch-up if Trigger.dev is not configured.
-- Update workflow producers:
-  - Replace literal notification strings in `apps/dashboard/src/lib/dashboard-actions.ts` with typed notification helpers.
-  - Replace route-time signup/workspace email builders in `apps/web/app/api/signup/route.ts` and `apps/web/app/api/onboarding/route.ts` with typed builders while keeping signup verification failure blocking and workspace-ready failure non-blocking.
-  - Update `apps/dashboard/src/lib/public-actions.ts` member signup verification flows.
-  - Add missing producers for loan submitted/disbursed, contribution recorded, contribution plan changed, monthly generated, imports, migration backfill jobs, and share profit published.
-- Update API routes:
-  - Replace sample responses in `apps/api/src/routers/notifications.route.ts` with persisted list, unread count, mark read, and mark all read procedures.
-  - Keep tenant/user scoping through existing tRPC tenant context.
-  - Add type-safe filters by notification type, channel, status, and unread state.
-- Update `packages/notifications-react`:
-  - Keep toast provider for transient client events.
-  - Add reusable `NotificationBell`, `NotificationsInbox`, and `NotificationAction` resolver components/hooks if the package is intended to own reusable React notification UI.
-  - Support optimistic mark-read and query invalidation through caller-provided fetch/mutation adapters, or keep data access in dashboard components and export presentation-only pieces.
-- Update dashboard notification screens:
-  - Replace `managedNotificationTypes` hard-coded array in `apps/dashboard/src/app/(app)/(sidebar)/notifications/page.tsx` with registry-derived types.
-  - Add template coverage previews for every type.
-  - Show delivery worker health: queued count, failed count, last successful send, retry attempts, and top failure reason.
-  - Add preference toggles for email and in-app channels by role.
-  - Ensure reports export includes channel, type, status, attempts, sent date, source, and error message.
-- Add tests:
-  - Unit tests for every notification schema, title/body/action builder, and email draft builder.
-  - Transport tests for console, Resend success, Resend failure, and retry behavior.
-  - DB query tests for preference filtering, recipient dedupe, outbox creation, delivery update, and in-app unread/read state.
-  - Jobs tests for claim/send/update success, retryable failure, max attempts, and idempotency.
-  - Route/action tests around signup verification, onboarding workspace-ready email, role preference toggles, and workflow notification dispatch.
-- Update docs:
-  - `brain/PROJECT_INDEX.md` notification package descriptions.
-  - `brain/api/endpoints.md` notification API contract.
-  - `brain/features/dashboard-navigation-and-roles.md` if notification UI behavior changes.
-  - Add a short notification catalog reference under `brain/features/` or `brain/system/`.
+## Migration Checklist
+
+### Phase 1: Remove The Wrong Target From The Plan
+- [ ] Remove `notification-outbox-deliver` as a target feature from Brain docs.
+- [ ] Mark current outbox-drain job files as retirement candidates, not implementation targets.
+- [ ] Replace dashboard copy that describes queued delivery worker health with inbox/message-log language in the plan.
+- [ ] Confirm future implementation steps point to dispatcher, inbox, and message logs.
+
+### Phase 2: Database Model Migration
+- [ ] Add `NotificationVisibility`, `NotificationRecipientStatus`, and `NotificationContactRole` enums.
+- [ ] Add `Notification` with tenant, user, author contact, type, title, body, subject, content, link, action JSON, read status, visibility, and soft-delete fields.
+- [ ] Add `NotificationRecipient` with notification/contact relation, unread/read/archived status, read timestamp, and uniqueness per notification/contact.
+- [ ] Add `NotificationContact` for user/staff/member-facing recipient identity inside a tenant.
+- [ ] Add `NotificationTag` for type and workflow metadata.
+- [ ] Add user-level or contact-level `NotificationPreference` with `inApp` and `email` booleans, modeled after `school-clerk`.
+- [ ] Add `MessageLog` or `NotificationDeliveryLog` with tenant, channel, recipient, subject, body, provider, provider id, status, error details, metadata, and sent timestamp, modeled after `after-service`.
+- [ ] Decide whether `NotificationOutbox` stays as legacy history, is renamed later, or is removed in a cleanup migration.
+
+### Phase 3: Notification Package Reshape
+- [ ] Keep and harden `halaalVestNotificationTypes` as the source of notification type truth.
+- [ ] Add reference-style handler contracts: schema, activity/in-app builder, email builder, optional WhatsApp builder, and default channels.
+- [ ] Add `createNotificationFromType(type, payload)` that returns title, body, action, link, channels, email template metadata, and variant.
+- [ ] Add `Notifications` service with a `send(...)` or `create(...)` method matching the `gnd`/`after-service` shape.
+- [ ] Add payload-utils for author resolution, recipient normalization, role audiences, channel triggers, absolute tenant dashboard links, and test recipient handling.
+- [ ] Keep email rendering in `packages/email`; use `@halaalvest/notifications` for data contracts and builders only.
+
+### Phase 4: Dispatcher And Query Layer
+- [ ] Replace `queueTenantRoleNotifications(...)` with `dispatchTenantRoleNotification(...)`.
+- [ ] Add `dispatchTenantNotification(...)` for direct user/email/member recipients.
+- [ ] Add `ensureNotificationContact(...)`.
+- [ ] Add `listUserNotifications(...)`.
+- [ ] Add `getUnreadNotificationCount(...)`.
+- [ ] Add `markNotificationRead(...)`.
+- [ ] Add `markAllNotificationsRead(...)`.
+- [ ] Add `upsertUserNotificationPreference(...)`.
+- [ ] Add `createMessageLog(...)` and provider-result normalization.
+- [ ] Preserve tenant scoping on every read and mutation.
+
+### Phase 5: Jobs And Async Dispatch
+- [ ] Delete or stop exporting `packages/jobs/src/handlers/notification-outbox-deliver.ts`.
+- [ ] Delete or stop exporting `packages/jobs/src/tasks/notification-outbox-deliver.task.ts`.
+- [ ] Add `packages/jobs/src/tasks/notification.task.ts` with payload `{ type, tenantId, payload, channels, sendEmail, recipients?, author? }`.
+- [ ] Have the task call `new Notifications(db).send(...)`.
+- [ ] Keep local `triggerJob(...)` fallback, but use it to run a notification dispatch task rather than drain queued outbox rows.
+- [ ] Keep an `email-smoke-test` task if useful, but write to message logs rather than creating an outbox row.
+
+### Phase 6: Workflow Producer Migration
+- [ ] `apps/web/app/api/signup/route.ts`: replace outbox queue/trigger with direct signup verification send; production failure should block signup.
+- [ ] `apps/web/app/api/onboarding/route.ts`: send workspace-ready email directly; failure should remain non-blocking and be logged.
+- [ ] `apps/dashboard/src/app/auth/password-reset/request/route.ts`: send password reset directly and log the outcome.
+- [ ] `apps/dashboard/src/lib/public-actions.ts`: move member signup verification notifications to the dispatcher.
+- [ ] `apps/dashboard/src/lib/dashboard-actions.ts`: replace outbox creation and role queueing with typed dispatcher calls for approvals, KYC, monthly records, charges, loans, repayments, domains, collections, imports, migration, and share profit events.
+- [ ] `apps/api/src/routers/members.route.ts`: replace `queueTenantRoleNotifications(...)` with dispatcher usage.
+- [ ] Guard against double sends while each producer is migrated.
+
+### Phase 7: API And React UI
+- [ ] Replace sample data in `apps/api/src/routers/notifications.route.ts` with persisted list, unread count, mark read, mark all read, and preference procedures.
+- [ ] Add or adapt a notification bell in dashboard layout, modeled after `school-clerk`.
+- [ ] Rebuild `/notifications` as an inbox with all/unread filters, action links, relative timestamps, type badges, and mark-read actions.
+- [ ] Move external delivery history to support/reporting views backed by message logs.
+- [ ] Update `packages/notifications-react` only for reusable presentation pieces; keep app-specific tRPC wiring in dashboard if that fits the local architecture better.
+
+### Phase 8: Email Templates
+- [ ] Expand `packages/email` with shared shell, logo/header, footer, button, detail table, amount card, warning block, and metadata rows.
+- [ ] Add onboarding, auth, member lifecycle, finance, loan, collections, domain, import, migration, and share profit templates.
+- [ ] Add render helpers for jobs/routes.
+- [ ] Add test-recipient override behavior and skipped-email behavior similar to `gnd` and `after-service`.
+- [ ] Ensure templates can produce both HTML and readable text/body content for logs.
+
+### Phase 9: Reporting And Legacy Cleanup
+- [ ] Update notification reports/export routes to read message logs for external delivery history.
+- [ ] Keep legacy outbox reports only if needed for historical signup/onboarding audit data.
+- [ ] Remove queued-worker health cards from the dashboard notifications page.
+- [ ] Document the legacy `notification_outbox` status in `brain/database/schema.md` if it remains.
+
+### Phase 10: Verification
+- [ ] Search for `notificationOutboxDeliver`, `notification-outbox-deliver`, `claimNotificationOutboxEntries`, and new producer use of `createNotificationOutboxEntry`.
+- [ ] Confirm no new workflow producer depends on outbox-drain behavior.
+- [ ] Unit test notification registry builders and dispatcher result handling.
+- [ ] Unit test preference filtering and recipient dedupe.
+- [ ] DB test notification contacts, recipients, unread counts, mark-read, mark-all-read, and message logs.
+- [ ] Route test notification list/unread/read procedures.
+- [ ] Flow test signup verification, onboarding workspace-ready, password reset, member approval/rejection, KYC, charges, loans, repayments, collections, imports, and migration events.
+- [ ] Because this is a Bun monorepo, prefer targeted package checks during implementation and avoid broad typechecks/builds unless explicitly requested.
 
 ## Affected Files Or Areas
 - `packages/notifications/src/index.ts`
@@ -169,64 +154,65 @@ flowchart TD
 - `packages/notifications/src/notification-types.ts`
 - `packages/notifications/src/types/**`
 - `packages/notifications/src/payload-utils/**`
-- `packages/notifications-react/src/provider.tsx`
-- `packages/notifications-react/src/index.ts`
-- `packages/email/**` or `packages/notifications/src/email/**`
-- `packages/jobs/src/handlers/notification-outbox-deliver.ts`
-- `packages/jobs/src/tasks/notification-outbox-deliver.task.ts`
-- `packages/jobs/src/index.ts`
+- `packages/email/**`
 - `packages/db/prisma/models/notification.prisma`
+- `packages/db/prisma/models/**` for message logs if stored separately
 - `packages/db/prisma/migrations/**`
 - `packages/db/src/queries/notifications.ts`
 - `packages/db/src/queries/audit.ts`
+- `packages/jobs/src/tasks/notification.task.ts`
+- `packages/jobs/src/tasks/index.ts`
+- `packages/jobs/src/index.ts`
 - `apps/api/src/routers/notifications.route.ts`
+- `apps/api/src/routers/members.route.ts`
 - `apps/dashboard/src/lib/dashboard-actions.ts`
 - `apps/dashboard/src/lib/public-actions.ts`
 - `apps/dashboard/src/app/(app)/(sidebar)/notifications/page.tsx`
 - `apps/dashboard/src/app/(app)/(sidebar)/reports/notifications-export/route.ts`
+- `apps/dashboard/src/app/auth/password-reset/request/route.ts`
 - `apps/web/app/api/signup/route.ts`
 - `apps/web/app/api/onboarding/route.ts`
 - `apps/web/src/lib/server-notifications.ts`
 - `brain/PROJECT_INDEX.md`
 - `brain/api/endpoints.md`
+- `brain/database/schema.md`
 
 ## Acceptance Criteria
-- Every notification type listed in this plan exists in a typed registry with payload validation, title/body/action builders, channel defaults, and email draft/template support where email is required.
-- Dashboard and web workflows use registry helpers instead of hand-built notification strings.
-- Queued email notifications are delivered by a background job, not only by route-time sends or passive outbox history.
-- Delivery status, attempts, message ID, sent timestamp, and error message are persisted in `notification_outbox`.
-- Tenant role preferences control email delivery and, if in-app persistence is added, in-app delivery separately.
-- The dashboard notifications page lists registry-derived types, previews templates, shows delivery history, and manages preferences for all supported types.
-- The API returns persisted notifications with unread count and mark-read actions if persisted in-app notifications are implemented.
-- Signup verification email behavior remains blocking on failed send, while workspace-ready email failures remain non-blocking and visible in outbox/audit history.
-- Tests cover registry builders, email transport, DB queueing, preference filtering, background delivery, and key workflow producers.
+- The plan and implementation no longer target `notification-outbox-deliver`.
+- A reference-style notification dispatcher exists and is used by workflow producers.
+- Persisted in-app notifications support list, unread count, mark read, and mark all read.
+- Dashboard has a notification bell and inbox backed by persisted records, not samples.
+- External email/SMS/WhatsApp attempts are logged as message delivery records.
+- Per-user or per-contact preferences control email and in-app delivery independently.
+- Signup verification sends synchronously and blocks in production on delivery failure.
+- Workspace-ready email sends directly and logs failures without rolling back tenant creation.
+- Existing typed registry coverage is preserved or improved.
+- Reports distinguish user notifications from external delivery logs.
 
-## Test Plan
-- Run `bun --filter @halaalvest/notifications typecheck` and unit tests for notification definitions.
-- Run `bun --filter @halaalvest/notifications-react typecheck`.
-- Run `bun --filter @halaalvest/jobs typecheck` and notification delivery job tests.
-- Run `bun --filter @halaalvest/db typecheck` plus notification query tests after Prisma migration generation.
-- Run app-level typechecks for `@halaalvest/dashboard`, `@halaalvest/web`, and `@halaalvest/api`.
-- Exercise a local signup flow and confirm `signup.email_verification` creates an outbox entry and sends/marks failure correctly.
-- Exercise member approval/rejection, charge apply/waive/reverse, loan review, repayment post, domain verification, monthly records, import, and migration backfill flows and confirm outbox history is typed and preference-aware.
-- Verify notification page filters, preference toggles, exports, and template previews.
-- If persisted in-app notifications are added, verify unread count, notification bell, mark read, and mark all read behavior.
+## Recommended Verification Commands
+- `rg -n "notificationOutboxDeliver|notification-outbox-deliver|claimNotificationOutboxEntries" packages apps brain`
+- `rg -n "createNotificationOutboxEntry|queueTenantRoleNotifications" apps packages/db/src packages/jobs/src`
+- `bun --filter @halaalvest/notifications test`
+- `bun --filter @halaalvest/db test`
+- `bun --filter @halaalvest/api test`
+- `bun --filter @halaalvest/dashboard test`
 
-## Risks / Edge Cases
-- Adding React Email dependencies directly to `@halaalvest/notifications` could pollute a server-agnostic core package; prefer a separate `@halaalvest/email` package unless the implementation proves the core package remains clean.
-- Outbox delivery must be idempotent so retries do not send duplicate emails after a provider timeout.
-- Pre-tenant signup notifications have `tenantId: null`; typed helpers and delivery workers must preserve that behavior.
-- Relative dashboard links need tenant-aware absolute URL handling for emails.
-- Role preference semantics need careful defaults: no preference should mean enabled, explicit disabled should suppress delivery.
-- If in-app notifications are added, recipient scoping must prevent cross-tenant reads and mark-read mutations.
-- Existing dashboard actions may already queue outbox entries; migration must avoid double-queueing while refactoring producers.
-- Provider failures should surface in local/dev without breaking non-critical workflows.
+Do not run broad builds or monorepo-wide typechecks by default during this migration unless explicitly requested.
+
+## Risks And Mitigations
+- Double sends during migration: migrate producers one at a time and search for mixed outbox/dispatcher usage before marking each complete.
+- Lost delivery auditability: introduce message logs before removing outbox-dependent screens.
+- Tenant privacy leaks: scope notification list and mark-read mutations by tenant and recipient contact.
+- Preference mismatch: default missing preferences to enabled and create explicit false rows only when a user disables a channel.
+- Signup regressions: keep signup verification production behavior fail-closed.
+- Email template coupling: keep React Email inside `packages/email`, not the notification core.
+- Legacy outbox confusion: label it legacy in docs and avoid using it for new workflow notifications.
 
 ## Open Questions
-- TODO: Confirm whether persisted in-app notifications are required now, or whether this phase should only add email delivery plus dashboard history.
-- TODO: Confirm whether to add a new `packages/email` package or keep minimal text/HTML template generation inside `packages/notifications`.
-- TODO: Confirm preferred provider beyond existing Resend support, if SMS/WhatsApp channels should be prepared now.
-- TODO: Confirm whether Trigger.dev will be configured soon or whether the local `runInBackground` plus cron route fallback should be treated as the production path for this phase.
+- Should `NotificationPreference` be per user, per notification contact, or both?
+- Should member-facing public notifications share the same `NotificationContact` table as staff/admin users?
+- Should SMS/WhatsApp be schema-ready now, or limited to email and in-app until provider choices are final?
+- Should old `notification_outbox` rows be migrated into message logs, retained as legacy history, or dropped after a data-retention decision?
 
 ## Linked Task
 - Task Title: School-Clerk-Style Notification Email And Job Implementation

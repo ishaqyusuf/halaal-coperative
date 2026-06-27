@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@halaalvest/ui/components/button"
+import { LabeledSelectInput } from "@/components/labeled-select-input"
 
 type MemberOption = {
   id: string
@@ -32,21 +33,19 @@ export function MemberPreviewPicker({
         }
       }}
     >
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
         Member
-        <select
-          className="h-9 min-w-[260px] rounded-md border border-input bg-background px-3 text-sm text-foreground"
+        <LabeledSelectInput
           disabled={memberOptions.length === 0}
+          options={memberOptions.map((member) => ({
+            label: member.label,
+            value: member.id,
+          }))}
+          placeholder="Select a member"
+          triggerClassName="min-w-[260px]"
+          onValueChange={setMemberId}
           value={memberId}
-          onChange={(event) => setMemberId(event.target.value)}
-        >
-          <option value="">Select a member</option>
-          {memberOptions.map((member) => (
-            <option key={member.id} value={member.id}>
-              {member.label}
-            </option>
-          ))}
-        </select>
+        />
       </label>
       <Button
         disabled={!memberId || memberOptions.length === 0}

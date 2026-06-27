@@ -1,6 +1,7 @@
 "use client"
 
 import { useId, useMemo, useState } from "react"
+import { Input } from "@halaalvest/ui/components/input"
 
 type MemberAutocompleteOption = {
   id: string
@@ -48,9 +49,8 @@ export function MemberAutocompleteSelect({
       <label className="sr-only" htmlFor={inputId}>
         {label}
       </label>
-      <input
+      <Input
         autoComplete="off"
-        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
         disabled={disabled}
         id={inputId}
         list={listId}

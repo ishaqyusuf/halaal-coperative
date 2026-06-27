@@ -1,0 +1,334 @@
+import {
+  buildBackfillDraft,
+  projectBackfillDraftToMemberLedgerRows,
+  type MemberLedgerBackfillRow,
+} from "@halaalvest/backfill"
+import {
+  buildBackfillDraftInputForMember,
+  createDbRuntime,
+  getTenantFinanceSetup,
+  getTenantInitialMigrationState,
+  listInitialMigrationMemberReview,
+  listLegacyLoanMigrationDrafts,
+  listMemberActivityEvents,
+  listMemberAmountLogs,
+  listMembers,
+} from "@halaalvest/db"
+import {
+  WorkspaceEmptyState,
+  WorkspacePageShell,
+} from "@/components/dashboard"
+import { GettingStartedPageView } from "@/components/getting-started-page-view"
+import { getDashboardServerContext } from "@/lib/server-context"
+
+type GettingStartedStepKey =
+  | "start-date"
+  | "charges"
+  | "shares"
+  | "business"
+  | "admin-member"
+  | "review"
+
+const stepKeys = new Set<GettingStartedStepKey>([
+  "start-date",
+  "charges",
+  "shares",
+  "business",
+  "admin-member",
+  "review",
+])
+
+function firstValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value
+}
+
+function resolveRequestedStep(value: string | string[] | undefined) {
+  const requestedStep = firstValue(value)
+
+  return requestedStep && stepKeys.has(requestedStep as GettingStartedStepKey)
+    ? (requestedStep as GettingStartedStepKey)
+    : null
+}
+
+function resolveDefaultStep(missingStepKeys: string[]): GettingStartedStepKey {
+  if (missingStepKeys.includes("finance_start_date")) return "start-date"
+  if (missingStepKeys.includes("charge_schedules")) return "charges"
+  if (missingStepKeys.includes("share_capital_plan")) return "shares"
+  if (missingStepKeys.includes("business_profit_pools")) return "business"
+  if (
+    missingStepKeys.some((stepKey) =>
+      ["member_profiles", "legacy_loans", "member_ledger_backfill"].includes(
+        stepKey,
+      ),
+    )
+  ) {
+    return "admin-member"
+  }
+
+  return "review"
+}
+
+function toDateString(value: Date | string | null | undefined) {
+  if (!value) return null
+
+  return value instanceof Date
+    ? value.toISOString().slice(0, 10)
+    : value.slice(0, 10)
+}
+
+export default async function GettingStartedPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const context = await getDashboardServerContext()
+
+  if (!context.tenant) {
+    return (
+      <WorkspacePageShell
+        eyebrow="Initial migration"
+        title="Getting started"
+        description="Initial migration setup is available from a tenant workspace."
+      >
+        <WorkspaceEmptyState
+          title="Choose a tenant workspace first."
+          body="Open a cooperative workspace before running the first-admin migration setup."
+        />
+      </WorkspacePageShell>
+    )
+  }
+
+  const runtime = createDbRuntime()
+
+  if (runtime.status !== "database-configured") {
+    return (
+      <WorkspacePageShell
+        eyebrow="Initial migration"
+        title="Getting started"
+        description="Initial migration setup requires the database-backed workspace."
+      >
+        <WorkspaceEmptyState
+          title="Database is not configured."
+          body="The guided migration setup does not use demo content. Configure the database, then return to this page."
+        />
+      </WorkspacePageShell>
+    )
+  }
+
+  const requestedStep = resolveRequestedStep(resolvedSearchParams.step)
+  const requestedMigrationMemberId = firstValue(
+    resolvedSearchParams.migrationMemberId,
+  )
+  const [
+    data,
+    migrationState,
+    legacyLoanDrafts,
+    memberOptions,
+    migrationMemberReview,
+  ] = await Promise.all([
+    getTenantFinanceSetup(context.tenant.id),
+    getTenantInitialMigrationState(context.tenant.id),
+    listLegacyLoanMigrationDrafts(context.tenant.id),
+    listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
+    listInitialMigrationMemberReview(context.tenant.id),
+  ])
+  const activeStep =
+    requestedStep ?? resolveDefaultStep(migrationState.snapshot.missingStepKeys)
+  const adminMember =
+    memberOptions.items.find(
+      (member: any) => member.user?.id === context.auth.user?.id,
+    ) ??
+    memberOptions.items.find(
+      (member: any) =>
+        member.user?.email &&
+        member.user.email === context.auth.user?.email,
+    ) ??
+    null
+  const selectedMember =
+    (requestedMigrationMemberId
+      ? memberOptions.items.find(
+          (member: any) => member.id === requestedMigrationMemberId,
+        )
+      : null) ??
+    adminMember ??
+    memberOptions.items[0] ??
+    null
+  const canGenerateMemberBackfillPreview =
+    selectedMember &&
+    !migrationState.snapshot.missingStepKeys.some((stepKey) =>
+      [
+        "finance_start_date",
+        "charge_schedules",
+        "business_profit_pools",
+        "share_capital_plan",
+        "member_profiles",
+      ].includes(stepKey),
+    )
+  let generatedLedgerRows: MemberLedgerBackfillRow[] | undefined
+
+  if (canGenerateMemberBackfillPreview && selectedMember) {
+    try {
+      generatedLedgerRows = projectBackfillDraftToMemberLedgerRows(
+        buildBackfillDraft(
+          await buildBackfillDraftInputForMember({
+            memberId: selectedMember.id,
+            tenantId: context.tenant.id,
+          }),
+        ),
+      )
+    } catch {
+      generatedLedgerRows = undefined
+    }
+  }
+  const selectedMemberAmountLogs = selectedMember
+    ? await listMemberAmountLogs({
+        memberId: selectedMember.id,
+        tenantId: context.tenant.id,
+      })
+    : []
+  const selectedMemberActivityEvents = selectedMember
+    ? await listMemberActivityEvents({
+        memberId: selectedMember.id,
+        tenantId: context.tenant.id,
+      })
+    : []
+  const today = new Date()
+
+  return (
+    <GettingStartedPageView
+      activeStep={activeStep}
+      adminMember={
+        adminMember
+          ? {
+              email: adminMember.user?.email ?? null,
+              fullName: adminMember.fullName,
+              id: adminMember.id,
+              joinedAt: adminMember.joinedAt.toISOString().slice(0, 10),
+              memberNumber: adminMember.memberNumber,
+            }
+          : null
+      }
+      chargeDefinitions={data.chargeDefinitions.map((charge: any) => {
+        const currentVersion =
+          [...charge.versions]
+            .reverse()
+            .find(
+              (version: any) =>
+                new Date(version.effectiveFrom).getTime() <= today.getTime(),
+            ) ?? null
+
+        return {
+          chargeFrequency: charge.chargeFrequency ?? "recurring_monthly",
+          chargeValueType:
+            charge.chargeValueType ??
+            (charge.kind === "percentage" ? "percentage" : "fixed_amount"),
+          code: charge.code,
+          id: charge.id,
+          isActive: charge.isActive,
+          kind: charge.kind,
+          name: charge.name,
+          versions: charge.versions.map((version: any) => ({
+            amount: Number(version.amount),
+            chargeValueType:
+              version.chargeValueType ??
+              (version.kind === "percentage" ? "percentage" : "fixed_amount"),
+            effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
+            id: version.id,
+            notes: version.notes,
+            status:
+              currentVersion?.id === version.id
+                ? "current"
+                : new Date(version.effectiveFrom).getTime() > today.getTime()
+                  ? "scheduled"
+                  : "historical",
+          })),
+        }
+      })}
+      dividendPeriods={data.dividendPeriods.map((period: any) => ({
+        id: period.id,
+        label: period.name,
+      }))}
+      generatedLedgerRows={generatedLedgerRows}
+      legacyLoanDrafts={legacyLoanDrafts.map((draft) => ({
+        closedAt: toDateString(draft.closedAt),
+        guarantorOneMemberId: draft.guarantorOneMemberId,
+        guarantorTwoMemberId: draft.guarantorTwoMemberId,
+        id: draft.id,
+        loanLabel: draft.loanLabel,
+        memberId: draft.memberId,
+        memberName: draft.member.fullName,
+        memberNumber: draft.member.memberNumber,
+        openedAt: draft.openedAt.toISOString().slice(0, 10),
+        outstandingPrincipalBalance: draft.outstandingPrincipalBalance,
+        principalAmount: draft.principalAmount,
+        savingsDuringLoan: draft.savingsDuringLoan,
+        scheduledMonthlyPrincipalRepayment:
+          draft.scheduledMonthlyPrincipalRepayment,
+      }))}
+      memberActivityEvents={selectedMemberActivityEvents.map((event) => ({
+        effectiveMonth: event.effectiveMonth.toISOString().slice(0, 10),
+        id: event.id,
+        notes: event.notes,
+        reason: event.reason,
+        status: event.status === "inactive" ? "inactive" : "active",
+      }))}
+      memberAmountLogs={selectedMemberAmountLogs.map((row) => ({
+        amount: row.amount,
+        effectiveFrom: row.effectiveFrom.toISOString().slice(0, 10),
+        id: row.id,
+        notes: row.notes,
+      }))}
+      memberNumberPrefix={context.tenant.memberNumberPrefix}
+      memberOptions={memberOptions.items.map((member: any) => ({
+        id: member.id,
+        label: `${member.fullName} (${member.memberNumber})`,
+      }))}
+      migrationMemberReview={migrationMemberReview.map((row) => ({
+        ...row,
+        joinedAt: row.joinedAt.toISOString().slice(0, 10),
+      }))}
+      migrationSnapshot={migrationState.snapshot}
+      selectedMigrationMemberId={selectedMember?.id ?? null}
+      selectedMigrationMemberLabel={
+        selectedMember
+          ? `${selectedMember.fullName} (${selectedMember.memberNumber})`
+          : null
+      }
+      shareBusinesses={data.shareBusinesses.map((business: any) => ({
+        capitalAmount: Number(business.capitalAmount),
+        endDate: toDateString(business.endDate),
+        id: business.id,
+        name: business.name,
+        notes: business.notes,
+        profitAmount: Number(business.profitAmount),
+        profitEntries: (business.profitEntries ?? []).map((entry: any) => ({
+          allocatableProfitAmount: Number(
+            entry.allocatableProfitAmount ?? entry.profitAmount,
+          ),
+          expenseAmount: Number(entry.expenseAmount ?? 0),
+          id: entry.id,
+          profitAmount: Number(entry.profitAmount),
+          profitDate: entry.profitDate.toISOString().slice(0, 10),
+          reason: entry.reason,
+          sourceType: entry.sourceType,
+          status: entry.status ?? "draft",
+        })),
+        startDate: business.startDate.toISOString().slice(0, 10),
+        status: business.status,
+      }))}
+      shareStructureVersions={data.shareStructureVersions.map(
+        (version: any) => ({
+          amount: Number(version.amount),
+          basis: version.basis ?? "after_charge_deductions",
+          effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
+          id: version.id,
+          notes: version.notes,
+          valueType: version.valueType ?? "fixed_amount",
+        }),
+      )}
+      tenantName={data.tenant?.name ?? context.tenant.name}
+      tenantStartDate={toDateString(data.tenant?.startDate)}
+    />
+  )
+}

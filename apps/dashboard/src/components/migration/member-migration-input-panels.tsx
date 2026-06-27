@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react"
 import { useState } from "react"
+import { LabeledSelectInput } from "@/components/labeled-select-input"
 
 type MemberMigrationInputPanelsProps = {
   activity?: ReactNode
@@ -30,19 +31,20 @@ export function MemberMigrationInputPanels({
             the saved history.
           </p>
         </div>
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Input type
-          <select
-            className="h-9 min-w-48 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-            onChange={(event) =>
-              setMode(event.target.value as "activity" | "commitment" | "loan")
-            }
+          <LabeledSelectInput
+            options={[
+              { label: "Commitment", value: "commitment" },
+              { label: "Loan", value: "loan" },
+              ...(activity ? [{ label: "Activity", value: "activity" }] : []),
+            ]}
             value={mode}
-          >
-            <option value="commitment">Commitment</option>
-            <option value="loan">Loan</option>
-            {activity ? <option value="activity">Activity</option> : null}
-          </select>
+            triggerClassName="min-w-48"
+            onValueChange={(value) =>
+              setMode(value as "activity" | "commitment" | "loan")
+            }
+          />
         </label>
       </div>
       <div className="mt-4">

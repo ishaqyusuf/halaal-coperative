@@ -3,9 +3,9 @@ import { buttonVariants } from "@halaalvest/ui/components/button"
 import Link from "next/link"
 
 const proofMetrics = [
-  { label: "Funds under governance", value: "$100M+" },
-  { label: "Operational posture", value: "Audit-ready" },
-  { label: "Member entry", value: "Tenant-branded" },
+  { label: "Finance posture", value: "Ledger-aware" },
+  { label: "Member entry", value: "Approval-led" },
+  { label: "Workspace setup", value: "Guided" },
 ] as const
 
 const operatingPillars = [
@@ -47,9 +47,9 @@ const workflowRows = [
 ] as const
 
 const productSignals = [
-  ["Collections", "$2.4M", "On schedule"],
-  ["Approvals", "18", "Governed"],
-  ["Repayments", "96%", "Healthy"],
+  ["Monthly records", "Staged", "Review before posting"],
+  ["Signup", "Controlled", "Admin approval required"],
+  ["Onboarding", "Guided", "Setup before operations"],
 ] as const
 
 export function LaunchLanding({ signupHref }: { signupHref: string }) {
@@ -107,12 +107,12 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
 
             <div className="space-y-5">
               <h1 className="max-w-4xl font-heading text-5xl leading-[1.02] font-semibold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-                The operating system for serious halal cooperatives.
+                Halaalvest
               </h1>
               <p className="max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
-                Halaalvest gives cooperative leaders a clean public front door,
-                governed onboarding, ledger-aware financial operations, and the
-                confidence to scale like a $100M institution.
+                A premium cooperative management platform for halal savings,
+                staged monthly contributions, approval-controlled member
+                signup, loans, charges, and trustworthy member records.
               </p>
             </div>
 
@@ -261,13 +261,12 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
             <Badge variant="secondary" className="h-6 rounded-md px-2.5">
               Operating workflow
             </Badge>
-            <h2 className="mt-5 font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              The landing page works as the first step of the product.
+              <h2 className="mt-5 font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+              The first screen leads into the real operating flow.
             </h2>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
               Public trust, tenant identity, onboarding, and back-office
-              controls are presented as one connected system, not separate
-              software promises.
+              controls are presented as one connected system.
             </p>
           </div>
 
@@ -305,9 +304,9 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
               clarity of a premium SaaS company.
             </h2>
             <p className="mt-4 text-sm leading-7 text-background/70">
-              Switch the homepage on for a credible product story, or route
-              traffic straight to signup when the team wants a purely
-              operational entry.
+              Route visitors into cooperative signup, tenant login, or the
+              guided first-run setup without filler content or disconnected
+              claims.
             </p>
           </div>
 

@@ -39,11 +39,37 @@ export type TenantOnboardingSnapshot = {
   steps: TenantOnboardingStep[]
 }
 
+export type TenantFirstRunOnboardingStepKey =
+  | "charges"
+  | "shares"
+  | "business"
+  | "members"
+  | "member_migration"
+  | "loan"
+  | "commitments"
+
+export type TenantFirstRunOnboardingStep = {
+  key: TenantFirstRunOnboardingStepKey
+  label: string
+  description: string
+  complete: boolean
+  href: string
+}
+
+export type TenantFirstRunOnboardingSnapshot = {
+  completedStepCount: number
+  totalStepCount: number
+  completionRatio: number
+  shouldOpenForEmptyWorkspace: boolean
+  steps: TenantFirstRunOnboardingStep[]
+}
+
 export type TenantBootstrapInput = {
   name: string
   slug: string
   ownerFullName: string
   ownerEmail: string
+  ownerPasswordHash?: string
   ownerMemberNumber?: string
   currentSize?: number
   officeAddress?: string | null
@@ -283,6 +309,131 @@ export async function getTenantOnboardingState(tenantId: string) {
   })
 }
 
+export async function getTenantFirstRunOnboardingState(
+  tenantId: string
+): Promise<TenantFirstRunOnboardingSnapshot> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return {
+      completedStepCount: 0,
+      totalStepCount: 0,
+      completionRatio: 0,
+      shouldOpenForEmptyWorkspace: false,
+      steps: [],
+    }
+  }
+
+  const [
+    activeCharges,
+    shareVersions,
+    shareBusinesses,
+    activeMembers,
+    appliedBackfillMonths,
+    loanProducts,
+    activeLoans,
+    contributionPlans,
+    contributions,
+    monthlyRecords,
+    importBatches,
+  ] = await Promise.all([
+    prisma.chargeDefinition.count({
+      where: { isActive: true, tenantId },
+    }),
+    prisma.tenantShareStructureVersion.count({ where: { tenantId } }),
+    prisma.shareBusiness.count({ where: { tenantId } }),
+    prisma.member.count({
+      where: { status: { not: "exited" }, tenantId },
+    }),
+    prisma.appliedBackfillMonth.count({ where: { tenantId } }),
+    prisma.loanProduct.count({ where: { isActive: true, tenantId } }),
+    prisma.loan.count({ where: { tenantId } }),
+    prisma.contributionPlan.count({ where: { tenantId } }),
+    prisma.contribution.count({ where: { tenantId } }),
+    prisma.monthlyRecord.count({ where: { tenantId } }),
+    prisma.importBatch.count({
+      where: {
+        status: "applied",
+        tenantId,
+      },
+    }),
+  ])
+  const hasMembersBeyondOwner = activeMembers > 1 || importBatches > 0
+  const steps: TenantFirstRunOnboardingStep[] = [
+    {
+      key: "charges",
+      label: "Charges",
+      description: "Create the active member charge or levy structures.",
+      complete: activeCharges > 0,
+      href: "/settings/finance/charges",
+    },
+    {
+      key: "shares",
+      label: "Shares",
+      description: "Configure the cooperative share structure.",
+      complete: shareVersions > 0,
+      href: "/settings/finance/shares",
+    },
+    {
+      key: "business",
+      label: "Business",
+      description: "Register the business or profit-sharing setup.",
+      complete: shareBusinesses > 0,
+      href: "/settings/finance/business",
+    },
+    {
+      key: "members",
+      label: "Add or import members",
+      description: "Create the first real member set or import a batch.",
+      complete: hasMembersBeyondOwner,
+      href: "/settings/imports/members",
+    },
+    {
+      key: "member_migration",
+      label: "Member migration",
+      description: "Review historical member balances and backfill rows.",
+      complete: appliedBackfillMonths > 0,
+      href: "/settings/finance/migration",
+    },
+    {
+      key: "loan",
+      label: "Loan",
+      description: "Configure loan products or migrate active loans.",
+      complete: loanProducts > 0 || activeLoans > 0,
+      href: "/settings/finance/loan",
+    },
+    {
+      key: "commitments",
+      label: "Commitment progression",
+      description: "Confirm monthly commitments and contribution readiness.",
+      complete: contributionPlans > 0 || monthlyRecords > 0,
+      href: "/monthly-records",
+    },
+  ]
+  const completedStepCount = steps.filter((step) => step.complete).length
+  const totalStepCount = steps.length
+  const hasOperationalData =
+    activeCharges > 0 ||
+    shareVersions > 0 ||
+    shareBusinesses > 0 ||
+    hasMembersBeyondOwner ||
+    appliedBackfillMonths > 0 ||
+    loanProducts > 0 ||
+    activeLoans > 0 ||
+    contributionPlans > 0 ||
+    contributions > 0 ||
+    monthlyRecords > 0
+
+  return {
+    completedStepCount,
+    totalStepCount,
+    completionRatio:
+      totalStepCount > 0 ? completedStepCount / totalStepCount : 0,
+    shouldOpenForEmptyWorkspace: !hasOperationalData,
+    steps,
+  }
+}
+
 export async function createTenantWorkspaceBootstrap(
   input: TenantBootstrapInput
 ): Promise<TenantBootstrapResult> {
@@ -372,6 +523,7 @@ export async function createTenantWorkspaceBootstrap(
         tenantId: createdTenant.id,
         email: input.ownerEmail.trim().toLowerCase(),
         fullName: input.ownerFullName.trim(),
+        passwordHash: input.ownerPasswordHash,
       },
     })
 

@@ -9,7 +9,7 @@ export interface TenantPolicySummary extends LoanPolicy {
   monthlyLevyAmount: number | null
   requiresDualLoanApproval: boolean
   allowOfflineFinancialCapture: boolean
-  memberSignupAccessMode: "in_office" | "public"
+  memberSignupAccessMode: "disabled" | "hidden" | "in_office" | "public"
 }
 
 export const defaultTenantPolicy: TenantPolicySummary = {

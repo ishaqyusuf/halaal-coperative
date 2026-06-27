@@ -13,9 +13,7 @@ const passwordResetTokenSchema = z.object({
 export type PasswordResetTokenPayload = z.infer<typeof passwordResetTokenSchema>
 
 function getPasswordResetSecret() {
-  const configuredSecret =
-    process.env.HALAAL_VEST_PASSWORD_RESET_SECRET?.trim() ??
-    process.env.HALAAL_VEST_AUTH_SECRET?.trim()
+  const configuredSecret = process.env.HALAAL_VEST_AUTH_SECRET?.trim()
 
   if (configuredSecret) {
     return configuredSecret
@@ -26,7 +24,7 @@ function getPasswordResetSecret() {
   }
 
   throw new Error(
-    "HALAAL_VEST_PASSWORD_RESET_SECRET or HALAAL_VEST_AUTH_SECRET must be configured in production."
+    "HALAAL_VEST_AUTH_SECRET must be configured in production."
   )
 }
 

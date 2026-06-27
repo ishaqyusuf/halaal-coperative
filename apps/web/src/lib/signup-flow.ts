@@ -64,9 +64,11 @@ export const signupVerificationPayloadSchema = z.object({
 })
 
 export const onboardingFormSchema = z.object({
+  confirmPassword: z.string().min(8, "Confirm your password."),
   cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
   currentSize: positiveIntegerField("Enter the current cooperative size."),
   officeAddress: z.string().trim().min(10, "Enter the cooperative office address."),
+  password: z.string().min(8, "Password must be at least 8 characters."),
   primaryContactEmail: z.email("Enter a valid email address."),
   primaryContactFullName: z.string().trim().min(2, "Enter the primary contact name."),
   primaryContactMemberNumber: z.string().trim().min(1, "Enter the primary contact cooperative number."),
@@ -75,6 +77,9 @@ export const onboardingFormSchema = z.object({
     .trim()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the cooperative start date."),
   token: z.string().min(1, "A verification token is required."),
+}).refine((values) => values.password === values.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"],
 })
 
 export type SignupIntentInput = z.infer<typeof signupIntentSchema>
@@ -105,7 +110,9 @@ export function getOnboardingDefaultsFromVerification(payload: SignupVerificatio
   return {
     cooperativeName: payload.cooperativeName,
     currentSize: "",
+    confirmPassword: "",
     officeAddress: "",
+    password: "",
     primaryContactEmail: payload.primaryContactEmail,
     primaryContactFullName: payload.primaryContactFullName,
     primaryContactMemberNumber: payload.primaryContactMemberNumber,

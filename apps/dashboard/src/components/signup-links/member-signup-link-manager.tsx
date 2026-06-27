@@ -24,11 +24,27 @@ import {
   updateMemberSignupLinkAction,
 } from "@/lib/dashboard-actions"
 
-type SignupAccessMode = "in_office" | "public"
+type SignupAccessMode = "disabled" | "hidden" | "in_office" | "public"
 
 const accessModeSchema = z.object({
-  memberSignupAccessMode: z.enum(["in_office", "public"]),
+  memberSignupAccessMode: z.enum(["in_office", "public", "hidden", "disabled"]),
 })
+
+function accessModeSuccessDescription(mode: SignupAccessMode) {
+  if (mode === "public") {
+    return "Member signup is now open to the public on this tenant host."
+  }
+
+  if (mode === "hidden") {
+    return "Public signup entry points are hidden, but staff-issued links can still be used."
+  }
+
+  if (mode === "disabled") {
+    return "Member self-service signup is disabled for public pages and staff-issued links."
+  }
+
+  return "Member signup is now restricted to in-office use unless a staff link is issued."
+}
 
 const signupLinkSchema = z.object({
   expiresAt: z.string().optional(),
@@ -74,9 +90,7 @@ function AccessModeForm({ defaultMode }: { defaultMode: SignupAccessMode }) {
         await updateMemberSignupAccessModeAction(formData)
         showSuccess(
           "Signup access updated",
-          values.memberSignupAccessMode === "public"
-            ? "Member signup is now open to the public on this tenant host."
-            : "Member signup is now restricted to in-office use unless a staff link is issued."
+          accessModeSuccessDescription(values.memberSignupAccessMode)
         )
       } catch (error) {
         showError(
@@ -101,9 +115,8 @@ function AccessModeForm({ defaultMode }: { defaultMode: SignupAccessMode }) {
             Member signup gate
           </h3>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            `In-office` blocks public signup unless the applicant uses a valid
-            staff-issued link. `Public` keeps the signup page open without a
-            token.
+            Choose whether signup is open, link-only, hidden from entry points,
+            or fully disabled. New applicants still require admin approval.
           </p>
         </div>
         <Form {...form}>
@@ -121,6 +134,8 @@ function AccessModeForm({ defaultMode }: { defaultMode: SignupAccessMode }) {
                     <NativeSelect {...field}>
                       <option value="in_office">In-office only</option>
                       <option value="public">Public signup</option>
+                      <option value="hidden">Hidden, links only</option>
+                      <option value="disabled">Disabled</option>
                     </NativeSelect>
                   </FormControl>
                   <FormMessage />

@@ -63,6 +63,8 @@ enum MemberOnboardingStatus {
 enum MemberSignupAccessMode {
   in_office
   public
+  hidden
+  disabled
 }
 
 enum TenantDomainKind {

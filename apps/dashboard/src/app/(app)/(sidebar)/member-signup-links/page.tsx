@@ -86,6 +86,16 @@ export default async function MemberSignupLinksPage() {
   const enabledLinks = serializedLinks.filter((link) => link.isEnabled).length
   const totalSignups = serializedLinks.reduce((sum, link) => sum + link.analytics.totalRequests, 0)
   const totalApproved = serializedLinks.reduce((sum, link) => sum + link.analytics.approvedCount, 0)
+  const accessModeLabels = {
+    disabled: "Disabled",
+    hidden: "Hidden",
+    in_office: "In-office",
+    public: "Public",
+  } as const
+  const accessModeTone =
+    settings.memberSignupAccessMode === "public"
+      ? "positive"
+      : "warning"
 
   return (
     <WorkspacePageShell
@@ -106,9 +116,9 @@ export default async function MemberSignupLinksPage() {
       <section className="grid gap-4 md:grid-cols-4">
         <DashboardStatCard
           label="Signup access"
-          value={settings.memberSignupAccessMode === "public" ? "Public" : "In-office"}
+          value={accessModeLabels[settings.memberSignupAccessMode]}
           detail="Current tenant-wide signup gate."
-          tone={settings.memberSignupAccessMode === "public" ? "positive" : "warning"}
+          tone={accessModeTone}
         />
         <DashboardStatCard
           label="Enabled links"

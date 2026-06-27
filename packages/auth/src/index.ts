@@ -60,10 +60,7 @@ export function parseCookieHeader(cookieHeader: string | null | undefined) {
 }
 
 function getSessionSecret() {
-  const secret =
-    process.env.HALAAL_VEST_AUTH_SECRET ??
-    process.env.AUTH_SECRET ??
-    process.env.NEXTAUTH_SECRET
+  const secret = process.env.HALAAL_VEST_AUTH_SECRET
 
   if (secret?.trim()) {
     return secret.trim()

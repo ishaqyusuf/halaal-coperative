@@ -16,12 +16,13 @@
 - In development mode, the UI may expose a bypass link to continue without waiting for email delivery.
 - The verified email is treated as the authoritative primary contact email when the tenant workspace is created.
 - Public onboarding only collects cooperative profile details; policy defaults are created server-side during workspace bootstrap.
+- Tenant-admin onboarding collects and hashes the first workspace password before tenant bootstrap creates the owner user.
 
 ## UI Flow
 - `/signup`: collect primary contact name, primary contact email, and cooperative name with `useZodForm`.
 - Success state: show the verification email draft and, in dev mode, a direct continue link.
 - `/onboarding?token=...`: validate the token server-side, prefill verified contact details, and submit the simplified cooperative profile with `useZodForm`.
-- Onboarding fields now focus on cooperative name, current size, office address, and cooperative start date.
+- Onboarding fields now focus on cooperative name, current size, office address, cooperative start date, and admin password setup.
 - Completion state: show dashboard/site hostnames and a workspace-ready email draft.
 
 ## API/Data Impact
@@ -35,6 +36,7 @@
 - Tenant-scoped workspace-ready email outcomes are still mirrored into `audit_logs` using `notification.email_sent|queued|failed` actions for operational history inside the tenant workspace.
 - `apps/web/.env.example` documents `HALAAL_VEST_SIGNUP_TOKEN_SECRET` for production-safe signing.
 - Cooperative profile details beyond tenant name and primary contact are persisted on the tenant record as `currentSize`, `officeAddress`, and `startDate`.
+- The onboarding API hashes the submitted admin password and stores it on the owner user created during `createTenantWorkspaceBootstrap`.
 
 ## Permissions
 - Public route access for signup and verification handoff.

@@ -15,7 +15,7 @@ import {
   toMemberQueryFilters,
 } from "./member-filters"
 
-type MemberSignupAccessMode = "in_office" | "public"
+type MemberSignupAccessMode = "disabled" | "hidden" | "in_office" | "public"
 
 type MembersPageTenant = {
   memberNumberPrefix?: string | null

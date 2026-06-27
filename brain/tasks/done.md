@@ -82,3 +82,63 @@ This file records completed work and important outcomes.
 - Plan Status: Done
 - Plan File: brain/plans/2026-06-21-feature-midday-finance-secondary-menu.md
 - Created Date: 2026-06-21
+
+### Staged Monthly Contribution Generation
+
+- Priority: High
+- Description: Implemented current-month staged contribution visibility backed by generated monthly-record member rows.
+- Related Feature: Monthly contribution generation
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-06-27-feature-staged-monthly-contribution-generation.md
+- Intake File: brain/intake/2026-06-27-halaalvest-product-and-onboarding.md
+- Created Date: 2026-06-27
+- Completed Date: 2026-06-27
+
+### Password Signup And Reset Flow
+
+- Priority: High
+- Description: Added tenant-admin password setup during onboarding and verified the existing non-enumerating reset flow.
+- Related Feature: Authentication
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-06-27-feature-password-signup-and-reset.md
+- Intake File: brain/intake/2026-06-27-halaalvest-product-and-onboarding.md
+- Created Date: 2026-06-27
+- Completed Date: 2026-06-27
+
+### Admin Controlled Signup Visibility And Approval
+
+- Priority: High
+- Description: Added hidden and disabled signup modes while preserving admin approval for member applicants.
+- Related Feature: Member signup and approvals
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-06-27-feature-admin-controlled-signup-approval.md
+- Intake File: brain/intake/2026-06-27-halaalvest-product-and-onboarding.md
+- Created Date: 2026-06-27
+- Completed Date: 2026-06-27
+
+### Marketing And Auth Experience Redesign
+
+- Priority: Medium
+- Description: Cleaned public/auth positioning, removed fake proof claims, and made signup CTA visibility policy-aware.
+- Related Feature: Public marketing and auth UX
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-06-27-ux-ui-marketing-and-auth-redesign.md
+- Intake File: brain/intake/2026-06-27-halaalvest-product-and-onboarding.md
+- Created Date: 2026-06-27
+- Completed Date: 2026-06-27
+
+### First Run Onboarding Wizard
+
+- Priority: High
+- Description: Added an empty-workspace onboarding route and admin redirect that guides charges, shares, business, members, migration, loans, and commitments.
+- Related Feature: Tenant onboarding
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-06-27-feature-first-run-onboarding-wizard.md
+- Intake File: brain/intake/2026-06-27-halaalvest-product-and-onboarding.md
+- Created Date: 2026-06-27
+- Completed Date: 2026-06-27

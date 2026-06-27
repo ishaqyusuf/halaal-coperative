@@ -56,6 +56,18 @@ function getTenantUrlDefaults(origin: string) {
   } as const
 }
 
+function isLocalOrigin(origin: string) {
+  const parsedOrigin = parseOriginLike(origin)
+  const hostname = parsedOrigin?.hostname ?? ""
+
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0" ||
+    hostname.endsWith(".localhost")
+  )
+}
+
 export function buildOnboardingWorkspaceUrls(input: {
   currentOrigin?: string | null
   tenantSlug: string
@@ -83,7 +95,7 @@ export function buildOnboardingWorkspaceUrls(input: {
       ...commonOptions,
       currentHost: dashboardDefaults.currentHost,
       currentProtocol: dashboardDefaults.currentProtocol,
-      path: "/app",
+      path: isLocalOrigin(dashboardOrigin) ? "/" : "/app",
       targetPort: dashboardDefaults.targetPort,
       targetRootDomain: tenantRootDomain,
     }),

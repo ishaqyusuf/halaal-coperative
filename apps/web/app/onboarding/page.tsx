@@ -16,9 +16,9 @@ export default async function OnboardingPage({
   if (!token) {
     return (
       <SignupShell
-        eyebrow="Onboarding"
-        title="A verification link is required."
-        description="Start from the signup page so we can capture and verify the cooperative primary contact email first."
+        eyebrow="Verified setup"
+        title="Open onboarding from a secure verification link."
+        description="Signup sends the primary admin a time-limited link before a workspace can be created."
       >
         <Link className={buttonVariants({ size: "lg" })} href="/signup">
           Go to signup
@@ -32,17 +32,21 @@ export default async function OnboardingPage({
 
     return (
       <SignupShell
-        eyebrow="Onboarding"
-        title="Complete cooperative setup from the verified signup link."
-        description="The verification token brings in the primary contact details first, then the cooperative can finish a short profile before the workspace is opened."
+        eyebrow="Verified setup"
+        title="Finish the cooperative workspace profile."
+        description="The verified admin is confirmed. Save the operating profile and first password, then move into guided dashboard setup."
       >
-        <OnboardingForm devMode={devMode} token={token} verification={verification} />
+        <OnboardingForm
+          devMode={devMode}
+          token={token}
+          verification={verification}
+        />
       </SignupShell>
     )
   } catch (error) {
     return (
       <SignupShell
-        eyebrow="Onboarding"
+        eyebrow="Verified setup"
         title="This verification link can’t be used."
         description={
           error instanceof Error

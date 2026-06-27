@@ -1,0 +1,115 @@
+{
+  "configPath": "/Users/M1PRO/Documents/code/halaal-coperative/packages/jobs/.trigger/tmp/build-xjamN4/packages/jobs/trigger.config.mjs",
+  "tasks": [
+    {
+      "id": "member.backfill.apply",
+      "queue": {
+        "concurrencyLimit": 1
+      },
+      "retry": {
+        "maxAttempts": 3,
+        "factor": 2,
+        "minTimeoutInMs": 1000,
+        "maxTimeoutInMs": 10000,
+        "randomize": true
+      },
+      "maxDuration": 300,
+      "filePath": "src/tasks/backfill-apply.task.ts",
+      "entryPoint": "/Users/M1PRO/Documents/code/halaal-coperative/packages/jobs/.trigger/tmp/build-xjamN4/packages/jobs/src/tasks/backfill-apply.task.mjs"
+    },
+    {
+      "id": "member.backfill.initialize",
+      "queue": {
+        "concurrencyLimit": 2
+      },
+      "retry": {
+        "maxAttempts": 3,
+        "factor": 2,
+        "minTimeoutInMs": 1000,
+        "maxTimeoutInMs": 10000,
+        "randomize": true
+      },
+      "maxDuration": 120,
+      "filePath": "src/tasks/backfill-initialize.task.ts",
+      "entryPoint": "/Users/M1PRO/Documents/code/halaal-coperative/packages/jobs/.trigger/tmp/build-xjamN4/packages/jobs/src/tasks/backfill-initialize.task.mjs"
+    },
+    {
+      "id": "monthly-record-generate",
+      "queue": {
+        "concurrencyLimit": 1
+      },
+      "retry": {
+        "maxAttempts": 3,
+        "factor": 2,
+        "minTimeoutInMs": 1000,
+        "maxTimeoutInMs": 10000,
+        "randomize": true
+      },
+      "maxDuration": 120,
+      "filePath": "src/tasks/index.ts",
+      "entryPoint": "/Users/M1PRO/Documents/code/halaal-coperative/packages/jobs/.trigger/tmp/build-xjamN4/packages/jobs/src/tasks/index.mjs"
+    },
+    {
+      "id": "notification-outbox-deliver",
+      "queue": {
+        "concurrencyLimit": 1
+      },
+      "retry": {
+        "maxAttempts": 3,
+        "factor": 2,
+        "minTimeoutInMs": 1000,
+        "maxTimeoutInMs": 10000,
+        "randomize": true
+      },
+      "maxDuration": 60,
+      "filePath": "src/tasks/index.ts",
+      "entryPoint": "/Users/M1PRO/Documents/code/halaal-coperative/packages/jobs/.trigger/tmp/build-xjamN4/packages/jobs/src/tasks/index.mjs"
+    },
+    {
+      "id": "notification-outbox-deliver-schedule",
+      "queue": {
+        "concurrencyLimit": 1
+      },
+      "retry": {
+        "maxAttempts": 3,
+        "factor": 2,
+        "minTimeoutInMs": 1000,
+        "maxTimeoutInMs": 10000,
+        "randomize": true
+      },
+      "triggerSource": "schedule",
+      "schedule": {
+        "cron": "* * * * *",
+        "timezone": "UTC"
+      },
+      "maxDuration": 60,
+      "filePath": "src/tasks/index.ts",
+      "entryPoint": "/Users/M1PRO/Documents/code/halaal-coperative/packages/jobs/.trigger/tmp/build-xjamN4/packages/jobs/src/tasks/index.mjs"
+    },
+    {
+      "id": "email-smoke-test",
+      "retry": {
+        "maxAttempts": 3,
+        "factor": 2,
+        "minTimeoutInMs": 1000,
+        "maxTimeoutInMs": 10000,
+        "randomize": true
+      },
+      "maxDuration": 60,
+      "filePath": "src/tasks/index.ts",
+      "entryPoint": "/Users/M1PRO/Documents/code/halaal-coperative/packages/jobs/.trigger/tmp/build-xjamN4/packages/jobs/src/tasks/index.mjs"
+    }
+  ],
+  "queues": [],
+  "workerEntryPoint": "/Users/M1PRO/Documents/code/halaal-coperative/packages/jobs/.trigger/tmp/build-xjamN4/node_modules/.bun/trigger.dev@4.0.1+1fb4c65d43e298b9/node_modules/trigger.dev/dist/esm/entryPoints/dev-run-worker.mjs",
+  "runtime": "node-22",
+  "runtimeVersion": "25.4.0",
+  "customConditions": [],
+  "timings": {
+    "src/tasks/backfill-apply.task.ts": 85.75741700000003,
+    "src/tasks/backfill-initialize.task.ts": 1.440667000000019,
+    "src/tasks/index.ts": 22.652958000000012,
+    "src/tasks/monthly-record-generate.task.ts": 0.8306670000000054,
+    "src/tasks/notification-outbox-deliver.task.ts": 0.7345419999999763
+  }
+}

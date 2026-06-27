@@ -1,10 +1,17 @@
 "use client"
 
-import { useTransition } from "react"
+import { useState, useTransition } from "react"
 import { z } from "zod"
+import { ArrowUpDownIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from "@halaalvest/ui/components/field"
 import {
   Form,
   FormControl,
@@ -14,9 +21,10 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import { NativeSelect } from "@halaalvest/ui/components/native-select"
+import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
+import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { objectToFormData } from "@/lib/form-submit"
 import {
   createChargeDefinitionAction,
@@ -47,6 +55,32 @@ function CurrencyFormInput({
       value={value ?? ""}
       valueIsNumericString
       onValueChange={(values) => onChange(values.value)}
+    />
+  )
+}
+
+function SelectFormInput({
+  disabled,
+  onChange,
+  options,
+  placeholder,
+  value,
+}: {
+  disabled?: boolean
+  onChange: (value: string) => void
+  options: Array<{ label: string; value: string }>
+  placeholder?: string
+  value?: string
+}) {
+  const hasEmptyOption = options.some((option) => option.value === "")
+
+  return (
+    <LabeledSelectInput
+      disabled={disabled}
+      onValueChange={onChange}
+      options={options}
+      placeholder={placeholder}
+      value={hasEmptyOption && !value ? "" : (value ?? "")}
     />
   )
 }
@@ -231,10 +265,17 @@ export function ShareStructureVersionForm({
             <FormItem>
               <FormLabel>Share rule</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="fixed_amount">Fixed amount</option>
-                  <option value="percentage">Percentage after charges</option>
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Fixed amount", value: "fixed_amount" },
+                    {
+                      label: "Percentage after charges",
+                      value: "percentage",
+                    },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -281,7 +322,7 @@ export function ShareStructureVersionForm({
 }
 
 const chargeDefinitionSchema = z.object({
-  amount: z.string().min(1, "Amount is required."),
+  amount: z.string().optional(),
   appliesToLoanRequests: z.boolean().default(false),
   appliesToLoans: z.boolean().default(false),
   appliesToMembers: z.boolean().default(true),
@@ -293,7 +334,7 @@ const chargeDefinitionSchema = z.object({
   ]),
   chargeValueType: z.enum(["fixed_amount", "percentage"]),
   code: z.string().min(1, "Code is required."),
-  effectiveFrom: z.string().min(1, "Start date is required."),
+  effectiveFrom: z.string().optional(),
   isMonthlyLevy: z.boolean().default(false),
   kind: z.enum(["fixed", "percentage"]),
   name: z.string().min(1, "Name is required."),
@@ -307,6 +348,46 @@ const chargeDefinitionSchema = z.object({
 })
 
 type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
+
+type ChargeHistoryRow = {
+  amount: string
+  effectiveFrom: string
+  id: string
+}
+
+function createChargeHistoryRow(id?: string): ChargeHistoryRow {
+  return {
+    amount: "",
+    effectiveFrom: "",
+    id:
+      id ??
+      `charge-history-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  }
+}
+
+function chargeHistoryRowHasValue(row: ChargeHistoryRow) {
+  return Boolean(row.amount || row.effectiveFrom)
+}
+
+function chargeHistoryRowIsComplete(row: ChargeHistoryRow) {
+  return Boolean(row.amount && row.effectiveFrom)
+}
+
+function sortChargeHistoryRowsByDate(a: ChargeHistoryRow, b: ChargeHistoryRow) {
+  if (a.effectiveFrom && b.effectiveFrom) {
+    return a.effectiveFrom.localeCompare(b.effectiveFrom)
+  }
+
+  if (a.effectiveFrom) {
+    return -1
+  }
+
+  if (b.effectiveFrom) {
+    return 1
+  }
+
+  return a.id.localeCompare(b.id)
+}
 
 export function ChargeDefinitionForm({
   financeStartDate,
@@ -333,21 +414,100 @@ export function ChargeDefinitionForm({
   })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
+  const [chargeHistoryRows, setChargeHistoryRows] = useState<
+    ChargeHistoryRow[]
+  >(() => [createChargeHistoryRow("charge-history-initial")])
+
+  function resetChargeHistoryRows() {
+    setChargeHistoryRows([createChargeHistoryRow("charge-history-initial")])
+  }
+
+  function updateChargeHistoryRow(
+    rowId: string,
+    patch: Partial<Pick<ChargeHistoryRow, "amount" | "effectiveFrom">>
+  ) {
+    setChargeHistoryRows((currentRows) => {
+      const updatedRows = currentRows.map((row) =>
+        row.id === rowId ? { ...row, ...patch } : row
+      )
+      const compactRows = updatedRows.filter(
+        (row, index) =>
+          chargeHistoryRowHasValue(row) || index === updatedRows.length - 1
+      )
+      const lastRow = compactRows.at(-1)
+
+      if (!lastRow) {
+        return [createChargeHistoryRow()]
+      }
+
+      if (chargeHistoryRowHasValue(lastRow)) {
+        return [...compactRows, createChargeHistoryRow()]
+      }
+
+      return compactRows
+    })
+  }
+
+  function sortChargeHistoryRows() {
+    setChargeHistoryRows((currentRows) => {
+      const sortedRows = currentRows
+        .filter(chargeHistoryRowHasValue)
+        .sort(sortChargeHistoryRowsByDate)
+
+      return [...sortedRows, createChargeHistoryRow()]
+    })
+  }
 
   function onSubmit(values: ChargeDefinitionValues) {
-    if (isBeforeFinanceStartDate(values.effectiveFrom, financeStartDate)) {
-      setDateBeforeFinanceStartError(
-        form,
-        "effectiveFrom",
-        "Start date",
-        financeStartDate
+    const startedRows = chargeHistoryRows.filter(chargeHistoryRowHasValue)
+    const incompleteRow = startedRows.find(
+      (row) => !chargeHistoryRowIsComplete(row)
+    )
+
+    if (startedRows.length === 0) {
+      showError(
+        "Charge history required",
+        "Add at least one charge history date and amount."
+      )
+      return
+    }
+
+    if (incompleteRow) {
+      showError(
+        "Complete charge history",
+        "Each charge history row needs both a date and an amount."
+      )
+      return
+    }
+
+    const sortedHistoryRows = startedRows
+      .filter(chargeHistoryRowIsComplete)
+      .sort(sortChargeHistoryRowsByDate)
+    const rowBeforeStartDate = sortedHistoryRows.find((row) =>
+      isBeforeFinanceStartDate(row.effectiveFrom, financeStartDate)
+    )
+
+    if (rowBeforeStartDate) {
+      showError(
+        "Date before start",
+        `Charge history date cannot be before the cooperative start date (${financeStartDate}).`
       )
       return
     }
 
     startTransition(async () => {
       try {
-        await createChargeDefinitionAction(objectToFormData(values))
+        await createChargeDefinitionAction(
+          objectToFormData({
+            ...values,
+            amount: sortedHistoryRows[0]?.amount,
+            effectiveFrom: sortedHistoryRows[0]?.effectiveFrom,
+            historyAmount: sortedHistoryRows.map((row) => row.amount),
+            historyEffectiveFrom: sortedHistoryRows.map(
+              (row) => row.effectiveFrom
+            ),
+          })
+        )
         showSuccess(
           "Charge created",
           "New charge definition added to finance setup."
@@ -366,6 +526,7 @@ export function ChargeDefinitionForm({
           name: "",
           purpose: "general",
         })
+        resetChargeHistoryRows()
         onSuccess?.()
       } catch (error) {
         showError(
@@ -415,12 +576,19 @@ export function ChargeDefinitionForm({
             <FormItem>
               <FormLabel>Frequency</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="recurring_monthly">Recurring monthly</option>
-                  <option value="per_contribution">Per contribution</option>
-                  <option value="one_time">One time</option>
-                  <option value="manual">Manual</option>
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    {
+                      label: "Recurring monthly",
+                      value: "recurring_monthly",
+                    },
+                    { label: "Per contribution", value: "per_contribution" },
+                    { label: "One time", value: "one_time" },
+                    { label: "Manual", value: "manual" },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -433,10 +601,14 @@ export function ChargeDefinitionForm({
             <FormItem>
               <FormLabel>Value type</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="fixed_amount">Fixed amount</option>
-                  <option value="percentage">Percentage</option>
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Fixed amount", value: "fixed_amount" },
+                    { label: "Percentage", value: "percentage" },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -449,23 +621,14 @@ export function ChargeDefinitionForm({
             <FormItem>
               <FormLabel>Kind</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="fixed">Fixed</option>
-                  <option value="percentage">Percentage</option>
-                </NativeSelect>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="amount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Initial amount</FormLabel>
-              <FormControl>
-                <CurrencyFormInput {...field} placeholder="2000" />
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Fixed", value: "fixed" },
+                    { label: "Percentage", value: "percentage" },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -478,13 +641,17 @@ export function ChargeDefinitionForm({
             <FormItem>
               <FormLabel>Purpose</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="general">General charge</option>
-                  <option value="member_share">Member share</option>
-                  <option value="loan_fee">Loan fee</option>
-                  <option value="membership_fee">Membership fee</option>
-                  <option value="penalty">Penalty</option>
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "General charge", value: "general" },
+                    { label: "Member share", value: "member_share" },
+                    { label: "Loan fee", value: "loan_fee" },
+                    { label: "Membership fee", value: "membership_fee" },
+                    { label: "Penalty", value: "penalty" },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -492,23 +659,78 @@ export function ChargeDefinitionForm({
         />
         <FormField
           control={form.control}
-          name="effectiveFrom"
+          name="isMonthlyLevy"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Start date</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  min={financeStartDate ?? undefined}
-                  type="date"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+            <input
+              checked={field.value}
+              className="hidden"
+              onChange={field.onChange}
+              type="checkbox"
+            />
           )}
         />
-        <div className="flex flex-wrap gap-2 md:col-span-2">
-          <Button disabled={isPending} type="submit" className="rounded-full">
+        <div className="md:col-span-2 space-y-3 border border-border/70 bg-muted/20 p-3">
+          <div className="flex items-center gap-3">
+            <h3 className="shrink-0 text-sm font-medium">Charge History</h3>
+            <Separator className="min-w-10 flex-1" />
+            <Button
+              aria-label="Sort charge history by date"
+              onClick={sortChargeHistoryRows}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <HugeiconsIcon icon={ArrowUpDownIcon} data-icon="inline-start" />
+            </Button>
+            <Button
+              onClick={resetChargeHistoryRows}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Clear
+            </Button>
+          </div>
+          <FieldGroup className="gap-3">
+            {chargeHistoryRows.map((row, index) => (
+              <div
+                className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                key={row.id}
+              >
+                <Field>
+                  <FieldLabel htmlFor={`charge-history-date-${row.id}`}>
+                    {index === 0 ? "Date" : "Date"}
+                  </FieldLabel>
+                  <Input
+                    id={`charge-history-date-${row.id}`}
+                    min={financeStartDate ?? undefined}
+                    onChange={(event) =>
+                      updateChargeHistoryRow(row.id, {
+                        effectiveFrom: event.target.value,
+                      })
+                    }
+                    type="date"
+                    value={row.effectiveFrom}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`charge-history-amount-${row.id}`}>
+                    {index === 0 ? "Amount" : "Amount"}
+                  </FieldLabel>
+                  <CurrencyFormInput
+                    onChange={(amount) =>
+                      updateChargeHistoryRow(row.id, { amount })
+                    }
+                    placeholder="2000"
+                    value={row.amount}
+                  />
+                </Field>
+              </div>
+            ))}
+          </FieldGroup>
+        </div>
+        <div className="flex justify-end md:col-span-2">
+          <Button disabled={isPending} type="submit">
             Add charge
           </Button>
         </div>
@@ -605,14 +827,17 @@ export function ChargeDefinitionVersionForm({
             <FormItem>
               <FormLabel>Charge</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="">Select a charge</option>
-                  {chargeDefinitions.map((charge) => (
-                    <option key={charge.id} value={charge.id}>
-                      {charge.label}
-                    </option>
-                  ))}
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Select a charge", value: "" },
+                    ...chargeDefinitions.map((charge) => ({
+                      label: charge.label,
+                      value: charge.id,
+                    })),
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -642,10 +867,14 @@ export function ChargeDefinitionVersionForm({
             <FormItem>
               <FormLabel>Kind</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="fixed">Fixed</option>
-                  <option value="percentage">Percentage</option>
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Fixed", value: "fixed" },
+                    { label: "Percentage", value: "percentage" },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -658,10 +887,14 @@ export function ChargeDefinitionVersionForm({
             <FormItem>
               <FormLabel>Value type</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="fixed_amount">Fixed amount</option>
-                  <option value="percentage">Percentage</option>
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Fixed amount", value: "fixed_amount" },
+                    { label: "Percentage", value: "percentage" },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -879,12 +1112,16 @@ export function ShareBusinessForm({
             <FormItem>
               <FormLabel>Status</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="planned">Planned</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="archived">Archived</option>
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Planned", value: "planned" },
+                    { label: "Active", value: "active" },
+                    { label: "Completed", value: "completed" },
+                    { label: "Archived", value: "archived" },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -897,14 +1134,17 @@ export function ShareBusinessForm({
             <FormItem>
               <FormLabel>Linked dividend period</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="">Not linked yet</option>
-                  {dividendPeriods.map((period) => (
-                    <option key={period.id} value={period.id}>
-                      {period.label}
-                    </option>
-                  ))}
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Not linked yet", value: "" },
+                    ...dividendPeriods.map((period) => ({
+                      label: period.label,
+                      value: period.id,
+                    })),
+                  ]}
+                  value={field.value ?? ""}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1037,13 +1277,15 @@ export function ShareBusinessProfitEntryForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Business</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  {businesses.map((business) => (
-                    <option key={business.id} value={business.id}>
-                      {business.label}
-                    </option>
-                  ))}
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={businesses.map((business) => ({
+                    label: business.label,
+                    value: business.id,
+                  }))}
+                  placeholder="Select business"
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1112,12 +1354,16 @@ export function ShareBusinessProfitEntryForm({
             <FormItem>
               <FormLabel>Status</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="draft">Draft</option>
-                  <option value="reviewed">Reviewed</option>
-                  <option value="approved">Approved</option>
-                  <option value="archived">Archived</option>
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Draft", value: "draft" },
+                    { label: "Reviewed", value: "reviewed" },
+                    { label: "Approved", value: "approved" },
+                    { label: "Archived", value: "archived" },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1130,11 +1376,15 @@ export function ShareBusinessProfitEntryForm({
             <FormItem>
               <FormLabel>Source</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="manual">Manual</option>
-                  <option value="backfill">Backfill</option>
-                  <option value="import">Import</option>
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Manual", value: "manual" },
+                    { label: "Backfill", value: "backfill" },
+                    { label: "Import", value: "import" },
+                  ]}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1147,14 +1397,17 @@ export function ShareBusinessProfitEntryForm({
             <FormItem>
               <FormLabel>Linked dividend period</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="">Not linked yet</option>
-                  {dividendPeriods.map((period) => (
-                    <option key={period.id} value={period.id}>
-                      {period.label}
-                    </option>
-                  ))}
-                </NativeSelect>
+                <SelectFormInput
+                  onChange={field.onChange}
+                  options={[
+                    { label: "Not linked yet", value: "" },
+                    ...dividendPeriods.map((period) => ({
+                      label: period.label,
+                      value: period.id,
+                    })),
+                  ]}
+                  value={field.value ?? ""}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

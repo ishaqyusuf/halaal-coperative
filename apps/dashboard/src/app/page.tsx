@@ -2,7 +2,11 @@ import Link from "next/link"
 import { headers } from "next/headers"
 import { normalizeRole } from "@halaalvest/auth/roles"
 import { buildDashboardSnapshot } from "@halaalvest/domain"
-import { createDbRuntime, getDashboardMetrics } from "@halaalvest/db"
+import {
+  createDbRuntime,
+  getDashboardMetrics,
+  getTenantMemberSignupSettings,
+} from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { TenantUrlProvider } from "@halaalvest/tenant-url/react"
@@ -91,6 +95,9 @@ export default async function TenantHomePage() {
     "/signup/members",
     tenantUrlConfig,
   )
+  const memberSignupSettings = await getTenantMemberSignupSettings(tenant.id)
+  const showMemberSignupCta =
+    memberSignupSettings.memberSignupAccessMode === "public"
   const loginHref = buildTenantHref(tenantUrlContext, "/login", tenantUrlConfig)
   const appHref = buildTenantHref(tenantUrlContext, "/", tenantUrlConfig)
 
@@ -138,11 +145,13 @@ export default async function TenantHomePage() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <a href={memberSignupHref}>
-            <Button size="lg" className="rounded-full px-5">
-              Become a member
-            </Button>
-          </a>
+          {showMemberSignupCta ? (
+            <a href={memberSignupHref}>
+              <Button size="lg" className="rounded-full px-5">
+                Become a member
+              </Button>
+            </a>
+          ) : null}
           <a href={loginHref}>
             <Button size="lg" variant="outline" className="rounded-full px-5">
               Login

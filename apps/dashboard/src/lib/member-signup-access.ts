@@ -7,7 +7,7 @@ type MemberSignupGate =
       link: null
       message: string
       token: null
-      type: "in_office_only" | "invalid_token"
+      type: "disabled" | "hidden" | "in_office_only" | "invalid_token"
     }
   | {
       access: "granted"
@@ -32,6 +32,17 @@ export async function resolveMemberSignupGate(input: {
 }): Promise<MemberSignupGate> {
   const settings = await getTenantMemberSignupSettings(input.tenantId)
   const providedToken = input.token?.trim() || null
+
+  if (settings.memberSignupAccessMode === "disabled") {
+    return {
+      access: "denied",
+      link: null,
+      message:
+        "This cooperative has disabled member self-service signup. Contact the cooperative office for onboarding.",
+      token: null,
+      type: "disabled",
+    }
+  }
 
   if (providedToken) {
     try {
@@ -86,6 +97,17 @@ export async function resolveMemberSignupGate(input: {
       link: null,
       mode: "public",
       token: null,
+    }
+  }
+
+  if (settings.memberSignupAccessMode === "hidden") {
+    return {
+      access: "denied",
+      link: null,
+      message:
+        "Member signup is hidden on this tenant host. Ask the cooperative office for a staff-issued signup link.",
+      token: null,
+      type: "hidden",
     }
   }
 

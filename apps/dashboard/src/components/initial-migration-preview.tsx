@@ -4,6 +4,7 @@ import {
 } from "@halaalvest/backfill"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
 import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@halaalvest/ui/components/dialog"
+import { Input } from "@halaalvest/ui/components/input"
 import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardDataTable,
@@ -25,6 +27,7 @@ import {
   DashboardTableRow,
   TrendPill,
 } from "@/components/dashboard"
+import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { MemberPreviewPicker } from "@/components/migration/member-preview-picker"
 import { MemberLedgerBackfillTable } from "@/components/migration/member-ledger-backfill-table"
 import { MemberAutocompleteSelect } from "@/components/migration/member-autocomplete-select"
@@ -399,10 +402,10 @@ function MemberBackfillAdjustmentDialog({
           <input name="month" type="hidden" value={month ?? ""} />
           {isRepayment ? (
             <>
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Actual principal repayment
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                <Input
+                  className="text-right"
                   defaultValue={loan?.repaymentAmount ?? ""}
                   disabled={isDisabled}
                   min="0"
@@ -412,22 +415,20 @@ function MemberBackfillAdjustmentDialog({
                   type="number"
                 />
               </label>
-              <label className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-foreground">
-                <input
-                  className="size-4"
+              <label className="flex h-9 items-center gap-2 border border-border/70 bg-background px-3 text-sm text-foreground">
+                <Checkbox
                   defaultChecked={loan?.repaymentOnTime ?? false}
                   disabled={isDisabled}
                   name="loanRepaymentOnTime"
-                  type="checkbox"
                 />
                 Mark repayment as on-time
               </label>
             </>
           ) : (
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
               Actual savings contribution
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+              <Input
+                className="text-right"
                 defaultValue={savingsContribution}
                 disabled={isDisabled}
                 min="0"
@@ -438,10 +439,9 @@ function MemberBackfillAdjustmentDialog({
               />
             </label>
           )}
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Notes
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            <Input
               disabled={isDisabled}
               name="notes"
               placeholder="Receipt, board note, or source file reference"
@@ -477,10 +477,9 @@ function CommitmentHistoryPanel({
         className="mb-3 grid gap-3 rounded-lg border border-border/70 bg-background p-3 sm:grid-cols-[minmax(160px,0.7fr)_minmax(160px,0.7fr)_auto]"
       >
         <input name="memberId" type="hidden" value={memberId ?? ""} />
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Date
-          <input
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          <Input
             disabled={disabled || !memberId}
             min={memberJoinedAt ?? undefined}
             name="effectiveFrom"
@@ -488,10 +487,10 @@ function CommitmentHistoryPanel({
             type="date"
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Amount
-          <input
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+          <Input
+            className="text-right"
             disabled={disabled || !memberId}
             min="0"
             name="amount"
@@ -584,8 +583,7 @@ function LoanHistoryPanel({
             <DashboardTableBody>
               <DashboardTableRow>
                 <DashboardTableCell>
-                  <input
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  <Input
                     disabled={disabled || !memberId}
                     min={memberJoinedAt ?? undefined}
                     name="openedAt"
@@ -594,8 +592,8 @@ function LoanHistoryPanel({
                   />
                 </DashboardTableCell>
                 <DashboardTableCell align="right">
-                  <input
-                    className="h-9 w-32 rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                  <Input
+                    className="w-32 text-right"
                     disabled={disabled || !memberId}
                     min="0"
                     name="principalAmount"
@@ -623,8 +621,8 @@ function LoanHistoryPanel({
                   />
                 </DashboardTableCell>
                 <DashboardTableCell align="right">
-                  <input
-                    className="h-9 w-32 rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                  <Input
+                    className="w-32 text-right"
                     disabled={disabled || !memberId}
                     min="0"
                     name="scheduledMonthlyPrincipalRepayment"
@@ -634,8 +632,8 @@ function LoanHistoryPanel({
                   />
                 </DashboardTableCell>
                 <DashboardTableCell align="right">
-                  <input
-                    className="h-9 w-32 rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                  <Input
+                    className="w-32 text-right"
                     disabled={disabled || !memberId}
                     min="0"
                     name="savingsDuringLoan"
@@ -750,39 +748,36 @@ function LegacyLoanDraftEditDialog({
         >
           <input name="draftId" type="hidden" value={loan.id} />
           <input name="memberId" type="hidden" value={loan.memberId} />
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Loan label
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            <Input
               defaultValue={loan.loanLabel}
               name="loanLabel"
               required
               type="text"
             />
           </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Loan date
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            <Input
               defaultValue={loan.openedAt}
               name="openedAt"
               required
               type="date"
             />
           </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Closed date
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            <Input
               defaultValue={loan.closedAt ?? ""}
               name="closedAt"
               type="date"
             />
           </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Principal
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+            <Input
+              className="text-right"
               defaultValue={loan.principalAmount}
               min="0"
               name="principalAmount"
@@ -791,10 +786,10 @@ function LegacyLoanDraftEditDialog({
               type="number"
             />
           </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Monthly principal repayment
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+            <Input
+              className="text-right"
               defaultValue={loan.scheduledMonthlyPrincipalRepayment}
               min="0"
               name="scheduledMonthlyPrincipalRepayment"
@@ -803,10 +798,10 @@ function LegacyLoanDraftEditDialog({
               type="number"
             />
           </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Savings during loan
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+            <Input
+              className="text-right"
               defaultValue={loan.savingsDuringLoan}
               min="0"
               name="savingsDuringLoan"
@@ -839,10 +834,10 @@ function LegacyLoanDraftEditDialog({
               value={loan.guarantorTwoMemberId}
             />
           </div>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Outstanding principal
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+            <Input
+              className="text-right"
               defaultValue={loan.outstandingPrincipalBalance}
               min="0"
               name="outstandingPrincipalBalance"
@@ -851,10 +846,9 @@ function LegacyLoanDraftEditDialog({
               type="number"
             />
           </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground sm:col-span-2">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground sm:col-span-2">
             Notes
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            <Input
               name="notes"
               placeholder="Board approval, source file, or correction note"
               type="text"
@@ -1030,10 +1024,9 @@ function ActivityHistoryPanel({
         className="mb-3 grid gap-3 rounded-lg border border-border/70 bg-background p-3 sm:grid-cols-[150px_150px_minmax(160px,1fr)_auto]"
       >
         <input name="memberId" type="hidden" value={memberId ?? ""} />
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Month
-          <input
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          <Input
             disabled={disabled || !memberId}
             min={minMonth}
             name="effectiveMonth"
@@ -1041,22 +1034,22 @@ function ActivityHistoryPanel({
             type="month"
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Status
-          <select
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          <LabeledSelectInput
+            defaultValue="inactive"
             disabled={disabled || !memberId}
             name="status"
+            options={[
+              { label: "Inactive", value: "inactive" },
+              { label: "Active again", value: "active" },
+            ]}
             required
-          >
-            <option value="inactive">Inactive</option>
-            <option value="active">Active again</option>
-          </select>
+          />
         </label>
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Reason
-          <input
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          <Input
             disabled={disabled || !memberId}
             name="reason"
             placeholder="Inactive, resumed, leave, transfer"
@@ -1704,10 +1697,9 @@ export function InitialMigrationPreview({
                 financial operations.
               </p>
             </div>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
               Type FINALIZE MIGRATION
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              <Input
                 name="confirmation"
                 placeholder="FINALIZE MIGRATION"
                 required
@@ -1758,10 +1750,9 @@ export function InitialMigrationPreview({
                   the cooperative has no historical loans to migrate.
                 </p>
               </div>
-              <label className="space-y-1 text-xs font-medium text-amber-900">
+              <label className="flex flex-col gap-1 text-xs font-medium text-amber-900">
                 Type NO LEGACY LOANS
-                <input
-                  className="h-9 w-full rounded-md border border-amber-200 bg-background px-3 text-sm text-foreground"
+                <Input
                   name="confirmation"
                   placeholder="NO LEGACY LOANS"
                   required
@@ -1773,10 +1764,9 @@ export function InitialMigrationPreview({
                   Mark reviewed
                 </Button>
               </div>
-              <label className="space-y-1 text-xs font-medium text-amber-900 md:col-span-3">
+              <label className="flex flex-col gap-1 text-xs font-medium text-amber-900 md:col-span-3">
                 Notes
-                <input
-                  className="h-9 w-full rounded-md border border-amber-200 bg-background px-3 text-sm text-foreground"
+                <Input
                   name="notes"
                   placeholder="Board minute, review source, or officer note"
                   type="text"
@@ -1797,52 +1787,42 @@ export function InitialMigrationPreview({
               action={createLegacyLoanMigrationDraftAction}
               className="mb-5 grid gap-3 rounded-lg border border-border/70 bg-muted/30 p-3 md:grid-cols-2 xl:grid-cols-4"
             >
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Member
-                <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                <LabeledSelectInput
                   name="memberId"
+                  options={mutableMigrationMemberOptions.map((member) => ({
+                    label: member.label,
+                    value: member.id,
+                  }))}
+                  placeholder="Select member"
                   required
-                >
-                  <option value="">Select member</option>
-                  {mutableMigrationMemberOptions.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Loan label
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                <Input
                   name="loanLabel"
                   placeholder="Loan A"
                   required
                   type="text"
                 />
               </label>
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Loan date
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                <Input
                   name="openedAt"
                   required
                   type="date"
                 />
               </label>
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Closed date
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                  name="closedAt"
-                  type="date"
-                />
+                <Input name="closedAt" type="date" />
               </label>
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Principal
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                <Input
                   min="0"
                   name="principalAmount"
                   required
@@ -1850,10 +1830,9 @@ export function InitialMigrationPreview({
                   type="number"
                 />
               </label>
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Monthly principal repayment
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                <Input
                   min="0"
                   name="scheduledMonthlyPrincipalRepayment"
                   required
@@ -1861,10 +1840,9 @@ export function InitialMigrationPreview({
                   type="number"
                 />
               </label>
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Savings during loan
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                <Input
                   min="0"
                   name="savingsDuringLoan"
                   required
@@ -1872,10 +1850,9 @@ export function InitialMigrationPreview({
                   type="number"
                 />
               </label>
-              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Outstanding principal
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                <Input
                   min="0"
                   name="outstandingPrincipalBalance"
                   required
@@ -1883,10 +1860,9 @@ export function InitialMigrationPreview({
                   type="number"
                 />
               </label>
-              <label className="space-y-1 text-xs font-medium text-muted-foreground md:col-span-2 xl:col-span-3">
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground md:col-span-2 xl:col-span-3">
                 Notes
-                <input
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                <Input
                   name="notes"
                   placeholder="Board approval, source file, or correction note"
                   type="text"

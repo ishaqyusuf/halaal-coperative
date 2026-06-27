@@ -1,4 +1,21 @@
 import Link from "next/link"
+import { Badge } from "@halaalvest/ui/components/badge"
+import { Separator } from "@halaalvest/ui/components/separator"
+
+const setupPath = [
+  {
+    label: "Verify contact",
+    text: "Confirm the primary admin before workspace creation.",
+  },
+  {
+    label: "Create workspace",
+    text: "Save the cooperative profile and first password.",
+  },
+  {
+    label: "Open setup",
+    text: "Move into charges, shares, members, loans, and commitments.",
+  },
+]
 
 export function SignupShell({
   children,
@@ -12,41 +29,75 @@ export function SignupShell({
   title: string
 }) {
   return (
-    <main className="min-h-svh bg-[radial-gradient(circle_at_top,_rgba(4,74,61,0.14),_transparent_30%),linear-gradient(180deg,_#f7f3ea_0%,_#fcfbf8_40%,_#f5efe4_100%)]">
-      <section className="mx-auto flex min-h-svh w-full max-w-6xl flex-col gap-8 px-6 py-8 lg:px-10 lg:py-12">
-        <header className="flex items-center justify-between">
-          <Link href="/" className="text-sm font-semibold tracking-tight text-stone-950">
-            halaalvest
+    <main className="min-h-svh bg-background">
+      <section className="mx-auto flex min-h-svh w-full max-w-7xl flex-col gap-8 px-5 py-6 sm:px-8 lg:px-10">
+        <header className="flex items-center justify-between border-b pb-5">
+          <Link
+            href="/"
+            className="text-sm font-semibold tracking-tight text-foreground"
+          >
+            Halaalvest
           </Link>
-          <Link href="/" className="text-sm text-stone-600 transition hover:text-stone-950">
+          <Link
+            href="/"
+            className="text-sm text-muted-foreground transition hover:text-foreground"
+          >
             Back to site
           </Link>
         </header>
 
-        <div className="grid flex-1 gap-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
-          <section className="rounded-[2rem] border border-stone-200/80 bg-stone-950 p-8 text-white shadow-[0_24px_80px_rgba(15,23,42,0.22)] lg:p-10">
-            <p className="text-xs uppercase tracking-[0.28em] text-emerald-200/70">{eyebrow}</p>
-            <h1 className="mt-4 max-w-md text-4xl font-semibold tracking-tight sm:text-5xl">
-              {title}
-            </h1>
-            <p className="mt-5 max-w-md text-sm leading-7 text-stone-300">{description}</p>
-
-            <div className="mt-10 space-y-4 text-sm text-stone-200">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                What we ask: a verified primary contact plus a few basic cooperative details.
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                Why we ask it: to open the dashboard, prepare the public site, and route the workspace correctly.
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                What happens next: financial rules and deeper setup continue inside the dashboard after creation.
+        <div className="grid flex-1 gap-8 lg:grid-cols-[0.78fr_1fr] lg:items-start">
+          <aside className="flex flex-col gap-8 border bg-card p-6 text-card-foreground lg:sticky lg:top-8 lg:min-h-[calc(100svh-7rem)] lg:p-8">
+            <div className="flex flex-col gap-5">
+              <Badge variant="outline">{eyebrow}</Badge>
+              <div className="flex flex-col gap-4">
+                <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                  {title}
+                </h1>
+                <p className="max-w-xl text-sm leading-7 text-muted-foreground">
+                  {description}
+                </p>
               </div>
             </div>
-          </section>
 
-          <section className="rounded-[2rem] border border-stone-200/80 bg-white/92 p-6 shadow-[0_24px_80px_rgba(88,52,24,0.10)] backdrop-blur lg:p-8">
-            {children}
-          </section>
+            <Separator />
+
+            <div className="flex flex-col gap-3">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Setup path
+              </p>
+              {setupPath.map((step, index) => (
+                <div
+                  className="grid grid-cols-[2rem_1fr] gap-3 border bg-muted/35 p-3"
+                  key={step.label}
+                >
+                  <div className="flex size-8 items-center justify-center border bg-background text-xs font-medium">
+                    {index + 1}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm font-medium text-foreground">
+                      {step.label}
+                    </p>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {step.text}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-auto border bg-muted/35 p-4">
+              <p className="text-sm font-medium text-foreground">
+                Built for governed cooperative operations.
+              </p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Signup only opens the workspace. Live finance work continues in
+                the guided dashboard setup after verification.
+              </p>
+            </div>
+          </aside>
+
+          <section className="min-w-0 lg:py-8">{children}</section>
         </div>
       </section>
     </main>

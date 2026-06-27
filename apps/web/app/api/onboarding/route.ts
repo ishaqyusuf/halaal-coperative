@@ -9,6 +9,7 @@ import {
 } from "@halaalvest/db"
 import { createWorkspaceReadyEmail } from "@halaalvest/notifications"
 import { normalizeWorkspaceSlug, onboardingFormSchema } from "@/lib/signup-flow"
+import { hashPassword } from "@/lib/password"
 import { createServerNotificationService } from "@/lib/server-notifications"
 import { verifySignedSignupToken } from "@/lib/signup-token"
 import { buildOnboardingWorkspaceUrls } from "@/lib/tenant-workspace-urls"
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       ownerEmail: verification.primaryContactEmail,
       ownerFullName: input.primaryContactFullName,
       ownerMemberNumber: input.primaryContactMemberNumber,
+      ownerPasswordHash: hashPassword(input.password),
       slug: normalizeWorkspaceSlug(verification.workspaceSlug),
       startDate: input.startDate,
     })

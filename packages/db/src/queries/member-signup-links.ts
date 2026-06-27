@@ -1,11 +1,17 @@
-import type { MemberSignupAccessMode, PrismaClient } from "../../generated/prisma/client"
+import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 
 export type TenantMemberSignupSettings = {
-  memberSignupAccessMode: MemberSignupAccessMode
+  memberSignupAccessMode: MemberSignupAccessModeValue
 }
+
+export type MemberSignupAccessModeValue =
+  | "disabled"
+  | "hidden"
+  | "in_office"
+  | "public"
 
 export type MemberSignupLinkRecord = {
   id: string
@@ -165,14 +171,16 @@ export async function getTenantMemberSignupSettings(
   })
 
   return {
-    memberSignupAccessMode: policy?.memberSignupAccessMode ?? "in_office",
+    memberSignupAccessMode:
+      (policy?.memberSignupAccessMode as MemberSignupAccessModeValue | undefined) ??
+      "in_office",
   }
 }
 
 export async function updateTenantMemberSignupSettings(
   input: {
     actorUserId: string
-    memberSignupAccessMode: MemberSignupAccessMode
+    memberSignupAccessMode: MemberSignupAccessModeValue
     tenantId: string
   },
   prismaOverride?: PrismaClient,
@@ -191,10 +199,10 @@ export async function updateTenantMemberSignupSettings(
     },
     create: {
       tenantId: input.tenantId,
-      memberSignupAccessMode: input.memberSignupAccessMode,
+      memberSignupAccessMode: input.memberSignupAccessMode as never,
     },
     update: {
-      memberSignupAccessMode: input.memberSignupAccessMode,
+      memberSignupAccessMode: input.memberSignupAccessMode as never,
     },
   })
 

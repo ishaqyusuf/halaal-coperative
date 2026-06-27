@@ -1,4 +1,7 @@
+import Link from "next/link"
 import type { PageFilterData } from "@halaalvest/utils"
+import { Badge } from "@halaalvest/ui/components/badge"
+import { Button } from "@halaalvest/ui/components/button"
 import { formatCurrency } from "@halaalvest/utils"
 import { ContributionsHeader } from "@/components/contributions-header"
 import {
@@ -32,15 +35,21 @@ export function ContributionsPageView({
   canRecordContributions,
   commitmentPlans,
   contributions,
+  currentMonthFilter,
   filterList,
-  filters,
   loans,
   members,
+  stagedContributions,
 }: ContributionsPageData & { filterList?: PageFilterData[] }) {
   const activeCommitmentPlans = commitmentPlans.filter((plan) => plan.isActive)
   const activeLoans = loans.filter((loan) =>
     ["approved", "disbursed", "active"].includes(loan.status),
   )
+  const stagedTotal = stagedContributions.reduce(
+    (total, row) => total + row.totalPayableAmount,
+    0,
+  )
+  const showThisMonthHref = `/contributions?from=${currentMonthFilter.from}&to=${currentMonthFilter.to}`
   const memberOptions = members.items.map((member) => ({
     id: member.id,
     label: `${member.fullName} (${member.memberNumber})`,
@@ -77,6 +86,93 @@ export function ContributionsPageView({
           value={members.items.length.toString()}
         />
       </section>
+
+      <DashboardSectionCard>
+        <DashboardSectionHeader
+          actions={
+            currentMonthFilter.isActive ? (
+              <TrendPill tone={stagedContributions.length ? "warning" : "positive"}>
+                {stagedContributions.length} staged
+              </TrendPill>
+            ) : (
+              <Button asChild size="sm" variant="outline">
+                <Link href={showThisMonthHref}>Show this month</Link>
+              </Button>
+            )
+          }
+          description={
+            currentMonthFilter.isActive
+              ? "These rows are staged from the monthly contribution roll and are not posted until applied from monthly records."
+              : "Staged monthly contributions are hidden from the ledger until the date filter is set to this month."
+          }
+          eyebrow="Current month"
+          title={`Staged contributions for ${currentMonthFilter.label}`}
+        />
+        {currentMonthFilter.isActive ? (
+          <div className="mt-5">
+            {stagedContributions.length ? (
+              <div className="grid gap-3 lg:grid-cols-2">
+                {stagedContributions.map((row) => (
+                  <DashboardSurfaceCard key={row.id} className="rounded-lg">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {row.memberName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {row.memberNumber} · {row.periodLabel}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">staged</Badge>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Savings</p>
+                        <p className="font-medium text-foreground">
+                          {formatCurrency(row.contributionAmount)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Share</p>
+                        <p className="font-medium text-foreground">
+                          {formatCurrency(row.shareChargeAmount)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Loan due</p>
+                        <p className="font-medium text-foreground">
+                          {formatCurrency(row.loanRepaymentAmount)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Payable</p>
+                        <p className="font-medium text-foreground">
+                          {formatCurrency(row.totalPayableAmount)}
+                        </p>
+                      </div>
+                    </div>
+                  </DashboardSurfaceCard>
+                ))}
+                <DashboardSurfaceCard className="rounded-lg">
+                  <p className="text-xs text-muted-foreground">
+                    Staged total
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold text-foreground">
+                    {formatCurrency(stagedTotal)}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Apply rows from monthly records when payments are confirmed.
+                  </p>
+                </DashboardSurfaceCard>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No staged rows exist for the current month yet.
+              </p>
+            )}
+          </div>
+        ) : null}
+      </DashboardSectionCard>
 
       {canRecordContributions ? (
         <section className="grid gap-4 xl:grid-cols-2">

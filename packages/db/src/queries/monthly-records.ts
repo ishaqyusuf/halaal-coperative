@@ -87,6 +87,19 @@ export type MonthlyRecordDetail = MonthlyRecordSummary & {
   rows: MonthlyRecordMemberRow[]
 }
 
+export type StagedMonthlyContributionRow = {
+  contributionAmount: number
+  id: string
+  loanRepaymentAmount: number
+  memberId: string
+  memberName: string
+  memberNumber: string
+  periodLabel: string
+  shareChargeAmount: number
+  status: "staged"
+  totalPayableAmount: number
+}
+
 function getPeriodLabel(year: number, month: number) {
   const date = new Date(Date.UTC(year, month - 1, 1))
   return new Intl.DateTimeFormat("en", {
@@ -584,6 +597,65 @@ export async function generateDueMonthlyRecords(
   }
 
   return { generated, skipped }
+}
+
+export async function listCurrentMonthStagedContributions(
+  tenantId: string,
+  input?: {
+    now?: Date
+  },
+  prismaOverride?: PrismaClient
+): Promise<StagedMonthlyContributionRow[]> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const now = input?.now ?? new Date()
+  const record = await prisma.monthlyRecord.findUnique({
+    where: {
+      tenantId_periodYear_periodMonth: {
+        tenantId,
+        periodMonth: now.getUTCMonth() + 1,
+        periodYear: now.getUTCFullYear(),
+      },
+    },
+    include: {
+      memberRows: {
+        where: {
+          status: "pending",
+        },
+        include: {
+          member: {
+            select: {
+              fullName: true,
+              id: true,
+              memberNumber: true,
+            },
+          },
+        },
+        orderBy: [
+          { member: { memberNumber: "asc" } },
+          { member: { fullName: "asc" } },
+        ],
+      },
+    },
+  })
+
+  if (!record || record.status === "closed") {
+    return []
+  }
+
+  return record.memberRows.map((row) => ({
+    contributionAmount: Number(row.contributionAmount),
+    id: row.id,
+    loanRepaymentAmount: Number(row.loanRepaymentAmount),
+    memberId: row.member.id,
+    memberName: row.member.fullName,
+    memberNumber: row.member.memberNumber,
+    periodLabel: record.periodLabel,
+    shareChargeAmount: Number((row as any).shareChargeAmount ?? 0),
+    status: "staged",
+    totalPayableAmount: Number(row.calculatedPayableAmount),
+  }))
 }
 
 export async function getMonthlyRecordDetail(

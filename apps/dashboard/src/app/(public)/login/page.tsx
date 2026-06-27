@@ -1,7 +1,11 @@
 import { headers } from "next/headers"
 import { getRoleDisplayName } from "@halaalvest/auth/roles"
 import type { MembershipRole } from "@halaalvest/db"
-import { listTenantUsersWithMemberships, listTenants } from "@halaalvest/db"
+import {
+  getTenantMemberSignupSettings,
+  listTenantUsersWithMemberships,
+  listTenants,
+} from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { Badge } from "@halaalvest/ui/components/badge"
@@ -92,6 +96,12 @@ export default async function LoginPage({
   )
 
   const tenantName = context.tenant?.name ?? "HalaalVest"
+  const memberSignupSettings = context.tenant
+    ? await getTenantMemberSignupSettings(context.tenant.id)
+    : null
+  const showMemberSignupCta =
+    Boolean(context.tenant) &&
+    memberSignupSettings?.memberSignupAccessMode === "public"
   const tenantHostname = context.tenant
     ? buildTenantSiteHostname(context.tenant.slug)
     : "app.halaalvest.local"
@@ -265,7 +275,7 @@ export default async function LoginPage({
                   Reset password
                 </a>
 
-                {context.tenant ? (
+                {showMemberSignupCta ? (
                   <a
                     className={cn(
                       buttonVariants({ size: "lg", variant: "outline" }),

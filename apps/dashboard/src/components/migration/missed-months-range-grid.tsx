@@ -2,8 +2,11 @@
 
 import { useMemo, useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
+import { Input } from "@halaalvest/ui/components/input"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
+import { LabeledSelectInput } from "@/components/labeled-select-input"
 
 type MissedMonthsRangeGridRow = {
   month: string
@@ -91,8 +94,7 @@ export function MissedMonthsRangeGrid({
       <div className="grid gap-2 border border-border/70 p-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(10rem,0.9fr)_auto] md:items-end">
         <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
           From
-          <input
-            className="h-8 border border-border bg-background px-2 text-xs text-foreground"
+          <Input
             disabled={disabled}
             max={maxMonth}
             min={minMonth}
@@ -103,8 +105,7 @@ export function MissedMonthsRangeGrid({
         </label>
         <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
           To
-          <input
-            className="h-8 border border-border bg-background px-2 text-xs text-foreground"
+          <Input
             disabled={disabled}
             max={maxMonth}
             min={minMonth}
@@ -115,17 +116,17 @@ export function MissedMonthsRangeGrid({
         </label>
         <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
           Status
-          <select
-            className="h-8 border border-border bg-background px-2 text-xs text-foreground"
+          <LabeledSelectInput
             disabled={disabled}
+            options={[
+              { label: "Mark as missed", value: "missed" },
+              { label: "Mark as committed", value: "committed" },
+            ]}
             value={rangeAction}
-            onChange={(event) =>
-              setRangeAction(event.target.value as "committed" | "missed")
+            onValueChange={(value) =>
+              setRangeAction(value as "committed" | "missed")
             }
-          >
-            <option value="missed">Mark as missed</option>
-            <option value="committed">Mark as committed</option>
-          </select>
+          />
         </label>
         <Button
           disabled={disabled || rows.length === 0}
@@ -159,17 +160,15 @@ export function MissedMonthsRangeGrid({
                     >
                       <input name="month" type="hidden" value={row.month} />
                       <span className="flex items-center gap-2">
-                        <input
+                        <Checkbox
                           checked={isMissed}
-                          className="size-3.5"
                           disabled={disabled}
                           name="defaultingMonth"
-                          type="checkbox"
                           value={row.month}
-                          onChange={(event) => {
+                          onCheckedChange={(checked) => {
                             const nextMissedMonths = new Set(missedMonths)
 
-                            if (event.target.checked) {
+                            if (checked === true) {
                               nextMissedMonths.add(row.month)
                             } else {
                               nextMissedMonths.delete(row.month)

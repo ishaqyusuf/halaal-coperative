@@ -70,6 +70,10 @@ function loanStatusLabel(status: string) {
   return status === "none" ? "No loan" : status.replace(/_/g, " ")
 }
 
+function monthlyRecordMemberStatusLabel(status: string) {
+  return status === "pending" ? "staged" : status
+}
+
 function AmountWithCalculatedDifference({
   actual,
   calculated,
@@ -345,7 +349,7 @@ function MonthlyRecordMembersTable({
                 </TableCell>
                 <TableCell>
                   <Badge variant={statusVariant(row.status)}>
-                    {row.status}
+                    {monthlyRecordMemberStatusLabel(row.status)}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -479,8 +483,8 @@ export function MonthlyRecordsPageView({
           value={formatCurrency(selectedRecord?.totalPayableAmount ?? 0)}
         />
         <DashboardStatCard
-          detail="Rows still waiting for apply or cancel action."
-          label="Pending"
+          detail="Rows still staged for apply or cancel action."
+          label="Staged"
           tone={(selectedRecord?.pendingCount ?? 0) > 0 ? "warning" : "default"}
           value={(selectedRecord?.pendingCount ?? 0).toString()}
         />
@@ -509,7 +513,7 @@ export function MonthlyRecordsPageView({
           <DashboardSectionHeader
             eyebrow="Members"
             title={selectedRecord?.periodLabel ?? "No monthly record"}
-            description="Edit the total paid amount before applying a member row. Cancel is available while the row is still pending."
+            description="Edit the total paid amount before applying a staged member row. Cancel is available while the row is still staged."
             actions={
               selectedRecord ? (
                 <TrendPill>{selectedRecord.cancelledCount} cancelled</TrendPill>

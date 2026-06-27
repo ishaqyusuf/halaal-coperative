@@ -9,6 +9,10 @@ import { NextResponse, type NextRequest } from "next/server"
 import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
 import { createPasswordResetToken } from "@/lib/password-reset-token"
 
+export function GET(request: NextRequest) {
+  return NextResponse.redirect(buildDashboardRedirectUrl(request, "/login/reset"))
+}
+
 export async function POST(request: NextRequest) {
   const formData = await request.formData()
   const email = String(formData.get("email") ?? "")

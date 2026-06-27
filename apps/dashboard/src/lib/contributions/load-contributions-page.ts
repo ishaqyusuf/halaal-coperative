@@ -2,9 +2,11 @@ import {
   createDbRuntime,
   listContributionPlans,
   listContributions,
+  listCurrentMonthStagedContributions,
   listLoans,
   listMembers,
 } from "@halaalvest/db"
+import type { StagedMonthlyContributionRow } from "@halaalvest/db"
 import type { ContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
@@ -55,6 +57,13 @@ type ContributionListResult = {
   total: number
 }
 
+type CurrentMonthFilter = {
+  from: string
+  isActive: boolean
+  label: string
+  to: string
+}
+
 export type ContributionsPageData =
   | {
       canRecordContributions: boolean
@@ -65,13 +74,40 @@ export type ContributionsPageData =
       canRecordContributions: boolean
       commitmentPlans: ContributionPlanRow[]
       contributions: ContributionListResult
+      currentMonthFilter: CurrentMonthFilter
       filters: ContributionsFilterParams
       loans: ContributionLoanRow[]
       members: {
         items: ContributionMemberRow[]
       }
+      stagedContributions: StagedMonthlyContributionRow[]
       state: "ready"
     }
+
+function getCurrentMonthFilter(now = new Date()): CurrentMonthFilter {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0))
+  const from = start.toISOString().slice(0, 10)
+  const to = end.toISOString().slice(0, 10)
+
+  return {
+    from,
+    isActive: false,
+    label: new Intl.DateTimeFormat("en", {
+      month: "long",
+      timeZone: "UTC",
+      year: "numeric",
+    }).format(start),
+    to,
+  }
+}
+
+function isCurrentMonthDateFilter(
+  filters: ContributionsFilterParams,
+  currentMonth: Pick<CurrentMonthFilter, "from" | "to">,
+) {
+  return filters.from === currentMonth.from && filters.to === currentMonth.to
+}
 
 export async function loadContributionsPageData(
   filters: ContributionsFilterParams,
@@ -79,6 +115,8 @@ export async function loadContributionsPageData(
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
   const canRecordContributions = hasAnyRole(context.auth.membership?.role, allStaffRoles)
+  const currentMonthFilter = getCurrentMonthFilter()
+  currentMonthFilter.isActive = isCurrentMonthDateFilter(filters, currentMonthFilter)
 
   if (!context.tenant || runtime.status !== "database-configured") {
     return {
@@ -88,7 +126,7 @@ export async function loadContributionsPageData(
     }
   }
 
-  const [contributions, members, commitmentPlans, loans] = await Promise.all([
+  const [contributions, members, commitmentPlans, loans, stagedContributions] = await Promise.all([
     listContributions(context.tenant.id, {
       channel:
         filters.channel === "payroll" ||
@@ -107,15 +145,20 @@ export async function loadContributionsPageData(
     listMembers(context.tenant.id, { page: 1, pageSize: 100 }),
     listContributionPlans(context.tenant.id),
     listLoans(context.tenant.id),
+    currentMonthFilter.isActive
+      ? listCurrentMonthStagedContributions(context.tenant.id)
+      : Promise.resolve([]),
   ])
 
   return {
     canRecordContributions,
     commitmentPlans: commitmentPlans as ContributionPlanRow[],
     contributions: contributions as ContributionListResult,
+    currentMonthFilter,
     filters,
     loans: loans as ContributionLoanRow[],
     members: members as { items: ContributionMemberRow[] },
+    stagedContributions,
     state: "ready" as const,
   }
 }

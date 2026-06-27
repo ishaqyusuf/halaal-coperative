@@ -5,7 +5,6 @@ import {
   updateNotificationOutboxDelivery,
 } from "@halaalvest/db"
 import {
-  createConsoleEmailTransport,
   createEmailDraftFromType,
   createRetryingEmailTransport,
   createResendEmailTransport,
@@ -18,7 +17,7 @@ function discardNotification() {
   return `notification-${Date.now()}-${Math.random()}`
 }
 
-function createJobNotificationService() {
+function getJobEmailDeliveryConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim()
   const from =
     process.env.HALAAL_VEST_EMAIL_FROM?.trim() ||
@@ -28,37 +27,52 @@ function createJobNotificationService() {
     process.env.EMAIL_REPLY_TO?.trim()
   const testRecipient = process.env.HALAAL_VEST_EMAIL_TEST_RECIPIENT?.trim()
 
+  return {
+    apiKey,
+    configured: Boolean(apiKey && from),
+    from,
+    replyTo,
+    testRecipient,
+  }
+}
+
+function createJobNotificationService() {
+  const { apiKey, configured, from, replyTo, testRecipient } =
+    getJobEmailDeliveryConfig()
+
   const baseEmailTransport =
-    apiKey && from
+    configured && apiKey && from
       ? createResendEmailTransport({
           apiKey,
           from,
           replyTo,
           testRecipient,
         })
-      : createConsoleEmailTransport()
+      : undefined
 
   return new NotificationService(
     discardNotification,
-    createRetryingEmailTransport(baseEmailTransport, {
-      maxAttempts: apiKey && from ? 2 : 1,
-      onAttemptFailure({ attempt, draft, error, maxAttempts }) {
-        console.error(
-          JSON.stringify(
-            {
-              attempt,
-              channel: "email",
-              error: error instanceof Error ? error.message : String(error),
-              maxAttempts,
-              notificationType: draft.notificationType,
-              recipient: draft.recipient.value,
-            },
-            null,
-            2,
-          ),
-        )
-      },
-    }),
+    baseEmailTransport
+      ? createRetryingEmailTransport(baseEmailTransport, {
+          maxAttempts: 2,
+          onAttemptFailure({ attempt, draft, error, maxAttempts }) {
+            console.error(
+              JSON.stringify(
+                {
+                  attempt,
+                  channel: "email",
+                  error: error instanceof Error ? error.message : String(error),
+                  maxAttempts,
+                  notificationType: draft.notificationType,
+                  recipient: draft.recipient.value,
+                },
+                null,
+                2
+              )
+            )
+          },
+        })
+      : undefined
   )
 }
 
@@ -83,7 +97,7 @@ function draftFromOutboxEntry(entry: {
   const previewText = getMetadataValue(entry.metadata, "previewText")
   const recipientDisplayName = getMetadataValue(
     entry.metadata,
-    "recipientDisplayName",
+    "recipientDisplayName"
   )
 
   return {
@@ -95,7 +109,9 @@ function draftFromOutboxEntry(entry: {
     previewText: typeof previewText === "string" ? previewText : entry.subject,
     recipient: {
       displayName:
-        typeof recipientDisplayName === "string" ? recipientDisplayName : undefined,
+        typeof recipientDisplayName === "string"
+          ? recipientDisplayName
+          : undefined,
       email: entry.recipient,
       kind: "email",
       value: entry.recipient,
@@ -105,8 +121,18 @@ function draftFromOutboxEntry(entry: {
 }
 
 export async function notificationOutboxDeliverHandler(
-  payload: NotificationOutboxDeliverPayload = {},
+  payload: NotificationOutboxDeliverPayload = {}
 ) {
+  const summary = {
+    failed: 0,
+    processed: 0,
+    sent: 0,
+  }
+
+  if (!getJobEmailDeliveryConfig().configured) {
+    return summary
+  }
+
   const entries = await claimNotificationOutboxEntries({
     includeFailed: payload.includeFailed ?? true,
     limit: payload.limit ?? 25,
@@ -114,11 +140,6 @@ export async function notificationOutboxDeliverHandler(
     tenantId: payload.tenantId,
   })
   const notificationService = createJobNotificationService()
-  const summary = {
-    failed: 0,
-    processed: 0,
-    sent: 0,
-  }
 
   for (const entry of entries) {
     const draft = draftFromOutboxEntry(entry)

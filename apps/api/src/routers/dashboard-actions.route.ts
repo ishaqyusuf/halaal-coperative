@@ -80,6 +80,7 @@ import {
   updateLegacyLoanMigrationDraft,
   upsertMemberActivityEvent,
   upsertMigrationBackfillAdjustment,
+  updateMemberStatus,
   waiveChargeApplication,
   upsertMemberAmountLog,
   type MembershipRole,

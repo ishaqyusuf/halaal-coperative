@@ -23,8 +23,10 @@
   },
   "dependencies": {
     "@halaalvest/auth": "workspace:*",
+    "@halaalvest/backfill": "workspace:*",
     "@halaalvest/db": "workspace:*",
     "@halaalvest/domain": "workspace:*",
+    "@halaalvest/jobs": "workspace:*",
     "@halaalvest/notifications": "workspace:*",
     "@halaalvest/utils": "workspace:*",
     "@hono/node-server": "^1.19.6",

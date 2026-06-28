@@ -15,7 +15,8 @@
   "exports": {
     "./context": "./src/context.ts",
     "./internal-api": "./src/internal-api.ts",
-    "./router": "./src/routers/_app.ts"
+    "./router": "./src/routers/_app.ts",
+    "./trpc": "./src/lib.trpc.ts"
   },
   "dependencies": {
     "@halaalvest/auth": "workspace:*",

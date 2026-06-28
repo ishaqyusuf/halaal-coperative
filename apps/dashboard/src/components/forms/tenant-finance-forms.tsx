@@ -38,10 +38,12 @@ import {
 } from "@/lib/dashboard-actions"
 
 function CurrencyFormInput({
+  id,
   onChange,
   placeholder,
   value,
 }: {
+  id?: string
   onChange: (value: string) => void
   placeholder?: string
   value?: string
@@ -50,6 +52,7 @@ function CurrencyFormInput({
     <CurrencyInput
       allowNegative={false}
       decimalScale={2}
+      id={id}
       inputMode="decimal"
       placeholder={placeholder}
       value={value ?? ""}
@@ -657,18 +660,6 @@ export function ChargeDefinitionForm({
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="isMonthlyLevy"
-          render={({ field }) => (
-            <input
-              checked={field.value}
-              className="hidden"
-              onChange={field.onChange}
-              type="checkbox"
-            />
-          )}
-        />
         <div className="md:col-span-2 space-y-3 border border-border/70 bg-muted/20 p-3">
           <div className="flex items-center gap-3">
             <h3 className="shrink-0 text-sm font-medium">Charge History</h3>
@@ -692,14 +683,14 @@ export function ChargeDefinitionForm({
             </Button>
           </div>
           <FieldGroup className="gap-3">
-            {chargeHistoryRows.map((row, index) => (
+            {chargeHistoryRows.map((row) => (
               <div
                 className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
                 key={row.id}
               >
                 <Field>
                   <FieldLabel htmlFor={`charge-history-date-${row.id}`}>
-                    {index === 0 ? "Date" : "Date"}
+                    Date
                   </FieldLabel>
                   <Input
                     id={`charge-history-date-${row.id}`}
@@ -715,9 +706,10 @@ export function ChargeDefinitionForm({
                 </Field>
                 <Field>
                   <FieldLabel htmlFor={`charge-history-amount-${row.id}`}>
-                    {index === 0 ? "Amount" : "Amount"}
+                    Amount
                   </FieldLabel>
                   <CurrencyFormInput
+                    id={`charge-history-amount-${row.id}`}
                     onChange={(amount) =>
                       updateChargeHistoryRow(row.id, { amount })
                     }

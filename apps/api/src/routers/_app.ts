@@ -8,7 +8,7 @@ import { chargesRouter } from "./charges.route"
 import { onboardingRouter } from "./onboarding.route"
 import { filtersRouter } from "./filters.route"
 
-export const appRouter = createTRPCRouter({
+export const appRouterRecord = {
   health: healthRouter,
   notifications: notificationsRouter,
   workspace: workspaceRouter,
@@ -17,6 +17,8 @@ export const appRouter = createTRPCRouter({
   charges: chargesRouter,
   onboarding: onboardingRouter,
   filters: filtersRouter,
-})
+}
+
+export const appRouter = createTRPCRouter(appRouterRecord)
 
 export type AppRouter = typeof appRouter

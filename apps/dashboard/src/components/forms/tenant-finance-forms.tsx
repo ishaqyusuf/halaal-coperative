@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { type ComponentProps, useState, useTransition } from "react"
 import { z } from "zod"
 import { ArrowUpDownIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
+import { Calendar } from "@halaalvest/ui/components/calendar"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import {
   Field,
@@ -21,9 +22,15 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@halaalvest/ui/components/popover"
 import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { objectToFormData } from "@/lib/form-submit"
 import {
@@ -36,6 +43,122 @@ import {
   publishShareProfitAllocationsAction,
   updateTenantFinanceStartDateAction,
 } from "@/lib/dashboard-actions"
+
+function parseDateValue(value?: string | null) {
+  if (!value) {
+    return undefined
+  }
+
+  const [year, month, day] = value.split("-").map(Number)
+
+  if (!year || !month || !day) {
+    return undefined
+  }
+
+  return new Date(year, month - 1, day)
+}
+
+function formatDateValue(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
+
+function formatDateLabel(value?: string | null) {
+  const date = parseDateValue(value)
+
+  if (!date) {
+    return "Pick a date"
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date)
+}
+
+function DatePickerInput({
+  allowClear = true,
+  className,
+  disabled,
+  id,
+  min,
+  onBlur,
+  onChange,
+  placeholder = "Pick a date",
+  value,
+  ...props
+}: Omit<ComponentProps<typeof Button>, "onBlur" | "onChange" | "value"> & {
+  allowClear?: boolean
+  min?: string
+  onBlur?: () => void
+  onChange: (value: string) => void
+  placeholder?: string
+  value?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const selectedDate = parseDateValue(value)
+  const minDate = parseDateValue(min)
+
+  return (
+    <div className="flex gap-2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              {...props}
+              className={cn(
+                "w-full justify-start text-left font-normal",
+                !value && "text-muted-foreground",
+                className
+              )}
+              disabled={disabled}
+              id={id}
+              type="button"
+              variant="outline"
+            />
+          }
+        >
+          {value ? formatDateLabel(value) : placeholder}
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-auto p-2">
+          <Calendar
+            captionLayout="dropdown"
+            defaultMonth={selectedDate ?? minDate}
+            disabled={minDate ? { before: minDate } : undefined}
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => {
+              if (!date) {
+                return
+              }
+
+              onChange(formatDateValue(date))
+              onBlur?.()
+              setOpen(false)
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+      {allowClear && value ? (
+        <Button
+          disabled={disabled}
+          onClick={() => {
+            onChange("")
+            onBlur?.()
+          }}
+          type="button"
+          variant="ghost"
+        >
+          Clear
+        </Button>
+      ) : null}
+    </div>
+  )
+}
 
 function CurrencyFormInput({
   id,
@@ -160,7 +283,11 @@ export function FinanceStartDateForm({
             <FormItem>
               <FormLabel>Cooperative start date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <DatePickerInput
+                  {...field}
+                  allowClear={false}
+                  placeholder="Select start date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -251,10 +378,11 @@ export function ShareStructureVersionForm({
             <FormItem>
               <FormLabel>Effective date</FormLabel>
               <FormControl>
-                <Input
+                <DatePickerInput
                   {...field}
+                  allowClear={false}
                   min={financeStartDate ?? undefined}
-                  type="date"
+                  placeholder="Select effective date"
                 />
               </FormControl>
               <FormMessage />
@@ -692,15 +820,15 @@ export function ChargeDefinitionForm({
                   <FieldLabel htmlFor={`charge-history-date-${row.id}`}>
                     Date
                   </FieldLabel>
-                  <Input
+                  <DatePickerInput
                     id={`charge-history-date-${row.id}`}
                     min={financeStartDate ?? undefined}
-                    onChange={(event) =>
+                    onChange={(value) =>
                       updateChargeHistoryRow(row.id, {
-                        effectiveFrom: event.target.value,
+                        effectiveFrom: value,
                       })
                     }
-                    type="date"
+                    placeholder="Select date"
                     value={row.effectiveFrom}
                   />
                 </Field>
@@ -842,10 +970,11 @@ export function ChargeDefinitionVersionForm({
             <FormItem>
               <FormLabel>Effective date</FormLabel>
               <FormControl>
-                <Input
+                <DatePickerInput
                   {...field}
+                  allowClear={false}
                   min={financeStartDate ?? undefined}
-                  type="date"
+                  placeholder="Select effective date"
                 />
               </FormControl>
               <FormMessage />
@@ -1070,10 +1199,11 @@ export function ShareBusinessForm({
             <FormItem>
               <FormLabel>Start date</FormLabel>
               <FormControl>
-                <Input
+                <DatePickerInput
                   {...field}
+                  allowClear={false}
                   min={financeStartDate ?? undefined}
-                  type="date"
+                  placeholder="Select start date"
                 />
               </FormControl>
               <FormMessage />
@@ -1087,10 +1217,10 @@ export function ShareBusinessForm({
             <FormItem>
               <FormLabel>End date</FormLabel>
               <FormControl>
-                <Input
+                <DatePickerInput
                   {...field}
                   min={watchedStartDate || financeStartDate || undefined}
-                  type="date"
+                  placeholder="Select end date"
                 />
               </FormControl>
               <FormMessage />
@@ -1329,10 +1459,11 @@ export function ShareBusinessProfitEntryForm({
             <FormItem>
               <FormLabel>Profit date</FormLabel>
               <FormControl>
-                <Input
+                <DatePickerInput
                   {...field}
+                  allowClear={false}
                   min={financeStartDate ?? undefined}
-                  type="date"
+                  placeholder="Select profit date"
                 />
               </FormControl>
               <FormMessage />

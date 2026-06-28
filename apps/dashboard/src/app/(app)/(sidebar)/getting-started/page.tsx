@@ -266,13 +266,21 @@ export default async function GettingStartedPage({
         scheduledMonthlyPrincipalRepayment:
           draft.scheduledMonthlyPrincipalRepayment,
       }))}
-      memberActivityEvents={selectedMemberActivityEvents.map((event) => ({
-        effectiveMonth: event.effectiveMonth.toISOString().slice(0, 10),
-        id: event.id,
-        notes: event.notes,
-        reason: event.reason,
-        status: event.status === "inactive" ? "inactive" : "active",
-      }))}
+      memberActivityEvents={selectedMemberActivityEvents.map(
+        (event: {
+          effectiveMonth: Date
+          id: string
+          notes?: string | null
+          reason?: string | null
+          status: string
+        }) => ({
+          effectiveMonth: event.effectiveMonth.toISOString().slice(0, 10),
+          id: event.id,
+          notes: event.notes,
+          reason: event.reason,
+          status: event.status === "inactive" ? "inactive" : "active",
+        })
+      )}
       memberAmountLogs={selectedMemberAmountLogs.map((row) => ({
         amount: row.amount,
         effectiveFrom: row.effectiveFrom.toISOString().slice(0, 10),

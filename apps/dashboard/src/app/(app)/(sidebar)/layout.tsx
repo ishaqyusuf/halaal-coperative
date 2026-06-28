@@ -1,8 +1,5 @@
 import { normalizeRole } from "@halaalvest/auth/roles"
-import {
-  getTenantFirstRunOnboardingState,
-  getTenantInitialMigrationState,
-} from "@halaalvest/db"
+import { getTenantFirstRunOnboardingState } from "@halaalvest/db"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { TenantUrlProvider } from "@halaalvest/tenant-url/react"
 import { headers } from "next/headers"
@@ -10,15 +7,12 @@ import { DashboardShellClient } from "@/components/dashboard"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
 import { canAccessDashboardPath } from "@/lib/navigation/lib"
 import { getDashboardServerContext } from "@/lib/server-context"
+import {
+  isInitialMigrationSetupPath,
+  resolveInitialMigrationSetupGate,
+} from "@/lib/setup-gate"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
-import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
-
-const initialMigrationSetupPaths = [
-  "/getting-started",
-  "/settings/imports",
-  "/settings/profile",
-]
 
 export default async function SidebarLayout({
   children,
@@ -55,24 +49,17 @@ export default async function SidebarLayout({
   }
 
   if (context.tenant) {
-    const migrationState = await getTenantInitialMigrationState(
-      context.tenant.id
-    )
-    const canProceed = migrationState.snapshot.canUseLiveFinancialWrites
-    const isWorkspaceAdmin = hasAnyRole(
-      context.auth.membership?.role,
-      workspaceAdminRoles
-    )
-    const alreadyInSetup = initialMigrationSetupPaths.some(
-      (setupPath) =>
-        nextPath === setupPath || nextPath.startsWith(`${setupPath}/`)
-    )
+    const setupGate = await resolveInitialMigrationSetupGate({
+      role: context.auth.membership?.role,
+      tenantId: context.tenant.id,
+    })
+    const alreadyInSetup = isInitialMigrationSetupPath(nextPath)
 
-    if (!canProceed && isWorkspaceAdmin && !alreadyInSetup) {
+    if (setupGate.shouldRedirectAdminToSetup && !alreadyInSetup) {
       await tenantRedirect("/getting-started")
     }
 
-    if (!canProceed && !isWorkspaceAdmin) {
+    if (!setupGate.canUseLiveWorkspace && !setupGate.isWorkspaceAdmin) {
       const tenantName = context.tenant.name
       const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
 
@@ -103,7 +90,10 @@ export default async function SidebarLayout({
                       Current stage
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground">
-                      {migrationState.snapshot.status.replaceAll("_", " ")}
+                      {setupGate.migrationState?.snapshot.status.replaceAll(
+                        "_",
+                        " "
+                      ) ?? "setup required"}
                     </p>
                   </div>
                   <div className="rounded-md border border-border/70 bg-background px-3 py-2">
@@ -111,7 +101,8 @@ export default async function SidebarLayout({
                       Missing steps
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground">
-                      {migrationState.snapshot.missingStepKeys.length || 0}
+                      {setupGate.migrationState?.snapshot.missingStepKeys
+                        .length ?? 0}
                     </p>
                   </div>
                 </div>
@@ -125,7 +116,11 @@ export default async function SidebarLayout({
     const alreadyInOnboarding =
       nextPath === "/onboarding" || nextPath.startsWith("/onboarding/")
 
-    if (canProceed && isWorkspaceAdmin && !alreadyInOnboarding) {
+    if (
+      setupGate.canUseLiveWorkspace &&
+      setupGate.isWorkspaceAdmin &&
+      !alreadyInOnboarding
+    ) {
       const firstRunOnboarding = await getTenantFirstRunOnboardingState(
         context.tenant.id
       )

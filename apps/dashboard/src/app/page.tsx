@@ -15,6 +15,7 @@ import { Button } from "@halaalvest/ui/components/button"
 import { DashboardShellClient } from "@/components/dashboard"
 import { DashboardOverviewPage } from "@/components/dashboard/overview-page"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 import { HydrateClient, prefetch, trpc } from "@/trpc/server"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
@@ -32,6 +33,21 @@ export default async function TenantHomePage() {
     const role = normalizeRole(context.auth.membership.role)
     const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
     const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
+    const runtime = createDbRuntime()
+
+    if (
+      context.tenant &&
+      runtime.status === "database-configured"
+    ) {
+      const setupGate = await resolveInitialMigrationSetupGate({
+        role: context.auth.membership.role,
+        tenantId: context.tenant.id,
+      })
+
+      if (setupGate.shouldRedirectAdminToSetup) {
+        return tenantRedirect("/getting-started")
+      }
+    }
 
     await prefetch(trpc.health.summary.queryOptions())
 

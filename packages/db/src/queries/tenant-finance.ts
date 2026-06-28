@@ -406,6 +406,13 @@ export async function createShareBusiness(
     notes?: string
     linkedDividendPeriodId?: string
     createdByUserId?: string
+    profitEntries?: Array<{
+      allocatableProfitAmount: number
+      expenseAmount: number
+      profitAmount: number
+      profitDate: Date
+      reason?: string
+    }>
   },
   prismaOverride?: PrismaClient,
 ) {
@@ -414,12 +421,29 @@ export async function createShareBusiness(
   await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
 
   return prisma.$transaction(async (tx: any) => {
+    const profitEntries =
+      input.profitEntries ??
+      (input.profitAmount > 0
+        ? [
+            {
+              allocatableProfitAmount: input.profitAmount,
+              expenseAmount: 0,
+              profitAmount: input.profitAmount,
+              profitDate: input.endDate ?? input.startDate,
+              reason: input.notes,
+            },
+          ]
+        : [])
+    const totalProfitAmount = profitEntries.reduce(
+      (total, entry) => total + entry.profitAmount,
+      0,
+    )
     const business = await tx.shareBusiness.create({
       data: {
         tenantId: input.tenantId,
         name: input.name,
         capitalAmount: input.capitalAmount,
-        profitAmount: input.profitAmount,
+        profitAmount: input.profitEntries ? totalProfitAmount : input.profitAmount,
         startDate: input.startDate,
         endDate: input.endDate,
         status: input.status ?? "planned",
@@ -429,23 +453,34 @@ export async function createShareBusiness(
       },
     })
 
-    if (input.profitAmount > 0) {
-      await tx.shareBusinessProfitEntry.create({
+    for (const profitEntry of profitEntries) {
+      const createdProfitEntry = await tx.shareBusinessProfitEntry.create({
         data: {
           tenantId: input.tenantId,
           shareBusinessId: business.id,
           linkedDividendPeriodId: input.linkedDividendPeriodId,
-          profitAmount: input.profitAmount,
-          expenseAmount: 0,
-          allocatableProfitAmount: input.profitAmount,
-          profitDate: input.endDate ?? input.startDate,
+          profitAmount: profitEntry.profitAmount,
+          expenseAmount: profitEntry.expenseAmount,
+          allocatableProfitAmount: profitEntry.allocatableProfitAmount,
+          profitDate: profitEntry.profitDate,
           notes: input.notes,
-          reason: input.notes,
+          reason: profitEntry.reason,
           status: input.status === "completed" ? "reviewed" : "draft",
           sourceType: "manual",
           createdByUserId: input.createdByUserId,
         },
       })
+
+      if (profitEntry.expenseAmount > 0 && profitEntry.reason) {
+        await tx.shareBusinessProfitExpenseLine.create({
+          data: {
+            tenantId: input.tenantId,
+            profitEntryId: createdProfitEntry.id,
+            reason: profitEntry.reason,
+            amount: profitEntry.expenseAmount,
+          },
+        })
+      }
     }
 
     return tx.shareBusiness.findFirst({

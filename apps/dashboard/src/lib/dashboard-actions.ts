@@ -42,11 +42,15 @@ async function callDashboardFormAction<TName extends FormActionName>(
 ): Promise<HandlerReturn<TName>> {
   const caller = await getServerCaller()
   const action = (
-    caller.dashboardActions as Record<
+    caller.dashboardActions as unknown as Record<
       string,
       (input: DashboardActionInput) => Promise<unknown>
     >
   )[actionName]
+  if (!action) {
+    throw new Error(`Unknown dashboard form action: ${actionName}`)
+  }
+
   const result = (await action(toDashboardActionInput(formData))) as
     | DashboardActionResult<HandlerReturn<TName>>
     | HandlerReturn<TName>
@@ -71,8 +75,15 @@ async function callDashboardNoInputAction<TName extends NoInputActionName>(
 ): Promise<HandlerReturn<TName>> {
   const caller = await getServerCaller()
   const action = (
-    caller.dashboardActions as Record<string, () => Promise<unknown>>
+    caller.dashboardActions as unknown as Record<
+      string,
+      () => Promise<unknown>
+    >
   )[actionName]
+  if (!action) {
+    throw new Error(`Unknown dashboard action: ${actionName}`)
+  }
+
   const result = (await action()) as
     | DashboardActionResult<HandlerReturn<TName>>
     | HandlerReturn<TName>

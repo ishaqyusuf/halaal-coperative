@@ -9,6 +9,7 @@ import {
   getTenantInitialMigrationState,
   listInitialMigrationMemberReview,
   listLegacyLoanMigrationDrafts,
+  listMigrationProfitAdjustmentOptions,
   listMemberActivityEvents,
   listMemberAmountLogs,
   listMembers,
@@ -223,18 +224,27 @@ export async function FinanceSettingsRoute({
           (member: any) => member.id === requestedMigrationMemberId
         ) ?? null)
       : null
-    const selectedMemberAmountLogs = previewMember
-      ? await listMemberAmountLogs({
-          memberId: previewMember.id,
-          tenantId: context.tenant.id,
-        })
-      : []
-    const selectedMemberActivityEvents = previewMember
-      ? await listMemberActivityEvents({
-          memberId: previewMember.id,
-          tenantId: context.tenant.id,
-        })
-      : []
+    const selectedMemberMigrationInputs = previewMember
+      ? await Promise.all([
+          listMemberAmountLogs({
+            memberId: previewMember.id,
+            tenantId: context.tenant.id,
+          }),
+          listMemberActivityEvents({
+            memberId: previewMember.id,
+            tenantId: context.tenant.id,
+          }),
+          listMigrationProfitAdjustmentOptions(
+            context.tenant.id,
+            undefined,
+            previewMember.id,
+          ),
+        ])
+      : null
+    const selectedMemberAmountLogs = selectedMemberMigrationInputs?.[0] ?? []
+    const selectedMemberActivityEvents =
+      selectedMemberMigrationInputs?.[1] ?? []
+    const profitMigrationOptions = selectedMemberMigrationInputs?.[2] ?? []
     const canGenerateMemberBackfillPreview =
       !migrationState.snapshot.missingStepKeys.some((stepKey) =>
         [
@@ -412,6 +422,10 @@ export async function FinanceSettingsRoute({
         migrationMemberReview={migrationMemberReview.map((row) => ({
           ...row,
           joinedAt: row.joinedAt.toISOString().slice(0, 10),
+        }))}
+        profitMigrationOptions={profitMigrationOptions.map((option: any) => ({
+          ...option,
+          profitDate: option.profitDate.toISOString().slice(0, 10),
         }))}
         selectedMigrationMemberId={previewMember?.id ?? null}
         selectedMigrationMemberLabel={

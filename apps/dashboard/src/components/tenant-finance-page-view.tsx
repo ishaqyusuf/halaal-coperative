@@ -58,6 +58,21 @@ type MemberActivityEventRow = {
   status: "active" | "inactive"
 }
 
+type ProfitMigrationOptionRow = {
+  allocatableProfitAmount: number
+  availableAmount: number
+  businessName: string
+  editableAvailableAmount: number
+  expenseAmount: number
+  id: string
+  memberAllocatedAmount: number
+  memberMigrationAdjustmentAmount: number
+  memberPublishedAllocationAmount: number
+  profitAmount: number
+  profitDate: string
+  totalDisbursedAmount: number
+}
+
 type ChargeVersionRow = {
   id: string
   effectiveFrom: string
@@ -205,6 +220,7 @@ export function TenantFinancePageView({
   memberOptions,
   memberNumberPrefix,
   migrationMemberReview,
+  profitMigrationOptions,
   selectedMigrationMemberId,
   selectedMigrationMemberLabel,
   section = "overview",
@@ -223,6 +239,7 @@ export function TenantFinancePageView({
   memberOptions: MemberOption[]
   memberNumberPrefix?: string | null
   migrationMemberReview: MigrationMemberReviewRow[]
+  profitMigrationOptions?: ProfitMigrationOptionRow[]
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   section?: TenantFinanceSection
@@ -399,6 +416,7 @@ export function TenantFinancePageView({
                 memberNumberPrefix={memberNumberPrefix}
                 migrationSnapshot={initialMigrationSnapshot}
                 migrationMemberReview={migrationMemberReview}
+                profitMigrationOptions={profitMigrationOptions}
                 selectedMigrationMemberId={selectedMigrationMemberId}
                 selectedMigrationMemberLabel={selectedMigrationMemberLabel}
                 section={

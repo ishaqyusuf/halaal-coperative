@@ -18,6 +18,7 @@ import {
   normalizeDashboardRedirectPath,
 } from "@/lib/auth-redirect"
 import { verifyPassword } from "@/lib/password"
+import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 
 function buildCookieOptions(request: NextRequest) {
   return {
@@ -102,8 +103,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(loginPath)
   }
 
+  const setupGate =
+    membership && tenantResolution.tenant
+      ? await resolveInitialMigrationSetupGate({
+          role: membership.role,
+          tenantId: tenantResolution.tenant.id,
+        })
+      : null
+  const redirectPath = setupGate?.shouldRedirectAdminToSetup
+    ? "/getting-started"
+    : nextPath
   const response = NextResponse.redirect(
-    buildDashboardRedirectUrl(request, nextPath)
+    buildDashboardRedirectUrl(request, redirectPath)
   )
   const options = buildCookieOptions(request)
   const sessionToken = await createSignedSessionToken({

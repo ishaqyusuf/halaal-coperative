@@ -7,6 +7,17 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@halaalvest/ui/components/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@halaalvest/ui/components/alert-dialog"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import {
@@ -53,7 +64,6 @@ import {
   ChargeDefinitionVersionForm,
   FinanceStartDateForm,
   ShareBusinessForm,
-  ShareBusinessProfitEntryForm,
   ShareStructureVersionForm,
 } from "@/components/forms/tenant-finance-forms"
 import { InitialMigrationPreview } from "@/components/initial-migration-preview"
@@ -186,6 +196,21 @@ type MigrationMemberReviewRow = {
   status: "profile_only" | "configured" | "backfill_draft" | "backfill_applied"
 }
 
+type ProfitMigrationOptionRow = {
+  allocatableProfitAmount: number
+  availableAmount: number
+  businessName: string
+  editableAvailableAmount: number
+  expenseAmount: number
+  id: string
+  memberAllocatedAmount: number
+  memberMigrationAdjustmentAmount: number
+  memberPublishedAllocationAmount: number
+  profitAmount: number
+  profitDate: string
+  totalDisbursedAmount: number
+}
+
 type GettingStartedPageViewProps = {
   activeStep: GettingStartedStepKey
   adminMember: MemberSummary | null
@@ -199,6 +224,7 @@ type GettingStartedPageViewProps = {
   memberOptions: MemberOption[]
   migrationMemberReview: MigrationMemberReviewRow[]
   migrationSnapshot: InitialMigrationSnapshot
+  profitMigrationOptions: ProfitMigrationOptionRow[]
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   shareBusinesses: ShareBusinessRow[]
@@ -534,10 +560,14 @@ function SummaryCard({
 function StepFooter({
   nextStep,
   previousStep,
+  requireHistoryConfirmation = false,
 }: {
   nextStep?: GettingStartedStepKey
   previousStep?: GettingStartedStepKey
+  requireHistoryConfirmation?: boolean
 }) {
+  const nextHref = nextStep ? stepHref(nextStep) : ""
+
   return (
     <div className="mt-6 flex flex-col gap-4">
       <Separator />
@@ -547,15 +577,41 @@ function StepFooter({
             className={buttonVariants({ variant: "outline" })}
             href={stepHref(previousStep)}
           >
-            Back
+            Previous
           </Link>
         ) : (
           <span />
         )}
         {nextStep ? (
-          <Link className={buttonVariants({})} href={stepHref(nextStep)}>
-            Continue
-          </Link>
+          requireHistoryConfirmation ? (
+            <AlertDialog>
+              <AlertDialogTrigger render={<Button />}>
+                Next
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Continue without historical records?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Historical records are important for proper system
+                    calculations. This step has no saved records yet. Are you
+                    sure you want to proceed?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Review step</AlertDialogCancel>
+                  <AlertDialogAction render={<Link href={nextHref} />}>
+                    Proceed anyway
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Link className={buttonVariants({})} href={nextHref}>
+              Next
+            </Link>
+          )
         ) : null}
       </div>
     </div>
@@ -652,7 +708,10 @@ function ChargesStep({
         }
       />
       <CardContent className="grid gap-5">
-        <ChargeDefinitionForm financeStartDate={tenantStartDate} />
+        <ChargeDefinitionForm
+          financeStartDate={tenantStartDate}
+          stayOnStepHref={stepHref("charges")}
+        />
         {chargeDefinitions.length > 0 ? (
           <ChargeDefinitionVersionForm
             chargeDefinitions={chargeDefinitions.map((charge) => ({
@@ -661,6 +720,7 @@ function ChargesStep({
               label: `${charge.name} (${charge.code})`,
             }))}
             financeStartDate={tenantStartDate}
+            stayOnStepHref={stepHref("charges")}
           />
         ) : null}
         <HistoryTable
@@ -694,7 +754,10 @@ function SharesStep({
         description="Define how share capital is calculated and preserve every historical effective-date change."
       />
       <CardContent className="grid gap-5">
-        <ShareStructureVersionForm financeStartDate={tenantStartDate} />
+        <ShareStructureVersionForm
+          financeStartDate={tenantStartDate}
+          stayOnStepHref={stepHref("shares")}
+        />
         <HistoryTable
           title="Share rule"
           rows={shareStructureVersions.map((version) => ({
@@ -731,17 +794,10 @@ function BusinessStep({
         <ShareBusinessForm
           dividendPeriods={dividendPeriods}
           financeStartDate={tenantStartDate}
+          profitHistoryMode
+          stayOnStepHref={stepHref("business")}
         />
-        {shareBusinesses.length > 0 ? (
-          <ShareBusinessProfitEntryForm
-            businesses={shareBusinesses.map((business) => ({
-              id: business.id,
-              label: business.name,
-            }))}
-            dividendPeriods={dividendPeriods}
-            financeStartDate={tenantStartDate}
-          />
-        ) : (
+        {shareBusinesses.length === 0 ? (
           <Alert>
             <AlertTitle>No business pool recorded yet</AlertTitle>
             <AlertDescription>
@@ -749,7 +805,7 @@ function BusinessStep({
               business profits to migrate.
             </AlertDescription>
           </Alert>
-        )}
+        ) : null}
         <ConfirmationForm
           action={markBusinessProfitPoolsReviewedAction}
           buttonLabel="Save no-profit review"
@@ -759,13 +815,17 @@ function BusinessStep({
           title="Confirm no historical business profits"
         />
         <HistoryTable
-          title="Business"
-          rows={shareBusinesses.map((business) => ({
-            amount: business.profitAmount,
-            date: business.startDate,
-            detail: business.name,
-            id: business.id,
-          }))}
+          title="Business profit"
+          rows={shareBusinesses.flatMap((business) =>
+            business.profitEntries.map((entry) => ({
+              amount: entry.allocatableProfitAmount,
+              date: entry.profitDate,
+              detail: `${business.name} · gross ${formatCurrency(
+                entry.profitAmount
+              )} · deduction ${formatCurrency(entry.expenseAmount)}`,
+              id: entry.id,
+            }))
+          )}
         />
       </CardContent>
     </Card>
@@ -846,6 +906,7 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
           memberNumberPrefix={memberNumberPrefix}
           migrationMemberReview={migrationMemberReview}
           migrationSnapshot={migrationSnapshot}
+          profitMigrationOptions={props.profitMigrationOptions}
           selectedMigrationMemberId={selectedMigrationMemberId}
           selectedMigrationMemberLabel={selectedMigrationMemberLabel}
           section="member-preview"
@@ -917,8 +978,8 @@ function ReviewStep({
 
         <ConfirmationForm
           action={finalizeInitialMigrationAction}
-          buttonLabel="Finalize migration"
-          description="Type FINALIZE MIGRATION after every setup and member backfill step is complete. This opens live operations and locks historical setup."
+          buttonLabel="Complete setup"
+          description="Type FINALIZE MIGRATION after every setup and member backfill step is complete. This updates the tenant setup gate, opens live operations, and locks historical setup."
           disabled={blockingSteps.length > 0}
           id="finalize-migration"
           includeNotes={false}
@@ -935,6 +996,14 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
   const activeIndex = orderedStepKeys.indexOf(props.activeStep)
   const previousStep = orderedStepKeys[activeIndex - 1]
   const nextStep = orderedStepKeys[activeIndex + 1]
+  const requireHistoryConfirmation =
+    (props.activeStep === "charges" && props.chargeDefinitions.length === 0) ||
+    (props.activeStep === "shares" &&
+      props.shareStructureVersions.length === 0) ||
+    (props.activeStep === "business" &&
+      props.shareBusinesses.every(
+        (business) => business.profitEntries.length === 0
+      ))
 
   return (
     <div>
@@ -964,7 +1033,11 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
           tenantName={props.tenantName}
         />
       )}
-      <StepFooter nextStep={nextStep} previousStep={previousStep} />
+      <StepFooter
+        nextStep={nextStep}
+        previousStep={previousStep}
+        requireHistoryConfirmation={requireHistoryConfirmation}
+      />
     </div>
   )
 }

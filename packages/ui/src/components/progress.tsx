@@ -1,5 +1,6 @@
 "use client"
 
+import type { ComponentProps, ReactNode } from "react"
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
 
 import { cn } from "@halaalvest/ui/lib/utils"
@@ -9,7 +10,9 @@ function Progress({
   children,
   value,
   ...props
-}: ProgressPrimitive.Root.Props) {
+}: Omit<ProgressPrimitive.Root.Props, "children"> & {
+  children?: ReactNode
+}) {
   return (
     <ProgressPrimitive.Root
       value={value}
@@ -61,9 +64,12 @@ function ProgressLabel({ className, ...props }: ProgressPrimitive.Label.Props) {
   )
 }
 
-function ProgressValue({ className, ...props }: ProgressPrimitive.Value.Props) {
+function ProgressValue({
+  className,
+  ...props
+}: ComponentProps<"span">) {
   return (
-    <ProgressPrimitive.Value
+    <span
       className={cn(
         "ml-auto text-xs text-muted-foreground tabular-nums",
         className

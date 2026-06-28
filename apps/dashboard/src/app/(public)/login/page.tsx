@@ -16,6 +16,7 @@ import { buildTenantSiteHostname } from "@halaalvest/utils"
 import { DevLoginFab } from "./dev-login-fab"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
@@ -62,6 +63,17 @@ export default async function LoginPage({
   const reset = typeof params.reset === "string" ? params.reset : null
 
   if (context.auth.sessionToken && context.auth.user) {
+    if (context.auth.membership && context.tenant) {
+      const setupGate = await resolveInitialMigrationSetupGate({
+        role: context.auth.membership.role,
+        tenantId: context.tenant.id,
+      })
+
+      if (setupGate.shouldRedirectAdminToSetup) {
+        await tenantRedirect("/getting-started")
+      }
+    }
+
     await tenantRedirect(nextPath)
   }
 

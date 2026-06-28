@@ -45,9 +45,11 @@ export function LabeledSelectInput({
   const selectedOption = options.find((option) => option.value === currentValue)
   const selectedLabel = selectedOption?.label ?? placeholder
 
-  function handleValueChange(nextSelectValue: string) {
+  function handleValueChange(nextSelectValue: string | null) {
     const nextValue =
-      nextSelectValue === emptySelectValue ? "" : nextSelectValue
+      !nextSelectValue || nextSelectValue === emptySelectValue
+        ? ""
+        : nextSelectValue
 
     if (value === undefined) {
       setInternalValue(nextValue)

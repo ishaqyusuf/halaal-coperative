@@ -131,6 +131,8 @@ describe("migration profit adjustments", () => {
         expenseAmount: 20000,
         id: "profit-1",
         memberAllocatedAmount: 0,
+        memberMigrationAdjustmentAmount: 0,
+        memberPublishedAllocationAmount: 0,
         profitAmount: 100000,
         profitDate: new Date("2025-04-30T00:00:00.000Z"),
         totalDisbursedAmount: 14000,
@@ -149,6 +151,8 @@ describe("migration profit adjustments", () => {
       availableAmount: 66000,
       editableAvailableAmount: 70000,
       memberAllocatedAmount: 4000,
+      memberMigrationAdjustmentAmount: 4000,
+      memberPublishedAllocationAmount: 0,
       totalDisbursedAmount: 14000,
     })
   })

@@ -46,6 +46,7 @@ import {
   upsertMemberActivityEventAction,
   upsertMemberAmountLogAction,
   upsertMigrationBackfillAdjustmentAction,
+  upsertMigrationProfitAdjustmentAction,
 } from "@/lib/dashboard-actions"
 
 const previewRows: MemberLedgerBackfillRow[] = [
@@ -302,6 +303,21 @@ type MigrationMemberReviewRow = {
   status: "profile_only" | "configured" | "backfill_draft" | "backfill_applied"
 }
 
+type ProfitMigrationOptionRow = {
+  allocatableProfitAmount: number
+  availableAmount: number
+  businessName: string
+  editableAvailableAmount: number
+  expenseAmount: number
+  id: string
+  memberAllocatedAmount: number
+  memberMigrationAdjustmentAmount: number
+  memberPublishedAllocationAmount: number
+  profitAmount: number
+  profitDate: string
+  totalDisbursedAmount: number
+}
+
 const statusLabels: Record<InitialMigrationSnapshot["status"], string> = {
   finalized: "Finalized",
   historical_setup_in_progress: "Historical setup",
@@ -456,6 +472,167 @@ function MemberBackfillAdjustmentDialog({
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function BusinessProfitMigrationPanel({
+  disabled,
+  memberId,
+  options,
+}: {
+  disabled: boolean
+  memberId: string | null | undefined
+  options: ProfitMigrationOptionRow[]
+}) {
+  const totalMemberProfit = options.reduce(
+    (total, option) => total + option.memberAllocatedAmount,
+    0
+  )
+
+  if (options.length === 0) {
+    return (
+      <div className="rounded-lg border border-border/70 bg-background p-4">
+        <p className="text-sm font-semibold text-foreground">
+          No business profit rows
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Add profit history in the business step before assigning member
+          migration profit.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 rounded-lg border border-border/70 bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            Business profit migration
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Assign historical business profit to this member so it appears in
+            the generated ledger table.
+          </p>
+        </div>
+        <div className="text-left sm:text-right">
+          <p className="text-xs text-muted-foreground">Selected member total</p>
+          <p className="mt-1 text-sm font-semibold text-foreground">
+            {formatCurrency(totalMemberProfit)}
+          </p>
+        </div>
+      </div>
+
+      <DashboardDataTable>
+        <DashboardTable className="min-w-[940px]">
+          <DashboardTableHead>
+            <DashboardTableHeaderCell>Date</DashboardTableHeaderCell>
+            <DashboardTableHeaderCell>Business</DashboardTableHeaderCell>
+            <DashboardTableHeaderCell align="right">
+              Shareable
+            </DashboardTableHeaderCell>
+            <DashboardTableHeaderCell align="right">
+              Assigned
+            </DashboardTableHeaderCell>
+            <DashboardTableHeaderCell align="right">
+              Available
+            </DashboardTableHeaderCell>
+            <DashboardTableHeaderCell align="right">
+              Member amount *
+            </DashboardTableHeaderCell>
+            <DashboardTableHeaderCell align="right">
+              Action
+            </DashboardTableHeaderCell>
+          </DashboardTableHead>
+          <DashboardTableBody>
+            {options.map((option) => {
+              const formId = `profit-migration-${option.id}`
+              const rowDisabled =
+                disabled ||
+                !memberId ||
+                (option.editableAvailableAmount <= 0 &&
+                  option.memberMigrationAdjustmentAmount <= 0)
+
+              return (
+                <DashboardTableRow key={option.id}>
+                  <DashboardTableCell>{option.profitDate}</DashboardTableCell>
+                  <DashboardTableCell>
+                    <p className="font-medium">{option.businessName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Gross {formatCurrency(option.profitAmount)} · deduction{" "}
+                      {formatCurrency(option.expenseAmount)}
+                    </p>
+                  </DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    {formatCurrency(option.allocatableProfitAmount)}
+                  </DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    <p>{formatCurrency(option.memberAllocatedAmount)}</p>
+                    {option.memberPublishedAllocationAmount > 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(option.memberPublishedAllocationAmount)}{" "}
+                        published
+                      </p>
+                    ) : null}
+                  </DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    <p>{formatCurrency(option.editableAvailableAmount)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCurrency(option.totalDisbursedAmount)} disbursed
+                    </p>
+                  </DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    <form
+                      action={upsertMigrationProfitAdjustmentAction}
+                      id={formId}
+                    >
+                      <input
+                        name="memberId"
+                        type="hidden"
+                        value={memberId ?? ""}
+                      />
+                      <input
+                        name="profitEntryId"
+                        type="hidden"
+                        value={option.id}
+                      />
+                      <input
+                        name="notes"
+                        type="hidden"
+                        value="Initial migration profit allocation"
+                      />
+                      <CurrencyPrefixInput
+                        className="ml-auto w-36"
+                        defaultValue={
+                          option.memberMigrationAdjustmentAmount || ""
+                        }
+                        disabled={rowDisabled}
+                        max={option.editableAvailableAmount}
+                        min="0"
+                        name="allocatedProfitAmount"
+                        required
+                        step="0.01"
+                        type="number"
+                      />
+                    </form>
+                  </DashboardTableCell>
+                  <DashboardTableCell align="right">
+                    <Button
+                      disabled={rowDisabled}
+                      form={formId}
+                      size="sm"
+                      type="submit"
+                    >
+                      Save
+                    </Button>
+                  </DashboardTableCell>
+                </DashboardTableRow>
+              )
+            })}
+          </DashboardTableBody>
+        </DashboardTable>
+      </DashboardDataTable>
+    </div>
   )
 }
 
@@ -1128,6 +1305,7 @@ export function InitialMigrationPreview({
   memberNumberPrefix,
   migrationSnapshot,
   migrationMemberReview,
+  profitMigrationOptions,
   selectedMigrationMemberId,
   selectedMigrationMemberLabel,
   section = "overview",
@@ -1140,6 +1318,7 @@ export function InitialMigrationPreview({
   memberNumberPrefix?: string | null
   migrationSnapshot?: InitialMigrationSnapshot
   migrationMemberReview?: MigrationMemberReviewRow[]
+  profitMigrationOptions?: ProfitMigrationOptionRow[]
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   section?: "loans" | "member-preview" | "overview"
@@ -1167,6 +1346,7 @@ export function InitialMigrationPreview({
   const displayedMemberAmountLogs =
     memberAmountLogs !== undefined ? memberAmountLogs : demoMemberAmountLogs
   const displayedMemberActivityEvents = memberActivityEvents ?? []
+  const displayedProfitMigrationOptions = profitMigrationOptions ?? []
   const reviewRows = migrationMemberReview ?? []
   const selectedMemberReview =
     reviewRows.find((member) => member.id === selectedMigrationMemberId) ?? null
@@ -1612,6 +1792,17 @@ export function InitialMigrationPreview({
                 memberId={selectedMigrationMemberId}
                 memberJoinedAt={selectedMemberHeadline?.joinedAt ?? null}
                 memberOptions={memberOptions ?? []}
+              />
+            }
+            profit={
+              <BusinessProfitMigrationPanel
+                disabled={
+                  !hasRealMigrationContext ||
+                  !canStartMemberBackfill ||
+                  selectedMemberBackfillApplied
+                }
+                memberId={selectedMigrationMemberId}
+                options={displayedProfitMigrationOptions}
               />
             }
           />

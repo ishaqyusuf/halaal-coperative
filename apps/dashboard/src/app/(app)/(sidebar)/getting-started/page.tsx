@@ -10,6 +10,7 @@ import {
   getTenantInitialMigrationState,
   listInitialMigrationMemberReview,
   listLegacyLoanMigrationDrafts,
+  listMigrationProfitAdjustmentOptions,
   listMemberActivityEvents,
   listMemberAmountLogs,
   listMembers,
@@ -181,18 +182,27 @@ export default async function GettingStartedPage({
       generatedLedgerRows = undefined
     }
   }
-  const selectedMemberAmountLogs = selectedMember
-    ? await listMemberAmountLogs({
-        memberId: selectedMember.id,
-        tenantId: context.tenant.id,
-      })
-    : []
-  const selectedMemberActivityEvents = selectedMember
-    ? await listMemberActivityEvents({
-        memberId: selectedMember.id,
-        tenantId: context.tenant.id,
-      })
-    : []
+  const selectedMemberMigrationInputs = selectedMember
+    ? await Promise.all([
+        listMemberAmountLogs({
+          memberId: selectedMember.id,
+          tenantId: context.tenant.id,
+        }),
+        listMemberActivityEvents({
+          memberId: selectedMember.id,
+          tenantId: context.tenant.id,
+        }),
+        listMigrationProfitAdjustmentOptions(
+          context.tenant.id,
+          undefined,
+          selectedMember.id,
+        ),
+      ])
+    : null
+  const selectedMemberAmountLogs = selectedMemberMigrationInputs?.[0] ?? []
+  const selectedMemberActivityEvents =
+    selectedMemberMigrationInputs?.[1] ?? []
+  const profitMigrationOptions = selectedMemberMigrationInputs?.[2] ?? []
   const today = new Date()
 
   return (
@@ -297,6 +307,10 @@ export default async function GettingStartedPage({
         joinedAt: row.joinedAt.toISOString().slice(0, 10),
       }))}
       migrationSnapshot={migrationState.snapshot}
+      profitMigrationOptions={profitMigrationOptions.map((option: any) => ({
+        ...option,
+        profitDate: option.profitDate.toISOString().slice(0, 10),
+      }))}
       selectedMigrationMemberId={selectedMember?.id ?? null}
       selectedMigrationMemberLabel={
         selectedMember

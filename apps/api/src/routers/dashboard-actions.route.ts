@@ -1411,6 +1411,12 @@ type ChargeDefinitionHistoryRow = {
   effectiveFrom: string
 }
 
+type ShareStructureHistoryRow = {
+  amount: string
+  effectiveFrom: string
+  valueType: "fixed_amount" | "percentage"
+}
+
 function getFormDataStringValues(formData: FormData, key: string) {
   return formData
     .getAll(key)
@@ -1465,6 +1471,89 @@ function parseChargeHistoryAmount(value: string) {
 
   if (!Number.isFinite(amount)) {
     throw new Error("Charge history amount must be a valid number.")
+  }
+
+  return amount
+}
+
+function normalizeShareHistoryValueType(value: string) {
+  if (value === "fixed_amount" || value === "percentage") {
+    return value
+  }
+
+  throw new Error("Share history rule must be fixed amount or percentage.")
+}
+
+function getShareStructureHistoryRows(
+  formData: FormData
+): ShareStructureHistoryRow[] {
+  const historyEffectiveFromValues = getFormDataStringValues(
+    formData,
+    "historyEffectiveFrom"
+  )
+  const historyAmountValues = getFormDataStringValues(
+    formData,
+    "historyAmount"
+  )
+  const historyValueTypeValues = getFormDataStringValues(
+    formData,
+    "historyValueType"
+  )
+  const historyRowCount = Math.max(
+    historyEffectiveFromValues.length,
+    historyAmountValues.length,
+    historyValueTypeValues.length
+  )
+  const historyRows: ShareStructureHistoryRow[] = Array.from(
+    { length: historyRowCount },
+    (_, index): ShareStructureHistoryRow => {
+      const amount = historyAmountValues[index] ?? ""
+      const effectiveFrom = historyEffectiveFromValues[index] ?? ""
+      const rawValueType = historyValueTypeValues[index] ?? ""
+      const valueType = rawValueType
+        ? normalizeShareHistoryValueType(rawValueType)
+        : "fixed_amount"
+
+      return {
+        amount,
+        effectiveFrom,
+        valueType,
+      }
+    }
+  ).filter(
+    (row) => row.amount || row.effectiveFrom || row.valueType !== "fixed_amount"
+  )
+
+  if (historyRows.length === 0) {
+    return [
+      {
+        amount: getRequiredString(formData, "amount"),
+        effectiveFrom: getRequiredString(formData, "effectiveFrom"),
+        valueType: normalizeShareHistoryValueType(
+          getRequiredString(formData, "valueType")
+        ),
+      },
+    ]
+  }
+
+  const incompleteHistoryRow = historyRows.find(
+    (row) => !row.amount || !row.effectiveFrom || !row.valueType
+  )
+
+  if (incompleteHistoryRow) {
+    throw new Error("Every share history row needs a date, rule, and value.")
+  }
+
+  return historyRows.sort((a, b) =>
+    a.effectiveFrom.localeCompare(b.effectiveFrom)
+  )
+}
+
+function parseShareHistoryAmount(value: string) {
+  const amount = Number(value)
+
+  if (!Number.isFinite(amount)) {
+    throw new Error("Share history value must be a valid number.")
   }
 
   return amount
@@ -1548,21 +1637,29 @@ export async function createTenantShareStructureVersionAction(
 ) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
-  const effectiveFrom = getRequiredString(formData, "effectiveFrom")
+  const historyRows = getShareStructureHistoryRows(formData)
 
-  requireDateOnOrAfterTenantStartDate(actor, effectiveFrom, "Effective date")
+  for (const historyRow of historyRows) {
+    requireDateOnOrAfterTenantStartDate(
+      actor,
+      historyRow.effectiveFrom,
+      "Share history date"
+    )
+  }
 
-  await createTenantShareStructureVersion({
-    amount: Number(getRequiredString(formData, "amount")),
-    basis: "after_charge_deductions",
-    createdByUserId: actor.user.id,
-    effectiveFrom: new Date(`${effectiveFrom}T00:00:00.000Z`),
-    notes: (formData.get("notes") as string | null)?.trim() || undefined,
-    tenantId: actor.tenant.id,
-    valueType: getRequiredString(formData, "valueType") as
-      | "fixed_amount"
-      | "percentage",
-  })
+  const notes = (formData.get("notes") as string | null)?.trim() || undefined
+
+  for (const historyRow of historyRows) {
+    await createTenantShareStructureVersion({
+      amount: parseShareHistoryAmount(historyRow.amount),
+      basis: "after_charge_deductions",
+      createdByUserId: actor.user.id,
+      effectiveFrom: new Date(`${historyRow.effectiveFrom}T00:00:00.000Z`),
+      notes,
+      tenantId: actor.tenant.id,
+      valueType: historyRow.valueType,
+    })
+  }
 
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
@@ -1650,14 +1747,124 @@ export async function updateChargeDefinitionVersionAction(formData: FormData) {
   revalidatePath("/getting-started")
 }
 
+type ShareBusinessProfitHistoryRow = {
+  deductionAmount: string
+  profitAmount: string
+  profitDate: string
+  reason: string
+}
+
+function getShareBusinessProfitHistoryRows(formData: FormData) {
+  const historyProfitDateValues = getFormDataStringValues(
+    formData,
+    "historyProfitDate"
+  )
+  const historyProfitAmountValues = getFormDataStringValues(
+    formData,
+    "historyProfitAmount"
+  )
+  const historyDeductionAmountValues = getFormDataStringValues(
+    formData,
+    "historyDeductionAmount"
+  )
+  const historyDeductionReasonValues = getFormDataStringValues(
+    formData,
+    "historyDeductionReason"
+  )
+  const historyRowCount = Math.max(
+    historyProfitDateValues.length,
+    historyProfitAmountValues.length,
+    historyDeductionAmountValues.length,
+    historyDeductionReasonValues.length
+  )
+  const historyRows: ShareBusinessProfitHistoryRow[] = Array.from(
+    { length: historyRowCount },
+    (_, index) => ({
+      deductionAmount: historyDeductionAmountValues[index] ?? "",
+      profitAmount: historyProfitAmountValues[index] ?? "",
+      profitDate: historyProfitDateValues[index] ?? "",
+      reason: historyDeductionReasonValues[index] ?? "",
+    })
+  ).filter(
+    (row) =>
+      row.deductionAmount || row.profitAmount || row.profitDate || row.reason
+  )
+
+  const incompleteHistoryRow = historyRows.find(
+    (row) => !row.profitAmount || !row.profitDate
+  )
+
+  if (incompleteHistoryRow) {
+    throw new Error(
+      "Every started business profit history row needs a profit date and amount."
+    )
+  }
+
+  return historyRows.sort((a, b) => a.profitDate.localeCompare(b.profitDate))
+}
+
+function parseBusinessProfitHistoryAmount(value: string, label: string) {
+  const amount = Number(value || 0)
+
+  if (!Number.isFinite(amount)) {
+    throw new Error(`${label} must be a valid number.`)
+  }
+
+  return amount
+}
+
 export async function createShareBusinessAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireHistoricalFinanceSetupMutable(actor)
   const endDate = (formData.get("endDate") as string | null)?.trim()
   const startDate = getRequiredString(formData, "startDate")
+  const profitHistoryRows = getShareBusinessProfitHistoryRows(formData)
 
   requireDateOnOrAfterTenantStartDate(actor, startDate, "Start date")
   requireDateOnOrAfterTenantStartDate(actor, endDate, "End date")
+
+  const profitEntries = profitHistoryRows.map((row) => {
+    requireDateOnOrAfterTenantStartDate(actor, row.profitDate, "Profit date")
+
+    if (row.profitDate < startDate) {
+      throw new Error("Profit date cannot be before the business start date.")
+    }
+
+    if (endDate && row.profitDate > endDate) {
+      throw new Error("Profit date cannot be after the business end date.")
+    }
+
+    const profitAmount = parseBusinessProfitHistoryAmount(
+      row.profitAmount,
+      "Profit amount"
+    )
+    const expenseAmount = parseBusinessProfitHistoryAmount(
+      row.deductionAmount,
+      "Deduction amount"
+    )
+    const allocatableProfitAmount = profitAmount - expenseAmount
+
+    if (expenseAmount < 0) {
+      throw new Error("Deduction amount cannot be negative.")
+    }
+
+    if (allocatableProfitAmount < 0) {
+      throw new Error("Deduction cannot be greater than profit amount.")
+    }
+
+    if (expenseAmount > 0 && !row.reason.trim()) {
+      throw new Error("Deduction reason is required when deduction is set.")
+    }
+
+    return {
+      allocatableProfitAmount,
+      expenseAmount,
+      profitAmount,
+      profitDate: new Date(`${row.profitDate}T00:00:00.000Z`),
+      reason: row.reason.trim() || undefined,
+    }
+  })
+  const legacyProfitAmount = getOptionalNumber(formData, "profitAmount") ?? 0
 
   await createShareBusiness({
     capitalAmount: Number(getRequiredString(formData, "capitalAmount")),
@@ -1668,7 +1875,11 @@ export async function createShareBusinessAction(formData: FormData) {
       undefined,
     name: getRequiredString(formData, "name"),
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
-    profitAmount: Number(getRequiredString(formData, "profitAmount")),
+    profitAmount:
+      profitEntries.length > 0
+        ? profitEntries.reduce((total, entry) => total + entry.profitAmount, 0)
+        : legacyProfitAmount,
+    profitEntries: profitEntries.length > 0 ? profitEntries : undefined,
     startDate: new Date(`${startDate}T00:00:00.000Z`),
     status: getRequiredString(formData, "status") as
       | "planned"
@@ -2504,6 +2715,8 @@ export async function upsertMigrationProfitAdjustmentAction(
 
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
+  revalidatePath("/settings/finance/migration")
+  revalidatePath(`/settings/finance/migration/${memberId}`)
 }
 
 function getOptionalPositiveInteger(formData: FormData, key: string) {

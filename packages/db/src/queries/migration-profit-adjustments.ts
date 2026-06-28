@@ -120,6 +120,8 @@ export async function listMigrationProfitAdjustmentOptions(
       editableAvailableAmount,
       expenseAmount: Number(entry.expenseAmount ?? 0),
       memberAllocatedAmount: memberAdjustedAmount + memberPublishedAmount,
+      memberMigrationAdjustmentAmount: memberAdjustedAmount,
+      memberPublishedAllocationAmount: memberPublishedAmount,
       profitAmount: Number(entry.profitAmount),
       profitDate: entry.profitDate,
       totalDisbursedAmount: totalAdjusted + totalAllocated,

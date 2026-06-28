@@ -1,6 +1,7 @@
-import "server-only"
-
-import { revalidatePath } from "next/cache"
+import { AsyncLocalStorage } from "node:async_hooks"
+import { z } from "zod"
+import type { TRPCContext } from "../context"
+import { authenticatedProcedure, createTRPCRouter } from "../lib.trpc"
 import { buildBackfillDraft } from "@halaalvest/backfill"
 import {
   buildBackfillDraftInputForMember,
@@ -81,6 +82,7 @@ import {
   upsertMigrationBackfillAdjustment,
   waiveChargeApplication,
   upsertMemberAmountLog,
+  type MembershipRole,
 } from "@halaalvest/db"
 import { createEmailDraftFromType } from "@halaalvest/notifications"
 import {
@@ -93,25 +95,96 @@ import {
   triggerJob,
 } from "@halaalvest/jobs"
 import { buildTenantDashboardUrl } from "@halaalvest/utils"
-import { getDashboardServerContext } from "@/lib/server-context"
-import {
-  allStaffRoles,
-  financeManagementRoles,
-  hasAnyRole,
-  memberManagementRoles,
-  workspaceAdminRoles,
-  workspaceConfigurationRoles,
-} from "@/lib/workspace-access"
 import {
   type DashboardImportKind,
   getDashboardImportExistingMatches,
   getDashboardImportPrimaryValue,
   parseDashboardImportCsv,
-} from "@/lib/import-csv"
+} from "../lib/import-csv"
 import {
   composeMemberNumber,
   normalizeMemberNumberPrefix,
-} from "@/lib/member-number"
+} from "../lib/member-number"
+
+
+type DashboardActionState = {
+  context: TRPCContext
+  revalidatePaths: string[]
+}
+
+const dashboardActionState = new AsyncLocalStorage<DashboardActionState>()
+
+function revalidatePath(path: string) {
+  const state = dashboardActionState.getStore()
+
+  if (!state) {
+    return
+  }
+
+  state.revalidatePaths.push(path)
+}
+
+export type DashboardActionResult<TResult = unknown> = {
+  data: TResult
+  revalidatePaths: string[]
+}
+
+async function runDashboardActionWithContext<TResult>(
+  context: TRPCContext,
+  handler: () => Promise<TResult>
+): Promise<DashboardActionResult<TResult>> {
+  const state: DashboardActionState = {
+    context,
+    revalidatePaths: [],
+  }
+  const data = await dashboardActionState.run(state, handler)
+
+  return {
+    data,
+    revalidatePaths: Array.from(new Set(state.revalidatePaths)),
+  }
+}
+
+export const memberManagementRoles: MembershipRole[] = [
+  "super_admin",
+  "tenant_admin",
+  "operations_officer",
+]
+
+export const financeManagementRoles: MembershipRole[] = [
+  "super_admin",
+  "tenant_admin",
+  "finance_officer",
+]
+
+export const allStaffRoles: MembershipRole[] = [
+  "super_admin",
+  "tenant_admin",
+  "finance_officer",
+  "operations_officer",
+]
+
+export const workspaceConfigurationRoles: MembershipRole[] = [
+  "super_admin",
+  "tenant_admin",
+  "operations_officer",
+]
+
+export const workspaceAdminRoles: MembershipRole[] = [
+  "super_admin",
+  "tenant_admin",
+]
+
+export function hasAnyRole(
+  role: MembershipRole | null | undefined,
+  allowedRoles: MembershipRole[]
+) {
+  if (!role) {
+    return false
+  }
+
+  return allowedRoles.includes(role)
+}
 
 type DashboardMemberType = "civil_servant" | "individual" | "business"
 type DashboardMemberStatus =
@@ -163,13 +236,12 @@ function isMemberDataImportKind(
   return memberDataImportKinds.has(importKind)
 }
 
-async function requireDashboardActor(
-  allowedRoles: Parameters<typeof hasAnyRole>[1]
-) {
-  const context = await getDashboardServerContext()
-  const tenant = context.tenant
-  const membership = context.auth.membership
-  const user = context.auth.user
+async function requireDashboardActor(allowedRoles: MembershipRole[]) {
+  const state = dashboardActionState.getStore()
+  const context = state?.context
+  const tenant = context?.tenant.current ?? null
+  const membership = context?.auth.activeMembership ?? null
+  const user = context?.auth.session?.user ?? null
 
   if (
     !tenant ||
@@ -3150,3 +3222,210 @@ export async function queueBackfillApplyAction(formData: FormData) {
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
 }
+
+
+export const dashboardActionInputSchema = z.object({
+  fields: z.array(z.tuple([z.string(), z.string()])),
+})
+
+export type DashboardActionInput = z.infer<typeof dashboardActionInputSchema>
+
+function formDataFromInput(input: DashboardActionInput) {
+  const formData = new FormData()
+
+  for (const [key, value] of input.fields) {
+    formData.append(key, value)
+  }
+
+  return formData
+}
+
+function formAction<TResult>(
+  handler: (formData: FormData) => Promise<TResult>
+) {
+  return authenticatedProcedure
+    .input(dashboardActionInputSchema)
+    .mutation(({ ctx, input }) =>
+      runDashboardActionWithContext(ctx, () => handler(formDataFromInput(input)))
+    )
+}
+
+function noInputAction<TResult>(handler: () => Promise<TResult>) {
+  return authenticatedProcedure.mutation(({ ctx }) =>
+    runDashboardActionWithContext(ctx, handler)
+  )
+}
+
+const dashboardActionHandlers = {
+  createMemberAction,
+  updateMemberStatusAction,
+  approveMemberOnboardingAction,
+  rejectMemberOnboardingAction,
+  updateMemberKycAction,
+  createMemberDocumentAction,
+  updateMemberDocumentReviewAction,
+  recordContributionAction,
+  setMemberContributionPlanAction,
+  updateContributionPlanAction,
+  closeContributionPlanAction,
+  updateMemberPaymentAllocationPreferenceAction,
+  recordMemberPaymentAction,
+  createMonthlyRecordAction,
+  updateMonthlyRecordSettingsAction,
+  generateMonthlyRecordsNowAction,
+  applyMonthlyRecordMemberAction,
+  cancelMonthlyRecordMemberAction,
+  createChargeDefinitionAction,
+  createTenantShareStructureVersionAction,
+  updateTenantShareStructureVersionAction,
+  createChargeDefinitionVersionAction,
+  updateChargeDefinitionVersionAction,
+  createShareBusinessAction,
+  updateShareBusinessAction,
+  createShareBusinessProfitEntryAction,
+  updateShareBusinessProfitEntryAction,
+  generateShareProfitAllocationsAction,
+  publishShareProfitAllocationsAction,
+  saveBusinessProfitMigrationWorksheetAction,
+  updateChargeDefinitionAction,
+  applyChargeAction,
+  waiveChargeApplicationAction,
+  reverseChargeApplicationAction,
+  submitLoanRequestAction,
+  reviewLoanRequestAction,
+  disburseLoanAction,
+  postRepaymentAction,
+  updateCooperativeProfileAction,
+  updateTenantFinanceStartDateAction,
+  finalizeInitialMigrationAction,
+  unlockInitialMigrationAction,
+  createLegacyLoanMigrationDraftAction,
+  updateLegacyLoanMigrationDraftAction,
+  upsertMemberAmountLogAction,
+  markLegacyLoansReviewedAction,
+  markBusinessProfitPoolsReviewedAction,
+  upsertMigrationBackfillAdjustmentAction,
+  setMigrationBackfillDefaultingMonthsAction,
+  upsertMemberActivityEventAction,
+  deleteMemberActivityEventAction,
+  upsertMigrationProfitAdjustmentAction,
+  updateMemberSignupAccessModeAction,
+  createMemberSignupLinkAction,
+  updateMemberSignupLinkAction,
+  toggleMemberSignupLinkAction,
+  rotateMemberSignupLinkAction,
+  createTenantDomainAction,
+  setTenantDomainPrimaryAction,
+  updateTenantDomainVerificationStatusAction,
+  runTenantDomainVerificationCheckAction,
+  provisionTenantUserRoleAction,
+  saveNotificationPreferenceAction,
+  refreshCollectionsStatusesAction,
+  recordCollectionFollowUpAction,
+  importMembersCsvAction,
+  importDeductionSourcesCsvAction,
+  importLoanProductsCsvAction,
+  importContributionsCsvAction,
+  importChargesCsvAction,
+  importLoanMigrationsCsvAction,
+  importRepaymentMigrationsCsvAction,
+  stageImportBatchAction,
+  applyImportBatchAction,
+  queueBackfillDraftAction,
+  getBackfillPreviewAction,
+  queueBackfillApplyAction,
+}
+
+export type DashboardActionHandlers = typeof dashboardActionHandlers
+export type DashboardActionName = keyof DashboardActionHandlers
+export type DashboardFormActionName = {
+  [TName in DashboardActionName]: Parameters<
+    DashboardActionHandlers[TName]
+  > extends [FormData]
+    ? TName
+    : never
+}[DashboardActionName]
+export type DashboardNoInputActionName = Exclude<
+  DashboardActionName,
+  DashboardFormActionName
+>
+
+export const dashboardActionsRouter = createTRPCRouter({
+  createMemberAction: formAction(dashboardActionHandlers.createMemberAction),
+  updateMemberStatusAction: formAction(dashboardActionHandlers.updateMemberStatusAction),
+  approveMemberOnboardingAction: formAction(dashboardActionHandlers.approveMemberOnboardingAction),
+  rejectMemberOnboardingAction: formAction(dashboardActionHandlers.rejectMemberOnboardingAction),
+  updateMemberKycAction: formAction(dashboardActionHandlers.updateMemberKycAction),
+  createMemberDocumentAction: formAction(dashboardActionHandlers.createMemberDocumentAction),
+  updateMemberDocumentReviewAction: formAction(dashboardActionHandlers.updateMemberDocumentReviewAction),
+  recordContributionAction: formAction(dashboardActionHandlers.recordContributionAction),
+  setMemberContributionPlanAction: formAction(dashboardActionHandlers.setMemberContributionPlanAction),
+  updateContributionPlanAction: formAction(dashboardActionHandlers.updateContributionPlanAction),
+  closeContributionPlanAction: formAction(dashboardActionHandlers.closeContributionPlanAction),
+  updateMemberPaymentAllocationPreferenceAction: formAction(dashboardActionHandlers.updateMemberPaymentAllocationPreferenceAction),
+  recordMemberPaymentAction: formAction(dashboardActionHandlers.recordMemberPaymentAction),
+  createMonthlyRecordAction: formAction(dashboardActionHandlers.createMonthlyRecordAction),
+  updateMonthlyRecordSettingsAction: formAction(dashboardActionHandlers.updateMonthlyRecordSettingsAction),
+  generateMonthlyRecordsNowAction: noInputAction(dashboardActionHandlers.generateMonthlyRecordsNowAction),
+  applyMonthlyRecordMemberAction: formAction(dashboardActionHandlers.applyMonthlyRecordMemberAction),
+  cancelMonthlyRecordMemberAction: formAction(dashboardActionHandlers.cancelMonthlyRecordMemberAction),
+  createChargeDefinitionAction: formAction(dashboardActionHandlers.createChargeDefinitionAction),
+  createTenantShareStructureVersionAction: formAction(dashboardActionHandlers.createTenantShareStructureVersionAction),
+  updateTenantShareStructureVersionAction: formAction(dashboardActionHandlers.updateTenantShareStructureVersionAction),
+  createChargeDefinitionVersionAction: formAction(dashboardActionHandlers.createChargeDefinitionVersionAction),
+  updateChargeDefinitionVersionAction: formAction(dashboardActionHandlers.updateChargeDefinitionVersionAction),
+  createShareBusinessAction: formAction(dashboardActionHandlers.createShareBusinessAction),
+  updateShareBusinessAction: formAction(dashboardActionHandlers.updateShareBusinessAction),
+  createShareBusinessProfitEntryAction: formAction(dashboardActionHandlers.createShareBusinessProfitEntryAction),
+  updateShareBusinessProfitEntryAction: formAction(dashboardActionHandlers.updateShareBusinessProfitEntryAction),
+  generateShareProfitAllocationsAction: formAction(dashboardActionHandlers.generateShareProfitAllocationsAction),
+  publishShareProfitAllocationsAction: formAction(dashboardActionHandlers.publishShareProfitAllocationsAction),
+  saveBusinessProfitMigrationWorksheetAction: formAction(dashboardActionHandlers.saveBusinessProfitMigrationWorksheetAction),
+  updateChargeDefinitionAction: formAction(dashboardActionHandlers.updateChargeDefinitionAction),
+  applyChargeAction: formAction(dashboardActionHandlers.applyChargeAction),
+  waiveChargeApplicationAction: formAction(dashboardActionHandlers.waiveChargeApplicationAction),
+  reverseChargeApplicationAction: formAction(dashboardActionHandlers.reverseChargeApplicationAction),
+  submitLoanRequestAction: formAction(dashboardActionHandlers.submitLoanRequestAction),
+  reviewLoanRequestAction: formAction(dashboardActionHandlers.reviewLoanRequestAction),
+  disburseLoanAction: formAction(dashboardActionHandlers.disburseLoanAction),
+  postRepaymentAction: formAction(dashboardActionHandlers.postRepaymentAction),
+  updateCooperativeProfileAction: formAction(dashboardActionHandlers.updateCooperativeProfileAction),
+  updateTenantFinanceStartDateAction: formAction(dashboardActionHandlers.updateTenantFinanceStartDateAction),
+  finalizeInitialMigrationAction: formAction(dashboardActionHandlers.finalizeInitialMigrationAction),
+  unlockInitialMigrationAction: formAction(dashboardActionHandlers.unlockInitialMigrationAction),
+  createLegacyLoanMigrationDraftAction: formAction(dashboardActionHandlers.createLegacyLoanMigrationDraftAction),
+  updateLegacyLoanMigrationDraftAction: formAction(dashboardActionHandlers.updateLegacyLoanMigrationDraftAction),
+  upsertMemberAmountLogAction: formAction(dashboardActionHandlers.upsertMemberAmountLogAction),
+  markLegacyLoansReviewedAction: formAction(dashboardActionHandlers.markLegacyLoansReviewedAction),
+  markBusinessProfitPoolsReviewedAction: formAction(dashboardActionHandlers.markBusinessProfitPoolsReviewedAction),
+  upsertMigrationBackfillAdjustmentAction: formAction(dashboardActionHandlers.upsertMigrationBackfillAdjustmentAction),
+  setMigrationBackfillDefaultingMonthsAction: formAction(dashboardActionHandlers.setMigrationBackfillDefaultingMonthsAction),
+  upsertMemberActivityEventAction: formAction(dashboardActionHandlers.upsertMemberActivityEventAction),
+  deleteMemberActivityEventAction: formAction(dashboardActionHandlers.deleteMemberActivityEventAction),
+  upsertMigrationProfitAdjustmentAction: formAction(dashboardActionHandlers.upsertMigrationProfitAdjustmentAction),
+  updateMemberSignupAccessModeAction: formAction(dashboardActionHandlers.updateMemberSignupAccessModeAction),
+  createMemberSignupLinkAction: formAction(dashboardActionHandlers.createMemberSignupLinkAction),
+  updateMemberSignupLinkAction: formAction(dashboardActionHandlers.updateMemberSignupLinkAction),
+  toggleMemberSignupLinkAction: formAction(dashboardActionHandlers.toggleMemberSignupLinkAction),
+  rotateMemberSignupLinkAction: formAction(dashboardActionHandlers.rotateMemberSignupLinkAction),
+  createTenantDomainAction: formAction(dashboardActionHandlers.createTenantDomainAction),
+  setTenantDomainPrimaryAction: formAction(dashboardActionHandlers.setTenantDomainPrimaryAction),
+  updateTenantDomainVerificationStatusAction: formAction(dashboardActionHandlers.updateTenantDomainVerificationStatusAction),
+  runTenantDomainVerificationCheckAction: formAction(dashboardActionHandlers.runTenantDomainVerificationCheckAction),
+  provisionTenantUserRoleAction: formAction(dashboardActionHandlers.provisionTenantUserRoleAction),
+  saveNotificationPreferenceAction: formAction(dashboardActionHandlers.saveNotificationPreferenceAction),
+  refreshCollectionsStatusesAction: noInputAction(dashboardActionHandlers.refreshCollectionsStatusesAction),
+  recordCollectionFollowUpAction: formAction(dashboardActionHandlers.recordCollectionFollowUpAction),
+  importMembersCsvAction: formAction(dashboardActionHandlers.importMembersCsvAction),
+  importDeductionSourcesCsvAction: formAction(dashboardActionHandlers.importDeductionSourcesCsvAction),
+  importLoanProductsCsvAction: formAction(dashboardActionHandlers.importLoanProductsCsvAction),
+  importContributionsCsvAction: formAction(dashboardActionHandlers.importContributionsCsvAction),
+  importChargesCsvAction: formAction(dashboardActionHandlers.importChargesCsvAction),
+  importLoanMigrationsCsvAction: formAction(dashboardActionHandlers.importLoanMigrationsCsvAction),
+  importRepaymentMigrationsCsvAction: formAction(dashboardActionHandlers.importRepaymentMigrationsCsvAction),
+  stageImportBatchAction: formAction(dashboardActionHandlers.stageImportBatchAction),
+  applyImportBatchAction: formAction(dashboardActionHandlers.applyImportBatchAction),
+  queueBackfillDraftAction: formAction(dashboardActionHandlers.queueBackfillDraftAction),
+  getBackfillPreviewAction: formAction(dashboardActionHandlers.getBackfillPreviewAction),
+  queueBackfillApplyAction: formAction(dashboardActionHandlers.queueBackfillApplyAction),
+})

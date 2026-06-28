@@ -1,12 +1,12 @@
 import "server-only"
 
 import { buildRequestContext } from "@halaalvest/api/context"
+import { appRouter, type AppRouter } from "@halaalvest/api/trpc/routers/_app"
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query"
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query"
 import { headers } from "next/headers"
 import { cache } from "react"
 import { makeQueryClient } from "./query-client"
-import { appRouter, type AppRouter } from "./router"
 
 export const getQueryClient = cache(makeQueryClient)
 

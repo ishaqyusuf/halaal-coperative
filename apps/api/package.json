@@ -6,7 +6,7 @@
   "scripts": {
     "--build": "tsc --noEmit",
     "dev": "node ../../scripts/with-workspace-env.mjs bun --watch src/index.ts",
-    "dev:portless": "node ../../scripts/with-workspace-env.mjs portless api.halaalvest bun --watch src/index.ts",
+    "dev:portless": "node ../../scripts/with-workspace-env.mjs PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 portless api.halaalvest bun --watch src/index.ts",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
@@ -16,7 +16,10 @@
     "./context": "./src/context.ts",
     "./internal-api": "./src/internal-api.ts",
     "./router": "./src/routers/_app.ts",
-    "./trpc": "./src/lib.trpc.ts"
+    "./trpc": "./src/lib.trpc.ts",
+    "./trpc/init": "./src/lib.trpc.ts",
+    "./trpc/routers/_app": "./src/routers/_app.ts",
+    "./trpc/routers/dashboard-actions": "./src/routers/dashboard-actions.route.ts"
   },
   "dependencies": {
     "@halaalvest/auth": "workspace:*",

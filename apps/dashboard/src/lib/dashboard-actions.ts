@@ -1,11 +1,14 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import type * as dashboardActionHandlers from "@/lib/dashboard-action-handlers"
-import type { DashboardActionInput } from "@/trpc/dashboard-actions.route"
+import type {
+  DashboardActionHandlers,
+  DashboardActionInput,
+  DashboardActionResult,
+} from "@halaalvest/api/trpc/routers/dashboard-actions"
 import { getServerCaller } from "@/trpc/server"
 
-type DashboardActionHandlers = typeof dashboardActionHandlers
 type DashboardActionName = Extract<keyof DashboardActionHandlers, string>
 type FormActionName = {
   [TName in DashboardActionName]: Parameters<
@@ -36,7 +39,7 @@ function toDashboardActionInput(formData: FormData): DashboardActionInput {
 async function callDashboardFormAction<TName extends FormActionName>(
   actionName: TName,
   formData: FormData
-) {
+): Promise<HandlerReturn<TName>> {
   const caller = await getServerCaller()
   const action = (
     caller.dashboardActions as Record<
@@ -44,21 +47,49 @@ async function callDashboardFormAction<TName extends FormActionName>(
       (input: DashboardActionInput) => Promise<unknown>
     >
   )[actionName]
+  const result = (await action(toDashboardActionInput(formData))) as
+    | DashboardActionResult<HandlerReturn<TName>>
+    | HandlerReturn<TName>
 
-  return action(toDashboardActionInput(formData)) as Promise<
-    HandlerReturn<TName>
-  >
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "revalidatePaths" in result
+  ) {
+    for (const path of result.revalidatePaths) {
+      revalidatePath(path)
+    }
+
+    return result.data
+  }
+
+  return result as HandlerReturn<TName>
 }
 
 async function callDashboardNoInputAction<TName extends NoInputActionName>(
   actionName: TName
-) {
+): Promise<HandlerReturn<TName>> {
   const caller = await getServerCaller()
   const action = (
     caller.dashboardActions as Record<string, () => Promise<unknown>>
   )[actionName]
+  const result = (await action()) as
+    | DashboardActionResult<HandlerReturn<TName>>
+    | HandlerReturn<TName>
 
-  return action() as Promise<HandlerReturn<TName>>
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "revalidatePaths" in result
+  ) {
+    for (const path of result.revalidatePaths) {
+      revalidatePath(path)
+    }
+
+    return result.data
+  }
+
+  return result as HandlerReturn<TName>
 }
 
 export async function createMemberAction(formData: FormData) {

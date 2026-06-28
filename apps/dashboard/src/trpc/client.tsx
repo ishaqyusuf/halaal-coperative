@@ -1,5 +1,6 @@
 "use client"
 
+import type { AppRouter } from "@halaalvest/api/trpc/routers/_app"
 import type { QueryClient } from "@tanstack/react-query"
 import { isServer, QueryClientProvider } from "@tanstack/react-query"
 import {
@@ -11,7 +12,6 @@ import { createTRPCContext } from "@trpc/tanstack-react-query"
 import { useState } from "react"
 import superjson from "superjson"
 import { makeQueryClient } from "./query-client"
-import type { AppRouter } from "./router"
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>()
 

@@ -276,7 +276,7 @@ export function SignupForm({ devMode }: { devMode: boolean }) {
         <CardContent className="flex flex-col gap-5">
           <Progress value={50}>
             <ProgressLabel>Signup progress</ProgressLabel>
-            <ProgressValue>Step 1 of 2</ProgressValue>
+            <ProgressValue>{() => "Step 1 of 2"}</ProgressValue>
           </Progress>
 
           <Alert>
@@ -385,7 +385,7 @@ export function SignupForm({ devMode }: { devMode: boolean }) {
         <CardContent className="flex flex-col gap-5">
           <Progress value={25}>
             <ProgressLabel>Signup progress</ProgressLabel>
-            <ProgressValue>Step 1 of 2</ProgressValue>
+            <ProgressValue>{() => "Step 1 of 2"}</ProgressValue>
           </Progress>
 
           <form

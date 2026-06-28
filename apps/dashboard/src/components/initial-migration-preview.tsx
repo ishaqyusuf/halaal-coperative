@@ -5,6 +5,7 @@ import {
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
+import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   DashboardTableRow,
   TrendPill,
 } from "@/components/dashboard"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { MemberPreviewPicker } from "@/components/migration/member-preview-picker"
 import { MemberLedgerBackfillTable } from "@/components/migration/member-ledger-backfill-table"
@@ -404,8 +406,7 @@ function MemberBackfillAdjustmentDialog({
             <>
               <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Actual principal repayment
-                <Input
-                  className="text-right"
+                <CurrencyPrefixInput
                   defaultValue={loan?.repaymentAmount ?? ""}
                   disabled={isDisabled}
                   min="0"
@@ -427,8 +428,7 @@ function MemberBackfillAdjustmentDialog({
           ) : (
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
               Actual savings contribution
-              <Input
-                className="text-right"
+              <CurrencyPrefixInput
                 defaultValue={savingsContribution}
                 disabled={isDisabled}
                 min="0"
@@ -479,18 +479,17 @@ function CommitmentHistoryPanel({
         <input name="memberId" type="hidden" value={memberId ?? ""} />
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Date
-          <Input
+          <DatePickerInput
             disabled={disabled || !memberId}
             min={memberJoinedAt ?? undefined}
             name="effectiveFrom"
+            placeholder="Select date"
             required
-            type="date"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Amount
-          <Input
-            className="text-right"
+          <CurrencyPrefixInput
             disabled={disabled || !memberId}
             min="0"
             name="amount"
@@ -583,17 +582,18 @@ function LoanHistoryPanel({
             <DashboardTableBody>
               <DashboardTableRow>
                 <DashboardTableCell>
-                  <Input
+                  <DatePickerInput
+                    className="w-36"
                     disabled={disabled || !memberId}
                     min={memberJoinedAt ?? undefined}
                     name="openedAt"
+                    placeholder="Select date"
                     required
-                    type="date"
                   />
                 </DashboardTableCell>
                 <DashboardTableCell align="right">
-                  <Input
-                    className="w-32 text-right"
+                  <CurrencyPrefixInput
+                    className="w-32"
                     disabled={disabled || !memberId}
                     min="0"
                     name="principalAmount"
@@ -621,8 +621,8 @@ function LoanHistoryPanel({
                   />
                 </DashboardTableCell>
                 <DashboardTableCell align="right">
-                  <Input
-                    className="w-32 text-right"
+                  <CurrencyPrefixInput
+                    className="w-32"
                     disabled={disabled || !memberId}
                     min="0"
                     name="scheduledMonthlyPrincipalRepayment"
@@ -632,8 +632,8 @@ function LoanHistoryPanel({
                   />
                 </DashboardTableCell>
                 <DashboardTableCell align="right">
-                  <Input
-                    className="w-32 text-right"
+                  <CurrencyPrefixInput
+                    className="w-32"
                     disabled={disabled || !memberId}
                     min="0"
                     name="savingsDuringLoan"
@@ -759,25 +759,24 @@ function LegacyLoanDraftEditDialog({
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Loan date
-            <Input
+            <DatePickerInput
               defaultValue={loan.openedAt}
               name="openedAt"
+              placeholder="Select loan date"
               required
-              type="date"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Closed date
-            <Input
+            <DatePickerInput
               defaultValue={loan.closedAt ?? ""}
               name="closedAt"
-              type="date"
+              placeholder="Select closed date"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Principal
-            <Input
-              className="text-right"
+            <CurrencyPrefixInput
               defaultValue={loan.principalAmount}
               min="0"
               name="principalAmount"
@@ -788,8 +787,7 @@ function LegacyLoanDraftEditDialog({
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Monthly principal repayment
-            <Input
-              className="text-right"
+            <CurrencyPrefixInput
               defaultValue={loan.scheduledMonthlyPrincipalRepayment}
               min="0"
               name="scheduledMonthlyPrincipalRepayment"
@@ -800,8 +798,7 @@ function LegacyLoanDraftEditDialog({
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Savings during loan
-            <Input
-              className="text-right"
+            <CurrencyPrefixInput
               defaultValue={loan.savingsDuringLoan}
               min="0"
               name="savingsDuringLoan"
@@ -836,8 +833,7 @@ function LegacyLoanDraftEditDialog({
           </div>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Outstanding principal
-            <Input
-              className="text-right"
+            <CurrencyPrefixInput
               defaultValue={loan.outstandingPrincipalBalance}
               min="0"
               name="outstandingPrincipalBalance"
@@ -1810,19 +1806,22 @@ export function InitialMigrationPreview({
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Loan date
-                <Input
+                <DatePickerInput
                   name="openedAt"
+                  placeholder="Select loan date"
                   required
-                  type="date"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Closed date
-                <Input name="closedAt" type="date" />
+                <DatePickerInput
+                  name="closedAt"
+                  placeholder="Select closed date"
+                />
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Principal
-                <Input
+                <CurrencyPrefixInput
                   min="0"
                   name="principalAmount"
                   required
@@ -1832,7 +1831,7 @@ export function InitialMigrationPreview({
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Monthly principal repayment
-                <Input
+                <CurrencyPrefixInput
                   min="0"
                   name="scheduledMonthlyPrincipalRepayment"
                   required
@@ -1842,7 +1841,7 @@ export function InitialMigrationPreview({
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Savings during loan
-                <Input
+                <CurrencyPrefixInput
                   min="0"
                   name="savingsDuringLoan"
                   required
@@ -1852,7 +1851,7 @@ export function InitialMigrationPreview({
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 Outstanding principal
-                <Input
+                <CurrencyPrefixInput
                   min="0"
                   name="outstandingPrincipalBalance"
                   required

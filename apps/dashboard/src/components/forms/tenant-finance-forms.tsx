@@ -1,12 +1,11 @@
 "use client"
 
-import { type ComponentProps, useState, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { z } from "zod"
 import { ArrowUpDownIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
-import { Calendar } from "@halaalvest/ui/components/calendar"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import {
   Field,
@@ -22,15 +21,10 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@halaalvest/ui/components/popover"
 import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
-import { cn } from "@halaalvest/ui/lib/utils"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { objectToFormData } from "@/lib/form-submit"
 import {
@@ -43,122 +37,6 @@ import {
   publishShareProfitAllocationsAction,
   updateTenantFinanceStartDateAction,
 } from "@/lib/dashboard-actions"
-
-function parseDateValue(value?: string | null) {
-  if (!value) {
-    return undefined
-  }
-
-  const [year, month, day] = value.split("-").map(Number)
-
-  if (!year || !month || !day) {
-    return undefined
-  }
-
-  return new Date(year, month - 1, day)
-}
-
-function formatDateValue(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, "0")
-  const day = String(date.getDate()).padStart(2, "0")
-
-  return `${year}-${month}-${day}`
-}
-
-function formatDateLabel(value?: string | null) {
-  const date = parseDateValue(value)
-
-  if (!date) {
-    return "Pick a date"
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date)
-}
-
-function DatePickerInput({
-  allowClear = true,
-  className,
-  disabled,
-  id,
-  min,
-  onBlur,
-  onChange,
-  placeholder = "Pick a date",
-  value,
-  ...props
-}: Omit<ComponentProps<typeof Button>, "onBlur" | "onChange" | "value"> & {
-  allowClear?: boolean
-  min?: string
-  onBlur?: () => void
-  onChange: (value: string) => void
-  placeholder?: string
-  value?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const selectedDate = parseDateValue(value)
-  const minDate = parseDateValue(min)
-
-  return (
-    <div className="flex gap-2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              {...props}
-              className={cn(
-                "w-full justify-start text-left font-normal",
-                !value && "text-muted-foreground",
-                className
-              )}
-              disabled={disabled}
-              id={id}
-              type="button"
-              variant="outline"
-            />
-          }
-        >
-          {value ? formatDateLabel(value) : placeholder}
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-auto p-2">
-          <Calendar
-            captionLayout="dropdown"
-            defaultMonth={selectedDate ?? minDate}
-            disabled={minDate ? { before: minDate } : undefined}
-            mode="single"
-            selected={selectedDate}
-            onSelect={(date) => {
-              if (!date) {
-                return
-              }
-
-              onChange(formatDateValue(date))
-              onBlur?.()
-              setOpen(false)
-            }}
-          />
-        </PopoverContent>
-      </Popover>
-      {allowClear && value ? (
-        <Button
-          disabled={disabled}
-          onClick={() => {
-            onChange("")
-            onBlur?.()
-          }}
-          type="button"
-          variant="ghost"
-        >
-          Clear
-        </Button>
-      ) : null}
-    </div>
-  )
-}
 
 function CurrencyFormInput({
   id,
@@ -813,7 +691,7 @@ export function ChargeDefinitionForm({
           <FieldGroup className="gap-3">
             {chargeHistoryRows.map((row) => (
               <div
-                className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                className="grid grid-cols-2 gap-2 sm:gap-3"
                 key={row.id}
               >
                 <Field>
@@ -821,6 +699,7 @@ export function ChargeDefinitionForm({
                     Date
                   </FieldLabel>
                   <DatePickerInput
+                    allowClear={false}
                     id={`charge-history-date-${row.id}`}
                     min={financeStartDate ?? undefined}
                     onChange={(value) =>
@@ -828,7 +707,7 @@ export function ChargeDefinitionForm({
                         effectiveFrom: value,
                       })
                     }
-                    placeholder="Select date"
+                    placeholder="Date"
                     value={row.effectiveFrom}
                   />
                 </Field>

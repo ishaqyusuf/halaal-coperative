@@ -16,6 +16,7 @@ import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
+import { DatePickerInput } from "@/components/date-picker-input"
 import {
   createMemberSignupLinkAction,
   rotateMemberSignupLinkAction,
@@ -227,7 +228,10 @@ function CreateLinkForm() {
                 <FormItem>
                   <FormLabel>Expiry date</FormLabel>
                   <FormControl>
-                    <Input {...field} type="date" />
+                    <DatePickerInput
+                      {...field}
+                      placeholder="Select expiry date"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -443,7 +447,10 @@ function MemberSignupLinkCard({ link }: { link: MemberSignupLinkView }) {
                 <FormItem>
                   <FormLabel>Expiry date</FormLabel>
                   <FormControl>
-                    <Input {...field} type="date" />
+                    <DatePickerInput
+                      {...field}
+                      placeholder="Select expiry date"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

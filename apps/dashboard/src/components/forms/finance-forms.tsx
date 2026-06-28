@@ -18,6 +18,7 @@ import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import {
   applyChargeAction,
@@ -176,7 +177,11 @@ export function ContributionPlanForm({
             <FormItem>
               <FormLabel>Effective from</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <DatePickerInput
+                  {...field}
+                  allowClear={false}
+                  placeholder="Select effective date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -430,7 +435,11 @@ export function MemberPaymentForm({
             <FormItem>
               <FormLabel>Posted date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <DatePickerInput
+                  {...field}
+                  allowClear={false}
+                  placeholder="Select posted date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -620,7 +629,11 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
             <FormItem>
               <FormLabel>Start date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <DatePickerInput
+                  {...field}
+                  allowClear={false}
+                  placeholder="Select start date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -798,7 +811,11 @@ export function ChargeApplicationForm({
             <FormItem>
               <FormLabel>Assessed date</FormLabel>
               <FormControl>
-                <Input {...field} type="date" />
+                <DatePickerInput
+                  {...field}
+                  allowClear={false}
+                  placeholder="Select assessed date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1375,7 +1392,11 @@ export function ContributionPlanCloseForm({ planId }: { planId: string }) {
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input {...field} type="date" />
+                <DatePickerInput
+                  {...field}
+                  allowClear={false}
+                  placeholder="Select end date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1503,7 +1524,12 @@ export function LoanDisbursementForm({ loanId }: { loanId: string }) {
                 First repayment due
               </FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} type="date" />
+                <DatePickerInput
+                  {...field}
+                  allowClear={false}
+                  placeholder="Select due date"
+                  value={field.value ?? ""}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1675,7 +1701,11 @@ export function CollectionFollowUpForm({
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} type="date" />
+                <DatePickerInput
+                  {...field}
+                  placeholder="Next action date"
+                  value={field.value ?? ""}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1687,7 +1717,11 @@ export function CollectionFollowUpForm({
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} type="date" />
+                <DatePickerInput
+                  {...field}
+                  placeholder="Promise date"
+                  value={field.value ?? ""}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

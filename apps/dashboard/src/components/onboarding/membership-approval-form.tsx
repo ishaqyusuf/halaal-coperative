@@ -22,6 +22,7 @@ import {
 } from "@halaalvest/ui/components/input-group"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { objectToFormData } from "@/lib/form-submit"
 import {
   approveMemberOnboardingAction,
@@ -343,7 +344,11 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
                   <FormItem>
                     <FormLabel>Loan start date</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePickerInput
+                        {...field}
+                        allowClear={false}
+                        placeholder="Select loan start date"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

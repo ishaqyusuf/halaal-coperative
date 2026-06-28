@@ -1,6 +1,7 @@
 import { Button } from "@halaalvest/ui/components/button"
 import type { MemberLedgerBackfillRow } from "@halaalvest/backfill"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
+import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardDataTable,
@@ -19,6 +20,7 @@ import {
   DashboardSurfaceCard,
   TrendPill,
 } from "@/components/dashboard"
+import { DatePickerInput } from "@/components/date-picker-input"
 import {
   ChargeDefinitionForm,
   ChargeDefinitionVersionForm,
@@ -631,19 +633,17 @@ export function TenantFinancePageView({
                                         />
                                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                           Effective date
-                                          <input
-                                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                          <DatePickerInput
                                             defaultValue={version.effectiveFrom}
                                             min={tenantStartDate ?? undefined}
                                             name="effectiveFrom"
+                                            placeholder="Select effective date"
                                             required
-                                            type="date"
                                           />
                                         </label>
                                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                           Amount
-                                          <input
-                                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                                          <CurrencyPrefixInput
                                             defaultValue={version.amount}
                                             min="0"
                                             name="amount"
@@ -743,17 +743,16 @@ export function TenantFinancePageView({
                                       type="hidden"
                                       value={charge.chargeValueType}
                                     />
-                                    <input
+                                    <DatePickerInput
                                       aria-label={`${charge.name} effective date`}
-                                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                      className="min-w-36"
                                       min={tenantStartDate ?? undefined}
                                       name="effectiveFrom"
+                                      placeholder="Effective date"
                                       required
-                                      type="date"
                                     />
-                                    <input
+                                    <CurrencyPrefixInput
                                       aria-label={`${charge.name} amount`}
-                                      className="h-9 rounded-md border border-input bg-background px-3 text-right text-sm"
                                       min="0"
                                       name="amount"
                                       placeholder="0.00"
@@ -1012,8 +1011,7 @@ export function TenantFinancePageView({
                                         </label>
                                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                           Capital
-                                          <input
-                                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                                          <CurrencyPrefixInput
                                             defaultValue={
                                               business.capitalAmount
                                             }
@@ -1026,8 +1024,7 @@ export function TenantFinancePageView({
                                         </label>
                                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                           Recorded profit
-                                          <input
-                                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                                          <CurrencyPrefixInput
                                             defaultValue={business.profitAmount}
                                             min="0"
                                             name="profitAmount"
@@ -1038,19 +1035,17 @@ export function TenantFinancePageView({
                                         </label>
                                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                           Start date
-                                          <input
-                                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                          <DatePickerInput
                                             defaultValue={business.startDate}
                                             min={tenantStartDate ?? undefined}
                                             name="startDate"
+                                            placeholder="Select start date"
                                             required
-                                            type="date"
                                           />
                                         </label>
                                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                           End date
-                                          <input
-                                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                          <DatePickerInput
                                             defaultValue={
                                               business.endDate ?? ""
                                             }
@@ -1060,7 +1055,7 @@ export function TenantFinancePageView({
                                               undefined
                                             }
                                             name="endDate"
-                                            type="date"
+                                            placeholder="Select end date"
                                           />
                                         </label>
                                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
@@ -1202,8 +1197,7 @@ export function TenantFinancePageView({
                                             />
                                             <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                               Profit date
-                                              <input
-                                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                              <DatePickerInput
                                                 defaultValue={
                                                   latestProfitEntry.profitDate
                                                 }
@@ -1211,14 +1205,13 @@ export function TenantFinancePageView({
                                                   tenantStartDate ?? undefined
                                                 }
                                                 name="profitDate"
+                                                placeholder="Select profit date"
                                                 required
-                                                type="date"
                                               />
                                             </label>
                                             <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                               Gross profit
-                                              <input
-                                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                                              <CurrencyPrefixInput
                                                 defaultValue={
                                                   latestProfitEntry.profitAmount
                                                 }
@@ -1231,8 +1224,7 @@ export function TenantFinancePageView({
                                             </label>
                                             <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                               Expense / charges
-                                              <input
-                                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                                              <CurrencyPrefixInput
                                                 defaultValue={
                                                   latestProfitEntry.expenseAmount
                                                 }
@@ -1244,8 +1236,7 @@ export function TenantFinancePageView({
                                             </label>
                                             <label className="space-y-1 text-xs font-medium text-muted-foreground">
                                               Allocatable profit
-                                              <input
-                                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                                              <CurrencyPrefixInput
                                                 defaultValue={
                                                   latestProfitEntry.allocatableProfitAmount
                                                 }

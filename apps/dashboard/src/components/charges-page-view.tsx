@@ -1,4 +1,5 @@
 import { Button } from "@halaalvest/ui/components/button"
+import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardDataTable,
@@ -15,6 +16,7 @@ import {
   TrendPill,
   WorkspacePageShell,
 } from "@/components/dashboard"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { ChargeApplicationForm, ChargeDefinitionForm } from "@/components/forms/finance-forms"
 import {
   reverseChargeApplicationAction,
@@ -271,17 +273,15 @@ export function ChargesPageView({
                         <input type="hidden" name="chargeValueType" value={charge.chargeValueType} />
                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
                           Effective date
-                          <input
-                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                          <DatePickerInput
                             name="effectiveFrom"
+                            placeholder="Select effective date"
                             required
-                            type="date"
                           />
                         </label>
                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
                           New amount
-                          <input
-                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-right text-sm text-foreground"
+                          <CurrencyPrefixInput
                             min="0"
                             name="amount"
                             placeholder="0.00"

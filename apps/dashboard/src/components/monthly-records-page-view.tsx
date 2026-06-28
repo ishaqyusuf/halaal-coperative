@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
+import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import {
   Item,
@@ -321,8 +322,9 @@ function MonthlyRecordMembersTable({
                 <TableCell>{formatCurrency(row.loanRepaymentAmount)}</TableCell>
                 <TableCell>{formatCurrency(row.totalPayableAmount)}</TableCell>
                 <TableCell>
-                  <Input
+                  <CurrencyPrefixInput
                     aria-label={`Total paid for ${row.memberName}`}
+                    className="w-32"
                     defaultValue={row.totalPaidAmount.toFixed(2)}
                     disabled={!canEditPaidAmount}
                     form={formId}
@@ -330,7 +332,6 @@ function MonthlyRecordMembersTable({
                     name="totalPaidAmount"
                     step="0.01"
                     type="number"
-                    className="w-32"
                   />
                 </TableCell>
                 <TableCell>

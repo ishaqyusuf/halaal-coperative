@@ -1,7 +1,7 @@
 import Link from "next/link"
 import type { PageFilterData } from "@halaalvest/utils"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button } from "@halaalvest/ui/components/button"
+import { buttonVariants } from "@halaalvest/ui/components/button"
 import { formatCurrency } from "@halaalvest/utils"
 import { ContributionsHeader } from "@/components/contributions-header"
 import {
@@ -95,9 +95,12 @@ export function ContributionsPageView({
                 {stagedContributions.length} staged
               </TrendPill>
             ) : (
-              <Button asChild size="sm" variant="outline">
-                <Link href={showThisMonthHref}>Show this month</Link>
-              </Button>
+              <Link
+                className={buttonVariants({ size: "sm", variant: "outline" })}
+                href={showThisMonthHref}
+              >
+                Show this month
+              </Link>
             )
           }
           description={

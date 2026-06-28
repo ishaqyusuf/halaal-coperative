@@ -3,6 +3,7 @@
 import { type FormEvent, useMemo, useState, useTransition } from "react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
+import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { formatCurrency } from "@halaalvest/utils"
@@ -17,6 +18,7 @@ import {
   DashboardTableRow,
   TrendPill,
 } from "@/components/dashboard"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { PublishShareProfitAllocationsButton } from "@/components/forms/tenant-finance-forms"
 import { saveBusinessProfitMigrationWorksheetAction } from "@/lib/dashboard-actions"
 
@@ -325,18 +327,18 @@ export function BusinessProfitMigrationWorksheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Profit date
-              <Input
+              <DatePickerInput
                 disabled={isLocked}
                 name="profitDate"
-                onChange={(event) => setProfitDate(event.target.value)}
+                onChange={setProfitDate}
+                placeholder="Select profit date"
                 required
-                type="date"
                 value={profitDate}
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Total profit
-              <Input
+              <CurrencyPrefixInput
                 disabled={isLocked}
                 min="0"
                 name="profitAmount"
@@ -409,8 +411,7 @@ export function BusinessProfitMigrationWorksheet({
                       />
                     </DashboardTableCell>
                     <DashboardTableCell align="right">
-                      <Input
-                        className="text-right"
+                      <CurrencyPrefixInput
                         disabled={isLocked}
                         min="0"
                         name={`expenseAmount-${index}`}
@@ -535,8 +536,7 @@ export function BusinessProfitMigrationWorksheet({
                       </DashboardTableCell>
                       <DashboardTableCell align="right">
                         {allocationMode === "value" ? (
-                          <Input
-                            className="text-right"
+                          <CurrencyPrefixInput
                             disabled={isLocked}
                             min="0"
                             name={`allocationValue-${allocation.memberId}`}

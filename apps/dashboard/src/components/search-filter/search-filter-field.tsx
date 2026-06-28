@@ -1,5 +1,6 @@
 "use client"
 
+import { DatePickerInput } from "@/components/date-picker-input"
 import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import type { PageFilterData } from "@halaalvest/utils"
@@ -27,20 +28,20 @@ export function SearchFilterField({
           {filter.label ?? filter.value}
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Input
-            onChange={(event) => {
-              const next = [event.target.value, to].filter(Boolean)
+          <DatePickerInput
+            onChange={(date) => {
+              const next = [date, to].filter(Boolean)
               onChange(next.length ? next : null)
             }}
-            type="date"
+            placeholder="From date"
             value={from}
           />
-          <Input
-            onChange={(event) => {
-              const next = [from, event.target.value].filter(Boolean)
+          <DatePickerInput
+            onChange={(date) => {
+              const next = [from, date].filter(Boolean)
               onChange(next.length ? next : null)
             }}
-            type="date"
+            placeholder="To date"
             value={to}
           />
         </div>
@@ -54,9 +55,9 @@ export function SearchFilterField({
         <p className="text-sm font-medium text-foreground">
           {filter.label ?? filter.value}
         </p>
-        <Input
-          onChange={(event) => onChange(event.target.value || null)}
-          type="date"
+        <DatePickerInput
+          onChange={(date) => onChange(date || null)}
+          placeholder="Select date"
           value={String(filterValue)}
         />
       </div>

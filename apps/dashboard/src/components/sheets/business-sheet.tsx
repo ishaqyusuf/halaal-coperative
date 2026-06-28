@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
+import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import {
@@ -11,6 +12,7 @@ import {
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { ShareBusinessProfitEntryForm } from "@/components/forms/tenant-finance-forms"
 import { useBusinessParams } from "@/hooks/use-business-params"
 import {
@@ -114,17 +116,17 @@ export function BusinessSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Profit date
-              <Input
+              <DatePickerInput
                 disabled={isLocked}
                 min={financeStartDate ?? undefined}
                 name="profitDate"
+                placeholder="Select profit date"
                 required
-                type="date"
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Gross profit
-              <Input
+              <CurrencyPrefixInput
                 disabled={isLocked}
                 min="0"
                 name="profitAmount"
@@ -135,7 +137,7 @@ export function BusinessSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Expense / charges
-              <Input
+              <CurrencyPrefixInput
                 disabled={isLocked}
                 min="0"
                 name="expenseAmount"
@@ -145,7 +147,7 @@ export function BusinessSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Final allocatable profit
-              <Input
+              <CurrencyPrefixInput
                 disabled={isLocked}
                 min="0"
                 name="allocatableProfitAmount"
@@ -233,7 +235,7 @@ export function BusinessSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Capital
-              <Input
+              <CurrencyPrefixInput
                 defaultValue={business.capitalAmount}
                 disabled={isLocked}
                 min="0"
@@ -245,7 +247,7 @@ export function BusinessSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Recorded profit
-              <Input
+              <CurrencyPrefixInput
                 defaultValue={business.profitAmount}
                 disabled={isLocked}
                 min="0"
@@ -257,23 +259,23 @@ export function BusinessSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Start date
-              <Input
+              <DatePickerInput
                 defaultValue={business.startDate}
                 disabled={isLocked}
                 min={financeStartDate ?? undefined}
                 name="startDate"
+                placeholder="Select start date"
                 required
-                type="date"
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               End date
-              <Input
+              <DatePickerInput
                 defaultValue={business.endDate ?? ""}
                 disabled={isLocked}
                 min={business.startDate || financeStartDate || undefined}
                 name="endDate"
-                type="date"
+                placeholder="Select end date"
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
@@ -325,18 +327,18 @@ export function BusinessSheet({
             <input name="profitEntryId" type="hidden" value={profitEntry.id} />
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Profit date
-              <Input
+              <DatePickerInput
                 defaultValue={profitEntry.profitDate}
                 disabled={isLocked}
                 min={financeStartDate ?? undefined}
                 name="profitDate"
+                placeholder="Select profit date"
                 required
-                type="date"
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Gross profit
-              <Input
+              <CurrencyPrefixInput
                 defaultValue={profitEntry.profitAmount}
                 disabled={isLocked}
                 min="0"
@@ -348,7 +350,7 @@ export function BusinessSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Expense / charges
-              <Input
+              <CurrencyPrefixInput
                 defaultValue={profitEntry.expenseAmount}
                 disabled={isLocked}
                 min="0"
@@ -359,7 +361,7 @@ export function BusinessSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Final allocatable profit
-              <Input
+              <CurrencyPrefixInput
                 defaultValue={profitEntry.allocatableProfitAmount}
                 disabled={isLocked}
                 min="0"

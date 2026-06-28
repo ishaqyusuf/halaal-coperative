@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import { Input } from "@halaalvest/ui/components/input"
+import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import {
   Sheet,
@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { useShareParams } from "@/hooks/use-share-params"
 import { updateTenantShareStructureVersionAction } from "@/lib/dashboard-actions"
 import type { Share } from "@/components/tables/shares/columns"
@@ -58,13 +59,13 @@ export function ShareSheet({
             />
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Effective date
-              <Input
+              <DatePickerInput
                 defaultValue={version.effectiveFrom}
                 disabled={isLocked}
                 min={financeStartDate ?? undefined}
                 name="effectiveFrom"
+                placeholder="Select effective date"
                 required
-                type="date"
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
@@ -80,7 +81,7 @@ export function ShareSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Value
-              <Input
+              <CurrencyPrefixInput
                 defaultValue={version.amount}
                 disabled={isLocked}
                 min="0"

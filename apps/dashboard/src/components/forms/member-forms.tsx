@@ -30,6 +30,7 @@ import {
   applyDashboardDevFormFill,
   applyDashboardRandomDevFormFill,
 } from "@/lib/dev-form-fill"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { objectToFormData } from "@/lib/form-submit"
 import {
   createMemberAction,
@@ -267,7 +268,11 @@ export function MemberCommitmentForm({
               <FormItem>
                 <FormLabel>Starts</FormLabel>
                 <FormControl>
-                  <Input {...field} type="date" />
+                  <DatePickerInput
+                    {...field}
+                    allowClear={false}
+                    placeholder="Select start date"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -644,7 +649,11 @@ export function MemberCreateForm({
                   <FormItem>
                     <FormLabel>Joined date</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePickerInput
+                        {...field}
+                        allowClear={false}
+                        placeholder="Select joined date"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -792,13 +801,13 @@ export function MemberCreateForm({
                             className="border-t border-border/60"
                           >
                             <td className="px-3 py-2 align-top">
-                              <Input
+                              <DatePickerInput
                                 min={joinedAt || undefined}
-                                type="date"
+                                placeholder="Select date"
                                 value={row.effectiveFrom ?? ""}
-                                onChange={(event) =>
+                                onChange={(date) =>
                                   updateCommitmentHistoryRow(row.id, {
-                                    effectiveFrom: event.target.value,
+                                    effectiveFrom: date,
                                   })
                                 }
                               />
@@ -881,10 +890,11 @@ export function MemberCreateForm({
                       <FormItem>
                         <FormLabel>Loan start date</FormLabel>
                         <FormControl>
-                          <Input
+                          <DatePickerInput
                             {...field}
+                            allowClear={false}
                             min={joinedAt || undefined}
-                            type="date"
+                            placeholder="Select loan start date"
                           />
                         </FormControl>
                         <FormMessage />
@@ -1081,13 +1091,13 @@ export function MemberCreateForm({
                       legacyLoanHistoryRows.map((row) => (
                         <tr key={row.id} className="border-t border-border/60">
                           <td className="px-3 py-2 align-top">
-                            <Input
+                            <DatePickerInput
                               min={joinedAt || undefined}
-                              type="date"
+                              placeholder="Opened date"
                               value={row.openedAt ?? ""}
-                              onChange={(event) =>
+                              onChange={(date) =>
                                 updateLegacyLoanHistoryRow(row.id, {
-                                  openedAt: event.target.value,
+                                  openedAt: date,
                                 })
                               }
                             />
@@ -1161,13 +1171,13 @@ export function MemberCreateForm({
                             />
                           </td>
                           <td className="px-3 py-2 align-top">
-                            <Input
+                            <DatePickerInput
                               min={joinedAt || undefined}
-                              type="date"
+                              placeholder="Closed date"
                               value={row.closedAt ?? ""}
-                              onChange={(event) =>
+                              onChange={(date) =>
                                 updateLegacyLoanHistoryRow(row.id, {
-                                  closedAt: event.target.value,
+                                  closedAt: date,
                                 })
                               }
                             />

@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
+import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import {
   Sheet,
@@ -10,6 +11,7 @@ import {
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { ChargeDefinitionVersionForm } from "@/components/forms/tenant-finance-forms"
 import { useChargeParams } from "@/hooks/use-charge-params"
 import {
@@ -78,17 +80,17 @@ export function ChargeSheet({
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Effective date
-              <Input
+              <DatePickerInput
                 disabled={isLocked}
                 min={financeStartDate ?? undefined}
                 name="effectiveFrom"
+                placeholder="Select effective date"
                 required
-                type="date"
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Amount
-              <Input
+              <CurrencyPrefixInput
                 disabled={isLocked}
                 min="0"
                 name="amount"
@@ -134,18 +136,18 @@ export function ChargeSheet({
             />
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Effective date
-              <Input
+              <DatePickerInput
                 defaultValue={version.effectiveFrom}
                 disabled={isLocked}
                 min={financeStartDate ?? undefined}
                 name="effectiveFrom"
+                placeholder="Select effective date"
                 required
-                type="date"
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Amount
-              <Input
+              <CurrencyPrefixInput
                 defaultValue={version.amount}
                 disabled={isLocked}
                 min="0"

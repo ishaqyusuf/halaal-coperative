@@ -93,30 +93,42 @@ export function DashboardSidebar({
 
   const navSections = (
     <nav className="mt-4 w-full overflow-y-auto">
-      {modules.map((module) => (
-        <section key={module.name} className="mb-4">
-          <div className="flex flex-col gap-2">
-            {module.sections.flatMap((section) =>
-              section.links
-                .filter((link) => link.show && link.href)
-                .map((link) => (
-                  <DashboardSidebarLink
-                    key={link.href}
-                    expanded={isExpanded}
-                    href={link.href!}
-                    icon={link.icon}
-                    isActive={
-                      pathname === link.href ||
-                      pathname.startsWith(`${link.href}/`)
-                    }
-                    label={link.title ?? link.name}
-                    onNavigate={mobileOpen ? closeMobile : undefined}
-                  />
-                ))
-            )}
-          </div>
-        </section>
-      ))}
+      <div className="flex flex-col gap-5">
+        {modules.flatMap((module) =>
+          module.sections
+            .map((section) => ({
+              ...section,
+              links: section.links.filter((link) => link.show && link.href),
+              moduleName: module.name,
+            }))
+            .filter((section) => section.links.length > 0)
+            .map((section) => (
+              <section key={`${section.moduleName}-${section.name}`}>
+                {isExpanded ? (
+                  <p className="mb-2 px-[19px] text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/60">
+                    {section.title ?? section.moduleName}
+                  </p>
+                ) : null}
+                <div className="flex flex-col gap-2">
+                  {section.links.map((link) => (
+                    <DashboardSidebarLink
+                      key={link.href}
+                      expanded={isExpanded}
+                      href={link.href!}
+                      icon={link.icon}
+                      isActive={
+                        pathname === link.href ||
+                        pathname.startsWith(`${link.href}/`)
+                      }
+                      label={link.title ?? link.name}
+                      onNavigate={mobileOpen ? closeMobile : undefined}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))
+        )}
+      </div>
     </nav>
   )
 

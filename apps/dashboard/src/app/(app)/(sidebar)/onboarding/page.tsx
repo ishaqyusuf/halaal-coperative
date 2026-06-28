@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { getTenantFirstRunOnboardingState } from "@halaalvest/db"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button } from "@halaalvest/ui/components/button"
+import { buttonVariants } from "@halaalvest/ui/components/button"
 import {
   DashboardSectionCard,
   DashboardSectionHeader,
@@ -43,9 +43,9 @@ export default async function FirstRunOnboardingPage() {
     <WorkspacePageShell
       actions={
         nextStep && canConfigure ? (
-          <Button asChild>
-            <Link href={nextStep.href}>Continue setup</Link>
-          </Button>
+          <Link className={buttonVariants({})} href={nextStep.href}>
+            Continue setup
+          </Link>
         ) : undefined
       }
       eyebrow="Onboarding"
@@ -119,11 +119,16 @@ export default async function FirstRunOnboardingPage() {
                       {step.complete ? "done" : "todo"}
                     </Badge>
                   </div>
-                  <Button asChild className="mt-4" size="sm" variant="outline">
-                    <Link href={step.href}>
-                      {step.complete ? "Review" : "Open"}
-                    </Link>
-                  </Button>
+                  <Link
+                    className={buttonVariants({
+                      className: "mt-4",
+                      size: "sm",
+                      variant: "outline",
+                    })}
+                    href={step.href}
+                  >
+                    {step.complete ? "Review" : "Open"}
+                  </Link>
                 </DashboardSurfaceCard>
               ))}
             </div>

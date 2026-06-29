@@ -250,7 +250,6 @@ export async function FinanceSettingsRoute({
         [
           "finance_start_date",
           "charge_schedules",
-          "business_profit_pools",
           "share_capital_plan",
           "member_profiles",
         ].includes(stepKey)

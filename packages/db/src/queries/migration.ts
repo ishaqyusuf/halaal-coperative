@@ -238,7 +238,6 @@ export async function getTenantInitialMigrationState(
   const historicalSetupComplete =
     hasFinanceStartDate &&
     hasChargeSchedules &&
-    hasBusinessProfitPools &&
     hasShareCapitalPlan &&
     hasLegacyLoansReviewed
   const derivedStatus: InitialMigrationStatus = !hasFinanceStartDate

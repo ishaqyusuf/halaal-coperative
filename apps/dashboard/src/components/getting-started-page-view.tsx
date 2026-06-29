@@ -70,7 +70,6 @@ import { InitialMigrationPreview } from "@/components/initial-migration-preview"
 import {
   finalizeInitialMigrationAction,
   markBusinessProfitPoolsReviewedAction,
-  markLegacyLoansReviewedAction,
 } from "@/lib/dashboard-actions"
 
 type GettingStartedStepKey =
@@ -216,6 +215,7 @@ type GettingStartedPageViewProps = {
   adminMember: MemberSummary | null
   chargeDefinitions: ChargeDefinitionRow[]
   dividendPeriods: DividendPeriodRow[]
+  generatedLedgerError?: string | null
   generatedLedgerRows?: MemberLedgerBackfillRow[]
   legacyLoanDrafts: LegacyLoanDraftRow[]
   memberActivityEvents: MemberActivityEventRow[]
@@ -270,7 +270,7 @@ function isStepComplete(
   if (key === "start-date") return !missing.has("finance_start_date")
   if (key === "charges") return !missing.has("charge_schedules")
   if (key === "shares") return !missing.has("share_capital_plan")
-  if (key === "business") return !missing.has("business_profit_pools")
+  if (key === "business") return true
   if (key === "admin-member") {
     return (
       !missing.has("member_profiles") &&
@@ -291,8 +291,8 @@ function getStepMeta(key: GettingStartedStepKey) {
     },
     business: {
       description:
-        "Record business pools, profits, expenses, and the explicit no-history decision when there are none.",
-      label: "Business and profits",
+        "Optionally record business pools, profits, expenses, and the explicit no-history decision when there are none.",
+      label: "Business and profits (optional)",
     },
     charges: {
       description:
@@ -558,15 +558,20 @@ function SummaryCard({
 }
 
 function StepFooter({
+  nextHrefOverride,
+  nextLabel = "Next",
   nextStep,
   previousStep,
   requireHistoryConfirmation = false,
 }: {
+  nextHrefOverride?: string
+  nextLabel?: string
   nextStep?: GettingStartedStepKey
   previousStep?: GettingStartedStepKey
   requireHistoryConfirmation?: boolean
 }) {
-  const nextHref = nextStep ? stepHref(nextStep) : ""
+  const nextHref = nextHrefOverride ?? (nextStep ? stepHref(nextStep) : "")
+  const hasNext = Boolean(nextHref)
 
   return (
     <div className="mt-6 flex flex-col gap-4">
@@ -582,11 +587,11 @@ function StepFooter({
         ) : (
           <span />
         )}
-        {nextStep ? (
+        {hasNext ? (
           requireHistoryConfirmation ? (
             <AlertDialog>
               <AlertDialogTrigger render={<Button />}>
-                Next
+                {nextLabel}
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -609,7 +614,7 @@ function StepFooter({
             </AlertDialog>
           ) : (
             <Link className={buttonVariants({})} href={nextHref}>
-              Next
+              {nextLabel}
             </Link>
           )
         ) : null}
@@ -835,6 +840,7 @@ function BusinessStep({
 function AdminMemberStep(props: GettingStartedPageViewProps) {
   const {
     adminMember,
+    generatedLedgerError,
     generatedLedgerRows,
     legacyLoanDrafts,
     memberActivityEvents,
@@ -852,7 +858,7 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
       <SetupCardHeader
         eyebrow="Step 5"
         title="First member migration"
-        description="Use the registered admin as the first migrated member, then review commitment history, loan history, activity windows, and the generated ledger table."
+        description="Use the registered admin as the first migrated member, then save commitment history, loan history, activity windows, and profit adjustments."
         action={
           <Link
             className={buttonVariants({ size: "sm", variant: "outline" })}
@@ -888,16 +894,8 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
           />
         )}
 
-        <ConfirmationForm
-          action={markLegacyLoansReviewedAction}
-          buttonLabel="Save no-loan review"
-          description="Type NO LEGACY LOANS only if the cooperative has no historical loan balances to migrate."
-          id="legacy-loan-review"
-          placeholder="NO LEGACY LOANS"
-          title="Confirm no legacy loans"
-        />
-
         <InitialMigrationPreview
+          generatedLedgerError={generatedLedgerError}
           generatedLedgerRows={generatedLedgerRows}
           legacyLoanDrafts={legacyLoanDrafts}
           memberActivityEvents={memberActivityEvents}

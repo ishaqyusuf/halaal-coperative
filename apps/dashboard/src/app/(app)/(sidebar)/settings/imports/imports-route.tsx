@@ -206,7 +206,6 @@ export async function ImportsSettingsRoute({
   const historicalSetupStepKeys = [
     "finance_start_date",
     "charge_schedules",
-    "business_profit_pools",
     "share_capital_plan",
   ]
   const stepLabels = new Map(

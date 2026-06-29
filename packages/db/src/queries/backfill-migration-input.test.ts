@@ -129,6 +129,47 @@ function createBackfillInputPrismaStub() {
 }
 
 describe("member backfill input builder", () => {
+  test("starts generated ledger range at first saving history by default", async () => {
+    const input = await buildBackfillDraftInputForMember(
+      {
+        endMonth: new Date("2026-02-01T00:00:00.000Z"),
+        memberId: "member-1",
+        tenantId: "tenant-1",
+      },
+      {
+        ...createBackfillInputPrismaStub(),
+        memberAmountLog: {
+          findMany: async () => [
+            {
+              amount: 5000,
+              effectiveFrom: new Date("2025-05-01T00:00:00.000Z"),
+              notes: "First saving history",
+            },
+            {
+              amount: 7500,
+              effectiveFrom: new Date("2025-09-01T00:00:00.000Z"),
+              notes: "Updated saving history",
+            },
+          ],
+        },
+      } as never
+    )
+
+    expect(input.startMonth).toBe("2025-05")
+    expect(input.amountLogs).toEqual([
+      {
+        amount: 5000,
+        effectiveFrom: "2025-05",
+        notes: "First saving history",
+      },
+      {
+        amount: 7500,
+        effectiveFrom: "2025-09",
+        notes: "Updated saving history",
+      },
+    ])
+  })
+
   test("maps legacy loan migration drafts into backfill loan events", async () => {
     const input = await buildBackfillDraftInputForMember(
       {

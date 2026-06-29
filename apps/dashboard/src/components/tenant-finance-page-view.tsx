@@ -281,10 +281,10 @@ export function TenantFinancePageView({
     !initialMigrationSnapshot?.canUseMigrationTools
   const historicalSetupLocked = migrationToolsClosed || hasAppliedMemberBackfill
   const historicalSetupLockReason = migrationToolsClosed
-    ? "Migration has been finalized, so historical charge schedules, share capital rules, business profit pools, and historical charge imports are read-only."
+    ? "Migration has been finalized, so historical charge schedules, share capital rules, optional business profit pools, and historical charge imports are read-only."
     : hasAppliedMemberBackfill
-      ? "Member ledger backfill has started, so dated charge schedules, share capital rules, business profit pools, and historical charge imports are locked."
-      : "Complete dated charges, share capital rules, business profit pools, and historical charge imports before applying any member ledger backfill."
+      ? "Member ledger backfill has started, so dated charge schedules, share capital rules, optional business profit pools, and historical charge imports are locked."
+      : "Complete dated charges, share capital rules, and historical charge imports before applying member ledger backfill. Business profit history can be added when it exists."
   const businessProfitPoolsReviewed =
     initialMigrationSnapshot?.steps.find(
       (step) => step.key === "business_profit_pools"

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ["*.app.halaalvest.localhost"],
   transpilePackages: [
     "@halaalvest/api",
     "@halaalvest/auth",

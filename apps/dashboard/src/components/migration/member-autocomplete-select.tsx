@@ -12,6 +12,7 @@ type MemberAutocompleteSelectProps = {
   disabled?: boolean
   label: string
   name: string
+  onValueChange?: (value: string) => void
   options: MemberAutocompleteOption[]
   placeholder?: string
   value?: string | null
@@ -21,6 +22,7 @@ export function MemberAutocompleteSelect({
   disabled = false,
   label,
   name,
+  onValueChange,
   options,
   placeholder = "Search member",
   value,
@@ -59,9 +61,11 @@ export function MemberAutocompleteSelect({
           const nextOption = optionEntries.find(
             (option) => option.displayValue === nextQuery
           )
+          const nextSelectedId = nextOption?.id ?? ""
 
           setQuery(nextQuery)
-          setSelectedId(nextOption?.id ?? "")
+          setSelectedId(nextSelectedId)
+          onValueChange?.(nextSelectedId)
         }}
         placeholder={placeholder}
         type="text"

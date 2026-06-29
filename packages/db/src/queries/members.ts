@@ -160,7 +160,6 @@ async function assertMemberProfileMutationOpen(
   const setupStepKeys = new Set([
     "finance_start_date",
     "charge_schedules",
-    "business_profit_pools",
     "share_capital_plan",
   ])
   const blockingSteps = migrationState.snapshot.missingStepKeys.filter(

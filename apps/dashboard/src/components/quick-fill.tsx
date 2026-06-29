@@ -28,6 +28,8 @@ import {
   quickFillers,
   type BusinessProfitHistoryQuickFillTemplate,
   type ChargeHistoryQuickFillTemplate,
+  type CommitmentHistoryQuickFillTemplate,
+  type LoanHistoryQuickFillTemplate,
   type QuickFillArgs,
   type QuickFillArgsFor,
   type QuickFillInterval,
@@ -109,7 +111,7 @@ function renderChargeHistoryTemplateFields<Name extends QuickFillName>({
         onChange={(amount) =>
           updateTemplateValue(setTemplate, {
             amount,
-          } as Partial<QuickFillTemplateFor<Name>>)
+          } as unknown as Partial<QuickFillTemplateFor<Name>>)
         }
         placeholder="2000"
         value={template.amount}
@@ -154,7 +156,7 @@ function renderShareHistoryTemplateFields<Name extends QuickFillName>({
             onChange={(amount) =>
               updateTemplateValue(setTemplate, {
                 amount,
-              } as Partial<QuickFillTemplateFor<Name>>)
+              } as unknown as Partial<QuickFillTemplateFor<Name>>)
             }
             placeholder="10"
             value={template.amount}
@@ -164,7 +166,7 @@ function renderShareHistoryTemplateFields<Name extends QuickFillName>({
             onChange={(amount) =>
               updateTemplateValue(setTemplate, {
                 amount,
-              } as Partial<QuickFillTemplateFor<Name>>)
+              } as unknown as Partial<QuickFillTemplateFor<Name>>)
             }
             placeholder="15000"
             value={template.amount}
@@ -192,7 +194,7 @@ function renderBusinessProfitHistoryTemplateFields<Name extends QuickFillName>({
           onChange={(amount) =>
             updateTemplateValue(setTemplate, {
               amount,
-            } as Partial<QuickFillTemplateFor<Name>>)
+            } as unknown as Partial<QuickFillTemplateFor<Name>>)
           }
           placeholder="85000"
           value={template.amount}
@@ -227,6 +229,82 @@ function renderBusinessProfitHistoryTemplateFields<Name extends QuickFillName>({
   )
 }
 
+function renderCommitmentHistoryTemplateFields<Name extends QuickFillName>({
+  setTemplate,
+  template,
+}: {
+  setTemplate: (
+    updater: (template: QuickFillTemplateFor<Name>) => QuickFillTemplateFor<Name>
+  ) => void
+  template: CommitmentHistoryQuickFillTemplate
+}) {
+  return (
+    <Field>
+      <FieldLabel>Amount *</FieldLabel>
+      <CurrencyTemplateInput
+        onChange={(amount) =>
+          updateTemplateValue(setTemplate, {
+            amount,
+          } as unknown as Partial<QuickFillTemplateFor<Name>>)
+        }
+        placeholder="5000"
+        value={template.amount}
+      />
+    </Field>
+  )
+}
+
+function renderLoanHistoryTemplateFields<Name extends QuickFillName>({
+  setTemplate,
+  template,
+}: {
+  setTemplate: (
+    updater: (template: QuickFillTemplateFor<Name>) => QuickFillTemplateFor<Name>
+  ) => void
+  template: LoanHistoryQuickFillTemplate
+}) {
+  return (
+    <>
+      <Field>
+        <FieldLabel>Principal *</FieldLabel>
+        <CurrencyTemplateInput
+          onChange={(principalAmount) =>
+            updateTemplateValue(setTemplate, {
+              principalAmount,
+            } as unknown as Partial<QuickFillTemplateFor<Name>>)
+          }
+          placeholder="120000"
+          value={template.principalAmount}
+        />
+      </Field>
+      <Field>
+        <FieldLabel>Repayment *</FieldLabel>
+        <CurrencyTemplateInput
+          onChange={(scheduledMonthlyPrincipalRepayment) =>
+            updateTemplateValue(setTemplate, {
+              scheduledMonthlyPrincipalRepayment,
+            } as unknown as Partial<QuickFillTemplateFor<Name>>)
+          }
+          placeholder="10000"
+          value={template.scheduledMonthlyPrincipalRepayment}
+        />
+      </Field>
+      <Field>
+        <FieldLabel>Commitment *</FieldLabel>
+        <CurrencyTemplateInput
+          onChange={(savingsDuringLoan) =>
+            updateTemplateValue(setTemplate, {
+              savingsDuringLoan,
+            } as unknown as Partial<QuickFillTemplateFor<Name>>)
+          }
+          placeholder="5000"
+          value={template.savingsDuringLoan}
+        />
+      </Field>
+    </>
+  )
+}
+
 function renderTemplateFields<Name extends QuickFillName>({
   name,
   setTemplate,
@@ -249,6 +327,20 @@ function renderTemplateFields<Name extends QuickFillName>({
     return renderShareHistoryTemplateFields({
       setTemplate,
       template: template as ShareHistoryQuickFillTemplate,
+    })
+  }
+
+  if (name === "commitmentHistory") {
+    return renderCommitmentHistoryTemplateFields({
+      setTemplate,
+      template: template as CommitmentHistoryQuickFillTemplate,
+    })
+  }
+
+  if (name === "loanHistory") {
+    return renderLoanHistoryTemplateFields({
+      setTemplate,
+      template: template as LoanHistoryQuickFillTemplate,
     })
   }
 

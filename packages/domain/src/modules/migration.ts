@@ -57,9 +57,9 @@ export function buildInitialMigrationSnapshot(input: {
       label: "Charge schedules",
     },
     {
-      complete: input.hasBusinessProfitPools,
+      complete: true,
       key: "business_profit_pools",
-      label: "Business profit pools",
+      label: "Business profit pools (optional)",
     },
     {
       complete: input.hasShareCapitalPlan,

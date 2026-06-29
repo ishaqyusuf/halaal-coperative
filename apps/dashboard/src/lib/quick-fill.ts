@@ -41,6 +41,18 @@ export type BusinessProfitHistoryQuickFillRow = {
   reason: string
 }
 
+export type CommitmentHistoryQuickFillRow = {
+  amount: string
+  effectiveFrom: string
+}
+
+export type LoanHistoryQuickFillRow = {
+  openedAt: string
+  principalAmount: string
+  savingsDuringLoan: string
+  scheduledMonthlyPrincipalRepayment: string
+}
+
 export type ChargeHistoryQuickFillTemplate = {
   amount: string
 }
@@ -56,6 +68,16 @@ export type BusinessProfitHistoryQuickFillTemplate = {
   reason: string
 }
 
+export type CommitmentHistoryQuickFillTemplate = {
+  amount: string
+}
+
+export type LoanHistoryQuickFillTemplate = {
+  principalAmount: string
+  savingsDuringLoan: string
+  scheduledMonthlyPrincipalRepayment: string
+}
+
 export type ChargeHistoryQuickFillArgs<
   TRow extends ChargeHistoryQuickFillRow = ChargeHistoryQuickFillRow,
 > = BaseQuickFillArgs<TRow>
@@ -66,6 +88,14 @@ export type ShareHistoryQuickFillArgs<
 
 export type BusinessProfitHistoryQuickFillArgs<
   TRow extends BusinessProfitHistoryQuickFillRow = BusinessProfitHistoryQuickFillRow,
+> = BaseQuickFillArgs<TRow>
+
+export type CommitmentHistoryQuickFillArgs<
+  TRow extends CommitmentHistoryQuickFillRow = CommitmentHistoryQuickFillRow,
+> = BaseQuickFillArgs<TRow>
+
+export type LoanHistoryQuickFillArgs<
+  TRow extends LoanHistoryQuickFillRow = LoanHistoryQuickFillRow,
 > = BaseQuickFillArgs<TRow>
 
 function functionSchema<TFunction>() {
@@ -98,6 +128,13 @@ export const quickFillArgsSchema = z.discriminatedUnion("name", [
   createQuickFillArgsSchema<"chargeHistory", ChargeHistoryQuickFillRow>(
     "chargeHistory"
   ),
+  createQuickFillArgsSchema<
+    "commitmentHistory",
+    CommitmentHistoryQuickFillRow
+  >("commitmentHistory"),
+  createQuickFillArgsSchema<"loanHistory", LoanHistoryQuickFillRow>(
+    "loanHistory"
+  ),
   createQuickFillArgsSchema<"shareHistory", ShareHistoryQuickFillRow>(
     "shareHistory"
   ),
@@ -120,11 +157,15 @@ export function parseQuickFillArgs<Name extends QuickFillName>(
 }
 
 export type QuickFillTemplateFor<Name extends QuickFillName> =
-  Name extends "chargeHistory"
-    ? ChargeHistoryQuickFillTemplate
-    : Name extends "shareHistory"
-      ? ShareHistoryQuickFillTemplate
-      : BusinessProfitHistoryQuickFillTemplate
+  Name extends "businessProfitHistory"
+    ? BusinessProfitHistoryQuickFillTemplate
+    : Name extends "chargeHistory"
+      ? ChargeHistoryQuickFillTemplate
+      : Name extends "commitmentHistory"
+        ? CommitmentHistoryQuickFillTemplate
+        : Name extends "loanHistory"
+          ? LoanHistoryQuickFillTemplate
+          : ShareHistoryQuickFillTemplate
 
 type QuickFillDefinition<TArgs, TTemplate> = {
   fill: (input: {
@@ -373,6 +414,79 @@ function fillBusinessProfitHistory<
   )
 }
 
+function fillCommitmentHistory<TRow extends CommitmentHistoryQuickFillRow>({
+  args,
+  dates,
+  template,
+}: {
+  args: CommitmentHistoryQuickFillArgs<TRow>
+  dates: string[]
+  template: CommitmentHistoryQuickFillTemplate
+}) {
+  if (!template.amount) {
+    throw new Error("Set an amount before quick filling commitments.")
+  }
+
+  args.setRows((currentRows) =>
+    mergeRowsByDate({
+      blankRow: args.createRow,
+      dates,
+      getDate: (row) => row.effectiveFrom,
+      hasValue: args.hasValue,
+      rowForDate: (date) =>
+        ({
+          ...args.createRow(),
+          amount: template.amount,
+          effectiveFrom: date,
+        }) as TRow,
+      rows: currentRows,
+      sortRows: args.sortRows,
+    })
+  )
+}
+
+function fillLoanHistory<TRow extends LoanHistoryQuickFillRow>({
+  args,
+  dates,
+  template,
+}: {
+  args: LoanHistoryQuickFillArgs<TRow>
+  dates: string[]
+  template: LoanHistoryQuickFillTemplate
+}) {
+  if (!template.principalAmount) {
+    throw new Error("Set a principal amount before quick filling loans.")
+  }
+
+  if (!template.scheduledMonthlyPrincipalRepayment) {
+    throw new Error("Set a repayment amount before quick filling loans.")
+  }
+
+  if (!template.savingsDuringLoan) {
+    throw new Error("Set a commitment amount before quick filling loans.")
+  }
+
+  args.setRows((currentRows) =>
+    mergeRowsByDate({
+      blankRow: args.createRow,
+      dates,
+      getDate: (row) => row.openedAt,
+      hasValue: args.hasValue,
+      rowForDate: (date) =>
+        ({
+          ...args.createRow(),
+          openedAt: date,
+          principalAmount: template.principalAmount,
+          savingsDuringLoan: template.savingsDuringLoan,
+          scheduledMonthlyPrincipalRepayment:
+            template.scheduledMonthlyPrincipalRepayment,
+        }) as TRow,
+      rows: currentRows,
+      sortRows: args.sortRows,
+    })
+  )
+}
+
 export const quickFillers = {
   businessProfitHistory: {
     fill: fillBusinessProfitHistory,
@@ -395,6 +509,28 @@ export const quickFillers = {
   } satisfies QuickFillDefinition<
     ChargeHistoryQuickFillArgs,
     ChargeHistoryQuickFillTemplate
+  >,
+  commitmentHistory: {
+    fill: fillCommitmentHistory,
+    initialTemplate: {
+      amount: "",
+    },
+    title: "Quick fill commitment history",
+  } satisfies QuickFillDefinition<
+    CommitmentHistoryQuickFillArgs,
+    CommitmentHistoryQuickFillTemplate
+  >,
+  loanHistory: {
+    fill: fillLoanHistory,
+    initialTemplate: {
+      principalAmount: "",
+      savingsDuringLoan: "",
+      scheduledMonthlyPrincipalRepayment: "",
+    },
+    title: "Quick fill loan history",
+  } satisfies QuickFillDefinition<
+    LoanHistoryQuickFillArgs,
+    LoanHistoryQuickFillTemplate
   >,
   shareHistory: {
     fill: fillShareHistory,

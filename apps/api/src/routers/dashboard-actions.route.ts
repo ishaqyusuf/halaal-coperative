@@ -526,6 +526,16 @@ function getRequiredString(formData: FormData, key: string) {
   return value.trim()
 }
 
+function getAllTrimmedStrings(formData: FormData, key: string) {
+  return formData
+    .getAll(key)
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+}
+
+function indexedValue(values: string[], index: number) {
+  return values[index] ?? ""
+}
+
 function tenantStartDateString(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>
 ) {
@@ -2441,40 +2451,291 @@ export async function unlockInitialMigrationAction(formData: FormData) {
   revalidatePath("/")
 }
 
+type DashboardActor = Awaited<ReturnType<typeof requireDashboardActor>>
+type MigrationGuarantorPrefix = "guarantorOne" | "guarantorTwo"
+
+function maxFieldLength(...fieldValues: string[][]) {
+  return Math.max(0, ...fieldValues.map((values) => values.length))
+}
+
+function buildMemberAmountLogRows(formData: FormData) {
+  const effectiveFromValues = getAllTrimmedStrings(formData, "effectiveFrom")
+  const amountValues = getAllTrimmedStrings(formData, "amount")
+  const notesValues = getAllTrimmedStrings(formData, "notes")
+  const rowCount = maxFieldLength(effectiveFromValues, amountValues, notesValues)
+  const rows: Array<{
+    amount: string
+    effectiveFrom: string
+    notes: string
+  }> = []
+
+  for (let index = 0; index < rowCount; index += 1) {
+    const row = {
+      amount: indexedValue(amountValues, index),
+      effectiveFrom: indexedValue(effectiveFromValues, index),
+      notes: indexedValue(notesValues, index),
+    }
+    const started = Boolean(row.amount || row.effectiveFrom || row.notes)
+
+    if (!started) {
+      continue
+    }
+
+    if (!row.amount || !row.effectiveFrom) {
+      throw new Error("Each started commitment row needs a date and amount.")
+    }
+
+    rows.push(row)
+  }
+
+  return rows.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
+}
+
+function buildLegacyLoanMigrationRows(formData: FormData) {
+  const closedAtValues = getAllTrimmedStrings(formData, "closedAt")
+  const loanLabelValues = getAllTrimmedStrings(formData, "loanLabel")
+  const notesValues = getAllTrimmedStrings(formData, "notes")
+  const openedAtValues = getAllTrimmedStrings(formData, "openedAt")
+  const outstandingPrincipalBalanceValues = getAllTrimmedStrings(
+    formData,
+    "outstandingPrincipalBalance"
+  )
+  const principalAmountValues = getAllTrimmedStrings(
+    formData,
+    "principalAmount"
+  )
+  const savingsDuringLoanValues = getAllTrimmedStrings(
+    formData,
+    "savingsDuringLoan"
+  )
+  const scheduledMonthlyPrincipalRepaymentValues = getAllTrimmedStrings(
+    formData,
+    "scheduledMonthlyPrincipalRepayment"
+  )
+  const guarantorOneValues = getAllTrimmedStrings(
+    formData,
+    "guarantorOneMemberId"
+  )
+  const guarantorTwoValues = getAllTrimmedStrings(
+    formData,
+    "guarantorTwoMemberId"
+  )
+  const rowCount = maxFieldLength(
+    closedAtValues,
+    loanLabelValues,
+    notesValues,
+    openedAtValues,
+    outstandingPrincipalBalanceValues,
+    principalAmountValues,
+    savingsDuringLoanValues,
+    scheduledMonthlyPrincipalRepaymentValues,
+    guarantorOneValues,
+    guarantorTwoValues
+  )
+  const rows: Array<{
+    closedAt: string
+    index: number
+    loanLabel: string
+    notes: string
+    openedAt: string
+    outstandingPrincipalBalance: string
+    principalAmount: string
+    savingsDuringLoan: string
+    scheduledMonthlyPrincipalRepayment: string
+  }> = []
+
+  for (let index = 0; index < rowCount; index += 1) {
+    const row = {
+      closedAt: indexedValue(closedAtValues, index),
+      index,
+      loanLabel: indexedValue(loanLabelValues, index),
+      notes: indexedValue(notesValues, index),
+      openedAt: indexedValue(openedAtValues, index),
+      outstandingPrincipalBalance: indexedValue(
+        outstandingPrincipalBalanceValues,
+        index
+      ),
+      principalAmount: indexedValue(principalAmountValues, index),
+      savingsDuringLoan: indexedValue(savingsDuringLoanValues, index),
+      scheduledMonthlyPrincipalRepayment: indexedValue(
+        scheduledMonthlyPrincipalRepaymentValues,
+        index
+      ),
+    }
+    const started = Boolean(
+      row.closedAt ||
+        row.notes ||
+        row.openedAt ||
+        row.outstandingPrincipalBalance ||
+        row.principalAmount ||
+        row.savingsDuringLoan ||
+        row.scheduledMonthlyPrincipalRepayment ||
+        indexedValue(guarantorOneValues, index) ||
+        indexedValue(guarantorTwoValues, index)
+    )
+
+    if (!started) {
+      continue
+    }
+
+    if (
+      !row.openedAt ||
+      !row.principalAmount ||
+      !row.scheduledMonthlyPrincipalRepayment ||
+      !row.savingsDuringLoan
+    ) {
+      throw new Error(
+        "Each started loan row needs a date, amount, repayment, and commitment."
+      )
+    }
+
+    rows.push(row)
+  }
+
+  return rows.sort((a, b) => a.openedAt.localeCompare(b.openedAt))
+}
+
+async function resolveMigrationGuarantorMemberId({
+  actor,
+  formData,
+  index,
+  label,
+  prefix,
+}: {
+  actor: DashboardActor
+  formData: FormData
+  index: number
+  label: string
+  prefix: MigrationGuarantorPrefix
+}) {
+  const existingMemberId = indexedValue(
+    getAllTrimmedStrings(formData, `${prefix}MemberId`),
+    index
+  )
+
+  if (existingMemberId) {
+    return existingMemberId
+  }
+
+  const fullName = indexedValue(
+    getAllTrimmedStrings(formData, `${prefix}CreateFullName`),
+    index
+  )
+  const memberNumber = indexedValue(
+    getAllTrimmedStrings(formData, `${prefix}CreateMemberNumber`),
+    index
+  )
+  const joinedAtValue = indexedValue(
+    getAllTrimmedStrings(formData, `${prefix}CreateJoinedAt`),
+    index
+  )
+  const email =
+    indexedValue(getAllTrimmedStrings(formData, `${prefix}CreateEmail`), index)
+      .toLowerCase()
+      .trim() || null
+  const phoneNumber =
+    indexedValue(getAllTrimmedStrings(formData, `${prefix}CreatePhone`), index)
+      .trim() || null
+  const started = Boolean(
+    fullName || memberNumber || joinedAtValue || email || phoneNumber
+  )
+
+  if (!started) {
+    return null
+  }
+
+  if (!fullName || !memberNumber || !joinedAtValue) {
+    throw new Error(
+      `${label} quick-create needs full name, member number, and joined date.`
+    )
+  }
+
+  const joinedAt = new Date(`${joinedAtValue}T00:00:00.000Z`)
+  requireDateOnOrAfterTenantStartDate(actor, joinedAt, `${label} joined date`)
+
+  const member = await createMember({
+    actorUserId: actor.user.id,
+    address: null,
+    currentSavingsBalance: 0,
+    email,
+    fullName,
+    joinedAt,
+    commitmentHistory: [],
+    legacyLoanHistory: [],
+    memberNumber: composeMemberNumber(
+      actor.tenant.memberNumberPrefix,
+      memberNumber
+    ),
+    memberType: "individual",
+    monthlyCommitment: 0,
+    occupation: null,
+    phoneNumber,
+    tenantId: actor.tenant.id,
+  })
+
+  return member.id
+}
+
 export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   const memberId = getRequiredString(formData, "memberId")
   await requireMemberMigrationDraftMutable(actor, memberId)
-  const closedAt = (formData.get("closedAt") as string | null)?.trim()
+  const rows = buildLegacyLoanMigrationRows(formData)
 
-  await createLegacyLoanMigrationDraft({
-    actorUserId: actor.user.id,
-    closedAt: closedAt ? new Date(`${closedAt}T00:00:00.000Z`) : null,
-    guarantorOneMemberId:
-      (formData.get("guarantorOneMemberId") as string | null)?.trim() || null,
-    guarantorTwoMemberId:
-      (formData.get("guarantorTwoMemberId") as string | null)?.trim() || null,
-    loanLabel: getRequiredString(formData, "loanLabel"),
-    memberId,
-    notes: (formData.get("notes") as string | null)?.trim() || null,
-    openedAt: new Date(
-      `${getRequiredString(formData, "openedAt")}T00:00:00.000Z`
-    ),
-    principalAmount: Number(getRequiredString(formData, "principalAmount")),
-    outstandingPrincipalBalance:
-      getOptionalNumber(formData, "outstandingPrincipalBalance") ??
-      Number(getRequiredString(formData, "principalAmount")),
-    savingsDuringLoan: Number(getRequiredString(formData, "savingsDuringLoan")),
-    scheduledMonthlyPrincipalRepayment: Number(
-      getRequiredString(formData, "scheduledMonthlyPrincipalRepayment")
-    ),
-    tenantId: actor.tenant.id,
-  })
+  if (rows.length === 0) {
+    throw new Error("Add at least one loan history row.")
+  }
+
+  for (const row of rows) {
+    const openedAt = new Date(`${row.openedAt}T00:00:00.000Z`)
+    const closedAt = row.closedAt
+      ? new Date(`${row.closedAt}T00:00:00.000Z`)
+      : null
+    requireDateOnOrAfterTenantStartDate(actor, openedAt, "Loan date")
+    requireDateOnOrAfterTenantStartDate(actor, closedAt, "Closed date")
+
+    const guarantorOneMemberId = await resolveMigrationGuarantorMemberId({
+      actor,
+      formData,
+      index: row.index,
+      label: "Guarantor 1",
+      prefix: "guarantorOne",
+    })
+    const guarantorTwoMemberId = await resolveMigrationGuarantorMemberId({
+      actor,
+      formData,
+      index: row.index,
+      label: "Guarantor 2",
+      prefix: "guarantorTwo",
+    })
+    const principalAmount = Number(row.principalAmount)
+
+    await createLegacyLoanMigrationDraft({
+      actorUserId: actor.user.id,
+      closedAt,
+      guarantorOneMemberId,
+      guarantorTwoMemberId,
+      loanLabel: row.loanLabel || "Legacy loan",
+      memberId,
+      notes: row.notes || null,
+      openedAt,
+      principalAmount,
+      outstandingPrincipalBalance: row.outstandingPrincipalBalance
+        ? Number(row.outstandingPrincipalBalance)
+        : principalAmount,
+      savingsDuringLoan: Number(row.savingsDuringLoan),
+      scheduledMonthlyPrincipalRepayment: Number(
+        row.scheduledMonthlyPrincipalRepayment
+      ),
+      tenantId: actor.tenant.id,
+    })
+  }
 
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
   revalidatePath(`/settings/finance/migration/${memberId}`)
   revalidatePath("/settings/finance/loan")
+  revalidatePath("/members")
 }
 
 export async function updateLegacyLoanMigrationDraftAction(formData: FormData) {
@@ -2518,17 +2779,25 @@ export async function upsertMemberAmountLogAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   const memberId = getRequiredString(formData, "memberId")
   await requireMemberMigrationDraftMutable(actor, memberId)
+  const rows = buildMemberAmountLogRows(formData)
 
-  await upsertMemberAmountLog({
-    actorUserId: actor.user.id,
-    amount: Number(getRequiredString(formData, "amount")),
-    effectiveFrom: new Date(
-      `${getRequiredString(formData, "effectiveFrom")}T00:00:00.000Z`
-    ),
-    memberId,
-    notes: (formData.get("notes") as string | null)?.trim() || null,
-    tenantId: actor.tenant.id,
-  })
+  if (rows.length === 0) {
+    throw new Error("Add at least one commitment history row.")
+  }
+
+  for (const row of rows) {
+    const effectiveFrom = new Date(`${row.effectiveFrom}T00:00:00.000Z`)
+    requireDateOnOrAfterTenantStartDate(actor, effectiveFrom, "Commitment date")
+
+    await upsertMemberAmountLog({
+      actorUserId: actor.user.id,
+      amount: Number(row.amount),
+      effectiveFrom,
+      memberId,
+      notes: row.notes || null,
+      tenantId: actor.tenant.id,
+    })
+  }
 
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")

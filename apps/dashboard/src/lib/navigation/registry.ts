@@ -101,6 +101,7 @@ export const dashboardNavRegistry: NavModule[] = [
       createNavLink("Finance Setup", SettingsIcon, "/settings/finance", [], [
         role.in("super_admin", "tenant_admin", "finance_officer"),
       ])
+        .childPaths("/settings/finance")
         .title("Finance setup")
         .data,
       createNavLink("Roles", SettingsIcon, "/settings/roles", [], [role.in(...adminRoles)])

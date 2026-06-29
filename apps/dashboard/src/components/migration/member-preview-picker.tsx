@@ -28,7 +28,7 @@ export function MemberPreviewPicker({
 
         if (memberId) {
           router.push(
-            `/settings/finance/migration/${encodeURIComponent(memberId)}`
+            `/settings/finance/migration/${encodeURIComponent(memberId)}#member-ledger-backfill`
           )
         }
       }}

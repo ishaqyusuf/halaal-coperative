@@ -18,7 +18,6 @@ describe("initial migration lifecycle", () => {
     expect(snapshot.canUseMigrationTools).toBe(true)
     expect(snapshot.canUseLiveFinancialWrites).toBe(false)
     expect(snapshot.missingStepKeys).toEqual([
-      "business_profit_pools",
       "member_profiles",
       "legacy_loans",
       "member_ledger_backfill",

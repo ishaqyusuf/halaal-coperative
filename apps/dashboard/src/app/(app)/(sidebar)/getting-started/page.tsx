@@ -55,17 +55,13 @@ function resolveDefaultStep(missingStepKeys: string[]): GettingStartedStepKey {
   if (missingStepKeys.includes("finance_start_date")) return "start-date"
   if (missingStepKeys.includes("charge_schedules")) return "charges"
   if (missingStepKeys.includes("share_capital_plan")) return "shares"
-  if (missingStepKeys.includes("business_profit_pools")) return "business"
   if (
     missingStepKeys.some((stepKey) =>
-      ["member_profiles", "legacy_loans", "member_ledger_backfill"].includes(
-        stepKey,
-      ),
+      ["member_profiles", "legacy_loans"].includes(stepKey),
     )
   ) {
     return "admin-member"
   }
-
   return "review"
 }
 
@@ -161,12 +157,12 @@ export default async function GettingStartedPage({
       [
         "finance_start_date",
         "charge_schedules",
-        "business_profit_pools",
         "share_capital_plan",
         "member_profiles",
       ].includes(stepKey),
     )
   let generatedLedgerRows: MemberLedgerBackfillRow[] | undefined
+  let generatedLedgerError: string | null = null
 
   if (canGenerateMemberBackfillPreview && selectedMember) {
     try {
@@ -178,7 +174,11 @@ export default async function GettingStartedPage({
           }),
         ),
       )
-    } catch {
+    } catch (error) {
+      generatedLedgerError =
+        error instanceof Error
+          ? error.message
+          : "Could not generate the member ledger preview."
       generatedLedgerRows = undefined
     }
   }
@@ -259,6 +259,7 @@ export default async function GettingStartedPage({
         id: period.id,
         label: period.name,
       }))}
+      generatedLedgerError={generatedLedgerError}
       generatedLedgerRows={generatedLedgerRows}
       legacyLoanDrafts={legacyLoanDrafts.map((draft) => ({
         closedAt: toDateString(draft.closedAt),

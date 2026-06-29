@@ -1315,13 +1315,20 @@ export async function buildBackfillDraftInputForMember(
     throw new Error("Member not found")
   }
 
+  const amountLogs = await prisma.memberAmountLog.findMany({
+    where: { tenantId: input.tenantId, memberId: input.memberId },
+    orderBy: { effectiveFrom: "asc" },
+  })
+  const firstSavingHistoryMonth = amountLogs[0]?.effectiveFrom
   const startMonth = startOfMonth(
-    input.startMonth ?? member.tenant.startDate ?? member.joinedAt
+    input.startMonth ??
+      firstSavingHistoryMonth ??
+      member.tenant.startDate ??
+      member.joinedAt
   )
   const endMonth = startOfMonth(input.endMonth ?? new Date())
 
   const [
-    amountLogs,
     shareOverrides,
     defaultShareVersions,
     chargeDefinitions,
@@ -1332,10 +1339,6 @@ export async function buildBackfillDraftInputForMember(
     rowAdjustments,
     memberActivityEvents,
   ] = await Promise.all([
-    prisma.memberAmountLog.findMany({
-      where: { tenantId: input.tenantId, memberId: input.memberId },
-      orderBy: { effectiveFrom: "asc" },
-    }),
     prisma.memberShareOverride.findMany({
       where: { tenantId: input.tenantId, memberId: input.memberId },
       orderBy: { effectiveFrom: "asc" },

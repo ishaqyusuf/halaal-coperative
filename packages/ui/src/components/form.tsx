@@ -169,4 +169,5 @@ export {
   FormLabel,
   FormMessage,
   useFormField,
+  useFormContext,
 }

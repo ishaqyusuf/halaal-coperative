@@ -224,7 +224,7 @@ describe("tenant initial migration state query", () => {
     expect(reviewedNoLoans.snapshot.missingStepKeys).toEqual(["finalization"])
   })
 
-  test("keeps business profit review missing until profit pools are entered or explicitly reviewed", async () => {
+  test("does not require business profit pools before migration review", async () => {
     const missingReview = await getTenantInitialMigrationState(
       "tenant-1",
       createMigrationStatePrismaStub({
@@ -240,10 +240,8 @@ describe("tenant initial migration state query", () => {
       }) as never
     )
 
-    expect(missingReview.snapshot.status).toBe("historical_setup_in_progress")
-    expect(missingReview.snapshot.missingStepKeys).toContain(
-      "business_profit_pools"
-    )
+    expect(missingReview.snapshot.status).toBe("migration_review")
+    expect(missingReview.snapshot.missingStepKeys).toEqual(["finalization"])
 
     const reviewedNoProfitPools = await getTenantInitialMigrationState(
       "tenant-1",

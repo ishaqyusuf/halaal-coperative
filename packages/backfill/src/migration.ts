@@ -215,9 +215,16 @@ function getProjectedRowSignature(row: BackfillRow) {
     row.status === "missed" ||
     row.hasManualRepaymentAdjustment ||
     row.hasManualSavingsAdjustment
-  const plannedLoanService = usePlannedValuesForGrouping
-    ? (row.plannedLoanRepaymentAmount ?? row.loanService)
-    : row.loanService
+  const finalBalancePaymentIsCapped =
+    row.loanEvent &&
+    row.pendingLoanPayment === 0 &&
+    row.loanService > 0 &&
+    row.loanService < row.loanEvent.monthlyLoanServiceAmount
+  const plannedLoanService = finalBalancePaymentIsCapped
+    ? row.loanEvent.monthlyLoanServiceAmount
+    : usePlannedValuesForGrouping
+      ? (row.plannedLoanRepaymentAmount ?? row.loanService)
+      : row.loanService
   const plannedSavingsContribution = usePlannedValuesForGrouping
     ? (row.plannedSavingsContribution ??
       Math.max(0, row.amount - row.loanService))
@@ -231,14 +238,15 @@ function getProjectedRowSignature(row: BackfillRow) {
 
   return JSON.stringify({
     charges:
-      row.status === "missed"
+      usePlannedValuesForGrouping
         ? (row.plannedChargeValues ?? row.chargeValues)
         : row.chargeValues,
     loanLabel: row.loanEvent?.label ?? null,
     loanService: plannedLoanService,
     savingsContribution: plannedSavingsContribution,
-    share:
-      row.status === "missed" ? (row.plannedShare ?? row.share) : row.share,
+    share: usePlannedValuesForGrouping
+      ? (row.plannedShare ?? row.share)
+      : row.share,
     status: groupingStatus,
     statusReason: groupingStatusReason,
   })

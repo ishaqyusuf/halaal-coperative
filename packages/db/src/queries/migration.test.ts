@@ -42,15 +42,22 @@ function createMigrationStatePrismaStub(input: {
 
   return {
     appliedBackfillMonth: {
-      findMany: async () =>
-        input.appliedBackfillMonths ??
-        Array.from(
+      findMany: async (query?: any) => {
+        const rows =
+          input.appliedBackfillMonths ??
+          Array.from(
           { length: input.appliedBackfillMonthMembers ?? 0 },
           (_, index) => ({
             memberId: `member-${index + 1}`,
             month: input.memberJoinedAt ?? new Date("2025-01-01T00:00:00.000Z"),
           })
-        ),
+        )
+
+        return rows.map((row) => ({
+          ...(query?.select?.memberId ? { memberId: row.memberId } : {}),
+          ...(query?.select?.month ? { month: row.month } : {}),
+        }))
+      },
     },
     auditLog: {
       count: async (query: any) =>

@@ -129,6 +129,10 @@ function formatCompactPeriod(period: string) {
   return `${month.slice(0, 3).toUpperCase()} ${year.slice(-2)}`
 }
 
+function isStampDutyLabel(label: string) {
+  return /stamp(?:\s+duty)?/i.test(label)
+}
+
 const compactTableClass =
   "w-max min-w-full table-fixed text-xs [&_td]:border-r [&_td]:border-border/60 [&_td]:px-1.5 [&_td]:py-1.5 [&_td]:whitespace-nowrap [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:border-border/60 [&_th]:px-1.5 [&_th]:py-1.5 [&_th]:leading-3 [&_th]:whitespace-normal [&_th:last-child]:border-r-0"
 const segmentDataTableClass = "overflow-visible rounded-none"
@@ -290,25 +294,6 @@ function SegmentReasonList({ reasons }: { reasons: string[] }) {
   )
 }
 
-function SegmentMetaItem({
-  children,
-  domain,
-  label,
-}: {
-  children: React.ReactNode
-  domain: LedgerDomainKey
-  label: string
-}) {
-  return (
-    <span className="inline-flex items-center gap-1.5 border border-border/70 px-2 py-1 text-[11px]">
-      <span className={cn("font-medium", ledgerDomainColor[domain].text)}>
-        {label}
-      </span>
-      <span className="text-foreground">{children}</span>
-    </span>
-  )
-}
-
 function MonthlyLedgerSegmentTable({
   isRowAdjustmentDisabled,
   renderDefaultingControl,
@@ -340,6 +325,9 @@ function MonthlyLedgerSegmentTable({
   segment: MonthlyLedgerSegment
 }) {
   const segmentLoanColumns = getSegmentLoanColumns(segment)
+  const stampDutyCharge = segment.summary.chargeSummaries.find((charge) =>
+    isStampDutyLabel(charge.label)
+  )
   const forceSavingsColumn = segment.summary.hasManualSavingsAdjustment
   const forceRepaymentColumns = segment.summary.hasManualRepaymentAdjustment
   const firstSegmentRow = segment.rows[0]
@@ -351,44 +339,120 @@ function MonthlyLedgerSegmentTable({
           "Commitment status"
         )
       : null
-  const segmentMetadata = (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {segment.summary.chargeSummaries.map((charge) => (
-        <SegmentMetaItem
-          domain="charge"
-          key={charge.label}
-          label={charge.label}
-        >
-          {formatSegmentAmountSummary(charge)}
-        </SegmentMetaItem>
-      ))}
-      <SegmentMetaItem domain="share" label="Share capital">
-        {formatSegmentAmountSummary(segment.summary.shareCapitalSummary)}
-      </SegmentMetaItem>
-      <SegmentMetaItem domain="saving" label="Savings">
-        {formatAmountRange(segment.rows.map((row) => row.savingsContribution))}
-      </SegmentMetaItem>
-      {segmentLoanColumns.length > 0 ? (
-        <SegmentMetaItem domain="repayment" label="Loan repayment">
-          {formatAmountRange(
-            segment.rows.flatMap((row) =>
-              row.loanColumns.map((loan) => loan.repaymentAmount)
-            )
-          )}
-        </SegmentMetaItem>
-      ) : null}
-    </div>
-  )
+  const visibilityColumns = [
+    {
+      defaultVisible: true,
+      disabled: true,
+      key: "period" as const,
+      label: "Period",
+    },
+    ...(stampDutyCharge
+      ? [
+          {
+            defaultVisible: false,
+            key: "stampDuty" as const,
+            label: "Stamp duty",
+          },
+        ]
+      : []),
+    ...(segmentLoanColumns.length > 0
+      ? [
+          {
+            defaultVisible: false,
+            disabled: forceRepaymentColumns,
+            key: "repayment" as const,
+            label: "Loan repayment",
+          },
+        ]
+      : []),
+    {
+      defaultVisible: false,
+      disabled: forceSavingsColumn,
+      key: "commitment" as const,
+      label: "Commitment",
+    },
+    {
+      defaultVisible: false,
+      key: "share" as const,
+      label: "Share capital",
+    },
+    {
+      defaultVisible: true,
+      disabled: true,
+      key: "finalSaving" as const,
+      label: "Final saving",
+    },
+    ...(segmentLoanColumns.length > 0
+      ? [
+          {
+            defaultVisible: true,
+            disabled: true,
+            key: "loanBalance" as const,
+            label: "Loan balance",
+          },
+        ]
+      : []),
+    {
+      defaultVisible: true,
+      disabled: true,
+      key: "totalSaving" as const,
+      label: "Total saving",
+    },
+    {
+      defaultVisible: true,
+      disabled: true,
+      key: "action" as const,
+      label: "Action",
+    },
+  ]
+  const segmentMetadataItems = [
+    ...(stampDutyCharge
+      ? [
+          {
+            columnKey: "stampDuty" as const,
+            label: "Stamp duty",
+            labelClassName: ledgerDomainColor.charge.text,
+            value: formatSegmentAmountSummary(stampDutyCharge),
+          },
+        ]
+      : []),
+    {
+      columnKey: "share" as const,
+      label: "Share capital",
+      labelClassName: ledgerDomainColor.share.text,
+      value: formatSegmentAmountSummary(segment.summary.shareCapitalSummary),
+    },
+    {
+      columnKey: "commitment" as const,
+      label: "Commitment",
+      labelClassName: ledgerDomainColor.saving.text,
+      value: formatAmountRange(
+        segment.rows.map((row) => row.savingsContribution)
+      ),
+    },
+    ...(segmentLoanColumns.length > 0
+      ? [
+          {
+            columnKey: "repayment" as const,
+            label: "Loan repayment",
+            labelClassName: ledgerDomainColor.repayment.text,
+            value: formatAmountRange(
+              segment.rows.flatMap((row) =>
+                row.loanColumns.map((loan) => loan.repaymentAmount)
+              )
+            ),
+          },
+        ]
+      : []),
+  ]
 
   return (
     <div>
       <SegmentReasonList reasons={segment.reasonList} />
       <LedgerColumnVisibilityFrame
         afterSavingsControl={segmentStatusControl}
-        forceRepaymentColumns={forceRepaymentColumns}
-        forceSavingsColumn={forceSavingsColumn}
-        hasLoanColumns={segmentLoanColumns.length > 0}
-        metadata={segmentMetadata}
+        columns={visibilityColumns}
+        metadataItems={segmentMetadataItems}
       >
         <DashboardDataTable
           className={segmentDataTableClass}
@@ -397,28 +461,47 @@ function MonthlyLedgerSegmentTable({
           <DashboardTable className={compactTableClass}>
             <colgroup>
               <col className={columnClass.period} />
+              {stampDutyCharge ? (
+                <col className={cn(columnClass.money, "stamp-duty-column")} />
+              ) : null}
               {segmentLoanColumns.map((loan) => (
                 <col
                   className={cn(columnClass.money, "repayment-column")}
                   key={`${loan.id}-repayment-col`}
                 />
               ))}
-              <col className={cn(columnClass.money, "savings-column")} />
-              <col className={columnClass.money} />
-              <col className={columnClass.money} />
+              <col className={cn(columnClass.money, "commitment-column")} />
+              <col className={cn(columnClass.money, "share-column")} />
+              <col className={cn(columnClass.money, "final-saving-column")} />
               {segmentLoanColumns.map((loan) => (
                 <col
-                  className={columnClass.money}
+                  className={cn(columnClass.money, "loan-balance-column")}
                   key={`${loan.id}-balance-col`}
                 />
               ))}
-              <col />
+              <col className="total-saving-column" />
               <col />
             </colgroup>
             <DashboardTableHead className={stickySegmentHeadClass}>
               <DashboardTableHeaderCell className={columnClass.period}>
                 Period
               </DashboardTableHeaderCell>
+              {stampDutyCharge ? (
+                <DashboardTableHeaderCell
+                  align="right"
+                  className={domainHeaderClass(
+                    "charge",
+                    cn(columnClass.money, "stamp-duty-column")
+                  )}
+                >
+                  {formatHeaderAmount(
+                    "Stamp duty",
+                    segment.rows.map(
+                      (row) => row.chargeDeductions[stampDutyCharge.label] ?? 0
+                    )
+                  )}
+                </DashboardTableHeaderCell>
+              ) : null}
               {segmentLoanColumns.map((loan) => (
                 <DashboardTableHeaderCell
                   align="right"
@@ -438,36 +521,39 @@ function MonthlyLedgerSegmentTable({
                 align="right"
                 className={domainHeaderClass(
                   "saving",
-                  cn(columnClass.money, "savings-column")
+                  cn(columnClass.money, "commitment-column")
                 )}
               >
                 {formatHeaderAmount(
-                  "Savings",
+                  "Commitment",
                   segment.rows.map((row) => row.savingsContribution)
                 )}
               </DashboardTableHeaderCell>
               <DashboardTableHeaderCell
                 align="right"
-                className={columnClass.money}
+                className={cn(columnClass.money, "share-column")}
               >
                 Total share value
               </DashboardTableHeaderCell>
               <DashboardTableHeaderCell
                 align="right"
-                className={columnClass.money}
+                className={cn(columnClass.money, "final-saving-column")}
               >
                 Final saving
               </DashboardTableHeaderCell>
               {segmentLoanColumns.map((loan) => (
                 <DashboardTableHeaderCell
                   align="right"
-                  className={columnClass.money}
+                  className={cn(columnClass.money, "loan-balance-column")}
                   key={`${loan.id}-balance-header`}
                 >
                   {getLoanColumnLabel(loan, "balance")}
                 </DashboardTableHeaderCell>
               ))}
-              <DashboardTableHeaderCell align="right">
+              <DashboardTableHeaderCell
+                align="right"
+                className="total-saving-column"
+              >
                 Total saving
               </DashboardTableHeaderCell>
               <DashboardTableHeaderCell align="right">
@@ -502,6 +588,18 @@ function MonthlyLedgerSegmentTable({
                         ) : null}
                       </div>
                     </DashboardTableCell>
+                    {stampDutyCharge ? (
+                      <DashboardTableCell
+                        align="right"
+                        className={cn(columnClass.money, "stamp-duty-column")}
+                      >
+                        <LedgerDomainValue domain="charge">
+                          {formatCurrency(
+                            row.chargeDeductions[stampDutyCharge.label] ?? 0
+                          )}
+                        </LedgerDomainValue>
+                      </DashboardTableCell>
+                    ) : null}
                     {segmentLoanColumns.map((segmentLoan) => {
                       const rowLoan = row.loanColumns.find(
                         (item) => item.id === segmentLoan.id
@@ -529,7 +627,7 @@ function MonthlyLedgerSegmentTable({
                     })}
                     <DashboardTableCell
                       align="right"
-                      className={cn(columnClass.money, "savings-column")}
+                      className={cn(columnClass.money, "commitment-column")}
                     >
                       <LedgerDomainValue domain="saving">
                         {renderSavingsControl(
@@ -541,13 +639,13 @@ function MonthlyLedgerSegmentTable({
                     </DashboardTableCell>
                     <DashboardTableCell
                       align="right"
-                      className={columnClass.money}
+                      className={cn(columnClass.money, "share-column")}
                     >
                       {formatCurrency(row.runningShareCapitalBalance)}
                     </DashboardTableCell>
                     <DashboardTableCell
                       align="right"
-                      className={columnClass.money}
+                      className={cn(columnClass.money, "final-saving-column")}
                     >
                       {formatCurrency(row.netSavingsContribution)}
                     </DashboardTableCell>
@@ -559,7 +657,10 @@ function MonthlyLedgerSegmentTable({
                       return (
                         <DashboardTableCell
                           align="right"
-                          className={columnClass.money}
+                          className={cn(
+                            columnClass.money,
+                            "loan-balance-column"
+                          )}
                           key={`${segmentLoan.id}-balance`}
                         >
                           {rowLoan
@@ -570,7 +671,10 @@ function MonthlyLedgerSegmentTable({
                         </DashboardTableCell>
                       )
                     })}
-                    <DashboardTableCell align="right">
+                    <DashboardTableCell
+                      align="right"
+                      className="total-saving-column"
+                    >
                       {formatCurrency(row.runningSavingsBalance)}
                     </DashboardTableCell>
                     <DashboardTableCell align="right">

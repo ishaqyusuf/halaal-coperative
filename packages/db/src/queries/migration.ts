@@ -182,6 +182,7 @@ export async function getTenantInitialMigrationState(
       ? prisma.appliedBackfillMonth.findMany({
           select: {
             memberId: true,
+            month: true,
           },
           where: { tenantId },
         })

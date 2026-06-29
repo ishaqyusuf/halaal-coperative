@@ -53,6 +53,8 @@ import {
   finalizeInitialMigrationAction,
   markLegacyLoansReviewedAction,
   deleteMemberActivityEventAction,
+  queueBackfillApplyAction,
+  queueBackfillDraftAction,
   setMigrationBackfillDefaultingMonthsAction,
   updateLegacyLoanMigrationDraftAction,
   upsertMemberActivityEventAction,
@@ -1417,6 +1419,53 @@ export function InitialMigrationPreview({
       ? `${activeLegacyLoanDrafts.length} active opening loan position(s) need review before go-live.`
       : null,
   ].filter((warning): warning is string => Boolean(warning))
+  const renderLedgerBackfillActions = (className = "flex flex-wrap items-end gap-2") => {
+    if (selectedMemberBackfillApplied) {
+      return <TrendPill tone="positive">Applied</TrendPill>
+    }
+
+    if (!selectedMigrationMemberId || displayedLedgerRows.length === 0) {
+      return null
+    }
+
+    return (
+      <div className={className}>
+        <form action={queueBackfillDraftAction}>
+          <input
+            name="memberId"
+            type="hidden"
+            value={selectedMigrationMemberId}
+          />
+          <Button size="sm" type="submit" variant="outline">
+            Save draft
+          </Button>
+        </form>
+        <form
+          action={queueBackfillApplyAction}
+          className="flex flex-wrap items-end gap-2"
+        >
+          <input
+            name="memberId"
+            type="hidden"
+            value={selectedMigrationMemberId}
+          />
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+            Type APPLY BACKFILL
+            <Input
+              className="h-8 w-40"
+              name="confirmation"
+              placeholder="APPLY BACKFILL"
+              required
+              type="text"
+            />
+          </label>
+          <Button size="sm" type="submit">
+            Apply backfill
+          </Button>
+        </form>
+      </div>
+    )
+  }
   const ledgerBackfillSection = (
     <div className="mt-5 scroll-mt-24 space-y-3" id="member-ledger-backfill">
       <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1429,13 +1478,14 @@ export function InitialMigrationPreview({
             history are saved.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-end gap-2">
           <TrendPill tone={segments.length > 0 ? "positive" : "warning"}>
             {segments.length > 0
               ? `${displayedLedgerRows.length} rows • ${segments.length} segments`
               : "No generated rows"}
           </TrendPill>
           <TrendPill tone="warning">After commitments and loans</TrendPill>
+          {renderLedgerBackfillActions()}
         </div>
       </div>
       {generatedLedgerError ? (
@@ -1506,6 +1556,16 @@ export function InitialMigrationPreview({
           </p>
         </div>
       )}
+      {selectedMigrationMemberId ? (
+        <div className="flex flex-col gap-3 border-t border-border/70 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Save or apply after reviewing the generated ledger rows.
+          </p>
+          {renderLedgerBackfillActions(
+            "flex flex-wrap items-end justify-end gap-2"
+          )}
+        </div>
+      ) : null}
     </div>
   )
 

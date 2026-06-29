@@ -501,62 +501,6 @@ function StepRail({
   )
 }
 
-function SummaryCard({
-  chargeDefinitions,
-  migrationSnapshot,
-  shareBusinesses,
-  shareStructureVersions,
-  tenantStartDate,
-}: Pick<
-  GettingStartedPageViewProps,
-  | "chargeDefinitions"
-  | "migrationSnapshot"
-  | "shareBusinesses"
-  | "shareStructureVersions"
-  | "tenantStartDate"
->) {
-  const completionPercent = Math.round(
-    (migrationSnapshot.completedStepCount / migrationSnapshot.totalStepCount) *
-      100,
-  )
-  const totalBusinessCapital = shareBusinesses.reduce(
-    (sum, business) => sum + business.capitalAmount,
-    0,
-  )
-
-  return (
-    <Card className="lg:sticky lg:top-24 lg:self-start">
-      <SetupCardHeader
-        eyebrow="Live summary"
-        title={`${completionPercent}% ready`}
-        description="Saved data updates this command center after each step."
-      />
-      <CardContent className="grid gap-3">
-        <Progress value={completionPercent}>
-          <ProgressLabel>Migration readiness</ProgressLabel>
-          <ProgressValue>{completionPercent}%</ProgressValue>
-        </Progress>
-        <MetricBlock
-          label="Start date"
-          value={formatDate(tenantStartDate)}
-        />
-        <MetricBlock
-          label="Charges"
-          value={`${chargeDefinitions.length} definitions`}
-        />
-        <MetricBlock
-          label="Share rules"
-          value={`${shareStructureVersions.length} versions`}
-        />
-        <MetricBlock
-          label="Business capital"
-          value={formatCurrency(totalBusinessCapital)}
-        />
-      </CardContent>
-    </Card>
-  )
-}
-
 function StepFooter({
   nextHrefOverride,
   nextLabel = "Next",
@@ -1096,19 +1040,12 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
         </Card>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[280px_minmax(0,1fr)_280px]">
+      <section className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
         <StepRail
           activeStep={props.activeStep}
           snapshot={migrationSnapshot}
         />
         <ActiveStepPanel {...props} />
-        <SummaryCard
-          chargeDefinitions={props.chargeDefinitions}
-          migrationSnapshot={migrationSnapshot}
-          shareBusinesses={props.shareBusinesses}
-          shareStructureVersions={props.shareStructureVersions}
-          tenantStartDate={props.tenantStartDate}
-        />
       </section>
     </WorkspacePageShell>
   )

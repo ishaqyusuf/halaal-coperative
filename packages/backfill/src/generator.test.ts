@@ -79,14 +79,84 @@ describe("backfill draft generator", () => {
 
     expect(draft.rows[1]).toMatchObject({
       amount: 1900,
+      hasManualSavingsAdjustment: true,
       isEdited: true,
       loanRepaymentOnTime: true,
-      loanService: 900,
-      netDeposit: 1000,
+      loanService: 700,
+      netDeposit: 1200,
       notes: "One-time catch-up",
       pendingLoanPayment: 0,
     })
     expect(draft.rows[2]?.pendingLoanPayment).toBe(0)
+  })
+
+  test("recalculates subsequent loan balances after a manual repayment underpayment", () => {
+    const draft = buildBackfillDraft({
+      amountLogs: [{ amount: 20000, effectiveFrom: "2025-01" }],
+      chargeDefinitions: [],
+      defaultShareVersions: [{ amount: 0, effectiveFrom: "2025-01" }],
+      endMonth: "2025-04",
+      loanEvents: [
+        {
+          durationMonths: 4,
+          id: "loan-a",
+          loanAmount: 300000,
+          loanPeriodSavingsContribution: 5000,
+          monthlyLoanServiceAmount: 100000,
+          openingOutstandingPrincipalBalance: 300000,
+          startMonth: "2025-01",
+          topUp: 5000,
+        },
+      ],
+      memberJoinedMonth: "2025-01",
+      rowAdjustments: [
+        {
+          loanRepaymentAmount: 50000,
+          month: "2025-02",
+          savingsContribution: 5000,
+        },
+      ],
+      startMonth: "2025-01",
+    })
+
+    expect(
+      draft.rows.map((row) => ({
+        amount: row.amount,
+        hasManualSavingsAdjustment: row.hasManualSavingsAdjustment,
+        loanService: row.loanService,
+        month: row.month,
+        pendingLoanPayment: row.pendingLoanPayment,
+      }))
+    ).toEqual([
+      {
+        amount: 105000,
+        hasManualSavingsAdjustment: undefined,
+        loanService: 100000,
+        month: "2025-01",
+        pendingLoanPayment: 200000,
+      },
+      {
+        amount: 55000,
+        hasManualSavingsAdjustment: true,
+        loanService: 50000,
+        month: "2025-02",
+        pendingLoanPayment: 150000,
+      },
+      {
+        amount: 105000,
+        hasManualSavingsAdjustment: undefined,
+        loanService: 100000,
+        month: "2025-03",
+        pendingLoanPayment: 50000,
+      },
+      {
+        amount: 105000,
+        hasManualSavingsAdjustment: true,
+        loanService: 50000,
+        month: "2025-04",
+        pendingLoanPayment: 0,
+      },
+    ])
   })
 
   test("calculates percentage share capital after charges during active loan months", () => {

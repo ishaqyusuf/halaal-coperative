@@ -168,7 +168,10 @@ function applyChargeResolution(
 ) {
   return rows.map((row) => {
     const plannedRow =
-      row.status === "missed" && row.plannedSavingsContribution != null
+      (row.status === "missed" ||
+        row.hasManualRepaymentAdjustment ||
+        row.hasManualSavingsAdjustment) &&
+      row.plannedSavingsContribution != null
         ? {
             ...row,
             amount:
@@ -402,6 +405,7 @@ function applyShareResolution(
 
 function recalculateLoanBalances(rows: BackfillRow[]) {
   const remainingPrincipalByLoan = new Map<string, number>()
+  const settledLoanKeys = new Set<string>()
 
   for (const row of rows) {
     if (!row.loanEvent) {
@@ -411,10 +415,30 @@ function recalculateLoanBalances(rows: BackfillRow[]) {
     const loanKey =
       row.loanEvent.id ??
       `${row.loanEvent.label ?? "legacy-loan"}-${row.loanEvent.startMonth}`
+
+    if (settledLoanKeys.has(loanKey)) {
+      row.loanService = 0
+      row.pendingLoanPayment = 0
+      row.loanEvent = undefined
+      row.netDeposit = calculateNetDeposit(row)
+      continue
+    }
+
     const startingPrincipal =
       remainingPrincipalByLoan.get(loanKey) ??
       row.loanEvent.openingOutstandingPrincipalBalance ??
       row.loanEvent.loanAmount
+    const requestedLoanService = Math.max(0, row.loanService)
+    const cappedLoanService = Math.min(requestedLoanService, startingPrincipal)
+
+    if (cappedLoanService !== requestedLoanService) {
+      const savingsContribution = Math.max(0, row.amount - row.loanService)
+      row.plannedLoanRepaymentAmount ??= requestedLoanService
+      row.plannedSavingsContribution ??= savingsContribution
+      row.loanService = cappedLoanService
+      row.hasManualSavingsAdjustment = true
+    }
+
     const paidTowardLoan = Math.min(
       Math.max(0, row.loanService),
       startingPrincipal
@@ -424,6 +448,10 @@ function recalculateLoanBalances(rows: BackfillRow[]) {
     row.pendingLoanPayment = remainingPrincipal
     row.netDeposit = calculateNetDeposit(row)
     remainingPrincipalByLoan.set(loanKey, remainingPrincipal)
+
+    if (remainingPrincipal === 0) {
+      settledLoanKeys.add(loanKey)
+    }
   }
 
   return rows

@@ -57,7 +57,9 @@ function resolveDefaultStep(missingStepKeys: string[]): GettingStartedStepKey {
   if (missingStepKeys.includes("share_capital_plan")) return "shares"
   if (
     missingStepKeys.some((stepKey) =>
-      ["member_profiles", "legacy_loans"].includes(stepKey),
+      ["member_profiles", "legacy_loans", "member_ledger_backfill"].includes(
+        stepKey
+      ),
     )
   ) {
     return "admin-member"

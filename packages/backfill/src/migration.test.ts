@@ -428,6 +428,65 @@ describe("initial migration backfill helpers", () => {
     ).toEqual([false, true])
   })
 
+  test("keeps a capped final balance payment inside the planned loan segment", () => {
+    const draft = buildBackfillDraft({
+      amountLogs: [{ amount: 15000, effectiveFrom: "2025-01" }],
+      chargeDefinitions: [],
+      defaultShareVersions: [{ amount: 0, effectiveFrom: "2025-01" }],
+      endMonth: "2025-04",
+      loanEvents: [
+        {
+          durationMonths: 4,
+          id: "loan-a",
+          label: "Loan A",
+          loanAmount: 300000,
+          loanPeriodSavingsContribution: 5000,
+          monthlyLoanServiceAmount: 100000,
+          openingOutstandingPrincipalBalance: 300000,
+          startMonth: "2025-01",
+          topUp: 5000,
+        },
+      ],
+      memberJoinedMonth: "2025-01",
+      rowAdjustments: [
+        {
+          loanRepaymentAmount: 50000,
+          month: "2025-02",
+          savingsContribution: 5000,
+        },
+      ],
+      startMonth: "2025-01",
+    })
+
+    const rows = projectBackfillDraftToMemberLedgerRows(draft)
+    const segments = groupRowsByEffectiveDateSegment(rows)
+
+    expect(rows.map((row) => row.loanColumns[0]?.repaymentAmount ?? 0)).toEqual(
+      [100000, 50000, 100000, 50000]
+    )
+    expect(rows.map((row) => row.savingsContribution)).toEqual([
+      5000, 5000, 5000, 55000,
+    ])
+    expect(rows[3]).toMatchObject({
+      hasManualSavingsAdjustment: true,
+    })
+    expect(segments.map((segment) => segment.kind)).toEqual([
+      "monthly",
+      "loan_taken",
+      "monthly",
+    ])
+    expect(
+      segments
+        .filter((segment) => segment.kind === "monthly")
+        .map((segment) => segment.summary.rowCount)
+    ).toEqual([1, 3])
+    expect(
+      segments
+        .filter((segment) => segment.kind === "monthly")
+        .map((segment) => segment.summary.hasManualSavingsAdjustment)
+    ).toEqual([false, true])
+  })
+
   test("keeps a manual savings-only edit inside the continuous commitment segment", () => {
     const draft = buildBackfillDraft({
       amountLogs: [{ amount: 15000, effectiveFrom: "2025-01" }],

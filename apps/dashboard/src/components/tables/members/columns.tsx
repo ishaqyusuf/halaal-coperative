@@ -3,7 +3,7 @@ import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import { BackfillHistoryModal } from "@/components/modals/backfill-history-modal"
 import { updateMemberStatusAction } from "@/lib/dashboard-actions"
-import type { TableColumn } from "@/components/tables/core"
+import type { TableColumn } from "@/components/dashboard/static-table"
 
 export type MemberTableRow = {
   canManageMembers: boolean

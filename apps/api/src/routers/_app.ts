@@ -10,8 +10,10 @@ import { onboardingRouter } from "./onboarding.route"
 import { filtersRouter } from "./filters.route"
 import { dashboardActionsRouter } from "./dashboard-actions.route"
 import { overviewRouter } from "./overview.route"
+import { analyticsRouter } from "./analytics.route"
 
 export const appRouter = createTRPCRouter({
+  analytics: analyticsRouter,
   health: healthRouter,
   overview: overviewRouter,
   notifications: notificationsRouter,

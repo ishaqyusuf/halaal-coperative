@@ -1,48 +1,50 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import type { ReactNode, RefObject } from "react"
+import type { RefObject } from "react"
+import type { TableId } from "@/utils/table-settings"
 
-export type TableColumn<TItem> = {
-  align?: "left" | "right"
-  key: string
-  label: string
-  render: (item: TItem) => ReactNode
-}
+export type SkeletonType =
+  | "checkbox"
+  | "text"
+  | "avatar-text"
+  | "icon-text"
+  | "badge"
+  | "tags"
+  | "icon"
 
-export type SkeletonType = "text" | "badge"
-
-export type SkeletonConfig = {
-  className?: string
-  type?: SkeletonType
-}
-
-export type StickyColumnConfig = {
-  id: string
-  width: number
-}
-
-export type TableScrollState = {
+export interface TableScrollState {
+  containerRef: RefObject<HTMLDivElement | null>
   canScrollLeft: boolean
   canScrollRight: boolean
-  containerRef: RefObject<HTMLDivElement | null>
   isScrollable: boolean
   scrollLeft: () => void
   scrollRight: () => void
 }
 
-export type TableConfig = {
-  nonReorderableColumns: Set<string>
-  rowHeight: number
-  sortFieldMap: Record<string, string>
-  stickyColumns: StickyColumnConfig[]
-  summaryGridHeight?: number
-  tableId: string
+export interface StickyColumnConfig {
+  id: string
+  width: number
 }
 
-export type TableColumnMeta = {
+export interface TableConfig {
+  tableId: TableId
+  stickyColumns: StickyColumnConfig[]
+  sortFieldMap: Record<string, string>
+  nonReorderableColumns: Set<string>
+  rowHeight: number
+  summaryGridHeight?: number
+}
+
+export interface SkeletonConfig {
+  type: SkeletonType
+  width?: string
+}
+
+export interface TableColumnMeta {
   className?: string
-  headerLabel?: string
-  skeleton?: SkeletonConfig
   sticky?: boolean
+  sortField?: string
+  skeleton?: SkeletonConfig
+  headerLabel?: string
 }
 
 export function getColumnId<T>(col: ColumnDef<T>): string {
@@ -51,17 +53,15 @@ export function getColumnId<T>(col: ColumnDef<T>): string {
 
 export function getHeaderLabel<T>(col: ColumnDef<T>): string {
   const meta = col.meta as TableColumnMeta | undefined
-
   if (meta?.headerLabel) {
     return meta.headerLabel
   }
 
   const id = getColumnId(col)
-
   return id
     .replace(/_/g, " ")
     .replace(/([A-Z])/g, " $1")
-    .replace(/^./, (value) => value.toUpperCase())
+    .replace(/^./, (str) => str.toUpperCase())
     .trim()
 }
 

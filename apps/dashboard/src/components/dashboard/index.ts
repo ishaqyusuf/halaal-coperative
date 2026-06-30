@@ -8,7 +8,11 @@ export {
   DashboardTableHead,
   DashboardTableHeaderCell,
   DashboardTableRow,
-} from "@/components/tables/core"
+  TableEmptyState,
+  TableNoResults,
+  TableSkeleton,
+  type TableColumn,
+} from "./static-table"
 export {
   DASHBOARD_MOBILE_SIDEBAR_WIDTH,
   DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,

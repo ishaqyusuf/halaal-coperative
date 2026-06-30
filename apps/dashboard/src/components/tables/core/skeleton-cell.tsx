@@ -1,19 +1,53 @@
-import { cn } from "@halaalvest/ui/lib/utils"
+"use client"
 
-export function SkeletonCell({
-  className,
-  type = "text",
-}: {
-  className?: string
-  type?: "text" | "badge"
-}) {
-  return (
-    <div
-      className={cn(
-        "animate-pulse rounded-full bg-muted/60",
-        type === "badge" ? "h-6 w-20" : "h-4 w-24",
-        className
-      )}
-    />
-  )
+import { Skeleton } from "@halaalvest/ui/components/skeleton"
+import { cn } from "@halaalvest/ui/lib/utils"
+import type { SkeletonType } from "./types"
+
+interface SkeletonCellProps {
+  type: SkeletonType
+  width?: string
+}
+
+export function SkeletonCell({ type, width = "w-24" }: SkeletonCellProps) {
+  switch (type) {
+    case "checkbox":
+      return <Skeleton className="h-4 w-4" />
+
+    case "text":
+      return <Skeleton className={cn("h-3.5", width)} />
+
+    case "avatar-text":
+      return (
+        <div className="flex items-center space-x-2">
+          <Skeleton className="h-6 w-6 flex-shrink-0 rounded-full" />
+          <Skeleton className={cn("h-3.5", width)} />
+        </div>
+      )
+
+    case "icon-text":
+      return (
+        <div className="flex items-center space-x-2">
+          <Skeleton className="h-[9px] w-[9px] flex-shrink-0" />
+          <Skeleton className={cn("h-3.5", width)} />
+        </div>
+      )
+
+    case "badge":
+      return <Skeleton className={cn("h-5", width)} />
+
+    case "tags":
+      return (
+        <div className="flex items-center space-x-1">
+          <Skeleton className="h-5 w-12" />
+          <Skeleton className="h-5 w-16" />
+        </div>
+      )
+
+    case "icon":
+      return <Skeleton className="h-5 w-5" />
+
+    default:
+      return <Skeleton className={cn("h-3.5", width)} />
+  }
 }

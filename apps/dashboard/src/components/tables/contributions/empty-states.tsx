@@ -1,4 +1,4 @@
-import { TableEmptyState } from "@/components/tables/core"
+import { TableEmptyState } from "@/components/dashboard/static-table"
 
 export function ContributionsEmptyState() {
   return (

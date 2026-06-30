@@ -1,14 +1,5 @@
-export {
-  DashboardDataTable,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
-} from "./data-table"
 export { BottomBar } from "./bottom-bar"
-export { TableEmptyState, TableNoResults } from "./empty-states"
+export { EmptyState, NoResults } from "./empty-states"
 export { SkeletonCell } from "./skeleton-cell"
 export { TableSkeleton } from "./table-skeleton"
 export {
@@ -17,14 +8,11 @@ export {
   ACTIONS_STICKY_HEADER_CLASS,
   getColumnId,
   getHeaderLabel,
-} from "./types"
-export type {
-  SkeletonConfig,
-  SkeletonType,
-  StickyColumnConfig,
-  TableColumn,
-  TableColumnMeta,
-  TableConfig,
-  TableScrollState,
+  type SkeletonConfig,
+  type SkeletonType,
+  type StickyColumnConfig,
+  type TableColumnMeta,
+  type TableConfig,
+  type TableScrollState,
 } from "./types"
 export { VirtualRow } from "./virtual-row"

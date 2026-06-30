@@ -34,6 +34,14 @@ This file captures payload shapes, response conventions, and contract assumption
   - `dashboard`: dashboard summary object from `packages/domain`.
   - `loanPolicy`: loan policy object from `packages/domain`.
   - `resolvedBy`: tenant-resolution mode used for the request.
+- `trpc.analytics.summary`
+  - Request fields: optional `period` of `current_month`, `last_3_months`, `last_6_months`, or `last_12_months`; tenant id is derived from the authenticated request context.
+  - `workspace`: tenant id, tenant name, currency code, generated timestamp, and selected period label.
+  - `primaryMetrics`: deployable funds, collection coverage, portfolio-at-risk rate, action queue total, and pending disbursement amount.
+  - `contributionAnalytics`: current expected/received/gap figures, paid/unpaid/staged member rows, and period trend rows.
+  - `financingAnalytics`: outstanding principal, due-this-month amount, overdue/PAR buckets, disbursement holds, collections cases, and monthly movement rows.
+  - `memberTrustAnalytics`: active members, pending approvals, KYC/document review counts, and failed import count.
+  - `shareProfitAnalytics`: share capital, active investment pool count, profit pending allocation, and draft dividend periods.
 - `trpc.onboarding.status`
   - `status`: `"complete"` or `"incomplete"`.
   - `completedStepCount`: completed onboarding steps.

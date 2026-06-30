@@ -4,7 +4,7 @@ import {
   DashboardTableBody,
   DashboardTableCell,
   DashboardTableRow,
-} from "@/components/tables/core"
+} from "@/components/dashboard/static-table"
 import { contributionColumns, type ContributionLedgerRow } from "./columns"
 import { ContributionsEmptyState } from "./empty-states"
 import { ContributionsTableHeader } from "./table-header"

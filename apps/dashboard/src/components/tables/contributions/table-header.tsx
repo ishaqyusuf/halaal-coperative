@@ -1,7 +1,7 @@
 import {
   DashboardTableHead,
   DashboardTableHeaderCell,
-} from "@/components/tables/core"
+} from "@/components/dashboard/static-table"
 import { contributionColumns } from "./columns"
 
 export function ContributionsTableHeader() {

@@ -1,4 +1,7 @@
-import { DashboardTableHead, DashboardTableHeaderCell } from "@/components/tables/core"
+import {
+  DashboardTableHead,
+  DashboardTableHeaderCell,
+} from "@/components/dashboard/static-table"
 import { memberColumns } from "./columns"
 
 export function MembersTableHeader() {

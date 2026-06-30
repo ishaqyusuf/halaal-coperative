@@ -7,7 +7,7 @@ import {
   DashboardTableHead,
   DashboardTableHeaderCell,
   DashboardTableRow,
-} from "@/components/tables/core"
+} from "@/components/dashboard/static-table"
 import {
   DashboardActionLink,
   DashboardSectionCard,

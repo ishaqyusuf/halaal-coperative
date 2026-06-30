@@ -8,7 +8,7 @@ import {
   DashboardTableHeaderCell,
   DashboardTableRow,
   TableEmptyState,
-} from "@/components/tables/core"
+} from "@/components/dashboard/static-table"
 import { DashboardSurfaceCard } from "@/components/dashboard"
 import { LoanReviewForm } from "@/components/forms/finance-forms"
 

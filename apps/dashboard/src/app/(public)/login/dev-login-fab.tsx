@@ -29,16 +29,16 @@ export function DevLoginFab({
   }
 
   return (
-    <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-3 sm:right-6 sm:bottom-6">
+    <div className="fixed right-4 bottom-4 z-50 hidden flex-col items-end gap-3 sm:right-6 sm:bottom-6 sm:flex">
       {open ? (
-        <div className="w-[min(24rem,calc(100vw-2rem))] rounded-[1.5rem] border border-border/70 bg-background/95 p-4 shadow-[0_24px_80px_rgba(88,52,24,0.18)] backdrop-blur">
+        <div className="w-[min(23rem,calc(100vw-2rem))] rounded-md border border-[#d6a63a]/60 bg-[#fff8df] p-3 shadow-lg backdrop-blur dark:border-[#d6a63a]/40 dark:bg-[#201b0d]">
           <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Dev Quick Login
+              <p className="text-xs font-semibold text-[#0b1f36] dark:text-[#f7faf7]">
+                Dev quick login
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Pick any seeded or database-backed user and log in immediately.
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Seeded and database-backed accounts for local access.
               </p>
             </div>
             <Button
@@ -48,7 +48,7 @@ export function DevLoginFab({
               variant="ghost"
               aria-label="Close quick login"
             >
-              <span className="text-base leading-none">×</span>
+              <span className="text-base leading-none">x</span>
             </Button>
           </div>
 
@@ -58,24 +58,36 @@ export function DevLoginFab({
                 key={account.userId}
                 action={action}
                 method="post"
-                className="rounded-[1.25rem] border border-border/60 bg-muted/20 p-3"
+                className="rounded-md border border-[#d6a63a]/35 bg-background/85 p-3 dark:bg-background/60"
               >
                 <input type="hidden" name="userId" value={account.userId} />
                 <input type="hidden" name="next" value={nextPath} />
 
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">{account.fullName}</p>
-                    <p className="truncate text-xs text-muted-foreground">{account.email}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{account.tenantName}</p>
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {account.fullName}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {account.email}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {account.tenantName}
+                    </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-2">
                     <Badge variant="outline">{account.roleLabel}</Badge>
-                    {account.isPlatformOwner ? <Badge variant="secondary">Platform owner</Badge> : null}
+                    {account.isPlatformOwner ? (
+                      <Badge variant="secondary">Platform owner</Badge>
+                    ) : null}
                   </div>
                 </div>
 
-                <Button type="submit" variant="outline" className="mt-3 w-full justify-center">
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="mt-3 w-full justify-center"
+                >
                   Login as {account.fullName}
                 </Button>
               </form>
@@ -88,10 +100,10 @@ export function DevLoginFab({
         type="button"
         onClick={() => setOpen((value) => !value)}
         size="icon"
-        className="size-14 rounded-full shadow-[0_18px_48px_rgba(88,52,24,0.28)]"
+        className="size-12 rounded-md border-[#d6a63a] bg-[#d6a63a] text-[#0b1f36] shadow-lg hover:bg-[#c9952d]"
         aria-label="Open dev quick login"
       >
-        <span className="text-lg font-semibold">Dev</span>
+        <span className="text-xs font-semibold">DEV</span>
       </Button>
     </div>
   )

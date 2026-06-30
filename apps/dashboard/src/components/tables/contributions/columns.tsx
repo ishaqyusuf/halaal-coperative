@@ -1,5 +1,5 @@
 import { formatCurrency } from "@halaalvest/utils"
-import type { TableColumn } from "@/components/tables/core"
+import type { TableColumn } from "@/components/dashboard/static-table"
 
 export type ContributionLedgerRow = {
   amount: number | string | { toString(): string }

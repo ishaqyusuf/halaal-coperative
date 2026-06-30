@@ -9,6 +9,7 @@ import {
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { Badge } from "@halaalvest/ui/components/badge"
+import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { cn } from "@halaalvest/ui/lib/utils"
@@ -61,6 +62,7 @@ export default async function LoginPage({
   )
   const error = typeof params.error === "string" ? params.error : null
   const reset = typeof params.reset === "string" ? params.reset : null
+  const isDevelopment = process.env.NODE_ENV !== "production"
 
   if (context.auth.sessionToken && context.auth.user) {
     if (context.auth.membership && context.tenant) {
@@ -77,17 +79,19 @@ export default async function LoginPage({
     await tenantRedirect(nextPath)
   }
 
-  const tenants = await listTenants()
+  const tenants = isDevelopment ? await listTenants() : []
   const visibleTenants = context.tenant
     ? tenants.filter((tenant) => tenant.id === context.tenant?.id)
     : tenants
 
-  const accountGroups = await Promise.all(
-    visibleTenants.map(async (tenant) => ({
-      tenant,
-      users: await listTenantUsersWithMemberships(tenant.id),
-    }))
-  )
+  const accountGroups = isDevelopment
+    ? await Promise.all(
+        visibleTenants.map(async (tenant) => ({
+          tenant,
+          users: await listTenantUsersWithMemberships(tenant.id),
+        }))
+      )
+    : []
   const devAccounts = accountGroups.flatMap(({ tenant, users }) =>
     users.flatMap((user) => {
       const membership = getTenantScopedMembership(user, tenant.id)
@@ -127,11 +131,15 @@ export default async function LoginPage({
   const supportCopy = context.tenant
     ? "Sessions stay scoped to this tenant host so the public site, login, and workspace remain isolated."
     : "Sessions stay host-scoped so each tenant site and the platform environment can keep separate logins."
-  const loginAction = buildTenantHref(tenantUrlContext, "/auth/login", tenantUrlConfig)
+  const loginAction = buildTenantHref(
+    tenantUrlContext,
+    "/auth/login",
+    tenantUrlConfig
+  )
   const memberSignupHref = buildTenantHref(
     tenantUrlContext,
     "/signup/members",
-    tenantUrlConfig,
+    tenantUrlConfig
   )
   const resetPasswordHref = buildTenantHref(
     tenantUrlContext,
@@ -140,158 +148,165 @@ export default async function LoginPage({
   )
 
   return (
-    <main className="min-h-svh bg-public-canvas">
-      <div className="flex min-h-svh flex-col lg:flex-row">
-        <section className="relative hidden lg:flex lg:w-1/2">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(214,188,136,0.32),transparent_42%),linear-gradient(180deg,rgba(32,24,17,0.08),rgba(32,24,17,0.02))]" />
-          <div className="relative flex w-full flex-col justify-between overflow-hidden border-r border-border/60 px-10 py-8 xl:px-14 xl:py-10">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                  {heroEyebrow}
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {tenantHostname}
-                </p>
-              </div>
-              <Badge variant="outline" className="rounded-full px-3 py-1">
-                Secure access
-              </Badge>
-            </div>
+    <main
+      className={cn(
+        "bg-public-canvas flex min-h-svh flex-col text-foreground",
+        isDevelopment && "bg-[#fff8df] dark:bg-[#201b0d]"
+      )}
+    >
+      {isDevelopment ? (
+        <div className="border-b border-[#d6a63a]/50 bg-[#fff2c7] px-4 py-2 text-xs font-medium text-[#0b1f36] dark:border-[#d6a63a]/40 dark:bg-[#2a240e] dark:text-[#f7faf7]">
+          Development environment - quick login enabled
+        </div>
+      ) : null}
 
-            <div className="max-w-xl">
-              <h1 className="max-w-lg text-4xl font-semibold tracking-[-0.04em] text-foreground xl:text-5xl">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="hidden border-r border-border bg-background/45 px-8 py-10 lg:flex">
+          <div className="flex w-full flex-col">
+            <HalaalvestLogo
+              markClassName="size-9"
+              wordmarkClassName="text-base tracking-normal"
+            />
+
+            <div className="mt-10 max-w-md lg:mt-20">
+              <Badge variant="outline">{heroEyebrow}</Badge>
+              <h1 className="mt-4 text-2xl leading-tight font-semibold text-foreground sm:text-3xl">
                 {heroTitle}
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground">
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">
                 {heroDescription}
               </p>
+            </div>
 
-              <div className="mt-10 grid gap-4 sm:grid-cols-2">
-                <article className="rounded-[1.75rem] border border-border/60 bg-background/80 p-5 shadow-sm backdrop-blur">
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Login flow
-                  </p>
-                  <p className="mt-3 text-lg font-semibold tracking-tight text-foreground">
-                    One sign-in for members and staff
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Pending member accounts can still sign in and will land on
-                    their approval status screen.
-                  </p>
-                </article>
-                <article className="rounded-[1.75rem] border border-border/60 bg-background/80 p-5 shadow-sm backdrop-blur">
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Onboarding
-                  </p>
-                  <p className="mt-3 text-lg font-semibold tracking-tight text-foreground">
-                    Tenant-scoped access only
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Public site, authentication, and workspace stay aligned to
-                    the current cooperative host.
-                  </p>
-                </article>
+            <dl className="mt-8 border border-border bg-background/70 text-sm lg:mt-auto">
+              <div className="grid grid-cols-[7rem_1fr] gap-4 border-b border-border px-4 py-3">
+                <dt className="text-muted-foreground">Workspace</dt>
+                <dd className="min-w-0 font-medium text-foreground">
+                  {tenantName}
+                </dd>
               </div>
-            </div>
-
-            <div className="rounded-[1.75rem] border border-border/60 bg-background/85 p-5 shadow-sm backdrop-blur">
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Workspace
-              </p>
-              <p className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
-                {tenantName}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {supportCopy}
-              </p>
-            </div>
+              <div className="grid grid-cols-[7rem_1fr] gap-4 border-b border-border px-4 py-3">
+                <dt className="text-muted-foreground">Host</dt>
+                <dd className="min-w-0 truncate font-medium text-foreground">
+                  {tenantHostname}
+                </dd>
+              </div>
+              <div className="grid grid-cols-[7rem_1fr] gap-4 px-4 py-3">
+                <dt className="text-muted-foreground">Session</dt>
+                <dd className="min-w-0 leading-6 text-muted-foreground">
+                  {supportCopy}
+                </dd>
+              </div>
+            </dl>
           </div>
         </section>
 
-        <section className="flex w-full flex-1 flex-col justify-center px-4 py-8 sm:px-6 lg:w-1/2 lg:px-10 lg:py-10">
-          <div className="mx-auto flex w-full max-w-md flex-col">
-            <div className="mb-8 lg:hidden">
-              <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                {heroEyebrow}
-              </p>
-              <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-foreground">
-                {heroTitle}
-              </h1>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                {heroDescription}
+        <section className="flex flex-1 items-start px-4 py-8 sm:px-6 lg:items-center lg:px-10">
+          <div className="mx-auto w-full max-w-md">
+            <div className="mb-6 lg:hidden">
+              <div className="flex items-center justify-between gap-4">
+                <HalaalvestLogo
+                  markClassName="size-9"
+                  wordmarkClassName="text-base tracking-normal"
+                />
+                <Badge variant="outline">{heroEyebrow}</Badge>
+              </div>
+              <p className="mt-4 text-sm text-muted-foreground">
+                {tenantHostname}
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-border/70 bg-background/94 p-6 shadow-[0_24px_80px_rgba(88,52,24,0.08)] backdrop-blur sm:p-8">
-              <div className="space-y-2 text-center">
-                <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                  Member and staff login
-                </p>
-                <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-                  Continue to your workspace
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Enter your email and password to access the current tenant
-                  host.
-                </p>
+            <div className="border border-border bg-background p-5 shadow-sm sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Member and staff login
+                  </p>
+                  <h2 className="mt-2 text-2xl leading-tight font-semibold text-foreground">
+                    Continue to your workspace
+                  </h2>
+                </div>
+                <Badge variant="outline" className="mt-1 hidden sm:inline-flex">
+                  Secure
+                </Badge>
               </div>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Enter your email and password to access the current tenant host.
+              </p>
 
               {error === "invalid-account" ? (
-                <div className="mt-6 rounded-[1.25rem] border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                <div className="mt-5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                   The account could not be used for this tenant host, or the
                   credentials were invalid.
                 </div>
               ) : null}
 
               {reset === "complete" ? (
-                <div className="mt-6 rounded-[1.25rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
-                  Your password has been updated. Sign in with the new
-                  password.
+                <div className="mt-5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-500/50 dark:bg-emerald-950/30 dark:text-emerald-100">
+                  Your password has been updated. Sign in with the new password.
                 </div>
               ) : null}
 
-              <form action={loginAction} method="post" className="mt-6 space-y-4">
+              <form
+                action={loginAction}
+                method="post"
+                className="mt-6 space-y-4"
+              >
                 <input type="hidden" name="next" value={nextPath} />
 
-                <label className="grid gap-2 text-sm text-foreground">
-                  <span>Email</span>
+                <label
+                  className="grid gap-1.5 text-sm font-medium text-foreground"
+                  htmlFor="email"
+                >
+                  Email
                   <Input
+                    id="email"
                     type="email"
                     name="email"
                     placeholder="name@cooperative.com"
                     required
-                    className="h-11"
+                    className="h-10 bg-background text-sm md:text-sm"
                   />
                 </label>
 
-                <label className="grid gap-2 text-sm text-foreground">
-                  <span>Password</span>
+                <div className="grid gap-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <label
+                      className="text-sm font-medium text-foreground"
+                      htmlFor="password"
+                    >
+                      Password
+                    </label>
+                    <a
+                      className="text-xs font-medium text-[#1f7a3d] underline-offset-4 hover:underline dark:text-[#71d98b]"
+                      href={resetPasswordHref}
+                    >
+                      Reset password
+                    </a>
+                  </div>
                   <Input
+                    id="password"
                     type="password"
                     name="password"
                     placeholder="Enter your password"
                     required
-                    className="h-11"
+                    className="h-10 bg-background text-sm md:text-sm"
                   />
-                </label>
+                </div>
 
-                <Button type="submit" size="lg" className="mt-2 w-full">
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="h-10 w-full bg-[#1f7a3d] text-white hover:bg-[#176332] dark:bg-[#3fbf70] dark:text-[#071b2c] dark:hover:bg-[#71d98b]"
+                >
                   Sign in
                 </Button>
-
-                <a
-                  className="block text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
-                  href={resetPasswordHref}
-                >
-                  Reset password
-                </a>
 
                 {showMemberSignupCta ? (
                   <a
                     className={cn(
                       buttonVariants({ size: "lg", variant: "outline" }),
-                      "w-full"
+                      "h-10 w-full border-[#1f7a3d]/35 text-[#1f7a3d] hover:bg-[#1f7a3d]/10 dark:border-[#71d98b]/45 dark:text-[#71d98b]"
                     )}
                     href={memberSignupHref}
                   >
@@ -299,107 +314,68 @@ export default async function LoginPage({
                   </a>
                 ) : null}
               </form>
-
-              <div className="mt-6 border-t border-border/60 pt-4 text-center text-xs leading-5 text-muted-foreground">
-                {supportCopy}
-              </div>
             </div>
 
-            {process.env.NODE_ENV !== "production" ? (
-              <div className="mt-6 space-y-4">
-                {accountGroups.map(({ tenant, users }) => (
-                  <section
-                    key={tenant.id}
-                    className="rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm"
-                  >
-                    <div className="flex flex-col gap-3 border-b border-border/60 pb-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                          Dev quick access
-                        </p>
-                        <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">
-                          {tenant.name}
-                        </h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {buildTenantSiteHostname(tenant.slug)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">{tenant.slug}</Badge>
-                        <Badge variant="secondary">
-                          {tenant.memberCount} members
-                        </Badge>
-                      </div>
-                    </div>
+            <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
+              {supportCopy}
+            </p>
 
-                    <div className="mt-4 space-y-3">
-                      {users.map((user) => {
-                        const membership = getTenantScopedMembership(
-                          user,
-                          tenant.id
-                        )
-
-                        if (!membership) {
-                          return null
-                        }
-
-                        return (
-                          <article
-                            key={user.id}
-                            className="rounded-[1.25rem] border border-border/60 bg-muted/20 p-4"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-foreground">
-                                  {user.fullName}
-                                </p>
-                                <p className="truncate text-xs text-muted-foreground">
-                                  {user.email}
-                                </p>
-                              </div>
-                              <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                                <Badge variant="outline">
-                                  {getRoleDisplayName(membership?.role ?? null)}
-                                </Badge>
-                                {user.isPlatformOwner ? (
-                                  <Badge variant="secondary">
-                                    Platform owner
-                                  </Badge>
-                                ) : null}
-                              </div>
-                            </div>
-
-                            <form
-                              action={loginAction}
-                              method="post"
-                              className="mt-4"
-                            >
-                              <input
-                                type="hidden"
-                                name="userId"
-                                value={user.id}
-                              />
-                              <input type="hidden" name="next" value={nextPath} />
-                              <Button
-                                type="submit"
-                                variant="outline"
-                                className="w-full justify-center"
-                              >
-                                Continue as {user.fullName}
-                              </Button>
-                            </form>
-                          </article>
-                        )
-                      })}
-                    </div>
-                  </section>
-                ))}
-              </div>
+            {isDevelopment ? (
+              <>
+                <div className="mt-4 border border-[#d6a63a]/60 bg-[#fff2c7] px-3 py-2 text-xs font-medium text-[#0b1f36] dark:border-[#d6a63a]/40 dark:bg-[#2a240e] dark:text-[#f7faf7]">
+                  Development mode - {devAccounts.length} quick-login account
+                  {devAccounts.length === 1 ? "" : "s"} available
+                </div>
+                <details className="mt-3 border border-[#d6a63a]/60 bg-background/80 text-sm sm:hidden">
+                  <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-[#0b1f36] dark:text-[#f7faf7]">
+                    Quick login accounts
+                  </summary>
+                  <div className="space-y-3 border-t border-border p-3">
+                    {devAccounts.map((account) => (
+                      <form
+                        key={account.userId}
+                        action={loginAction}
+                        method="post"
+                        className="rounded-md border border-border bg-background p-3"
+                      >
+                        <input
+                          type="hidden"
+                          name="userId"
+                          value={account.userId}
+                        />
+                        <input type="hidden" name="next" value={nextPath} />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {account.fullName}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {account.email}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Badge variant="outline">{account.roleLabel}</Badge>
+                            {account.isPlatformOwner ? (
+                              <Badge variant="secondary">Platform owner</Badge>
+                            ) : null}
+                          </div>
+                        </div>
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          className="mt-3 w-full justify-center"
+                        >
+                          Login as {account.fullName}
+                        </Button>
+                      </form>
+                    ))}
+                  </div>
+                </details>
+              </>
             ) : null}
           </div>
         </section>
       </div>
-      {process.env.NODE_ENV !== "production" ? (
+
+      {isDevelopment ? (
         <DevLoginFab
           accounts={devAccounts}
           action={loginAction}

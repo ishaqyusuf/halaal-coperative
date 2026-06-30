@@ -1,4 +1,4 @@
-import { TableSkeleton } from "@/components/tables/core"
+import { TableSkeleton } from "@/components/dashboard/static-table"
 
 export function Loading() {
   return (

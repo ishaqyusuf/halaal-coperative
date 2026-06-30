@@ -15,7 +15,7 @@ export function DashboardPageHeader({
   title: string
 }) {
   return (
-    <section className="rounded-[28px] border border-border/70 bg-card px-6 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <section className="border-b border-border/70 pb-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -33,11 +33,11 @@ export function DashboardPageHeader({
               </Badge>
             ) : null}
           </div>
-          <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.03em] text-foreground sm:text-[32px]">
+          <h2 className="mt-3 text-2xl font-semibold tracking-normal text-foreground sm:text-3xl">
             {title}
           </h2>
           {description ? (
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
               {description}
             </p>
           ) : null}
@@ -57,5 +57,5 @@ export function DashboardPageStack({
   children: React.ReactNode
   className?: string
 }) {
-  return <div className={cn("flex flex-col gap-6", className)}>{children}</div>
+  return <div className={cn("flex flex-col gap-5", className)}>{children}</div>
 }

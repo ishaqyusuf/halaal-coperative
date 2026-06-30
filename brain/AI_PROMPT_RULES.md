@@ -10,12 +10,14 @@ This file captures prompt-level instructions and durable context that future AI 
 ## Project Rules
 - Treat this product as a financial system, not a generic CRUD app.
 - Preserve the project's 100% halal financial model in product and engineering decisions.
+- For cooperative finance and admin workflow prompts, think like a Halaal investment cooperative operator: protect member funds, surface pending/overdue/risky work, preserve auditability, and keep member trust central.
 - Multi-tenant isolation is mandatory in all data and authorization decisions.
 - Use append-only ledger thinking for money-related events whenever possible.
 - Do not model loan eligibility as guaranteed disbursement.
 - Do not introduce interest-bearing loan logic.
 - Prefer configurable policy tables over hard-coded charges and cooperative rules.
 - Build for explainability: admins and members should understand how balances were derived.
+- Dashboard and report surfaces should be exception-led: show deployable funds, collection coverage, portfolio risk, action queues, KYC/compliance gaps, and profit/share status before normal completed records or platform diagnostics.
 - Design offline flows so sync preserves auditability and does not silently rewrite financial history.
 - Treat these repositories as standing coding architecture and implementation references when patterns, structure, or logic guidance is needed:
   - `~/Documents/code/_kitchen_sink/midday`

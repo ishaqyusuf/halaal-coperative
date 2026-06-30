@@ -16,6 +16,8 @@ This folder is the structured memory for halaalvest. It keeps product, architect
 - `system/`: architecture, boundaries, and stack.
 - `system/reference-projects.md`: absolute paths for external local repositories used as architecture and coding pattern references.
 - `product/`: problem, users, roadmap, and business model.
+- `product/halaal-cooperative-operating-model.md`: durable Halaal cooperative finance and admin-operating lens.
+- `product/admin-dashboard-kpi-framework.md`: admin dashboard KPI and content hierarchy for cooperative operators.
 - `engineering/`: repo rules, coding standards, and AI delivery rules.
 - `database/`: schema, relationships, and migration history.
 - `api/`: endpoints, contracts, and permissions.
@@ -29,4 +31,5 @@ This folder is the structured memory for halaalvest. It keeps product, architect
 - Repository initialized with Brain docs before application code.
 - Product concept: multi-tenant cooperative savings and loan management SaaS.
 - Highest-risk domains: financial correctness, auditability, permissions, trust, and loan liquidity.
+- Domain operating lens: Halaal cooperative money safety, contribution health, portfolio risk, admin action queues, compliance watch, and member trust.
 - Primary external architecture and coding-standard reference for performance-sensitive work: `midday` at `/Users/M1PRO/Documents/code/_kitchen_sink/midday`.

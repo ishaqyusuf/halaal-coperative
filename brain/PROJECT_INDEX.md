@@ -10,6 +10,8 @@ This file is a fast map of the repository so contributors can quickly find impor
 ## Current Repository Map
 - `brain/`: project memory and planning system.
 - `brain/plans/ongoing.md`: active resumable execution plans for long-running implementation tracks.
+- `brain/product/halaal-cooperative-operating-model.md`: durable domain model for Halaal cooperative finance, admin operations, compliance, and trust decisions.
+- `brain/product/admin-dashboard-kpi-framework.md`: source of truth for admin dashboard metrics, sections, and exception-led content hierarchy.
 - `brain/features/member-commitments-and-payment-allocation.md`: source of truth for member-specific commitments, loan servicing estimates, and split payment allocation.
 - `apps/web/`: Next.js SaaS marketing application.
 - `apps/web/app/signup/page.tsx`: public signup route that captures cooperative primary-contact details and prepares a verification link.
@@ -46,6 +48,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/dashboard/src/app/(app)/(sidebar)/settings/roles/page.tsx`: tenant-user role provisioning and current-role visibility workspace.
 - `apps/dashboard/src/app/(app)/(sidebar)/settings/imports/page.tsx`: centralized staff import and migration workspace for members, records, and legacy finance data.
 - `apps/dashboard/src/components/dashboard/`: canonical Midday-style dashboard shell, topbar, sidebar, page frame, summary helpers, and section/surface components.
+- `.codex/skills/halaal-cooperative-domain/`: project-local Codex skill for applying the Halaal cooperative domain lens in future planning, review, dashboard, and finance tasks.
 - `apps/dashboard/src/components/search-filter/`: reusable Midday-style list search/filter module with typed wrapper, panel, field renderer, active filter pills, and label utilities.
 - `apps/dashboard/src/components/members/`: member-list page widgets including the search toolbar and summary cards.
 - `apps/dashboard/src/components/tables/`: domain-specific table/page compositions plus shared table atoms in `core/`.

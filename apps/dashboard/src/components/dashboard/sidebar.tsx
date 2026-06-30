@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
+import { HalaalvestLogoMark } from "@halaalvest/ui/components/brand-logo"
 import { cn } from "@halaalvest/ui/lib/utils"
 import type { NavModule } from "@halaalvest/site-nav"
 import {
-  DASHBOARD_MOBILE_SIDEBAR_WIDTH,
   DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,
   DASHBOARD_SIDEBAR_EXPANDED_WIDTH,
 } from "./constants"
@@ -36,7 +36,7 @@ function DashboardSidebarLink({
       <div className="relative">
         <div
           className={cn(
-            "ml-[15px] mr-[15px] h-[40px] border border-transparent transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
+            "mr-[15px] ml-[15px] h-[40px] border border-transparent transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
             isActive
               ? "border-border bg-[#f7f7f7] dark:bg-[#131313]"
               : "bg-transparent group-hover:border-border/70 group-hover:bg-muted/30",
@@ -46,17 +46,21 @@ function DashboardSidebarLink({
         <div
           className={cn(
             "pointer-events-none absolute top-0 left-[15px] flex h-[40px] w-[40px] items-center justify-center transition-colors",
-            isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+            isActive
+              ? "text-foreground"
+              : "text-muted-foreground group-hover:text-foreground"
           )}
         >
           {Icon ? <Icon className="size-[18px] shrink-0" /> : null}
         </div>
         {expanded ? (
-          <div className="pointer-events-none absolute top-0 left-[55px] right-[16px] flex h-[40px] items-center">
+          <div className="pointer-events-none absolute top-0 right-[16px] left-[55px] flex h-[40px] items-center">
             <span
               className={cn(
                 "truncate text-sm font-medium transition-colors",
-                isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground group-hover:text-foreground"
               )}
             >
               {label}
@@ -105,7 +109,7 @@ export function DashboardSidebar({
             .map((section) => (
               <section key={`${section.moduleName}-${section.name}`}>
                 {isExpanded ? (
-                  <p className="mb-2 px-[19px] text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/60">
+                  <p className="mb-2 px-[19px] text-[10px] font-semibold tracking-[0.2em] text-muted-foreground/60 uppercase">
                     {section.title ?? section.moduleName}
                   </p>
                 ) : null}
@@ -135,17 +139,17 @@ export function DashboardSidebar({
   const userCard = (
     <div className="relative h-[36px] w-full">
       <div className="absolute bottom-0 left-[19px] flex h-[32px] w-[32px] items-center justify-center border border-border/70 bg-background text-[11px] font-semibold text-foreground">
-          {userName
-            .split(" ")
-            .map((part) => part[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase()}
+        {userName
+          .split(" ")
+          .map((part) => part[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase()}
       </div>
       {isExpanded ? (
         <div className="absolute right-4 bottom-0 left-[62px] flex h-[32px] min-w-0 items-center">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium leading-none text-foreground">
+            <p className="truncate text-sm leading-none font-medium text-foreground">
               {tenantName}
             </p>
             <p className="mt-1 truncate text-[11px] leading-none text-muted-foreground">
@@ -164,19 +168,21 @@ export function DashboardSidebar({
         isExpanded ? "w-full" : "w-[69px]"
       )}
     >
-      <Link href="/" className="absolute left-[20px] flex items-center">
-        <div className="flex size-7 items-center justify-center text-sm font-semibold tracking-[-0.04em] text-foreground">
-          HV
-        </div>
+      <Link
+        href="/"
+        aria-label="Halaalvest home"
+        className="absolute left-[18px] flex items-center"
+      >
+        <HalaalvestLogoMark className="size-9" aria-hidden="true" />
       </Link>
       {isExpanded ? (
-        <div className="absolute left-[54px] right-4 min-w-0">
-            <p className="truncate text-sm font-semibold tracking-[-0.02em] leading-none text-foreground">
-              Halaal Vest
-            </p>
-            <p className="mt-1 truncate text-[11px] leading-none text-muted-foreground">
-              {currentModuleName ?? tenantName}
-            </p>
+        <div className="absolute right-4 left-[62px] min-w-0">
+          <p className="truncate text-sm leading-none font-semibold tracking-[-0.02em] text-foreground">
+            Halaalvest
+          </p>
+          <p className="mt-1 truncate text-[11px] leading-none text-muted-foreground">
+            {currentModuleName ?? tenantName}
+          </p>
         </div>
       ) : null}
     </div>
@@ -186,7 +192,7 @@ export function DashboardSidebar({
     <>
       {brand}
 
-      <div className="mb-3 flex min-h-0 flex-1 flex-col justify-between border-b border-border px-0 pb-3 pt-[70px]">
+      <div className="mb-3 flex min-h-0 flex-1 flex-col justify-between border-b border-border px-0 pt-[70px] pb-3">
         {navSections}
       </div>
       <div className="w-full px-0">{userCard}</div>

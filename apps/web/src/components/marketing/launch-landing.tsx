@@ -1,4 +1,5 @@
 import { Badge } from "@halaalvest/ui/components/badge"
+import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import Link from "next/link"
 
@@ -57,13 +58,11 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
     <main id="top" className="min-h-svh bg-background text-foreground">
       <header className="border-b border-border bg-background/95">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
-          <Link className="flex items-center gap-3" href="#top">
-            <span className="flex size-8 items-center justify-center rounded-md bg-foreground text-xs font-semibold text-background">
-              H
-            </span>
-            <span className="text-sm font-semibold tracking-tight">
-              halaalvest
-            </span>
+          <Link aria-label="Halaalvest home" href="#top">
+            <HalaalvestLogo
+              markClassName="size-9"
+              wordmarkClassName="text-sm"
+            />
           </Link>
 
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
@@ -111,8 +110,8 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
               </h1>
               <p className="max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
                 A premium cooperative management platform for halal savings,
-                staged monthly contributions, approval-controlled member
-                signup, loans, charges, and trustworthy member records.
+                staged monthly contributions, approval-controlled member signup,
+                loans, charges, and trustworthy member records.
               </p>
             </div>
 
@@ -261,7 +260,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
             <Badge variant="secondary" className="h-6 rounded-md px-2.5">
               Operating workflow
             </Badge>
-              <h2 className="mt-5 font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h2 className="mt-5 font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
               The first screen leads into the real operating flow.
             </h2>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">

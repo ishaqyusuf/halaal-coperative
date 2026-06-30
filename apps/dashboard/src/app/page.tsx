@@ -12,8 +12,8 @@ import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/
 import { TenantUrlProvider } from "@halaalvest/tenant-url/react"
 import { formatCurrency } from "@halaalvest/utils"
 import { Button } from "@halaalvest/ui/components/button"
-import { DashboardShellClient } from "@/components/dashboard"
-import { DashboardOverviewPage } from "@/components/dashboard/overview-page"
+import { DashboardShellClient } from "@/components/dashboard-shell"
+import { OverviewView } from "@/components/widgets"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 import { HydrateClient, prefetch, trpc } from "@/trpc/server"
@@ -49,7 +49,7 @@ export default async function TenantHomePage() {
       }
     }
 
-    await prefetch(trpc.health.summary.queryOptions())
+    await prefetch(trpc.overview.summary.queryOptions())
 
     return (
       <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
@@ -59,7 +59,7 @@ export default async function TenantHomePage() {
           userName={userName}
         >
           <HydrateClient>
-            <DashboardOverviewPage />
+            <OverviewView />
           </HydrateClient>
         </DashboardShellClient>
       </TenantUrlProvider>

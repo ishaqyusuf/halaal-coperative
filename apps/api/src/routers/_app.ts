@@ -9,9 +9,11 @@ import { chargesRouter } from "./charges.route"
 import { onboardingRouter } from "./onboarding.route"
 import { filtersRouter } from "./filters.route"
 import { dashboardActionsRouter } from "./dashboard-actions.route"
+import { overviewRouter } from "./overview.route"
 
 export const appRouter = createTRPCRouter({
   health: healthRouter,
+  overview: overviewRouter,
   notifications: notificationsRouter,
   workspace: workspaceRouter,
   members: membersRouter,

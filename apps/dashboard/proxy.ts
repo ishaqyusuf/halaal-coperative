@@ -17,6 +17,7 @@ const PUBLIC_PREFIXES = [
   "/api/",
   "/_next/",
   "/auth/",
+  "/brand/",
   "/favicon",
   "/login",
   "/sign-in",
@@ -95,5 +96,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|brand/|favicon.ico|sitemap.xml|robots.txt).*)",
+  ],
 }

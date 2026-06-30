@@ -1,0 +1,14 @@
+<svg viewBox="0 0 360 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(8 6) scale(.875)">
+    <path d="M16 18h18v58h-8.5A9.5 9.5 0 0 1 16 66.5V18Z" fill="#0B1F36"/>
+    <path d="M34 49.5 57 39 50.5 52 34 60V49.5Z" fill="#0B1F36"/>
+    <path d="m45 58 12-7v25H45V58Z" fill="#1F7A3D"/>
+    <path d="m61 49 12-8v35H61V49Z" fill="#1F7A3D"/>
+    <path d="M77 36h13v40H77V36Z" fill="#1F7A3D"/>
+    <path d="M65 39c-7.4-2.8-10.4-9.7-7.8-17.9 8.1 2.2 11.9 9.2 7.8 17.9Z" fill="#2F9A56"/>
+    <path d="M73.8 30.8c.6-10.1 6.9-16.5 17.1-17.4.2 10.2-6.4 17.4-17.1 17.4Z" fill="#2F9A56"/>
+  </g>
+  <text x="103" y="61" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="700" letter-spacing="-1.4">
+    <tspan fill="#0B1F36">Halaal</tspan><tspan fill="#1F7A3D">vest</tspan>
+  </text>
+</svg>

@@ -298,6 +298,32 @@ describe("tenant initial migration state query", () => {
     expect(state.snapshot.status).toBe("migration_review")
   })
 
+  test("counts applied backfill batches even when applied month coverage is partial", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 12,
+        appliedBackfillMembers: 12,
+        appliedBackfillMonthMembers: 12,
+        businessProfitPools: 1,
+        chargeScheduleVersions: 2,
+        initialMigrationStatus: null,
+        legacyLoans: 1,
+        memberJoinedAt: new Date("2025-01-01T00:00:00.000Z"),
+        memberProfiles: 12,
+        shareCapitalPlans: 1,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+      }) as never
+    )
+
+    expect(state.counts.appliedBackfillMonths).toBe(12)
+    expect(state.counts.appliedBackfillMembers).toBe(12)
+    expect(state.snapshot.status).toBe("migration_review")
+    expect(state.snapshot.missingStepKeys).not.toContain(
+      "member_ledger_backfill"
+    )
+  })
+
   test("does not treat partial applied month coverage as completed member backfill", async () => {
     const state = await getTenantInitialMigrationState(
       "tenant-1",

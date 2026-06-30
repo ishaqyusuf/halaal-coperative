@@ -212,27 +212,26 @@ export async function getTenantInitialMigrationState(
       (batch: { memberId: string }) => batch.memberId
     )
   )
-  const appliedBackfillMemberIds =
-    appliedBackfillMonths.length > 0
-      ? new Set(
-          memberProfiles
-            .filter((member: { id: string; joinedAt: Date }) => {
-              const expectedMonthKeys = getExpectedBackfillMonthKeys({
-                joinedAt: member.joinedAt,
-                tenantStartDate: tenant?.startDate ?? null,
-              })
-              const appliedMonthKeys = appliedMonthKeysByMemberId.get(member.id)
+  const appliedBackfillMonthMemberIds = new Set(
+    memberProfiles
+      .filter((member: { id: string; joinedAt: Date }) => {
+        const expectedMonthKeys = getExpectedBackfillMonthKeys({
+          joinedAt: member.joinedAt,
+          tenantStartDate: tenant?.startDate ?? null,
+        })
+        const appliedMonthKeys = appliedMonthKeysByMemberId.get(member.id)
 
-              return (
-                expectedMonthKeys.length > 0 &&
-                expectedMonthKeys.every((monthKey) =>
-                  appliedMonthKeys?.has(monthKey)
-                )
-              )
-            })
-            .map((member: { id: string }) => member.id)
+        return (
+          expectedMonthKeys.length > 0 &&
+          expectedMonthKeys.every((monthKey) => appliedMonthKeys?.has(monthKey))
         )
-      : appliedBackfillBatchMemberIds
+      })
+      .map((member: { id: string }) => member.id)
+  )
+  const appliedBackfillMemberIds = new Set([
+    ...appliedBackfillBatchMemberIds,
+    ...appliedBackfillMonthMemberIds,
+  ])
   const appliedBackfillMembers = appliedBackfillMemberIds.size
   const hasMemberLedgerBackfill =
     hasMemberProfiles && appliedBackfillMembers >= memberProfileCount

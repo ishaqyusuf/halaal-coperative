@@ -1,0 +1,7 @@
+interface:
+  display_name: "Halaal Cooperative Domain"
+  short_description: "Halaal cooperative finance and admin judgment."
+  default_prompt: "Use $halaal-cooperative-domain to review this cooperative finance, dashboard, or admin workflow decision."
+policy:
+  allow_implicit_invocation: true
+

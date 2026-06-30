@@ -1,4 +1,5 @@
 import { Badge } from "@halaalvest/ui/components/badge"
+import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { Separator } from "@halaalvest/ui/components/separator"
 import Link from "next/link"
@@ -35,13 +36,11 @@ export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
     <main className="min-h-svh bg-background text-foreground">
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
-          <Link className="flex items-center gap-3" href="/">
-            <span className="flex size-8 items-center justify-center rounded-md bg-foreground text-xs font-semibold text-background">
-              H
-            </span>
-            <span className="text-sm font-semibold tracking-tight">
-              halaalvest
-            </span>
+          <Link aria-label="Halaalvest home" href="/">
+            <HalaalvestLogo
+              markClassName="size-9"
+              wordmarkClassName="text-sm"
+            />
           </Link>
           <Badge variant="outline" className="h-6 rounded-md px-2.5">
             Private launch

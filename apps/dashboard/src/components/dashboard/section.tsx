@@ -12,7 +12,7 @@ export function DashboardSectionCard({
   return (
     <section
       className={cn(
-        "rounded-[24px] border border-border/70 bg-card p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:p-6",
+        "rounded-lg border border-border/70 bg-background p-4 sm:p-5",
         className
       )}
     >
@@ -33,18 +33,18 @@ export function DashboardSectionHeader({
   title: string
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border/70 pb-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-3 border-b border-border/70 pb-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         {eyebrow ? (
           <p className="text-[11px] font-medium tracking-[0.2em] text-muted-foreground uppercase">
             {eyebrow}
           </p>
         ) : null}
-        <h3 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-foreground sm:text-xl">
+        <h3 className="mt-1 text-base font-semibold tracking-normal text-foreground sm:text-lg">
           {title}
         </h3>
         {description ? (
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
             {description}
           </p>
         ) : null}
@@ -71,7 +71,7 @@ export function DashboardSurfaceCard({
     <Component
       id={id}
       className={cn(
-        "rounded-2xl border border-border/70 bg-muted/25 p-4",
+        "rounded-md border border-border/70 bg-background p-3",
         className,
       )}
     >
@@ -98,7 +98,7 @@ export function DashboardActionLink({
       href={href}
       className={cn(
         buttonVariants({ size, variant }),
-        "rounded-full",
+        "rounded-md",
         className,
       )}
     >

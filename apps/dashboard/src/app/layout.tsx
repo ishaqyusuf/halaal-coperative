@@ -7,11 +7,19 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { TRPCReactProvider } from "@/trpc/client"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
+const iconUrl =
+  process.env.NODE_ENV === "development"
+    ? "/brand/halaalvest-icon-dev.svg"
+    : "/brand/halaalvest-icon.svg"
 
 export const metadata = {
-  title: "Cooperative SaaS Dashboard",
+  title: "Halaalvest Dashboard",
   description:
     "Tenant dashboard for halaalvest, covering members, contributions, loans, charges, and operations.",
+  icons: {
+    icon: [{ url: iconUrl, type: "image/svg+xml" }],
+    shortcut: [{ url: iconUrl, type: "image/svg+xml" }],
+  },
 }
 
 export default async function RootLayout({

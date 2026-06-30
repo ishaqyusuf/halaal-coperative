@@ -107,7 +107,7 @@ export default async function LoginPage({
     })
   )
 
-  const tenantName = context.tenant?.name ?? "HalaalVest"
+  const tenantName = context.tenant?.name ?? "Halaalvest"
   const memberSignupSettings = context.tenant
     ? await getTenantMemberSignupSettings(context.tenant.id)
     : null

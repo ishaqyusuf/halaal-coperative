@@ -62,6 +62,7 @@ This file records completed work and important outcomes.
 - 2026-04-15: Added an in-office-by-default member signup gate plus a dedicated `/app/member-signup-links` control page, with tenant-level access mode, staff-issued signed signup links, expiry/cap controls, link rotation, per-link analytics, and shortcut entry points from the members and membership approvals pages.
 - 2026-05-01: Hardened dashboard auth against the `plot-keys` reference by adding a Next `proxy.ts` guard/header injector, signing host-scoped session tokens, ignoring spoofable auth headers in server context, and limiting passwordless dev quick-login to non-production.
 - 2026-05-01: Refactored the members page search/filter architecture toward the Midday invoice search-filter pattern by introducing `components/search-filter`, moving member page widgets into `components/members`, preserving URL/server filter behavior, improving filter labels, and documenting the updated folder ownership.
+- 2026-06-30: Completed Phase 0-2 of the Midday dashboard table-core parity rollout by auditing the table contract, adding Midday table runtime dependencies, restoring the advanced `tables/core` surface, splitting legacy static table wrappers into `components/dashboard/static-table.tsx`, and adding initial table settings/config support primitives.
 
 ### Add automatic local database readiness to dev starters
 

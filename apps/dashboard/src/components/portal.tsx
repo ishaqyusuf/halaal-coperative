@@ -11,7 +11,9 @@ export function Portal({ children }: PortalProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
+    const frame = window.requestAnimationFrame(() => setMounted(true))
+
+    return () => window.cancelAnimationFrame(frame)
   }, [])
 
   if (!mounted) return null

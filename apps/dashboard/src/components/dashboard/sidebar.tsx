@@ -73,7 +73,6 @@ function DashboardSidebarLink({
 }
 
 export function DashboardSidebar({
-  currentModuleName,
   mobileOpen = false,
   modules,
   onMobileOpenChange,
@@ -82,7 +81,6 @@ export function DashboardSidebar({
   tenantName,
   userName,
 }: {
-  currentModuleName?: string | null
   mobileOpen?: boolean
   modules: NavModule[]
   onMobileOpenChange?: (open: boolean) => void
@@ -175,16 +173,6 @@ export function DashboardSidebar({
       >
         <HalaalvestLogoMark className="size-9" aria-hidden="true" />
       </Link>
-      {isExpanded ? (
-        <div className="absolute right-4 left-[62px] min-w-0">
-          <p className="truncate text-sm leading-none font-semibold tracking-[-0.02em] text-foreground">
-            Halaalvest
-          </p>
-          <p className="mt-1 truncate text-[11px] leading-none text-muted-foreground">
-            {currentModuleName ?? tenantName}
-          </p>
-        </div>
-      ) : null}
     </div>
   )
 

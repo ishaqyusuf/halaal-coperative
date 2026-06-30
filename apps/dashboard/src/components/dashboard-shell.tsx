@@ -39,7 +39,6 @@ export function DashboardShellClient({
       }}
     >
       <DashboardSidebar
-        currentModuleName={currentModule?.name}
         mobileOpen={mobileSidebarOpen}
         modules={modules}
         onMobileOpenChange={setMobileSidebarOpen}

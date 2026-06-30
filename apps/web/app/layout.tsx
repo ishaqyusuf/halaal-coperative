@@ -3,10 +3,12 @@ import { NotificationsProvider } from "@halaalvest/notifications-react"
 import { getMarketingConfig } from "@/lib/marketing-config"
 
 const marketing = getMarketingConfig()
-const iconUrl =
+const iconName =
   process.env.NODE_ENV === "development"
-    ? "/brand/halaalvest-icon-dev.svg"
-    : "/brand/halaalvest-icon.svg"
+    ? "halaalvest-icon-dev"
+    : "halaalvest-icon"
+const iconUrl = `/brand/${iconName}.svg`
+const iconDarkUrl = `/brand/${iconName}-dark.svg`
 
 export const metadata = {
   title: !marketing.showHomePage
@@ -20,7 +22,18 @@ export const metadata = {
       ? "Launch marketing site for halaalvest, the multi-tenant halal cooperative operations platform."
       : "Pre-launch landing page for halaalvest. Join early access before the cooperative platform goes live.",
   icons: {
-    icon: [{ url: iconUrl, type: "image/svg+xml" }],
+    icon: [
+      {
+        url: iconUrl,
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: iconDarkUrl,
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ],
     shortcut: [{ url: iconUrl, type: "image/svg+xml" }],
   },
 }

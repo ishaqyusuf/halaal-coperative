@@ -7,17 +7,30 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { TRPCReactProvider } from "@/trpc/client"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
-const iconUrl =
+const iconName =
   process.env.NODE_ENV === "development"
-    ? "/brand/halaalvest-icon-dev.svg"
-    : "/brand/halaalvest-icon.svg"
+    ? "halaalvest-icon-dev"
+    : "halaalvest-icon"
+const iconUrl = `/brand/${iconName}.svg`
+const iconDarkUrl = `/brand/${iconName}-dark.svg`
 
 export const metadata = {
   title: "Halaalvest Dashboard",
   description:
     "Tenant dashboard for halaalvest, covering members, contributions, loans, charges, and operations.",
   icons: {
-    icon: [{ url: iconUrl, type: "image/svg+xml" }],
+    icon: [
+      {
+        url: iconUrl,
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: iconDarkUrl,
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ],
     shortcut: [{ url: iconUrl, type: "image/svg+xml" }],
   },
 }

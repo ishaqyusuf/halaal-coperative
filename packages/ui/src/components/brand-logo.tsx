@@ -2,25 +2,45 @@ import type { ComponentPropsWithoutRef } from "react"
 import { cn } from "@halaalvest/ui/lib/utils"
 
 export const halaalvestBrandColors = {
-  green: "#1F7A3D",
-  leaf: "#2F9A56",
-  navy: "#0B1F36",
-  gold: "#D6A63A",
   canvas: "#F7FAF7",
+  canvasDark: "#071B2C",
+  devCanvas: "#FFF2C7",
+  devCanvasDark: "#2A240E",
+  green: "#1F7A3D",
+  greenOnDark: "#3FBF70",
+  leaf: "#2F9A56",
+  leafOnDark: "#71D98B",
+  light: "#F7FAF7",
+  gold: "#D6A63A",
+  navy: "#0B1F36",
 } as const
 
 type HalaalvestLogoMarkProps = ComponentPropsWithoutRef<"svg"> & {
   monochrome?: boolean
+  scheme?: "dark" | "light"
 }
 
 export function HalaalvestLogoMark({
   className,
   monochrome = false,
+  scheme = "light",
   ...props
 }: HalaalvestLogoMarkProps) {
-  const navy = monochrome ? "currentColor" : halaalvestBrandColors.navy
-  const green = monochrome ? "currentColor" : halaalvestBrandColors.green
-  const leaf = monochrome ? "currentColor" : halaalvestBrandColors.leaf
+  const navy = monochrome
+    ? "currentColor"
+    : scheme === "dark"
+      ? halaalvestBrandColors.light
+      : halaalvestBrandColors.navy
+  const green = monochrome
+    ? "currentColor"
+    : scheme === "dark"
+      ? halaalvestBrandColors.greenOnDark
+      : halaalvestBrandColors.green
+  const leaf = monochrome
+    ? "currentColor"
+    : scheme === "dark"
+      ? halaalvestBrandColors.leafOnDark
+      : halaalvestBrandColors.leaf
 
   return (
     <svg
@@ -92,13 +112,24 @@ export function HalaalvestLogo({
 
 type HalaalvestAppIconProps = ComponentPropsWithoutRef<"span"> & {
   environment?: "development" | "production"
+  scheme?: "dark" | "light"
 }
 
 export function HalaalvestAppIcon({
   className,
   environment = "production",
+  scheme = "light",
   ...props
 }: HalaalvestAppIconProps) {
+  const backgroundClass =
+    environment === "development"
+      ? scheme === "dark"
+        ? "bg-[#2A240E]"
+        : "bg-[#FFF2C7]"
+      : scheme === "dark"
+        ? "bg-[#071B2C]"
+        : "bg-[#F7FAF7]"
+
   return (
     <span
       aria-label={
@@ -106,7 +137,8 @@ export function HalaalvestAppIcon({
       }
       role="img"
       className={cn(
-        "relative inline-flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-[#F7FAF7]",
+        "relative inline-flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border",
+        backgroundClass,
         className
       )}
       {...props}
@@ -114,6 +146,7 @@ export function HalaalvestAppIcon({
       <HalaalvestLogoMark
         aria-hidden="true"
         focusable="false"
+        scheme={scheme}
         className="size-[78%]"
       />
       {environment === "development" ? (

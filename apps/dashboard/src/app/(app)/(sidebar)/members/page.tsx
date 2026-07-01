@@ -39,7 +39,10 @@ type MembersSortField =
 function getSort(sort?: string[] | null): [MembersSortField, "asc" | "desc"] | null {
   if (!sort || sort.length !== 2) return null
 
-  const [field, direction] = sort
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
   const validFields = new Set<string>([
     "fullName",
     "memberNumber",

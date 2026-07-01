@@ -133,7 +133,7 @@ export default async function MembersPage({
           />
 
           <DashboardEmptyState
-            body="The member registry could not load from the tenant database right now. If you still open the create form, submissions will fail until the database connection is restored."
+            body="The member registry could not load from the cooperative database right now. If you still open the create form, submissions will fail until the database connection is restored."
             title="Database-backed member records are not available yet."
           />
         </div>

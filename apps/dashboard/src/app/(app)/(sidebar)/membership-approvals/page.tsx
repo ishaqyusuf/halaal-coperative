@@ -149,7 +149,7 @@ export default async function MembershipApprovalsPage({
         ) : (
           <WorkspaceEmptyState
             title="Approval access is limited to member-management roles."
-            body="Tenant admins and operations officers can review and approve member signups from this queue."
+            body="Cooperative admins and operations officers can review and approve member signups from this queue."
           />
         )}
       </DashboardSectionCard>

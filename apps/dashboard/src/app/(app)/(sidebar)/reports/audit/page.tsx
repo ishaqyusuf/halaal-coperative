@@ -17,7 +17,7 @@ export default async function AuditViewerPage({
   if (!context.tenant || !hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)) {
     return (
       <WorkspacePageShell eyebrow="Reports" title="Audit viewer" description="Detailed audit activity is available to workspace admin roles.">
-        <WorkspaceEmptyState title="Audit viewer unavailable." body="This route is limited to admin roles in a configured tenant workspace." />
+        <WorkspaceEmptyState title="Audit viewer unavailable." body="This route is limited to admin roles in a configured cooperative workspace." />
       </WorkspacePageShell>
     )
   }

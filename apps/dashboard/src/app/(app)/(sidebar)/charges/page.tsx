@@ -18,7 +18,7 @@ export default async function ChargesPage() {
       >
         <WorkspaceEmptyState
           title="Charge definitions need the database runtime."
-          body="This workspace is wired into the new dashboard shell and will show tenant charge definitions once the database-backed environment is active."
+          body="This workspace is wired into the new dashboard shell and will show cooperative charge definitions once the database-backed environment is active."
         />
       </WorkspacePageShell>
     )

@@ -38,7 +38,7 @@ export function buildTenantOnboardingSnapshot(input: {
   const steps: TenantOnboardingStep[] = [
     {
       key: "tenant_profile",
-      label: "Tenant profile",
+      label: "Cooperative profile",
       description:
         "Cooperative name, slug, region, and workspace identity are saved.",
       complete: input.hasTenantProfile,
@@ -47,21 +47,21 @@ export function buildTenantOnboardingSnapshot(input: {
       key: "site_domain",
       label: "Public site hostname",
       description:
-        "The tenant public website has a primary hostname for routing.",
+        "The cooperative public website has a primary hostname for routing.",
       complete: input.hasPrimarySiteDomain,
     },
     {
       key: "workspace_access",
       label: "Workspace app route",
       description:
-        "The tenant hostname also serves the authenticated workspace under /app.",
+        "The cooperative hostname also serves the authenticated workspace under /app.",
       complete: input.hasWorkspaceAccess,
     },
     {
       key: "workspace_owner",
       label: "Workspace owner",
       description:
-        "A tenant admin account and default membership are assigned.",
+        "A cooperative admin account and default membership are assigned.",
       complete: input.hasWorkspaceOwner,
     },
     {
@@ -75,7 +75,7 @@ export function buildTenantOnboardingSnapshot(input: {
       key: "charge_setup",
       label: "Charges setup",
       description:
-        "At least one active tenant charge definition is ready for member finance workflows.",
+        "At least one active cooperative charge definition is ready for member finance workflows.",
       complete: input.hasChargeSetup,
     },
     {

@@ -70,7 +70,7 @@ export function DevTenantFab({
         <DropdownMenuTrigger
           render={
             <Button
-              aria-label="Open dev tenant picker"
+              aria-label="Open dev cooperative picker"
               className="size-14 rounded-full shadow-[0_18px_48px_rgba(27,42,38,0.28)]"
               type="button"
             />
@@ -86,7 +86,7 @@ export function DevTenantFab({
         >
           <DropdownMenuGroup>
             <DropdownMenuLabel className="px-3 py-2">
-              Dev Tenant Picker
+              Dev Cooperative Picker
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />

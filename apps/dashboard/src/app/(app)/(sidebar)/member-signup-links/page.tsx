@@ -46,7 +46,7 @@ export default async function MemberSignupLinksPage() {
       >
         <WorkspaceEmptyState
           title="Signup link management is limited to member-management roles."
-          body="Tenant admins and operations officers can manage member signup access and issue staff links."
+          body="Cooperative admins and operations officers can manage member signup access and issue staff links."
         />
       </WorkspacePageShell>
     )
@@ -117,7 +117,7 @@ export default async function MemberSignupLinksPage() {
         <DashboardStatCard
           label="Signup access"
           value={accessModeLabels[settings.memberSignupAccessMode]}
-          detail="Current tenant-wide signup gate."
+          detail="Current cooperative-wide signup gate."
           tone={accessModeTone}
         />
         <DashboardStatCard
@@ -142,7 +142,7 @@ export default async function MemberSignupLinksPage() {
         <DashboardSectionHeader
           eyebrow="Control center"
           title="Gate and link management"
-          description="Adjust the tenant signup gate, create staff links, regenerate compromised tokens, and update expiry or capacity without reopening public signup."
+          description="Adjust the cooperative signup gate, create staff links, regenerate compromised tokens, and update expiry or capacity without reopening public signup."
         />
         <div className="mt-5">
           <MemberSignupLinkManager

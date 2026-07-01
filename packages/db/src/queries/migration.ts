@@ -302,7 +302,7 @@ export async function finalizeTenantInitialMigration(
     migrationState.snapshot.status === "live_operations"
   ) {
     throw new Error(
-      "Initial migration has already been finalized for this tenant."
+      "Initial migration has already been finalized for this cooperative."
     )
   }
 
@@ -363,7 +363,7 @@ export async function markTenantLegacyLoansReviewed(
   )
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error("Initial migration tools are locked for this tenant.")
+    throw new Error("Initial migration tools are locked for this cooperative.")
   }
 
   if (
@@ -408,7 +408,7 @@ export async function markTenantBusinessProfitPoolsReviewed(
   )
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error("Initial migration tools are locked for this tenant.")
+    throw new Error("Initial migration tools are locked for this cooperative.")
   }
 
   if (

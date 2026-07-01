@@ -8,7 +8,7 @@ export default function SignupPage() {
     <SignupShell
       eyebrow="Cooperative signup"
       title="Create a governed cooperative workspace."
-      description="Start with the accountable admin, reserve the tenant URL, and continue only after the primary contact verifies their email."
+      description="Start with the accountable admin, reserve the cooperative URL, and continue only after the primary contact verifies their email."
     >
       <SignupForm devMode={devMode} />
     </SignupShell>

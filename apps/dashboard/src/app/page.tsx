@@ -128,7 +128,7 @@ export default async function TenantHomePage() {
             {tenant.name}
           </h1>
           <p className="mt-5 text-base leading-7 text-muted-foreground">
-            One tenant site for public discovery, member onboarding, shared
+            One cooperative site for public discovery, member onboarding, shared
             login, and the protected cooperative workspace.
           </p>
         </div>

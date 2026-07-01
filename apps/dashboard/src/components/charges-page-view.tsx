@@ -84,7 +84,7 @@ export function ChargesPageView({
         <DashboardStatCard
           label="Charge definitions"
           value={charges.length.toString()}
-          detail="Total configured levy and charge rules for this tenant."
+          detail="Total configured levy and charge rules for this cooperative."
         />
         <DashboardStatCard
           label="Active charges"
@@ -111,7 +111,7 @@ export function ChargesPageView({
             <DashboardSectionHeader
               eyebrow="Create"
               title="New charge definition"
-              description="Configure a reusable tenant charge and keep the posting rules centralized."
+              description="Configure a reusable cooperative charge and keep the posting rules centralized."
             />
             <div className="mt-5">
               <ChargeDefinitionForm devMode={process.env.NODE_ENV !== "production"} />

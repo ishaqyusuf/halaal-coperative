@@ -724,7 +724,7 @@ export async function disburseLoan(
   const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", prisma)
 
   if (!cashAccount || !loanReceivableAccount) {
-    throw new Error("Ledger accounts not initialized for this tenant")
+    throw new Error("Ledger accounts not initialized for this cooperative")
   }
 
   return prisma.$transaction(async (tx) => {
@@ -844,7 +844,7 @@ export async function postRepayment(
   const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", prisma)
 
   if (!cashAccount || !loanReceivableAccount) {
-    throw new Error("Ledger accounts not initialized for this tenant")
+    throw new Error("Ledger accounts not initialized for this cooperative")
   }
 
   return prisma.$transaction(async (tx) => {

@@ -343,7 +343,7 @@ export function TenantFinancePageView({
                 <DashboardStatCard
                   label="Charge definitions"
                   value={chargeDefinitions.length.toString()}
-                  detail="Reusable member charge rules configured for the tenant."
+                  detail="Reusable member charge rules configured for the cooperative."
                 />
                 <DashboardStatCard
                   label="Active charges"

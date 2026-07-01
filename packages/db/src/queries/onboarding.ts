@@ -149,7 +149,7 @@ function buildTenantOnboardingSnapshot(input: {
   const steps: TenantOnboardingStep[] = [
     {
       key: "tenant_profile",
-      label: "Tenant profile",
+      label: "Cooperative profile",
       description:
         "Cooperative name, slug, region, and workspace identity are saved.",
       complete: input.hasTenantProfile,
@@ -158,14 +158,14 @@ function buildTenantOnboardingSnapshot(input: {
       key: "site_domain",
       label: "Public site hostname",
       description:
-        "The tenant public website has a primary hostname for routing.",
+        "The cooperative public website has a primary hostname for routing.",
       complete: input.hasPrimarySiteDomain,
     },
     {
       key: "workspace_access",
       label: "Workspace app route",
       description:
-        "The tenant hostname also serves the authenticated workspace under /app.",
+        "The cooperative hostname also serves the authenticated workspace under /app.",
       complete: input.hasWorkspaceAccess,
     },
     {
@@ -186,7 +186,7 @@ function buildTenantOnboardingSnapshot(input: {
       key: "charge_setup",
       label: "Charges setup",
       description:
-        "At least one active tenant charge definition is ready for member finance workflows.",
+        "At least one active cooperative charge definition is ready for member finance workflows.",
       complete: input.hasChargeSetup,
     },
     {
@@ -440,12 +440,12 @@ export async function createTenantWorkspaceBootstrap(
   const prisma = createPrismaClient()
 
   if (!prisma) {
-    throw new Error("Tenant bootstrap requires DATABASE_URL to be configured")
+    throw new Error("Cooperative bootstrap requires DATABASE_URL to be configured")
   }
 
   const slug = normalizeSubdomainLabel(input.slug)
   if (!slug) {
-    throw new Error("A valid tenant slug is required")
+    throw new Error("A valid cooperative slug is required")
   }
 
   if (isReservedTenantSubdomainLabel(slug)) {

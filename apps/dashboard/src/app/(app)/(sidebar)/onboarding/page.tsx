@@ -24,8 +24,8 @@ export default async function FirstRunOnboardingPage() {
         description="Set up the finance and member foundations before live operations begin."
       >
         <WorkspaceEmptyState
-          title="Choose a tenant workspace first."
-          body="First-run onboarding is only available from a cooperative tenant host."
+          title="Choose a cooperative workspace first."
+          body="First-run onboarding is only available from a cooperative host."
         />
       </WorkspacePageShell>
     )
@@ -55,7 +55,7 @@ export default async function FirstRunOnboardingPage() {
       {!canConfigure ? (
         <WorkspaceEmptyState
           title="Admin access is required."
-          body="A tenant admin or super admin must complete the first-run setup before normal workspace operations begin."
+          body="A cooperative admin or super admin must complete the first-run setup before normal workspace operations begin."
         />
       ) : (
         <>

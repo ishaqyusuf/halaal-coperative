@@ -16,7 +16,7 @@ const pillars = [
       "Interest-free loan workflows with eligibility checks, liquidity awareness, and accountable approvals.",
   },
   {
-    label: "Tenant rollout",
+    label: "Cooperative rollout",
     description:
       "Public signup, branded cooperative surfaces, and protected workspaces on one shared platform.",
   },
@@ -58,7 +58,7 @@ export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
               A cleaner operating backbone for halal cooperatives.
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
-              Halaalvest is building the public signup, tenant workspace, and
+              Halaalvest is building the public signup, cooperative workspace, and
               governed finance layer cooperative teams need before serious
               growth arrives.
             </p>

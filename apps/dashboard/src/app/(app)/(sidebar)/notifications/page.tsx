@@ -39,7 +39,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const failureReasons = Array.from(outboxEntries.filter((entry) => entry.status === "failed").reduce((map, entry) => map.set(entry.errorMessage ?? "Unknown failure", (map.get(entry.errorMessage ?? "Unknown failure") ?? 0) + 1), new Map<string, number>())).sort((a, b) => b[1] - a[1]).slice(0, 3)
 
   return (
-    <WorkspacePageShell eyebrow="Notifications" title="Notifications" description="Review tenant delivery history, preference toggles, and shared notification previews in one support-friendly workspace.">
+    <WorkspacePageShell eyebrow="Notifications" title="Notifications" description="Review cooperative delivery history, preference toggles, and shared notification previews in one support-friendly workspace.">
       <NotificationsHeader filterList={filterList} />
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -64,7 +64,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       </section>
 
       <DashboardSectionCard>
-        <DashboardSectionHeader eyebrow="Preferences" title="Tenant notification preferences" description="Toggle email routing by notification type and cooperative role without leaving the dashboard." />
+        <DashboardSectionHeader eyebrow="Preferences" title="Cooperative notification preferences" description="Toggle email routing by notification type and cooperative role without leaving the dashboard." />
         <div className="mt-5 space-y-4">
           {managedNotificationTypes.map((notificationType) => (
             <div key={notificationType} className="space-y-3">

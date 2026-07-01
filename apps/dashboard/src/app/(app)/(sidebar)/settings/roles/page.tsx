@@ -11,15 +11,15 @@ export default async function RolesPage() {
   const canManageRoles = hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)
 
   if (!context.tenant || runtime.status !== "database-configured") {
-    return <WorkspacePageShell eyebrow="Settings" title="Workspace roles" description="A simplified role-based system modeled after the reference projects: no separate permission matrix yet, just clear cooperative roles."><WorkspaceEmptyState title="Role management needs the database runtime." body="Once the database-backed environment is active, this route will show tenant users and let admins assign cooperative roles." /></WorkspacePageShell>
+    return <WorkspacePageShell eyebrow="Settings" title="Workspace roles" description="A simplified role-based system modeled after the reference projects: no separate permission matrix yet, just clear cooperative roles."><WorkspaceEmptyState title="Role management needs the database runtime." body="Once the database-backed environment is active, this route will show workspace users and let admins assign cooperative roles." /></WorkspacePageShell>
   }
 
   const users = await listTenantUsersWithMemberships(context.tenant.id)
 
   return (
-    <WorkspacePageShell eyebrow="Settings" title="Workspace roles" description="A simplified role-based system: role assignment, default-role visibility, and scope guidance for tenant operators.">
+    <WorkspacePageShell eyebrow="Settings" title="Workspace roles" description="A simplified role-based system: role assignment, default-role visibility, and scope guidance for cooperative operators.">
       <section className="grid gap-4 md:grid-cols-3">
-        <DashboardStatCard label="Tenant users" value={users.length.toString()} detail="Users currently loaded for this tenant workspace." />
+        <DashboardStatCard label="Workspace users" value={users.length.toString()} detail="Users currently loaded for this cooperative workspace." />
         <DashboardStatCard label="Default roles" value={users.filter((user) => user.memberships.some((membership) => membership.isDefault)).length.toString()} detail="Users with a default membership role set." />
         <DashboardStatCard label="Available roles" value={cooperativeRoles.length.toString()} detail="Supported cooperative roles in the simplified model." />
       </section>
@@ -34,7 +34,7 @@ export default async function RolesPage() {
       ) : null}
 
       <DashboardSectionCard>
-        <DashboardSectionHeader eyebrow="Users" title="Tenant users and active roles" actions={<TrendPill>{users.length} users</TrendPill>} />
+        <DashboardSectionHeader eyebrow="Users" title="Workspace users and active roles" actions={<TrendPill>{users.length} users</TrendPill>} />
         <div className="mt-5 space-y-3">
           {users.map((user) => (
             <DashboardSurfaceCard key={user.id}>

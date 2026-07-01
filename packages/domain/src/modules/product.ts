@@ -1,8 +1,8 @@
 export const productAreas = [
   {
-    title: "Tenant onboarding",
+    title: "Cooperative onboarding",
     description:
-      "Register cooperatives, define member categories, and establish staff permissions per tenant.",
+      "Register cooperatives, define member categories, and establish staff permissions per workspace.",
   },
   {
     title: "Contributions and levies",

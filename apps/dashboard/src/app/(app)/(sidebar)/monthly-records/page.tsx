@@ -49,7 +49,7 @@ export default async function MonthlyRecordsPage({
       >
         <WorkspaceEmptyState
           title="You do not have access to monthly records."
-          body="A finance officer, tenant admin, or super admin role is required to manage monthly records."
+          body="A finance officer, cooperative admin, or super admin role is required to manage monthly records."
         />
       </WorkspacePageShell>
     )

@@ -23,6 +23,6 @@ export const platformIdentity: PlatformIdentity = {
   dashboardRootDomain,
   tenantRootDomain,
   positioning:
-    "A multi-tenant cooperative operations platform for savings, loans, charges, dividends, and internal workflows.",
+    "A cooperative operations platform for savings, loans, charges, dividends, and internal workflows.",
   caseStudyTenants: ["Amanah Staff Thrift Cooperative"],
 }

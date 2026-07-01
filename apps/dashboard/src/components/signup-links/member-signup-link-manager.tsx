@@ -33,7 +33,7 @@ const accessModeSchema = z.object({
 
 function accessModeSuccessDescription(mode: SignupAccessMode) {
   if (mode === "public") {
-    return "Member signup is now open to the public on this tenant host."
+    return "Member signup is now open to the public on this cooperative host."
   }
 
   if (mode === "hidden") {

@@ -32,7 +32,7 @@ export default async function MemberSignupVerificationPage({
 
   if (!context.tenant) {
     title = "Missing cooperative host"
-    description = "Open this verification link on the cooperative tenant host where the signup started."
+    description = "Open this verification link on the cooperative host where the signup started."
   } else if (!(await getTenantInitialMigrationState(context.tenant.id)).snapshot.canUseLiveFinancialWrites) {
     title = "Signup is locked"
     description =
@@ -44,7 +44,7 @@ export default async function MemberSignupVerificationPage({
       const payload = verifyMemberOnboardingVerificationToken(token)
 
       if (payload.tenantId !== context.tenant.id) {
-        throw new Error("This verification link belongs to a different cooperative tenant host.")
+        throw new Error("This verification link belongs to a different cooperative host.")
       }
 
       const request = await verifyMemberOnboardingRequest({

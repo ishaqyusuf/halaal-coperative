@@ -353,7 +353,7 @@ export async function recordContribution(
   const savingsAccount = await getLedgerAccountByCode(input.tenantId, "1000", prisma)
 
   if (!cashAccount || !savingsAccount) {
-    throw new Error("Ledger accounts not initialized for this tenant")
+    throw new Error("Ledger accounts not initialized for this cooperative")
   }
 
   return prisma.$transaction(async (tx) => {
@@ -536,7 +536,7 @@ export async function recordMemberPayment(
   const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", prisma)
 
   if (!cashAccount || !savingsAccount || !loanReceivableAccount) {
-    throw new Error("Ledger accounts not initialized for this tenant")
+    throw new Error("Ledger accounts not initialized for this cooperative")
   }
 
   return prisma.$transaction(async (tx) => {

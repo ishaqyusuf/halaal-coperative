@@ -88,10 +88,10 @@ export default async function GettingStartedPage({
       <WorkspacePageShell
         eyebrow="Initial migration"
         title="Getting started"
-        description="Initial migration setup is available from a tenant workspace."
+        description="Initial migration setup is available from a cooperative workspace."
       >
         <WorkspaceEmptyState
-          title="Choose a tenant workspace first."
+          title="Choose a cooperative workspace first."
           body="Open a cooperative workspace before running the first-admin migration setup."
         />
       </WorkspacePageShell>

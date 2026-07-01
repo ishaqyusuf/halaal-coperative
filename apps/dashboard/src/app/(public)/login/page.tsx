@@ -121,16 +121,16 @@ export default async function LoginPage({
   const tenantHostname = context.tenant
     ? buildTenantSiteHostname(context.tenant.slug)
     : "app.halaalvest.local"
-  const heroEyebrow = context.tenant ? "Tenant workspace" : "Platform access"
+  const heroEyebrow = context.tenant ? "Cooperative workspace" : "Platform access"
   const heroTitle = context.tenant
     ? `Welcome back to ${context.tenant.name}`
     : "Sign in to your cooperative workspace"
   const heroDescription = context.tenant
-    ? "Members and staff sign in on the tenant host. New members can start onboarding from the same entry point."
-    : "Use the tenant-specific host for workspace sign-in, or continue here while setting up and testing the platform."
+    ? "Members and staff sign in on the cooperative host. New members can start onboarding from the same entry point."
+    : "Use the cooperative-specific host for workspace sign-in, or continue here while setting up and testing the platform."
   const supportCopy = context.tenant
-    ? "Sessions stay scoped to this tenant host so the public site, login, and workspace remain isolated."
-    : "Sessions stay host-scoped so each tenant site and the platform environment can keep separate logins."
+    ? "Sessions stay scoped to this cooperative host so the public site, login, and workspace remain isolated."
+    : "Sessions stay host-scoped so each cooperative site and the platform environment can keep separate logins."
   const loginAction = buildTenantHref(
     tenantUrlContext,
     "/auth/login",
@@ -231,12 +231,12 @@ export default async function LoginPage({
                 </Badge>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Enter your email and password to access the current tenant host.
+                Enter your email and password to access the current cooperative host.
               </p>
 
               {error === "invalid-account" ? (
                 <div className="mt-5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                  The account could not be used for this tenant host, or the
+                  The account could not be used for this cooperative host, or the
                   credentials were invalid.
                 </div>
               ) : null}

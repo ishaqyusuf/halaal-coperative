@@ -38,7 +38,7 @@ export default async function ReportsPage({
         title="Audit and reporting"
       >
         <WorkspaceEmptyState
-          body="Tenant admins and super admins can access audit and reporting surfaces."
+          body="Cooperative admins and super admins can access audit and reporting surfaces."
           title="Report access is limited."
         />
       </WorkspacePageShell>

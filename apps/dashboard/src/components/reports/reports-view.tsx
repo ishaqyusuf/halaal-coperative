@@ -255,7 +255,7 @@ export function ReportsView({ filters }: { filters: ReportsFilterParams }) {
 
   return (
     <WorkspacePageShell
-      description="Audit evidence, reconciliation exports, collections follow-up, and compliance-sensitive reporting for tenant admins."
+      description="Audit evidence, reconciliation exports, collections follow-up, and compliance-sensitive reporting for cooperative admins."
       eyebrow="Reports"
       title="Audit and reporting"
     >
@@ -263,7 +263,7 @@ export function ReportsView({ filters }: { filters: ReportsFilterParams }) {
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricLink
-          detail="Recent tenant audit volume."
+          detail="Recent cooperative audit volume."
           href="/reports/audit"
           label="Audit events"
           tone={getCountTone(data.governanceMetrics.auditEventsInRange)}

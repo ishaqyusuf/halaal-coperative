@@ -24,7 +24,7 @@ function getRoleDisplayName(role: (typeof cooperativeRoles)[number]) {
     case "super_admin":
       return "Super admin"
     case "tenant_admin":
-      return "Tenant admin"
+      return "Cooperative admin"
     case "finance_officer":
       return "Finance officer"
     case "operations_officer":

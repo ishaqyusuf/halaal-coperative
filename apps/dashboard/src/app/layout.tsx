@@ -17,7 +17,7 @@ const iconDarkUrl = `/brand/${iconName}-dark.svg`
 export const metadata = {
   title: "Halaalvest Dashboard",
   description:
-    "Tenant dashboard for halaalvest, covering members, contributions, loans, charges, and operations.",
+    "Cooperative dashboard for halaalvest, covering members, contributions, loans, charges, and operations.",
   icons: {
     icon: [
       {

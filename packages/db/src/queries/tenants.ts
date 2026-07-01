@@ -260,7 +260,7 @@ function getTenantDomainVerificationGuide(input: {
       verificationRecordType: "ALIAS" as const,
       verificationTarget: null,
       verificationNote:
-        "Platform-managed canonical tenant hostname. Verification is handled by the platform.",
+        "Platform-managed canonical cooperative hostname. Verification is handled by the platform.",
     }
   }
 
@@ -275,7 +275,7 @@ function getTenantDomainVerificationGuide(input: {
           : "DNS target looks ready and the domain is approved for promotion within its routing scope."
         : input.verificationStatus === "failed" && errorSummary
           ? `Verification failed. ${errorSummary}`
-        : `Point this canonical tenant hostname to ${platformIngressHostname}, then run a verification check before making it primary.`,
+        : `Point this canonical cooperative hostname to ${platformIngressHostname}, then run a verification check before making it primary.`,
   }
 }
 

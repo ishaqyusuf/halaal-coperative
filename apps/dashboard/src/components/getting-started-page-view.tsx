@@ -921,7 +921,7 @@ function ReviewStep({
         <ConfirmationForm
           action={finalizeInitialMigrationAction}
           buttonLabel="Complete setup"
-          description="Type FINALIZE MIGRATION after every setup and member backfill step is complete. This updates the tenant setup gate, opens live operations, and locks historical setup."
+          description="Type FINALIZE MIGRATION after every setup and member backfill step is complete. This updates the workspace setup gate, opens live operations, and locks historical setup."
           disabled={blockingSteps.length > 0}
           id="finalize-migration"
           includeNotes={false}

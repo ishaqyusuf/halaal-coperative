@@ -41,7 +41,7 @@ export async function submitMemberOnboardingAction(formData: FormData) {
   const headerStore = await headers()
 
   if (!context.tenant) {
-    throw new Error("Member signup is only available on a cooperative tenant host.")
+    throw new Error("Member signup is only available on a cooperative host.")
   }
 
   await requireMemberSignupOpen(context.tenant.id)

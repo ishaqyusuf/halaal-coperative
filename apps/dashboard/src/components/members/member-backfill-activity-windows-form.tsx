@@ -102,6 +102,10 @@ function createActivityWindowRow(id?: string): ActivityWindowInputRow {
   }
 }
 
+function normalizeActivityWindowStatus(status: string): ActivityWindowStatus {
+  return status === "inactive" ? "inactive" : "active"
+}
+
 function buildActivityWindowRows(
   initialRows:
     | Array<{
@@ -112,7 +116,7 @@ function buildActivityWindowRows(
         status: string
       }>
     | undefined
-) {
+): ActivityWindowInputRow[] {
   if (!initialRows?.length) {
     return [createActivityWindowRow("activity-window-initial")]
   }
@@ -124,7 +128,7 @@ function buildActivityWindowRows(
       notes: row.notes ?? "",
       reason: row.reason ?? "",
       rowId: row.id,
-      status: row.status === "inactive" ? "inactive" : "active",
+      status: normalizeActivityWindowStatus(row.status),
     })),
     createActivityWindowRow(),
   ]

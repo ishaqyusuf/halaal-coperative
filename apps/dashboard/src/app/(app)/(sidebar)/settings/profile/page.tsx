@@ -11,7 +11,7 @@ export default async function CooperativeProfilePage() {
   return (
     <WorkspacePageShell eyebrow="Settings" title="Cooperative profile" description="Core cooperative identity and onboarding profile details persisted during workspace setup.">
       <section className="grid gap-4 md:grid-cols-3">
-        <DashboardStatCard label="Cooperative name" value={tenant.name} detail="Current persisted tenant display name." />
+        <DashboardStatCard label="Cooperative name" value={tenant.name} detail="Current persisted cooperative display name." />
         <DashboardStatCard label="Current size" value={tenant.currentSize?.toString() ?? "Not captured"} detail="Current recorded cooperative size." />
         <DashboardStatCard label="Member prefix" value={tenant.memberNumberPrefix ?? "Not set"} detail="Optional prefix prepended to member numbers." />
       </section>

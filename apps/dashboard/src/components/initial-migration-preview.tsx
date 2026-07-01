@@ -1073,7 +1073,7 @@ export function InitialMigrationPreview({
     : "Preview mode"
   const readinessDetail = migrationSnapshot
     ? `${migrationSnapshot.completedStepCount}/${migrationSnapshot.totalStepCount} steps complete`
-    : "Real tenant readiness will appear here."
+    : "Real cooperative readiness will appear here."
   const blockingFinalizationSteps =
     migrationSnapshot?.missingStepKeys.filter(
       (stepKey) => stepKey !== "finalization"

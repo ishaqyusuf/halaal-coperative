@@ -142,7 +142,7 @@ export function OnboardingForm({
             {result.tenantName} is ready for guided setup.
           </CardTitle>
           <CardDescription>
-            The tenant workspace is provisioned. Open it now to finish charges,
+            The cooperative workspace is provisioned. Open it now to finish charges,
             shares, member import, migration, loans, and monthly commitments.
           </CardDescription>
         </CardHeader>
@@ -160,7 +160,7 @@ export function OnboardingForm({
               </p>
             </div>
             <div className="border bg-muted/35 p-3">
-              <p className="text-xs text-muted-foreground">Tenant host</p>
+              <p className="text-xs text-muted-foreground">Cooperative host</p>
               <p className="mt-1 truncate text-sm font-medium">
                 {result.primarySiteHostname}
               </p>
@@ -191,10 +191,10 @@ export function OnboardingForm({
 
           {domainNeedsAttention ? (
             <Alert>
-              <AlertTitle>Tenant domain still needs attention</AlertTitle>
+              <AlertTitle>Cooperative domain still needs attention</AlertTitle>
               <AlertDescription>
                 {result.vercelDomainProvisioning?.errorMessage ??
-                  "Vercel accepted the tenant hostname, but verification is still pending."}
+                  "Vercel accepted the cooperative hostname, but verification is still pending."}
               </AlertDescription>
             </Alert>
           ) : null}

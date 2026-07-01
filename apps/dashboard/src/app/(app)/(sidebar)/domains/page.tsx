@@ -9,16 +9,16 @@ export default async function DomainsPage() {
   const domains = context.tenant && runtime.status === "database-configured" ? await listTenantDomainsByTenantId(context.tenant.id) : []
 
   return (
-    <WorkspacePageShell eyebrow="Domains" title="Domain and routing" description="Review the canonical tenant host used for the public site and authenticated workspace.">
+    <WorkspacePageShell eyebrow="Domains" title="Domain and routing" description="Review the canonical cooperative host used for the public site and authenticated workspace.">
       <section className="grid gap-4 md:grid-cols-3">
-        <DashboardStatCard label="Registered hostnames" value={domains.length.toString()} detail="Platform hostnames available for this tenant." />
+        <DashboardStatCard label="Registered hostnames" value={domains.length.toString()} detail="Platform hostnames available for this cooperative." />
         <DashboardStatCard label="Verified" value={domains.filter((domain) => domain.verificationStatus === "verified").length.toString()} detail="Hostnames currently marked verified." tone="positive" />
-        <DashboardStatCard label="Canonical tenant host" value={onboarding?.primarySiteHostname ?? "Not set"} detail="Primary hostname serving the public site, login, and authenticated workspace." />
+        <DashboardStatCard label="Canonical cooperative host" value={onboarding?.primarySiteHostname ?? "Not set"} detail="Primary hostname serving the public site, login, and authenticated workspace." />
       </section>
 
       <DashboardSectionCard>
-        <DashboardSectionHeader eyebrow="Platform" title="Single tenant domain" />
-        <p className="mt-5 text-sm leading-6 text-muted-foreground">The tenant host is the only canonical domain. The public site lives at the host root, and the authenticated workspace lives under /app on the same host.</p>
+        <DashboardSectionHeader eyebrow="Platform" title="Single cooperative domain" />
+        <p className="mt-5 text-sm leading-6 text-muted-foreground">The cooperative host is the only canonical domain. The public site lives at the host root, and the authenticated workspace lives under /app on the same host.</p>
       </DashboardSectionCard>
 
       <DashboardSectionCard>

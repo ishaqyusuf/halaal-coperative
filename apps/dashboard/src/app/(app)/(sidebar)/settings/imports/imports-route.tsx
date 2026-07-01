@@ -233,7 +233,7 @@ export async function ImportsSettingsRoute({
   const migrationToolsLockedReason = migrationState.snapshot
     .canUseMigrationTools
     ? null
-    : "Initial migration tools are locked for this tenant. Use normal live workflows instead."
+    : "Initial migration tools are locked for this cooperative. Use normal live workflows instead."
   const backfillLockedReason = hasAppliedMemberBackfill
     ? "Member ledger backfill has started, so historical imports are locked."
     : null
@@ -290,7 +290,7 @@ export async function ImportsSettingsRoute({
                 value={batches.length.toString()}
               />
               <DashboardStatCard
-                detail="Batches already applied into tenant data."
+                detail="Batches already applied into cooperative data."
                 label="Applied batches"
                 tone="positive"
                 value={batches
@@ -473,7 +473,7 @@ export async function ImportsSettingsRoute({
           </>
         ) : (
           <WorkspaceEmptyState
-            body="Tenant admins, finance officers, and operations officers can run imports and migration batches from this route."
+            body="Cooperative admins, finance officers, and operations officers can run imports and migration batches from this route."
             title="Import access is limited to staff roles."
           />
         )}

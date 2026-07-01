@@ -52,7 +52,7 @@ export function getRoleDisplayName(
     case "super_admin":
       return "Super Admin"
     case "tenant_admin":
-      return "Tenant Admin"
+      return "Cooperative Admin"
     case "finance_officer":
       return "Finance Officer"
     case "operations_officer":

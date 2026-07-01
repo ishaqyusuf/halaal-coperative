@@ -19,7 +19,7 @@ const operatingPillars = [
     body: "Separate eligibility, liquidity, approval, and repayment follow-up so lending decisions stay principled and reviewable.",
   },
   {
-    label: "Multi-tenant rollout",
+    label: "Cooperative rollout",
     body: "Launch each cooperative with its own public presence, signup path, roles, and workspace on shared infrastructure.",
   },
 ] as const
@@ -32,7 +32,7 @@ const workflowRows = [
   ],
   [
     "02",
-    "Tenant workspace",
+    "Cooperative workspace",
     "Domain, dashboard, and onboarding context are prepared together.",
   ],
   [
@@ -264,7 +264,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
               The first screen leads into the real operating flow.
             </h2>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              Public trust, tenant identity, onboarding, and back-office
+              Public trust, cooperative identity, onboarding, and back-office
               controls are presented as one connected system.
             </p>
           </div>
@@ -303,7 +303,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
               clarity of a premium SaaS company.
             </h2>
             <p className="mt-4 text-sm leading-7 text-background/70">
-              Route visitors into cooperative signup, tenant login, or the
+              Route visitors into cooperative signup, workspace login, or the
               guided first-run setup without filler content or disconnected
               claims.
             </p>

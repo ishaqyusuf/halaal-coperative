@@ -1091,7 +1091,7 @@ async function reverseMonthlyContribution(input: {
   )
 
   if (!cashAccount || !savingsAccount) {
-    throw new Error("Ledger accounts not initialized for this tenant")
+    throw new Error("Ledger accounts not initialized for this cooperative")
   }
 
   await input.tx.contribution.update({
@@ -1203,7 +1203,7 @@ async function reverseMonthlyRepayment(input: {
   )
 
   if (!cashAccount || !loanReceivableAccount) {
-    throw new Error("Ledger accounts not initialized for this tenant")
+    throw new Error("Ledger accounts not initialized for this cooperative")
   }
 
   await input.tx.repayment.update({

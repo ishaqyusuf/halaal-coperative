@@ -46,7 +46,7 @@ export default async function PasswordResetRequestPage({
 
         {sent ? (
           <div className="mt-6 rounded-[1.25rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950">
-            If an account exists for this tenant, a password reset link has
+            If an account exists for this cooperative, a password reset link has
             been queued for that email.
           </div>
         ) : null}

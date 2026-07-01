@@ -365,7 +365,7 @@ export async function applyCharge(
   const incomeAccount = await getLedgerAccountByCode(input.tenantId, ledgerAccountCode, prisma)
 
   if (!savingsAccount || !incomeAccount) {
-    throw new Error("Ledger accounts not initialized for this tenant")
+    throw new Error("Ledger accounts not initialized for this cooperative")
   }
 
   return prisma.$transaction(async (tx) => {
@@ -467,7 +467,7 @@ async function restoreChargeToMemberSavings(input: {
   )
 
   if (!savingsAccount || !incomeAccount) {
-    throw new Error("Ledger accounts not initialized for this tenant")
+    throw new Error("Ledger accounts not initialized for this cooperative")
   }
 
   await postLedgerTransaction(

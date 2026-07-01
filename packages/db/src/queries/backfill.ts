@@ -985,7 +985,7 @@ async function postBackfillRepayment(input: {
   )
 
   if (!cashAccount || !loanReceivableAccount) {
-    throw new Error("Ledger accounts not initialized for this tenant")
+    throw new Error("Ledger accounts not initialized for this cooperative")
   }
 
   const loan = await input.tx.loan.findFirst({

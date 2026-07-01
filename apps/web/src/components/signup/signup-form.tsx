@@ -378,7 +378,7 @@ export function SignupForm({ devMode }: { devMode: boolean }) {
             Open the verification step.
           </CardTitle>
           <CardDescription>
-            Capture the accountable admin, reserve the tenant URL, and send the
+            Capture the accountable admin, reserve the cooperative URL, and send the
             secure email link before any workspace is created.
           </CardDescription>
         </CardHeader>

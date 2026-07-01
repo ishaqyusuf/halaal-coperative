@@ -105,7 +105,7 @@ export async function resolveMemberSignupGate(input: {
       access: "denied",
       link: null,
       message:
-        "Member signup is hidden on this tenant host. Ask the cooperative office for a staff-issued signup link.",
+        "Member signup is hidden on this cooperative host. Ask the cooperative office for a staff-issued signup link.",
       token: null,
       type: "hidden",
     }

@@ -1,50 +1,67 @@
 "use client"
 
-import { useState } from "react"
+import {
+  cloneElement,
+  isValidElement,
+  useState,
+  type ReactNode,
+} from "react"
 import { Button } from "@halaalvest/ui/components/button"
-import type { PageFilterData } from "@halaalvest/utils"
+import { MembersColumnVisibility } from "./members-column-visibility"
 import { MembersSearchFilter } from "./members-search-filter"
+
+type ImportPanelControlProps = {
+  onOpenChange?: (open: boolean) => void
+  open?: boolean
+}
 
 export function MembersHeader({
   createAction,
-  filterList,
   importPanel,
   startWithImportPanelOpen = false,
   secondaryActions,
 }: {
-  createAction?: React.ReactNode
-  filterList?: PageFilterData[]
-  importPanel?: React.ReactNode
+  createAction?: ReactNode
+  importPanel?: ReactNode
   startWithImportPanelOpen?: boolean
-  secondaryActions?: React.ReactNode
+  secondaryActions?: ReactNode
 }) {
-  const [showImportPanel, setShowImportPanel] = useState(startWithImportPanelOpen)
+  const [isImportPanelOpen, setIsImportPanelOpen] = useState(
+    startWithImportPanelOpen
+  )
+  const controlledImportPanel = isValidElement<ImportPanelControlProps>(
+    importPanel
+  )
+    ? cloneElement(importPanel, {
+        onOpenChange: setIsImportPanelOpen,
+        open: isImportPanelOpen,
+      })
+    : importPanel
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 flex-1">
-          <MembersSearchFilter initialFilterList={filterList} />
-        </div>
+        <MembersSearchFilter />
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
+          <MembersColumnVisibility />
           {secondaryActions}
           {importPanel ? (
             <Button
               className="rounded-full"
-              onClick={() => setShowImportPanel((current) => !current)}
+              onClick={() => setIsImportPanelOpen(true)}
               size="sm"
               type="button"
-              variant={showImportPanel ? "default" : "outline"}
+              variant={isImportPanelOpen ? "default" : "outline"}
             >
               Import members
             </Button>
           ) : null}
-          {createAction}
+          <div className="hidden sm:block">{createAction}</div>
         </div>
       </div>
 
-      {showImportPanel ? <div id="member-import">{importPanel}</div> : null}
+      {controlledImportPanel}
     </div>
   )
 }

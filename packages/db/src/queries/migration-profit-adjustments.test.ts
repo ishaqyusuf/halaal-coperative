@@ -191,7 +191,7 @@ describe("migration profit adjustments", () => {
 
   test("blocks profit adjustment edits after migration finalization", async () => {
     const prisma = createProfitAdjustmentPrismaStub({
-      initialMigrationStatus: "live_operations",
+      initialMigrationStatus: "finalized",
     })
 
     await expect(

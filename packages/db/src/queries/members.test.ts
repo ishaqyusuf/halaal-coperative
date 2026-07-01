@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   createMember,
   createMemberDocument,
+  listMembersTable,
   updateMember,
   updateMemberDocumentReview,
   updateMemberKyc,
@@ -218,6 +219,39 @@ describe("member profile migration guards", () => {
     expect(prisma.memberUpdates).toHaveLength(0)
   })
 
+  test("updates member basic profile fields during migration setup", async () => {
+    const prisma = createMemberPrismaStub()
+
+    await updateMember(
+      "tenant-1",
+      "member-1",
+      {
+        actorUserId: "user-1",
+        address: "No. 12 Cooperative Road",
+        email: "aisha@example.com",
+        fullName: "Aisha Bello Updated",
+        memberType: "business",
+        occupation: "Trader",
+        phoneNumber: "+234 800 000 0000",
+      },
+      prisma as never,
+    )
+
+    expect(prisma.memberUpdates).toEqual([
+      {
+        where: { id: "member-1", tenantId: "tenant-1" },
+        data: {
+          address: "No. 12 Cooperative Road",
+          email: "aisha@example.com",
+          fullName: "Aisha Bello Updated",
+          memberType: "business",
+          occupation: "Trader",
+          phoneNumber: "+234 800 000 0000",
+        },
+      },
+    ])
+  })
+
   test("blocks member status updates before live operations", async () => {
     const prisma = createMemberPrismaStub()
 
@@ -288,5 +322,79 @@ describe("member profile migration guards", () => {
 
     expect(prisma.memberDocumentLookups).toHaveLength(0)
     expect(prisma.memberDocumentUpdates).toHaveLength(0)
+  })
+})
+
+describe("members table backfill status", () => {
+  test("maps not started, draft, and applied member backfill states", async () => {
+    const prisma = {
+      appliedBackfillMonth: {
+        findMany: async () => [
+          { memberId: "member-applied" },
+          { memberId: "member-applied" },
+        ],
+      },
+      backfillBatch: {
+        findMany: async () => [
+          {
+            id: "batch-applied",
+            memberId: "member-applied",
+            status: "applied",
+          },
+          {
+            id: "batch-draft",
+            memberId: "member-draft",
+            status: "generated",
+          },
+        ],
+      },
+      member: {
+        findMany: async () => [
+          {
+            id: "member-empty",
+            fullName: "No Backfill",
+            memberNumber: "001",
+          },
+          {
+            id: "member-draft",
+            fullName: "Draft Backfill",
+            memberNumber: "002",
+          },
+          {
+            id: "member-applied",
+            fullName: "Applied Backfill",
+            memberNumber: "003",
+          },
+        ],
+      },
+    }
+
+    const result = await listMembersTable(
+      "tenant-1",
+      { pageSize: 10 },
+      prisma as never
+    )
+    const statusByMemberId = new Map(
+      result.data.map((member) => [member.id, member.backfillStatus])
+    )
+
+    expect(statusByMemberId.get("member-empty")).toMatchObject({
+      appliedBatchId: null,
+      appliedMonthCount: 0,
+      draftBatchId: null,
+      state: "not_started",
+    })
+    expect(statusByMemberId.get("member-draft")).toMatchObject({
+      appliedBatchId: null,
+      appliedMonthCount: 0,
+      draftBatchId: "batch-draft",
+      state: "draft",
+    })
+    expect(statusByMemberId.get("member-applied")).toMatchObject({
+      appliedBatchId: "batch-applied",
+      appliedMonthCount: 2,
+      draftBatchId: null,
+      state: "applied",
+    })
   })
 })

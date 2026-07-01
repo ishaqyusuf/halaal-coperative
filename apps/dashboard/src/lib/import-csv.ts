@@ -18,6 +18,8 @@ export type DashboardImportReferenceData = {
 
 type CsvRecord = Record<string, string>
 
+export type DashboardImportGridRow = Record<string, string>
+
 type ImportConfig<T> = {
   description: string
   sampleCsv: string
@@ -274,6 +276,27 @@ function csvToRecords(csvText: string) {
   })
 
   return { headers, records }
+}
+
+function mergeHeaders(primaryHeaders: string[], secondaryHeaders: string[]) {
+  const merged: string[] = []
+  const seen = new Set<string>()
+
+  primaryHeaders.forEach((header) => {
+    if (!seen.has(header)) {
+      merged.push(header)
+      seen.add(header)
+    }
+  })
+
+  secondaryHeaders.forEach((header) => {
+    if (!seen.has(header)) {
+      merged.push(header)
+      seen.add(header)
+    }
+  })
+
+  return merged
 }
 
 const membersRowSchema = z.object({
@@ -598,6 +621,68 @@ export function parseDashboardImportCsv<T = unknown>(
     previewRows: records.slice(0, 3),
     rows: parsedRows,
   }
+}
+
+export function getDashboardImportTemplateHeaders(kind: DashboardImportKind) {
+  const [headerRow] = parseCsvRows(dashboardImportConfigs[kind].sampleCsv)
+
+  return (headerRow ?? []).map(normalizeHeader)
+}
+
+export function parseDashboardImportGrid(
+  kind: DashboardImportKind,
+  csvText: string
+) {
+  const templateHeaders = getDashboardImportTemplateHeaders(kind)
+
+  if (!csvText.trim()) {
+    return {
+      headers: templateHeaders,
+      rows: [] as DashboardImportGridRow[],
+    }
+  }
+
+  const { headers, records } = csvToRecords(csvText)
+
+  return {
+    headers: mergeHeaders(templateHeaders, headers),
+    rows: records,
+  }
+}
+
+function escapeCsvCell(value: string) {
+  if (!/[",\n\r]/.test(value)) {
+    return value
+  }
+
+  return `"${value.replace(/"/g, '""')}"`
+}
+
+function isEmptyImportGridRow(headers: string[], row: DashboardImportGridRow) {
+  return headers.every((header) => !row[header]?.trim())
+}
+
+export function serializeDashboardImportGrid(
+  headers: string[],
+  rows: DashboardImportGridRow[]
+) {
+  if (headers.length === 0) {
+    return ""
+  }
+
+  const populatedRows = rows.filter(
+    (row) => !isEmptyImportGridRow(headers, row)
+  )
+  const csvRows = [
+    headers,
+    ...populatedRows.map((row) =>
+      headers.map((header) => row[header]?.trim() ?? "")
+    ),
+  ]
+
+  return csvRows
+    .map((row) => row.map((cell) => escapeCsvCell(cell)).join(","))
+    .join("\n")
 }
 
 export function getDashboardImportPrimaryValue(

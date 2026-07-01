@@ -22,18 +22,41 @@ export type ListMembersFilters = {
   pageSize?: number
 }
 
-export async function listMembers(
+export type ListMembersTableFilters = Omit<
+  ListMembersFilters,
+  "page" | "search"
+> & {
+  cursor?: string | null
+  pageSize?: number
+  q?: string | null
+  sort?: [MembersTableSortField, "asc" | "desc"] | null
+}
+
+export type MembersTableSortField =
+  | "fullName"
+  | "memberNumber"
+  | "memberType"
+  | "status"
+  | "kycStatus"
+  | "joinedAt"
+
+export type MemberTableBackfillStatus = {
+  appliedBatchId: string | null
+  appliedMonthCount: number
+  draftBatchId: string | null
+  state: "not_started" | "draft" | "applied"
+}
+
+const memberListInclude = {
+  deductionSource: true,
+  user: { select: { id: true, email: true, fullName: true } },
+} satisfies Prisma.MemberInclude
+
+function buildMemberWhere(
   tenantId: string,
-  filters?: ListMembersFilters,
-  prismaOverride?: PrismaClient
-) {
-  const prisma = prismaOverride ?? createPrismaClient()
-  if (!prisma) throw new Error("Database not configured")
-
-  const page = filters?.page ?? 1
-  const pageSize = filters?.pageSize ?? 25
-
-  const where = {
+  filters?: ListMembersFilters
+): Prisma.MemberWhereInput {
+  return {
     tenantId,
     ...(filters?.kycStatus && { kycStatus: filters.kycStatus }),
     ...(filters?.status && { status: filters.status }),
@@ -58,6 +81,32 @@ export async function listMembers(
       ],
     }),
   }
+}
+
+function getMembersTableOrderBy(
+  sort?: ListMembersTableFilters["sort"]
+): Prisma.MemberOrderByWithRelationInput[] {
+  if (!sort) {
+    return [{ createdAt: "desc" }]
+  }
+
+  const [field, direction] = sort
+
+  return [{ [field]: direction }, { createdAt: "desc" }]
+}
+
+export async function listMembers(
+  tenantId: string,
+  filters?: ListMembersFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const page = filters?.page ?? 1
+  const pageSize = filters?.pageSize ?? 25
+
+  const where = buildMemberWhere(tenantId, filters)
 
   const [items, total] = await Promise.all([
     prisma.member.findMany({
@@ -65,15 +114,112 @@ export async function listMembers(
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: {
-        deductionSource: true,
-        user: { select: { id: true, email: true, fullName: true } },
-      },
+      include: memberListInclude,
     }),
     prisma.member.count({ where }),
   ])
 
   return { items, total, page, pageSize }
+}
+
+export async function listMembersTable(
+  tenantId: string,
+  filters?: ListMembersTableFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const pageSize = filters?.pageSize ?? 25
+  const offset = filters?.cursor ? Number.parseInt(filters.cursor, 10) : 0
+  const safeOffset = Number.isFinite(offset) && offset > 0 ? offset : 0
+  const where = buildMemberWhere(tenantId, {
+    ...filters,
+    search: filters?.q ?? undefined,
+  })
+
+  const data = await prisma.member.findMany({
+    where,
+    orderBy: getMembersTableOrderBy(filters?.sort),
+    skip: safeOffset,
+    take: pageSize,
+    include: memberListInclude,
+  })
+  const memberIds = data.map((member) => member.id)
+  const [backfillBatches, appliedBackfillMonths] =
+    memberIds.length > 0
+      ? await Promise.all([
+          typeof prisma.backfillBatch?.findMany === "function"
+            ? prisma.backfillBatch.findMany({
+                orderBy: { updatedAt: "desc" },
+                select: {
+                  id: true,
+                  memberId: true,
+                  status: true,
+                },
+                where: {
+                  memberId: { in: memberIds },
+                  tenantId,
+                },
+              })
+            : [],
+          typeof prisma.appliedBackfillMonth?.findMany === "function"
+            ? prisma.appliedBackfillMonth.findMany({
+                select: { memberId: true },
+                where: {
+                  memberId: { in: memberIds },
+                  tenantId,
+                },
+              })
+            : [],
+        ])
+      : [[], []]
+  const statusByMemberId = new Map<string, MemberTableBackfillStatus>()
+
+  for (const memberId of memberIds) {
+    const memberBatches = backfillBatches.filter(
+      (batch: { memberId: string }) => batch.memberId === memberId
+    )
+    const appliedBatch = memberBatches.find(
+      (batch: { status: string }) => batch.status === "applied"
+    )
+    const draftBatch = memberBatches.find(
+      (batch: { status: string }) => batch.status !== "applied"
+    )
+    const appliedMonthCount = appliedBackfillMonths.filter(
+      (month: { memberId: string }) => month.memberId === memberId
+    ).length
+
+    statusByMemberId.set(memberId, {
+      appliedBatchId: appliedBatch?.id ?? null,
+      appliedMonthCount,
+      draftBatchId: draftBatch?.id ?? null,
+      state:
+        appliedBatch || appliedMonthCount > 0
+          ? "applied"
+          : draftBatch
+            ? "draft"
+            : "not_started",
+    })
+  }
+  const dataWithBackfillStatus = data.map((member) => ({
+    ...member,
+    backfillStatus: statusByMemberId.get(member.id) ?? {
+      appliedBatchId: null,
+      appliedMonthCount: 0,
+      draftBatchId: null,
+      state: "not_started" as const,
+    },
+  }))
+
+  return {
+    data: dataWithBackfillStatus,
+    meta: {
+      cursor: data.length === pageSize ? String(safeOffset + pageSize) : null,
+      hasNextPage: data.length === pageSize,
+      hasPreviousPage: safeOffset > 0,
+    },
+  }
 }
 
 export async function getMemberById(
@@ -518,8 +664,12 @@ export async function createMember(
 }
 
 export type UpdateMemberInput = {
+  address?: string | null
+  email?: string | null
   fullName?: string
   memberType?: MemberType
+  occupation?: string | null
+  phoneNumber?: string | null
   deductionSourceId?: string | null
   actorUserId: string
 }
@@ -539,8 +689,16 @@ export async function updateMember(
     const member = await tx.member.update({
       where: { id: memberId, tenantId },
       data: {
+        ...(input.address !== undefined && { address: input.address }),
+        ...(input.email !== undefined && { email: input.email }),
         ...(input.fullName !== undefined && { fullName: input.fullName }),
         ...(input.memberType !== undefined && { memberType: input.memberType }),
+        ...(input.occupation !== undefined && {
+          occupation: input.occupation,
+        }),
+        ...(input.phoneNumber !== undefined && {
+          phoneNumber: input.phoneNumber,
+        }),
         ...(input.deductionSourceId !== undefined && {
           deductionSourceId: input.deductionSourceId,
         }),
@@ -556,8 +714,12 @@ export async function updateMember(
         entityType: "Member",
         entityId: member.id,
         metadata: {
+          address: input.address,
+          email: input.email,
           fullName: input.fullName,
           memberType: input.memberType,
+          occupation: input.occupation,
+          phoneNumber: input.phoneNumber,
         },
         occurredAt: new Date(),
       },

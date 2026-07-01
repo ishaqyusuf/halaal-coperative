@@ -74,6 +74,7 @@ import {
   updateChargeDefinitionVersion,
   updateShareBusiness,
   updateMemberKyc,
+  updateMember,
   updateMemberDocumentReview,
   updateMemberSignupLink,
   updateTenantMemberSignupSettings,
@@ -123,6 +124,12 @@ function revalidatePath(path: string) {
   }
 
   state.revalidatePaths.push(path)
+}
+
+function revalidateMemberBackfillPaths(memberId: string) {
+  revalidatePath("/members")
+  revalidatePath(`/members/${memberId}`)
+  revalidatePath(`/members/${memberId}/backfill`)
 }
 
 export type DashboardActionResult<TResult = unknown> = {
@@ -469,7 +476,7 @@ async function requireMemberMigrationDraftMutable(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>,
   memberId: string
 ) {
-  await requireInitialMigrationToolsOpen(actor)
+  await requireInitialMigrationOrLiveWritesOpen(actor)
 
   const memberReview = await getInitialMigrationMemberReview({
     memberId,
@@ -492,7 +499,7 @@ async function requireMemberMigrationDraftMutable(
 async function requireMemberBackfillPrerequisitesComplete(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>
 ) {
-  const migrationState = await requireInitialMigrationToolsOpen(actor)
+  const migrationState = await requireInitialMigrationOrLiveWritesOpen(actor)
   const blockingSteps = migrationState.snapshot.missingStepKeys.filter(
     (stepKey) =>
       stepKey === "finance_start_date" ||
@@ -931,17 +938,22 @@ export async function createMemberAction(formData: FormData) {
   const joinedAtValue = getRequiredString(formData, "joinedAt")
   const joinedAt = new Date(`${joinedAtValue}T00:00:00.000Z`)
   requireDateOnOrAfterTenantStartDate(actor, joinedAt, "Joined date")
-  const memberState = getMemberStateFromFormData(formData, joinedAt)
+  const monthlyCommitment = getOptionalNumber(formData, "monthlyCommitment")
 
-  await createMember({
+  if (
+    monthlyCommitment === undefined ||
+    !Number.isFinite(monthlyCommitment) ||
+    monthlyCommitment <= 0
+  ) {
+    throw new Error("Starting commitment must be greater than 0.")
+  }
+
+  const member = await createMember({
     actorUserId: actor.user.id,
     address: getOptionalTrimmedString(formData, "address"),
-    currentSavingsBalance: memberState.currentSavingsBalance,
     email: getOptionalTrimmedString(formData, "email")?.toLowerCase() ?? null,
     fullName: getRequiredString(formData, "fullName"),
     joinedAt,
-    commitmentHistory: memberState.commitmentHistory,
-    legacyLoanHistory: memberState.legacyLoanHistory,
     memberNumber: composeMemberNumber(
       actor.tenant.memberNumberPrefix,
       getRequiredString(formData, "memberNumber")
@@ -950,10 +962,9 @@ export async function createMemberAction(formData: FormData) {
       formData,
       "memberType"
     ) as DashboardMemberType,
-    monthlyCommitment: memberState.monthlyCommitment,
+    monthlyCommitment,
     occupation: getOptionalTrimmedString(formData, "occupation"),
     phoneNumber: getOptionalTrimmedString(formData, "phoneNumber"),
-    servingLoan: memberState.servingLoan,
     tenantId: actor.tenant.id,
   })
 
@@ -961,6 +972,33 @@ export async function createMemberAction(formData: FormData) {
   revalidatePath("/contributions")
   revalidatePath("/loans")
   revalidatePath("/repayments")
+
+  return {
+    fullName: member.fullName,
+    id: member.id,
+    joinedAt: member.joinedAt.toISOString(),
+    memberNumber: member.memberNumber,
+  }
+}
+
+export async function updateMemberAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+
+  await updateMember(actor.tenant.id, memberId, {
+    actorUserId: actor.user.id,
+    address: getOptionalTrimmedString(formData, "address"),
+    email: getOptionalTrimmedString(formData, "email")?.toLowerCase() ?? null,
+    fullName: getRequiredString(formData, "fullName"),
+    memberType: getRequiredString(
+      formData,
+      "memberType"
+    ) as DashboardMemberType,
+    occupation: getOptionalTrimmedString(formData, "occupation"),
+    phoneNumber: getOptionalTrimmedString(formData, "phoneNumber"),
+  })
+
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function updateMemberStatusAction(formData: FormData) {
@@ -2491,6 +2529,56 @@ function buildMemberAmountLogRows(formData: FormData) {
   return rows.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
 }
 
+function buildMemberActivityEventRows(formData: FormData) {
+  const effectiveMonthValues = getAllTrimmedStrings(formData, "effectiveMonth")
+  const statusValues = getAllTrimmedStrings(formData, "status")
+  const reasonValues = getAllTrimmedStrings(formData, "reason")
+  const notesValues = getAllTrimmedStrings(formData, "notes")
+  const rowCount = maxFieldLength(
+    effectiveMonthValues,
+    statusValues,
+    reasonValues,
+    notesValues
+  )
+  const rows: Array<{
+    effectiveMonth: string
+    notes: string
+    reason: string
+    status: "active" | "inactive"
+  }> = []
+
+  for (let index = 0; index < rowCount; index += 1) {
+    const row = {
+      effectiveMonth: indexedValue(effectiveMonthValues, index),
+      notes: indexedValue(notesValues, index),
+      reason: indexedValue(reasonValues, index),
+      status: indexedValue(statusValues, index),
+    }
+    const started = Boolean(
+      row.effectiveMonth || row.notes || row.reason || row.status
+    )
+
+    if (!started) {
+      continue
+    }
+
+    if (!row.effectiveMonth || !row.status) {
+      throw new Error("Each started activity row needs a month and status.")
+    }
+
+    if (row.status !== "active" && row.status !== "inactive") {
+      throw new Error("Member activity status must be active or inactive.")
+    }
+
+    rows.push({
+      ...row,
+      status: row.status,
+    })
+  }
+
+  return rows.sort((a, b) => a.effectiveMonth.localeCompare(b.effectiveMonth))
+}
+
 function buildLegacyLoanMigrationRows(formData: FormData) {
   const closedAtValues = getAllTrimmedStrings(formData, "closedAt")
   const loanLabelValues = getAllTrimmedStrings(formData, "loanLabel")
@@ -2681,8 +2769,15 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
   const memberId = getRequiredString(formData, "memberId")
   await requireMemberMigrationDraftMutable(actor, memberId)
   const rows = buildLegacyLoanMigrationRows(formData)
+  const allowEmptyRows = getOptionalTrimmedString(formData, "allowEmptyRows")
+    === "true"
 
   if (rows.length === 0) {
+    if (allowEmptyRows) {
+      revalidateMemberBackfillPaths(memberId)
+      return
+    }
+
     throw new Error("Add at least one loan history row.")
   }
 
@@ -2708,6 +2803,15 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
       label: "Guarantor 2",
       prefix: "guarantorTwo",
     })
+
+    if (
+      guarantorOneMemberId &&
+      guarantorTwoMemberId &&
+      guarantorOneMemberId === guarantorTwoMemberId
+    ) {
+      throw new Error("Guarantor 1 and Guarantor 2 cannot be the same member.")
+    }
+
     const principalAmount = Number(row.principalAmount)
 
     await createLegacyLoanMigrationDraft({
@@ -2735,7 +2839,7 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
   revalidatePath("/getting-started")
   revalidatePath(`/settings/finance/migration/${memberId}`)
   revalidatePath("/settings/finance/loan")
-  revalidatePath("/members")
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function updateLegacyLoanMigrationDraftAction(formData: FormData) {
@@ -2773,6 +2877,7 @@ export async function updateLegacyLoanMigrationDraftAction(formData: FormData) {
   revalidatePath("/getting-started")
   revalidatePath(`/settings/finance/migration/${memberId}`)
   revalidatePath("/settings/finance/loan")
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function upsertMemberAmountLogAction(formData: FormData) {
@@ -2780,8 +2885,15 @@ export async function upsertMemberAmountLogAction(formData: FormData) {
   const memberId = getRequiredString(formData, "memberId")
   await requireMemberMigrationDraftMutable(actor, memberId)
   const rows = buildMemberAmountLogRows(formData)
+  const allowEmptyRows = getOptionalTrimmedString(formData, "allowEmptyRows")
+    === "true"
 
   if (rows.length === 0) {
+    if (allowEmptyRows) {
+      revalidateMemberBackfillPaths(memberId)
+      return
+    }
+
     throw new Error("Add at least one commitment history row.")
   }
 
@@ -2802,6 +2914,7 @@ export async function upsertMemberAmountLogAction(formData: FormData) {
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
   revalidatePath(`/settings/finance/migration/${memberId}`)
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function markLegacyLoansReviewedAction(formData: FormData) {
@@ -2878,6 +2991,7 @@ export async function upsertMigrationBackfillAdjustmentAction(
   revalidatePath("/getting-started")
   revalidatePath("/settings/finance/migration")
   revalidatePath(`/settings/finance/migration/${memberId}`)
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function setMigrationBackfillDefaultingMonthsAction(
@@ -2917,33 +3031,32 @@ export async function setMigrationBackfillDefaultingMonthsAction(
   revalidatePath("/getting-started")
   revalidatePath("/settings/finance/migration")
   revalidatePath(`/settings/finance/migration/${memberId}`)
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function upsertMemberActivityEventAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   const memberId = getRequiredString(formData, "memberId")
   await requireMemberMigrationDraftMutable(actor, memberId)
-  const rawEffectiveMonth = getRequiredString(formData, "effectiveMonth")
-  const status = getRequiredString(formData, "status")
+  const rows = buildMemberActivityEventRows(formData)
 
-  if (status !== "active" && status !== "inactive") {
-    throw new Error("Member activity status must be active or inactive.")
+  for (const row of rows) {
+    await upsertMemberActivityEvent({
+      actorUserId: actor.user.id,
+      effectiveMonth: new Date(`${row.effectiveMonth}-01T00:00:00.000Z`),
+      memberId,
+      notes: row.notes || null,
+      reason: row.reason || null,
+      status: row.status,
+      tenantId: actor.tenant.id,
+    })
   }
-
-  await upsertMemberActivityEvent({
-    actorUserId: actor.user.id,
-    effectiveMonth: new Date(`${rawEffectiveMonth}-01T00:00:00.000Z`),
-    memberId,
-    notes: (formData.get("notes") as string | null)?.trim() || null,
-    reason: (formData.get("reason") as string | null)?.trim() || null,
-    status,
-    tenantId: actor.tenant.id,
-  })
 
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
   revalidatePath("/settings/finance/migration")
   revalidatePath(`/settings/finance/migration/${memberId}`)
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function deleteMemberActivityEventAction(formData: FormData) {
@@ -2962,6 +3075,7 @@ export async function deleteMemberActivityEventAction(formData: FormData) {
   revalidatePath("/getting-started")
   revalidatePath("/settings/finance/migration")
   revalidatePath(`/settings/finance/migration/${memberId}`)
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function upsertMigrationProfitAdjustmentAction(
@@ -3650,6 +3764,7 @@ export async function queueBackfillDraftAction(formData: FormData) {
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function getBackfillPreviewAction(formData: FormData) {
@@ -3704,6 +3819,7 @@ export async function queueBackfillApplyAction(formData: FormData) {
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
+  revalidateMemberBackfillPaths(memberId)
 }
 
 
@@ -3741,6 +3857,7 @@ function noInputAction<TResult>(handler: () => Promise<TResult>) {
 
 const dashboardActionHandlers = {
   createMemberAction,
+  updateMemberAction,
   updateMemberStatusAction,
   approveMemberOnboardingAction,
   rejectMemberOnboardingAction,
@@ -3835,6 +3952,7 @@ export type DashboardNoInputActionName = Exclude<
 
 export const dashboardActionsRouter = createTRPCRouter({
   createMemberAction: formAction(dashboardActionHandlers.createMemberAction),
+  updateMemberAction: formAction(dashboardActionHandlers.updateMemberAction),
   updateMemberStatusAction: formAction(dashboardActionHandlers.updateMemberStatusAction),
   approveMemberOnboardingAction: formAction(dashboardActionHandlers.approveMemberOnboardingAction),
   rejectMemberOnboardingAction: formAction(dashboardActionHandlers.rejectMemberOnboardingAction),

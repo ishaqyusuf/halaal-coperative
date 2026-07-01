@@ -5,14 +5,21 @@ import {
   createBackfillBatch,
   generateBackfillBatch,
   saveBackfillDraft,
+  upsertMemberAmountLog,
   updateBackfillBatchStatus,
   updateBackfillMonthRow,
 } from "./backfill"
 
-function createFinalizedBackfillPrismaStub() {
+function createFinalizedBackfillPrismaStub({
+  initialMigrationStatus = "finalized",
+}: {
+  initialMigrationStatus?: string
+} = {}) {
   const activityCreates: unknown[] = []
+  const auditLogCreates: unknown[] = []
   const batchCreates: unknown[] = []
   const batchUpdates: unknown[] = []
+  const memberAmountLogCreates: unknown[] = []
   const monthRowUpdates: unknown[] = []
   const transactions: unknown[] = []
 
@@ -27,6 +34,11 @@ function createFinalizedBackfillPrismaStub() {
     },
     auditLog: {
       count: async () => 0,
+      create: async (input: unknown) => {
+        auditLogCreates.push(input)
+
+        return input
+      },
     },
     backfillActivity: {
       create: async (input: unknown) => {
@@ -68,13 +80,22 @@ function createFinalizedBackfillPrismaStub() {
     member: {
       findMany: async () => [],
     },
+    memberAmountLog: {
+      create: async (input: any) => {
+        memberAmountLogCreates.push(input)
+
+        return { id: "amount-log-1", ...input.data }
+      },
+      findFirst: async () => null,
+      update: async (input: any) => ({ id: "amount-log-1", ...input.data }),
+    },
     shareBusinessProfitEntry: {
       count: async () => 1,
     },
     tenant: {
       findUnique: async () => ({
         id: "tenant-1",
-        initialMigrationStatus: "live_operations",
+        initialMigrationStatus,
         migrationEmergencyUnlockUntil: null,
         migrationFinalizedAt: new Date("2026-01-31T00:00:00.000Z"),
         startDate: new Date("2025-01-01T00:00:00.000Z"),
@@ -84,8 +105,10 @@ function createFinalizedBackfillPrismaStub() {
       count: async () => 1,
     },
     activityCreates,
+    auditLogCreates,
     batchCreates,
     batchUpdates,
+    memberAmountLogCreates,
     monthRowUpdates,
     transactions,
   }
@@ -127,6 +150,33 @@ describe("backfill migration lifecycle guards", () => {
     ).rejects.toThrow("Member ledger backfill is locked")
 
     expect(prisma.transactions).toHaveLength(0)
+  })
+
+  test("allows member amount history during live operations before member backfill is applied", async () => {
+    const prisma = createFinalizedBackfillPrismaStub({
+      initialMigrationStatus: "live_operations",
+    })
+
+    await upsertMemberAmountLog(
+      {
+        actorUserId: "user-1",
+        amount: 2500,
+        effectiveFrom: new Date("2025-08-01T00:00:00.000Z"),
+        memberId: "member-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never,
+    )
+
+    expect(prisma.memberAmountLogCreates).toHaveLength(1)
+    expect(prisma.memberAmountLogCreates[0]).toMatchObject({
+      data: {
+        amount: 2500,
+        memberId: "member-1",
+        tenantId: "tenant-1",
+      },
+    })
+    expect(prisma.auditLogCreates).toHaveLength(1)
   })
 
   test("blocks backfill application after migration finalization", async () => {

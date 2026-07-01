@@ -9,64 +9,116 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@halaalvest/ui/components/dialog"
-import { MemberCreateForm } from "@/components/forms/member-forms"
+import { useRouter } from "next/navigation"
+import {
+  MemberCreateForm,
+  type CreatedMemberSummary,
+} from "@/components/forms/member-forms"
+import { MemberBackfillStartModal } from "@/components/modals/member-backfill-start-modal"
+import { shouldPromptMemberBackfill } from "@/lib/members/member-backfill-prompt"
 
 export function MemberCreateModal({
-  description = "Midday-style quick capture for a new member, their current savings state, and any existing active loan.",
+  description = "Add the member profile, joined date, and starting commitment.",
   devMode,
-  eyebrow = "Members",
+  initialValues,
   memberNumberPrefix,
+  onOpenChange,
+  onSuccess,
+  open,
+  suppressBackfillPrompt = false,
   title = "Create member",
   triggerLabel = "New member",
 }: {
   description?: string
   devMode: boolean
-  eyebrow?: string
+  initialValues?: Parameters<typeof MemberCreateForm>[0]["initialValues"]
   memberNumberPrefix?: string | null
+  onOpenChange?: (open: boolean) => void
+  onSuccess?: (member: CreatedMemberSummary) => void
+  open?: boolean
+  suppressBackfillPrompt?: boolean
   title?: string
   triggerLabel?: string
 }) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const [pendingBackfillMember, setPendingBackfillMember] =
+    useState<CreatedMemberSummary | null>(null)
+  const router = useRouter()
+  const dialogOpen = open ?? internalOpen
+  const isControlled = open !== undefined
+
+  function setDialogOpen(nextOpen: boolean) {
+    if (!isControlled) {
+      setInternalOpen(nextOpen)
+    }
+
+    onOpenChange?.(nextOpen)
+  }
+
+  function handleMemberCreated(member: CreatedMemberSummary) {
+    setDialogOpen(false)
+    onSuccess?.(member)
+
+    if (
+      !suppressBackfillPrompt &&
+      shouldPromptMemberBackfill(member.joinedAt)
+    ) {
+      setPendingBackfillMember(member)
+    }
+  }
+
+  function handleBackfillLater() {
+    setPendingBackfillMember(null)
+  }
+
+  function handleStartBackfill() {
+    if (!pendingBackfillMember) {
+      return
+    }
+
+    router.push(`/members/${pendingBackfillMember.id}/backfill?step=baseline`)
+    setPendingBackfillMember(null)
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button
-        type="button"
-        variant={open ? "default" : "outline"}
-        className="rounded-full"
-        onClick={() => setOpen(true)}
-      >
-        {triggerLabel}
-      </Button>
-
-      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden sm:max-w-4xl lg:max-w-6xl">
-        <DialogHeader className="shrink-0">
-          <div>
-            <p className="text-[11px] font-medium tracking-[0.24em] text-muted-foreground uppercase">
-              {eyebrow}
-            </p>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
-          </div>
+    <>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        {!isControlled ? (
           <Button
             type="button"
-            variant="ghost"
+            variant={dialogOpen ? "default" : "outline"}
             className="rounded-full"
-            onClick={() => setOpen(false)}
+            onClick={() => setDialogOpen(true)}
           >
-            Close
+            {triggerLabel}
           </Button>
-        </DialogHeader>
+        ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <MemberCreateForm
-            devMode={devMode}
-            inModal
-            memberNumberPrefix={memberNumberPrefix}
-            onSuccess={() => setOpen(false)}
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+        <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] overflow-hidden p-0 sm:w-full sm:max-w-[455px]">
+          <div className="max-h-[calc(100vh-2rem)] overflow-y-auto p-4">
+            <DialogHeader>
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription>{description}</DialogDescription>
+            </DialogHeader>
+
+            <MemberCreateForm
+              devMode={devMode}
+              initialValues={initialValues}
+              inModal
+              key={`${initialValues?.fullName ?? ""}-${dialogOpen ? "open" : "closed"}`}
+              memberNumberPrefix={memberNumberPrefix}
+              onSuccess={handleMemberCreated}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <MemberBackfillStartModal
+        member={pendingBackfillMember}
+        onLater={handleBackfillLater}
+        onStartBackfill={handleStartBackfill}
+        open={Boolean(pendingBackfillMember)}
+      />
+    </>
   )
 }

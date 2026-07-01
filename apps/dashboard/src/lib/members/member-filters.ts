@@ -44,13 +44,13 @@ export function toMemberQueryFilters(filters: MembersFilterParams) {
     joinedTo: filters.joinedTo ? new Date(`${filters.joinedTo}T23:59:59.999Z`) : undefined,
     kycStatus: normalizedKycStatus,
     memberType: normalizedMemberType,
-    search: filters.search ?? undefined,
+    search: filters.q ?? undefined,
     status: normalizedStatus,
   }
 }
 
 export function hasActiveMemberFilters(filters: MembersFilterParams) {
-  return hasActiveFilters(filters, { ignoreKeys: ["search"] })
+  return hasActiveFilters(filters, { ignoreKeys: ["q"] })
 }
 
 export function getActiveMemberFilters(filters: MembersFilterParams) {

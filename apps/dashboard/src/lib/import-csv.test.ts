@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { dashboardImportConfigs, parseDashboardImportCsv } from "./import-csv"
+import {
+  dashboardImportConfigs,
+  parseDashboardImportCsv,
+  parseDashboardImportGrid,
+  serializeDashboardImportGrid,
+} from "./import-csv"
 
 describe("dashboard CSV imports", () => {
   test("parses member opening savings and KYC fields from common headers", () => {
@@ -57,5 +62,49 @@ describe("dashboard CSV imports", () => {
     expect(header).toContain("savings_during_loan")
     expect(header).not.toContain("monthlyRepaymentAmount")
     expect(header).not.toContain("savingsDuringLoan")
+  })
+
+  test("parses editable member import grid with canonical template columns", () => {
+    const grid = parseDashboardImportGrid(
+      "members",
+      [
+        "member_number,full_name,member_type,joined_at,status",
+        "MBR-001,Aisha Bello,individual,2025-01-01,active",
+      ].join("\n")
+    )
+
+    expect(grid.headers).toContain("memberNumber")
+    expect(grid.headers).toContain("fullName")
+    expect(grid.headers).toContain("openingSavingsBalance")
+    expect(grid.rows[0]).toMatchObject({
+      fullName: "Aisha Bello",
+      joinedAt: "2025-01-01",
+      memberNumber: "MBR-001",
+    })
+  })
+
+  test("serializes editable grid rows and omits blank trailing rows", () => {
+    const csvText = serializeDashboardImportGrid(
+      ["memberNumber", "fullName", "kycReviewNotes"],
+      [
+        {
+          fullName: "Aisha Bello",
+          kycReviewNotes: "Reviewed, imported",
+          memberNumber: "MBR-001",
+        },
+        {
+          fullName: "",
+          kycReviewNotes: "",
+          memberNumber: "",
+        },
+      ]
+    )
+
+    expect(csvText).toBe(
+      [
+        "memberNumber,fullName,kycReviewNotes",
+        'MBR-001,Aisha Bello,"Reviewed, imported"',
+      ].join("\n")
+    )
   })
 })

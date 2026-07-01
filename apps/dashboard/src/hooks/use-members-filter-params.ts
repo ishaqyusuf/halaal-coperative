@@ -7,7 +7,7 @@ export type MembersFilterParams = {
   joinedTo: string | null
   kycStatus: string | null
   memberType: string | null
-  search: string | null
+  q: string | null
   status: string | null
 }
 
@@ -16,7 +16,7 @@ export const membersFilterParamsSchema = {
   joinedTo: parseAsString,
   kycStatus: parseAsString,
   memberType: parseAsString,
-  search: parseAsString,
+  q: parseAsString,
   status: parseAsString,
 }
 
@@ -27,7 +27,7 @@ export function useMembersFilterParams() {
 
   return {
     filters,
-    hasFilters: hasActiveFilters(filters, { ignoreKeys: ["search"] }),
+    hasFilters: hasActiveFilters(filters, { ignoreKeys: ["q"] }),
     setFilters,
   }
 }

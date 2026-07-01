@@ -33,8 +33,8 @@ export const TABLE_SETTINGS_COOKIE = "table-settings"
 export const defaultHiddenColumns: Record<TableId, string[]> = {
   members: [],
   contributions: [],
-  charges: [],
-  shares: [],
+  charges: ["versions"],
+  shares: ["notes"],
   business: [],
   imports: [],
   loanPortfolio: [],

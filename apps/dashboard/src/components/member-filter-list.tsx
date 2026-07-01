@@ -1,56 +1,119 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import { cn } from "@halaalvest/ui/lib/utils"
+import { format, parseISO } from "date-fns"
+import { X } from "lucide-react"
+
+type MemberFilterKey =
+  | "joinedFrom"
+  | "joinedTo"
+  | "kycStatus"
+  | "memberType"
+  | "status"
+
+export type MemberFilterValue = {
+  joinedFrom: string
+  joinedTo: string
+  kycStatus: string
+  memberType: string
+  status: string
+}
+
+type FilterValueProps = {
+  key: MemberFilterKey
+  value: MemberFilterValue[MemberFilterKey]
+}
+
+type FilterOption = {
+  id: string
+  name: string
+}
+
+function displayEnum(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function formatDate(value: string) {
+  return format(parseISO(value), "MMM d, yyyy")
+}
 
 export function MemberFilterList({
   filters,
   onRemove,
-  onClear,
+  options,
 }: {
-  filters: Array<{ key: string; label: string }>
-  onRemove: (key: string) => void
-  onClear: () => void
+  filters: Partial<MemberFilterValue>
+  onRemove: (filters: { [key: string]: null }) => void
+  options?: Partial<Record<MemberFilterKey, FilterOption[]>>
 }) {
-  if (!filters.length) {
-    return null
+  const renderFilter = ({ key, value }: FilterValueProps) => {
+    switch (key) {
+      case "joinedFrom": {
+        if (value && filters.joinedTo) {
+          return `${formatDate(value)} - ${formatDate(filters.joinedTo)}`
+        }
+
+        return value ? formatDate(value) : null
+      }
+
+      case "joinedTo":
+        return value ? `Joined to: ${formatDate(value)}` : null
+
+      case "kycStatus":
+      case "memberType":
+      case "status":
+        return (
+          options?.[key]?.find((filter) => filter.id === value)?.name ??
+          displayEnum(value)
+        )
+
+      default:
+        return null
+    }
+  }
+
+  const handleOnRemove = (key: MemberFilterKey) => {
+    if (key === "joinedFrom" || key === "joinedTo") {
+      onRemove({ joinedFrom: null, joinedTo: null })
+      return
+    }
+
+    onRemove({ [key]: null })
   }
 
   return (
-    <ul className="flex flex-wrap items-center gap-2">
-      {filters.map((filter) => (
-        <li key={filter.key}>
-          <button
-            type="button"
-            className={cn(
-              "group inline-flex h-8 items-center gap-1.5 rounded-md bg-secondary px-2.5 text-xs font-normal text-[#787878] transition hover:bg-secondary/90 hover:text-foreground",
-            )}
-            onClick={() => onRemove(filter.key)}
-          >
-            <span className="inline-flex w-0 scale-0 items-center justify-center overflow-hidden text-muted-foreground transition-all duration-150 group-hover:w-3.5 group-hover:scale-100 group-hover:text-foreground">
-              <svg
-                aria-hidden="true"
-                className="size-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+    <ul className="flex space-x-2">
+      {Object.entries(filters)
+        .filter(([key, value]) => value !== null && key !== "joinedTo")
+        .map(([key, value]) => {
+          const filterKey = key as MemberFilterKey
+          const label = value
+            ? renderFilter({
+                key: filterKey,
+                value: value as MemberFilterValue[MemberFilterKey],
+              })
+            : null
+
+          if (!label) {
+            return null
+          }
+
+          return (
+            <li key={key}>
+              <Button
+                className="h-9 px-2 bg-secondary hover:bg-secondary font-normal text-[#878787] flex space-x-1 items-center group rounded-none"
+                onClick={() => handleOnRemove(filterKey)}
+                type="button"
               >
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
-              </svg>
-            </span>
-            <span>{filter.label}</span>
-          </button>
-        </li>
-      ))}
-      <li>
-        <Button type="button" size="sm" variant="ghost" className="h-8 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground" onClick={onClear}>
-          Clear filters
-        </Button>
-      </li>
+                <X className="scale-0 group-hover:scale-100 transition-all w-0 group-hover:w-4" />
+                <span>{label}</span>
+              </Button>
+            </li>
+          )
+        })}
     </ul>
   )
 }

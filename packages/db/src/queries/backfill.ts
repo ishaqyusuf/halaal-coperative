@@ -22,9 +22,12 @@ async function assertBackfillMutationOpen(
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
-  if (!migrationState.snapshot.canUseMigrationTools) {
+  if (
+    !migrationState.snapshot.canUseMigrationTools &&
+    !migrationState.snapshot.canUseLiveFinancialWrites
+  ) {
     throw new Error(
-      "Member ledger backfill is locked because initial migration is finalized."
+      "Member ledger backfill is locked because migration tools and live financial writes are closed."
     )
   }
 }

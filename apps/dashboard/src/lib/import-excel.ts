@@ -60,9 +60,31 @@ function getTemplateFilename(kind: DashboardImportKind) {
   return `${kind.replace(/_/g, "-")}-import-template.xlsx`
 }
 
-export function downloadDashboardImportTemplate(kind: DashboardImportKind) {
+function projectTemplateRows(rows: string[][], columns?: string[]) {
+  const headerRow = rows[0]
+
+  if (!columns?.length || !headerRow) {
+    return rows
+  }
+
+  const columnIndexes = columns.map((column) => headerRow.indexOf(column))
+
+  return [
+    columns,
+    ...rows
+      .slice(1)
+      .map((row) =>
+        columnIndexes.map((index) => (index >= 0 ? (row[index] ?? "") : ""))
+      ),
+  ]
+}
+
+export function downloadDashboardImportTemplate(
+  kind: DashboardImportKind,
+  columns?: string[]
+) {
   const config = dashboardImportConfigs[kind]
-  const rows = parseCsvRows(config.sampleCsv)
+  const rows = projectTemplateRows(parseCsvRows(config.sampleCsv), columns)
   const workbook = XLSX.utils.book_new()
   const worksheet = XLSX.utils.aoa_to_sheet(rows)
 

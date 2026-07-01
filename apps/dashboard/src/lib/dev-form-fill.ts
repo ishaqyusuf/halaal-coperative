@@ -31,8 +31,6 @@ function createRandomMemberCreateDefaults() {
   const memberNumber = String(randomInt(1000, 9999))
   const joinedAt = randomRecentDate(2021, 2026)
   const monthlyCommitment = String(randomItem([10000, 15000, 20000, 25000, 30000, 50000]))
-  const currentSavingsBalance = String(randomItem([0, 15000, 45000, 80000, 125000, 250000]))
-  const hasServingLoan = Math.random() >= 0.5
   const email = `${fullName.toLowerCase().replace(/\s+/g, ".")}@example.com`
   const profileDefaults = {
     address: `${randomInt(1, 48)} Cooperative Road, Kaduna`,
@@ -41,44 +39,10 @@ function createRandomMemberCreateDefaults() {
     phoneNumber: `+23480${randomInt(10000000, 99999999)}`,
   }
 
-  if (!hasServingLoan) {
-    return {
-      ...profileDefaults,
-      currentSavingsBalance,
-      fullName,
-      hasServingLoan,
-      joinedAt,
-      loanAmount: "",
-      loanMonthlyCommitment: "",
-      loanPaymentMonths: "",
-      loanServed: "",
-      loanStartDate: "",
-      loanTopupAmount: "",
-      monthlyCommitment,
-      memberNumber,
-      memberType: randomItem(memberTypes),
-    }
-  }
-
-  const loanAmount = randomItem([150000, 250000, 350000, 500000, 750000, 1000000])
-  const maxServedSteps = Math.max(0, Math.floor(loanAmount / 50000) - 1)
-  const loanServed = maxServedSteps > 0 ? randomInt(0, maxServedSteps) * 50000 : 0
-  const loanPaymentMonths = randomItem([6, 9, 12, 18, 24])
-  const loanMonthlyCommitment = Number(((loanAmount - loanServed) / loanPaymentMonths).toFixed(2))
-  const loanTopupAmount = randomItem([0, 5000, 10000, 15000, 25000])
-
   return {
     ...profileDefaults,
-    currentSavingsBalance,
     fullName,
-    hasServingLoan,
     joinedAt,
-    loanAmount: String(loanAmount),
-    loanMonthlyCommitment: String(loanMonthlyCommitment),
-    loanPaymentMonths: String(loanPaymentMonths),
-    loanServed: String(loanServed),
-    loanStartDate: randomRecentDate(2022, 2026),
-    loanTopupAmount: String(loanTopupAmount),
     monthlyCommitment,
     memberNumber,
     memberType: randomItem(memberTypes),
@@ -141,9 +105,9 @@ const dashboardDevFormDefaults = {
     email: "amina.yusuf@example.com",
     fullName: "Amina Yusuf",
     joinedAt: "2026-04-14",
-    loanTopupAmount: "",
     memberNumber: "1024",
     memberType: "individual",
+    monthlyCommitment: "25000",
     occupation: "Trader",
     phoneNumber: "+234 800 000 0000",
   },

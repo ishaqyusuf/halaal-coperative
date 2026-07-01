@@ -42,6 +42,14 @@ This file captures payload shapes, response conventions, and contract assumption
   - `financingAnalytics`: outstanding principal, due-this-month amount, overdue/PAR buckets, disbursement holds, collections cases, and monthly movement rows.
   - `memberTrustAnalytics`: active members, pending approvals, KYC/document review counts, and failed import count.
   - `shareProfitAnalytics`: share capital, active investment pool count, profit pending allocation, and draft dividend periods.
+- `trpc.reports.summary`
+  - Request fields: optional `from` and `to` date strings; tenant id and admin access are derived from the authenticated request context.
+  - `workspace`: tenant id, tenant name, currency code, generated timestamp, and selected date range.
+  - `financeSnapshot`: deployable funds, collection coverage, outstanding principal, overdue amount, pending disbursement count, and portfolio-at-risk metrics.
+  - `governanceMetrics`: audit counts, collection follow-up counts, open/high-priority collection cases, KYC pending count, and failed import count.
+  - `notificationDelivery`: total, sent, queued, and failed notification counts in the selected range.
+  - `complianceWatch`: linked review counts for KYC, documents, failed imports, and pending profit allocation review.
+  - `auditPreview` and `collectionsPreview`: compact evidence rows for the report landing page; CSV generation stays in dedicated export routes.
 - `trpc.onboarding.status`
   - `status`: `"complete"` or `"incomplete"`.
   - `completedStepCount`: completed onboarding steps.

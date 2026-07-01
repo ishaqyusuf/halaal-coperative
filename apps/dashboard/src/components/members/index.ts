@@ -1,5 +1,7 @@
+export { MembersColumnVisibility } from "./members-column-visibility"
 export { MembersActive } from "./members-active"
 export { MembersAll } from "./members-all"
+export { MemberBackfillPageView } from "./member-backfill-page-view"
 export { MembersHeader, MembersHeader as MembersPageHeader } from "./members-header"
 export { MembersKycPending } from "./members-kyc-pending"
 export { MembersLinkedUsers } from "./members-linked-users"

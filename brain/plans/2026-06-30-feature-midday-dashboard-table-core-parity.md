@@ -24,12 +24,14 @@ Bring the dashboard table system to full Midday-style parity across all importan
 
 The dashboard already uses a Midday-style `apps/dashboard/src` structure with route-owned pages, domain table folders, and shared dashboard composition helpers. The earlier finance-specific Brain plan, `brain/plans/2026-06-21-feature-midday-table-filter-sheet-refactor.md`, tracks the finance table/filter/sheet rollout.
 
-This plan tracks the broader table-core parity migration requested on 2026-06-30. Phase 0-2 are complete:
+This plan tracks the broader table-core parity migration requested on 2026-06-30. Phase 0-4 are complete:
 
 - Phase 0 confirmed the current table contract and identified the static table wrappers that had to be kept available for legacy consumers during the migration.
 - Phase 1 installed the Midday table runtime dependencies in `apps/dashboard/package.json` and `bun.lock`: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `@tanstack/react-table`, `@tanstack/react-virtual`, `framer-motion`, `react-hotkeys-hook`, `zustand`, `date-fns`, and `lucide-react`.
 - Phase 2 restored the advanced Midday-compatible `apps/dashboard/src/components/tables/core` export surface while preserving legacy static wrappers in `apps/dashboard/src/components/dashboard/static-table.tsx`.
-- Initial table support primitives already exist in `apps/dashboard/src/components/portal.tsx`, `apps/dashboard/src/hooks/use-sticky-columns.ts`, `apps/dashboard/src/utils/table-settings.ts`, and `apps/dashboard/src/utils/table-configs.ts`.
+- Phase 3 added the remaining Midday support primitives: table settings persistence, initial settings loading, DnD, horizontal scroll, infinite scroll, sort URL params, scroll-header behavior, draggable headers, resize handles, and horizontal pagination.
+- Phase 4 tightened the canonical table settings/config coverage for the planned operational table migration targets, including default hidden columns, sticky columns, sort maps, non-reorderable columns, row heights, and summary heights.
+- Table support primitives now exist in `apps/dashboard/src/components/portal.tsx`, `apps/dashboard/src/hooks/use-sticky-columns.ts`, `apps/dashboard/src/utils/table-settings.ts`, `apps/dashboard/src/utils/table-configs.ts`, `apps/dashboard/src/utils/columns.ts`, `apps/dashboard/src/actions/update-table-settings-action.ts`, and the new table behavior hooks/components.
 
 The members table and most feature tables still need to be migrated from static page-fed tables to the full Midday query/table runtime.
 
@@ -45,9 +47,9 @@ Do not migrate every domain table in the same edit. Each table migration should 
 flowchart TD
   P0["Phase 0: Contract audit (Done)"] --> P1["Phase 1: Runtime dependencies (Done)"]
   P1 --> P2["Phase 2: Table core parity (Done)"]
-  P2 --> P3["Phase 3: Support primitives (Next)"]
-  P3 --> P4["Phase 4: Table IDs and settings"]
-  P4 --> P5["Phase 5: Data contracts"]
+  P2 --> P3["Phase 3: Support primitives (Done)"]
+  P3 --> P4["Phase 4: Table IDs and settings (Done)"]
+  P4 --> P5["Phase 5: Data contracts (Next)"]
   P5 --> P6["Phase 6: Members pilot"]
   P6 --> P7["Phase 7: Feature table rollout"]
   P7 --> P8["Phase 8: Retire legacy static consumers"]
@@ -74,8 +76,8 @@ flowchart TD
 
 ### Phase 3: Add Remaining Midday Support Primitives
 
-- Status: Next
-- Create the missing server action and hooks that sit around the core table:
+- Status: Done
+- Outcome: Created the missing server action and hooks that sit around the core table:
   - `apps/dashboard/src/actions/update-table-settings-action.ts`
   - `apps/dashboard/src/hooks/use-table-settings.ts`
   - `apps/dashboard/src/hooks/use-table-dnd.ts`
@@ -84,23 +86,23 @@ flowchart TD
   - `apps/dashboard/src/hooks/use-sort-params.ts`
   - `apps/dashboard/src/hooks/use-sort-query.ts`
   - `apps/dashboard/src/hooks/use-scroll-header.ts`
-- Create the missing table helper components:
+- Outcome: Created the missing table helper components:
   - `apps/dashboard/src/components/tables/draggable-header.tsx`
   - `apps/dashboard/src/components/tables/resize-handle.tsx`
   - `apps/dashboard/src/components/horizontal-pagination.tsx`
-- Add `apps/dashboard/src/utils/columns.ts` for Midday-style initial table settings and column ordering helpers.
-- Keep Phase 3 scoped to support primitives. Do not convert the members page yet.
+- Outcome: Added `apps/dashboard/src/utils/columns.ts` for Midday-style initial table settings loading.
+- Outcome: Kept Phase 3 scoped to support primitives. The members page conversion remains a later phase.
 
 ### Phase 4: Define Canonical Table IDs, Settings, And Config Coverage
 
-- Status: Planned
-- Audit `apps/dashboard/src/utils/table-settings.ts` and `apps/dashboard/src/utils/table-configs.ts` against every table that will migrate.
-- Confirm canonical `TableId` coverage for members, contributions, charges, shares, business, imports, loan portfolio, loan requests, membership approvals, notifications, audit, and reporting tables.
-- Fill sticky columns, non-reorderable columns, sort maps, default hidden columns, row heights, and summary heights before domain migrations consume them.
+- Status: Done
+- Outcome: Audited `apps/dashboard/src/utils/table-settings.ts` and `apps/dashboard/src/utils/table-configs.ts` against the current domain table files and route-owned static table surfaces that will migrate.
+- Outcome: Kept canonical `TableId` coverage focused on members, contributions, charges, shares, business, imports, loan portfolio, loan requests, membership approvals, notifications, and audit.
+- Outcome: Updated sticky columns, non-reorderable columns, sort maps, default hidden columns, row heights, and summary heights so later domain migrations consume a stable config contract.
 
 ### Phase 5: Migrate Data Contracts To Midday Query Shape
 
-- Status: Planned
+- Status: Next
 - Add typed API schemas where table inputs cross app boundaries.
 - Move table listing APIs toward Midday-style input contracts: cursor or pagination, page size, search, filters, sort field, sort direction, and table-specific metadata.
 - Keep reusable DB logic in `packages/db/src/queries/*`.

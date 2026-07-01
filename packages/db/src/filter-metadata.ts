@@ -53,7 +53,7 @@ function enumOption(value: string) {
 
 export async function getMemberFilterMetadata(): Promise<PageFilterData[]> {
   return [
-    inputFilter("search", "Search"),
+    inputFilter("q", "Search"),
     optionFilter(
       "status",
       "Status",

@@ -261,7 +261,7 @@ describe("legacy loan migration drafts", () => {
 
   test("blocks legacy loan draft creation after migration finalization", async () => {
     const prisma = createLegacyLoanDraftPrismaStub({
-      initialMigrationStatus: "live_operations",
+      initialMigrationStatus: "finalized",
     })
 
     await expect(

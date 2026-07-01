@@ -1,29 +1,20 @@
-import { z } from "zod"
-import { createTRPCRouter, tenantProcedure, minRoleProcedure } from "../lib.trpc"
 import {
-  listMembers,
-  getMemberById,
   createMember,
+  getMemberById,
+  listMembersTable,
   updateMember,
   updateMemberStatus,
   queueTenantRoleNotifications,
 } from "@halaalvest/db"
+import { z } from "zod"
+import { listMembersSchema } from "../schemas/members"
+import { createTRPCRouter, minRoleProcedure, tenantProcedure } from "../lib.trpc"
 
 export const membersRouter = createTRPCRouter({
   list: tenantProcedure
-    .input(
-      z
-        .object({
-          status: z.enum(["pending", "active", "inactive", "suspended", "exited"]).optional(),
-          memberType: z.enum(["civil_servant", "individual", "business"]).optional(),
-          search: z.string().optional(),
-          page: z.number().int().min(1).optional(),
-          pageSize: z.number().int().min(1).max(100).optional(),
-        })
-        .optional(),
-    )
+    .input(listMembersSchema)
     .query(async ({ ctx, input }) => {
-      return listMembers(ctx.tenant.current.id, input)
+      return listMembersTable(ctx.tenant.current.id, input ?? {})
     }),
 
   get: tenantProcedure
@@ -64,15 +55,23 @@ export const membersRouter = createTRPCRouter({
     .input(
       z.object({
         memberId: z.string().uuid(),
+        address: z.string().nullable().optional(),
+        email: z.string().email().nullable().optional(),
         fullName: z.string().min(1).optional(),
         memberType: z.enum(["civil_servant", "individual", "business"]).optional(),
+        occupation: z.string().nullable().optional(),
+        phoneNumber: z.string().nullable().optional(),
         deductionSourceId: z.string().uuid().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       return updateMember(ctx.tenant.current.id, input.memberId, {
+        address: input.address,
         fullName: input.fullName,
+        email: input.email,
         memberType: input.memberType,
+        occupation: input.occupation,
+        phoneNumber: input.phoneNumber,
         deductionSourceId: input.deductionSourceId,
         actorUserId: ctx.auth.session.user.id,
       })

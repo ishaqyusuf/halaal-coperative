@@ -63,6 +63,8 @@ This file records completed work and important outcomes.
 - 2026-05-01: Hardened dashboard auth against the `plot-keys` reference by adding a Next `proxy.ts` guard/header injector, signing host-scoped session tokens, ignoring spoofable auth headers in server context, and limiting passwordless dev quick-login to non-production.
 - 2026-05-01: Refactored the members page search/filter architecture toward the Midday invoice search-filter pattern by introducing `components/search-filter`, moving member page widgets into `components/members`, preserving URL/server filter behavior, improving filter labels, and documenting the updated folder ownership.
 - 2026-06-30: Completed Phase 0-2 of the Midday dashboard table-core parity rollout by auditing the table contract, adding Midday table runtime dependencies, restoring the advanced `tables/core` surface, splitting legacy static table wrappers into `components/dashboard/static-table.tsx`, and adding initial table settings/config support primitives.
+- 2026-06-30: Completed Phase 3 of the Midday dashboard table-core parity rollout by adding Midday-style settings persistence, initial settings loading, DnD, horizontal scroll, infinite scroll, sort URL params, scroll-header behavior, draggable headers, resize handles, and horizontal pagination primitives.
+- 2026-06-30: Completed Phase 4 of the Midday dashboard table-core parity rollout by tightening table ID/config coverage for operational table migration targets, including default hidden columns, sticky columns, sort maps, non-reorderable columns, row heights, and summary heights.
 
 ### Add automatic local database readiness to dev starters
 

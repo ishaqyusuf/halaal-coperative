@@ -107,6 +107,10 @@ export async function createMemberAction(formData: FormData) {
   return callDashboardFormAction("createMemberAction", formData)
 }
 
+export async function updateMemberAction(formData: FormData) {
+  return callDashboardFormAction("updateMemberAction", formData)
+}
+
 export async function updateMemberStatusAction(formData: FormData) {
   return callDashboardFormAction("updateMemberStatusAction", formData)
 }
@@ -374,7 +378,10 @@ export async function setMigrationBackfillDefaultingMonthsAction(
 }
 
 export async function upsertMemberActivityEventAction(formData: FormData) {
-  return callDashboardFormAction("upsertMemberActivityEventAction", formData)
+  return callDashboardFormAction(
+    "upsertMemberActivityEventAction",
+    formData
+  )
 }
 
 export async function deleteMemberActivityEventAction(formData: FormData) {

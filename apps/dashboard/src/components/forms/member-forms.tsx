@@ -1,13 +1,11 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { type ComponentProps, useTransition } from "react"
 import { z } from "zod"
 import { Tick02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
-import { Checkbox } from "@halaalvest/ui/components/checkbox"
-import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import {
   Form,
   FormControl,
@@ -22,10 +20,16 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@halaalvest/ui/components/input-group"
-import { NativeSelect } from "@halaalvest/ui/components/native-select"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+} from "@halaalvest/ui/components/select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
-import { formatCurrency } from "@halaalvest/utils"
+import { cn } from "@halaalvest/ui/lib/utils"
 import {
   applyDashboardDevFormFill,
   applyDashboardRandomDevFormFill,
@@ -50,153 +54,127 @@ function CurrencyFormInput({
   value?: string
 }) {
   return (
-    <CurrencyInput
-      allowNegative={false}
-      decimalScale={2}
+    <Input
       inputMode="decimal"
       placeholder={placeholder}
       value={value ?? ""}
-      valueIsNumericString
-      onValueChange={(values) => onChange(values.value)}
+      onChange={(event) => onChange(event.target.value)}
     />
   )
 }
 
-const commitmentHistoryRowSchema = z.object({
-  amount: z.string().optional(),
-  effectiveFrom: z.string().optional(),
-  notes: z.string().optional(),
-})
-
-const legacyLoanHistoryRowSchema = z.object({
-  closedAt: z.string().optional(),
-  guarantorOneMemberId: z.string().optional(),
-  guarantorTwoMemberId: z.string().optional(),
-  loanLabel: z.string().optional(),
-  openedAt: z.string().optional(),
-  outstandingPrincipalBalance: z.string().optional(),
-  principalAmount: z.string().optional(),
-  savingsDuringLoan: z.string().optional(),
-  scheduledMonthlyPrincipalRepayment: z.string().optional(),
-  notes: z.string().optional(),
-})
-
-type CommitmentHistoryRow = z.infer<typeof commitmentHistoryRowSchema> & {
-  id: string
+type SelectFormInputOption = {
+  label: string
+  value: string
 }
 
-type LegacyLoanHistoryRow = z.infer<typeof legacyLoanHistoryRowSchema> & {
-  id: string
-}
+function SelectFormInput({
+  className,
+  disabled,
+  onChange,
+  options,
+  placeholder,
+  required,
+  value,
+  ...props
+}: Omit<ComponentProps<typeof SelectTrigger>, "children" | "onChange"> & {
+  disabled?: boolean
+  onChange: (value: string) => void
+  options: SelectFormInputOption[]
+  placeholder?: string
+  required?: boolean
+  value?: string
+}) {
+  const selectedOption = options.find((option) => option.value === value)
 
-function createMemberFormRowId() {
   return (
-    globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    <Select
+      disabled={disabled}
+      required={required}
+      value={value}
+      onValueChange={(nextValue) => {
+        if (nextValue) {
+          onChange(nextValue)
+        }
+      }}
+    >
+      <SelectTrigger {...props} className={cn("w-full", className)}>
+        <span
+          className={cn(
+            "truncate",
+            selectedOption ? undefined : "text-muted-foreground"
+          )}
+        >
+          {selectedOption?.label ?? placeholder}
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   )
 }
+
+const memberTypeOptions = [
+  { label: "Individual", value: "individual" },
+  { label: "Civil servant", value: "civil_servant" },
+  { label: "Business", value: "business" },
+]
+
+const kycStatusOptions = [
+  { label: "Not started", value: "not_started" },
+  { label: "Pending", value: "pending" },
+  { label: "Verified", value: "verified" },
+  { label: "Rejected", value: "rejected" },
+]
+
+const reviewStatusOptions = [
+  { label: "Pending", value: "pending" },
+  { label: "Verified", value: "verified" },
+  { label: "Rejected", value: "rejected" },
+]
 
 const memberCreateSchema = z
   .object({
     address: z.string().optional(),
-    currentSavingsBalance: z.string().optional(),
     email: z
       .string()
       .email("Enter a valid email.")
       .optional()
       .or(z.literal("")),
     fullName: z.string().min(1, "Full name is required."),
-    hasServingLoan: z.boolean().default(false),
     joinedAt: z.string().min(1, "Joined date is required."),
-    loanAmount: z.string().optional(),
-    loanMonthlyCommitment: z.string().optional(),
-    loanPaymentMonths: z.string().optional(),
-    loanServed: z.string().optional(),
-    loanStartDate: z.string().optional(),
-    loanTopupAmount: z.string().optional(),
-    monthlyCommitment: z.string().optional(),
     memberNumber: z.string().min(1, "Member number is required."),
     memberType: z.enum(["individual", "civil_servant", "business"]),
+    monthlyCommitment: z.string().min(1, "Starting commitment is required."),
     occupation: z.string().optional(),
     phoneNumber: z.string().optional(),
   })
   .superRefine((values, ctx) => {
-    if (!values.hasServingLoan) {
-      return
-    }
+    const monthlyCommitment = Number(values.monthlyCommitment)
 
-    if (!values.loanStartDate) {
+    if (!Number.isFinite(monthlyCommitment) || monthlyCommitment <= 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Loan start date is required.",
-        path: ["loanStartDate"],
-      })
-    }
-
-    const amount = Number(values.loanAmount ?? "")
-    const paymentMonths = Number(values.loanPaymentMonths ?? "")
-    const served = Number(values.loanServed ?? "0")
-    const monthly = Number(values.loanMonthlyCommitment ?? "")
-    const topup = Number(values.loanTopupAmount ?? "0")
-
-    if (!values.loanAmount || Number.isNaN(amount) || amount <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Loan amount must be greater than 0.",
-        path: ["loanAmount"],
-      })
-    }
-
-    if (values.loanServed && (Number.isNaN(served) || served < 0)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Served amount cannot be negative.",
-        path: ["loanServed"],
-      })
-    }
-
-    if (
-      !values.loanPaymentMonths ||
-      !Number.isInteger(paymentMonths) ||
-      paymentMonths <= 0
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Payment months must be greater than 0.",
-        path: ["loanPaymentMonths"],
-      })
-    }
-
-    if (
-      !values.loanMonthlyCommitment ||
-      Number.isNaN(monthly) ||
-      monthly <= 0
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Monthly servicing must be greater than 0.",
-        path: ["loanMonthlyCommitment"],
-      })
-    }
-
-    if (values.loanTopupAmount && (Number.isNaN(topup) || topup < 0)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Topup amount cannot be negative.",
-        path: ["loanTopupAmount"],
-      })
-    }
-
-    if (!Number.isNaN(amount) && !Number.isNaN(served) && served > amount) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Served amount cannot be more than the loan amount.",
-        path: ["loanServed"],
+        message: "Starting commitment must be greater than 0.",
+        path: ["monthlyCommitment"],
       })
     }
   })
 
 type MemberCreateValues = z.infer<typeof memberCreateSchema>
+export type CreatedMemberSummary = {
+  fullName: string
+  id: string
+  joinedAt: string
+  memberNumber: string
+}
 
 const memberCommitmentSchema = z.object({
   amount: z.string().min(1, "Monthly commitment is required."),
@@ -298,237 +276,53 @@ export function MemberCommitmentForm({
 export function MemberCreateForm({
   devMode,
   inModal = false,
+  initialValues,
   memberNumberPrefix,
   onSuccess,
 }: {
   devMode: boolean
   inModal?: boolean
+  initialValues?: Partial<MemberCreateValues>
   memberNumberPrefix?: string | null
-  onSuccess?: () => void
+  onSuccess?: (member: CreatedMemberSummary) => void
 }) {
   const form = useZodForm<MemberCreateValues>(memberCreateSchema, {
     defaultValues: {
-      address: "",
-      currentSavingsBalance: "",
-      email: "",
-      fullName: "",
-      hasServingLoan: false,
-      joinedAt: "",
-      loanAmount: "",
-      loanMonthlyCommitment: "",
-      loanPaymentMonths: "",
-      loanServed: "",
-      loanStartDate: "",
-      loanTopupAmount: "",
-      monthlyCommitment: "",
-      memberNumber: "",
-      memberType: "individual",
-      occupation: "",
-      phoneNumber: "",
+      address: initialValues?.address ?? "",
+      email: initialValues?.email ?? "",
+      fullName: initialValues?.fullName ?? "",
+      joinedAt: initialValues?.joinedAt ?? "",
+      monthlyCommitment: initialValues?.monthlyCommitment ?? "",
+      memberNumber: initialValues?.memberNumber ?? "",
+      memberType: initialValues?.memberType ?? "individual",
+      occupation: initialValues?.occupation ?? "",
+      phoneNumber: initialValues?.phoneNumber ?? "",
     },
   })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
-  const [commitmentHistoryRows, setCommitmentHistoryRows] = useState<
-    CommitmentHistoryRow[]
-  >([])
-  const [legacyLoanHistoryRows, setLegacyLoanHistoryRows] = useState<
-    LegacyLoanHistoryRow[]
-  >([])
-  const hasServingLoan = form.watch("hasServingLoan")
-  const currentSavingsBalance = Number(form.watch("currentSavingsBalance") || 0)
-  const fullName = form.watch("fullName")
-  const joinedAt = form.watch("joinedAt")
-  const loanAmount = Number(form.watch("loanAmount") || 0)
-  const loanPaymentMonths = Number(form.watch("loanPaymentMonths") || 0)
-  const loanServed = Number(form.watch("loanServed") || 0)
-  const loanMonthlyCommitment = Number(form.watch("loanMonthlyCommitment") || 0)
-  const loanTopupAmount = Number(form.watch("loanTopupAmount") || 0)
-  const loanStartDate = form.watch("loanStartDate")
-  const memberNumber = form.watch("memberNumber")
-  const memberType = form.watch("memberType")
-  const monthlyCommitment = Number(form.watch("monthlyCommitment") || 0)
-  const pendingAmount = Math.max(0, loanAmount - loanServed)
-  const totalMonthlyDeduction = loanMonthlyCommitment + loanTopupAmount
-  const estimatedEndMonth = useMemo(() => {
-    if (
-      !hasServingLoan ||
-      !loanStartDate ||
-      !loanPaymentMonths ||
-      pendingAmount <= 0
-    ) {
-      return null
-    }
-
-    const endDate = new Date(`${loanStartDate}T00:00:00.000Z`)
-    endDate.setUTCMonth(endDate.getUTCMonth() + loanPaymentMonths)
-
-    return endDate.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC",
-    })
-  }, [hasServingLoan, loanPaymentMonths, loanStartDate, pendingAmount])
-
-  function calculateMonthlyService(
-    amount: string | number,
-    served: string | number,
-    paymentMonths: string | number
-  ) {
-    const principalAmount = Number(amount || 0)
-    const amountServed = Number(served || 0)
-    const months = Number(paymentMonths || 0)
-
-    if (
-      !Number.isFinite(principalAmount) ||
-      !Number.isFinite(amountServed) ||
-      !Number.isInteger(months) ||
-      months <= 0
-    ) {
-      return ""
-    }
-
-    return String(
-      Number((Math.max(0, principalAmount - amountServed) / months).toFixed(2))
-    )
-  }
-
-  function updateCalculatedMonthlyService(
-    nextValues: Partial<
-      Pick<
-        MemberCreateValues,
-        "loanAmount" | "loanPaymentMonths" | "loanServed"
-      >
-    >
-  ) {
-    const monthlyService = calculateMonthlyService(
-      nextValues.loanAmount ?? form.getValues("loanAmount") ?? "",
-      nextValues.loanServed ?? form.getValues("loanServed") ?? "",
-      nextValues.loanPaymentMonths ?? form.getValues("loanPaymentMonths") ?? ""
-    )
-
-    if (monthlyService) {
-      form.setValue("loanMonthlyCommitment", monthlyService, {
-        shouldDirty: true,
-        shouldValidate: true,
-      })
-    }
-  }
-
-  function appendCommitmentHistoryRow() {
-    setCommitmentHistoryRows((rows) => [
-      ...rows,
-      {
-        id: createMemberFormRowId(),
-        amount: form.getValues("monthlyCommitment") ?? "",
-        effectiveFrom: joinedAt || "",
-        notes: "",
-      },
-    ])
-  }
-
-  function updateCommitmentHistoryRow(
-    rowId: string,
-    values: Partial<CommitmentHistoryRow>
-  ) {
-    setCommitmentHistoryRows((rows) =>
-      rows.map((row) => (row.id === rowId ? { ...row, ...values } : row))
-    )
-  }
-
-  function removeCommitmentHistoryRow(rowId: string) {
-    setCommitmentHistoryRows((rows) => rows.filter((row) => row.id !== rowId))
-  }
-
-  function appendLegacyLoanHistoryRow() {
-    setLegacyLoanHistoryRows((rows) => [
-      ...rows,
-      {
-        id: createMemberFormRowId(),
-        closedAt: "",
-        guarantorOneMemberId: "",
-        guarantorTwoMemberId: "",
-        loanLabel: "",
-        openedAt: form.getValues("loanStartDate") || joinedAt || "",
-        outstandingPrincipalBalance: "",
-        principalAmount: "",
-        savingsDuringLoan: form.getValues("monthlyCommitment") ?? "",
-        scheduledMonthlyPrincipalRepayment: "",
-        notes: "",
-      },
-    ])
-  }
-
-  function updateLegacyLoanHistoryRow(
-    rowId: string,
-    values: Partial<LegacyLoanHistoryRow>
-  ) {
-    setLegacyLoanHistoryRows((rows) =>
-      rows.map((row) => (row.id === rowId ? { ...row, ...values } : row))
-    )
-  }
-
-  function removeLegacyLoanHistoryRow(rowId: string) {
-    setLegacyLoanHistoryRows((rows) => rows.filter((row) => row.id !== rowId))
-  }
-
-  function serializeCommitmentRows(rows: CommitmentHistoryRow[]) {
-    return rows.map(({ id: _id, ...row }) => row)
-  }
-
-  function serializeLegacyLoanRows(rows: LegacyLoanHistoryRow[]) {
-    return rows.map(({ id: _id, ...row }) => row)
-  }
 
   function onSubmit(values: MemberCreateValues) {
     startTransition(async () => {
       try {
         const formData = objectToFormData(values)
-        formData.append(
-          "commitmentHistoryJson",
-          JSON.stringify(
-            serializeCommitmentRows(
-              commitmentHistoryRows.filter(
-                (row) => row.effectiveFrom?.trim() || row.amount?.trim()
-              )
-            )
-          )
-        )
-        formData.append(
-          "legacyLoanHistoryJson",
-          JSON.stringify(
-            serializeLegacyLoanRows(
-              legacyLoanHistoryRows.filter(
-                (row) => row.openedAt?.trim() || row.principalAmount?.trim()
-              )
-            )
-          )
-        )
 
-        await createMemberAction(formData)
+        const createdMember = (await createMemberAction(
+          formData
+        )) as CreatedMemberSummary
         showSuccess("Member added", "Member record created.")
-        setCommitmentHistoryRows([])
-        setLegacyLoanHistoryRows([])
         form.reset({
           address: "",
-          currentSavingsBalance: "",
           email: "",
           fullName: "",
-          hasServingLoan: false,
           joinedAt: "",
-          loanAmount: "",
-          loanMonthlyCommitment: "",
-          loanPaymentMonths: "",
-          loanServed: "",
-          loanStartDate: "",
-          loanTopupAmount: "",
           monthlyCommitment: "",
           memberNumber: "",
           memberType: "individual",
           occupation: "",
           phoneNumber: "",
         })
-        onSuccess?.()
+        onSuccess?.(createdMember)
       } catch (error) {
         showError(
           "Could not add member",
@@ -543,751 +337,203 @@ export function MemberCreateForm({
       <form
         className={
           inModal
-            ? "space-y-6"
+            ? "mt-6 flex flex-col gap-4"
             : "grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5"
         }
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div
-          className={
-            inModal
-              ? "flex items-start justify-between gap-4"
-              : "flex items-start justify-between gap-4 xl:col-span-5"
-          }
-        >
-          <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
-              New member
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Capture the member profile and current cooperative state in one
-              pass.
-            </p>
-          </div>
-          {devMode ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                applyDashboardRandomDevFormFill(form, "member_create")
-              }
-            >
-              Quick fill
-            </Button>
-          ) : null}
-        </div>
-
-        <div
-          className={
-            inModal
-              ? "grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]"
-              : "contents"
-          }
-        >
-          <div className={inModal ? "grid gap-6" : "contents"}>
-            <div
-              className={
-                inModal
-                  ? "grid gap-4 md:grid-cols-2 xl:grid-cols-5"
-                  : "contents"
-              }
-            >
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem className="xl:col-span-2">
-                    <FormLabel>Full name</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Amina Yusuf" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="memberNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Member number</FormLabel>
-                    <FormControl>
-                      {memberNumberPrefix ? (
-                        <InputGroup>
-                          <InputGroupText>{memberNumberPrefix}</InputGroupText>
-                          <InputGroupInput {...field} placeholder="1024" />
-                        </InputGroup>
-                      ) : (
-                        <Input {...field} placeholder="1024" />
-                      )}
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="memberType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Member type</FormLabel>
-                    <FormControl>
-                      <NativeSelect {...field}>
-                        <option value="individual">Individual</option>
-                        <option value="civil_servant">Civil servant</option>
-                        <option value="business">Business</option>
-                      </NativeSelect>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="joinedAt"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Joined date</FormLabel>
-                    <FormControl>
-                      <DatePickerInput
-                        {...field}
-                        allowClear={false}
-                        placeholder="Select joined date"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="occupation"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Occupation</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Trader" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phoneNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone number</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="+234 800 000 0000" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="amina@example.com"
-                        type="email"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem className="xl:col-span-2">
-                    <FormLabel>Address</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="No. 12 Cooperative Road" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        {inModal ? (
+          devMode ? (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  applyDashboardRandomDevFormFill(form, "member_create")
+                }
+              >
+                Quick fill
+              </Button>
             </div>
-
-            <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4">
-              <div className="mb-4">
-                <h4 className="text-sm font-semibold text-foreground">
-                  Current state
-                </h4>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Set the member’s opening savings balance and active commitment
-                  at the point of onboarding.
-                </p>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="currentSavingsBalance"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Opening savings balance</FormLabel>
-                      <FormControl>
-                        <CurrencyFormInput {...field} placeholder="0.00" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="monthlyCommitment"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Monthly commitment</FormLabel>
-                      <FormControl>
-                        <CurrencyFormInput {...field} placeholder="25000" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="mt-5 rounded-[1rem] border border-border/60 bg-background/70">
-                <div className="flex items-center justify-between gap-3 border-b border-border/60 px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      Commitment updates
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Dated savings changes used to prefill migration months.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-8 rounded-full px-3 text-xs"
-                    onClick={appendCommitmentHistoryRow}
-                  >
-                    Add row
-                  </Button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[680px] text-sm">
-                    <thead className="bg-muted/35 text-left text-xs font-medium text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2">Date</th>
-                        <th className="px-3 py-2">Amount</th>
-                        <th className="px-3 py-2">Notes</th>
-                        <th className="w-24 px-3 py-2 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {commitmentHistoryRows.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={4}
-                            className="px-3 py-4 text-sm text-muted-foreground"
-                          >
-                            No dated updates added.
-                          </td>
-                        </tr>
-                      ) : (
-                        commitmentHistoryRows.map((row) => (
-                          <tr
-                            key={row.id}
-                            className="border-t border-border/60"
-                          >
-                            <td className="px-3 py-2 align-top">
-                              <DatePickerInput
-                                min={joinedAt || undefined}
-                                placeholder="Select date"
-                                value={row.effectiveFrom ?? ""}
-                                onChange={(date) =>
-                                  updateCommitmentHistoryRow(row.id, {
-                                    effectiveFrom: date,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                              <CurrencyFormInput
-                                placeholder="25000"
-                                value={row.amount ?? ""}
-                                onChange={(value) =>
-                                  updateCommitmentHistoryRow(row.id, {
-                                    amount: value,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                              <Input
-                                placeholder="Optional"
-                                value={row.notes ?? ""}
-                                onChange={(event) =>
-                                  updateCommitmentHistoryRow(row.id, {
-                                    notes: event.target.value,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td className="px-3 py-2 text-right align-top">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-8 rounded-full px-3 text-xs"
-                                onClick={() =>
-                                  removeCommitmentHistoryRow(row.id)
-                                }
-                              >
-                                Remove
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-border/70 bg-background/80 p-4">
-              <FormField
-                control={form.control}
-                name="hasServingLoan"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start gap-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={(checked) =>
-                          field.onChange(checked === true)
-                        }
-                      />
-                    </FormControl>
-                    <div className="space-y-1">
-                      <FormLabel>Serving loan</FormLabel>
-                      <p className="text-sm text-muted-foreground">
-                        Create an active loan snapshot with separate repayment
-                        and savings topup amounts.
-                      </p>
-                      <FormMessage />
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              {hasServingLoan ? (
-                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-                  <FormField
-                    control={form.control}
-                    name="loanStartDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Loan start date</FormLabel>
-                        <FormControl>
-                          <DatePickerInput
-                            {...field}
-                            allowClear={false}
-                            min={joinedAt || undefined}
-                            placeholder="Select loan start date"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="loanAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Loan amount</FormLabel>
-                        <FormControl>
-                          <CurrencyFormInput
-                            {...field}
-                            placeholder="500000"
-                            onChange={(value) => {
-                              field.onChange(value)
-                              updateCalculatedMonthlyService({
-                                loanAmount: value,
-                              })
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="loanPaymentMonths"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Payment months</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupInput
-                              {...field}
-                              inputMode="numeric"
-                              min={1}
-                              placeholder="12"
-                              type="number"
-                              onChange={(event) => {
-                                field.onChange(event)
-                                updateCalculatedMonthlyService({
-                                  loanPaymentMonths: event.target.value,
-                                })
-                              }}
-                            />
-                            <InputGroupText>months</InputGroupText>
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="loanServed"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Served amount</FormLabel>
-                        <FormControl>
-                          <CurrencyFormInput
-                            {...field}
-                            placeholder="200000"
-                            onChange={(value) => {
-                              field.onChange(value)
-                              updateCalculatedMonthlyService({
-                                loanServed: value,
-                              })
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="loanMonthlyCommitment"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Monthly loan service</FormLabel>
-                        <FormControl>
-                          <CurrencyFormInput {...field} placeholder="50000" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="loanTopupAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Topup amount</FormLabel>
-                        <FormControl>
-                          <CurrencyFormInput
-                            {...field}
-                            value={field.value ?? ""}
-                            placeholder="5000"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid gap-3 rounded-[1.25rem] border border-border/60 bg-muted/25 p-4 sm:grid-cols-3 md:col-span-2 xl:col-span-5">
-                    <div>
-                      <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-                        Pending
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-foreground">
-                        {Number.isFinite(pendingAmount)
-                          ? pendingAmount.toLocaleString()
-                          : "0"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-                        Total monthly
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-foreground">
-                        {Number.isFinite(totalMonthlyDeduction)
-                          ? totalMonthlyDeduction.toLocaleString()
-                          : "0"}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Loan service + topup to member savings
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-                        Estimated end month
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-foreground">
-                        {estimatedEndMonth ?? "Waiting for loan inputs"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-[1.5rem] border border-border/70 bg-background/80 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground">
-                    Loan history
-                  </h4>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Backfill legacy loans with dated repayment and savings
-                    commitments.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 rounded-full px-3 text-xs"
-                  onClick={appendLegacyLoanHistoryRow}
-                >
-                  Add row
-                </Button>
-              </div>
-              <div className="mt-4 overflow-x-auto rounded-[1rem] border border-border/60">
-                <table className="w-full min-w-[1180px] text-sm">
-                  <thead className="bg-muted/35 text-left text-xs font-medium text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2">Date</th>
-                      <th className="px-3 py-2">Amount</th>
-                      <th className="px-3 py-2">Guarantor 1 ID</th>
-                      <th className="px-3 py-2">Guarantor 2 ID</th>
-                      <th className="px-3 py-2">Repayment</th>
-                      <th className="px-3 py-2">Commitment</th>
-                      <th className="px-3 py-2">Outstanding</th>
-                      <th className="px-3 py-2">Closed</th>
-                      <th className="px-3 py-2">Label</th>
-                      <th className="w-24 px-3 py-2 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {legacyLoanHistoryRows.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={10}
-                          className="px-3 py-4 text-sm text-muted-foreground"
-                        >
-                          No loan history rows added.
-                        </td>
-                      </tr>
-                    ) : (
-                      legacyLoanHistoryRows.map((row) => (
-                        <tr key={row.id} className="border-t border-border/60">
-                          <td className="px-3 py-2 align-top">
-                            <DatePickerInput
-                              min={joinedAt || undefined}
-                              placeholder="Opened date"
-                              value={row.openedAt ?? ""}
-                              onChange={(date) =>
-                                updateLegacyLoanHistoryRow(row.id, {
-                                  openedAt: date,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <CurrencyFormInput
-                              placeholder="500000"
-                              value={row.principalAmount ?? ""}
-                              onChange={(value) =>
-                                updateLegacyLoanHistoryRow(row.id, {
-                                  principalAmount: value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <Input
-                              placeholder="Member ID"
-                              value={row.guarantorOneMemberId ?? ""}
-                              onChange={(event) =>
-                                updateLegacyLoanHistoryRow(row.id, {
-                                  guarantorOneMemberId: event.target.value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <Input
-                              placeholder="Member ID"
-                              value={row.guarantorTwoMemberId ?? ""}
-                              onChange={(event) =>
-                                updateLegacyLoanHistoryRow(row.id, {
-                                  guarantorTwoMemberId: event.target.value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <CurrencyFormInput
-                              placeholder="50000"
-                              value={
-                                row.scheduledMonthlyPrincipalRepayment ?? ""
-                              }
-                              onChange={(value) =>
-                                updateLegacyLoanHistoryRow(row.id, {
-                                  scheduledMonthlyPrincipalRepayment: value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <CurrencyFormInput
-                              placeholder="10000"
-                              value={row.savingsDuringLoan ?? ""}
-                              onChange={(value) =>
-                                updateLegacyLoanHistoryRow(row.id, {
-                                  savingsDuringLoan: value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <CurrencyFormInput
-                              placeholder="Optional"
-                              value={row.outstandingPrincipalBalance ?? ""}
-                              onChange={(value) =>
-                                updateLegacyLoanHistoryRow(row.id, {
-                                  outstandingPrincipalBalance: value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <DatePickerInput
-                              min={joinedAt || undefined}
-                              placeholder="Closed date"
-                              value={row.closedAt ?? ""}
-                              onChange={(date) =>
-                                updateLegacyLoanHistoryRow(row.id, {
-                                  closedAt: date,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <Input
-                              placeholder="Optional"
-                              value={row.loanLabel ?? ""}
-                              onChange={(event) =>
-                                updateLegacyLoanHistoryRow(row.id, {
-                                  loanLabel: event.target.value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-right align-top">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="h-8 rounded-full px-3 text-xs"
-                              onClick={() => removeLegacyLoanHistoryRow(row.id)}
-                            >
-                              Remove
-                            </Button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {inModal ? (
-            <aside className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4 xl:sticky xl:top-0 xl:self-start">
-              <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-                Overview
+          ) : null
+        ) : (
+          <div className="flex items-start justify-between gap-4 xl:col-span-5">
+            <div>
+              <h3 className="text-lg font-semibold tracking-tight text-foreground">
+                New member
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Capture the member profile, joined date, and starting
+                commitment.
               </p>
-              <div className="mt-4 space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {fullName.trim() || "New member"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {memberNumber
-                      ? `${memberNumberPrefix ?? ""}${memberNumber}`
-                      : "Member number pending"}{" "}
-                    - {memberType.replace(/_/g, " ")}
-                  </p>
-                </div>
-                <div className="grid gap-3 text-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">
-                      Savings balance
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {formatCurrency(currentSavingsBalance)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">
-                      Monthly savings
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {formatCurrency(monthlyCommitment)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Loan balance</span>
-                    <span className="font-medium text-foreground">
-                      {hasServingLoan
-                        ? formatCurrency(pendingAmount)
-                        : "No active loan"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Loan monthly</span>
-                    <span className="font-medium text-foreground">
-                      {hasServingLoan
-                        ? formatCurrency(loanMonthlyCommitment)
-                        : formatCurrency(0)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-3">
-                    <span className="text-muted-foreground">Total monthly</span>
-                    <span className="font-semibold text-foreground">
-                      {formatCurrency(
-                        monthlyCommitment +
-                          (hasServingLoan ? totalMonthlyDeduction : 0)
-                      )}
-                    </span>
-                  </div>
-                </div>
-                <div className="rounded-[1rem] border border-border/60 bg-background/80 p-3 text-xs text-muted-foreground">
-                  <p>
-                    {hasServingLoan
-                      ? `Loan ends around ${estimatedEndMonth ?? "the selected term"}.`
-                      : "Loan capture is off."}
-                  </p>
-                </div>
-              </div>
-            </aside>
-          ) : null}
+            </div>
+            {devMode ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  applyDashboardRandomDevFormFill(form, "member_create")
+                }
+              >
+                Quick fill
+              </Button>
+            ) : null}
+          </div>
+        )}
+
+        <div
+          className={
+            inModal
+              ? "grid gap-4 sm:grid-cols-4"
+              : "grid gap-4 md:grid-cols-2 xl:col-span-5 xl:grid-cols-5"
+          }
+        >
+          <FormField
+            control={form.control}
+            name="fullName"
+            render={({ field }) => (
+              <FormItem
+                className={inModal ? "sm:col-span-3" : "xl:col-span-2"}
+              >
+                <FormLabel>Full name</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Amina Yusuf" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="memberNumber"
+            render={({ field }) => (
+              <FormItem className={inModal ? "sm:col-span-1" : undefined}>
+                <FormLabel>Member No.</FormLabel>
+                <FormControl>
+                  {memberNumberPrefix ? (
+                    <InputGroup>
+                      <InputGroupText>{memberNumberPrefix}</InputGroupText>
+                      <InputGroupInput {...field} placeholder="1024" />
+                    </InputGroup>
+                  ) : (
+                    <Input {...field} placeholder="1024" />
+                  )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="memberType"
+            render={({ field }) => (
+              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+                <FormLabel>Member type</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    {...field}
+                    options={memberTypeOptions}
+                    placeholder="Select member type"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="joinedAt"
+            render={({ field }) => (
+              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+                <FormLabel>Joined date</FormLabel>
+                <FormControl>
+                  <DatePickerInput
+                    {...field}
+                    allowClear={false}
+                    placeholder="Select joined date"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="monthlyCommitment"
+            render={({ field }) => (
+              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+                <FormLabel>Starting commitment</FormLabel>
+                <FormControl>
+                  <CurrencyFormInput {...field} placeholder="25000" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="occupation"
+            render={({ field }) => (
+              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+                <FormLabel>Occupation</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Trader" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phoneNumber"
+            render={({ field }) => (
+              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+                <FormLabel>Phone number</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="+234 800 000 0000" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    placeholder="amina@example.com"
+                    type="email"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="address"
+            render={({ field }) => (
+              <FormItem
+                className={inModal ? "sm:col-span-4" : "xl:col-span-2"}
+              >
+                <FormLabel>Address</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="No. 12 Cooperative Road" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         <div
           className={
             inModal
-              ? "flex justify-end gap-3 border-t border-border/70 pt-4"
+              ? "flex justify-end border-t border-border/70 pt-4"
               : "xl:col-span-5"
           }
         >
@@ -1378,12 +624,11 @@ export function MemberKycForm({
             <FormItem>
               <FormLabel>KYC status</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="not_started">Not started</option>
-                  <option value="pending">Pending</option>
-                  <option value="verified">Verified</option>
-                  <option value="rejected">Rejected</option>
-                </NativeSelect>
+                <SelectFormInput
+                  {...field}
+                  options={kycStatusOptions}
+                  placeholder="Select status"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1567,11 +812,11 @@ export function MemberDocumentForm({
             <FormItem>
               <FormLabel>Initial review status</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="pending">Pending</option>
-                  <option value="verified">Verified</option>
-                  <option value="rejected">Rejected</option>
-                </NativeSelect>
+                <SelectFormInput
+                  {...field}
+                  options={reviewStatusOptions}
+                  placeholder="Select status"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1663,11 +908,11 @@ export function MemberDocumentReviewForm({
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="pending">Pending</option>
-                  <option value="verified">Verified</option>
-                  <option value="rejected">Rejected</option>
-                </NativeSelect>
+                <SelectFormInput
+                  {...field}
+                  options={reviewStatusOptions}
+                  placeholder="Select status"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -33,6 +33,9 @@ This file tracks the public and internal API surface of the platform.
 - `TRPC /trpc/analytics.summary`
   - Purpose: tenant-scoped cooperative analytics summary for contribution pacing, financing risk, member trust/compliance, and share-profit governance.
   - Notes: accepts an optional period of `current_month`, `last_3_months`, `last_6_months`, or `last_12_months`; defaults to `last_6_months`.
+- `TRPC /trpc/reports.summary`
+  - Purpose: tenant-admin reporting summary for finance snapshot, export catalog context, audit evidence, collections follow-up, notification delivery, and compliance watch.
+  - Notes: accepts optional `from` and `to` date strings; tenant context and report access are derived from the authenticated request.
 - `TRPC /trpc/onboarding.status`
   - Purpose: return onboarding progress for the active tenant, including domain, primary admin contact, policy, and ledger bootstrap state.
 - `TRPC /trpc/onboarding.bootstrap`

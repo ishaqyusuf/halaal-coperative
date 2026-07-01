@@ -11,6 +11,7 @@ import { filtersRouter } from "./filters.route"
 import { dashboardActionsRouter } from "./dashboard-actions.route"
 import { overviewRouter } from "./overview.route"
 import { analyticsRouter } from "./analytics.route"
+import { reportsRouter } from "./reports.route"
 
 export const appRouter = createTRPCRouter({
   analytics: analyticsRouter,
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
   charges: chargesRouter,
   onboarding: onboardingRouter,
   filters: filtersRouter,
+  reports: reportsRouter,
   dashboardActions: dashboardActionsRouter,
 })
 

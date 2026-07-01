@@ -23,7 +23,6 @@ import {
   MemberDocumentReviewForm,
   MemberKycForm,
 } from "@/components/forms/member-forms"
-import { BackfillHistoryModal } from "@/components/modals/backfill-history-modal"
 import { loadMemberDetailPageData } from "@/lib/members"
 
 type MemberDetailPageData = Extract<
@@ -39,7 +38,6 @@ export function MemberDetailView({
   canManageCommitments,
   canManageMembers,
   detail,
-  tenantStartDate,
 }: MemberDetailPageData) {
   const activePlan = detail.member.contributionPlans.find((plan) => plan.isActive) ?? null
   const today = new Date()
@@ -57,14 +55,12 @@ export function MemberDetailView({
         <DashboardActionLink href={`/members/${detail.member.id}/statement`}>
           Open printable statement
         </DashboardActionLink>
-        <BackfillHistoryModal
-          cooperativeStartDate={tenantStartDate ?? null}
-          joinedAt={formatIsoDate(detail.member.joinedAt) ?? ""}
-          memberId={detail.member.id}
-          memberName={detail.member.fullName}
-          memberNumber={detail.member.memberNumber}
-          triggerVariant="default"
-        />
+        <DashboardActionLink
+          href={`/members/${detail.member.id}/backfill?step=baseline`}
+          variant="secondary"
+        >
+          Backfill history
+        </DashboardActionLink>
         <a
           className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
           href={`/members/${detail.member.id}/statement-export`}

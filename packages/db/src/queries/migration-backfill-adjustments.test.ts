@@ -141,7 +141,7 @@ describe("migration backfill adjustments", () => {
 
   test("blocks adjustment edits after migration finalization", async () => {
     const prisma = createAdjustmentPrismaStub({
-      initialMigrationStatus: "live_operations",
+      initialMigrationStatus: "finalized",
     })
 
     await expect(

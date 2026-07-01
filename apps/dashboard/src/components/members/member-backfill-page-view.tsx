@@ -25,12 +25,12 @@ import {
   LoanHistoryEntryForm,
 } from "@/components/migration/member-migration-history-forms"
 import {
-  queueBackfillApplyAction,
   queueBackfillDraftAction,
   upsertMigrationProfitAdjustmentAction,
 } from "@/lib/dashboard-actions"
 import type { loadMemberBackfillWorkflowData } from "@/lib/members"
 import { MemberBackfillActivityWindowsForm } from "./member-backfill-activity-windows-form"
+import { MemberBackfillApplyForm } from "./member-backfill-apply-form"
 import { MemberBackfillFooterActionsSlot } from "./member-backfill-footer-slot"
 import {
   getMemberBackfillAdjacentSteps,
@@ -563,27 +563,7 @@ function ApplyStep({ data }: { data: MemberBackfillData }) {
           value={data.review.appliedBackfillMonths}
         />
       </div>
-      <form
-        action={queueBackfillApplyAction}
-        className="mt-5 grid gap-3 border border-border/70 bg-muted/20 p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
-      >
-        <input name="memberId" type="hidden" value={data.member.id} />
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          Type APPLY BACKFILL
-          <Input
-            disabled={disabled}
-            name="confirmation"
-            placeholder="APPLY BACKFILL"
-            required
-            type="text"
-          />
-        </label>
-        <div className="flex items-end justify-end">
-          <Button disabled={disabled} type="submit">
-            Apply backfill
-          </Button>
-        </div>
-      </form>
+      <MemberBackfillApplyForm disabled={disabled} memberId={data.member.id} />
     </DashboardSectionCard>
   )
 }

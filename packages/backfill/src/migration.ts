@@ -211,17 +211,18 @@ function getPeriodLabel(row: BackfillRow) {
 }
 
 function getProjectedRowSignature(row: BackfillRow) {
+  const loanEvent = row.loanEvent
   const usePlannedValuesForGrouping =
     row.status === "missed" ||
     row.hasManualRepaymentAdjustment ||
     row.hasManualSavingsAdjustment
   const finalBalancePaymentIsCapped =
-    row.loanEvent &&
+    loanEvent &&
     row.pendingLoanPayment === 0 &&
     row.loanService > 0 &&
-    row.loanService < row.loanEvent.monthlyLoanServiceAmount
+    row.loanService < loanEvent.monthlyLoanServiceAmount
   const plannedLoanService = finalBalancePaymentIsCapped
-    ? row.loanEvent.monthlyLoanServiceAmount
+    ? loanEvent.monthlyLoanServiceAmount
     : usePlannedValuesForGrouping
       ? (row.plannedLoanRepaymentAmount ?? row.loanService)
       : row.loanService
@@ -241,7 +242,7 @@ function getProjectedRowSignature(row: BackfillRow) {
       usePlannedValuesForGrouping
         ? (row.plannedChargeValues ?? row.chargeValues)
         : row.chargeValues,
-    loanLabel: row.loanEvent?.label ?? null,
+    loanLabel: loanEvent?.label ?? null,
     loanService: plannedLoanService,
     savingsContribution: plannedSavingsContribution,
     share: usePlannedValuesForGrouping

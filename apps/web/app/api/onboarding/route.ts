@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server"
 import {
   checkTenantSignupAvailability,
-  createNotificationOutboxEntryFromDraft,
   createTenantWorkspaceBootstrap,
   recordNotificationDeliveryAudit,
   syncTenantDomainVerificationByHostname,
-  updateNotificationOutboxDelivery,
 } from "@halaalvest/db"
 import { createWorkspaceReadyEmail } from "@halaalvest/notifications"
 import { normalizeWorkspaceSlug, onboardingFormSchema } from "@/lib/signup-flow"
@@ -89,22 +87,7 @@ export async function POST(request: Request) {
       siteUrl,
       tenantName: result.tenant.name,
     })
-    const outboxEntry = await createNotificationOutboxEntryFromDraft({
-      draft: workspaceReadyEmail,
-      source: "apps/web/app/api/onboarding",
-      tenantId: result.tenant.id,
-    })
     const workspaceReadyDelivery = await notificationService.tryEmail(workspaceReadyEmail)
-
-    if (outboxEntry) {
-      await updateNotificationOutboxDelivery({
-        attempts: workspaceReadyDelivery.attempts,
-        errorMessage: workspaceReadyDelivery.errorMessage,
-        messageId: workspaceReadyDelivery.messageId,
-        outboxId: outboxEntry.id,
-        status: workspaceReadyDelivery.status,
-      })
-    }
 
     await recordNotificationDeliveryAudit({
       attempts: workspaceReadyDelivery.attempts,
@@ -125,7 +108,6 @@ export async function POST(request: Request) {
       tenantId: result.tenant.id,
       tenantName: result.tenant.name,
       vercelDomainProvisioning,
-      workspaceReadyOutboxId: outboxEntry?.id ?? null,
       workspaceReadyDeliveryError:
         workspaceReadyDelivery.status === "failed"
           ? workspaceReadyDelivery.errorMessage

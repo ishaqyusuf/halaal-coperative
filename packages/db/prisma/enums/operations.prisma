@@ -69,9 +69,3 @@ enum AuditActorType {
   system
   integration
 }
-
-enum NotificationDeliveryStatus {
-  queued
-  sent
-  failed
-}

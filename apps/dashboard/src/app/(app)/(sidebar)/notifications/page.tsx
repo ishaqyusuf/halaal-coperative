@@ -2,8 +2,7 @@ import { cooperativeRoles, getRoleDisplayName } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
   getNotificationFilterMetadata,
-  getNotificationOutboxSummary,
-  listNotificationOutboxEntries,
+  listAuditLogs,
   listNotificationPreferences,
 } from "@halaalvest/db"
 import { Button } from "@halaalvest/ui/components/button"
@@ -16,36 +15,67 @@ import { getDashboardServerContext } from "@/lib/server-context"
 
 const managedNotificationTypes = halaalVestNotificationTypeList
 
+function getMetadataString(metadata: unknown, key: string) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null
+  }
+
+  const value = (metadata as Record<string, unknown>)[key]
+
+  return typeof value === "string" ? value : null
+}
+
+function getDeliveryStatus(action: string) {
+  if (action === "notification.email_sent") return "sent"
+  if (action === "notification.email_failed") return "failed"
+  if (action === "notification.email_queued") return "queued"
+
+  return "unknown"
+}
+
 export default async function NotificationsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const filters = loadNotificationsFilterParams(await searchParams)
   const context = await getDashboardServerContext()
-  const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
   const runtime = createDbRuntime()
   const search = filters.search ?? ""
   const status = filters.status ?? ""
   const type = filters.type ?? ""
 
-  const [filterList, outboxEntries, preferences, outboxSummary] = await Promise.all([
+  const [filterList, deliveryLogs, preferences] = await Promise.all([
     context.tenant ? getNotificationFilterMetadata(context.tenant.id) : Promise.resolve([]),
     context.tenant && runtime.status === "database-configured"
-      ? listNotificationOutboxEntries(context.tenant.id, { limit: 25, notificationType: type || undefined, search: search || undefined, status: status === "queued" || status === "sent" || status === "failed" ? status : undefined })
+      ? listAuditLogs(context.tenant.id, { action: status === "queued" || status === "sent" || status === "failed" ? `notification.email_${status}` : "notification.email", limit: 100, search: search || undefined })
       : Promise.resolve([]),
     context.tenant && runtime.status === "database-configured" ? listNotificationPreferences(context.tenant.id) : Promise.resolve([]),
-    context.tenant && runtime.status === "database-configured" ? getNotificationOutboxSummary(context.tenant.id) : Promise.resolve({ failedCount: 0, lastSentAt: null, queuedCount: 0, sentCount: 0 }),
   ])
+  const filteredDeliveryLogs = type
+    ? deliveryLogs.filter((entry) => getMetadataString(entry.metadata, "notificationType") === type)
+    : deliveryLogs
   const roleOptions: Array<(typeof cooperativeRoles)[number] | "all"> = ["all", ...cooperativeRoles]
   const preferenceKeys = new Set(preferences.filter((preference) => preference.enabled).map((preference) => `${preference.role ?? "all"}:${preference.notificationType}:${preference.channel}`))
-  const notificationTypeCounts = Array.from(outboxEntries.reduce((map, entry) => map.set(entry.notificationType, (map.get(entry.notificationType) ?? 0) + 1), new Map<string, number>())).sort((a, b) => b[1] - a[1]).slice(0, 5)
-  const failureReasons = Array.from(outboxEntries.filter((entry) => entry.status === "failed").reduce((map, entry) => map.set(entry.errorMessage ?? "Unknown failure", (map.get(entry.errorMessage ?? "Unknown failure") ?? 0) + 1), new Map<string, number>())).sort((a, b) => b[1] - a[1]).slice(0, 3)
+  const notificationTypeCounts = Array.from(filteredDeliveryLogs.reduce((map, entry) => {
+    const notificationType = getMetadataString(entry.metadata, "notificationType") ?? "unknown"
+    map.set(notificationType, (map.get(notificationType) ?? 0) + 1)
+    return map
+  }, new Map<string, number>())).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const failureReasons = Array.from(filteredDeliveryLogs.filter((entry) => getDeliveryStatus(entry.action) === "failed").reduce((map, entry) => {
+    const reason = getMetadataString(entry.metadata, "errorMessage") ?? "Unknown failure"
+    map.set(reason, (map.get(reason) ?? 0) + 1)
+    return map
+  }, new Map<string, number>())).sort((a, b) => b[1] - a[1]).slice(0, 3)
+  const sentCount = filteredDeliveryLogs.filter((entry) => getDeliveryStatus(entry.action) === "sent").length
+  const preparedCount = filteredDeliveryLogs.filter((entry) => getDeliveryStatus(entry.action) === "queued").length
+  const failedCount = filteredDeliveryLogs.filter((entry) => getDeliveryStatus(entry.action) === "failed").length
+  const lastSentAt = filteredDeliveryLogs.find((entry) => getDeliveryStatus(entry.action) === "sent")?.occurredAt ?? null
 
   return (
     <WorkspacePageShell eyebrow="Notifications" title="Notifications" description="Review cooperative delivery history, preference toggles, and shared notification previews in one support-friendly workspace.">
       <NotificationsHeader filterList={filterList} />
 
       <section className="grid gap-4 md:grid-cols-3">
-        <DashboardStatCard label="Queued" value={outboxSummary.queuedCount.toString()} detail="Notifications waiting for the delivery worker." />
-        <DashboardStatCard label="Delivered" value={outboxSummary.sentCount.toString()} detail={outboxSummary.lastSentAt ? `Last sent ${outboxSummary.lastSentAt.toISOString().slice(0, 10)}.` : "Persisted sent notification entries."} tone="positive" />
-        <DashboardStatCard label="Failed" value={outboxSummary.failedCount.toString()} detail="Delivery failures requiring support follow-up." tone={outboxSummary.failedCount > 0 ? "warning" : "default"} />
+        <DashboardStatCard label="Prepared" value={preparedCount.toString()} detail="Emails prepared without a configured provider." />
+        <DashboardStatCard label="Sent" value={sentCount.toString()} detail={lastSentAt ? `Last sent ${lastSentAt.toISOString().slice(0, 10)}.` : "Directly sent notification emails."} tone="positive" />
+        <DashboardStatCard label="Failed" value={failedCount.toString()} detail="Direct delivery failures requiring support follow-up." tone={failedCount > 0 ? "warning" : "default"} />
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -59,7 +89,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         </DashboardSectionCard>
         <DashboardSectionCard>
         <DashboardSectionHeader eyebrow="Coverage" title="Registry coverage" />
-          <div className="mt-5 space-y-3">{managedNotificationTypes.slice(0, 6).map((notificationType) => <DashboardSurfaceCard key={notificationType}><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">registered</p><h3 className="mt-2 text-sm font-medium text-foreground">{notificationType}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Available for preferences, outbox history, and delivery worker routing.</p></DashboardSurfaceCard>)}</div>
+          <div className="mt-5 space-y-3">{managedNotificationTypes.slice(0, 6).map((notificationType) => <DashboardSurfaceCard key={notificationType}><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">registered</p><h3 className="mt-2 text-sm font-medium text-foreground">{notificationType}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Available for preferences, direct delivery, and audit history.</p></DashboardSurfaceCard>)}</div>
         </DashboardSectionCard>
       </section>
 
@@ -92,19 +122,24 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       </DashboardSectionCard>
 
       <DashboardSectionCard>
-        <DashboardSectionHeader eyebrow="History" title="Recent delivery history" actions={<TrendPill>{outboxEntries.length} entries</TrendPill>} />
+        <DashboardSectionHeader eyebrow="History" title="Recent delivery history" actions={<TrendPill>{filteredDeliveryLogs.length} entries</TrendPill>} />
         <div className="mt-5 space-y-3">
-          {outboxEntries.length > 0 ? outboxEntries.map((entry) => (
+          {filteredDeliveryLogs.length > 0 ? filteredDeliveryLogs.slice(0, 25).map((entry) => {
+            const deliveryStatus = getDeliveryStatus(entry.action)
+            const notificationType = getMetadataString(entry.metadata, "notificationType") ?? "notification.email"
+            const recipient = getMetadataString(entry.metadata, "recipient") ?? "Unknown recipient"
+            return (
             <DashboardSurfaceCard key={entry.id}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-medium text-foreground">{entry.subject}</p>
-                  <p className="text-sm text-muted-foreground">{entry.recipient} · {entry.notificationType}</p>
+                  <p className="font-medium text-foreground">{notificationType}</p>
+                  <p className="text-sm text-muted-foreground">{recipient} · {entry.action}</p>
                 </div>
-                <TrendPill tone={entry.status === "sent" ? "positive" : entry.status === "failed" ? "warning" : "neutral"}>{entry.status} · {entry.createdAt.toISOString().slice(0, 10)}</TrendPill>
+                <TrendPill tone={deliveryStatus === "sent" ? "positive" : deliveryStatus === "failed" ? "warning" : "neutral"}>{deliveryStatus} · {entry.occurredAt.toISOString().slice(0, 10)}</TrendPill>
               </div>
             </DashboardSurfaceCard>
-          )) : <p className="text-sm text-muted-foreground">No persisted delivery history yet. Shared notification previews remain available above.</p>}
+            )
+          }) : <p className="text-sm text-muted-foreground">No persisted delivery history yet. Shared notification previews remain available above.</p>}
         </div>
       </DashboardSectionCard>
     </WorkspacePageShell>

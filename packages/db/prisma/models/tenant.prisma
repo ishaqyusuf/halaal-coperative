@@ -54,7 +54,6 @@ model Tenant {
   shareProfitAllocations          ShareProfitAllocation[]
   offlineSyncEvents               OfflineSyncEvent[]
   auditLogs                       AuditLog[]
-  notificationOutbox              NotificationOutbox[]
   notificationPreferences         NotificationPreference[]
   memberOnboardingRequests        MemberOnboardingRequest[]
   memberSignupLinks               MemberSignupLink[]

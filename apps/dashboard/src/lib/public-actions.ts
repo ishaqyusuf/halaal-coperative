@@ -3,11 +3,15 @@
 import { headers } from "next/headers"
 import {
   createMemberOnboardingRequest,
-  createNotificationOutboxEntryFromDraft,
   getTenantInitialMigrationState,
   getPendingMemberOnboardingForUser,
+  recordNotificationDeliveryAudit,
 } from "@halaalvest/db"
-import { createEmailDraftFromType } from "@halaalvest/notifications"
+import {
+  createEmailDraftFromType,
+  type NotificationEmailDraft,
+} from "@halaalvest/notifications"
+import { createServerNotificationService } from "@halaalvest/notifications/server"
 import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import { resolveMemberSignupGate } from "@/lib/member-signup-access"
 import { verifyMemberSignupLinkToken } from "@/lib/member-signup-link-token"
@@ -34,6 +38,28 @@ async function requireMemberSignupOpen(tenantId: string) {
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
     throw new Error(memberSignupLockedMessage)
   }
+}
+
+async function sendMemberSignupEmail(input: {
+  draft: NotificationEmailDraft
+  source: string
+  tenantId: string
+}) {
+  const notificationService = createServerNotificationService()
+  const delivery = await notificationService.tryEmail(input.draft)
+
+  await recordNotificationDeliveryAudit({
+    attempts: delivery.attempts,
+    errorMessage: delivery.errorMessage,
+    messageId: delivery.messageId,
+    notificationType: delivery.draft.notificationType,
+    recipient: delivery.draft.recipient.value,
+    source: input.source,
+    status: delivery.status,
+    tenantId: input.tenantId,
+  })
+
+  return delivery
 }
 
 export async function submitMemberOnboardingAction(formData: FormData) {
@@ -113,12 +139,8 @@ export async function submitMemberOnboardingAction(formData: FormData) {
     },
   )
 
-  await createNotificationOutboxEntryFromDraft({
+  await sendMemberSignupEmail({
     draft: verificationDraft,
-    metadata: {
-      email,
-      requestId: created.request.id,
-    },
     source: "dashboard.member_signup",
     tenantId: context.tenant.id,
   })
@@ -173,12 +195,8 @@ export async function resendMemberVerificationAction() {
     },
   )
 
-  await createNotificationOutboxEntryFromDraft({
+  await sendMemberSignupEmail({
     draft: verificationDraft,
-    metadata: {
-      email: request.email,
-      requestId: request.id,
-    },
     source: "dashboard.member_signup",
     tenantId: context.tenant.id,
   })

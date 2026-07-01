@@ -200,31 +200,34 @@ export async function getReportsSummary(
         ...(dateRange ? { createdAt: dateRange } : {}),
       },
     }),
-    prisma.notificationOutbox.count({
+    prisma.auditLog.count({
       where: {
+        action: {
+          startsWith: "notification.email_",
+        },
         tenantId: input.tenantId,
-        ...(dateRange ? { createdAt: dateRange } : {}),
+        ...(dateRange ? { occurredAt: dateRange } : {}),
       },
     }),
-    prisma.notificationOutbox.count({
+    prisma.auditLog.count({
       where: {
-        status: "sent",
+        action: "notification.email_sent",
         tenantId: input.tenantId,
-        ...(dateRange ? { createdAt: dateRange } : {}),
+        ...(dateRange ? { occurredAt: dateRange } : {}),
       },
     }),
-    prisma.notificationOutbox.count({
+    prisma.auditLog.count({
       where: {
-        status: "queued",
+        action: "notification.email_queued",
         tenantId: input.tenantId,
-        ...(dateRange ? { createdAt: dateRange } : {}),
+        ...(dateRange ? { occurredAt: dateRange } : {}),
       },
     }),
-    prisma.notificationOutbox.count({
+    prisma.auditLog.count({
       where: {
-        status: "failed",
+        action: "notification.email_failed",
         tenantId: input.tenantId,
-        ...(dateRange ? { createdAt: dateRange } : {}),
+        ...(dateRange ? { occurredAt: dateRange } : {}),
       },
     }),
   ])

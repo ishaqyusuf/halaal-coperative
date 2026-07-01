@@ -4,11 +4,11 @@ import {
   listMembersTable,
   updateMember,
   updateMemberStatus,
-  queueTenantRoleNotifications,
 } from "@halaalvest/db"
 import { z } from "zod"
 import { listMembersSchema } from "../schemas/members"
 import { createTRPCRouter, minRoleProcedure, tenantProcedure } from "../lib.trpc"
+import { sendTenantRoleNotificationEmails } from "../lib/server-notifications"
 
 export const membersRouter = createTRPCRouter({
   list: tenantProcedure
@@ -92,7 +92,7 @@ export const membersRouter = createTRPCRouter({
         ctx.auth.session.user.id,
       )
 
-      await queueTenantRoleNotifications({
+      await sendTenantRoleNotificationEmails({
         actionLabel: "Open members",
         actionUrl: "/members",
         bodyText: `${member.fullName} is now marked as ${member.status.replace(/_/g, " ")}.`,

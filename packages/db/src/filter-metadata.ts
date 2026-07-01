@@ -8,7 +8,6 @@ import { createDbRuntime } from "./runtime"
 import { listTenantUsersWithMemberships } from "./queries/auth"
 import { listAuditLogs } from "./queries/audit"
 import { listMembers } from "./queries/members"
-import { listNotificationOutboxEntries } from "./queries/notifications"
 import { listLoans } from "./queries/loans"
 
 const cooperativeRoles = [
@@ -49,6 +48,16 @@ function enumOption(value: string) {
       .join(" "),
     value,
   }
+}
+
+function getMetadataString(metadata: unknown, key: string) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null
+  }
+
+  const value = (metadata as Record<string, unknown>)[key]
+
+  return typeof value === "string" ? value : null
 }
 
 export async function getMemberFilterMetadata(): Promise<PageFilterData[]> {
@@ -96,13 +105,17 @@ export async function getNotificationFilterMetadata(
   tenantId: string,
 ): Promise<PageFilterData[]> {
   const runtime = createDbRuntime()
-  const entries =
+  const logs =
     runtime.status === "database-configured"
-      ? await listNotificationOutboxEntries(tenantId, { limit: 100 })
+      ? await listAuditLogs(tenantId, { action: "notification.email", limit: 100 })
       : []
 
   const types = Array.from(
-    new Set(entries.map((entry) => entry.notificationType).filter(Boolean)),
+    new Set(
+      logs
+        .map((log) => getMetadataString(log.metadata, "notificationType"))
+        .filter((value): value is string => Boolean(value)),
+    ),
   ).sort()
 
   return [

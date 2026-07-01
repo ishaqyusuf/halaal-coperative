@@ -19,7 +19,6 @@ import {
   createMember,
   createMemberDocument,
   createMemberSignupLink,
-  createNotificationOutboxEntryFromDraft,
   createShareBusiness,
   createShareBusinessProfitEntry,
   finalizeTenantInitialMigration,
@@ -63,7 +62,6 @@ import {
   submitLoanRequest,
   postRepayment,
   publishShareProfitAllocations,
-  queueTenantRoleNotifications,
   setMigrationBackfillDefaultingMonths,
   upsertNotificationPreference,
   rejectMemberOnboardingRequest,
@@ -107,6 +105,10 @@ import {
   composeMemberNumber,
   normalizeMemberNumberPrefix,
 } from "../lib/member-number"
+import {
+  sendEmailDraftWithAudit,
+  sendTenantRoleNotificationEmails,
+} from "../lib/server-notifications"
 
 
 type DashboardActionState = {
@@ -1012,7 +1014,7 @@ export async function updateMemberStatusAction(formData: FormData) {
     actor.user.id
   )
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Open members",
     actionUrl: "/members",
     bodyText: `${member.fullName} is now marked as ${member.status.replace(/_/g, " ")}.`,
@@ -1052,13 +1054,8 @@ export async function approveMemberOnboardingAction(formData: FormData) {
     tenantName: actor.tenant.name,
   })
 
-  await createNotificationOutboxEntryFromDraft({
+  await sendEmailDraftWithAudit({
     draft: approvalDraft,
-    metadata: {
-      memberId: approved.member.id,
-      requestId: approved.request.id,
-      userId: approved.user.id,
-    },
     source: "dashboard.membership_approvals",
     tenantId: actor.tenant.id,
   })
@@ -1095,12 +1092,8 @@ export async function rejectMemberOnboardingAction(formData: FormData) {
     tenantName: actor.tenant.name,
   })
 
-  await createNotificationOutboxEntryFromDraft({
+  await sendEmailDraftWithAudit({
     draft: rejectionDraft,
-    metadata: {
-      requestId: rejected.request.id,
-      userId: rejected.user.id,
-    },
     source: "dashboard.membership_approvals",
     tenantId: actor.tenant.id,
   })
@@ -1128,7 +1121,7 @@ export async function updateMemberKycAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Open member profile",
     actionUrl: `/members/${member.id}`,
     bodyText: `${member.fullName} KYC is now ${member.kycStatus.replace(/_/g, " ")}.`,
@@ -1388,7 +1381,7 @@ export async function applyMonthlyRecordMemberAction(formData: FormData) {
     totalPaidAmount: Number(getRequiredString(formData, "totalPaidAmount")),
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Open monthly records",
     actionUrl: "/monthly-records",
     bodyText: `A monthly record payment of ${Number(row.totalPaidAmount)} was applied.`,
@@ -1426,7 +1419,7 @@ export async function cancelMonthlyRecordMemberAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Open monthly records",
     actionUrl: "/monthly-records",
     bodyText: `A monthly record row was cancelled. Linked contribution and repayment records were reversed when present.`,
@@ -2189,7 +2182,7 @@ export async function applyChargeAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Review charges",
     actionUrl: "/charges",
     bodyText: `A charge application of ${Number(charge.amount)} was posted for member operations review.`,
@@ -2218,7 +2211,7 @@ export async function waiveChargeApplicationAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Review charges",
     actionUrl: "/charges",
     bodyText: `A charge application was waived for member operations review.`,
@@ -2248,7 +2241,7 @@ export async function reverseChargeApplicationAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Review charges",
     actionUrl: "/charges",
     bodyText: `A charge application was reversed and savings were restored.`,
@@ -2306,7 +2299,7 @@ export async function reviewLoanRequestAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Open loans",
     actionUrl: "/loans",
     bodyText: `Loan request ${request.id} is now ${request.status.replace(/_/g, " ")}.`,
@@ -2364,7 +2357,7 @@ export async function postRepaymentAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Open repayments",
     actionUrl: "/repayments",
     bodyText: `A repayment was posted for finance review and reconciliation.`,
@@ -3301,7 +3294,7 @@ export async function updateTenantDomainVerificationStatusAction(
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Open domains",
     actionUrl: "/domains",
     bodyText: `A custom domain verification status was updated to ${getRequiredString(formData, "status").replace(/_/g, " ")}.`,
@@ -3330,7 +3323,7 @@ export async function runTenantDomainVerificationCheckAction(
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Open domains",
     actionUrl: "/domains",
     bodyText: `A domain verification check completed with status ${domain.verificationStatus.replace(/_/g, " ")}.`,
@@ -3427,7 +3420,7 @@ export async function recordCollectionFollowUpAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  await queueTenantRoleNotifications({
+  await sendTenantRoleNotificationEmails({
     actionLabel: "Open repayments",
     actionUrl: "/repayments",
     bodyText: `A collections follow-up was recorded with status ${followUpStatus.replace(/_/g, " ")}.`,

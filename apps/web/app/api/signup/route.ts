@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server"
-import {
-  checkTenantSignupAvailability,
-  createNotificationOutboxEntryFromDraft,
-} from "@halaalvest/db"
-import {
-  notificationOutboxDeliverHandler,
-  notificationOutboxDeliverTask,
-  triggerJob,
-} from "@halaalvest/jobs"
+import { checkTenantSignupAvailability } from "@halaalvest/db"
 import { createSignupVerificationEmail } from "@halaalvest/notifications"
-import { isServerEmailDeliveryConfigured } from "@/lib/server-notifications"
+import {
+  createServerNotificationService,
+  isServerEmailDeliveryConfigured,
+} from "@/lib/server-notifications"
 import { createSignedSignupToken } from "@/lib/signup-token"
 import {
   createSignupVerificationPayload,
@@ -61,56 +56,15 @@ export async function POST(request: Request) {
       tenantName: payload.cooperativeName,
       verificationUrl: onboardingUrl.toString(),
     })
-    const outboxEntry = await createNotificationOutboxEntryFromDraft({
-      draft: verificationEmail,
-      source: "apps/web/app/api/signup",
-    })
+    const notificationService = createServerNotificationService()
+    const verificationDelivery = await notificationService.tryEmail(verificationEmail)
 
-    if (!outboxEntry) {
-      return NextResponse.json(
-        {
-          error: "We could not queue the verification email. Please try again.",
-        },
-        { status: 503 }
-      )
-    }
-
-    let deliveryTriggerError: string | null = null
-
-    if (emailDeliveryConfigured) {
-      try {
-        await triggerJob(
-          notificationOutboxDeliverTask,
-          async (jobPayload) => {
-            await notificationOutboxDeliverHandler(jobPayload)
-          },
-          {
-            includeFailed: true,
-            limit: 10,
-            maxAttempts: 4,
-          },
-          { baseDelayMs: 1000, maxAttempts: 3 }
-        )
-      } catch (error) {
-        deliveryTriggerError =
-          error instanceof Error
-            ? error.message
-            : "Verification delivery job could not be started."
-      }
-    }
-
-    const verificationDelivery = {
-      attempts: 0,
-      draft: verificationEmail,
-      messageId: outboxEntry.id,
-      status: "queued" as const,
-    }
-
-    if (process.env.NODE_ENV === "production" && deliveryTriggerError) {
+    if (process.env.NODE_ENV === "production" && verificationDelivery.status !== "sent") {
       return NextResponse.json(
         {
           error:
-            "We could not start verification email delivery. Please try again.",
+            verificationDelivery.errorMessage ??
+            "We could not send the verification email. Please try again.",
         },
         { status: 502 }
       )
@@ -118,11 +72,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       devMode: process.env.NODE_ENV !== "production",
-      deliveryTriggerError,
       emailDeliveryConfigured,
       expiresAt: payload.expiresAt,
       onboardingUrl: onboardingUrl.toString(),
-      outboxId: outboxEntry.id,
       verificationDelivery,
       verificationEmail,
     })

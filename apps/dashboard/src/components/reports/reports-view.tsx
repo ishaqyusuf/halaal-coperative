@@ -284,7 +284,7 @@ export function ReportsView({ filters }: { filters: ReportsFilterParams }) {
           value={data.governanceMetrics.kycPending.toString()}
         />
         <MetricLink
-          detail="Notification outbox entries delivered in this range."
+          detail="Direct notification emails sent in this range."
           href="/notifications"
           label="Emails sent"
           tone="positive"

@@ -1,9 +1,11 @@
 import {
-  createNotificationOutboxEntry,
   findUserByEmailAsync,
   getTenantByIdAsync,
+  recordNotificationDeliveryAudit,
   resolveTenantAsync,
 } from "@halaalvest/db"
+import { createNotificationEmailDraft } from "@halaalvest/notifications"
+import { createServerNotificationService } from "@halaalvest/notifications/server"
 import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import { NextResponse, type NextRequest } from "next/server"
 import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
@@ -43,26 +45,39 @@ export async function POST(request: NextRequest) {
         pathname: `/login/reset/confirm?token=${encodeURIComponent(reset.token)}`,
         tenantHostname: request.headers.get("x-tenant-hostname"),
       })
-
-      await createNotificationOutboxEntry({
+      const bodyText = [
+        `Assalamu alaikum ${user.fullName},`,
+        "",
+        `Use this link to set a new password for ${tenant.name}.`,
+        `This link expires on ${reset.expiresAt}.`,
+        "",
+        resetUrl,
+      ].join("\n")
+      const draft = createNotificationEmailDraft({
         actionLabel: "Reset password",
         actionUrl: resetUrl,
-        bodyText: [
-          `Assalamu alaikum ${user.fullName},`,
-          "",
-          `Use this link to set a new password for ${tenant.name}.`,
-          `This link expires on ${reset.expiresAt}.`,
-          "",
-          resetUrl,
-        ].join("\n"),
-        metadata: {
-          expiresAt: reset.expiresAt,
-          userId: user.id,
+        bodyText,
+        eventLabel: "auth.password_reset_requested",
+        notificationType: "auth.password_reset_requested",
+        previewText: `Use this link to set a new password for ${tenant.name}.`,
+        recipient: {
+          displayName: user.fullName,
+          email: user.email,
+          kind: "email",
+          value: user.email,
         },
+        subject: `${tenant.name}: reset your password`,
+      })
+      const delivery = await createServerNotificationService().tryEmail(draft)
+
+      await recordNotificationDeliveryAudit({
+        attempts: delivery.attempts,
+        errorMessage: delivery.errorMessage,
+        messageId: delivery.messageId,
         notificationType: "auth.password_reset_requested",
         recipient: user.email,
         source: "dashboard.password_reset",
-        subject: `${tenant.name}: reset your password`,
+        status: delivery.status,
         tenantId: tenant.id,
       })
 

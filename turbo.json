@@ -13,6 +13,7 @@
   "globalEnv": [
     "DASHBOARD_APP_URL",
     "DATABASE_URL",
+    "EMAIL_TEST_MODE",
     "HALAALVEST_ENV",
     "HALAALVEST_REQUIRE_PROD_DATABASE_URL",
     "HALAAL_VEST_LOCAL_ROOT_DOMAIN",
@@ -39,6 +40,7 @@
     "SHOW_HOME_PAGE",
     "TENANT_SITE_APP_URL",
     "TEST_DATABASE_URL",
+    "TEST_EMAIL",
     "TZ"
   ],
   "ui": "tui",

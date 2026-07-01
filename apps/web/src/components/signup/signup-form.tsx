@@ -54,7 +54,6 @@ import {
 
 type SignupApiSuccess = {
   devMode: boolean
-  deliveryTriggerError?: string | null
   emailDeliveryConfigured: boolean
   expiresAt: string
   onboardingUrl: string
@@ -245,9 +244,9 @@ export function SignupForm({
       showSuccess(
         payload.verificationDelivery.status === "sent"
           ? "Verification email sent"
-          : "Verification queued",
+          : "Verification prepared",
         payload.emailDeliveryConfigured
-          ? "The delivery job is handling the verification email."
+          ? "The direct email sender handled the verification step."
           : "Email transport is not configured in this environment."
       )
     } catch (error) {
@@ -262,28 +261,35 @@ export function SignupForm({
 
   if (result) {
     const emailWasSent = result.verificationDelivery.status === "sent"
+    const emailFailed = result.verificationDelivery.status === "failed"
     const deliveryTitle = emailWasSent
       ? "Check the primary contact inbox."
+      : emailFailed
+        ? "Verification email could not be sent."
       : result.emailDeliveryConfigured
-        ? "Verification email is queued."
+        ? "Verification email is prepared."
         : "Email delivery is not configured."
     const deliveryDescription = emailWasSent
       ? `The verification email was sent to ${result.verificationEmail.recipient.value}. The secure link expires ${formatExpiry(result.expiresAt)}.`
+      : emailFailed
+        ? `${result.verificationDelivery.errorMessage ?? "The email provider did not accept the verification email."} The secure link expires ${formatExpiry(result.expiresAt)}.`
       : result.emailDeliveryConfigured
-        ? `The verification notice is saved in the outbox for ${result.verificationEmail.recipient.value}. The delivery job is sending it now. The secure link expires ${formatExpiry(result.expiresAt)}.`
-        : `The verification notice is saved in the outbox, but this environment has no email transport configured. The secure link expires ${formatExpiry(result.expiresAt)}.`
+        ? `The verification email was prepared for ${result.verificationEmail.recipient.value}. The secure link expires ${formatExpiry(result.expiresAt)}.`
+        : `Email transport is not configured in this environment. The secure link expires ${formatExpiry(result.expiresAt)}.`
     const deliveryLabel = emailWasSent
       ? "Sent to inbox"
+      : emailFailed
+        ? "Send failed"
       : result.emailDeliveryConfigured
-        ? "Queued for job"
-        : "Queued locally"
+        ? "Prepared"
+        : "Local only"
     const showSecureLink = result.devMode || !result.emailDeliveryConfigured
 
     return (
       <Card>
         <CardHeader>
           <CardAction>
-            <Badge>{emailWasSent ? "Email sent" : "Notification queued"}</Badge>
+            <Badge>{emailWasSent ? "Email sent" : emailFailed ? "Email failed" : "Email prepared"}</Badge>
           </CardAction>
           <CardTitle className="text-2xl">{deliveryTitle}</CardTitle>
           <CardDescription>{deliveryDescription}</CardDescription>
@@ -298,21 +304,14 @@ export function SignupForm({
             <AlertTitle>
               {emailWasSent
                 ? "Verification comes before setup"
-                : "Outbox job owns delivery"}
+                : "Verification comes before setup"}
             </AlertTitle>
             <AlertDescription>
               {emailWasSent
                 ? "Use the email action to continue into onboarding. The cooperative workspace is not created until the verified profile is submitted."
-                : "Signup verification is queued as an outbox notification. The cooperative workspace is not created until the verified profile is submitted."}
+                : "Use the secure link to continue into onboarding. The cooperative workspace is not created until the verified profile is submitted."}
             </AlertDescription>
           </Alert>
-
-          {result.deliveryTriggerError ? (
-            <Alert>
-              <AlertTitle>Delivery job was not started</AlertTitle>
-              <AlertDescription>{result.deliveryTriggerError}</AlertDescription>
-            </Alert>
-          ) : null}
 
           <div className="grid gap-3 md:grid-cols-3">
             <div className="border bg-muted/35 p-3">

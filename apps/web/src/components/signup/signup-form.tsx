@@ -31,6 +31,11 @@ import {
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
 import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupText,
+} from "@halaalvest/ui/components/input-group"
+import {
   Progress,
   ProgressLabel,
   ProgressValue,
@@ -89,6 +94,10 @@ type AvailabilityState =
     }
   | { status: "error"; message: string }
 
+function formatWorkspaceUrlPreview(slug: string, suffix: string) {
+  return `${slug}${suffix}`
+}
+
 function formatExpiry(value: string) {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
@@ -96,7 +105,13 @@ function formatExpiry(value: string) {
   }).format(new Date(value))
 }
 
-export function SignupForm({ devMode }: { devMode: boolean }) {
+export function SignupForm({
+  devMode,
+  workspaceUrlSuffix,
+}: {
+  devMode: boolean
+  workspaceUrlSuffix: string
+}) {
   const form = useZodForm<SignupIntentInput>(signupIntentSchema, {
     defaultValues: {
       cooperativeName: "",
@@ -466,19 +481,22 @@ export function SignupForm({ devMode }: { devMode: boolean }) {
                   <FormItem className="md:col-span-2">
                     <FormLabel>Workspace URL</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="noor"
-                        {...field}
-                        onChange={(event) => {
-                          setWorkspaceSlugEdited(true)
-                          field.onChange(
-                            normalizeWorkspaceSlug(event.target.value)
-                          )
-                        }}
-                      />
+                      <InputGroup>
+                        <InputGroupInput
+                          placeholder="noor"
+                          {...field}
+                          onChange={(event) => {
+                            setWorkspaceSlugEdited(true)
+                            field.onChange(
+                              normalizeWorkspaceSlug(event.target.value)
+                            )
+                          }}
+                        />
+                        <InputGroupText>{workspaceUrlSuffix}</InputGroupText>
+                      </InputGroup>
                     </FormControl>
                     <FormDescription>
-                      This becomes the cooperative subdomain after verification.
+                      This becomes the cooperative workspace URL after verification.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -517,7 +535,7 @@ export function SignupForm({ devMode }: { devMode: boolean }) {
                       </Badge>
                       <span>
                         {availability.workspaceSlug.available
-                          ? `${availability.workspaceSlug.hostname} is available.`
+                          ? `${formatWorkspaceUrlPreview(availability.workspaceSlug.normalized, workspaceUrlSuffix)} is available.`
                           : "That workspace URL is not available."}
                       </span>
                     </div>

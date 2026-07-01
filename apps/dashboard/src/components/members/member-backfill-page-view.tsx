@@ -46,6 +46,14 @@ type MemberBackfillData = Extract<
   { state: "ready" }
 >
 
+type ProfitMigrationOption = {
+  businessName: string
+  editableAvailableAmount: number
+  id: string
+  memberMigrationAdjustmentAmount: number
+  profitDate: string
+}
+
 const memberBackfillLoanHistoryFormId = "member-backfill-loan-history-form"
 const memberBackfillCommitmentHistoryFormId =
   "member-backfill-commitment-history-form"
@@ -372,6 +380,8 @@ function LoansStep({ data }: { data: MemberBackfillData }) {
 
 function ProfitStep({ data }: { data: MemberBackfillData }) {
   const disabled = !data.canEditBackfill || data.review.status === "backfill_applied"
+  const profitMigrationOptions =
+    data.profitMigrationOptions as ProfitMigrationOption[]
 
   return (
     <DashboardSectionCard>
@@ -381,8 +391,8 @@ function ProfitStep({ data }: { data: MemberBackfillData }) {
         description="Add member-specific historical profit adjustments only when the default allocation is not enough."
       />
       <div className="mt-5 grid gap-3">
-        {data.profitMigrationOptions.length > 0 ? (
-          data.profitMigrationOptions.map((option) => (
+        {profitMigrationOptions.length > 0 ? (
+          profitMigrationOptions.map((option) => (
             <form
               action={upsertMigrationProfitAdjustmentAction}
               className="grid gap-3 border border-border/70 bg-muted/20 p-3 sm:grid-cols-[minmax(0,1fr)_150px_150px_auto]"

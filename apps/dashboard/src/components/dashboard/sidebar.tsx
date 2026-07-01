@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
-import { HalaalvestLogoMark } from "@halaalvest/ui/components/brand-logo"
+import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { cn } from "@halaalvest/ui/lib/utils"
 import type { NavModule } from "@halaalvest/site-nav"
 import {
@@ -169,9 +169,18 @@ export function DashboardSidebar({
       <Link
         href="/"
         aria-label="Halaalvest home"
-        className="absolute left-[18px] flex items-center"
+        className="absolute left-[18px] flex items-center gap-2 overflow-hidden"
       >
-        <HalaalvestLogoMark className="size-9" aria-hidden="true" />
+        <HalaalvestLogo
+          showWordmark={isExpanded}
+          markClassName="size-9"
+          wordmarkClassName="text-base"
+        />
+        {isExpanded ? (
+          <span className="border-l border-border pl-2 text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
+            Dashboard
+          </span>
+        ) : null}
       </Link>
     </div>
   )

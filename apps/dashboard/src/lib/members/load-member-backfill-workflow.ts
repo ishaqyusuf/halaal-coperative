@@ -51,6 +51,7 @@ function serializeLegacyLoanDraft(draft: LegacyLoanDraft) {
     memberId: draft.memberId,
     memberName: draft.member.fullName,
     memberNumber: draft.member.memberNumber,
+    notes: draft.notes,
     openedAt: toDateString(draft.openedAt) ?? "",
     outstandingPrincipalBalance: draft.outstandingPrincipalBalance,
     principalAmount: draft.principalAmount,

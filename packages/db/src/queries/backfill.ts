@@ -1210,6 +1210,7 @@ export async function upsertMemberAmountLog(
     effectiveFrom: Date
     memberId: string
     notes?: string | null
+    rowId?: string | null
     tenantId: string
   },
   prismaOverride?: PrismaClient
@@ -1238,15 +1239,29 @@ export async function upsertMemberAmountLog(
     tx: prisma,
   })
 
-  const existing = await prisma.memberAmountLog.findFirst({
-    where: {
-      effectiveFrom: input.effectiveFrom,
-      memberId: input.memberId,
-      tenantId: input.tenantId,
-    },
-  })
+  const existing = input.rowId
+    ? await prisma.memberAmountLog.findFirst({
+        where: {
+          id: input.rowId,
+          memberId: input.memberId,
+          tenantId: input.tenantId,
+        },
+      })
+    : await prisma.memberAmountLog.findFirst({
+        where: {
+          effectiveFrom: input.effectiveFrom,
+          memberId: input.memberId,
+          tenantId: input.tenantId,
+        },
+      })
+
+  if (input.rowId && !existing) {
+    throw new Error("Member commitment history row not found.")
+  }
+
   const data = {
     amount: input.amount,
+    effectiveFrom: input.effectiveFrom,
     notes: input.notes?.trim() || null,
   }
   const row = existing

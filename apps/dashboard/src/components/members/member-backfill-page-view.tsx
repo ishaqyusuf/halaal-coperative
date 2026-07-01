@@ -8,16 +8,9 @@ import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardActionLink,
-  DashboardDataTable,
   DashboardSectionCard,
   DashboardSectionHeader,
   DashboardSurfaceCard,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
   TrendPill,
   WorkspacePageShell,
 } from "@/components/dashboard"
@@ -296,22 +289,13 @@ function CommitmentsStep({ data }: { data: MemberBackfillData }) {
         <CommitmentHistoryEntryForm
           disabled={disabled}
           formId={memberBackfillCommitmentHistoryFormId}
+          initialRows={data.memberAmountLogs}
           memberId={data.member.id}
           memberJoinedAt={data.member.joinedAt}
           redirectTo={nextHref}
           showSubmitButton={!nextHref}
         />
       </div>
-      <HistoryTable
-        emptyLabel="No commitment history rows saved yet."
-        rows={data.memberAmountLogs.map((row) => ({
-          amount: formatCurrency(row.amount),
-          date: row.effectiveFrom,
-          detail: row.notes ?? "Monthly commitment",
-          id: row.id,
-        }))}
-        title="Saved commitments"
-      />
     </DashboardSectionCard>
   )
 }
@@ -344,6 +328,7 @@ function ActivityStep({ data }: { data: MemberBackfillData }) {
         <MemberBackfillActivityWindowsForm
           disabled={disabled}
           formId={memberBackfillActivityWindowsFormId}
+          initialRows={data.memberActivityEvents}
           memberId={data.member.id}
           memberJoinedAt={data.member.joinedAt}
           redirectTo={nextHref}
@@ -372,6 +357,7 @@ function LoansStep({ data }: { data: MemberBackfillData }) {
         <LoanHistoryEntryForm
           disabled={disabled}
           formId={memberBackfillLoanHistoryFormId}
+          initialRows={data.legacyLoanDrafts}
           memberId={data.member.id}
           memberJoinedAt={data.member.joinedAt}
           memberNumberPrefix={data.memberNumberPrefix}
@@ -599,47 +585,6 @@ function ApplyStep({ data }: { data: MemberBackfillData }) {
         </div>
       </form>
     </DashboardSectionCard>
-  )
-}
-
-function HistoryTable({
-  emptyLabel,
-  rows,
-  title,
-}: {
-  emptyLabel: string
-  rows: Array<{ amount: string; date: string; detail: string; id: string }>
-  title: string
-}) {
-  return (
-    <DashboardDataTable className="mt-4">
-      <DashboardTable className="min-w-[560px]">
-        <DashboardTableHead>
-          <DashboardTableHeaderCell>{title}</DashboardTableHeaderCell>
-          <DashboardTableHeaderCell>Date</DashboardTableHeaderCell>
-          <DashboardTableHeaderCell align="right">Amount</DashboardTableHeaderCell>
-        </DashboardTableHead>
-        <DashboardTableBody>
-          {rows.length > 0 ? (
-            rows.map((row) => (
-              <DashboardTableRow key={row.id}>
-                <DashboardTableCell>{row.detail}</DashboardTableCell>
-                <DashboardTableCell>{row.date}</DashboardTableCell>
-                <DashboardTableCell align="right">{row.amount}</DashboardTableCell>
-              </DashboardTableRow>
-            ))
-          ) : (
-            <DashboardTableRow>
-              <DashboardTableCell className="text-muted-foreground">
-                {emptyLabel}
-              </DashboardTableCell>
-              <DashboardTableCell>-</DashboardTableCell>
-              <DashboardTableCell align="right">-</DashboardTableCell>
-            </DashboardTableRow>
-          )}
-        </DashboardTableBody>
-      </DashboardTable>
-    </DashboardDataTable>
   )
 }
 

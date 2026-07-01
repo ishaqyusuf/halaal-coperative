@@ -29,9 +29,7 @@ import {
   CommandItem,
   CommandList,
 } from "@halaalvest/ui/components/command"
-import {
-  CurrencyInput,
-} from "@halaalvest/ui/components/currency-input"
+import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import { Form, useFormContext } from "@halaalvest/ui/components/form"
 import {
   Popover,
@@ -63,10 +61,12 @@ type CommitmentHistoryInputRow = {
   effectiveFrom: string
   id: string
   notes: string
+  rowId: string
 }
 
 type LoanHistoryInputRow = {
   closedAt: string
+  draftId: string
   guarantorOneCreateEmail: string
   guarantorOneCreateFullName: string
   guarantorOneCreateJoinedAt: string
@@ -80,6 +80,7 @@ type LoanHistoryInputRow = {
   guarantorTwoCreatePhone: string
   guarantorTwoMemberId: string
   id: string
+  loanLabel: string
   notes: string
   openedAt: string
   outstandingPrincipalBalance: string
@@ -95,12 +96,34 @@ type PendingGuarantorTarget = {
   rowId: string
 }
 
+type CommitmentHistoryInitialRow = {
+  amount: number
+  effectiveFrom: string
+  id: string
+  notes: string | null
+}
+
+type LoanHistoryInitialRow = {
+  closedAt: string | null
+  guarantorOneMemberId: string | null
+  guarantorTwoMemberId: string | null
+  id: string
+  loanLabel: string
+  notes?: string | null
+  openedAt: string
+  outstandingPrincipalBalance: number
+  principalAmount: number
+  savingsDuringLoan: number
+  scheduledMonthlyPrincipalRepayment: number
+}
+
 const commitmentHistoryRowSchema = z
   .object({
     amount: z.string(),
     effectiveFrom: z.string(),
     id: z.string(),
     notes: z.string(),
+    rowId: z.string(),
   })
   .superRefine((row, ctx) => {
     const rowStarted = commitmentRowHasValue(row)
@@ -146,6 +169,7 @@ type CommitmentHistoryFormValues = z.infer<typeof commitmentHistoryFormSchema>
 const loanHistoryRowSchema = z
   .object({
     closedAt: z.string(),
+    draftId: z.string(),
     guarantorOneCreateEmail: z.string(),
     guarantorOneCreateFullName: z.string(),
     guarantorOneCreateJoinedAt: z.string(),
@@ -159,6 +183,7 @@ const loanHistoryRowSchema = z
     guarantorTwoCreatePhone: z.string(),
     guarantorTwoMemberId: z.string(),
     id: z.string(),
+    loanLabel: z.string(),
     notes: z.string(),
     openedAt: z.string(),
     outstandingPrincipalBalance: z.string(),
@@ -273,12 +298,14 @@ function createCommitmentRow(id?: string): CommitmentHistoryInputRow {
     effectiveFrom: "",
     id: id ?? createRowId("commitment-history"),
     notes: "",
+    rowId: "",
   }
 }
 
 function createLoanRow(id?: string): LoanHistoryInputRow {
   return {
     closedAt: "",
+    draftId: "",
     guarantorOneCreateEmail: "",
     guarantorOneCreateFullName: "",
     guarantorOneCreateJoinedAt: "",
@@ -292,6 +319,7 @@ function createLoanRow(id?: string): LoanHistoryInputRow {
     guarantorTwoCreatePhone: "",
     guarantorTwoMemberId: "",
     id: id ?? createRowId("loan-history"),
+    loanLabel: "",
     notes: "",
     openedAt: "",
     outstandingPrincipalBalance: "",
@@ -301,6 +329,51 @@ function createLoanRow(id?: string): LoanHistoryInputRow {
   }
 }
 
+function buildCommitmentHistoryRows(
+  initialRows: CommitmentHistoryInitialRow[] | undefined
+) {
+  if (!initialRows?.length) {
+    return [createCommitmentRow("commitment-history-initial")]
+  }
+
+  return [
+    ...initialRows.map((row) => ({
+      ...createCommitmentRow(`commitment-history-${row.id}`),
+      amount: String(row.amount),
+      effectiveFrom: row.effectiveFrom,
+      notes: row.notes ?? "",
+      rowId: row.id,
+    })),
+    createCommitmentRow(),
+  ]
+}
+
+function buildLoanHistoryRows(initialRows: LoanHistoryInitialRow[] | undefined) {
+  if (!initialRows?.length) {
+    return [createLoanRow("loan-history-initial")]
+  }
+
+  return [
+    ...initialRows.map((row) => ({
+      ...createLoanRow(`loan-history-${row.id}`),
+      closedAt: row.closedAt ?? "",
+      draftId: row.id,
+      guarantorOneMemberId: row.guarantorOneMemberId ?? "",
+      guarantorTwoMemberId: row.guarantorTwoMemberId ?? "",
+      loanLabel: row.loanLabel,
+      notes: row.notes ?? "",
+      openedAt: row.openedAt,
+      outstandingPrincipalBalance: String(row.outstandingPrincipalBalance),
+      principalAmount: String(row.principalAmount),
+      savingsDuringLoan: String(row.savingsDuringLoan),
+      scheduledMonthlyPrincipalRepayment: String(
+        row.scheduledMonthlyPrincipalRepayment
+      ),
+    })),
+    createLoanRow(),
+  ]
+}
+
 function commitmentRowHasValue(row: CommitmentHistoryInputRow) {
   return Boolean(row.amount || row.effectiveFrom || row.notes)
 }
@@ -308,6 +381,7 @@ function commitmentRowHasValue(row: CommitmentHistoryInputRow) {
 function loanRowHasValue(row: LoanHistoryInputRow) {
   return Boolean(
     row.closedAt ||
+      row.draftId ||
       row.guarantorOneCreateEmail ||
       row.guarantorOneCreateFullName ||
       row.guarantorOneCreateJoinedAt ||
@@ -320,6 +394,7 @@ function loanRowHasValue(row: LoanHistoryInputRow) {
       row.guarantorTwoCreateMemberNumber ||
       row.guarantorTwoCreatePhone ||
       row.guarantorTwoMemberId ||
+      row.loanLabel ||
       row.notes ||
       row.openedAt ||
       row.outstandingPrincipalBalance ||
@@ -981,6 +1056,7 @@ function DeleteCommitmentHistoryRowButton({
 export function CommitmentHistoryEntryForm({
   disabled,
   formId,
+  initialRows,
   memberId,
   memberJoinedAt,
   redirectTo,
@@ -988,6 +1064,7 @@ export function CommitmentHistoryEntryForm({
 }: {
   disabled: boolean
   formId?: string
+  initialRows?: CommitmentHistoryInitialRow[]
   memberId: string | null | undefined
   memberJoinedAt?: string | null
   redirectTo?: string
@@ -998,7 +1075,7 @@ export function CommitmentHistoryEntryForm({
     commitmentHistoryFormSchema,
     {
       defaultValues: {
-        rows: [createCommitmentRow("commitment-history-initial")],
+        rows: buildCommitmentHistoryRows(initialRows),
       },
     }
   )
@@ -1138,6 +1215,7 @@ export function CommitmentHistoryEntryForm({
                 return (
                   <tr className="align-top" key={row.id}>
                     <td>
+                      <input name="rowId" type="hidden" value={row.rowId} />
                       <DatePickerInput
                         allowClear={false}
                         aria-invalid={Boolean(effectiveFromError)}
@@ -1204,6 +1282,7 @@ export function CommitmentHistoryEntryForm({
 export function LoanHistoryEntryForm({
   disabled,
   formId,
+  initialRows,
   memberId,
   memberJoinedAt,
   memberNumberPrefix,
@@ -1213,6 +1292,7 @@ export function LoanHistoryEntryForm({
 }: {
   disabled: boolean
   formId?: string
+  initialRows?: LoanHistoryInitialRow[]
   memberId: string | null | undefined
   memberJoinedAt?: string | null
   memberNumberPrefix?: string | null
@@ -1253,7 +1333,7 @@ export function LoanHistoryEntryForm({
   }, [memberId, memberOptions, quickCreatedGuarantorOptions])
   const form = useZodForm<LoanHistoryFormValues>(loanHistoryFormSchema, {
     defaultValues: {
-      rows: [createLoanRow("loan-history-initial")],
+      rows: buildLoanHistoryRows(initialRows),
     },
   })
   const rows = form.watch("rows")
@@ -1550,9 +1630,19 @@ export function LoanHistoryEntryForm({
                           value={row.openedAt}
                         />
                         <input
+                          name="draftId"
+                          type="hidden"
+                          value={row.draftId}
+                        />
+                        <input
                           name="closedAt"
                           type="hidden"
                           value={row.closedAt}
+                        />
+                        <input
+                          name="loanLabel"
+                          type="hidden"
+                          value={row.loanLabel}
                         />
                         <input name="notes" type="hidden" value={row.notes} />
                         <input

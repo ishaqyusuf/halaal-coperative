@@ -42,6 +42,7 @@ export async function upsertMemberActivityEvent(
   input: {
     actorUserId: string
     effectiveMonth: Date
+    eventId?: string | null
     memberId: string
     notes?: string | null
     reason?: string | null
@@ -54,7 +55,11 @@ export async function upsertMemberActivityEvent(
   if (!prisma) throw new Error("Database not configured")
   await assertMigrationAdjustmentMutationOpen(input, prisma)
 
-  if (typeof prisma.memberActivityEvent?.upsert !== "function") {
+  if (
+    typeof prisma.memberActivityEvent?.findFirst !== "function" ||
+    typeof prisma.memberActivityEvent?.update !== "function" ||
+    typeof prisma.memberActivityEvent?.upsert !== "function"
+  ) {
     throw new Error(
       "Member activity events require the latest Prisma migration and generated client."
     )
@@ -72,17 +77,40 @@ export async function upsertMemberActivityEvent(
     status: input.status,
     tenantId: input.tenantId,
   }
-  const event = await prisma.memberActivityEvent.upsert({
-    create: data,
-    update: data,
-    where: {
-      tenantId_memberId_effectiveMonth: {
-        effectiveMonth,
-        memberId: input.memberId,
-        tenantId: input.tenantId,
+  const existingById = input.eventId
+    ? await prisma.memberActivityEvent.findFirst({
+        where: {
+          id: input.eventId,
+          memberId: input.memberId,
+          tenantId: input.tenantId,
+        },
+      })
+    : null
+
+  if (input.eventId && !existingById) {
+    throw new Error("Member activity event not found.")
+  }
+
+  let event
+
+  if (existingById) {
+    event = await prisma.memberActivityEvent.update({
+      data,
+      where: { id: existingById.id },
+    })
+  } else {
+    event = await prisma.memberActivityEvent.upsert({
+      create: data,
+      update: data,
+      where: {
+        tenantId_memberId_effectiveMonth: {
+          effectiveMonth,
+          memberId: input.memberId,
+          tenantId: input.tenantId,
+        },
       },
-    },
-  })
+    })
+  }
 
   await createAuditLogEntry(
     {

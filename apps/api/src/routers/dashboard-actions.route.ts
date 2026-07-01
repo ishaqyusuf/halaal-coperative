@@ -2497,14 +2497,21 @@ function maxFieldLength(...fieldValues: string[][]) {
 }
 
 function buildMemberAmountLogRows(formData: FormData) {
+  const rowIdValues = getAllTrimmedStrings(formData, "rowId")
   const effectiveFromValues = getAllTrimmedStrings(formData, "effectiveFrom")
   const amountValues = getAllTrimmedStrings(formData, "amount")
   const notesValues = getAllTrimmedStrings(formData, "notes")
-  const rowCount = maxFieldLength(effectiveFromValues, amountValues, notesValues)
+  const rowCount = maxFieldLength(
+    rowIdValues,
+    effectiveFromValues,
+    amountValues,
+    notesValues
+  )
   const rows: Array<{
     amount: string
     effectiveFrom: string
     notes: string
+    rowId: string
   }> = []
 
   for (let index = 0; index < rowCount; index += 1) {
@@ -2512,6 +2519,7 @@ function buildMemberAmountLogRows(formData: FormData) {
       amount: indexedValue(amountValues, index),
       effectiveFrom: indexedValue(effectiveFromValues, index),
       notes: indexedValue(notesValues, index),
+      rowId: indexedValue(rowIdValues, index),
     }
     const started = Boolean(row.amount || row.effectiveFrom || row.notes)
 
@@ -2530,11 +2538,13 @@ function buildMemberAmountLogRows(formData: FormData) {
 }
 
 function buildMemberActivityEventRows(formData: FormData) {
+  const rowIdValues = getAllTrimmedStrings(formData, "rowId")
   const effectiveMonthValues = getAllTrimmedStrings(formData, "effectiveMonth")
   const statusValues = getAllTrimmedStrings(formData, "status")
   const reasonValues = getAllTrimmedStrings(formData, "reason")
   const notesValues = getAllTrimmedStrings(formData, "notes")
   const rowCount = maxFieldLength(
+    rowIdValues,
     effectiveMonthValues,
     statusValues,
     reasonValues,
@@ -2544,6 +2554,7 @@ function buildMemberActivityEventRows(formData: FormData) {
     effectiveMonth: string
     notes: string
     reason: string
+    rowId: string
     status: "active" | "inactive"
   }> = []
 
@@ -2552,6 +2563,7 @@ function buildMemberActivityEventRows(formData: FormData) {
       effectiveMonth: indexedValue(effectiveMonthValues, index),
       notes: indexedValue(notesValues, index),
       reason: indexedValue(reasonValues, index),
+      rowId: indexedValue(rowIdValues, index),
       status: indexedValue(statusValues, index),
     }
     const started = Boolean(
@@ -2580,6 +2592,7 @@ function buildMemberActivityEventRows(formData: FormData) {
 }
 
 function buildLegacyLoanMigrationRows(formData: FormData) {
+  const draftIdValues = getAllTrimmedStrings(formData, "draftId")
   const closedAtValues = getAllTrimmedStrings(formData, "closedAt")
   const loanLabelValues = getAllTrimmedStrings(formData, "loanLabel")
   const notesValues = getAllTrimmedStrings(formData, "notes")
@@ -2618,10 +2631,12 @@ function buildLegacyLoanMigrationRows(formData: FormData) {
     savingsDuringLoanValues,
     scheduledMonthlyPrincipalRepaymentValues,
     guarantorOneValues,
-    guarantorTwoValues
+    guarantorTwoValues,
+    draftIdValues
   )
   const rows: Array<{
     closedAt: string
+    draftId: string
     index: number
     loanLabel: string
     notes: string
@@ -2635,6 +2650,7 @@ function buildLegacyLoanMigrationRows(formData: FormData) {
   for (let index = 0; index < rowCount; index += 1) {
     const row = {
       closedAt: indexedValue(closedAtValues, index),
+      draftId: indexedValue(draftIdValues, index),
       index,
       loanLabel: indexedValue(loanLabelValues, index),
       notes: indexedValue(notesValues, index),
@@ -2814,7 +2830,7 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
 
     const principalAmount = Number(row.principalAmount)
 
-    await createLegacyLoanMigrationDraft({
+    const loanInput = {
       actorUserId: actor.user.id,
       closedAt,
       guarantorOneMemberId,
@@ -2832,7 +2848,16 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
         row.scheduledMonthlyPrincipalRepayment
       ),
       tenantId: actor.tenant.id,
-    })
+    }
+
+    if (row.draftId) {
+      await updateLegacyLoanMigrationDraft({
+        ...loanInput,
+        draftId: row.draftId,
+      })
+    } else {
+      await createLegacyLoanMigrationDraft(loanInput)
+    }
   }
 
   revalidatePath("/settings/finance")
@@ -2907,6 +2932,7 @@ export async function upsertMemberAmountLogAction(formData: FormData) {
       effectiveFrom,
       memberId,
       notes: row.notes || null,
+      rowId: row.rowId || null,
       tenantId: actor.tenant.id,
     })
   }
@@ -3044,6 +3070,7 @@ export async function upsertMemberActivityEventAction(formData: FormData) {
     await upsertMemberActivityEvent({
       actorUserId: actor.user.id,
       effectiveMonth: new Date(`${row.effectiveMonth}-01T00:00:00.000Z`),
+      eventId: row.rowId || null,
       memberId,
       notes: row.notes || null,
       reason: row.reason || null,

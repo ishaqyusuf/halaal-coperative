@@ -33,7 +33,9 @@ type ActivityWindowStatus = "active" | "inactive" | ""
 type ActivityWindowInputRow = {
   effectiveMonth: string
   id: string
+  notes: string
   reason: string
+  rowId: string
   status: ActivityWindowStatus
 }
 
@@ -45,7 +47,9 @@ type ActivityWindowErrorMap = Partial<
 const activityWindowRowSchema = z.object({
   effectiveMonth: z.string(),
   id: z.string(),
+  notes: z.string(),
   reason: z.string(),
+  rowId: z.string(),
   status: z.union([z.literal("active"), z.literal("inactive"), z.literal("")]),
 })
 
@@ -91,9 +95,39 @@ function createActivityWindowRow(id?: string): ActivityWindowInputRow {
     id:
       id ??
       `activity-window-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    notes: "",
     reason: "",
+    rowId: "",
     status: "",
   }
+}
+
+function buildActivityWindowRows(
+  initialRows:
+    | Array<{
+        effectiveMonth: string
+        id: string
+        notes: string | null
+        reason: string | null
+        status: string
+      }>
+    | undefined
+) {
+  if (!initialRows?.length) {
+    return [createActivityWindowRow("activity-window-initial")]
+  }
+
+  return [
+    ...initialRows.map((row) => ({
+      ...createActivityWindowRow(`activity-window-${row.id}`),
+      effectiveMonth: row.effectiveMonth,
+      notes: row.notes ?? "",
+      reason: row.reason ?? "",
+      rowId: row.id,
+      status: row.status === "inactive" ? "inactive" : "active",
+    })),
+    createActivityWindowRow(),
+  ]
 }
 
 function activityWindowRowHasValue(row: ActivityWindowInputRow) {
@@ -178,6 +212,7 @@ function DeleteActivityWindowRowButton({
 export function MemberBackfillActivityWindowsForm({
   disabled,
   formId,
+  initialRows,
   memberId,
   memberJoinedAt,
   redirectTo,
@@ -185,6 +220,13 @@ export function MemberBackfillActivityWindowsForm({
 }: {
   disabled: boolean
   formId?: string
+  initialRows?: Array<{
+    effectiveMonth: string
+    id: string
+    notes: string | null
+    reason: string | null
+    status: string
+  }>
   memberId: string
   memberJoinedAt: string
   redirectTo?: string
@@ -192,9 +234,9 @@ export function MemberBackfillActivityWindowsForm({
 }) {
   const router = useRouter()
   const minMonth = memberJoinedAt.slice(0, 7)
-  const [rows, setRows] = useState<ActivityWindowInputRow[]>([
-    createActivityWindowRow("activity-window-initial"),
-  ])
+  const [rows, setRows] = useState<ActivityWindowInputRow[]>(
+    buildActivityWindowRows(initialRows)
+  )
   const [errors, setErrors] = useState<ActivityWindowErrorMap>({})
 
   function updateRow(rowId: string, patch: Partial<ActivityWindowInputRow>) {
@@ -328,6 +370,8 @@ export function MemberBackfillActivityWindowsForm({
               return (
                 <tr className="align-top" key={row.id}>
                   <td>
+                    <input name="rowId" type="hidden" value={row.rowId} />
+                    <input name="notes" type="hidden" value={row.notes} />
                     <Input
                       aria-invalid={monthError}
                       aria-label="Activity month"

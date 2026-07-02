@@ -12,6 +12,8 @@
   - dated share updates
   - charge definitions with dated amount updates
   - historical share businesses with capital, profit, start date, end date, and optional dividend-period linkage
+  - dividend/profit-sharing season policy, including distribution frequency and financial year start
+  - reviewed dividend/profit-sharing seasons generated from business profit history, with season-level deductions and reasons
 - A staff user opens a member profile and records:
   - amount history entries
   - optional member-specific share override history
@@ -106,6 +108,17 @@
       - `createdByUserId`
       - `createdAt`
       - `updatedAt`
+  - `ShareBusinessProfitEntry`
+    - Purpose: capture dated business profit rows that can be grouped into tenant profit-sharing seasons.
+    - Notes:
+      - Getting Started records these rows from the business history step.
+      - The dividend season review step links each reviewed entry to a `DividendPeriod`.
+      - Season-level deductions are applied proportionally to each linked entry's allocatable profit so member migration consumes reviewed distributable amounts.
+  - `DividendPeriod`
+    - Purpose: reviewed profit-sharing season for annual, semi-annual, quarterly, or ad-hoc distribution policy.
+    - Notes:
+      - During initial migration, generated periods can store total profit, distributable amount, deduction amount, and deduction reason before member backfill starts.
+      - Published or closed periods should not be silently rewritten by migration tooling.
   - `BackfillBatch`
     - Purpose: one staged backfill run for one member over a date range.
     - Fields:
@@ -314,14 +327,18 @@
   - Require explicit overwrite confirmation or keep edited rows locked.
 - A month includes a dividend allocation.
   - Show it inline as read-only context because it affects totals but should not be directly edited from backfill.
-- A business period is linked to a dividend period after the business row already exists.
-  - Support optional delayed linking so the registry can be captured before the dividend allocation flow is finalized.
+- A business period is linked to a dividend/profit-sharing period after the business row already exists.
+  - Support optional delayed linking so live business records can be captured before the distribution flow is finalized.
+  - Historical migration rows lock after backfill/finalization, but live business creation remains available through normal audited finance actions.
 - A batch is applied twice.
   - Prevent with batch status guard and record-level idempotency keys.
 - Applying a batch would create duplicate posted finance rows for the same member/month/category.
   - Reject and show the existing records.
 - Profit dividend activity is entered before dividend policy is finalized.
   - Store as explicit activity and post only as a documented adjustment path, not as automated dividend policy output.
+- Profit-sharing policy is annual, semi-annual, or quarterly during member migration.
+  - Append generated profit-share context at the configured period boundary, such as year-end for annual sharing.
+  - Keep generated rows draft or reviewed until a privileged user approves allocation/publishing.
 - Rounding differences in cumulative share or loan totals.
   - Round at 2 decimal places at row computation time and keep audit metadata for source values.
 
@@ -347,6 +364,7 @@
 - Add approval separation where one role drafts and another role applies.
 - Add statement rendering that marks which historical entries were created by backfill.
 - Add full dividend policy support once halal profit-sharing rules are finalized.
+- Separate live business operations from historical migration locks so cooperatives can continue creating business pools after go-live.
 - Add offline capture support for draft backfill entry if this becomes part of field operations.
 
 ## Current Implementation Slice
@@ -402,4 +420,6 @@
 - Add draft reopen/resume UX using persisted batches instead of always hydrating the latest preview.
 - Connect applied backfill rows into the live share system beyond `totalSavingsSnapshot`, including downstream reporting surfaces.
 - Connect `ShareBusiness` registry to real dividend-period generation and future member profit pre-generation.
+- Make the getting-started flow capture dividend/profit-sharing season setup before member migration.
+- Keep the explicit dividend season review step as a gate before member backfill so profit rows, deductions, and member migration context stay deterministic.
 - Add migration and Prisma client regeneration so the new backfill/share-business columns are first-class typed models everywhere.

@@ -26,7 +26,9 @@ type GettingStartedStepKey =
   | "start-date"
   | "charges"
   | "shares"
+  | "profit-policy"
   | "business"
+  | "profit-seasons"
   | "admin-member"
   | "review"
 
@@ -34,7 +36,9 @@ const stepKeys = new Set<GettingStartedStepKey>([
   "start-date",
   "charges",
   "shares",
+  "profit-policy",
   "business",
+  "profit-seasons",
   "admin-member",
   "review",
 ])
@@ -51,10 +55,18 @@ function resolveRequestedStep(value: string | string[] | undefined) {
     : null
 }
 
-function resolveDefaultStep(missingStepKeys: string[]): GettingStartedStepKey {
+function resolveDefaultStep(
+  missingStepKeys: string[],
+  needsProfitPolicy: boolean,
+): GettingStartedStepKey {
   if (missingStepKeys.includes("finance_start_date")) return "start-date"
   if (missingStepKeys.includes("charge_schedules")) return "charges"
   if (missingStepKeys.includes("share_capital_plan")) return "shares"
+  if (needsProfitPolicy) return "profit-policy"
+  if (missingStepKeys.includes("business_profit_pools")) return "business"
+  if (missingStepKeys.includes("business_profit_seasons")) {
+    return "profit-seasons"
+  }
   if (
     missingStepKeys.some((stepKey) =>
       ["member_profiles", "legacy_loans", "member_ledger_backfill"].includes(
@@ -133,7 +145,11 @@ export default async function GettingStartedPage({
     listInitialMigrationMemberReview(context.tenant.id),
   ])
   const activeStep =
-    requestedStep ?? resolveDefaultStep(migrationState.snapshot.missingStepKeys)
+    requestedStep ??
+    resolveDefaultStep(
+      migrationState.snapshot.missingStepKeys,
+      !data.businessPolicy.id,
+    )
   const adminMember =
     memberOptions.items.find(
       (member: any) => member.user?.id === context.auth.user?.id,
@@ -159,6 +175,8 @@ export default async function GettingStartedPage({
       [
         "finance_start_date",
         "charge_schedules",
+        "business_profit_pools",
+        "business_profit_seasons",
         "share_capital_plan",
         "member_profiles",
       ].includes(stepKey),
@@ -261,6 +279,22 @@ export default async function GettingStartedPage({
         id: period.id,
         label: period.name,
       }))}
+      businessPolicy={data.businessPolicy}
+      businessProfitSeasons={data.businessProfitSeasons.map((season: any) => ({
+        businessNames: season.businessNames,
+        deductionAmount: season.deductionAmount,
+        deductionReason: season.deductionReason,
+        distributableAmount: season.distributableAmount,
+        entryDeductionAmount: season.entryDeductionAmount,
+        grossProfitAmount: season.grossProfitAmount,
+        id: season.id,
+        key: season.key,
+        label: season.label,
+        periodEnd: toDateString(season.periodEnd) ?? "",
+        periodStart: toDateString(season.periodStart) ?? "",
+        profitEntryCount: season.profitEntryCount,
+        status: season.status,
+      }))}
       generatedLedgerError={generatedLedgerError}
       generatedLedgerRows={generatedLedgerRows}
       legacyLoanDrafts={legacyLoanDrafts.map((draft) => ({
@@ -313,6 +347,7 @@ export default async function GettingStartedPage({
       profitMigrationOptions={profitMigrationOptions.map((option: any) => ({
         ...option,
         profitDate: option.profitDate.toISOString().slice(0, 10),
+        seasonPeriodEnd: toDateString(option.seasonPeriodEnd),
       }))}
       selectedMigrationMemberId={selectedMember?.id ?? null}
       selectedMigrationMemberLabel={

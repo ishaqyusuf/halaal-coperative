@@ -99,8 +99,8 @@ export function BusinessSheet({
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>
-            Historical business and profit entries are migration inputs used for
-            member dividend and share profit computation.
+            Business profit entries are reviewed before member share profit
+            allocation.
           </SheetDescription>
         </SheetHeader>
 
@@ -170,7 +170,7 @@ export function BusinessSheet({
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
               Source
               <NativeSelect
-                defaultValue="backfill"
+                defaultValue="manual"
                 disabled={isLocked}
                 name="sourceType"
               >

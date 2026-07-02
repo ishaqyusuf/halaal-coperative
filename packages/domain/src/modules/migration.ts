@@ -10,6 +10,7 @@ export type InitialMigrationStepKey =
   | "finance_start_date"
   | "charge_schedules"
   | "business_profit_pools"
+  | "business_profit_seasons"
   | "share_capital_plan"
   | "member_profiles"
   | "legacy_loans"
@@ -36,6 +37,7 @@ export type InitialMigrationSnapshot = {
 export function buildInitialMigrationSnapshot(input: {
   emergencyUnlockActive?: boolean
   hasBusinessProfitPools: boolean
+  hasBusinessProfitSeasons?: boolean
   hasChargeSchedules: boolean
   hasFinalizationConfirmed: boolean
   hasFinanceStartDate: boolean
@@ -57,9 +59,14 @@ export function buildInitialMigrationSnapshot(input: {
       label: "Charge schedules",
     },
     {
-      complete: true,
+      complete: input.hasBusinessProfitPools,
       key: "business_profit_pools",
-      label: "Business profit pools (optional)",
+      label: "Business profit pools or no-profit review",
+    },
+    {
+      complete: input.hasBusinessProfitSeasons ?? true,
+      key: "business_profit_seasons",
+      label: "Business profit sharing seasons",
     },
     {
       complete: input.hasShareCapitalPlan,

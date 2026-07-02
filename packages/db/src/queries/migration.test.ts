@@ -17,8 +17,10 @@ function createMigrationStatePrismaStub(input: {
   appliedBackfillMembers?: number
   businessProfitPools: number
   businessProfitReviewMarkers?: number
+  businessProfitSeasons?: number
   chargeScheduleVersions: number
   initialMigrationStatus?: string | null
+  historicalProfitMigrationMode?: string | null
   legacyLoanMigrationDrafts?: number
   legacyLoanReviewMarkers?: number
   legacyLoans: number
@@ -30,6 +32,7 @@ function createMigrationStatePrismaStub(input: {
   startDate: Date | null
 }) {
   const auditLogCreates: unknown[] = []
+  const tenantBusinessPolicyUpserts: unknown[] = []
   const tenantUpdateCalls: unknown[] = []
   const tenantState = {
     id: "tenant-1",
@@ -101,7 +104,10 @@ function createMigrationStatePrismaStub(input: {
         })),
     },
     shareBusinessProfitEntry: {
-      count: async () => input.businessProfitPools,
+      count: async (query?: any) =>
+        query?.where?.linkedDividendPeriodId
+          ? (input.businessProfitSeasons ?? input.businessProfitPools)
+          : input.businessProfitPools,
     },
     tenant: {
       findUnique: async () => tenantState,
@@ -111,6 +117,20 @@ function createMigrationStatePrismaStub(input: {
         return query
       },
     },
+    tenantBusinessPolicy: {
+      findUnique: async () =>
+        input.historicalProfitMigrationMode
+          ? {
+              historicalProfitMigrationMode:
+                input.historicalProfitMigrationMode,
+            }
+          : null,
+      upsert: async (query: unknown) => {
+        tenantBusinessPolicyUpserts.push(query)
+        return query
+      },
+    },
+    tenantBusinessPolicyUpserts,
     tenantUpdateCalls,
     tenantShareStructureVersion: {
       count: async () => input.shareCapitalPlans,
@@ -161,6 +181,7 @@ describe("tenant initial migration state query", () => {
       appliedBackfillMonths: 0,
       appliedBackfillMembers: 3,
       businessProfitPools: 1,
+      businessProfitSeasons: 1,
       chargeScheduleVersions: 2,
       legacyLoans: 3,
       memberProfiles: 12,
@@ -231,7 +252,7 @@ describe("tenant initial migration state query", () => {
     expect(reviewedNoLoans.snapshot.missingStepKeys).toEqual(["finalization"])
   })
 
-  test("does not require business profit pools before migration review", async () => {
+  test("requires business profit pools or explicit no-profit review before migration review", async () => {
     const missingReview = await getTenantInitialMigrationState(
       "tenant-1",
       createMigrationStatePrismaStub({
@@ -247,8 +268,10 @@ describe("tenant initial migration state query", () => {
       }) as never
     )
 
-    expect(missingReview.snapshot.status).toBe("migration_review")
-    expect(missingReview.snapshot.missingStepKeys).toEqual(["finalization"])
+    expect(missingReview.snapshot.status).toBe("historical_setup_in_progress")
+    expect(missingReview.snapshot.missingStepKeys).toContain(
+      "business_profit_pools"
+    )
 
     const reviewedNoProfitPools = await getTenantInitialMigrationState(
       "tenant-1",
@@ -270,6 +293,27 @@ describe("tenant initial migration state query", () => {
     expect(reviewedNoProfitPools.snapshot.missingStepKeys).toEqual([
       "finalization",
     ])
+  })
+
+  test("requires business profit seasons before member migration", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 12,
+        appliedBackfillMembers: 12,
+        businessProfitPools: 2,
+        businessProfitSeasons: 1,
+        chargeScheduleVersions: 2,
+        initialMigrationStatus: null,
+        legacyLoans: 1,
+        memberProfiles: 12,
+        shareCapitalPlans: 1,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+      }) as never
+    )
+
+    expect(state.snapshot.status).toBe("historical_setup_in_progress")
+    expect(state.snapshot.missingStepKeys).toContain("business_profit_seasons")
   })
 
   test("uses applied month ledger members as migration review evidence", async () => {
@@ -585,6 +629,37 @@ describe("tenant initial migration state query", () => {
         tenantId: "tenant-1",
       },
     })
+    expect(prisma.tenantBusinessPolicyUpserts[0]).toMatchObject({
+      create: {
+        historicalProfitMigrationMode: "no_historical_business_profit",
+        tenantId: "tenant-1",
+      },
+      update: {
+        historicalProfitMigrationMode: "no_historical_business_profit",
+      },
+    })
+  })
+
+  test("treats no historical business profit policy as migration reviewed", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 0,
+        businessProfitPools: 0,
+        chargeScheduleVersions: 2,
+        historicalProfitMigrationMode: "no_historical_business_profit",
+        legacyLoans: 1,
+        memberProfiles: 12,
+        shareCapitalPlans: 1,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+      }) as never
+    )
+
+    const businessProfitStep = state.snapshot.steps.find(
+      (step) => step.key === "business_profit_pools"
+    )
+
+    expect(businessProfitStep?.complete).toBe(true)
   })
 
   test("blocks no-legacy-loans review marker after member backfill starts", async () => {

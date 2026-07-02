@@ -329,6 +329,8 @@ type ProfitMigrationOptionRow = {
   memberPublishedAllocationAmount: number
   profitAmount: number
   profitDate: string
+  seasonLabel?: string | null
+  seasonPeriodEnd?: string | null
   totalDisbursedAmount: number
 }
 
@@ -428,6 +430,14 @@ function BusinessProfitMigrationPanel({
                       Gross {formatCurrency(option.profitAmount)} · deduction{" "}
                       {formatCurrency(option.expenseAmount)}
                     </p>
+                    {option.seasonLabel ? (
+                      <p className="text-xs text-muted-foreground">
+                        {option.seasonLabel}
+                        {option.seasonPeriodEnd
+                          ? ` · ends ${option.seasonPeriodEnd}`
+                          : ""}
+                      </p>
+                    ) : null}
                   </DashboardTableCell>
                   <DashboardTableCell align="right">
                     {formatCurrency(option.allocatableProfitAmount)}
@@ -1087,6 +1097,8 @@ export function InitialMigrationPreview({
       (stepKey) =>
         stepKey === "finance_start_date" ||
         stepKey === "charge_schedules" ||
+        stepKey === "business_profit_pools" ||
+        stepKey === "business_profit_seasons" ||
         stepKey === "share_capital_plan" ||
         stepKey === "legacy_loans" ||
         stepKey === "member_profiles"

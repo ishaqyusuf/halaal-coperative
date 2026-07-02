@@ -70,6 +70,12 @@ export async function listMigrationProfitAdjustmentOptions(
   const entries = await prisma.shareBusinessProfitEntry.findMany({
     include: {
       allocations: true,
+      linkedDividendPeriod: {
+        select: {
+          name: true,
+          periodEnd: true,
+        },
+      },
       migrationProfitAdjustments: true,
       shareBusiness: {
         select: {
@@ -125,6 +131,8 @@ export async function listMigrationProfitAdjustmentOptions(
       memberAllocatedAmount: memberAdjustedAmount + memberPublishedAmount,
       memberMigrationAdjustmentAmount: memberAdjustedAmount,
       memberPublishedAllocationAmount: memberPublishedAmount,
+      seasonLabel: entry.linkedDividendPeriod?.name ?? null,
+      seasonPeriodEnd: entry.linkedDividendPeriod?.periodEnd ?? null,
       profitAmount: Number(entry.profitAmount),
       profitDate: entry.profitDate,
       totalDisbursedAmount: totalAdjusted + totalAllocated,

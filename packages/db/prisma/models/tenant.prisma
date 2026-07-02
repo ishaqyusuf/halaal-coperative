@@ -21,6 +21,7 @@ model Tenant {
   updatedAt                          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   policies                        TenantPolicy?
+  businessPolicy                  TenantBusinessPolicy?
   domains                         TenantDomain[]
   users                           User[]
   memberships                     Membership[]
@@ -91,4 +92,23 @@ model TenantPolicy {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_policies")
+}
+
+model TenantBusinessPolicy {
+  id                                  String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                            String                              @unique @map("tenant_id") @db.Uuid
+  profitDistributionFrequency         BusinessProfitDistributionFrequency @default(annual) @map("profit_distribution_frequency")
+  financialYearStartMonth             Int                                 @default(1) @map("financial_year_start_month")
+  distributionBasis                   BusinessProfitDistributionBasis      @default(share_capital_balance) @map("distribution_basis")
+  defaultDistributablePercentage      Decimal                             @default(100) @map("default_distributable_percentage") @db.Decimal(5, 2)
+  reserveRetentionPercentage          Decimal                             @default(0) @map("reserve_retention_percentage") @db.Decimal(5, 2)
+  requiresProfitDistributionApproval  Boolean                             @default(true) @map("requires_profit_distribution_approval")
+  expenseTreatment                    BusinessProfitExpenseTreatment       @default(deduct_reviewed_expenses_before_distribution) @map("expense_treatment")
+  historicalProfitMigrationMode       HistoricalProfitMigrationMode        @default(manual_review_required) @map("historical_profit_migration_mode")
+  createdAt                           DateTime                            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                           DateTime                            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_business_policies")
 }

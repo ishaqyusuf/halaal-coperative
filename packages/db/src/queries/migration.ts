@@ -101,12 +101,14 @@ export async function getTenantInitialMigrationState(
     tenant,
     chargeScheduleVersions,
     businessProfitPools,
+    reviewedBusinessProfitEntries,
     shareCapitalPlans,
     memberProfiles,
     liveLegacyLoans,
     legacyLoanMigrationDrafts,
     legacyLoanReviewMarkers,
     businessProfitReviewMarkers,
+    businessProfitPolicy,
     appliedBackfillBatches,
     appliedBackfillBatchMembers,
     appliedBackfillMonths,
@@ -126,6 +128,14 @@ export async function getTenantInitialMigrationState(
     }),
     prisma.shareBusinessProfitEntry.count({
       where: { tenantId },
+    }),
+    prisma.shareBusinessProfitEntry.count({
+      where: {
+        tenantId,
+        linkedDividendPeriodId: {
+          not: null,
+        },
+      },
     }),
     prisma.tenantShareStructureVersion.count({
       where: { tenantId },
@@ -163,6 +173,14 @@ export async function getTenantInitialMigrationState(
           },
         })
       : 0,
+    typeof prisma.tenantBusinessPolicy?.findUnique === "function"
+      ? prisma.tenantBusinessPolicy.findUnique({
+          select: {
+            historicalProfitMigrationMode: true,
+          },
+          where: { tenantId },
+        })
+      : null,
     prisma.backfillBatch.count({
       where: {
         tenantId,
@@ -191,8 +209,15 @@ export async function getTenantInitialMigrationState(
 
   const hasFinanceStartDate = Boolean(tenant?.startDate)
   const hasChargeSchedules = chargeScheduleVersions > 0
+  const hasNoHistoricalBusinessProfits =
+    businessProfitReviewMarkers > 0 ||
+    businessProfitPolicy?.historicalProfitMigrationMode ===
+      "no_historical_business_profit"
   const hasBusinessProfitPools =
-    businessProfitPools > 0 || businessProfitReviewMarkers > 0
+    businessProfitPools > 0 || hasNoHistoricalBusinessProfits
+  const hasBusinessProfitSeasons =
+    businessProfitPools === 0 ||
+    reviewedBusinessProfitEntries >= businessProfitPools
   const hasShareCapitalPlan = shareCapitalPlans > 0
   const memberProfileCount = memberProfiles.length
   const hasMemberProfiles = memberProfileCount > 0
@@ -238,6 +263,8 @@ export async function getTenantInitialMigrationState(
   const historicalSetupComplete =
     hasFinanceStartDate &&
     hasChargeSchedules &&
+    hasBusinessProfitPools &&
+    hasBusinessProfitSeasons &&
     hasShareCapitalPlan &&
     hasLegacyLoansReviewed
   const derivedStatus: InitialMigrationStatus = !hasFinanceStartDate
@@ -267,6 +294,7 @@ export async function getTenantInitialMigrationState(
       appliedBackfillMonths: appliedBackfillMonths.length,
       appliedBackfillMembers,
       businessProfitPools,
+      businessProfitSeasons: reviewedBusinessProfitEntries,
       chargeScheduleVersions,
       legacyLoans,
       memberProfiles: memberProfileCount,
@@ -275,6 +303,7 @@ export async function getTenantInitialMigrationState(
     snapshot: buildInitialMigrationSnapshot({
       emergencyUnlockActive,
       hasBusinessProfitPools,
+      hasBusinessProfitSeasons,
       hasChargeSchedules,
       hasFinalizationConfirmed,
       hasFinanceStartDate,
@@ -419,6 +448,19 @@ export async function markTenantBusinessProfitPoolsReviewed(
     throw new Error(
       "Business profit pool review is locked because member ledger backfill has already started."
     )
+  }
+
+  if (typeof prisma.tenantBusinessPolicy?.upsert === "function") {
+    await prisma.tenantBusinessPolicy.upsert({
+      create: {
+        historicalProfitMigrationMode: "no_historical_business_profit",
+        tenantId: input.tenantId,
+      },
+      update: {
+        historicalProfitMigrationMode: "no_historical_business_profit",
+      },
+      where: { tenantId: input.tenantId },
+    })
   }
 
   await createAuditLogEntry(

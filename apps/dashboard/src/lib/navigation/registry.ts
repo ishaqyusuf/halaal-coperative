@@ -83,6 +83,14 @@ export const dashboardNavRegistry: NavModule[] = [
         .title("Repayments")
         .data,
     ]),
+    createNavSection("business", "Business", [
+      createNavLink("Business", FinanceIcon, "/business", [], [
+        role.in(...financeRoles),
+      ])
+        .childPaths("/business")
+        .title("Business")
+        .data,
+    ]),
   ]),
   createNavModule("Experience", ExperienceIcon, "Routing and publishing", [
     createNavSection("workspace", "Workspace", [

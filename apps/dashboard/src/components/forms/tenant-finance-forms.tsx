@@ -7,6 +7,7 @@ import { ArrowUpDownIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   CurrencyInput,
   CurrencyPrefixInput,
@@ -37,6 +38,7 @@ import { DatePickerInput } from "@/components/date-picker-input"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { QuickFill } from "@/components/quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
+import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
 import {
   createChargeDefinitionAction,
   createChargeDefinitionVersionAction,
@@ -46,6 +48,7 @@ import {
   generateShareProfitAllocationsAction,
   publishShareProfitAllocationsAction,
   updateTenantFinanceStartDateAction,
+  updateTenantBusinessProfitPolicyAction,
 } from "@/lib/dashboard-actions"
 
 function CurrencyFormInput({
@@ -212,6 +215,321 @@ export function FinanceStartDateForm({
         />
         <Button disabled={isPending} type="submit" className="rounded-full">
           Save date
+        </Button>
+      </form>
+    </Form>
+  )
+}
+
+const businessProfitPolicySchema = z
+  .object({
+    defaultDistributablePercentage: z
+      .string()
+      .min(1, "Distributable percentage is required."),
+    distributionBasis: z.enum(["share_capital_balance"]),
+    expenseTreatment: z.enum(["deduct_reviewed_expenses_before_distribution"]),
+    financialYearStartMonth: z
+      .string()
+      .min(1, "Financial year start month is required."),
+    historicalProfitMigrationMode: z.enum([
+      "manual_review_required",
+      "import_historical_profit_pools",
+      "no_historical_business_profit",
+    ]),
+    profitDistributionFrequency: z.enum([
+      "annual",
+      "semi_annual",
+      "quarterly",
+      "ad_hoc",
+    ]),
+    requiresProfitDistributionApproval: z.boolean().default(true),
+    reserveRetentionPercentage: z
+      .string()
+      .min(1, "Reserve retention is required."),
+  })
+  .superRefine((values, ctx) => {
+    const financialYearStartMonth = Number(values.financialYearStartMonth)
+    const distributable = Number(values.defaultDistributablePercentage)
+    const reserve = Number(values.reserveRetentionPercentage)
+
+    if (
+      !Number.isInteger(financialYearStartMonth) ||
+      financialYearStartMonth < 1 ||
+      financialYearStartMonth > 12
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Financial year start month must be between 1 and 12.",
+        path: ["financialYearStartMonth"],
+      })
+    }
+
+    if (
+      !Number.isFinite(distributable) ||
+      distributable < 0 ||
+      distributable > 100
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Distributable percentage must be between 0 and 100.",
+        path: ["defaultDistributablePercentage"],
+      })
+    }
+
+    if (!Number.isFinite(reserve) || reserve < 0 || reserve > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Reserve retention must be between 0 and 100.",
+        path: ["reserveRetentionPercentage"],
+      })
+    }
+
+    if (
+      Number.isFinite(distributable) &&
+      Number.isFinite(reserve) &&
+      distributable + reserve > 100
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Distributable plus reserve cannot exceed 100.",
+        path: ["reserveRetentionPercentage"],
+      })
+    }
+  })
+
+type BusinessProfitPolicyValues = z.infer<typeof businessProfitPolicySchema>
+
+const distributionFrequencyOptions = [
+  { label: "Annual", value: "annual" },
+  { label: "Semi-annual", value: "semi_annual" },
+  { label: "Quarterly", value: "quarterly" },
+  { label: "Ad hoc", value: "ad_hoc" },
+]
+
+const financialYearStartMonthOptions = [
+  { label: "January", value: "1" },
+  { label: "February", value: "2" },
+  { label: "March", value: "3" },
+  { label: "April", value: "4" },
+  { label: "May", value: "5" },
+  { label: "June", value: "6" },
+  { label: "July", value: "7" },
+  { label: "August", value: "8" },
+  { label: "September", value: "9" },
+  { label: "October", value: "10" },
+  { label: "November", value: "11" },
+  { label: "December", value: "12" },
+]
+
+const distributionBasisOptions = [
+  { label: "Share capital balance", value: "share_capital_balance" },
+]
+
+const expenseTreatmentOptions = [
+  {
+    label: "Deduct reviewed expenses before distribution",
+    value: "deduct_reviewed_expenses_before_distribution",
+  },
+]
+
+const historicalProfitMigrationModeOptions = [
+  { label: "Manual review required", value: "manual_review_required" },
+  {
+    label: "Import historical profit pools",
+    value: "import_historical_profit_pools",
+  },
+  {
+    label: "No historical business profit",
+    value: "no_historical_business_profit",
+  },
+]
+
+export function BusinessProfitPolicyForm({
+  defaultPolicy,
+}: {
+  defaultPolicy: TenantBusinessProfitPolicySettings
+}) {
+  const form = useZodForm<BusinessProfitPolicyValues>(
+    businessProfitPolicySchema,
+    {
+      defaultValues: {
+        defaultDistributablePercentage: String(
+          defaultPolicy.defaultDistributablePercentage
+        ),
+        distributionBasis: defaultPolicy.distributionBasis,
+        expenseTreatment: defaultPolicy.expenseTreatment,
+        financialYearStartMonth: String(defaultPolicy.financialYearStartMonth),
+        historicalProfitMigrationMode:
+          defaultPolicy.historicalProfitMigrationMode,
+        profitDistributionFrequency: defaultPolicy.profitDistributionFrequency,
+        requiresProfitDistributionApproval:
+          defaultPolicy.requiresProfitDistributionApproval,
+        reserveRetentionPercentage: String(
+          defaultPolicy.reserveRetentionPercentage
+        ),
+      },
+    }
+  )
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+
+  function onSubmit(values: BusinessProfitPolicyValues) {
+    startTransition(async () => {
+      try {
+        await updateTenantBusinessProfitPolicyAction(objectToFormData(values))
+        showSuccess("Policy saved", "Business profit policy updated.")
+      } catch (error) {
+        showError(
+          "Could not save policy",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="profitDistributionFrequency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Distribution frequency</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={distributionFrequencyOptions}
+                    value={field.value}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="financialYearStartMonth"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Financial year starts</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={financialYearStartMonthOptions}
+                    value={field.value}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="defaultDistributablePercentage"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Distributable</FormLabel>
+                <FormControl>
+                  <PercentageFormInput {...field} placeholder="100" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="reserveRetentionPercentage"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Reserve retention</FormLabel>
+                <FormControl>
+                  <PercentageFormInput {...field} placeholder="0" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="distributionBasis"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Distribution basis</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={distributionBasisOptions}
+                    value={field.value}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="expenseTreatment"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Expense treatment</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={expenseTreatmentOptions}
+                    value={field.value}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="historicalProfitMigrationMode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Historical profit mode</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={historicalProfitMigrationModeOptions}
+                    value={field.value}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="requiresProfitDistributionApproval"
+            render={({ field }) => (
+              <FormItem className="flex items-center gap-3 rounded-md border px-3 py-2">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel>Require approval before publishing</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <Button
+          className="self-start rounded-full"
+          disabled={isPending}
+          type="submit"
+        >
+          Save policy
         </Button>
       </form>
     </Form>
@@ -1268,12 +1586,14 @@ export function ShareBusinessForm({
   financeStartDate,
   onSuccess,
   profitHistoryMode = false,
+  sourceType = "manual",
   stayOnStepHref,
 }: {
   dividendPeriods: Array<{ id: string; label: string }>
   financeStartDate?: string | null
   onSuccess?: () => void
   profitHistoryMode?: boolean
+  sourceType?: "manual" | "backfill" | "import"
   stayOnStepHref?: string
 }) {
   const router = useRouter()
@@ -1474,8 +1794,9 @@ export function ShareBusinessForm({
                         0
                       )
                       .toString() ?? "0",
+                  sourceType,
                 }
-              : values
+              : { ...values, sourceType }
           )
         )
         showSuccess(

@@ -135,6 +135,8 @@ describe("migration profit adjustments", () => {
         memberPublishedAllocationAmount: 0,
         profitAmount: 100000,
         profitDate: new Date("2025-04-30T00:00:00.000Z"),
+        seasonLabel: null,
+        seasonPeriodEnd: null,
         totalDisbursedAmount: 14000,
       },
     ])

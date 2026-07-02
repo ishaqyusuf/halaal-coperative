@@ -56,6 +56,27 @@ enum ShareProfitAllocationStatus {
   cancelled
 }
 
+enum BusinessProfitDistributionFrequency {
+  annual
+  semi_annual
+  quarterly
+  ad_hoc
+}
+
+enum BusinessProfitDistributionBasis {
+  share_capital_balance
+}
+
+enum BusinessProfitExpenseTreatment {
+  deduct_reviewed_expenses_before_distribution
+}
+
+enum HistoricalProfitMigrationMode {
+  manual_review_required
+  import_historical_profit_pools
+  no_historical_business_profit
+}
+
 enum OfflineSyncStatus {
   pending
   processing

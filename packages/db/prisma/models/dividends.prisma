@@ -5,6 +5,8 @@ model DividendPeriod {
   periodStart           DateTime             @map("period_start") @db.Timestamptz(6)
   periodEnd             DateTime             @map("period_end") @db.Timestamptz(6)
   totalProfitAmount     Decimal              @map("total_profit_amount") @db.Decimal(18, 2)
+  deductionAmount       Decimal              @default(0) @map("deduction_amount") @db.Decimal(18, 2)
+  deductionReason       String?              @map("deduction_reason")
   distributableAmount   Decimal              @map("distributable_amount") @db.Decimal(18, 2)
   status                DividendPeriodStatus @default(draft)
   publishedAt           DateTime?            @map("published_at") @db.Timestamptz(6)

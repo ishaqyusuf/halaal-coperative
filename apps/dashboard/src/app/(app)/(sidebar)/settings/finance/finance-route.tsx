@@ -18,6 +18,14 @@ import { TenantFinancePageView } from "@/components/tenant-finance-page-view"
 import type { TenantFinanceSection } from "@/components/tenant-finance-page-view"
 import { getDashboardServerContext } from "@/lib/server-context"
 
+function toDateString(value: Date | string | null | undefined) {
+  if (!value) return null
+
+  return value instanceof Date
+    ? value.toISOString().slice(0, 10)
+    : value.slice(0, 10)
+}
+
 const demoShareVersions = [
   {
     id: "share-1",
@@ -250,6 +258,8 @@ export async function FinanceSettingsRoute({
         [
           "finance_start_date",
           "charge_schedules",
+          "business_profit_pools",
+          "business_profit_seasons",
           "share_capital_plan",
           "member_profiles",
         ].includes(stepKey)
@@ -425,6 +435,7 @@ export async function FinanceSettingsRoute({
         profitMigrationOptions={profitMigrationOptions.map((option: any) => ({
           ...option,
           profitDate: option.profitDate.toISOString().slice(0, 10),
+          seasonPeriodEnd: toDateString(option.seasonPeriodEnd),
         }))}
         selectedMigrationMemberId={previewMember?.id ?? null}
         selectedMigrationMemberLabel={

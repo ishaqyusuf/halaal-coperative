@@ -52,6 +52,8 @@ type ProfitMigrationOption = {
   id: string
   memberMigrationAdjustmentAmount: number
   profitDate: string
+  seasonLabel?: string | null
+  seasonPeriodEnd?: string | null
 }
 
 const memberBackfillLoanHistoryFormId = "member-backfill-loan-history-form"
@@ -408,6 +410,14 @@ function ProfitStep({ data }: { data: MemberBackfillData }) {
                   {formatDate(option.profitDate)} available{" "}
                   {formatCurrency(option.editableAvailableAmount)}
                 </p>
+                {option.seasonLabel ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {option.seasonLabel}
+                    {option.seasonPeriodEnd
+                      ? ` · ends ${formatDate(option.seasonPeriodEnd)}`
+                      : ""}
+                  </p>
+                ) : null}
                 {option.memberMigrationAdjustmentAmount > 0 ? (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Current member adjustment{" "}

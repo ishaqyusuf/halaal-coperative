@@ -35,6 +35,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/dashboard/src/app/auth/login/route.ts`: scoped tenant sign-in endpoint that sets the session token and user-id cookies for the current tenant or platform host.
 - `apps/dashboard/src/app/auth/logout/route.ts`: scoped dashboard sign-out endpoint that clears both session and user-id cookies before returning to `/login`.
 - `apps/dashboard/src/app/(app)/(sidebar)/members/page.tsx`: Midday-style members list route using the invoice/customers page anatomy of summary strip, compact toolbar, and direct table surface.
+- `apps/dashboard/src/app/(app)/(sidebar)/business/page.tsx`: operational business-profit workspace with summary metrics, search/action controls, and the business/profit table moved out of finance settings.
 - `apps/dashboard/src/app/(app)/(sidebar)/member-signup-links/page.tsx`: dedicated staff workspace for member-signup access mode, link generation, lifecycle controls, and per-link analytics.
 - `apps/dashboard/src/app/(app)/(sidebar)/members/[memberId]/page.tsx`: member-level dashboard statement view for commitment history, savings activity, loans, schedules, repayments, and multi-document KYC review.
 - `apps/dashboard/src/app/(app)/(sidebar)/loans/page.tsx`: loan request, review, approval, and disbursement workspace inside the shared dashboard shell.

@@ -47,6 +47,7 @@ import {
   refreshCollectionsStatuses,
   recordMemberPayment,
   saveBusinessProfitMigrationWorksheet,
+  saveBusinessProfitSeasonReviews,
   upsertMigrationProfitAdjustment,
   recordContribution,
   reverseChargeApplication,
@@ -56,6 +57,7 @@ import {
   setTenantDomainPrimary,
   updateTenantDomainVerificationStatus,
   updateTenantShareStructureVersion,
+  updateTenantBusinessProfitPolicy,
   updateShareBusinessProfitEntry,
   setMemberContributionPlan,
   setMemberSignupLinkEnabled,
@@ -338,6 +340,58 @@ async function requireHistoricalFinanceSetupMutable(
   return migrationState
 }
 
+type BusinessProfitActionSourceType = "manual" | "backfill" | "import"
+
+function isHistoricalBusinessProfitActionSource(
+  sourceType: BusinessProfitActionSourceType | string | null | undefined
+) {
+  return sourceType === "backfill" || sourceType === "import"
+}
+
+async function requireBusinessProfitOperationOpen(
+  actor: Awaited<ReturnType<typeof requireDashboardActor>>,
+  sourceType: BusinessProfitActionSourceType | string | null = "manual"
+) {
+  const migrationState = await getTenantInitialMigrationState(actor.tenant.id)
+
+  if (isHistoricalBusinessProfitActionSource(sourceType)) {
+    if (!migrationState.snapshot.canUseMigrationTools) {
+      throw new Error(
+        "Historical business profit migration records are locked because initial migration is finalized."
+      )
+    }
+
+    if (hasAppliedInitialMigrationBackfill(migrationState)) {
+      throw new Error(
+        "Historical business profit migration records are locked because member ledger backfill has already started."
+      )
+    }
+
+    return migrationState
+  }
+
+  if (
+    migrationState.snapshot.canUseLiveFinancialWrites ||
+    migrationState.snapshot.status === "finalized"
+  ) {
+    return migrationState
+  }
+
+  if (!migrationState.snapshot.canUseMigrationTools) {
+    throw new Error(
+      "Business profit records are locked until live operations are available."
+    )
+  }
+
+  if (hasAppliedInitialMigrationBackfill(migrationState)) {
+    throw new Error(
+      "Business profit records are locked because member ledger backfill has already started. Finish migration or create live business records after go-live."
+    )
+  }
+
+  return migrationState
+}
+
 async function requireImportWindowOpen(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>
 ) {
@@ -507,6 +561,7 @@ async function requireMemberBackfillPrerequisitesComplete(
       stepKey === "finance_start_date" ||
       stepKey === "charge_schedules" ||
       stepKey === "business_profit_pools" ||
+      stepKey === "business_profit_seasons" ||
       stepKey === "share_capital_plan" ||
       stepKey === "legacy_loans" ||
       stepKey === "member_profiles"
@@ -1788,6 +1843,49 @@ export async function updateChargeDefinitionVersionAction(formData: FormData) {
   revalidatePath("/getting-started")
 }
 
+export async function updateTenantBusinessProfitPolicyAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await updateTenantBusinessProfitPolicy({
+    actorUserId: actor.user.id,
+    defaultDistributablePercentage: Number(
+      getRequiredString(formData, "defaultDistributablePercentage")
+    ),
+    distributionBasis: getRequiredString(formData, "distributionBasis") as
+      | "share_capital_balance",
+    expenseTreatment: getRequiredString(formData, "expenseTreatment") as
+      | "deduct_reviewed_expenses_before_distribution",
+    financialYearStartMonth: Number(
+      getRequiredString(formData, "financialYearStartMonth")
+    ),
+    historicalProfitMigrationMode: getRequiredString(
+      formData,
+      "historicalProfitMigrationMode"
+    ) as
+      | "manual_review_required"
+      | "import_historical_profit_pools"
+      | "no_historical_business_profit",
+    profitDistributionFrequency: getRequiredString(
+      formData,
+      "profitDistributionFrequency"
+    ) as "annual" | "semi_annual" | "quarterly" | "ad_hoc",
+    requiresProfitDistributionApproval: getOptionalBoolean(
+      formData,
+      "requiresProfitDistributionApproval"
+    ),
+    reserveRetentionPercentage: Number(
+      getRequiredString(formData, "reserveRetentionPercentage")
+    ),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/business")
+  revalidatePath("/getting-started")
+}
+
 type ShareBusinessProfitHistoryRow = {
   deductionAmount: string
   profitAmount: string
@@ -1856,7 +1954,12 @@ function parseBusinessProfitHistoryAmount(value: string, label: string) {
 
 export async function createShareBusinessAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
-  await requireHistoricalFinanceSetupMutable(actor)
+  const sourceType =
+    ((formData.get("sourceType") as string | null)?.trim() || "manual") as
+      | "manual"
+      | "backfill"
+      | "import"
+  await requireBusinessProfitOperationOpen(actor, sourceType)
   const endDate = (formData.get("endDate") as string | null)?.trim()
   const startDate = getRequiredString(formData, "startDate")
   const profitHistoryRows = getShareBusinessProfitHistoryRows(formData)
@@ -1922,6 +2025,7 @@ export async function createShareBusinessAction(formData: FormData) {
         : legacyProfitAmount,
     profitEntries: profitEntries.length > 0 ? profitEntries : undefined,
     startDate: new Date(`${startDate}T00:00:00.000Z`),
+    sourceType,
     status: getRequiredString(formData, "status") as
       | "planned"
       | "active"
@@ -1931,12 +2035,14 @@ export async function createShareBusinessAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/business")
+  revalidatePath("/business")
   revalidatePath("/getting-started")
 }
 
 export async function updateShareBusinessAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
-  await requireHistoricalFinanceSetupMutable(actor)
+  await requireBusinessProfitOperationOpen(actor)
   const endDate = (formData.get("endDate") as string | null)?.trim()
   const startDate = getRequiredString(formData, "startDate")
 
@@ -1944,6 +2050,7 @@ export async function updateShareBusinessAction(formData: FormData) {
   requireDateOnOrAfterTenantStartDate(actor, endDate, "End date")
 
   await updateShareBusiness({
+    actorUserId: actor.user.id,
     capitalAmount: Number(getRequiredString(formData, "capitalAmount")),
     endDate: endDate ? new Date(`${endDate}T00:00:00.000Z`) : null,
     linkedDividendPeriodId:
@@ -1962,12 +2069,18 @@ export async function updateShareBusinessAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/business")
+  revalidatePath("/business")
   revalidatePath("/getting-started")
 }
 
 export async function createShareBusinessProfitEntryAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
-  await requireHistoricalFinanceSetupMutable(actor)
+  const sourceType = getRequiredString(formData, "sourceType") as
+    | "manual"
+    | "backfill"
+    | "import"
+  await requireBusinessProfitOperationOpen(actor, sourceType)
   const profitDate = getRequiredString(formData, "profitDate")
 
   requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
@@ -1986,10 +2099,7 @@ export async function createShareBusinessProfitEntryAction(formData: FormData) {
     profitDate: new Date(`${profitDate}T00:00:00.000Z`),
     reason: (formData.get("reason") as string | null)?.trim() || undefined,
     shareBusinessId: getRequiredString(formData, "shareBusinessId"),
-    sourceType: getRequiredString(formData, "sourceType") as
-      | "manual"
-      | "backfill"
-      | "import",
+    sourceType,
     status: getRequiredString(formData, "status") as
       | "draft"
       | "reviewed"
@@ -1999,17 +2109,24 @@ export async function createShareBusinessProfitEntryAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/business")
+  revalidatePath("/business")
   revalidatePath("/getting-started")
 }
 
 export async function updateShareBusinessProfitEntryAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
-  await requireHistoricalFinanceSetupMutable(actor)
+  const sourceType = getRequiredString(formData, "sourceType") as
+    | "manual"
+    | "backfill"
+    | "import"
+  await requireBusinessProfitOperationOpen(actor, sourceType)
   const profitDate = getRequiredString(formData, "profitDate")
 
   requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
 
   await updateShareBusinessProfitEntry({
+    actorUserId: actor.user.id,
     allocatableProfitAmount: Number(
       getRequiredString(formData, "allocatableProfitAmount")
     ),
@@ -2021,10 +2138,7 @@ export async function updateShareBusinessProfitEntryAction(formData: FormData) {
     profitDate: new Date(`${profitDate}T00:00:00.000Z`),
     profitEntryId: getRequiredString(formData, "profitEntryId"),
     reason: (formData.get("reason") as string | null)?.trim() || undefined,
-    sourceType: getRequiredString(formData, "sourceType") as
-      | "manual"
-      | "backfill"
-      | "import",
+    sourceType,
     status: getRequiredString(formData, "status") as
       | "draft"
       | "reviewed"
@@ -2034,32 +2148,40 @@ export async function updateShareBusinessProfitEntryAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/business")
+  revalidatePath("/business")
   revalidatePath("/getting-started")
 }
 
 export async function generateShareProfitAllocationsAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
-  await requireHistoricalFinanceSetupMutable(actor)
+  await requireBusinessProfitOperationOpen(actor)
 
   await generateShareProfitAllocations({
+    actorUserId: actor.user.id,
     profitEntryId: getRequiredString(formData, "profitEntryId"),
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/business")
+  revalidatePath("/business")
 }
 
 export async function publishShareProfitAllocationsAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
-  await requireHistoricalFinanceSetupMutable(actor)
+  await requireBusinessProfitOperationOpen(actor)
   const profitEntryId = getRequiredString(formData, "profitEntryId")
 
   await publishShareProfitAllocations({
+    actorUserId: actor.user.id,
     profitEntryId,
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/business")
+  revalidatePath("/business")
   revalidatePath(
     `/settings/finance/business/profits/${profitEntryId}/migration`
   )
@@ -2129,6 +2251,36 @@ export async function saveBusinessProfitMigrationWorksheetAction(
     `/settings/finance/business/profits/${profitEntryId}/migration`
   )
   revalidatePath("/settings/finance/business")
+}
+
+export async function saveBusinessProfitSeasonReviewAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireHistoricalFinanceSetupMutable(actor)
+  const seasonKeys = getAllTrimmedStrings(formData, "seasonKey").filter(Boolean)
+
+  await saveBusinessProfitSeasonReviews({
+    actorUserId: actor.user.id,
+    seasons: seasonKeys.map((key) => ({
+      deductionAmount:
+        getOptionalNumber(formData, `deductionAmount-${key}`) ?? 0,
+      deductionReason:
+        (formData.get(`deductionReason-${key}`) as string | null)?.trim() ||
+        null,
+      key,
+    })),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/getting-started")
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/business")
+  revalidatePath("/business")
+
+  return {
+    redirectTo:
+      (formData.get("redirectTo") as string | null)?.trim() ||
+      "/getting-started?step=admin-member",
+  }
 }
 
 export async function updateChargeDefinitionAction(formData: FormData) {
@@ -3900,6 +4052,7 @@ const dashboardActionHandlers = {
   updateTenantShareStructureVersionAction,
   createChargeDefinitionVersionAction,
   updateChargeDefinitionVersionAction,
+  updateTenantBusinessProfitPolicyAction,
   createShareBusinessAction,
   updateShareBusinessAction,
   createShareBusinessProfitEntryAction,
@@ -3907,6 +4060,7 @@ const dashboardActionHandlers = {
   generateShareProfitAllocationsAction,
   publishShareProfitAllocationsAction,
   saveBusinessProfitMigrationWorksheetAction,
+  saveBusinessProfitSeasonReviewAction,
   updateChargeDefinitionAction,
   applyChargeAction,
   waiveChargeApplicationAction,
@@ -3995,6 +4149,7 @@ export const dashboardActionsRouter = createTRPCRouter({
   updateTenantShareStructureVersionAction: formAction(dashboardActionHandlers.updateTenantShareStructureVersionAction),
   createChargeDefinitionVersionAction: formAction(dashboardActionHandlers.createChargeDefinitionVersionAction),
   updateChargeDefinitionVersionAction: formAction(dashboardActionHandlers.updateChargeDefinitionVersionAction),
+  updateTenantBusinessProfitPolicyAction: formAction(dashboardActionHandlers.updateTenantBusinessProfitPolicyAction),
   createShareBusinessAction: formAction(dashboardActionHandlers.createShareBusinessAction),
   updateShareBusinessAction: formAction(dashboardActionHandlers.updateShareBusinessAction),
   createShareBusinessProfitEntryAction: formAction(dashboardActionHandlers.createShareBusinessProfitEntryAction),
@@ -4002,6 +4157,7 @@ export const dashboardActionsRouter = createTRPCRouter({
   generateShareProfitAllocationsAction: formAction(dashboardActionHandlers.generateShareProfitAllocationsAction),
   publishShareProfitAllocationsAction: formAction(dashboardActionHandlers.publishShareProfitAllocationsAction),
   saveBusinessProfitMigrationWorksheetAction: formAction(dashboardActionHandlers.saveBusinessProfitMigrationWorksheetAction),
+  saveBusinessProfitSeasonReviewAction: formAction(dashboardActionHandlers.saveBusinessProfitSeasonReviewAction),
   updateChargeDefinitionAction: formAction(dashboardActionHandlers.updateChargeDefinitionAction),
   applyChargeAction: formAction(dashboardActionHandlers.applyChargeAction),
   waiveChargeApplicationAction: formAction(dashboardActionHandlers.waiveChargeApplicationAction),

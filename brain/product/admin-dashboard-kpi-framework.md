@@ -94,6 +94,7 @@
 - Profit pending allocation.
 - Dividend/profit distribution status.
 - Business income and expense position when tenant share-business data exists.
+- Link business-profit action counts to `/business`.
 
 ### Recent Activity
 - Use one combined activity feed instead of separate card lists for each entity.
@@ -131,4 +132,3 @@
 - Link every action count to the workspace that resolves it.
 - Show setup/bootstrap only as a warning band when incomplete.
 - Keep copy operational and specific, not marketing-style.
-

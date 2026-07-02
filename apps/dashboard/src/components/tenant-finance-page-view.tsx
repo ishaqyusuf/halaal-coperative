@@ -70,6 +70,8 @@ type ProfitMigrationOptionRow = {
   memberPublishedAllocationAmount: number
   profitAmount: number
   profitDate: string
+  seasonLabel?: string | null
+  seasonPeriodEnd?: string | null
   totalDisbursedAmount: number
 }
 
@@ -871,6 +873,7 @@ export function TenantFinancePageView({
                             <ShareBusinessForm
                               dividendPeriods={dividendPeriodOptions}
                               financeStartDate={tenantStartDate}
+                              sourceType="backfill"
                             />
                           )}
                         </div>

@@ -145,3 +145,27 @@ This file records completed work and important outcomes.
 - Intake File: brain/intake/2026-06-27-halaalvest-product-and-onboarding.md
 - Created Date: 2026-06-27
 - Completed Date: 2026-06-27
+
+### Business Profit Policy Settings
+
+- Priority: High
+- Description: Added tenant business profit policy storage, settings form, audit-backed update action, and migration readiness support for explicit no-historical-profit mode.
+- Related Feature: Business profit policy
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-07-02-feature-business-profit-policy-settings.md
+- Intake File: brain/intake/2026-07-02-business-profit-and-policy-workspaces.md
+- Created Date: 2026-07-02
+- Completed Date: 2026-07-02
+
+### Business Profit Operations Workspace
+
+- Priority: High
+- Description: Added `/business` as the operational business profit workspace with Finance sidebar navigation, members-style summary/header/table structure, and moved the business registry table out of settings.
+- Related Feature: Business profit operations
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-07-02-feature-business-profit-operations-workspace.md
+- Intake File: brain/intake/2026-07-02-business-profit-and-policy-workspaces.md
+- Created Date: 2026-07-02
+- Completed Date: 2026-07-02

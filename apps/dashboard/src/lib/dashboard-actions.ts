@@ -225,6 +225,15 @@ export async function updateChargeDefinitionVersionAction(formData: FormData) {
   )
 }
 
+export async function updateTenantBusinessProfitPolicyAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "updateTenantBusinessProfitPolicyAction",
+    formData
+  )
+}
+
 export async function createShareBusinessAction(formData: FormData) {
   return callDashboardFormAction("createShareBusinessAction", formData)
 }
@@ -274,6 +283,17 @@ export async function saveBusinessProfitMigrationWorksheetAction(
     "saveBusinessProfitMigrationWorksheetAction",
     formData
   )
+}
+
+export async function saveBusinessProfitSeasonReviewAction(
+  formData: FormData
+) {
+  const result = await callDashboardFormAction(
+    "saveBusinessProfitSeasonReviewAction",
+    formData
+  )
+
+  redirect(result.redirectTo)
 }
 
 export async function updateChargeDefinitionAction(formData: FormData) {

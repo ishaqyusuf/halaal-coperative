@@ -33,12 +33,17 @@ This file documents the primary business feature set for the Amanah cooperative 
 - Quick loan term is 3 months.
 - Normal loan term is 18 months.
 - Cooperatives may distribute business profit as dividends to members.
+- Cooperatives may continue creating and operating business pools after initial migration; only historical migration inputs and published allocation history should lock.
+- Business profit should be attributed to configured profit-sharing periods, such as annual, semi-annual, quarterly, or ad-hoc seasons.
+- Historical business profit seasons must be reviewed before member migration consumes them; reviewed season deductions need an auditable reason and should reduce distributable profit before member allocation.
 
 ## Data Model Impact
 - Members need category and payment channel attributes.
 - Loan products need configurable terms and eligibility policies.
 - Charges need reusable definitions and applications.
 - Dividend periods and allocations need tenant-scoped records.
+- Business and profit records need a clear distinction between historical migration records, live operating records, draft allocation periods, and published allocations.
+- Dividend periods can carry reviewed season deduction metadata during initial migration so profit distribution remains auditable before publication.
 - Financial events should remain ledger-compatible and auditable.
 
 ## Permissions

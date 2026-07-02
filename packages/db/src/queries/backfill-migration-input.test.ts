@@ -125,6 +125,12 @@ function createBackfillInputPrismaStub() {
         },
       ],
     },
+    tenantBusinessPolicy: {
+      findUnique: async () => ({
+        financialYearStartMonth: 1,
+        profitDistributionFrequency: "annual",
+      }),
+    },
   }
 }
 
@@ -206,7 +212,7 @@ describe("member backfill input builder", () => {
       {
         amount: 5000,
         label: "Retail pool profit",
-        month: "2025-04",
+        month: "2025-12",
         profitEntryId: "profit-entry-1",
         sharePercentage: 5,
       },
@@ -246,7 +252,7 @@ describe("member backfill input builder", () => {
     expect(input.profitPeriods).toEqual([
       {
         distributableAmount: 80000,
-        month: "2025-04",
+        month: "2025-12",
         notes: "Board-approved distribution",
         totalProfitAmount: 100000,
       },

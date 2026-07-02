@@ -29,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@halaalvest/ui/components/card"
+import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import {
   Field,
   FieldDescription,
@@ -55,11 +56,13 @@ import {
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
+import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
 import {
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
 import {
+  BusinessProfitPolicyForm,
   ChargeDefinitionForm,
   ChargeDefinitionVersionForm,
   FinanceStartDateForm,
@@ -70,13 +73,16 @@ import { InitialMigrationPreview } from "@/components/initial-migration-preview"
 import {
   finalizeInitialMigrationAction,
   markBusinessProfitPoolsReviewedAction,
+  saveBusinessProfitSeasonReviewAction,
 } from "@/lib/dashboard-actions"
 
 type GettingStartedStepKey =
   | "start-date"
   | "charges"
   | "shares"
+  | "profit-policy"
   | "business"
+  | "profit-seasons"
   | "admin-member"
   | "review"
 
@@ -135,6 +141,22 @@ type ShareBusinessRow = {
 type DividendPeriodRow = {
   id: string
   label: string
+}
+
+type BusinessProfitSeasonRow = {
+  businessNames: string[]
+  deductionAmount: number
+  deductionReason?: string | null
+  distributableAmount: number
+  entryDeductionAmount: number
+  grossProfitAmount: number
+  id?: string | null
+  key: string
+  label: string
+  periodEnd: string
+  periodStart: string
+  profitEntryCount: number
+  status: "pending" | "draft" | "approved" | "published" | "closed"
 }
 
 type MemberOption = {
@@ -207,12 +229,16 @@ type ProfitMigrationOptionRow = {
   memberPublishedAllocationAmount: number
   profitAmount: number
   profitDate: string
+  seasonLabel?: string | null
+  seasonPeriodEnd?: string | null
   totalDisbursedAmount: number
 }
 
 type GettingStartedPageViewProps = {
   activeStep: GettingStartedStepKey
   adminMember: MemberSummary | null
+  businessPolicy: TenantBusinessProfitPolicySettings
+  businessProfitSeasons: BusinessProfitSeasonRow[]
   chargeDefinitions: ChargeDefinitionRow[]
   dividendPeriods: DividendPeriodRow[]
   generatedLedgerError?: string | null
@@ -237,7 +263,9 @@ const orderedStepKeys: GettingStartedStepKey[] = [
   "start-date",
   "charges",
   "shares",
+  "profit-policy",
   "business",
+  "profit-seasons",
   "admin-member",
   "review",
 ]
@@ -249,7 +277,7 @@ const stepGroups = [
   },
   {
     label: "Financial history",
-    steps: ["charges", "shares", "business"],
+    steps: ["charges", "shares", "profit-policy", "business", "profit-seasons"],
   },
   {
     label: "Member migration",
@@ -270,7 +298,11 @@ function isStepComplete(
   if (key === "start-date") return !missing.has("finance_start_date")
   if (key === "charges") return !missing.has("charge_schedules")
   if (key === "shares") return !missing.has("share_capital_plan")
-  if (key === "business") return true
+  if (key === "profit-policy") return true
+  if (key === "business") return !missing.has("business_profit_pools")
+  if (key === "profit-seasons") {
+    return !missing.has("business_profit_seasons")
+  }
   if (key === "admin-member") {
     return (
       !missing.has("member_profiles") &&
@@ -294,6 +326,11 @@ function getStepMeta(key: GettingStartedStepKey) {
         "Optionally record business pools, profits, expenses, and the explicit no-history decision when there are none.",
       label: "Business and profits (optional)",
     },
+    "profit-seasons": {
+      description:
+        "Review generated dividend seasons, confirm deductions, and prepare profit entries for member migration.",
+      label: "Dividend sharing review",
+    },
     charges: {
       description:
         "Set active cooperative charges and dated history before member backfill can be trusted.",
@@ -308,6 +345,11 @@ function getStepMeta(key: GettingStartedStepKey) {
       description:
         "Define the share capital system and every effective-date change that affects member ledgers.",
       label: "Shares and history",
+    },
+    "profit-policy": {
+      description:
+        "Set the dividend or profit-sharing season used before member migration and future allocations.",
+      label: "Profit-sharing season",
     },
     "start-date": {
       description:
@@ -502,12 +544,14 @@ function StepRail({
 }
 
 function StepFooter({
+  hideNext = false,
   nextHrefOverride,
   nextLabel = "Next",
   nextStep,
   previousStep,
   requireHistoryConfirmation = false,
 }: {
+  hideNext?: boolean
   nextHrefOverride?: string
   nextLabel?: string
   nextStep?: GettingStartedStepKey
@@ -515,7 +559,7 @@ function StepFooter({
   requireHistoryConfirmation?: boolean
 }) {
   const nextHref = nextHrefOverride ?? (nextStep ? stepHref(nextStep) : "")
-  const hasNext = Boolean(nextHref)
+  const hasNext = Boolean(nextHref) && !hideNext
 
   return (
     <div className="mt-6 flex flex-col gap-4">
@@ -724,6 +768,23 @@ function SharesStep({
   )
 }
 
+function ProfitPolicyStep({
+  businessPolicy,
+}: Pick<GettingStartedPageViewProps, "businessPolicy">) {
+  return (
+    <Card>
+      <SetupCardHeader
+        eyebrow="Step 4"
+        title="Profit-sharing season"
+        description="Set the distribution calendar that migration and future profit allocations use."
+      />
+      <CardContent className="grid gap-5">
+        <BusinessProfitPolicyForm defaultPolicy={businessPolicy} />
+      </CardContent>
+    </Card>
+  )
+}
+
 function BusinessStep({
   dividendPeriods,
   shareBusinesses,
@@ -735,7 +796,7 @@ function BusinessStep({
   return (
     <Card>
       <SetupCardHeader
-        eyebrow="Step 4"
+        eyebrow="Step 5"
         title="Businesses, profits and history"
         description="Capture profit pools before member backfill so dividend allocations can be reviewed with the ledger."
       />
@@ -744,6 +805,7 @@ function BusinessStep({
           dividendPeriods={dividendPeriods}
           financeStartDate={tenantStartDate}
           profitHistoryMode
+          sourceType="backfill"
           stayOnStepHref={stepHref("business")}
         />
         {shareBusinesses.length === 0 ? (
@@ -781,6 +843,145 @@ function BusinessStep({
   )
 }
 
+function ProfitSeasonsStep({
+  businessProfitSeasons,
+}: Pick<GettingStartedPageViewProps, "businessProfitSeasons">) {
+  const pendingCount = businessProfitSeasons.filter(
+    (season) => season.status === "pending" || season.status === "draft"
+  ).length
+
+  return (
+    <Card>
+      <SetupCardHeader
+        eyebrow="Step 6"
+        title="Dividend sharing seasons"
+        description="Review the generated profit-sharing seasons before member migration consumes business profit entries."
+      />
+      <CardContent className="grid gap-5">
+        {businessProfitSeasons.length === 0 ? (
+          <WorkspaceEmptyState
+            title="No dividend seasons to review."
+            body="Record business profit history first, or confirm no historical business profits in the previous step."
+          />
+        ) : (
+          <form
+            action={saveBusinessProfitSeasonReviewAction}
+            className="grid gap-4"
+          >
+            <input
+              name="redirectTo"
+              type="hidden"
+              value={stepHref("admin-member")}
+            />
+            {pendingCount > 0 ? (
+              <Alert>
+                <AlertTitle>{pendingCount} season(s) need review</AlertTitle>
+                <AlertDescription>
+                  Save this table to create dividend seasons and link each
+                  business profit entry to the reviewed period.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="overflow-x-auto border border-border/70">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Season</TableHead>
+                    <TableHead>Period</TableHead>
+                    <TableHead className="text-right">Estimated profit</TableHead>
+                    <TableHead className="text-right">Row deductions</TableHead>
+                    <TableHead className="min-w-40 text-right">
+                      Season deduction
+                    </TableHead>
+                    <TableHead className="min-w-52">Reason</TableHead>
+                    <TableHead className="text-right">Distributable</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {businessProfitSeasons.map((season) => {
+                    const maxSeasonDeduction = Math.max(
+                      0,
+                      season.grossProfitAmount - season.entryDeductionAmount
+                    )
+
+                    return (
+                      <TableRow key={season.key}>
+                        <TableCell>
+                          <input
+                            name="seasonKey"
+                            type="hidden"
+                            value={season.key}
+                          />
+                          <p className="font-medium">{season.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {season.businessNames.join(", ")}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {season.profitEntryCount} profit row(s)
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(season.periodStart)} -{" "}
+                          {formatDate(season.periodEnd)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(season.grossProfitAmount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(season.entryDeductionAmount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <CurrencyPrefixInput
+                            className="ml-auto w-36"
+                            defaultValue={season.deductionAmount || ""}
+                            max={maxSeasonDeduction}
+                            min="0"
+                            name={`deductionAmount-${season.key}`}
+                            step="0.01"
+                            type="number"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            defaultValue={season.deductionReason ?? ""}
+                            name={`deductionReason-${season.key}`}
+                            placeholder="Deduction reason"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(season.distributableAmount)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              season.status === "pending" ||
+                              season.status === "draft"
+                                ? "secondary"
+                                : "default"
+                            }
+                          >
+                            {season.status === "pending"
+                              ? "Needs review"
+                              : season.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <Button className="w-fit" type="submit">
+              Save and next
+            </Button>
+          </form>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function AdminMemberStep(props: GettingStartedPageViewProps) {
   const {
     adminMember,
@@ -800,7 +1001,7 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
   return (
     <Card>
       <SetupCardHeader
-        eyebrow="Step 5"
+        eyebrow="Step 7"
         title="First member migration"
         description="Use the registered admin as the first migrated member, then save commitment history, loan history, activity windows, and profit adjustments."
         action={
@@ -961,11 +1162,17 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
           shareStructureVersions={props.shareStructureVersions}
           tenantStartDate={props.tenantStartDate}
         />
+      ) : props.activeStep === "profit-policy" ? (
+        <ProfitPolicyStep businessPolicy={props.businessPolicy} />
       ) : props.activeStep === "business" ? (
         <BusinessStep
           dividendPeriods={props.dividendPeriods}
           shareBusinesses={props.shareBusinesses}
           tenantStartDate={props.tenantStartDate}
+        />
+      ) : props.activeStep === "profit-seasons" ? (
+        <ProfitSeasonsStep
+          businessProfitSeasons={props.businessProfitSeasons}
         />
       ) : props.activeStep === "admin-member" ? (
         <AdminMemberStep {...props} />
@@ -976,6 +1183,10 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
         />
       )}
       <StepFooter
+        hideNext={
+          props.activeStep === "profit-seasons" &&
+          props.businessProfitSeasons.length > 0
+        }
         nextStep={nextStep}
         previousStep={previousStep}
         requireHistoryConfirmation={requireHistoryConfirmation}

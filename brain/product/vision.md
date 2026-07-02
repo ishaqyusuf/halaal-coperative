@@ -36,3 +36,8 @@ This file captures the customer problem, target users, and long-term product vis
 - Operating principle: halal, interest-free cooperative finance.
 - Avoid positioning as a direct lender unless that becomes a regulated business line later.
 - Current public positioning should emphasize staged contributions, approval-controlled signup, transparent member records, halal loan operations, charges, statements, and guided setup without invented traction metrics.
+
+## Pricing Posture
+- Price as predictable tenant SaaS subscriptions with active-member bands, not as a share of savings, financing, repayments, dividends, or cooperative profits.
+- Offer a time-bound Free Beta for early cooperatives, with clear pass-through provider costs and a clear path to paid plans.
+- Keep setup, migration, integrations, and premium support visibly separate from core subscription pricing.

@@ -21,13 +21,17 @@
     "dev:web:portless": "bun run dev:prepare && turbo dev:portless --filter=@halaalvest/web",
     "dev:dashboard": "bun run dev:prepare && turbo dev --filter=@halaalvest/dashboard",
     "dev:dashboard:portless": "bun run dev:prepare && turbo dev:portless --filter=@halaalvest/dashboard",
+    "dev:mobile": "bun run dev:prepare && turbo dev --filter=@halaalvest/api --filter=@halaalvest/mobile",
+    "dev:mobile:portless": "bun run dev:prepare && turbo dev:portless --filter=@halaalvest/api --filter=@halaalvest/mobile",
     "dev:portless": "bun run dev:prepare && turbo dev:portless --parallel",
     "dev:prod": "HALAALVEST_ENV=production HALAALVEST_REQUIRE_PROD_DATABASE_URL=1 turbo dev --parallel",
     "jobs:deploy": "bun run --filter @halaalvest/jobs deploy",
     "lint": "turbo lint",
+    "lint:mobile": "turbo lint --filter=@halaalvest/mobile",
     "format": "turbo format",
     "terminal": "bash ./scripts/open-bun-script-terminal.sh",
     "typecheck": "turbo typecheck",
+    "typecheck:mobile": "turbo typecheck --filter=@halaalvest/mobile",
     "test": "turbo test"
   },
   "devDependencies": {

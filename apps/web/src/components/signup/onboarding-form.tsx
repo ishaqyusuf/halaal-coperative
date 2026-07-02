@@ -293,7 +293,7 @@ export function OnboardingForm({
                   <FormItem className="md:col-span-2">
                     <FormLabel>Cooperative name</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input disabled readOnly {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -321,7 +321,7 @@ export function OnboardingForm({
                   <FormItem>
                     <FormLabel>Verified admin email</FormLabel>
                     <FormControl>
-                      <Input readOnly {...field} />
+                      <Input disabled readOnly {...field} />
                     </FormControl>
                     <FormDescription>
                       This value is locked from the verification link.

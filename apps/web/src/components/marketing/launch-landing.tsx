@@ -2,6 +2,7 @@ import { Badge } from "@halaalvest/ui/components/badge"
 import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import Link from "next/link"
+import { PricingSection } from "./pricing-section"
 
 const proofMetrics = [
   { label: "Finance posture", value: "Ledger-aware" },
@@ -77,6 +78,12 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
               href="#workflow"
             >
               Workflow
+            </Link>
+            <Link
+              className="transition-colors hover:text-foreground"
+              href="#pricing"
+            >
+              Pricing
             </Link>
             <Link
               className="transition-colors hover:text-foreground"
@@ -291,6 +298,8 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
           </div>
         </div>
       </section>
+
+      <PricingSection signupHref={signupHref} />
 
       <section id="proof" className="bg-foreground text-background">
         <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-end lg:px-8 lg:py-16">

@@ -11,6 +11,8 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `brain/`: project memory and planning system.
 - `brain/plans/ongoing.md`: active resumable execution plans for long-running implementation tracks.
 - `brain/product/halaal-cooperative-operating-model.md`: durable domain model for Halaal cooperative finance, admin operations, compliance, and trust decisions.
+- `brain/product/mobile-ui-template-direction.md`: selected Nusuk-style mobile UI template adaptation for the Halaalvest white-label app.
+- `brain/product/pricing-and-packaging.md`: public pricing posture, plan bands, Free Beta rules, pass-through fee treatment, and packaging guardrails.
 - `brain/product/admin-dashboard-kpi-framework.md`: source of truth for admin dashboard metrics, sections, and exception-led content hierarchy.
 - `brain/features/member-commitments-and-payment-allocation.md`: source of truth for member-specific commitments, loan servicing estimates, and split payment allocation.
 - `apps/web/`: Next.js SaaS marketing application.

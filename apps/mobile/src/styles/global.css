@@ -1,0 +1,98 @@
+@config "../../tailwind.config.ts";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+
+@import "nativewind/theme";
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    --background: rgb(247, 241, 230);
+    --foreground: rgb(22, 20, 17);
+
+    --card: rgb(255, 253, 248);
+    --card-foreground: rgb(22, 20, 17);
+
+    --popover: rgb(255, 253, 248);
+    --popover-foreground: rgb(22, 20, 17);
+
+    --primary: rgb(17, 17, 17);
+    --primary-foreground: rgb(255, 253, 248);
+
+    --success: rgb(20, 122, 92);
+    --success-foreground: rgb(240, 253, 248);
+
+    --warn: rgb(200, 132, 29);
+    --warn-foreground: rgb(41, 28, 8);
+
+    --secondary: rgb(239, 231, 216);
+    --secondary-foreground: rgb(50, 45, 38);
+
+    --muted: rgb(236, 228, 213);
+    --muted-foreground: rgb(116, 110, 100);
+
+    --accent: rgb(216, 169, 77);
+    --accent-foreground: rgb(22, 20, 17);
+
+    --destructive: rgb(199, 62, 58);
+    --destructive-foreground: rgb(255, 250, 247);
+
+    --border: rgb(230, 222, 208);
+    --input: rgb(230, 222, 208);
+    --ring: rgb(216, 169, 77);
+
+    --chart-1: rgb(216, 169, 77);
+    --chart-2: rgb(20, 122, 92);
+    --chart-3: rgb(200, 132, 29);
+    --chart-4: rgb(101, 87, 61);
+    --chart-5: rgb(199, 62, 58);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  @layer base {
+    :root {
+      --background: rgb(17, 17, 17);
+      --foreground: rgb(255, 253, 248);
+
+      --card: rgb(31, 29, 25);
+      --card-foreground: rgb(255, 253, 248);
+
+      --popover: rgb(31, 29, 25);
+      --popover-foreground: rgb(255, 253, 248);
+
+      --primary: rgb(255, 253, 248);
+      --primary-foreground: rgb(17, 17, 17);
+
+      --success: rgb(38, 167, 126);
+      --success-foreground: rgb(236, 253, 245);
+
+      --warn: rgb(226, 169, 67);
+      --warn-foreground: rgb(41, 28, 8);
+
+      --secondary: rgb(45, 42, 37);
+      --secondary-foreground: rgb(255, 253, 248);
+
+      --muted: rgb(45, 42, 37);
+      --muted-foreground: rgb(188, 179, 163);
+
+      --accent: rgb(216, 169, 77);
+      --accent-foreground: rgb(17, 17, 17);
+
+      --destructive: rgb(229, 88, 82);
+      --destructive-foreground: rgb(255, 250, 247);
+
+      --border: rgb(68, 62, 53);
+      --input: rgb(68, 62, 53);
+      --ring: rgb(216, 169, 77);
+
+      --chart-1: rgb(216, 169, 77);
+      --chart-2: rgb(38, 167, 126);
+      --chart-3: rgb(226, 169, 67);
+      --chart-4: rgb(188, 179, 163);
+      --chart-5: rgb(229, 88, 82);
+    }
+  }
+}

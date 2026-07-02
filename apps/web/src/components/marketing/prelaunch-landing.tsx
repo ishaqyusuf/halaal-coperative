@@ -3,6 +3,7 @@ import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { Separator } from "@halaalvest/ui/components/separator"
 import Link from "next/link"
+import { PricingSection } from "./pricing-section"
 
 const pillars = [
   {
@@ -136,6 +137,8 @@ export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
           </div>
         </div>
       </section>
+
+      <PricingSection signupHref={signupHref} />
 
       <section>
         <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8 lg:py-16">

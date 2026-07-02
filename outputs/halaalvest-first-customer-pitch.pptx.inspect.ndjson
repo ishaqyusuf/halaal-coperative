@@ -1,0 +1,204 @@
+{"kind":"deck","id":"pr/2i8r39","name":"Deck"}
+{"kind":"layout","layoutId":"9bb02c4f-bcb8-4d81-b919-ee0654f294af","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"40331e79-ae75-41b8-a4be-1b4f4ce02fe0","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/jdqtf3","slide":1,"title":"First customer pilot discussion","textShapes":23}
+{"kind":"textbox","id":"sh/90je9cvi","slide":1,"text":"First customer pilot discussion","textPreview":"First customer pilot discussion","textChars":31,"textLines":1,"bbox":[42,112,430,28]}
+{"kind":"textbox","id":"sh/gfmlkjm1","slide":1,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,170,570,94]}
+{"kind":"textbox","id":"sh/rmhk3q5o","slide":1,"text":"A cleaner operating backbone for halal cooperatives.","textPreview":"A cleaner operating backbone for halal cooperatives.","textChars":52,"textLines":1,"bbox":[42,286,530,104]}
+{"kind":"textbox","id":"sh/y1kre1w7","slide":1,"text":"Customer meeting | July 3, 2026","textPreview":"Customer meeting | July 3, 2026","textChars":31,"textLines":1,"bbox":[42,540,380,30]}
+{"kind":"shape","id":"sh/9s36hcrm","slide":1,"bbox":[640,108,560,460]}
+{"kind":"shape","id":"sh/g7adsji5","slide":1,"bbox":[640,108,560,62]}
+{"kind":"textbox","id":"sh/nih4byhg","slide":1,"text":"Cooperative HQ","textPreview":"Cooperative HQ","textChars":14,"textLines":1,"bbox":[668,126,220,26]}
+{"kind":"textbox","id":"sh/yxobm58z","slide":1,"text":"Finance overview","textPreview":"Finance overview","textChars":16,"textLines":1,"bbox":[896,128,230,24]}
+{"kind":"shape","id":"sh/obm58z25","slide":1,"bbox":[1050,126,108,26]}
+{"kind":"textbox","id":"sh/hwfyxobm","slide":1,"text":"Pilot view","textPreview":"Pilot view","textChars":10,"textLines":1,"bbox":[1060,131,88,18]}
+{"kind":"shape","id":"sh/65wjudg7","slide":1,"bbox":[668,198,158.67,98]}
+{"kind":"textbox","id":"sh/zqtcj6to","slide":1,"text":"Deployable funds","textPreview":"Deployable funds","textChars":16,"textLines":1,"bbox":[684,216,126.67,24]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":1,"text":"Policy-aware","textPreview":"Policy-aware","textChars":12,"textLines":1,"bbox":[684,253,126.67,24]}
+{"kind":"shape","id":"sh/hk3q5o7q","slide":1,"bbox":[840.67,198,158.67,98]}
+{"kind":"textbox","id":"sh/6xkf6dcb","slide":1,"text":"Collection coverage","textPreview":"Collection coverage","textChars":19,"textLines":1,"bbox":[856.67,216,126.67,24]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":1,"text":"Current period","textPreview":"Current period","textChars":14,"textLines":1,"bbox":[856.67,253,126.67,24]}
+{"kind":"shape","id":"sh/orytsvu9","slide":1,"bbox":[1013.33,198,158.67,98]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":1,"text":"Action queue","textPreview":"Action queue","textChars":12,"textLines":1,"bbox":[1029.33,216,126.67,24]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":1,"text":"Needs review","textPreview":"Needs review","textChars":12,"textLines":1,"bbox":[1029.33,253,126.67,24]}
+{"kind":"textbox","id":"sh/cvixczed","slide":1,"text":"Approval queue","textPreview":"Approval queue","textChars":14,"textLines":1,"bbox":[670,334,230,28]}
+{"kind":"shape","id":"sh/nap4r65w","slide":1,"bbox":[670,378,265,34]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":1,"text":"Member review","textPreview":"Member review","textChars":13,"textLines":1,"bbox":[685,385,185,20]}
+{"kind":"textbox","id":"sh/54zidony","slide":1,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[876,385,48,20]}
+{"kind":"shape","id":"sh/cj6tovah","slide":1,"bbox":[670,426,265,34]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":1,"text":"Liquidity check","textPreview":"Liquidity check","textChars":15,"textLines":1,"bbox":[685,433,185,20]}
+{"kind":"textbox","id":"sh/udg7adsj","slide":1,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[876,433,48,20]}
+{"kind":"shape","id":"sh/1032lszq","slide":1,"bbox":[670,474,265,34]}
+{"kind":"textbox","id":"sh/cfa9w3m9","slide":1,"text":"Dual sign-off","textPreview":"Dual sign-off","textChars":13,"textLines":1,"bbox":[685,481,185,20]}
+{"kind":"textbox","id":"sh/m94fu18j","slide":1,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[876,481,48,20]}
+{"kind":"textbox","id":"sh/fu18jqh0","slide":1,"text":"Ledger movement","textPreview":"Ledger movement","textChars":15,"textLines":1,"bbox":[980,334,240,28]}
+{"kind":"shape","id":"sh/4fu18jqh","slide":1,"bbox":[982,513,256,2]}
+{"kind":"shape","id":"sh/x0nuxc3y","slide":1,"bbox":[982,378,2,136]}
+{"kind":"shape","id":"sh/qxs72x4n","slide":1,"bbox":[998,445,12,68]}
+{"kind":"shape","id":"sh/fil0rqd4","slide":1,"bbox":[1020,425,12,88]}
+{"kind":"shape","id":"sh/83itgfml","slide":1,"bbox":[1042,437,12,76]}
+{"kind":"shape","id":"sh/xobm58z2","slide":1,"bbox":[1064,401,12,112]}
+{"kind":"shape","id":"sh/mtwra5gb","slide":1,"bbox":[1086,413,12,100]}
+{"kind":"shape","id":"sh/fepkzupw","slide":1,"bbox":[1108,381,12,132]}
+{"kind":"shape","id":"sh/vahoza1g","slide":1,"bbox":[1130,395,12,118]}
+{"kind":"shape","id":"sh/6tovahoz","slide":1,"bbox":[1152,365,12,148]}
+{"kind":"shape","id":"sh/dg7adsji","slide":1,"bbox":[1174,371,12,142]}
+{"kind":"shape","id":"sh/ovahoza1","slide":1,"bbox":[1196,355,12,158]}
+{"kind":"textbox","id":"sh/z25kb6xk","slide":1,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/6hcrmhk3","slide":1,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"image","id":"im/neloj2t8","slide":1,"name":"","alt":"Halaalvest logo","bbox":[42,38,162,44]}
+{"kind":"notes","id":"nt/jdqtf3","slide":1,"text":""}
+{"kind":"slide","id":"sl/5iq0x6","slide":2,"title":"Customer pilot discussion","textShapes":14}
+{"kind":"textbox","id":"sh/5kb6xkf6","slide":2,"text":"Customer pilot discussion","textPreview":"Customer pilot discussion","textChars":25,"textLines":1,"bbox":[42,38,430,26]}
+{"kind":"textbox","id":"sh/ytsvu9kn","slide":2,"text":"Cooperative finance breaks when operations live outside the ledger.","textPreview":"Cooperative finance breaks when operations live outside the ledger.","textChars":67,"textLines":1,"bbox":[42,82,980,112]}
+{"kind":"textbox","id":"sh/neloj2t8","slide":2,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/cbulwval","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"shape","id":"sh/5sneloj2","slide":2,"bbox":[42,242,374,292]}
+{"kind":"shape","id":"sh/u54zidon","slide":2,"bbox":[42,242,8,292]}
+{"kind":"textbox","id":"sh/nqxs72x4","slide":2,"text":"Manual records","textPreview":"Manual records","textChars":14,"textLines":1,"bbox":[68,266,322,22]}
+{"kind":"textbox","id":"sh/gbq1oryt","slide":2,"text":"Balances drift across tools.","textPreview":"Balances drift across tools.","textChars":28,"textLines":1,"bbox":[68,298,322,58]}
+{"kind":"textbox","id":"sh/5wjudg7a","slide":2,"text":"Staff spend time reconciling the same member, contribution, charge, and repayment story in several places.","textPreview":"Staff spend time reconciling the same member, contribution, charge, and repayment story in several places.","textChars":106,"textLines":1,"bbox":[68,374,322,136]}
+{"kind":"shape","id":"sh/54zidony","slide":2,"bbox":[452,242,374,292]}
+{"kind":"shape","id":"sh/cj6tovah","slide":2,"bbox":[452,242,8,292]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":2,"text":"Loose approvals","textPreview":"Loose approvals","textChars":15,"textLines":1,"bbox":[478,266,322,22]}
+{"kind":"textbox","id":"sh/udg7adsj","slide":2,"text":"Approvals happen outside the books.","textPreview":"Approvals happen outside the books.","textChars":35,"textLines":1,"bbox":[478,298,322,58]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":2,"text":"Eligibility, liquidity, sign-off, and disbursement context can become hard to prove after the fact.","textPreview":"Eligibility, liquidity, sign-off, and disbursement context can become hard to prove after the fact.","textChars":99,"textLines":1,"bbox":[478,374,322,136]}
+{"kind":"shape","id":"sh/cvixczed","slide":2,"bbox":[862,242,374,292]}
+{"kind":"shape","id":"sh/nap4r65w","slide":2,"bbox":[862,242,8,292]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":2,"text":"Member trust","textPreview":"Member trust","textChars":12,"textLines":1,"bbox":[888,266,322,22]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":2,"text":"Members wait for clear answers.","textPreview":"Members wait for clear answers.","textChars":31,"textLines":1,"bbox":[888,298,322,58]}
+{"kind":"textbox","id":"sh/c7u54zid","slide":2,"text":"Savings, charges, financing progress, and statements need to be explainable without heroic admin effort.","textPreview":"Savings, charges, financing progress, and statements need to be explainable without heroic admin effort.","textChars":104,"textLines":1,"bbox":[888,374,322,136]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":2,"text":"The customer pain is not just digitization. It is financial control, auditability, and trust.","textPreview":"The customer pain is not just digitization. It is financial control, auditability, and trust.","textChars":93,"textLines":1,"bbox":[42,578,1000,44]}
+{"kind":"notes","id":"nt/5iq0x6","slide":2,"text":""}
+{"kind":"slide","id":"sl/y49h3s","slide":3,"title":"Customer pilot discussion","textShapes":18}
+{"kind":"textbox","id":"sh/8v6psfil","slide":3,"text":"Customer pilot discussion","textPreview":"Customer pilot discussion","textChars":25,"textLines":1,"bbox":[42,38,430,26]}
+{"kind":"textbox","id":"sh/fa9w3m94","slide":3,"text":"Halaalvest gives the cooperative one governed operating surface.","textPreview":"Halaalvest gives the cooperative one governed operating surface.","textChars":64,"textLines":1,"bbox":[42,82,900,110]}
+{"kind":"textbox","id":"sh/qpg3ex0n","slide":3,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/x4nap4r6","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"textbox","id":"sh/8jqh0fep","slide":3,"text":"A software platform for cooperatives, not a direct lender.","textPreview":"A software platform for cooperatives, not a direct lender.","textChars":58,"textLines":1,"bbox":[820,88,380,72]}
+{"kind":"shape","id":"sh/fyxobm58","slide":3,"bbox":[42,220,270,300]}
+{"kind":"textbox","id":"sh/qd4vmtwr","slide":3,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[66,244,60,32]}
+{"kind":"textbox","id":"sh/xs72x4na","slide":3,"text":"Onboard","textPreview":"Onboard","textChars":7,"textLines":1,"bbox":[66,308,220,52]}
+{"kind":"textbox","id":"sh/87ed8bat","slide":3,"text":"Register members, collect KYC context, and keep signup approval-led.","textPreview":"Register members, collect KYC context, and keep signup approval-led.","textChars":68,"textLines":1,"bbox":[66,388,220,104]}
+{"kind":"shape","id":"sh/ed8v6psf","slide":3,"bbox":[350,220,270,300]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":3,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[374,244,60,32]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":3,"text":"Collect","textPreview":"Collect","textChars":7,"textLines":1,"bbox":[374,308,220,52]}
+{"kind":"textbox","id":"sh/p4r65wju","slide":3,"text":"Track member-specific commitments, direct deductions, indirect payments, charges, and voluntary extras.","textPreview":"Track member-specific commitments, direct deductions, indirect payments, charges, and voluntary extras.","textChars":103,"textLines":1,"bbox":[374,388,220,104]}
+{"kind":"shape","id":"sh/i5sneloj","slide":3,"bbox":[658,220,270,300]}
+{"kind":"textbox","id":"sh/7qpg3ex0","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[682,244,60,32]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":3,"text":"Finance","textPreview":"Finance","textChars":7,"textLines":1,"bbox":[682,308,220,52]}
+{"kind":"textbox","id":"sh/pwb2hwfy","slide":3,"text":"Route interest-free financing through eligibility, liquidity, approval, repayment, and follow-up.","textPreview":"Route interest-free financing through eligibility, liquidity, approval, repayment, and follow-up.","textChars":97,"textLines":1,"bbox":[682,388,220,104]}
+{"kind":"shape","id":"sh/itgfmlkj","slide":3,"bbox":[966,220,270,300]}
+{"kind":"textbox","id":"sh/7ed8bat4","slide":3,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[990,244,60,32]}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":3,"text":"Report","textPreview":"Report","textChars":6,"textLines":1,"bbox":[990,308,220,52]}
+{"kind":"textbox","id":"sh/q5o7qpg3","slide":3,"text":"Give staff and members statements, ledgers, activity history, and exportable operating reports.","textPreview":"Give staff and members statements, ledgers, activity history, and exportable operating reports.","textChars":95,"textLines":1,"bbox":[990,388,220,104]}
+{"kind":"textbox","id":"sh/1w7mp0bi","slide":3,"text":"Result: a cooperative can run recurring finance work without hiding the logic behind balances.","textPreview":"Result: a cooperative can run recurring finance work without hiding the logic behind balances.","textChars":94,"textLines":1,"bbox":[42,578,1040,44]}
+{"kind":"notes","id":"nt/y49h3s","slide":3,"text":""}
+{"kind":"slide","id":"sl/siwkjj","slide":4,"title":"Customer pilot discussion","textShapes":17}
+{"kind":"textbox","id":"sh/sneloj2t","slide":4,"text":"Customer pilot discussion","textPreview":"Customer pilot discussion","textChars":25,"textLines":1,"bbox":[42,38,430,26]}
+{"kind":"textbox","id":"sh/32lszqtc","slide":4,"text":"Every money movement is explicit, policy-backed, and reviewable.","textPreview":"Every money movement is explicit, policy-backed, and reviewable.","textChars":64,"textLines":1,"bbox":[42,82,1000,110]}
+{"kind":"textbox","id":"sh/ahoza1gv","slide":4,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/lkjm1cfa","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"shape","id":"sh/szqtcj6t","slide":4,"bbox":[42,242,270,248]}
+{"kind":"textbox","id":"sh/3ex0nuxc","slide":4,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[68,266,70,30]}
+{"kind":"textbox","id":"sh/at47y1kr","slide":4,"text":"Money received","textPreview":"Money received","textChars":14,"textLines":1,"bbox":[68,320,214,54]}
+{"kind":"textbox","id":"sh/loj2t83i","slide":4,"text":"Contribution, charge, repayment, or business profit enters as a visible event.","textPreview":"Contribution, charge, repayment, or business profit enters as a visible event.","textChars":78,"textLines":1,"bbox":[68,398,214,72]}
+{"kind":"shape","id":"sh/w3m94fu1","slide":4,"bbox":[312,366,36,3]}
+{"kind":"shape","id":"sh/udg7adsj","slide":4,"bbox":[348,242,270,248]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":4,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[374,266,70,30]}
+{"kind":"textbox","id":"sh/cj6tovah","slide":4,"text":"Allocation chosen","textPreview":"Allocation chosen","textChars":17,"textLines":1,"bbox":[374,320,214,54]}
+{"kind":"textbox","id":"sh/54zidony","slide":4,"text":"Savings, loan servicing, extra savings, and extra payoff stay separate.","textPreview":"Savings, loan servicing, extra savings, and extra payoff stay separate.","textChars":71,"textLines":1,"bbox":[374,398,214,72]}
+{"kind":"shape","id":"sh/upwb2hwf","slide":4,"bbox":[618,366,36,3]}
+{"kind":"shape","id":"sh/nap4r65w","slide":4,"bbox":[654,242,270,248]}
+{"kind":"textbox","id":"sh/cvixczed","slide":4,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[680,266,70,30]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":4,"text":"Staff review","textPreview":"Staff review","textChars":12,"textLines":1,"bbox":[680,320,214,54]}
+{"kind":"textbox","id":"sh/u18jqh0f","slide":4,"text":"Policies, liquidity, approvals, waivers, and adjustments are attached to the action.","textPreview":"Policies, liquidity, approvals, waivers, and adjustments are attached to the action.","textChars":84,"textLines":1,"bbox":[680,398,214,72]}
+{"kind":"shape","id":"sh/jm1cfa9w","slide":4,"bbox":[924,366,36,3]}
+{"kind":"shape","id":"sh/bm58z25k","slide":4,"bbox":[960,242,270,248]}
+{"kind":"textbox","id":"sh/m1cfa9w3","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[986,266,70,30]}
+{"kind":"textbox","id":"sh/tsvu9kni","slide":4,"text":"Ledger posted","textPreview":"Ledger posted","textChars":13,"textLines":1,"bbox":[986,320,214,54]}
+{"kind":"textbox","id":"sh/47y1kre1","slide":4,"text":"Statements and reports explain how every balance was derived.","textPreview":"Statements and reports explain how every balance was derived.","textChars":61,"textLines":1,"bbox":[986,398,214,72]}
+{"kind":"shape","id":"sh/bat47y1k","slide":4,"bbox":[42,548,1196,54]}
+{"kind":"textbox","id":"sh/mp0bi9s3","slide":4,"text":"Guardrail: no time-based interest, compounding interest, penalty interest, or hidden interest-like fees.","textPreview":"Guardrail: no time-based interest, compounding interest, penalty interest, or hidden interest-like fees.","textChars":104,"textLines":1,"bbox":[66,562,1100,28]}
+{"kind":"notes","id":"nt/siwkjj","slide":4,"text":""}
+{"kind":"slide","id":"sl/s8u7f0","slide":5,"title":"Customer pilot discussion","textShapes":7}
+{"kind":"textbox","id":"sh/p4r65wju","slide":5,"text":"Customer pilot discussion","textPreview":"Customer pilot discussion","textChars":25,"textLines":1,"bbox":[42,38,430,26]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":5,"text":"The pilot can start with the workflows admins already run every month.","textPreview":"The pilot can start with the workflows admins already run every month.","textChars":70,"textLines":1,"bbox":[42,82,1050,112]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":5,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"shape","id":"sh/i5sneloj","slide":5,"bbox":[900,222,296,356]}
+{"kind":"textbox","id":"sh/7qpg3ex0","slide":5,"text":"Pilot stance","textPreview":"Pilot stance","textChars":12,"textLines":1,"bbox":[930,252,220,30]}
+{"kind":"textbox","id":"sh/0z61032l","slide":5,"text":"Start narrow. Validate real records. Expand only after the monthly cycle is explainable.","textPreview":"Start narrow. Validate real records. Expand only after the monthly cycle is explainable.","textChars":88,"textLines":1,"bbox":[930,310,230,160]}
+{"kind":"textbox","id":"sh/pkzupwb2","slide":5,"text":"No invented traction claims. The meeting should confirm fit, scope, and rollout risk.","textPreview":"No invented traction claims. The meeting should confirm fit, scope, and rollout risk.","textChars":85,"textLines":1,"bbox":[930,504,230,46]}
+{"kind":"table","id":"tb/wfyxobm5","slide":5,"name":"","rows":6,"cols":3,"preview":"Workflow | What the pilot proves | Customer value","bbox":[42,222,810,356]}
+{"kind":"notes","id":"nt/s8u7f0","slide":5,"text":""}
+{"kind":"slide","id":"sl/anxihr","slide":6,"title":"Customer pilot discussion","textShapes":14}
+{"kind":"textbox","id":"sh/8v6psfil","slide":6,"text":"Customer pilot discussion","textPreview":"Customer pilot discussion","textChars":25,"textLines":1,"bbox":[42,38,430,26]}
+{"kind":"textbox","id":"sh/fa9w3m94","slide":6,"text":"A focused pilot proves operational fit before broad rollout.","textPreview":"A focused pilot proves operational fit before broad rollout.","textChars":60,"textLines":1,"bbox":[42,82,960,108]}
+{"kind":"textbox","id":"sh/qpg3ex0n","slide":6,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/x4nap4r6","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"shape","id":"sh/8jqh0fep","slide":6,"bbox":[42,232,374,284]}
+{"kind":"textbox","id":"sh/fyxobm58","slide":6,"text":"Week 1","textPreview":"Week 1","textChars":6,"textLines":1,"bbox":[70,260,150,28]}
+{"kind":"textbox","id":"sh/qd4vmtwr","slide":6,"text":"Configure the cooperative","textPreview":"Configure the cooperative","textChars":25,"textLines":1,"bbox":[70,318,310,70]}
+{"kind":"textbox","id":"sh/xs72x4na","slide":6,"text":"Rules, roles, member categories, contribution plans, charge definitions, and financing policy.","textPreview":"Rules, roles, member categories, contribution plans, charge definitions, and financing policy.","textChars":94,"textLines":1,"bbox":[70,420,310,72]}
+{"kind":"shape","id":"sh/87ed8bat","slide":6,"bbox":[452,232,374,284]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":6,"text":"Week 2","textPreview":"Week 2","textChars":6,"textLines":1,"bbox":[480,260,150,28]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":6,"text":"Run real admin work","textPreview":"Run real admin work","textChars":19,"textLines":1,"bbox":[480,318,310,70]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":6,"text":"Import or enter a first member group, post a sample contribution cycle, and review approvals.","textPreview":"Import or enter a first member group, post a sample contribution cycle, and review approvals.","textChars":93,"textLines":1,"bbox":[480,420,310,72]}
+{"kind":"shape","id":"sh/p4r65wju","slide":6,"bbox":[862,232,374,284]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":6,"text":"Review","textPreview":"Review","textChars":6,"textLines":1,"bbox":[890,260,150,28]}
+{"kind":"textbox","id":"sh/7qpg3ex0","slide":6,"text":"Decide expansion path","textPreview":"Decide expansion path","textChars":21,"textLines":1,"bbox":[890,318,310,70]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":6,"text":"Confirm workflow fit, required reports, onboarding gaps, and rollout sequence.","textPreview":"Confirm workflow fit, required reports, onboarding gaps, and rollout sequence.","textChars":78,"textLines":1,"bbox":[890,420,310,72]}
+{"kind":"shape","id":"sh/pwb2hwfy","slide":6,"bbox":[42,570,1196,54]}
+{"kind":"textbox","id":"sh/itgfmlkj","slide":6,"text":"Pilot success = one clean monthly operating cycle with explainable balances and visible approval history.","textPreview":"Pilot success = one clean monthly operating cycle with explainable balances and visible approval history.","textChars":105,"textLines":1,"bbox":[66,584,1100,28]}
+{"kind":"notes","id":"nt/anxihr","slide":6,"text":""}
+{"kind":"slide","id":"sl/jpw0jp","slide":7,"title":"Customer pilot discussion","textShapes":21}
+{"kind":"textbox","id":"sh/re1w7mp0","slide":7,"text":"Customer pilot discussion","textPreview":"Customer pilot discussion","textChars":25,"textLines":1,"bbox":[42,38,430,26]}
+{"kind":"textbox","id":"sh/kzupwb2h","slide":7,"text":"Tomorrow is about learning the rules behind their money flow.","textPreview":"Tomorrow is about learning the rules behind their money flow.","textChars":61,"textLines":1,"bbox":[42,82,1000,110]}
+{"kind":"textbox","id":"sh/9knih4by","slide":7,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/25kb6xkf","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"textbox","id":"sh/rqd4vmtw","slide":7,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[42,226,54,28]}
+{"kind":"shape","id":"sh/kb6xkf6d","slide":7,"bbox":[108,239,70,2]}
+{"kind":"textbox","id":"sh/9w3m94fu","slide":7,"text":"Contribution reality","textPreview":"Contribution reality","textChars":20,"textLines":1,"bbox":[206,216,270,30]}
+{"kind":"textbox","id":"sh/2hwfyxob","slide":7,"text":"How do members pay today, and what exceptions create most admin work?","textPreview":"How do members pay today, and what exceptions create most admin work?","textChars":69,"textLines":1,"bbox":[504,216,660,46]}
+{"kind":"textbox","id":"sh/r2p8nqxs","slide":7,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[42,302,54,28]}
+{"kind":"shape","id":"sh/7ed8bat4","slide":7,"bbox":[108,315,70,2]}
+{"kind":"textbox","id":"sh/itgfmlkj","slide":7,"text":"Approval governance","textPreview":"Approval governance","textChars":19,"textLines":1,"bbox":[206,292,270,30]}
+{"kind":"textbox","id":"sh/pkzupwb2","slide":7,"text":"Who must approve membership, charges, financing, waivers, and disbursements?","textPreview":"Who must approve membership, charges, financing, waivers, and disbursements?","textChars":76,"textLines":1,"bbox":[504,292,660,46]}
+{"kind":"textbox","id":"sh/0z61032l","slide":7,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[42,378,54,28]}
+{"kind":"shape","id":"sh/72x4nap4","slide":7,"bbox":[108,391,70,2]}
+{"kind":"textbox","id":"sh/ih4byhgn","slide":7,"text":"Financing policy","textPreview":"Financing policy","textChars":16,"textLines":1,"bbox":[206,368,270,30]}
+{"kind":"textbox","id":"sh/p8nqxs72","slide":7,"text":"How do caps, terms, guarantors, liquidity, and repayment follow-up work in practice?","textPreview":"How do caps, terms, guarantors, liquidity, and repayment follow-up work in practice?","textChars":84,"textLines":1,"bbox":[504,368,660,46]}
+{"kind":"textbox","id":"sh/0nuxc3yl","slide":7,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[42,454,54,28]}
+{"kind":"shape","id":"sh/7y1kre1w","slide":7,"bbox":[108,467,70,2]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":7,"text":"Reporting pressure","textPreview":"Reporting pressure","textChars":18,"textLines":1,"bbox":[206,444,270,30]}
+{"kind":"textbox","id":"sh/mlkjm1cf","slide":7,"text":"Which reports do members, executives, auditors, and finance officers actually request?","textPreview":"Which reports do members, executives, auditors, and finance officers actually request?","textChars":86,"textLines":1,"bbox":[504,444,660,46]}
+{"kind":"textbox","id":"sh/f6dcbulw","slide":7,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[42,530,54,28]}
+{"kind":"shape","id":"sh/4r65wjud","slide":7,"bbox":[108,543,70,2]}
+{"kind":"textbox","id":"sh/xc3ylc7u","slide":7,"text":"Migration path","textPreview":"Migration path","textChars":14,"textLines":1,"bbox":[206,520,270,30]}
+{"kind":"textbox","id":"sh/mtwra5gb","slide":7,"text":"What records must be trusted before the cooperative can move off its current tools?","textPreview":"What records must be trusted before the cooperative can move off its current tools?","textChars":83,"textLines":1,"bbox":[504,520,660,46]}
+{"kind":"textbox","id":"sh/fepkzupw","slide":7,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/4zidonyd","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"notes","id":"nt/jpw0jp","slide":7,"text":""}
+{"kind":"slide","id":"sl/ve0tll","slide":8,"title":"Customer pilot discussion","textShapes":14}
+{"kind":"textbox","id":"sh/hoza1gvy","slide":8,"text":"Customer pilot discussion","textPreview":"Customer pilot discussion","textChars":25,"textLines":1,"bbox":[42,38,430,26]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":8,"text":"If the workflows match, we start the pilot setup.","textPreview":"If the workflows match, we start the pilot setup.","textChars":49,"textLines":1,"bbox":[42,82,930,110]}
+{"kind":"textbox","id":"sh/zidonyd0","slide":8,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/svu9knih","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"shape","id":"sh/hgn29gr2","slide":8,"bbox":[42,330,374,158]}
+{"kind":"shape","id":"sh/ap4r65wj","slide":8,"bbox":[66,290,34,34]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":8,"text":"Choose scope","textPreview":"Choose scope","textChars":12,"textLines":1,"bbox":[66,356,300,34]}
+{"kind":"textbox","id":"sh/sji5snel","slide":8,"text":"Pick one cooperative, one admin lead, one finance lead, and one operating cycle.","textPreview":"Pick one cooperative, one admin lead, one finance lead, and one operating cycle.","textChars":80,"textLines":1,"bbox":[66,410,310,54]}
+{"kind":"shape","id":"sh/h4byhgn2","slide":8,"bbox":[452,330,374,158]}
+{"kind":"shape","id":"sh/p4r65wju","slide":8,"bbox":[476,290,34,34]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":8,"text":"Share records","textPreview":"Share records","textChars":13,"textLines":1,"bbox":[476,356,300,34]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":8,"text":"Provide sample members, contribution history, charges, and financing cases for setup.","textPreview":"Provide sample members, contribution history, charges, and financing cases for setup.","textChars":85,"textLines":1,"bbox":[476,410,310,54]}
+{"kind":"shape","id":"sh/ed8v6psf","slide":8,"bbox":[862,330,374,158]}
+{"kind":"shape","id":"sh/pwb2hwfy","slide":8,"bbox":[886,290,34,34]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":8,"text":"Confirm decision","textPreview":"Confirm decision","textChars":16,"textLines":1,"bbox":[886,356,300,34]}
+{"kind":"textbox","id":"sh/7qpg3ex0","slide":8,"text":"Agree what must be true before expanding to more members or workflows.","textPreview":"Agree what must be true before expanding to more members or workflows.","textChars":70,"textLines":1,"bbox":[886,410,310,54]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":8,"text":"The ask tomorrow is simple: validate the first operating cycle and leave with a pilot owner.","textPreview":"The ask tomorrow is simple: validate the first operating cycle and leave with a pilot owner.","textChars":92,"textLines":1,"bbox":[42,190,950,62]}
+{"kind":"textbox","id":"sh/pkzupwb2","slide":8,"text":"Halaalvest is built to make cooperative finance safer to run, easier to explain, and ready to scale carefully.","textPreview":"Halaalvest is built to make cooperative finance safer to run, easier to explain, and ready to scale carefully.","textChars":110,"textLines":1,"bbox":[42,562,1020,50]}
+{"kind":"textbox","id":"sh/0z61032l","slide":8,"text":"Halaalvest","textPreview":"Halaalvest","textChars":10,"textLines":1,"bbox":[42,660,160,26]}
+{"kind":"textbox","id":"sh/w7mp0bi9","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1168,660,70,26]}
+{"kind":"notes","id":"nt/ve0tll","slide":8,"text":""}

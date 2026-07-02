@@ -2,6 +2,22 @@
 
 ## 2026-07-02
 
+### Pricing And Public Landing
+
+- Source mode: Goal continuation.
+- Source Brain record: `brain/product/pricing-and-packaging.md`.
+- Changed source files: `apps/web/src/components/marketing/pricing-section.tsx`, `apps/web/src/components/marketing/launch-landing.tsx`, `apps/web/src/components/marketing/prelaunch-landing.tsx`.
+- Brain files updated: `brain/product/pricing-and-packaging.md`, `brain/product/vision.md`, `brain/PROJECT_INDEX.md`, `brain/progress.md`.
+- Checks run: `git diff --check` scoped to touched tracked files; `git diff --check --no-index /dev/null ...` for new Brain and pricing-section files; targeted `rg` for Free Beta, pricing-section rendering, pricing plan values, no-percentage messaging, member login, custom domain, email notification, WhatsApp notification, and white label app messaging.
+- Skipped checks: Full web typecheck, build, dev server, and browser QA are intentionally skipped unless requested under fast Bun monorepo command discipline.
+- Unresolved issues: None.
+
+#### Plan Feature Packaging Update
+
+- Added a plan feature matrix to Brain covering member login, custom domain, email notifications, WhatsApp notifications, white label app, roles, reports, and core finance availability.
+- Updated the website pricing cards so Starter is admin-only by default, Standard includes member login/custom domain/member email notifications, Growth includes WhatsApp setup and advanced notification templates, and Enterprise carries white-label/custom branding.
+- Added a public feature-availability matrix under the pricing cards.
+
 ### Business Profit Policy Settings
 
 - Source mode: Intake Mode.

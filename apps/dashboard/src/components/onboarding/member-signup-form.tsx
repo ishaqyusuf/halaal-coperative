@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+import { useState, useTransition } from "react"
 import { z } from "zod"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
@@ -57,7 +57,9 @@ export function MemberSignupForm({
     },
   })
   const { showError, showSuccess } = useNotifications()
+  const [isSubmitted, setIsSubmitted] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const isLocked = isPending || isSubmitted
 
   function onSubmit(values: MemberSignupValues) {
     startTransition(async () => {
@@ -69,7 +71,12 @@ export function MemberSignupForm({
           "Verification email sent",
           `We sent a verification link to ${result.email}. Confirm it to enter the ${tenantName} approval queue.`,
         )
-        form.reset()
+        form.reset({
+          ...values,
+          confirmPassword: "",
+          password: "",
+        })
+        setIsSubmitted(true)
       } catch (error) {
         showError(
           "Could not submit signup",
@@ -98,6 +105,7 @@ export function MemberSignupForm({
             </div>
             {devMode ? (
               <Button
+                disabled={isLocked}
                 type="button"
                 variant="outline"
                 onClick={() => applyDashboardDevFormFill(form, "member_signup")}
@@ -115,7 +123,7 @@ export function MemberSignupForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Full name</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Amina Yusuf" />
+                <Input {...field} disabled={isLocked} placeholder="Amina Yusuf" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -129,7 +137,12 @@ export function MemberSignupForm({
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input {...field} type="email" placeholder="amina@example.com" />
+                <Input
+                  {...field}
+                  disabled={isLocked}
+                  type="email"
+                  placeholder="amina@example.com"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -143,7 +156,11 @@ export function MemberSignupForm({
             <FormItem>
               <FormLabel>Phone number</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="+234 800 000 0000" />
+                <Input
+                  {...field}
+                  disabled={isLocked}
+                  placeholder="+234 800 000 0000"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -160,10 +177,14 @@ export function MemberSignupForm({
                 {memberNumberPrefix ? (
                   <InputGroup>
                     <InputGroupText>{memberNumberPrefix}</InputGroupText>
-                    <InputGroupInput {...field} placeholder="1024" />
+                    <InputGroupInput
+                      {...field}
+                      disabled={isLocked}
+                      placeholder="1024"
+                    />
                   </InputGroup>
                 ) : (
-                  <Input {...field} placeholder="1024" />
+                  <Input {...field} disabled={isLocked} placeholder="1024" />
                 )}
               </FormControl>
               <FormMessage />
@@ -178,7 +199,12 @@ export function MemberSignupForm({
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input {...field} type="password" placeholder="At least 8 characters" />
+                <Input
+                  {...field}
+                  disabled={isLocked}
+                  type="password"
+                  placeholder="At least 8 characters"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -192,7 +218,12 @@ export function MemberSignupForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Confirm password</FormLabel>
               <FormControl>
-                <Input {...field} type="password" placeholder="Repeat your password" />
+                <Input
+                  {...field}
+                  disabled={isLocked}
+                  type="password"
+                  placeholder="Repeat your password"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -200,8 +231,10 @@ export function MemberSignupForm({
         />
 
         <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-2">
-          <Button disabled={isPending} type="submit" size="lg" className="rounded-full px-5">
-            Create account and send verification
+          <Button disabled={isLocked} type="submit" size="lg" className="rounded-full px-5">
+            {isSubmitted
+              ? "Verification email sent"
+              : "Create account and send verification"}
           </Button>
           <p className="text-sm text-muted-foreground">Your dashboard access will remain pending until cooperative approval.</p>
         </div>

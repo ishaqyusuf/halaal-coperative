@@ -51,6 +51,15 @@ function CurrencyFormInput({
   )
 }
 
+function getTodayDateValue() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, "0")
+  const day = String(today.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
+
 const membershipApprovalSchema = z
   .object({
     currentSavingsBalance: z.string().optional(),
@@ -78,6 +87,12 @@ const membershipApprovalSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Loan start date is required.",
+        path: ["loanStartDate"],
+      })
+    } else if (values.loanStartDate > getTodayDateValue()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Loan start date cannot be in the future.",
         path: ["loanStartDate"],
       })
     }
@@ -155,6 +170,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
   const [isApproving, startApproveTransition] = useTransition()
   const [isRejecting, startRejectTransition] = useTransition()
   const hasServingLoan = form.watch("hasServingLoan")
+  const today = getTodayDateValue()
   const loanAmount = Number(form.watch("loanAmount") || 0)
   const loanPaymentMonths = Number(form.watch("loanPaymentMonths") || 0)
   const loanServed = Number(form.watch("loanServed") || 0)
@@ -347,6 +363,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
                       <DatePickerInput
                         {...field}
                         allowClear={false}
+                        max={today}
                         placeholder="Select loan start date"
                       />
                     </FormControl>

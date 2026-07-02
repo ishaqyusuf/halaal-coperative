@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@halaalvest/ui/components/popover"
 import { cn } from "@halaalvest/ui/lib/utils"
+import type { Matcher } from "react-day-picker"
 
 function parseDateValue(value?: string | null) {
   if (!value) {
@@ -52,6 +53,7 @@ export function DatePickerInput({
   defaultValue = "",
   disabled,
   id,
+  max,
   min,
   name,
   onBlur,
@@ -66,6 +68,7 @@ export function DatePickerInput({
 > & {
   allowClear?: boolean
   defaultValue?: string
+  max?: string
   min?: string
   name?: string
   onBlur?: () => void
@@ -78,7 +81,12 @@ export function DatePickerInput({
   const [internalValue, setInternalValue] = useState(defaultValue)
   const currentValue = value ?? internalValue
   const selectedDate = parseDateValue(currentValue)
+  const maxDate = parseDateValue(max)
   const minDate = parseDateValue(min)
+  const disabledDays: Matcher[] = [
+    ...(minDate ? [{ before: minDate }] : []),
+    ...(maxDate ? [{ after: maxDate }] : []),
+  ]
 
   function updateValue(nextValue: string) {
     if (value === undefined) {
@@ -124,7 +132,7 @@ export function DatePickerInput({
           <Calendar
             captionLayout="dropdown"
             defaultMonth={selectedDate ?? minDate}
-            disabled={minDate ? { before: minDate } : undefined}
+            disabled={disabledDays.length > 0 ? disabledDays : undefined}
             mode="single"
             selected={selectedDate}
             onSelect={(date) => {

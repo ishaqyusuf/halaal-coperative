@@ -63,6 +63,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/dashboard/src/lib/auth-redirect.ts`: login/logout redirect sanitization helper for safe dashboard auth transitions.
 - `apps/dashboard/src/lib/import-csv.ts`: shared dashboard-side CSV parsing and import schema normalization used by both client previews and server actions.
 - `apps/api/`: Hono + tRPC backend foundation following the same structural standard used in `plot-keys`.
+- `apps/mobile/`: Halaalvest managed Expo mobile starter copied from the reusable GND shell, with Halaalvest branding, mock member/admin SecureStore sessions, member/admin tabs, NativeWind UI primitives, and typed tRPC client wiring for future API-backed workflows.
 - `apps/dashboard/lib/server-context.ts`: server-side tenant, membership, and session loader for dashboard pages.
 - `apps/api/src/routers/onboarding.route.ts`: tenant onboarding status and workspace bootstrap route.
 - `packages/auth/`: cooperative roles and approval guard helpers.

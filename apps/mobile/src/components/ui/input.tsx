@@ -1,116 +1,35 @@
-import { Ionicons } from '@expo/vector-icons'
-// import { useAuth } from '@providers/auth-provider'
-// import { cn } from '@utils/cn'
-import { useState } from 'react'
-import { Control, Controller, FieldValues, Path } from 'react-hook-form'
-import { Image, Text, TextInput, TextInputProps, View } from 'react-native'
+import { cn } from "@/lib/utils";
+import { Platform, TextInput, type TextInputProps } from "react-native";
 
-interface InputProps<T extends FieldValues> extends TextInputProps {
-  label?: string
-  className?: string
-  control: Control<T>
-  name: Path<T>
-  icon?: keyof typeof Ionicons.glyphMap
-  secureTextEntry?: boolean
-}
-
-export function Input<T extends FieldValues>({
-  label,
+function Input({
   className,
-  control,
-  name,
-  icon,
-  secureTextEntry = true,
-  ...rest
-}: InputProps<T>) {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(true)
-  // const { user } = useAuth()
-
-  const togglePasswordVisibility = () => {
-    setIsPasswordVisible(!isPasswordVisible)
-  }
-
+  ...props
+}: TextInputProps & React.RefAttributes<TextInput>) {
   return (
-    <View>
-      <Controller
-        control={control}
-        name={name}
-        render={({
-          field: { value, onBlur, onChange },
-          fieldState: { error },
-        }) => (
-          <>
-            <View className='flex-row justify-between'>
-              <Text className='text-sm mb-1 text-[#111827] font-poppins-medium'>
-                {label}
-              </Text>
-              {error && (
-                <Text className='text-xs text-red-500 font-poppins'>
-                  {error?.message}
-                </Text>
-              )}
-            </View>
-            <View
-              className={cn(
-                'flex-row items-center rounded-xl p-4 border bg-[#F3F4F6] border-[#E5E7EB]',
-                error ? 'border-red-300' : 'border-gray-300'
-              )}
-            >
-              {name === 'full_name' ? (
-                <Image
-                  source={{ uri: user?.avatar_url }}
-                  className='w-6 aspect-square rounded-full'
-                  resizeMode='contain'
-                />
-              ) : (
-                <Ionicons name={icon} size={20} color='#6366F1' />
-              )}
-              <View className={cn('flex-1 mx-3', className)}>
-                <TextInput
-                  value={value}
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  secureTextEntry={
-                    name === 'password' ||
-                    name === 'confirmPassword' ||
-                    name === 'oldPassword' ||
-                    name === 'newPassword' ||
-                    name === 'confirmNewPassword'
-                      ? isPasswordVisible
-                      : false
-                  }
-                  autoCapitalize='none'
-                  autoCorrect={false}
-                  placeholderTextColor='#9CA3AF'
-                  style={{
-                    flex: 1,
-                    color: '#111827',
-                    fontFamily: 'Poppins',
-                    fontSize: 18,
-                    textAlignVertical: 'center',
-                    paddingVertical: 0,
-                    includeFontPadding: false,
-                  }}
-                  {...rest}
-                />
-              </View>
-              {(name === 'password' ||
-                name === 'confirmPassword' ||
-                name === 'oldPassword' ||
-                name === 'newPassword' ||
-                name === 'confirmNewPassword') &&
-                value.length > 0 && (
-                  <Ionicons
-                    name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color='#6366F1'
-                    onPress={togglePasswordVisibility}
-                  />
-                )}
-            </View>
-          </>
-        )}
-      />
-    </View>
-  )
+    <TextInput
+      className={cn(
+        "h-12 w-full rounded-md border border-border bg-background px-3 text-base text-foreground shadow-sm shadow-black/5",
+        props.editable === false &&
+          cn(
+            "opacity-50",
+            Platform.select({
+              web: "disabled:pointer-events-none disabled:cursor-not-allowed",
+            }),
+          ),
+        Platform.select({
+          native: "placeholder:text-muted-foreground/50",
+          web: cn(
+            "outline-none transition-[color,box-shadow] selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground md:text-sm",
+            "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+          ),
+        }),
+        className,
+      )}
+      placeholderTextColor="#746E64"
+      {...props}
+    />
+  );
 }
+
+export { Input };

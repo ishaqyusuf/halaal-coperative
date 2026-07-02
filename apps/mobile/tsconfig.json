@@ -15,6 +15,7 @@
 
     "paths": {
       "@/*": ["./src/*"],
+      "@halaalvest/api/trpc/routers/_app": ["./src/types/api-router.ts"],
       "@root/*": ["./*"],
       "@store/*": ["./src/store/*"],
       "@utils/*": ["./src/utils/*"],

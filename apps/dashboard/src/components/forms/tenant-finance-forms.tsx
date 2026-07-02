@@ -1,11 +1,22 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { Fragment, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { ArrowUpDownIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@halaalvest/ui/components/alert-dialog"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
@@ -39,6 +50,7 @@ import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { QuickFill } from "@/components/quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
+import { Trash2Icon } from "lucide-react"
 import {
   createChargeDefinitionAction,
   createChargeDefinitionVersionAction,
@@ -50,6 +62,61 @@ import {
   updateTenantFinanceStartDateAction,
   updateTenantBusinessProfitPolicyAction,
 } from "@/lib/dashboard-actions"
+
+const compactInputTableClassName =
+  "w-full table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0"
+
+function DeleteInlineRowButton({
+  disabled,
+  label,
+  onDelete,
+}: {
+  disabled?: boolean
+  label: string
+  onDelete: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger
+        render={
+          <Button
+            aria-label={`Delete ${label}`}
+            className="size-8"
+            disabled={disabled}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <Trash2Icon className="size-3.5" />
+      </AlertDialogTrigger>
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {label}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes the row from the form before it is saved.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              onDelete()
+              setOpen(false)
+            }}
+            type="button"
+            variant="destructive"
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
 
 function CurrencyFormInput({
   id,
@@ -171,6 +238,7 @@ export function FinanceStartDateForm({
 }: {
   defaultStartDate?: string | null
 }) {
+  const today = new Date().toISOString().slice(0, 10)
   const form = useZodForm<StartDateValues>(startDateSchema, {
     defaultValues: {
       startDate: defaultStartDate ?? "",
@@ -195,27 +263,56 @@ export function FinanceStartDateForm({
 
   return (
     <Form {...form}>
-      <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField
-          control={form.control}
-          name="startDate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cooperative start date</FormLabel>
-              <FormControl>
-                <DatePickerInput
-                  {...field}
-                  allowClear={false}
-                  placeholder="Select start date"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button disabled={isPending} type="submit" className="rounded-full">
-          Save date
-        </Button>
+      <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
+        <div className="overflow-x-auto">
+          <table className={`${compactInputTableClassName} min-w-[360px]`}>
+            <colgroup>
+              <col />
+              <col className="w-28" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
+                  Start date
+                </th>
+                <th scope="col">
+                  <span className="sr-only">Action</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="align-top">
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <DatePickerInput
+                            {...field}
+                            allowClear={false}
+                            max={today}
+                            placeholder="Select start date"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td>
+                  <Button disabled={isPending} type="submit">
+                    Save
+                  </Button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </form>
     </Form>
   )
@@ -390,147 +487,202 @@ export function BusinessProfitPolicyForm({
   return (
     <Form {...form}>
       <form
-        className="flex flex-col gap-4"
+        className="space-y-3"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="grid gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="profitDistributionFrequency"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Distribution frequency</FormLabel>
-                <FormControl>
-                  <SelectFormInput
-                    onChange={field.onChange}
-                    options={distributionFrequencyOptions}
-                    value={field.value}
+        <div className="overflow-x-auto">
+          <table className={`${compactInputTableClassName} min-w-[1120px]`}>
+            <colgroup>
+              <col className="w-[150px]" />
+              <col className="w-[150px]" />
+              <col className="w-[120px]" />
+              <col className="w-[120px]" />
+              <col className="w-[170px]" />
+              <col className="w-[210px]" />
+              <col className="w-[190px]" />
+              <col className="w-[120px]" />
+              <col className="w-24" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Frequency
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Year start
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Distributable
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Reserve
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Basis
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Expense
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  History
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Approval
+                </th>
+                <th scope="col">
+                  <span className="sr-only">Action</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="align-top">
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="profitDistributionFrequency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SelectFormInput
+                            onChange={field.onChange}
+                            options={distributionFrequencyOptions}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="financialYearStartMonth"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Financial year starts</FormLabel>
-                <FormControl>
-                  <SelectFormInput
-                    onChange={field.onChange}
-                    options={financialYearStartMonthOptions}
-                    value={field.value}
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="financialYearStartMonth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SelectFormInput
+                            onChange={field.onChange}
+                            options={financialYearStartMonthOptions}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="defaultDistributablePercentage"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Distributable</FormLabel>
-                <FormControl>
-                  <PercentageFormInput {...field} placeholder="100" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="reserveRetentionPercentage"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Reserve retention</FormLabel>
-                <FormControl>
-                  <PercentageFormInput {...field} placeholder="0" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="distributionBasis"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Distribution basis</FormLabel>
-                <FormControl>
-                  <SelectFormInput
-                    onChange={field.onChange}
-                    options={distributionBasisOptions}
-                    value={field.value}
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="defaultDistributablePercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <PercentageFormInput {...field} placeholder="100" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="expenseTreatment"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Expense treatment</FormLabel>
-                <FormControl>
-                  <SelectFormInput
-                    onChange={field.onChange}
-                    options={expenseTreatmentOptions}
-                    value={field.value}
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="reserveRetentionPercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <PercentageFormInput {...field} placeholder="0" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="historicalProfitMigrationMode"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Historical profit mode</FormLabel>
-                <FormControl>
-                  <SelectFormInput
-                    onChange={field.onChange}
-                    options={historicalProfitMigrationModeOptions}
-                    value={field.value}
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="distributionBasis"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SelectFormInput
+                            onChange={field.onChange}
+                            options={distributionBasisOptions}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="requiresProfitDistributionApproval"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-3 rounded-md border px-3 py-2">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={(checked) =>
-                      field.onChange(checked === true)
-                    }
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="expenseTreatment"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SelectFormInput
+                            onChange={field.onChange}
+                            options={expenseTreatmentOptions}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </FormControl>
-                <FormLabel>Require approval before publishing</FormLabel>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="historicalProfitMigrationMode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SelectFormInput
+                            onChange={field.onChange}
+                            options={historicalProfitMigrationModeOptions}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="requiresProfitDistributionApproval"
+                    render={({ field }) => (
+                      <FormItem className="flex h-9 items-center gap-2 rounded-md border border-input bg-transparent px-3">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(checked) =>
+                              field.onChange(checked === true)
+                            }
+                          />
+                        </FormControl>
+                        <FormLabel className="text-xs">Required</FormLabel>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td>
+                  <Button disabled={isPending} type="submit">
+                    Save
+                  </Button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <Button
-          className="self-start rounded-full"
-          disabled={isPending}
-          type="submit"
-        >
-          Save policy
-        </Button>
       </form>
     </Form>
   )
@@ -718,26 +870,26 @@ export function ShareStructureVersionForm({
     })
   }
 
-  function sortShareHistoryRows() {
+  function deleteShareHistoryRow(rowId: string) {
     setShareHistoryRows((currentRows) => {
-      const sortedRows = currentRows
-        .filter(shareHistoryRowHasValue)
-        .sort(sortShareHistoryRowsByDate)
+      const compactRows = currentRows.filter((row) => row.id !== rowId)
 
-      return [...sortedRows, createShareHistoryRow()]
+      return compactRows.length > 0
+        ? compactRows
+        : [createShareHistoryRow("share-history-initial")]
     })
   }
 
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 md:grid-cols-2"
+        className="space-y-3"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="md:col-span-2 space-y-3 border border-border/70 bg-muted/20 p-3">
+        <div className="space-y-3">
           <div className="flex items-center gap-3">
             <h3 className="shrink-0 text-sm font-medium">Share History</h3>
-            <Separator className="min-w-10 flex-1" />
+            <div className="min-w-10 flex-1 border-border/70 border-t" />
             <QuickFill
               args={{
                 createRow: createShareHistoryRow,
@@ -753,15 +905,6 @@ export function ShareStructureVersionForm({
               name="shareHistory"
             />
             <Button
-              aria-label="Sort share history by date"
-              onClick={sortShareHistoryRows}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <HugeiconsIcon icon={ArrowUpDownIcon} data-icon="inline-start" />
-            </Button>
-            <Button
               onClick={resetShareHistoryRows}
               size="sm"
               type="button"
@@ -770,78 +913,101 @@ export function ShareStructureVersionForm({
               Clear
             </Button>
           </div>
-          <FieldGroup className="gap-3">
-            {shareHistoryRows.map((row) => (
-              <div
-                className="grid grid-cols-3 gap-2 sm:gap-3"
-                key={row.id}
-              >
-                <Field>
-                  <FieldLabel htmlFor={`share-history-date-${row.id}`}>
+          <div className="overflow-x-auto">
+            <table className={`${compactInputTableClassName} min-w-[560px]`}>
+              <colgroup>
+                <col className="w-[150px]" />
+                <col />
+                <col />
+                <col className="w-8" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
                     Date
-                  </FieldLabel>
-                  <DatePickerInput
-                    allowClear={false}
-                    id={`share-history-date-${row.id}`}
-                    min={financeStartDate ?? undefined}
-                    onChange={(effectiveFrom) =>
-                      updateShareHistoryRow(row.id, { effectiveFrom })
-                    }
-                    placeholder="Date"
-                    value={row.effectiveFrom}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel>Rule</FieldLabel>
-                  <SelectFormInput
-                    onChange={(value) =>
-                      updateShareHistoryRow(row.id, {
-                        valueType: value as ShareRuleValueType,
-                      })
-                    }
-                    options={[
-                      { label: "Fixed amount", value: "fixed_amount" },
-                      {
-                        label: "Percentage after charges",
-                        value: "percentage",
-                      },
-                    ]}
-                    value={row.valueType}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`share-history-value-${row.id}`}>
+                  </th>
+                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                    Rule
+                  </th>
+                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
                     Value
-                  </FieldLabel>
-                  {row.valueType === "percentage" ? (
-                    <PercentageFormInput
-                      id={`share-history-value-${row.id}`}
-                      onChange={(amount) =>
-                        updateShareHistoryRow(row.id, { amount })
-                      }
-                      placeholder="10"
-                      value={row.amount}
-                    />
-                  ) : (
-                    <CurrencyFormInput
-                      id={`share-history-value-${row.id}`}
-                      onChange={(amount) =>
-                        updateShareHistoryRow(row.id, { amount })
-                      }
-                      placeholder="15000"
-                      value={row.amount}
-                    />
-                  )}
-                </Field>
-              </div>
-            ))}
-          </FieldGroup>
+                  </th>
+                  <th scope="col">
+                    <span className="sr-only">Action</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {shareHistoryRows.map((row) => (
+                  <tr className="align-top" key={row.id}>
+                    <td>
+                      <DatePickerInput
+                        allowClear={false}
+                        min={financeStartDate ?? undefined}
+                        onChange={(effectiveFrom) =>
+                          updateShareHistoryRow(row.id, { effectiveFrom })
+                        }
+                        placeholder="Date"
+                        value={row.effectiveFrom}
+                      />
+                    </td>
+                    <td>
+                      <SelectFormInput
+                        onChange={(value) =>
+                          updateShareHistoryRow(row.id, {
+                            valueType: value as ShareRuleValueType,
+                          })
+                        }
+                        options={[
+                          { label: "Fixed amount", value: "fixed_amount" },
+                          {
+                            label: "Percentage after charges",
+                            value: "percentage",
+                          },
+                        ]}
+                        value={row.valueType}
+                      />
+                    </td>
+                    <td>
+                      {row.valueType === "percentage" ? (
+                        <PercentageFormInput
+                          onChange={(amount) =>
+                            updateShareHistoryRow(row.id, { amount })
+                          }
+                          placeholder="10"
+                          value={row.amount}
+                        />
+                      ) : (
+                        <CurrencyFormInput
+                          onChange={(amount) =>
+                            updateShareHistoryRow(row.id, { amount })
+                          }
+                          placeholder="15000"
+                          value={row.amount}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      <DeleteInlineRowButton
+                        disabled={
+                          shareHistoryRows.length === 1 &&
+                          !shareHistoryRowHasValue(row)
+                        }
+                        label="share history row"
+                        onDelete={() => deleteShareHistoryRow(row.id)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         <FormField
           control={form.control}
           name="notes"
           render={({ field }) => (
-            <FormItem className="md:col-span-2">
+            <FormItem>
               <FormLabel>Notes</FormLabel>
               <FormControl>
                 <Textarea
@@ -854,7 +1020,7 @@ export function ShareStructureVersionForm({
             </FormItem>
           )}
         />
-        <div className="flex justify-end md:col-span-2">
+        <div className="flex justify-end">
           <Button disabled={isPending} type="submit">
             Add share
           </Button>
@@ -994,13 +1160,13 @@ export function ChargeDefinitionForm({
     })
   }
 
-  function sortChargeHistoryRows() {
+  function deleteChargeHistoryRow(rowId: string) {
     setChargeHistoryRows((currentRows) => {
-      const sortedRows = currentRows
-        .filter(chargeHistoryRowHasValue)
-        .sort(sortChargeHistoryRowsByDate)
+      const compactRows = currentRows.filter((row) => row.id !== rowId)
 
-      return [...sortedRows, createChargeHistoryRow()]
+      return compactRows.length > 0
+        ? compactRows
+        : [createChargeHistoryRow("charge-history-initial")]
     })
   }
 
@@ -1090,127 +1256,171 @@ export function ChargeDefinitionForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 md:grid-cols-2"
+        className="space-y-3"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Charge name</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Administrative fee" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="code"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Code</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="ADM" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="chargeFrequency"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Frequency</FormLabel>
-              <FormControl>
-                <SelectFormInput
-                  onChange={field.onChange}
-                  options={[
-                    {
-                      label: "Recurring monthly",
-                      value: "recurring_monthly",
-                    },
-                    { label: "Per contribution", value: "per_contribution" },
-                    { label: "One time", value: "one_time" },
-                    { label: "Manual", value: "manual" },
-                  ]}
-                  value={field.value}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="chargeValueType"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Value type</FormLabel>
-              <FormControl>
-                <SelectFormInput
-                  onChange={field.onChange}
-                  options={[
-                    { label: "Fixed amount", value: "fixed_amount" },
-                    { label: "Percentage", value: "percentage" },
-                  ]}
-                  value={field.value}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="kind"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Kind</FormLabel>
-              <FormControl>
-                <SelectFormInput
-                  onChange={field.onChange}
-                  options={[
-                    { label: "Fixed", value: "fixed" },
-                    { label: "Percentage", value: "percentage" },
-                  ]}
-                  value={field.value}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="purpose"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Purpose</FormLabel>
-              <FormControl>
-                <SelectFormInput
-                  onChange={field.onChange}
-                  options={[
-                    { label: "General charge", value: "general" },
-                    { label: "Member share", value: "member_share" },
-                    { label: "Loan fee", value: "loan_fee" },
-                    { label: "Membership fee", value: "membership_fee" },
-                    { label: "Penalty", value: "penalty" },
-                  ]}
-                  value={field.value}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="md:col-span-2 space-y-3 border border-border/70 bg-muted/20 p-3">
+        <div className="overflow-x-auto">
+          <table className={`${compactInputTableClassName} min-w-[860px]`}>
+            <colgroup>
+              <col />
+              <col className="w-[120px]" />
+              <col className="w-[160px]" />
+              <col className="w-[140px]" />
+              <col className="w-[120px]" />
+              <col className="w-[150px]" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Charge
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Code
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Frequency
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Value
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Kind
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  Purpose
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="align-top">
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input {...field} placeholder="Administrative fee" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input {...field} placeholder="ADM" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="chargeFrequency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SelectFormInput
+                            onChange={field.onChange}
+                            options={[
+                              {
+                                label: "Recurring monthly",
+                                value: "recurring_monthly",
+                              },
+                              { label: "Per contribution", value: "per_contribution" },
+                              { label: "One time", value: "one_time" },
+                              { label: "Manual", value: "manual" },
+                            ]}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="chargeValueType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SelectFormInput
+                            onChange={field.onChange}
+                            options={[
+                              { label: "Fixed amount", value: "fixed_amount" },
+                              { label: "Percentage", value: "percentage" },
+                            ]}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="kind"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SelectFormInput
+                            onChange={field.onChange}
+                            options={[
+                              { label: "Fixed", value: "fixed" },
+                              { label: "Percentage", value: "percentage" },
+                            ]}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td>
+                  <FormField
+                    control={form.control}
+                    name="purpose"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SelectFormInput
+                            onChange={field.onChange}
+                            options={[
+                              { label: "General charge", value: "general" },
+                              { label: "Member share", value: "member_share" },
+                              { label: "Loan fee", value: "loan_fee" },
+                              { label: "Membership fee", value: "membership_fee" },
+                              { label: "Penalty", value: "penalty" },
+                            ]}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="space-y-3">
           <div className="flex items-center gap-3">
             <h3 className="shrink-0 text-sm font-medium">Charge History</h3>
-            <Separator className="min-w-10 flex-1" />
+            <div className="min-w-10 flex-1 border-border/70 border-t" />
             <QuickFill
               args={{
                 createRow: createChargeHistoryRow,
@@ -1226,15 +1436,6 @@ export function ChargeDefinitionForm({
               name="chargeHistory"
             />
             <Button
-              aria-label="Sort charge history by date"
-              onClick={sortChargeHistoryRows}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <HugeiconsIcon icon={ArrowUpDownIcon} data-icon="inline-start" />
-            </Button>
-            <Button
               onClick={resetChargeHistoryRows}
               size="sm"
               type="button"
@@ -1243,47 +1444,68 @@ export function ChargeDefinitionForm({
               Clear
             </Button>
           </div>
-          <FieldGroup className="gap-3">
-            {chargeHistoryRows.map((row) => (
-              <div
-                className="grid grid-cols-2 gap-2 sm:gap-3"
-                key={row.id}
-              >
-                <Field>
-                  <FieldLabel htmlFor={`charge-history-date-${row.id}`}>
+          <div className="overflow-x-auto">
+            <table className={`${compactInputTableClassName} min-w-[420px]`}>
+              <colgroup>
+                <col className="w-[150px]" />
+                <col />
+                <col className="w-8" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
                     Date
-                  </FieldLabel>
-                  <DatePickerInput
-                    allowClear={false}
-                    id={`charge-history-date-${row.id}`}
-                    min={financeStartDate ?? undefined}
-                    onChange={(value) =>
-                      updateChargeHistoryRow(row.id, {
-                        effectiveFrom: value,
-                      })
-                    }
-                    placeholder="Date"
-                    value={row.effectiveFrom}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`charge-history-amount-${row.id}`}>
+                  </th>
+                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
                     Amount
-                  </FieldLabel>
-                  <CurrencyFormInput
-                    id={`charge-history-amount-${row.id}`}
-                    onChange={(amount) =>
-                      updateChargeHistoryRow(row.id, { amount })
-                    }
-                    placeholder="2000"
-                    value={row.amount}
-                  />
-                </Field>
-              </div>
-            ))}
-          </FieldGroup>
+                  </th>
+                  <th scope="col">
+                    <span className="sr-only">Action</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {chargeHistoryRows.map((row) => (
+                  <tr className="align-top" key={row.id}>
+                    <td>
+                      <DatePickerInput
+                        allowClear={false}
+                        min={financeStartDate ?? undefined}
+                        onChange={(value) =>
+                          updateChargeHistoryRow(row.id, {
+                            effectiveFrom: value,
+                          })
+                        }
+                        placeholder="Date"
+                        value={row.effectiveFrom}
+                      />
+                    </td>
+                    <td>
+                      <CurrencyFormInput
+                        onChange={(amount) =>
+                          updateChargeHistoryRow(row.id, { amount })
+                        }
+                        placeholder="2000"
+                        value={row.amount}
+                      />
+                    </td>
+                    <td>
+                      <DeleteInlineRowButton
+                        disabled={
+                          chargeHistoryRows.length === 1 &&
+                          !chargeHistoryRowHasValue(row)
+                        }
+                        label="charge history row"
+                        onDelete={() => deleteChargeHistoryRow(row.id)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="flex justify-end md:col-span-2">
+        <div className="flex justify-end">
           <Button disabled={isPending} type="submit">
             Add charge
           </Button>
@@ -1581,21 +1803,751 @@ function calculateShareableBalance(row: BusinessProfitHistoryRow) {
   )
 }
 
-export function ShareBusinessForm({
+type ShareBusinessInitialBusiness = {
+  capitalAmount: number
+  endDate: string | null
+  id: string
+  name: string
+  notes?: string | null
+  profitAmount: number
+  profitEntries: Array<{
+    allocatableProfitAmount: number
+    expenseAmount: number
+    id: string
+    profitAmount: number
+    profitDate: string
+    reason?: string | null
+  }>
+  startDate: string
+}
+
+type ShareBusinessFormProps = {
+  dividendPeriods: Array<{ id: string; label: string }>
+  financeStartDate?: string | null
+  initialBusinesses?: ShareBusinessInitialBusiness[]
+  onSuccess?: () => void
+  profitHistoryMode?: boolean
+  sourceType?: "manual" | "backfill" | "import"
+  stayOnStepHref?: string
+}
+
+type BusinessHistoryInputRow = {
+  capitalAmount: string
+  endDate: string
+  id: string
+  name: string
+  notes: string
+  profitRows: BusinessProfitHistoryRow[]
+  saved: boolean
+  startDate: string
+}
+
+function createBusinessHistoryRow(id?: string): BusinessHistoryInputRow {
+  const rowId =
+    id ??
+    `business-history-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`
+
+  return {
+    capitalAmount: "",
+    endDate: "",
+    id: rowId,
+    name: "",
+    notes: "",
+    profitRows: [createBusinessProfitHistoryRow(`${rowId}-profit`)],
+    saved: false,
+    startDate: "",
+  }
+}
+
+function buildBusinessHistoryRows(
+  initialBusinesses: ShareBusinessInitialBusiness[] | undefined
+) {
+  const savedRows =
+    initialBusinesses?.map((business) => ({
+      capitalAmount: String(business.capitalAmount),
+      endDate: business.endDate ?? "",
+      id: `business-history-${business.id}`,
+      name: business.name,
+      notes: business.notes ?? "",
+      profitRows:
+        business.profitEntries.length > 0
+          ? business.profitEntries.map((entry) => ({
+              amount: String(entry.profitAmount),
+              deductionAmount: String(entry.expenseAmount),
+              id: `business-profit-history-${entry.id}`,
+              profitDate: entry.profitDate,
+              reason: entry.reason ?? "",
+            }))
+          : [
+              {
+                amount: String(business.profitAmount),
+                deductionAmount: "",
+                id: `business-profit-history-${business.id}`,
+                profitDate: business.startDate,
+                reason: "",
+              },
+            ],
+      saved: true,
+      startDate: business.startDate,
+    })) ?? []
+
+  return [...savedRows, createBusinessHistoryRow("business-history-initial")]
+}
+
+function businessHistoryRowHasValue(row: BusinessHistoryInputRow) {
+  return Boolean(
+    row.capitalAmount ||
+      row.endDate ||
+      row.name ||
+      row.notes ||
+      row.startDate ||
+      row.profitRows.some(businessProfitHistoryRowHasValue)
+  )
+}
+
+function businessHistoryRowCanAppendNext(row: BusinessHistoryInputRow) {
+  return Boolean(
+    row.name &&
+      row.capitalAmount &&
+      row.startDate &&
+      row.profitRows.some(businessProfitHistoryRowHasValue)
+  )
+}
+
+function normalizeProfitRows(rows: BusinessProfitHistoryRow[]) {
+  const compactRows = rows.filter(
+    (row, index) =>
+      businessProfitHistoryRowHasValue(row) || index === rows.length - 1
+  )
+  const lastRow = compactRows.at(-1)
+
+  if (!lastRow) {
+    return [createBusinessProfitHistoryRow()]
+  }
+
+  if (businessProfitHistoryRowHasValue(lastRow)) {
+    return [...compactRows, createBusinessProfitHistoryRow()]
+  }
+
+  return compactRows
+}
+
+function normalizeBusinessHistoryRows(rows: BusinessHistoryInputRow[]) {
+  const compactRows = rows.filter(
+    (row, index) =>
+      row.saved || businessHistoryRowHasValue(row) || index === rows.length - 1
+  )
+  const lastRow = compactRows.at(-1)
+
+  if (!lastRow) {
+    return [createBusinessHistoryRow()]
+  }
+
+  if (lastRow.saved) {
+    return [...compactRows, createBusinessHistoryRow()]
+  }
+
+  if (!lastRow.saved && businessHistoryRowCanAppendNext(lastRow)) {
+    return [...compactRows, createBusinessHistoryRow()]
+  }
+
+  return compactRows
+}
+
+export function ShareBusinessForm(props: ShareBusinessFormProps) {
+  if (props.profitHistoryMode) {
+    return <ShareBusinessProfitHistoryTableForm {...props} />
+  }
+
+  return <ShareBusinessSingleForm {...props} />
+}
+
+function ShareBusinessProfitHistoryTableForm({
+  financeStartDate,
+  initialBusinesses,
+  onSuccess,
+  sourceType = "backfill",
+  stayOnStepHref,
+}: ShareBusinessFormProps) {
+  const router = useRouter()
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+  const [businessRows, setBusinessRows] = useState<BusinessHistoryInputRow[]>(
+    () => buildBusinessHistoryRows(initialBusinesses)
+  )
+
+  function resetBusinessRows() {
+    setBusinessRows(buildBusinessHistoryRows(initialBusinesses))
+  }
+
+  function updateBusinessRow(
+    rowId: string,
+    patch: Partial<
+      Pick<
+        BusinessHistoryInputRow,
+        "capitalAmount" | "endDate" | "name" | "notes" | "startDate"
+      >
+    >
+  ) {
+    setBusinessRows((currentRows) =>
+      normalizeBusinessHistoryRows(
+        currentRows.map((row) =>
+          row.id === rowId ? { ...row, ...patch } : row
+        )
+      )
+    )
+  }
+
+  function updateBusinessProfitRow(
+    businessRowId: string,
+    profitRowId: string,
+    patch: Partial<
+      Pick<
+        BusinessProfitHistoryRow,
+        "amount" | "deductionAmount" | "profitDate" | "reason"
+      >
+    >
+  ) {
+    setBusinessRows((currentRows) =>
+      normalizeBusinessHistoryRows(
+        currentRows.map((businessRow) =>
+          businessRow.id === businessRowId
+            ? {
+                ...businessRow,
+                profitRows: normalizeProfitRows(
+                  businessRow.profitRows.map((profitRow) =>
+                    profitRow.id === profitRowId
+                      ? { ...profitRow, ...patch }
+                      : profitRow
+                  )
+                ),
+              }
+            : businessRow
+        )
+      )
+    )
+  }
+
+  function deleteBusinessRow(rowId: string) {
+    setBusinessRows((currentRows) =>
+      normalizeBusinessHistoryRows(
+        currentRows.filter((row) => row.id !== rowId)
+      )
+    )
+  }
+
+  function deleteBusinessProfitRow(businessRowId: string, profitRowId: string) {
+    setBusinessRows((currentRows) =>
+      normalizeBusinessHistoryRows(
+        currentRows.map((businessRow) =>
+          businessRow.id === businessRowId
+            ? {
+                ...businessRow,
+                profitRows: normalizeProfitRows(
+                  businessRow.profitRows.filter((row) => row.id !== profitRowId)
+                ),
+              }
+            : businessRow
+        )
+      )
+    )
+  }
+
+  function getValidBusinessRows() {
+    const startedRows = businessRows.filter(
+      (row) => !row.saved && businessHistoryRowHasValue(row)
+    )
+
+    if (startedRows.length === 0) {
+      showError(
+        "Business history required",
+        "Add at least one business and profit row."
+      )
+      return null
+    }
+
+    for (const businessRow of startedRows) {
+      if (
+        !businessRow.name.trim() ||
+        !businessRow.capitalAmount ||
+        !businessRow.startDate
+      ) {
+        showError(
+          "Complete business row",
+          "Each started business row needs business, capital, and start date."
+        )
+        return null
+      }
+
+      const capitalAmount = parseOptionalFormAmount(businessRow.capitalAmount)
+
+      if (!Number.isFinite(capitalAmount) || capitalAmount <= 0) {
+        showError("Invalid capital", "Business capital must be greater than 0.")
+        return null
+      }
+
+      if (isBeforeFinanceStartDate(businessRow.startDate, financeStartDate)) {
+        showError(
+          "Date before start",
+          `Business start date cannot be before the cooperative start date (${financeStartDate}).`
+        )
+        return null
+      }
+
+      if (isBeforeFinanceStartDate(businessRow.endDate, financeStartDate)) {
+        showError(
+          "Date before start",
+          `Business end date cannot be before the cooperative start date (${financeStartDate}).`
+        )
+        return null
+      }
+
+      if (
+        businessRow.endDate &&
+        businessRow.startDate &&
+        businessRow.endDate < businessRow.startDate
+      ) {
+        showError(
+          "Invalid end date",
+          "Business end date cannot be before the start date."
+        )
+        return null
+      }
+
+      const startedProfitRows = businessRow.profitRows.filter(
+        businessProfitHistoryRowHasValue
+      )
+
+      if (startedProfitRows.length === 0) {
+        showError(
+          "Profit history required",
+          "Each started business needs at least one profit row."
+        )
+        return null
+      }
+
+      for (const profitRow of startedProfitRows) {
+        if (!businessProfitHistoryRowIsComplete(profitRow)) {
+          showError(
+            "Complete profit row",
+            "Each started profit row needs a date and amount."
+          )
+          return null
+        }
+
+        if (isBeforeFinanceStartDate(profitRow.profitDate, financeStartDate)) {
+          showError(
+            "Date before start",
+            `Profit date cannot be before the cooperative start date (${financeStartDate}).`
+          )
+          return null
+        }
+
+        if (profitRow.profitDate < businessRow.startDate) {
+          showError(
+            "Invalid profit date",
+            "Profit date cannot be before the business start date."
+          )
+          return null
+        }
+
+        if (businessRow.endDate && profitRow.profitDate > businessRow.endDate) {
+          showError(
+            "Invalid profit date",
+            "Profit date cannot be after the business end date."
+          )
+          return null
+        }
+
+        const profitAmount = parseOptionalFormAmount(profitRow.amount)
+        const deductionAmount = parseOptionalFormAmount(
+          profitRow.deductionAmount
+        )
+
+        if (!Number.isFinite(profitAmount) || profitAmount <= 0) {
+          showError("Invalid profit", "Profit amount must be greater than 0.")
+          return null
+        }
+
+        if (deductionAmount < 0) {
+          showError("Invalid deduction", "Deduction cannot be negative.")
+          return null
+        }
+
+        if (profitAmount - deductionAmount < 0) {
+          showError(
+            "Invalid shareable balance",
+            "Deduction cannot be greater than profit amount."
+          )
+          return null
+        }
+
+        if (deductionAmount > 0 && !profitRow.reason.trim()) {
+          showError(
+            "Deduction reason required",
+            "Add a reason for every deduction."
+          )
+          return null
+        }
+      }
+    }
+
+    return startedRows.map((businessRow) => ({
+      ...businessRow,
+      profitRows: businessRow.profitRows
+        .filter(businessProfitHistoryRowIsComplete)
+        .sort(sortBusinessProfitHistoryRowsByDate),
+    }))
+  }
+
+  function submitBusinessRows() {
+    const validBusinessRows = getValidBusinessRows()
+
+    if (!validBusinessRows) {
+      return
+    }
+
+    startTransition(async () => {
+      try {
+        for (const businessRow of validBusinessRows) {
+          await createShareBusinessAction(
+            objectToFormData({
+              capitalAmount: businessRow.capitalAmount,
+              endDate: businessRow.endDate,
+              historyDeductionAmount: businessRow.profitRows.map(
+                (row) => row.deductionAmount || "0"
+              ),
+              historyDeductionReason: businessRow.profitRows.map(
+                (row) => row.reason
+              ),
+              historyProfitAmount: businessRow.profitRows.map(
+                (row) => row.amount
+              ),
+              historyProfitDate: businessRow.profitRows.map(
+                (row) => row.profitDate
+              ),
+              name: businessRow.name,
+              notes: businessRow.notes,
+              profitAmount: businessRow.profitRows
+                .reduce(
+                  (total, row) => total + parseOptionalFormAmount(row.amount),
+                  0
+                )
+                .toString(),
+              sourceType,
+              startDate: businessRow.startDate,
+              status: businessRow.endDate ? "completed" : "active",
+            })
+          )
+        }
+
+        showSuccess(
+          "Business history saved",
+          "Business and profit history rows were recorded."
+        )
+        setBusinessRows(buildBusinessHistoryRows(initialBusinesses))
+        router.refresh()
+        if (stayOnStepHref) {
+          router.replace(stayOnStepHref)
+        }
+        onSuccess?.()
+      } catch (error) {
+        showError(
+          "Could not save business history",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        submitBusinessRows()
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <h3 className="shrink-0 text-sm font-medium">Business History</h3>
+        <div className="min-w-10 flex-1 border-border/70 border-t" />
+        <Button
+          disabled={isPending}
+          onClick={resetBusinessRows}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          Clear
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className={`${compactInputTableClassName} min-w-[820px]`}>
+          <colgroup>
+            <col />
+            <col className="w-[140px]" />
+            <col className="w-[150px]" />
+            <col className="w-[150px]" />
+            <col className="w-8" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                Business
+              </th>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                Capital
+              </th>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                Start date
+              </th>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                End date
+              </th>
+              <th scope="col">
+                <span className="sr-only">Action</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {businessRows.map((businessRow) => (
+              <Fragment key={businessRow.id}>
+                <tr className="align-top" key={`${businessRow.id}-business`}>
+                  <td>
+                    <Input
+                      disabled={businessRow.saved || isPending}
+                      onChange={(event) =>
+                        updateBusinessRow(businessRow.id, {
+                          name: event.target.value,
+                        })
+                      }
+                      placeholder="Ramadan retail pool"
+                      value={businessRow.name}
+                    />
+                  </td>
+                  <td>
+                    <CurrencyInput
+                      allowNegative={false}
+                      decimalScale={2}
+                      disabled={businessRow.saved || isPending}
+                      inputMode="decimal"
+                      onValueChange={(values) =>
+                        updateBusinessRow(businessRow.id, {
+                          capitalAmount: values.value,
+                        })
+                      }
+                      placeholder="Capital"
+                      value={businessRow.capitalAmount}
+                      valueIsNumericString
+                    />
+                  </td>
+                  <td>
+                    <DatePickerInput
+                      allowClear={false}
+                      disabled={businessRow.saved || isPending}
+                      min={financeStartDate ?? undefined}
+                      onChange={(startDate) =>
+                        updateBusinessRow(businessRow.id, { startDate })
+                      }
+                      placeholder="Start"
+                      value={businessRow.startDate}
+                    />
+                  </td>
+                  <td>
+                    <DatePickerInput
+                      disabled={businessRow.saved || isPending}
+                      min={
+                        businessRow.startDate || financeStartDate || undefined
+                      }
+                      onChange={(endDate) =>
+                        updateBusinessRow(businessRow.id, { endDate })
+                      }
+                      placeholder="End"
+                      value={businessRow.endDate}
+                    />
+                  </td>
+                  <td>
+                    <DeleteInlineRowButton
+                      disabled={
+                        businessRow.saved ||
+                        isPending ||
+                        (!businessHistoryRowHasValue(businessRow) &&
+                          businessRows.filter((row) => !row.saved).length === 1)
+                      }
+                      label="business row"
+                      onDelete={() => deleteBusinessRow(businessRow.id)}
+                    />
+                  </td>
+                </tr>
+                <tr key={`${businessRow.id}-profits`}>
+                  <td colSpan={5}>
+                    <div className="pl-6">
+                      <table className={`${compactInputTableClassName} min-w-[760px]`}>
+                        <colgroup>
+                          <col className="w-[150px]" />
+                          <col className="w-[140px]" />
+                          <col className="w-[140px]" />
+                          <col />
+                          <col className="w-[140px]" />
+                          <col className="w-8" />
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                              Profit
+                            </th>
+                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                              Amount
+                            </th>
+                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                              Deduction
+                            </th>
+                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                              Reason
+                            </th>
+                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                              Shareable
+                            </th>
+                            <th scope="col">
+                              <span className="sr-only">Action</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {businessRow.profitRows.map((profitRow) => {
+                            const shareableBalance =
+                              calculateShareableBalance(profitRow)
+
+                            return (
+                              <tr className="align-top" key={profitRow.id}>
+                                <td>
+                                  <DatePickerInput
+                                    allowClear={false}
+                                    disabled={businessRow.saved || isPending}
+                                    min={
+                                      businessRow.startDate ||
+                                      financeStartDate ||
+                                      undefined
+                                    }
+                                    onChange={(profitDate) =>
+                                      updateBusinessProfitRow(
+                                        businessRow.id,
+                                        profitRow.id,
+                                        { profitDate }
+                                      )
+                                    }
+                                    placeholder="Profit"
+                                    value={profitRow.profitDate}
+                                  />
+                                </td>
+                                <td>
+                                  <CurrencyInput
+                                    allowNegative={false}
+                                    decimalScale={2}
+                                    disabled={businessRow.saved || isPending}
+                                    inputMode="decimal"
+                                    onValueChange={(values) =>
+                                      updateBusinessProfitRow(
+                                        businessRow.id,
+                                        profitRow.id,
+                                        { amount: values.value }
+                                      )
+                                    }
+                                    placeholder="Amount"
+                                    value={profitRow.amount}
+                                    valueIsNumericString
+                                  />
+                                </td>
+                                <td>
+                                  <CurrencyInput
+                                    allowNegative={false}
+                                    decimalScale={2}
+                                    disabled={businessRow.saved || isPending}
+                                    inputMode="decimal"
+                                    onValueChange={(values) =>
+                                      updateBusinessProfitRow(
+                                        businessRow.id,
+                                        profitRow.id,
+                                        { deductionAmount: values.value }
+                                      )
+                                    }
+                                    placeholder="Deduction"
+                                    value={profitRow.deductionAmount}
+                                    valueIsNumericString
+                                  />
+                                </td>
+                                <td>
+                                  <Input
+                                    disabled={businessRow.saved || isPending}
+                                    onChange={(event) =>
+                                      updateBusinessProfitRow(
+                                        businessRow.id,
+                                        profitRow.id,
+                                        { reason: event.target.value }
+                                      )
+                                    }
+                                    placeholder="Reason"
+                                    value={profitRow.reason}
+                                  />
+                                </td>
+                                <td>
+                                  <CurrencyInput
+                                    decimalScale={2}
+                                    disabled={businessRow.saved || isPending}
+                                    fixedDecimalScale
+                                    readOnly
+                                    value={
+                                      Number.isFinite(shareableBalance)
+                                        ? shareableBalance.toFixed(2)
+                                        : "0.00"
+                                    }
+                                    valueIsNumericString
+                                  />
+                                </td>
+                                <td>
+                                  <DeleteInlineRowButton
+                                    disabled={businessRow.saved || isPending}
+                                    label="profit row"
+                                    onDelete={() =>
+                                      deleteBusinessProfitRow(
+                                        businessRow.id,
+                                        profitRow.id
+                                      )
+                                    }
+                                  />
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex justify-end">
+        <Button disabled={isPending} type="submit">
+          Record businesses
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function ShareBusinessSingleForm({
   dividendPeriods,
   financeStartDate,
   onSuccess,
   profitHistoryMode = false,
   sourceType = "manual",
   stayOnStepHref,
-}: {
-  dividendPeriods: Array<{ id: string; label: string }>
-  financeStartDate?: string | null
-  onSuccess?: () => void
-  profitHistoryMode?: boolean
-  sourceType?: "manual" | "backfill" | "import"
-  stayOnStepHref?: string
-}) {
+}: ShareBusinessFormProps) {
   const router = useRouter()
   const form = useZodForm<ShareBusinessValues>(shareBusinessSchema, {
     defaultValues: {

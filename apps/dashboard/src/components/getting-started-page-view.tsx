@@ -45,14 +45,6 @@ import {
   ProgressValue,
 } from "@halaalvest/ui/components/progress"
 import { Separator } from "@halaalvest/ui/components/separator"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@halaalvest/ui/components/table"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
@@ -64,7 +56,6 @@ import {
 import {
   BusinessProfitPolicyForm,
   ChargeDefinitionForm,
-  ChargeDefinitionVersionForm,
   FinanceStartDateForm,
   ShareBusinessForm,
   ShareStructureVersionForm,
@@ -269,6 +260,9 @@ const orderedStepKeys: GettingStartedStepKey[] = [
   "admin-member",
   "review",
 ]
+
+const compactInputTableClassName =
+  "w-full table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0"
 
 const stepGroups = [
   {
@@ -611,49 +605,6 @@ function StepFooter({
   )
 }
 
-function HistoryTable({
-  rows,
-  title,
-}: {
-  rows: Array<{ amount: number; date: string; detail: string; id: string }>
-  title: string
-}) {
-  return (
-    <div className="border border-border/70">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{title}</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.length > 0 ? (
-            rows.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>{row.detail}</TableCell>
-                <TableCell>{row.date}</TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(row.amount)}
-                </TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell className="text-muted-foreground">
-                Nothing saved yet.
-              </TableCell>
-              <TableCell>-</TableCell>
-              <TableCell className="text-right">-</TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
-  )
-}
-
 function StartDateStep({
   tenantStartDate,
 }: Pick<GettingStartedPageViewProps, "tenantStartDate">) {
@@ -664,68 +615,27 @@ function StartDateStep({
         title="Enter or confirm the cooperative start date"
         description="This date becomes the lower bound for historical finance setup and member migration rows."
       />
-      <CardContent className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <CardContent className="grid gap-5">
         <FinanceStartDateForm defaultStartDate={tenantStartDate} />
-        <div className="border border-border/70 bg-muted/20 p-4">
-          <p className="text-xs text-muted-foreground">Current anchor</p>
-          <p className="mt-2 text-sm font-semibold">
-            {formatDate(tenantStartDate)}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Every charge, share, profit, commitment, and legacy loan date should
-            be on or after this date.
-          </p>
-        </div>
       </CardContent>
     </Card>
   )
 }
 
 function ChargesStep({
-  chargeDefinitions,
   tenantStartDate,
-}: Pick<GettingStartedPageViewProps, "chargeDefinitions" | "tenantStartDate">) {
+}: Pick<GettingStartedPageViewProps, "tenantStartDate">) {
   return (
     <Card>
       <SetupCardHeader
         eyebrow="Step 2"
         title="Cooperative charges and history"
         description="Create the charge definitions and dated amount changes that member migration will deduct."
-        action={
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/settings/imports/charges"
-          >
-            Import charge history
-          </Link>
-        }
       />
       <CardContent className="grid gap-5">
         <ChargeDefinitionForm
           financeStartDate={tenantStartDate}
           stayOnStepHref={stepHref("charges")}
-        />
-        {chargeDefinitions.length > 0 ? (
-          <ChargeDefinitionVersionForm
-            chargeDefinitions={chargeDefinitions.map((charge) => ({
-              id: charge.id,
-              kind: charge.kind,
-              label: `${charge.name} (${charge.code})`,
-            }))}
-            financeStartDate={tenantStartDate}
-            stayOnStepHref={stepHref("charges")}
-          />
-        ) : null}
-        <HistoryTable
-          title="Charge"
-          rows={chargeDefinitions.flatMap((charge) =>
-            charge.versions.map((version) => ({
-              amount: version.amount,
-              date: version.effectiveFrom,
-              detail: `${charge.name} ${version.status}`,
-              id: version.id,
-            })),
-          )}
         />
       </CardContent>
     </Card>
@@ -733,12 +643,8 @@ function ChargesStep({
 }
 
 function SharesStep({
-  shareStructureVersions,
   tenantStartDate,
-}: Pick<
-  GettingStartedPageViewProps,
-  "shareStructureVersions" | "tenantStartDate"
->) {
+}: Pick<GettingStartedPageViewProps, "tenantStartDate">) {
   return (
     <Card>
       <SetupCardHeader
@@ -750,18 +656,6 @@ function SharesStep({
         <ShareStructureVersionForm
           financeStartDate={tenantStartDate}
           stayOnStepHref={stepHref("shares")}
-        />
-        <HistoryTable
-          title="Share rule"
-          rows={shareStructureVersions.map((version) => ({
-            amount: version.amount,
-            date: version.effectiveFrom,
-            detail:
-              version.valueType === "percentage"
-                ? "Percentage after charges"
-                : "Fixed share amount",
-            id: version.id,
-          }))}
         />
       </CardContent>
     </Card>
@@ -804,6 +698,7 @@ function BusinessStep({
         <ShareBusinessForm
           dividendPeriods={dividendPeriods}
           financeStartDate={tenantStartDate}
+          initialBusinesses={shareBusinesses}
           profitHistoryMode
           sourceType="backfill"
           stayOnStepHref={stepHref("business")}
@@ -824,19 +719,6 @@ function BusinessStep({
           id="business-profit-review"
           placeholder="NO BUSINESS PROFITS"
           title="Confirm no historical business profits"
-        />
-        <HistoryTable
-          title="Business profit"
-          rows={shareBusinesses.flatMap((business) =>
-            business.profitEntries.map((entry) => ({
-              amount: entry.allocatableProfitAmount,
-              date: entry.profitDate,
-              detail: `${business.name} · gross ${formatCurrency(
-                entry.profitAmount
-              )} · deduction ${formatCurrency(entry.expenseAmount)}`,
-              id: entry.id,
-            }))
-          )}
         />
       </CardContent>
     </Card>
@@ -882,23 +764,47 @@ function ProfitSeasonsStep({
                 </AlertDescription>
               </Alert>
             ) : null}
-            <div className="overflow-x-auto border border-border/70">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Season</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead className="text-right">Estimated profit</TableHead>
-                    <TableHead className="text-right">Row deductions</TableHead>
-                    <TableHead className="min-w-40 text-right">
+            <div className="overflow-x-auto">
+              <table className={`${compactInputTableClassName} min-w-[1120px]`}>
+                <colgroup>
+                  <col className="w-[180px]" />
+                  <col className="w-[170px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[150px]" />
+                  <col />
+                  <col className="w-[150px]" />
+                  <col className="w-[120px]" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                      Season
+                    </th>
+                    <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                      Period
+                    </th>
+                    <th className="text-right text-xs font-medium text-muted-foreground" scope="col">
+                      Estimated profit
+                    </th>
+                    <th className="text-right text-xs font-medium text-muted-foreground" scope="col">
+                      Row deductions
+                    </th>
+                    <th className="text-right text-xs font-medium text-muted-foreground" scope="col">
                       Season deduction
-                    </TableHead>
-                    <TableHead className="min-w-52">Reason</TableHead>
-                    <TableHead className="text-right">Distributable</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                    </th>
+                    <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                      Reason
+                    </th>
+                    <th className="text-right text-xs font-medium text-muted-foreground" scope="col">
+                      Distributable
+                    </th>
+                    <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
                   {businessProfitSeasons.map((season) => {
                     const maxSeasonDeduction = Math.max(
                       0,
@@ -906,8 +812,8 @@ function ProfitSeasonsStep({
                     )
 
                     return (
-                      <TableRow key={season.key}>
-                        <TableCell>
+                      <tr className="align-top" key={season.key}>
+                        <td>
                           <input
                             name="seasonKey"
                             type="hidden"
@@ -920,18 +826,18 @@ function ProfitSeasonsStep({
                           <p className="text-xs text-muted-foreground">
                             {season.profitEntryCount} profit row(s)
                           </p>
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="pt-2 text-sm">
                           {formatDate(season.periodStart)} -{" "}
                           {formatDate(season.periodEnd)}
-                        </TableCell>
-                        <TableCell className="text-right">
+                        </td>
+                        <td className="pt-2 text-right text-sm">
                           {formatCurrency(season.grossProfitAmount)}
-                        </TableCell>
-                        <TableCell className="text-right">
+                        </td>
+                        <td className="pt-2 text-right text-sm">
                           {formatCurrency(season.entryDeductionAmount)}
-                        </TableCell>
-                        <TableCell className="text-right">
+                        </td>
+                        <td>
                           <CurrencyPrefixInput
                             className="ml-auto w-36"
                             defaultValue={season.deductionAmount || ""}
@@ -941,18 +847,18 @@ function ProfitSeasonsStep({
                             step="0.01"
                             type="number"
                           />
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td>
                           <Input
                             defaultValue={season.deductionReason ?? ""}
                             name={`deductionReason-${season.key}`}
                             placeholder="Deduction reason"
                           />
-                        </TableCell>
-                        <TableCell className="text-right">
+                        </td>
+                        <td className="pt-2 text-right text-sm">
                           {formatCurrency(season.distributableAmount)}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td>
                           <Badge
                             variant={
                               season.status === "pending" ||
@@ -965,12 +871,12 @@ function ProfitSeasonsStep({
                               ? "Needs review"
                               : season.status}
                           </Badge>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     )
                   })}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
             <Button className="w-fit" type="submit">
               Save and next
@@ -1153,15 +1059,9 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
       {props.activeStep === "start-date" ? (
         <StartDateStep tenantStartDate={props.tenantStartDate} />
       ) : props.activeStep === "charges" ? (
-        <ChargesStep
-          chargeDefinitions={props.chargeDefinitions}
-          tenantStartDate={props.tenantStartDate}
-        />
+        <ChargesStep tenantStartDate={props.tenantStartDate} />
       ) : props.activeStep === "shares" ? (
-        <SharesStep
-          shareStructureVersions={props.shareStructureVersions}
-          tenantStartDate={props.tenantStartDate}
-        />
+        <SharesStep tenantStartDate={props.tenantStartDate} />
       ) : props.activeStep === "profit-policy" ? (
         <ProfitPolicyStep businessPolicy={props.businessPolicy} />
       ) : props.activeStep === "business" ? (

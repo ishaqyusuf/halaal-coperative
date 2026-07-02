@@ -69,7 +69,6 @@ const config: ExpoConfig = {
       backgroundColor: variantConfig.iconBackgroundColor,
       foregroundImage: variantConfig.icons.adaptive,
     },
-    edgeToEdgeEnabled: false,
     package: variantConfig.androidPackage,
     predictiveBackGestureEnabled: false,
   },

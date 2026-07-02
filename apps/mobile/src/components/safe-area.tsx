@@ -1,8 +1,7 @@
 import {
   SafeAreaView,
-  type StyleProp,
-  type ViewStyle,
 } from "react-native-safe-area-context";
+import type { StyleProp, ViewStyle } from "react-native";
 
 export function SafeArea({
   children,

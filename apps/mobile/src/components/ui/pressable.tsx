@@ -6,7 +6,12 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/use-color";
-import { hexToRgba } from "@gnd/utils/colors";
+
+function rgbToRgba(value: string, opacity: number) {
+  const rgb = value.match(/\d+/g)?.slice(0, 3).join(", ");
+  if (!rgb) return value;
+  return `rgba(${rgb}, ${opacity})`;
+}
 
 type Props = BasePressableProps & {
   href?: LinkProps["href"];
@@ -51,10 +56,10 @@ export function Pressable({
         noRipple || props.disabled
           ? undefined
           : {
-              color: hexToRgba(
-                colors?.[rippleColor || "primary"],
-                rippleOpacity,
-              ),
+            color: rgbToRgba(
+              colors?.[rippleColor || "primary"],
+              rippleOpacity,
+            ),
               // color: "red",
               foreground: true,
               ...android_ripple,

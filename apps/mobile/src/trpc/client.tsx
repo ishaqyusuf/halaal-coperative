@@ -16,8 +16,6 @@ import { createTRPCContext } from "@trpc/tanstack-react-query";
 import { useState } from "react";
 import superjson from "superjson";
 import { makeQueryClient } from "./query-client";
-// import { generateRandomString } from "@/lib/utils";
-// import { authUser } from "@/app-deps/(v1)/_actions/utils";
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
 

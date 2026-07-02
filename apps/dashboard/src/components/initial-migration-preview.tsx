@@ -14,14 +14,6 @@ import {
   DialogTrigger,
 } from "@halaalvest/ui/components/dialog"
 import { Input } from "@halaalvest/ui/components/input"
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@halaalvest/ui/components/item"
 import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardDataTable,
@@ -50,16 +42,15 @@ import {
   LoanHistoryEntryForm,
 } from "@/components/migration/member-migration-history-forms"
 import { MemberMigrationInputPanels } from "@/components/migration/member-migration-input-panels"
+import { MemberBackfillActivityWindowsForm } from "@/components/members/member-backfill-activity-windows-form"
 import { MemberCreateModal } from "@/components/modals/member-create-modal"
 import {
   createLegacyLoanMigrationDraftAction,
   finalizeInitialMigrationAction,
   markLegacyLoansReviewedAction,
-  deleteMemberActivityEventAction,
   queueBackfillApplyAction,
   queueBackfillDraftAction,
   updateLegacyLoanMigrationDraftAction,
-  upsertMemberActivityEventAction,
   upsertMigrationProfitAdjustmentAction,
 } from "@/lib/dashboard-actions"
 
@@ -273,19 +264,6 @@ type LegacyLoanDraftRow = {
 type MemberOption = {
   id: string
   label: string
-}
-
-function formatGuarantorMember(
-  memberId: string | null | undefined,
-  memberOptions: MemberOption[]
-) {
-  if (!memberId) {
-    return "None"
-  }
-
-  return (
-    memberOptions.find((member) => member.id === memberId)?.label ?? memberId
-  )
 }
 
 type MemberAmountLogRow = {
@@ -527,39 +505,15 @@ function CommitmentHistoryPanel({
     <div className="space-y-3">
       <CommitmentHistoryEntryForm
         disabled={disabled}
+        initialRows={memberAmountLogs.map((log) => ({
+          amount: log.amount,
+          effectiveFrom: log.effectiveFrom,
+          id: log.id,
+          notes: log.notes ?? null,
+        }))}
         memberId={memberId}
         memberJoinedAt={memberJoinedAt}
       />
-
-      <DashboardDataTable>
-        <DashboardTable className="min-w-[420px]">
-          <DashboardTableHead>
-            <DashboardTableHeaderCell>Date</DashboardTableHeaderCell>
-            <DashboardTableHeaderCell align="right">
-              Amount
-            </DashboardTableHeaderCell>
-          </DashboardTableHead>
-          <DashboardTableBody>
-            {memberAmountLogs.length > 0 ? (
-              memberAmountLogs.map((log) => (
-                <DashboardTableRow key={log.id}>
-                  <DashboardTableCell>{log.effectiveFrom}</DashboardTableCell>
-                  <DashboardTableCell align="right">
-                    {formatCurrency(log.amount)}
-                  </DashboardTableCell>
-                </DashboardTableRow>
-              ))
-            ) : (
-              <DashboardTableRow>
-                <DashboardTableCell className="text-muted-foreground">
-                  No commitment history yet.
-                </DashboardTableCell>
-                <DashboardTableCell align="right">-</DashboardTableCell>
-              </DashboardTableRow>
-            )}
-          </DashboardTableBody>
-        </DashboardTable>
-      </DashboardDataTable>
     </div>
   )
 }
@@ -583,81 +537,24 @@ function LoanHistoryPanel({
     <div className="space-y-3">
       <LoanHistoryEntryForm
         disabled={disabled}
+        initialRows={loans.map((loan) => ({
+          closedAt: loan.closedAt,
+          guarantorOneMemberId: loan.guarantorOneMemberId ?? null,
+          guarantorTwoMemberId: loan.guarantorTwoMemberId ?? null,
+          id: loan.id,
+          loanLabel: loan.loanLabel,
+          openedAt: loan.openedAt,
+          outstandingPrincipalBalance: loan.outstandingPrincipalBalance,
+          principalAmount: loan.principalAmount,
+          savingsDuringLoan: loan.savingsDuringLoan,
+          scheduledMonthlyPrincipalRepayment:
+            loan.scheduledMonthlyPrincipalRepayment,
+        }))}
         memberId={memberId}
         memberJoinedAt={memberJoinedAt}
         memberNumberPrefix={memberNumberPrefix}
         memberOptions={memberOptions}
       />
-      <ItemGroup className="gap-2">
-        {loans.length > 0 ? (
-          loans.map((loan) => (
-            <Item
-              className="items-start gap-3 bg-background p-3 sm:flex-nowrap"
-              key={loan.id}
-              variant="outline"
-            >
-              <ItemContent className="min-w-48">
-                <ItemTitle>{loan.loanLabel}</ItemTitle>
-                <ItemDescription>
-                  {loan.openedAt} · G1{" "}
-                  {formatGuarantorMember(
-                    loan.guarantorOneMemberId,
-                    memberOptions
-                  )}{" "}
-                  · G2{" "}
-                  {formatGuarantorMember(
-                    loan.guarantorTwoMemberId,
-                    memberOptions
-                  )}
-                </ItemDescription>
-              </ItemContent>
-              <div className="grid w-full gap-2 text-xs sm:w-auto sm:min-w-[26rem] sm:grid-cols-4 sm:text-right">
-                <div>
-                  <p className="text-muted-foreground">Principal</p>
-                  <p className="mt-1 font-medium text-foreground">
-                    {formatCurrency(loan.principalAmount)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Repayment</p>
-                  <p className="mt-1 font-medium text-foreground">
-                    {formatCurrency(loan.scheduledMonthlyPrincipalRepayment)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Commitment</p>
-                  <p className="mt-1 font-medium text-foreground">
-                    {formatCurrency(loan.savingsDuringLoan)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Outstanding</p>
-                  <p className="mt-1 font-medium text-foreground">
-                    {formatCurrency(loan.outstandingPrincipalBalance)}
-                  </p>
-                </div>
-              </div>
-              <ItemActions className="ml-0 sm:ml-auto">
-                <LegacyLoanDraftEditDialog
-                  disabled={disabled}
-                  loan={loan}
-                  memberOptions={memberOptions}
-                />
-              </ItemActions>
-            </Item>
-          ))
-        ) : (
-          <Item className="bg-muted/30 p-3" variant="muted">
-            <ItemContent>
-              <ItemTitle>No loan history yet.</ItemTitle>
-              <ItemDescription>
-                Add a historical loan above when this member has an opening
-                loan balance.
-              </ItemDescription>
-            </ItemContent>
-          </Item>
-        )}
-      </ItemGroup>
     </div>
   )
 }
@@ -841,111 +738,19 @@ function ActivityHistoryPanel({
   memberId: string | null | undefined
   memberJoinedAt?: string | null
 }) {
-  const minMonth = memberJoinedAt?.slice(0, 7)
-
   return (
-    <div>
-      <form
-        action={upsertMemberActivityEventAction}
-        className="mb-3 grid gap-3 rounded-lg border border-border/70 bg-background p-3 sm:grid-cols-[150px_150px_minmax(160px,1fr)_auto]"
-      >
-        <input name="memberId" type="hidden" value={memberId ?? ""} />
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          Month
-          <Input
-            disabled={disabled || !memberId}
-            min={minMonth}
-            name="effectiveMonth"
-            required
-            type="month"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          Status
-          <LabeledSelectInput
-            defaultValue="inactive"
-            disabled={disabled || !memberId}
-            name="status"
-            options={[
-              { label: "Inactive", value: "inactive" },
-              { label: "Active again", value: "active" },
-            ]}
-            required
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          Reason
-          <Input
-            disabled={disabled || !memberId}
-            name="reason"
-            placeholder="Inactive, resumed, leave, transfer"
-            type="text"
-          />
-        </label>
-        <div className="flex items-end justify-end">
-          <Button disabled={disabled || !memberId} size="sm" type="submit">
-            Save activity
-          </Button>
-        </div>
-      </form>
-
-      <DashboardDataTable>
-        <DashboardTable className="min-w-[560px]">
-          <DashboardTableHead>
-            <DashboardTableHeaderCell>Month</DashboardTableHeaderCell>
-            <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
-            <DashboardTableHeaderCell>Reason</DashboardTableHeaderCell>
-            <DashboardTableHeaderCell align="right">
-              Action
-            </DashboardTableHeaderCell>
-          </DashboardTableHead>
-          <DashboardTableBody>
-            {events.length > 0 ? (
-              events.map((event) => (
-                <DashboardTableRow key={event.id}>
-                  <DashboardTableCell>
-                    {event.effectiveMonth.slice(0, 7)}
-                  </DashboardTableCell>
-                  <DashboardTableCell>
-                    {event.status === "inactive" ? "Inactive" : "Active again"}
-                  </DashboardTableCell>
-                  <DashboardTableCell>
-                    {event.reason || event.notes || "-"}
-                  </DashboardTableCell>
-                  <DashboardTableCell align="right">
-                    <form action={deleteMemberActivityEventAction}>
-                      <input
-                        name="memberId"
-                        type="hidden"
-                        value={memberId ?? ""}
-                      />
-                      <input name="eventId" type="hidden" value={event.id} />
-                      <Button
-                        disabled={disabled || !memberId}
-                        size="xs"
-                        type="submit"
-                        variant="ghost"
-                      >
-                        Remove
-                      </Button>
-                    </form>
-                  </DashboardTableCell>
-                </DashboardTableRow>
-              ))
-            ) : (
-              <DashboardTableRow>
-                <DashboardTableCell className="text-muted-foreground">
-                  No activity windows yet.
-                </DashboardTableCell>
-                <DashboardTableCell>-</DashboardTableCell>
-                <DashboardTableCell>-</DashboardTableCell>
-                <DashboardTableCell align="right">-</DashboardTableCell>
-              </DashboardTableRow>
-            )}
-          </DashboardTableBody>
-        </DashboardTable>
-      </DashboardDataTable>
-    </div>
+    <MemberBackfillActivityWindowsForm
+      disabled={disabled || !memberId || !memberJoinedAt}
+      initialRows={events.map((event) => ({
+        effectiveMonth: event.effectiveMonth,
+        id: event.id,
+        notes: event.notes ?? null,
+        reason: event.reason ?? null,
+        status: event.status,
+      }))}
+      memberId={memberId ?? ""}
+      memberJoinedAt={memberJoinedAt ?? "1900-01-01"}
+    />
   )
 }
 

@@ -2018,6 +2018,35 @@ type BusinessProfitHistoryRow = {
   status: "draft" | "reviewed" | "approved" | "archived"
 }
 
+function normalizeBusinessProfitSourceType(
+  sourceType: string | null | undefined
+): BusinessProfitHistoryRow["sourceType"] {
+  if (
+    sourceType === "manual" ||
+    sourceType === "backfill" ||
+    sourceType === "import"
+  ) {
+    return sourceType
+  }
+
+  return "backfill"
+}
+
+function normalizeBusinessProfitStatus(
+  status: string | null | undefined
+): BusinessProfitHistoryRow["status"] {
+  if (
+    status === "draft" ||
+    status === "reviewed" ||
+    status === "approved" ||
+    status === "archived"
+  ) {
+    return status
+  }
+
+  return "draft"
+}
+
 function createBusinessProfitHistoryRow(
   id?: string
 ): BusinessProfitHistoryRow {
@@ -2128,6 +2157,21 @@ type BusinessHistoryInputRow = {
   status: "planned" | "active" | "completed" | "archived"
 }
 
+function normalizeBusinessHistoryStatus(
+  status: string | null | undefined
+): BusinessHistoryInputRow["status"] {
+  if (
+    status === "planned" ||
+    status === "active" ||
+    status === "completed" ||
+    status === "archived"
+  ) {
+    return status
+  }
+
+  return "active"
+}
+
 function createBusinessHistoryRow(id?: string): BusinessHistoryInputRow {
   const rowId =
     id ??
@@ -2152,7 +2196,7 @@ function createBusinessHistoryRow(id?: string): BusinessHistoryInputRow {
 
 function buildBusinessHistoryRows(
   initialBusinesses: ShareBusinessInitialBusiness[] | undefined
-) {
+): BusinessHistoryInputRow[] {
   const savedRows =
     initialBusinesses?.map((business) => ({
       capitalAmount: String(business.capitalAmount),
@@ -2173,8 +2217,8 @@ function buildBusinessHistoryRows(
               profitDate: entry.profitDate,
               profitEntryId: entry.id,
               reason: entry.reason ?? "",
-              sourceType: (entry.sourceType as "manual" | "backfill" | "import") ?? "backfill",
-              status: (entry.status as "draft" | "reviewed" | "approved" | "archived") ?? "draft",
+              sourceType: normalizeBusinessProfitSourceType(entry.sourceType),
+              status: normalizeBusinessProfitStatus(entry.status),
             }))
           : [
               {
@@ -2192,9 +2236,7 @@ function buildBusinessHistoryRows(
             ],
       saved: true,
       startDate: business.startDate,
-      status:
-        (business.status as "planned" | "active" | "completed" | "archived") ??
-        "active",
+      status: normalizeBusinessHistoryStatus(business.status),
     })) ?? []
 
   return [...savedRows, createBusinessHistoryRow("business-history-initial")]

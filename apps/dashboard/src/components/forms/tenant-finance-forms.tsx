@@ -2198,7 +2198,7 @@ function buildBusinessHistoryRows(
   initialBusinesses: ShareBusinessInitialBusiness[] | undefined
 ): BusinessHistoryInputRow[] {
   const savedRows =
-    initialBusinesses?.map((business) => ({
+    initialBusinesses?.map((business): BusinessHistoryInputRow => ({
       capitalAmount: String(business.capitalAmount),
       businessId: business.id,
       endDate: business.endDate ?? "",
@@ -2208,7 +2208,7 @@ function buildBusinessHistoryRows(
       notes: business.notes ?? "",
       profitRows:
         business.profitEntries.length > 0
-          ? business.profitEntries.map((entry) => ({
+          ? business.profitEntries.map((entry): BusinessProfitHistoryRow => ({
               allocatableProfitAmount: String(entry.allocatableProfitAmount),
               amount: String(entry.profitAmount),
               deductionAmount: String(entry.expenseAmount),

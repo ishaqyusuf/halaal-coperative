@@ -2285,15 +2285,39 @@ export async function saveBusinessProfitSeasonReviewAction(formData: FormData) {
 
 export async function updateChargeDefinitionAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
-  await requireLiveFinancialWritesOpen(actor)
+  await requireChargeDefinitionWritesOpen(actor)
   const isActive = (formData.get("isActive") as string | null)?.trim()
+  const appliesToLoanRequests = (
+    formData.get("appliesToLoanRequests") as string | null
+  )?.trim()
+  const appliesToLoans = (
+    formData.get("appliesToLoans") as string | null
+  )?.trim()
+  const appliesToMembers = (
+    formData.get("appliesToMembers") as string | null
+  )?.trim()
   const amount = (formData.get("amount") as string | null)?.trim()
+  const chargeFrequency = (
+    formData.get("chargeFrequency") as string | null
+  )?.trim()
+  const code = (formData.get("code") as string | null)?.trim()
   const effectiveFrom = (formData.get("effectiveFrom") as string | null)?.trim()
+  const isMonthlyLevy = (
+    formData.get("isMonthlyLevy") as string | null
+  )?.trim()
   const kind = (formData.get("kind") as string | null)?.trim()
+  const name = (formData.get("name") as string | null)?.trim()
+  const purpose = (formData.get("purpose") as string | null)?.trim()
   const chargeValueType = (
     formData.get("chargeValueType") as string | null
   )?.trim()
   const notes = (formData.get("notes") as string | null)?.trim()
+  const parseOptionalBoolean = (value: string | undefined) =>
+    value === "true" || value === "on"
+      ? true
+      : value === "false" || value === "off"
+        ? false
+        : undefined
 
   requireDateOnOrAfterTenantStartDate(actor, effectiveFrom, "Effective date")
 
@@ -2301,7 +2325,26 @@ export async function updateChargeDefinitionAction(formData: FormData) {
     actor.tenant.id,
     getRequiredString(formData, "chargeDefinitionId"),
     {
-      ...(isActive ? { isActive: isActive === "true" } : {}),
+      ...(parseOptionalBoolean(appliesToLoanRequests) !== undefined
+        ? { appliesToLoanRequests: parseOptionalBoolean(appliesToLoanRequests) }
+        : {}),
+      ...(parseOptionalBoolean(appliesToLoans) !== undefined
+        ? { appliesToLoans: parseOptionalBoolean(appliesToLoans) }
+        : {}),
+      ...(parseOptionalBoolean(appliesToMembers) !== undefined
+        ? { appliesToMembers: parseOptionalBoolean(appliesToMembers) }
+        : {}),
+      ...(chargeFrequency
+        ? { chargeFrequency: chargeFrequency as DashboardChargeFrequency }
+        : {}),
+      ...(code ? { code } : {}),
+      ...(parseOptionalBoolean(isActive) !== undefined
+        ? { isActive: parseOptionalBoolean(isActive) }
+        : {}),
+      ...(parseOptionalBoolean(isMonthlyLevy) !== undefined
+        ? { isMonthlyLevy: parseOptionalBoolean(isMonthlyLevy) }
+        : {}),
+      ...(name ? { name } : {}),
       ...(amount ? { amount: Number(amount) } : {}),
       ...(effectiveFrom
         ? { effectiveFrom: new Date(`${effectiveFrom}T00:00:00.000Z`) }
@@ -2311,10 +2354,22 @@ export async function updateChargeDefinitionAction(formData: FormData) {
         ? { chargeValueType: chargeValueType as DashboardChargeValueType }
         : {}),
       ...(notes ? { notes } : {}),
+      ...(purpose
+        ? {
+            purpose: purpose as
+              | "general"
+              | "member_share"
+              | "loan_fee"
+              | "membership_fee"
+              | "penalty",
+          }
+        : {}),
     }
   )
 
   revalidatePath("/charges")
+  revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
 }
 
 export async function applyChargeAction(formData: FormData) {

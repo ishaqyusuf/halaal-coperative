@@ -78,6 +78,9 @@ type GettingStartedStepKey =
   | "review"
 
 type ChargeDefinitionRow = {
+  appliesToLoanRequests?: boolean
+  appliesToLoans?: boolean
+  appliesToMembers?: boolean
   id: string
   chargeFrequency:
     | "recurring_monthly"
@@ -87,8 +90,10 @@ type ChargeDefinitionRow = {
   chargeValueType: "fixed_amount" | "percentage"
   code: string
   isActive: boolean
-  kind: string
+  isMonthlyLevy?: boolean
+  kind: "fixed" | "percentage"
   name: string
+  purpose?: "general" | "member_share" | "loan_fee" | "membership_fee" | "penalty"
   versions: Array<{
     amount: number
     chargeValueType: "fixed_amount" | "percentage"
@@ -112,6 +117,7 @@ type ShareBusinessRow = {
   capitalAmount: number
   endDate: string | null
   id: string
+  linkedDividendPeriodId?: string | null
   name: string
   notes?: string | null
   profitAmount: number
@@ -119,6 +125,7 @@ type ShareBusinessRow = {
     allocatableProfitAmount: number
     expenseAmount: number
     id: string
+    linkedDividendPeriodId?: string | null
     profitAmount: number
     profitDate: string
     reason?: string | null
@@ -623,8 +630,9 @@ function StartDateStep({
 }
 
 function ChargesStep({
+  chargeDefinitions,
   tenantStartDate,
-}: Pick<GettingStartedPageViewProps, "tenantStartDate">) {
+}: Pick<GettingStartedPageViewProps, "chargeDefinitions" | "tenantStartDate">) {
   return (
     <Card>
       <SetupCardHeader
@@ -635,6 +643,7 @@ function ChargesStep({
       <CardContent className="grid gap-5">
         <ChargeDefinitionForm
           financeStartDate={tenantStartDate}
+          initialDefinitions={chargeDefinitions}
           stayOnStepHref={stepHref("charges")}
         />
       </CardContent>
@@ -1059,7 +1068,10 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
       {props.activeStep === "start-date" ? (
         <StartDateStep tenantStartDate={props.tenantStartDate} />
       ) : props.activeStep === "charges" ? (
-        <ChargesStep tenantStartDate={props.tenantStartDate} />
+        <ChargesStep
+          chargeDefinitions={props.chargeDefinitions}
+          tenantStartDate={props.tenantStartDate}
+        />
       ) : props.activeStep === "shares" ? (
         <SharesStep tenantStartDate={props.tenantStartDate} />
       ) : props.activeStep === "profit-policy" ? (

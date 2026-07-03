@@ -59,6 +59,10 @@ import {
   createTenantShareStructureVersionAction,
   generateShareProfitAllocationsAction,
   publishShareProfitAllocationsAction,
+  updateChargeDefinitionAction,
+  updateChargeDefinitionVersionAction,
+  updateShareBusinessAction,
+  updateShareBusinessProfitEntryAction,
   updateTenantFinanceStartDateAction,
   updateTenantBusinessProfitPolicyAction,
 } from "@/lib/dashboard-actions"
@@ -119,11 +123,13 @@ function DeleteInlineRowButton({
 }
 
 function CurrencyFormInput({
+  disabled,
   id,
   onChange,
   placeholder,
   value,
 }: {
+  disabled?: boolean
   id?: string
   onChange: (value: string) => void
   placeholder?: string
@@ -133,6 +139,7 @@ function CurrencyFormInput({
     <CurrencyInput
       allowNegative={false}
       decimalScale={2}
+      disabled={disabled}
       id={id}
       inputMode="decimal"
       placeholder={placeholder}
@@ -144,11 +151,13 @@ function CurrencyFormInput({
 }
 
 function PercentageFormInput({
+  disabled,
   id,
   onChange,
   placeholder,
   value,
 }: {
+  disabled?: boolean
   id?: string
   onChange: (value: string) => void
   placeholder?: string
@@ -158,6 +167,7 @@ function PercentageFormInput({
     <InputGroup>
       <InputGroupInput
         className="text-right"
+        disabled={disabled}
         id={id}
         inputMode="decimal"
         min="0"
@@ -1062,6 +1072,7 @@ type ChargeHistoryRow = {
   amount: string
   effectiveFrom: string
   id: string
+  versionId: string
 }
 
 function createChargeHistoryRow(id?: string): ChargeHistoryRow {
@@ -1071,6 +1082,7 @@ function createChargeHistoryRow(id?: string): ChargeHistoryRow {
     id:
       id ??
       `charge-history-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    versionId: "",
   }
 }
 
@@ -1098,155 +1110,399 @@ function sortChargeHistoryRowsByDate(a: ChargeHistoryRow, b: ChargeHistoryRow) {
   return a.id.localeCompare(b.id)
 }
 
+type ChargeDefinitionInitialDefinition = {
+  appliesToLoanRequests?: boolean
+  appliesToLoans?: boolean
+  appliesToMembers?: boolean
+  chargeFrequency: ChargeDefinitionValues["chargeFrequency"]
+  chargeValueType: ChargeDefinitionValues["chargeValueType"]
+  code: string
+  id: string
+  isActive: boolean
+  isMonthlyLevy?: boolean
+  kind: ChargeDefinitionValues["kind"]
+  name: string
+  purpose?: ChargeDefinitionValues["purpose"]
+  versions: Array<{
+    amount: number
+    effectiveFrom: string
+    id: string
+  }>
+}
+
+type ChargeDefinitionInputRow = ChargeDefinitionValues & {
+  chargeDefinitionId: string
+  historyRows: ChargeHistoryRow[]
+  id: string
+  isActive: boolean
+  saved: boolean
+}
+
+function createChargeDefinitionRow(id?: string): ChargeDefinitionInputRow {
+  const rowId =
+    id ??
+    `charge-definition-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+  return {
+    amount: "",
+    appliesToLoanRequests: false,
+    appliesToLoans: false,
+    appliesToMembers: true,
+    chargeFrequency: "recurring_monthly",
+    chargeValueType: "fixed_amount",
+    chargeDefinitionId: "",
+    code: "",
+    effectiveFrom: "",
+    historyRows: [createChargeHistoryRow(`${rowId}-history`)],
+    id: rowId,
+    isActive: true,
+    isMonthlyLevy: false,
+    kind: "fixed",
+    name: "",
+    purpose: "general",
+    saved: false,
+  }
+}
+
+function buildChargeDefinitionRows(
+  initialDefinitions: ChargeDefinitionInitialDefinition[] | undefined
+) {
+  const savedRows =
+    initialDefinitions?.map((definition) => ({
+      ...createChargeDefinitionRow(`charge-definition-${definition.id}`),
+      appliesToLoanRequests: definition.appliesToLoanRequests ?? false,
+      appliesToLoans: definition.appliesToLoans ?? false,
+      appliesToMembers: definition.appliesToMembers ?? true,
+      chargeFrequency: definition.chargeFrequency,
+      chargeValueType: definition.chargeValueType,
+      chargeDefinitionId: definition.id,
+      code: definition.code,
+      historyRows:
+        definition.versions.length > 0
+          ? definition.versions.map((version) => ({
+              amount: String(version.amount),
+              effectiveFrom: version.effectiveFrom,
+              id: `charge-history-${version.id}`,
+              versionId: version.id,
+            }))
+          : [createChargeHistoryRow(`charge-history-${definition.id}`)],
+      isActive: definition.isActive,
+      isMonthlyLevy: definition.isMonthlyLevy ?? false,
+      kind: definition.kind,
+      name: definition.name,
+      purpose: definition.purpose ?? "general",
+      saved: true,
+    })) ?? []
+
+  return [...savedRows, createChargeDefinitionRow("charge-definition-initial")]
+}
+
+function chargeDefinitionRowHasValue(row: ChargeDefinitionInputRow) {
+  return Boolean(
+    row.code || row.name || row.historyRows.some(chargeHistoryRowHasValue)
+  )
+}
+
+function chargeDefinitionRowCanAppendNext(row: ChargeDefinitionInputRow) {
+  return Boolean(
+    row.code &&
+      row.name &&
+      row.historyRows.some(chargeHistoryRowHasValue)
+  )
+}
+
+function normalizeChargeHistoryRows(rows: ChargeHistoryRow[]) {
+  const compactRows = rows.filter(
+    (row, index) =>
+      chargeHistoryRowHasValue(row) || index === rows.length - 1
+  )
+  const lastRow = compactRows.at(-1)
+
+  if (!lastRow) {
+    return [createChargeHistoryRow()]
+  }
+
+  if (chargeHistoryRowHasValue(lastRow)) {
+    return [...compactRows, createChargeHistoryRow()]
+  }
+
+  return compactRows
+}
+
+function normalizeChargeDefinitionRows(rows: ChargeDefinitionInputRow[]) {
+  const compactRows = rows.filter(
+    (row, index) =>
+      row.saved ||
+      chargeDefinitionRowHasValue(row) ||
+      index === rows.length - 1
+  )
+  const lastRow = compactRows.at(-1)
+
+  if (!lastRow) {
+    return [createChargeDefinitionRow()]
+  }
+
+  if (lastRow.saved) {
+    return [...compactRows, createChargeDefinitionRow()]
+  }
+
+  if (!lastRow.saved && chargeDefinitionRowCanAppendNext(lastRow)) {
+    return [...compactRows, createChargeDefinitionRow()]
+  }
+
+  return compactRows
+}
+
 export function ChargeDefinitionForm({
   financeStartDate,
+  initialDefinitions,
   onSuccess,
   stayOnStepHref,
 }: {
   financeStartDate?: string | null
+  initialDefinitions?: ChargeDefinitionInitialDefinition[]
   onSuccess?: () => void
   stayOnStepHref?: string
 }) {
   const router = useRouter()
-  const form = useZodForm<ChargeDefinitionValues>(chargeDefinitionSchema, {
-    defaultValues: {
-      amount: "",
-      appliesToLoanRequests: false,
-      appliesToLoans: false,
-      appliesToMembers: true,
-      chargeFrequency: "recurring_monthly",
-      chargeValueType: "fixed_amount",
-      code: "",
-      effectiveFrom: "",
-      isMonthlyLevy: false,
-      kind: "fixed",
-      name: "",
-      purpose: "general",
-    },
-  })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
-  const [chargeHistoryRows, setChargeHistoryRows] = useState<
-    ChargeHistoryRow[]
-  >(() => [createChargeHistoryRow("charge-history-initial")])
+  const [chargeRows, setChargeRows] = useState<ChargeDefinitionInputRow[]>(
+    () => buildChargeDefinitionRows(initialDefinitions)
+  )
 
-  function resetChargeHistoryRows() {
-    setChargeHistoryRows([createChargeHistoryRow("charge-history-initial")])
+  function resetChargeRows() {
+    setChargeRows(buildChargeDefinitionRows(initialDefinitions))
+  }
+
+  function updateChargeRow(
+    rowId: string,
+    patch: Partial<
+      Pick<
+        ChargeDefinitionInputRow,
+        | "chargeFrequency"
+        | "chargeValueType"
+        | "code"
+        | "kind"
+        | "name"
+        | "purpose"
+      >
+    >
+  ) {
+    setChargeRows((currentRows) =>
+      normalizeChargeDefinitionRows(
+        currentRows.map((row) =>
+          row.id === rowId ? { ...row, ...patch } : row
+        )
+      )
+    )
   }
 
   function updateChargeHistoryRow(
+    chargeRowId: string,
     rowId: string,
     patch: Partial<Pick<ChargeHistoryRow, "amount" | "effectiveFrom">>
   ) {
-    setChargeHistoryRows((currentRows) => {
-      const updatedRows = currentRows.map((row) =>
-        row.id === rowId ? { ...row, ...patch } : row
+    setChargeRows((currentRows) =>
+      normalizeChargeDefinitionRows(
+        currentRows.map((chargeRow) =>
+          chargeRow.id === chargeRowId
+            ? {
+                ...chargeRow,
+                historyRows: normalizeChargeHistoryRows(
+                  chargeRow.historyRows.map((historyRow) =>
+                    historyRow.id === rowId
+                      ? { ...historyRow, ...patch }
+                      : historyRow
+                  )
+                ),
+              }
+            : chargeRow
+        )
       )
-      const compactRows = updatedRows.filter(
-        (row, index) =>
-          chargeHistoryRowHasValue(row) || index === updatedRows.length - 1
-      )
-      const lastRow = compactRows.at(-1)
-
-      if (!lastRow) {
-        return [createChargeHistoryRow()]
-      }
-
-      if (chargeHistoryRowHasValue(lastRow)) {
-        return [...compactRows, createChargeHistoryRow()]
-      }
-
-      return compactRows
-    })
-  }
-
-  function deleteChargeHistoryRow(rowId: string) {
-    setChargeHistoryRows((currentRows) => {
-      const compactRows = currentRows.filter((row) => row.id !== rowId)
-
-      return compactRows.length > 0
-        ? compactRows
-        : [createChargeHistoryRow("charge-history-initial")]
-    })
-  }
-
-  function onSubmit(values: ChargeDefinitionValues) {
-    const startedRows = chargeHistoryRows.filter(chargeHistoryRowHasValue)
-    const incompleteRow = startedRows.find(
-      (row) => !chargeHistoryRowIsComplete(row)
     )
+  }
+
+  function deleteChargeRow(rowId: string) {
+    setChargeRows((currentRows) =>
+      normalizeChargeDefinitionRows(currentRows.filter((row) => row.id !== rowId))
+    )
+  }
+
+  function deleteChargeHistoryRow(chargeRowId: string, rowId: string) {
+    setChargeRows((currentRows) =>
+      normalizeChargeDefinitionRows(
+        currentRows.map((chargeRow) =>
+          chargeRow.id === chargeRowId
+            ? {
+                ...chargeRow,
+                historyRows: normalizeChargeHistoryRows(
+                  chargeRow.historyRows.filter((row) => row.id !== rowId)
+                ),
+              }
+            : chargeRow
+        )
+      )
+    )
+  }
+
+  function getValidChargeRows() {
+    const startedRows = chargeRows.filter(chargeDefinitionRowHasValue)
 
     if (startedRows.length === 0) {
       showError(
-        "Charge history required",
-        "Add at least one charge history date and amount."
+        "Charge required",
+        "Add at least one charge and history row."
       )
-      return
+      return null
     }
 
-    if (incompleteRow) {
-      showError(
-        "Complete charge history",
-        "Each charge history row needs both a date and an amount."
+    for (const chargeRow of startedRows) {
+      const result = chargeDefinitionSchema.safeParse(chargeRow)
+
+      if (!result.success) {
+        showError(
+          "Complete charge row",
+          "Each started charge row needs a charge name, code, frequency, value, kind, and purpose."
+        )
+        return null
+      }
+
+      const startedHistoryRows = chargeRow.historyRows.filter(
+        chargeHistoryRowHasValue
       )
-      return
+
+      if (startedHistoryRows.length === 0) {
+        showError(
+          "Charge history required",
+          "Each started charge needs at least one history row."
+        )
+        return null
+      }
+
+      const incompleteRow = startedHistoryRows.find(
+        (row) => !chargeHistoryRowIsComplete(row)
+      )
+
+      if (incompleteRow) {
+        showError(
+          "Complete charge history",
+          "Each charge history row needs both a date and an amount."
+        )
+        return null
+      }
+
+      const rowBeforeStartDate = startedHistoryRows.find((row) =>
+        isBeforeFinanceStartDate(row.effectiveFrom, financeStartDate)
+      )
+
+      if (rowBeforeStartDate) {
+        showError(
+          "Date before start",
+          `Charge history date cannot be before the cooperative start date (${financeStartDate}).`
+        )
+        return null
+      }
     }
 
-    const sortedHistoryRows = startedRows
-      .filter(chargeHistoryRowIsComplete)
-      .sort(sortChargeHistoryRowsByDate)
-    const rowBeforeStartDate = sortedHistoryRows.find((row) =>
-      isBeforeFinanceStartDate(row.effectiveFrom, financeStartDate)
-    )
+    return startedRows.map((chargeRow) => ({
+      ...chargeRow,
+      historyRows: chargeRow.historyRows
+        .filter(chargeHistoryRowIsComplete)
+        .sort(sortChargeHistoryRowsByDate),
+    }))
+  }
 
-    if (rowBeforeStartDate) {
-      showError(
-        "Date before start",
-        `Charge history date cannot be before the cooperative start date (${financeStartDate}).`
-      )
+  function submitChargeRows() {
+    const validChargeRows = getValidChargeRows()
+
+    if (!validChargeRows) {
       return
-    }
-
-    if (stayOnStepHref) {
-      router.replace(stayOnStepHref)
     }
 
     startTransition(async () => {
       try {
-        await createChargeDefinitionAction(
-          objectToFormData({
-            ...values,
-            amount: sortedHistoryRows[0]?.amount,
-            effectiveFrom: sortedHistoryRows[0]?.effectiveFrom,
-            historyAmount: sortedHistoryRows.map((row) => row.amount),
-            historyEffectiveFrom: sortedHistoryRows.map(
-              (row) => row.effectiveFrom
-            ),
-          })
-        )
+        for (const chargeRow of validChargeRows) {
+          if (chargeRow.saved) {
+            await updateChargeDefinitionAction(
+              objectToFormData({
+                appliesToLoanRequests: String(
+                  chargeRow.appliesToLoanRequests
+                ),
+                appliesToLoans: String(chargeRow.appliesToLoans),
+                appliesToMembers: String(chargeRow.appliesToMembers),
+                chargeDefinitionId: chargeRow.chargeDefinitionId,
+                chargeFrequency: chargeRow.chargeFrequency,
+                code: chargeRow.code,
+                isActive: String(chargeRow.isActive),
+                isMonthlyLevy: String(chargeRow.isMonthlyLevy),
+                name: chargeRow.name,
+                purpose: chargeRow.purpose,
+              })
+            )
+
+            for (const historyRow of chargeRow.historyRows) {
+              if (historyRow.versionId) {
+                await updateChargeDefinitionVersionAction(
+                  objectToFormData({
+                    amount: historyRow.amount,
+                    chargeDefinitionVersionId: historyRow.versionId,
+                    chargeValueType: chargeRow.chargeValueType,
+                    effectiveFrom: historyRow.effectiveFrom,
+                  })
+                )
+                continue
+              }
+
+              await createChargeDefinitionVersionAction(
+                objectToFormData({
+                  amount: historyRow.amount,
+                  chargeDefinitionId: chargeRow.chargeDefinitionId,
+                  chargeValueType: chargeRow.chargeValueType,
+                  effectiveFrom: historyRow.effectiveFrom,
+                  kind: chargeRow.kind,
+                })
+              )
+            }
+
+            continue
+          }
+
+          await createChargeDefinitionAction(
+            objectToFormData({
+              amount: chargeRow.historyRows[0]?.amount,
+              appliesToLoanRequests: chargeRow.appliesToLoanRequests,
+              appliesToLoans: chargeRow.appliesToLoans,
+              appliesToMembers: chargeRow.appliesToMembers,
+              chargeFrequency: chargeRow.chargeFrequency,
+              chargeValueType: chargeRow.chargeValueType,
+              code: chargeRow.code,
+              effectiveFrom: chargeRow.historyRows[0]?.effectiveFrom,
+              historyAmount: chargeRow.historyRows.map((row) => row.amount),
+              historyEffectiveFrom: chargeRow.historyRows.map(
+                (row) => row.effectiveFrom
+              ),
+              isMonthlyLevy: chargeRow.isMonthlyLevy,
+              kind: chargeRow.kind,
+              name: chargeRow.name,
+              purpose: chargeRow.purpose,
+            })
+          )
+        }
+
         showSuccess(
-          "Charge created",
-          "New charge definition added to finance setup."
+          "Charges saved",
+          "Charge definitions and history rows were recorded."
         )
-        form.reset({
-          amount: "",
-          appliesToLoanRequests: false,
-          appliesToLoans: false,
-          appliesToMembers: true,
-          chargeFrequency: "recurring_monthly",
-          chargeValueType: "fixed_amount",
-          code: "",
-          effectiveFrom: "",
-          isMonthlyLevy: false,
-          kind: "fixed",
-          name: "",
-          purpose: "general",
-        })
-        resetChargeHistoryRows()
+        setChargeRows(buildChargeDefinitionRows(initialDefinitions))
+        router.refresh()
+        if (stayOnStepHref) {
+          router.replace(stayOnStepHref)
+        }
         onSuccess?.()
       } catch (error) {
         showError(
-          "Could not create charge",
+          "Could not save charges",
           error instanceof Error ? error.message : "Something went wrong."
         )
       }
@@ -1254,264 +1510,276 @@ export function ChargeDefinitionForm({
   }
 
   return (
-    <Form {...form}>
-      <form
-        className="space-y-3"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        <div className="overflow-x-auto">
-          <table className={`${compactInputTableClassName} min-w-[860px]`}>
-            <colgroup>
-              <col />
-              <col className="w-[120px]" />
-              <col className="w-[160px]" />
-              <col className="w-[140px]" />
-              <col className="w-[120px]" />
-              <col className="w-[150px]" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
-                  Charge
-                </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
-                  Code
-                </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
-                  Frequency
-                </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
-                  Value
-                </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
-                  Kind
-                </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
-                  Purpose
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="align-top">
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input {...field} placeholder="Administrative fee" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="code"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input {...field} placeholder="ADM" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="chargeFrequency"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SelectFormInput
-                            onChange={field.onChange}
-                            options={[
-                              {
-                                label: "Recurring monthly",
-                                value: "recurring_monthly",
-                              },
-                              { label: "Per contribution", value: "per_contribution" },
-                              { label: "One time", value: "one_time" },
-                              { label: "Manual", value: "manual" },
-                            ]}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="chargeValueType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SelectFormInput
-                            onChange={field.onChange}
-                            options={[
-                              { label: "Fixed amount", value: "fixed_amount" },
-                              { label: "Percentage", value: "percentage" },
-                            ]}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="kind"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SelectFormInput
-                            onChange={field.onChange}
-                            options={[
-                              { label: "Fixed", value: "fixed" },
-                              { label: "Percentage", value: "percentage" },
-                            ]}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="purpose"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SelectFormInput
-                            onChange={field.onChange}
-                            options={[
-                              { label: "General charge", value: "general" },
-                              { label: "Member share", value: "member_share" },
-                              { label: "Loan fee", value: "loan_fee" },
-                              { label: "Membership fee", value: "membership_fee" },
-                              { label: "Penalty", value: "penalty" },
-                            ]}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <h3 className="shrink-0 text-sm font-medium">Charge History</h3>
-            <div className="min-w-10 flex-1 border-border/70 border-t" />
-            <QuickFill
-              args={{
-                createRow: createChargeHistoryRow,
-                hasValue: chargeHistoryRowHasValue,
-                minDate: financeStartDate,
-                rows: chargeHistoryRows,
-                setRows: (updater) =>
-                  setChargeHistoryRows(
-                    (currentRows) => updater(currentRows) as ChargeHistoryRow[]
-                  ),
-                sortRows: sortChargeHistoryRowsByDate,
-              }}
-              name="chargeHistory"
-            />
-            <Button
-              onClick={resetChargeHistoryRows}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              Clear
-            </Button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className={`${compactInputTableClassName} min-w-[420px]`}>
-              <colgroup>
-                <col className="w-[150px]" />
-                <col />
-                <col className="w-8" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
-                    Date
-                  </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
-                    Amount
-                  </th>
-                  <th scope="col">
-                    <span className="sr-only">Action</span>
-                  </th>
+    <form
+      className="space-y-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        submitChargeRows()
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <h3 className="shrink-0 text-sm font-medium">Charge History</h3>
+        <div className="min-w-10 flex-1 border-border/70 border-t" />
+        <Button
+          disabled={isPending}
+          onClick={resetChargeRows}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          Clear
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className={`${compactInputTableClassName} min-w-[920px]`}>
+          <colgroup>
+            <col />
+            <col className="w-[120px]" />
+            <col className="w-[160px]" />
+            <col className="w-[140px]" />
+            <col className="w-[120px]" />
+            <col className="w-[150px]" />
+            <col className="w-8" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                Charge
+              </th>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                Code
+              </th>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                Frequency
+              </th>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                Value
+              </th>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                Kind
+              </th>
+              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                Purpose
+              </th>
+              <th scope="col">
+                <span className="sr-only">Action</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {chargeRows.map((chargeRow) => (
+              <Fragment key={chargeRow.id}>
+                <tr aria-hidden="true">
+                  <td colSpan={7}>
+                    <div className="border-border/70 border-t" />
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {chargeHistoryRows.map((row) => (
-                  <tr className="align-top" key={row.id}>
-                    <td>
-                      <DatePickerInput
-                        allowClear={false}
-                        min={financeStartDate ?? undefined}
-                        onChange={(value) =>
-                          updateChargeHistoryRow(row.id, {
-                            effectiveFrom: value,
-                          })
-                        }
-                        placeholder="Date"
-                        value={row.effectiveFrom}
-                      />
-                    </td>
-                    <td>
-                      <CurrencyFormInput
-                        onChange={(amount) =>
-                          updateChargeHistoryRow(row.id, { amount })
-                        }
-                        placeholder="2000"
-                        value={row.amount}
-                      />
-                    </td>
-                    <td>
-                      <DeleteInlineRowButton
-                        disabled={
-                          chargeHistoryRows.length === 1 &&
-                          !chargeHistoryRowHasValue(row)
-                        }
-                        label="charge history row"
-                        onDelete={() => deleteChargeHistoryRow(row.id)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <Button disabled={isPending} type="submit">
-            Add charge
-          </Button>
-        </div>
-      </form>
-    </Form>
+                <tr className="align-top" key={`${chargeRow.id}-charge`}>
+                  <td>
+                    <Input
+                      disabled={isPending}
+                      onChange={(event) =>
+                        updateChargeRow(chargeRow.id, {
+                          name: event.target.value,
+                        })
+                      }
+                      placeholder="Administrative fee"
+                      value={chargeRow.name}
+                    />
+                  </td>
+                  <td>
+                    <Input
+                      disabled={isPending}
+                      onChange={(event) =>
+                        updateChargeRow(chargeRow.id, {
+                          code: event.target.value,
+                        })
+                      }
+                      placeholder="ADM"
+                      value={chargeRow.code}
+                    />
+                  </td>
+                  <td>
+                    <SelectFormInput
+                      disabled={isPending}
+                      onChange={(chargeFrequency) =>
+                        updateChargeRow(chargeRow.id, {
+                          chargeFrequency:
+                            chargeFrequency as ChargeDefinitionValues["chargeFrequency"],
+                        })
+                      }
+                      options={[
+                        {
+                          label: "Recurring monthly",
+                          value: "recurring_monthly",
+                        },
+                        { label: "Per contribution", value: "per_contribution" },
+                        { label: "One time", value: "one_time" },
+                        { label: "Manual", value: "manual" },
+                      ]}
+                      value={chargeRow.chargeFrequency}
+                    />
+                  </td>
+                  <td>
+                    <SelectFormInput
+                      disabled={isPending}
+                      onChange={(chargeValueType) =>
+                        updateChargeRow(chargeRow.id, {
+                          chargeValueType:
+                            chargeValueType as ChargeDefinitionValues["chargeValueType"],
+                        })
+                      }
+                      options={[
+                        { label: "Fixed amount", value: "fixed_amount" },
+                        { label: "Percentage", value: "percentage" },
+                      ]}
+                      value={chargeRow.chargeValueType}
+                    />
+                  </td>
+                  <td>
+                    <SelectFormInput
+                      disabled={isPending}
+                      onChange={(kind) =>
+                        updateChargeRow(chargeRow.id, {
+                          kind: kind as ChargeDefinitionValues["kind"],
+                        })
+                      }
+                      options={[
+                        { label: "Fixed", value: "fixed" },
+                        { label: "Percentage", value: "percentage" },
+                      ]}
+                      value={chargeRow.kind}
+                    />
+                  </td>
+                  <td>
+                    <SelectFormInput
+                      disabled={isPending}
+                      onChange={(purpose) =>
+                        updateChargeRow(chargeRow.id, {
+                          purpose:
+                            purpose as ChargeDefinitionValues["purpose"],
+                        })
+                      }
+                      options={[
+                        { label: "General charge", value: "general" },
+                        { label: "Member share", value: "member_share" },
+                        { label: "Loan fee", value: "loan_fee" },
+                        { label: "Membership fee", value: "membership_fee" },
+                        { label: "Penalty", value: "penalty" },
+                      ]}
+                      value={chargeRow.purpose}
+                    />
+                  </td>
+                  <td>
+                    <DeleteInlineRowButton
+                      disabled={
+                        chargeRow.saved ||
+                        isPending ||
+                        (!chargeDefinitionRowHasValue(chargeRow) &&
+                          chargeRows.filter((row) => !row.saved).length === 1)
+                      }
+                      label="charge row"
+                      onDelete={() => deleteChargeRow(chargeRow.id)}
+                    />
+                  </td>
+                </tr>
+                <tr key={`${chargeRow.id}-history`}>
+                  <td colSpan={7}>
+                    <div className="pl-6">
+                      <table className={`${compactInputTableClassName} min-w-[420px]`}>
+                        <colgroup>
+                          <col className="w-[150px]" />
+                          <col />
+                          <col className="w-8" />
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                              Date
+                            </th>
+                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                              Amount
+                            </th>
+                            <th scope="col">
+                              <span className="sr-only">Action</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {chargeRow.historyRows.map((row) => (
+                            <tr className="align-top" key={row.id}>
+                              <td>
+                                <DatePickerInput
+                                  allowClear={false}
+                                  disabled={isPending}
+                                  min={financeStartDate ?? undefined}
+                                  onChange={(value) =>
+                                    updateChargeHistoryRow(chargeRow.id, row.id, {
+                                      effectiveFrom: value,
+                                    })
+                                  }
+                                  placeholder="Date"
+                                  value={row.effectiveFrom}
+                                />
+                              </td>
+                              <td>
+                                {chargeRow.chargeValueType === "percentage" ? (
+                                  <PercentageFormInput
+                                    disabled={isPending}
+                                    onChange={(amount) =>
+                                      updateChargeHistoryRow(
+                                        chargeRow.id,
+                                        row.id,
+                                        { amount }
+                                      )
+                                    }
+                                    placeholder="10"
+                                    value={row.amount}
+                                  />
+                                ) : (
+                                  <CurrencyFormInput
+                                    disabled={isPending}
+                                    onChange={(amount) =>
+                                      updateChargeHistoryRow(
+                                        chargeRow.id,
+                                        row.id,
+                                        { amount }
+                                      )
+                                    }
+                                    placeholder="2000"
+                                    value={row.amount}
+                                  />
+                                )}
+                              </td>
+                              <td>
+                                <DeleteInlineRowButton
+                                  disabled={
+                                    isPending || Boolean(row.versionId)
+                                  }
+                                  label="charge history row"
+                                  onDelete={() =>
+                                    deleteChargeHistoryRow(chargeRow.id, row.id)
+                                  }
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex justify-end">
+        <Button disabled={isPending} type="submit">
+          Record charges
+        </Button>
+      </div>
+    </form>
   )
 }
 
@@ -1738,26 +2006,36 @@ const shareBusinessSchema = z.object({
 type ShareBusinessValues = z.infer<typeof shareBusinessSchema>
 
 type BusinessProfitHistoryRow = {
+  allocatableProfitAmount: string
   amount: string
   deductionAmount: string
-  profitDate: string
-  reason: string
   id: string
+  linkedDividendPeriodId: string
+  profitDate: string
+  profitEntryId: string
+  reason: string
+  sourceType: "manual" | "backfill" | "import"
+  status: "draft" | "reviewed" | "approved" | "archived"
 }
 
 function createBusinessProfitHistoryRow(
   id?: string
 ): BusinessProfitHistoryRow {
   return {
+    allocatableProfitAmount: "",
     amount: "",
     deductionAmount: "",
-    profitDate: "",
-    reason: "",
     id:
       id ??
       `business-profit-history-${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}`,
+    linkedDividendPeriodId: "",
+    profitDate: "",
+    profitEntryId: "",
+    reason: "",
+    sourceType: "backfill",
+    status: "draft",
   }
 }
 
@@ -1807,6 +2085,7 @@ type ShareBusinessInitialBusiness = {
   capitalAmount: number
   endDate: string | null
   id: string
+  linkedDividendPeriodId?: string | null
   name: string
   notes?: string | null
   profitAmount: number
@@ -1814,11 +2093,15 @@ type ShareBusinessInitialBusiness = {
     allocatableProfitAmount: number
     expenseAmount: number
     id: string
+    linkedDividendPeriodId?: string | null
     profitAmount: number
     profitDate: string
     reason?: string | null
+    sourceType: string
+    status: string
   }>
   startDate: string
+  status: string
 }
 
 type ShareBusinessFormProps = {
@@ -1833,13 +2116,16 @@ type ShareBusinessFormProps = {
 
 type BusinessHistoryInputRow = {
   capitalAmount: string
+  businessId: string
   endDate: string
   id: string
+  linkedDividendPeriodId: string
   name: string
   notes: string
   profitRows: BusinessProfitHistoryRow[]
   saved: boolean
   startDate: string
+  status: "planned" | "active" | "completed" | "archived"
 }
 
 function createBusinessHistoryRow(id?: string): BusinessHistoryInputRow {
@@ -1851,13 +2137,16 @@ function createBusinessHistoryRow(id?: string): BusinessHistoryInputRow {
 
   return {
     capitalAmount: "",
+    businessId: "",
     endDate: "",
     id: rowId,
+    linkedDividendPeriodId: "",
     name: "",
     notes: "",
     profitRows: [createBusinessProfitHistoryRow(`${rowId}-profit`)],
     saved: false,
     startDate: "",
+    status: "active",
   }
 }
 
@@ -1867,30 +2156,45 @@ function buildBusinessHistoryRows(
   const savedRows =
     initialBusinesses?.map((business) => ({
       capitalAmount: String(business.capitalAmount),
+      businessId: business.id,
       endDate: business.endDate ?? "",
       id: `business-history-${business.id}`,
+      linkedDividendPeriodId: business.linkedDividendPeriodId ?? "",
       name: business.name,
       notes: business.notes ?? "",
       profitRows:
         business.profitEntries.length > 0
           ? business.profitEntries.map((entry) => ({
+              allocatableProfitAmount: String(entry.allocatableProfitAmount),
               amount: String(entry.profitAmount),
               deductionAmount: String(entry.expenseAmount),
               id: `business-profit-history-${entry.id}`,
+              linkedDividendPeriodId: entry.linkedDividendPeriodId ?? "",
               profitDate: entry.profitDate,
+              profitEntryId: entry.id,
               reason: entry.reason ?? "",
+              sourceType: (entry.sourceType as "manual" | "backfill" | "import") ?? "backfill",
+              status: (entry.status as "draft" | "reviewed" | "approved" | "archived") ?? "draft",
             }))
           : [
               {
+                allocatableProfitAmount: String(business.profitAmount),
                 amount: String(business.profitAmount),
                 deductionAmount: "",
                 id: `business-profit-history-${business.id}`,
+                linkedDividendPeriodId: "",
                 profitDate: business.startDate,
+                profitEntryId: "",
                 reason: "",
+                sourceType: "backfill",
+                status: "draft",
               },
             ],
       saved: true,
       startDate: business.startDate,
+      status:
+        (business.status as "planned" | "active" | "completed" | "archived") ??
+        "active",
     })) ?? []
 
   return [...savedRows, createBusinessHistoryRow("business-history-initial")]
@@ -2056,9 +2360,7 @@ function ShareBusinessProfitHistoryTableForm({
   }
 
   function getValidBusinessRows() {
-    const startedRows = businessRows.filter(
-      (row) => !row.saved && businessHistoryRowHasValue(row)
-    )
+    const startedRows = businessRows.filter(businessHistoryRowHasValue)
 
     if (startedRows.length === 0) {
       showError(
@@ -2212,6 +2514,73 @@ function ShareBusinessProfitHistoryTableForm({
     startTransition(async () => {
       try {
         for (const businessRow of validBusinessRows) {
+          const totalProfitAmount = businessRow.profitRows
+            .reduce(
+              (total, row) => total + parseOptionalFormAmount(row.amount),
+              0
+            )
+            .toString()
+
+          if (businessRow.saved) {
+            await updateShareBusinessAction(
+              objectToFormData({
+                capitalAmount: businessRow.capitalAmount,
+                endDate: businessRow.endDate,
+                linkedDividendPeriodId: businessRow.linkedDividendPeriodId,
+                name: businessRow.name,
+                notes: businessRow.notes,
+                profitAmount: totalProfitAmount,
+                shareBusinessId: businessRow.businessId,
+                startDate: businessRow.startDate,
+                status: businessRow.status,
+              })
+            )
+
+            for (const profitRow of businessRow.profitRows) {
+              const profitAmount = parseOptionalFormAmount(profitRow.amount)
+              const deductionAmount = parseOptionalFormAmount(
+                profitRow.deductionAmount
+              )
+              const allocatableProfitAmount = Math.max(
+                0,
+                profitAmount - deductionAmount
+              ).toString()
+
+              if (profitRow.profitEntryId) {
+                await updateShareBusinessProfitEntryAction(
+                  objectToFormData({
+                    allocatableProfitAmount,
+                    expenseAmount: profitRow.deductionAmount || "0",
+                    linkedDividendPeriodId: profitRow.linkedDividendPeriodId,
+                    profitAmount: profitRow.amount,
+                    profitDate: profitRow.profitDate,
+                    profitEntryId: profitRow.profitEntryId,
+                    reason: profitRow.reason,
+                    sourceType: profitRow.sourceType,
+                    status: profitRow.status,
+                  })
+                )
+                continue
+              }
+
+              await createShareBusinessProfitEntryAction(
+                objectToFormData({
+                  allocatableProfitAmount,
+                  expenseAmount: profitRow.deductionAmount || "0",
+                  linkedDividendPeriodId: profitRow.linkedDividendPeriodId,
+                  profitAmount: profitRow.amount,
+                  profitDate: profitRow.profitDate,
+                  reason: profitRow.reason,
+                  shareBusinessId: businessRow.businessId,
+                  sourceType: profitRow.sourceType,
+                  status: profitRow.status,
+                })
+              )
+            }
+
+            continue
+          }
+
           await createShareBusinessAction(
             objectToFormData({
               capitalAmount: businessRow.capitalAmount,
@@ -2230,12 +2599,7 @@ function ShareBusinessProfitHistoryTableForm({
               ),
               name: businessRow.name,
               notes: businessRow.notes,
-              profitAmount: businessRow.profitRows
-                .reduce(
-                  (total, row) => total + parseOptionalFormAmount(row.amount),
-                  0
-                )
-                .toString(),
+              profitAmount: totalProfitAmount,
               sourceType,
               startDate: businessRow.startDate,
               status: businessRow.endDate ? "completed" : "active",
@@ -2314,10 +2678,15 @@ function ShareBusinessProfitHistoryTableForm({
           <tbody>
             {businessRows.map((businessRow) => (
               <Fragment key={businessRow.id}>
+                <tr aria-hidden="true">
+                  <td colSpan={5}>
+                    <div className="border-border/70 border-t" />
+                  </td>
+                </tr>
                 <tr className="align-top" key={`${businessRow.id}-business`}>
                   <td>
                     <Input
-                      disabled={businessRow.saved || isPending}
+                      disabled={isPending}
                       onChange={(event) =>
                         updateBusinessRow(businessRow.id, {
                           name: event.target.value,
@@ -2331,7 +2700,7 @@ function ShareBusinessProfitHistoryTableForm({
                     <CurrencyInput
                       allowNegative={false}
                       decimalScale={2}
-                      disabled={businessRow.saved || isPending}
+                      disabled={isPending}
                       inputMode="decimal"
                       onValueChange={(values) =>
                         updateBusinessRow(businessRow.id, {
@@ -2346,7 +2715,7 @@ function ShareBusinessProfitHistoryTableForm({
                   <td>
                     <DatePickerInput
                       allowClear={false}
-                      disabled={businessRow.saved || isPending}
+                      disabled={isPending}
                       min={financeStartDate ?? undefined}
                       onChange={(startDate) =>
                         updateBusinessRow(businessRow.id, { startDate })
@@ -2357,7 +2726,7 @@ function ShareBusinessProfitHistoryTableForm({
                   </td>
                   <td>
                     <DatePickerInput
-                      disabled={businessRow.saved || isPending}
+                      disabled={isPending}
                       min={
                         businessRow.startDate || financeStartDate || undefined
                       }
@@ -2425,7 +2794,7 @@ function ShareBusinessProfitHistoryTableForm({
                                 <td>
                                   <DatePickerInput
                                     allowClear={false}
-                                    disabled={businessRow.saved || isPending}
+                                    disabled={isPending}
                                     min={
                                       businessRow.startDate ||
                                       financeStartDate ||
@@ -2446,7 +2815,7 @@ function ShareBusinessProfitHistoryTableForm({
                                   <CurrencyInput
                                     allowNegative={false}
                                     decimalScale={2}
-                                    disabled={businessRow.saved || isPending}
+                                    disabled={isPending}
                                     inputMode="decimal"
                                     onValueChange={(values) =>
                                       updateBusinessProfitRow(
@@ -2464,7 +2833,7 @@ function ShareBusinessProfitHistoryTableForm({
                                   <CurrencyInput
                                     allowNegative={false}
                                     decimalScale={2}
-                                    disabled={businessRow.saved || isPending}
+                                    disabled={isPending}
                                     inputMode="decimal"
                                     onValueChange={(values) =>
                                       updateBusinessProfitRow(
@@ -2480,7 +2849,7 @@ function ShareBusinessProfitHistoryTableForm({
                                 </td>
                                 <td>
                                   <Input
-                                    disabled={businessRow.saved || isPending}
+                                    disabled={isPending}
                                     onChange={(event) =>
                                       updateBusinessProfitRow(
                                         businessRow.id,
@@ -2495,7 +2864,7 @@ function ShareBusinessProfitHistoryTableForm({
                                 <td>
                                   <CurrencyInput
                                     decimalScale={2}
-                                    disabled={businessRow.saved || isPending}
+                                    disabled={isPending}
                                     fixedDecimalScale
                                     readOnly
                                     value={
@@ -2508,7 +2877,10 @@ function ShareBusinessProfitHistoryTableForm({
                                 </td>
                                 <td>
                                   <DeleteInlineRowButton
-                                    disabled={businessRow.saved || isPending}
+                                    disabled={
+                                      isPending ||
+                                      Boolean(profitRow.profitEntryId)
+                                    }
                                     label="profit row"
                                     onDelete={() =>
                                       deleteBusinessProfitRow(

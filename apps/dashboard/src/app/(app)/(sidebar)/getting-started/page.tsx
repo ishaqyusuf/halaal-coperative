@@ -249,6 +249,9 @@ export default async function GettingStartedPage({
             ) ?? null
 
         return {
+          appliesToLoanRequests: charge.appliesToLoanRequests ?? false,
+          appliesToLoans: charge.appliesToLoans ?? false,
+          appliesToMembers: charge.appliesToMembers ?? true,
           chargeFrequency: charge.chargeFrequency ?? "recurring_monthly",
           chargeValueType:
             charge.chargeValueType ??
@@ -256,8 +259,10 @@ export default async function GettingStartedPage({
           code: charge.code,
           id: charge.id,
           isActive: charge.isActive,
+          isMonthlyLevy: charge.isMonthlyLevy ?? false,
           kind: charge.kind,
           name: charge.name,
+          purpose: charge.purpose ?? "general",
           versions: charge.versions.map((version: any) => ({
             amount: Number(version.amount),
             chargeValueType:
@@ -359,6 +364,7 @@ export default async function GettingStartedPage({
         capitalAmount: Number(business.capitalAmount),
         endDate: toDateString(business.endDate),
         id: business.id,
+        linkedDividendPeriodId: business.linkedDividendPeriod?.id ?? null,
         name: business.name,
         notes: business.notes,
         profitAmount: Number(business.profitAmount),
@@ -368,6 +374,7 @@ export default async function GettingStartedPage({
           ),
           expenseAmount: Number(entry.expenseAmount ?? 0),
           id: entry.id,
+          linkedDividendPeriodId: entry.linkedDividendPeriod?.id ?? null,
           profitAmount: Number(entry.profitAmount),
           profitDate: entry.profitDate.toISOString().slice(0, 10),
           reason: entry.reason,

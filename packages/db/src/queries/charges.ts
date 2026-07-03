@@ -229,13 +229,16 @@ export async function createChargeDefinition(
 
 export type UpdateChargeDefinitionInput = {
   name?: string
+  code?: string
   kind?: ChargeKind
+  chargeFrequency?: "recurring_monthly" | "per_contribution" | "one_time" | "manual"
   chargeValueType?: "fixed_amount" | "percentage"
   amount?: number
   effectiveFrom?: Date
   notes?: string
   createdByUserId?: string
   isActive?: boolean
+  isMonthlyLevy?: boolean
   appliesToMembers?: boolean
   appliesToLoanRequests?: boolean
   appliesToLoans?: boolean

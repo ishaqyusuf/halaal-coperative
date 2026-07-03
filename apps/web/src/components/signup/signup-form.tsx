@@ -47,6 +47,7 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
   createWorkspaceSlugSuggestion,
+  normalizeMemberNumberPrefix,
   normalizeWorkspaceSlug,
   signupIntentSchema,
   type SignupIntentInput,
@@ -114,6 +115,7 @@ export function SignupForm({
   const form = useZodForm<SignupIntentInput>(signupIntentSchema, {
     defaultValues: {
       cooperativeName: "",
+      memberNumberPrefix: "",
       primaryContactEmail: "",
       primaryContactFullName: "",
       primaryContactMemberNumber: "",
@@ -131,10 +133,16 @@ export function SignupForm({
     control: form.control,
     name: "cooperativeName",
   })
+  const memberNumberPrefix = useWatch({
+    control: form.control,
+    name: "memberNumberPrefix",
+  })
   const workspaceSlug = useWatch({
     control: form.control,
     name: "workspaceSlug",
   })
+  const normalizedMemberNumberPrefix =
+    normalizeMemberNumberPrefix(memberNumberPrefix) ?? ""
   const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug ?? "")
   const canSubmit =
     availability.status !== "checking" &&
@@ -414,7 +422,7 @@ export function SignupForm({
                   <FormItem>
                     <FormLabel>Admin full name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Amina Yusuf" {...field} />
+                      <Input placeholder="Enter your name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -430,27 +438,10 @@ export function SignupForm({
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="admin@noorcoop.ng"
+                        placeholder="yourname@gmail.com"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="primaryContactMemberNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Admin member number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="PC-1001" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Use the number your cooperative already recognizes.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -468,6 +459,56 @@ export function SignupForm({
                         {...field}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="memberNumberPrefix"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Membership number prefix</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="PC-"
+                        {...field}
+                        onChange={(event) =>
+                          field.onChange(event.target.value.toUpperCase())
+                        }
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Optional. Leave blank if your cooperative does not use a
+                      shared prefix.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="primaryContactMemberNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Admin member number</FormLabel>
+                    <FormControl>
+                      {normalizedMemberNumberPrefix ? (
+                        <InputGroup>
+                          <InputGroupText>
+                            {normalizedMemberNumberPrefix}
+                          </InputGroupText>
+                          <InputGroupInput placeholder="1001" {...field} />
+                        </InputGroup>
+                      ) : (
+                        <Input placeholder="1001" {...field} />
+                      )}
+                    </FormControl>
+                    <FormDescription>
+                      Use only the number part when a prefix is set.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -12,23 +12,24 @@ This file gives the fastest reliable summary of what the system is, who it serve
 ## Product Summary
 - Product name: halaalvest.
 - Model: multi-tenant SaaS for cooperatives, staff thrift groups, and employee savings/credit societies.
-- Financial posture: 100% halal cooperative model.
+- Financial posture: Halaal-standard, interest-free cooperative model.
 - Primary users: cooperative admins, finance officers, and cooperative members.
-- Core workflows: member registration, monthly contribution tracking, loan requests, loan approval, repayment tracking, charges, transaction history, dividends, and office operations.
+- Core workflows: member registration, monthly contribution tracking, financing requests, financing approval, repayment tracking, charges, transaction history, dividends, and office operations.
+- Public posture: inclusive cooperative finance software for any operator that wants transparent, interest-free, member-owned workflows; do not make global product copy assume a Muslim-only audience.
 - Product surfaces: SaaS marketing web app, a single tenant-hosted app for public/member/admin flows, and shared API/backend.
 - Tenant examples may include Amanah and similar cooperatives, but the platform is not scoped to a single tenant brand.
 - Tenant resolution may come from the canonical tenant host, a temporary legacy `dashboard.` alias, or a mapped custom domain.
 
 ## Core Business Rules
 - Members contribute a recurring monthly amount.
-- Loan funds come from the primary cooperative account funded by member contributions.
-- Members may become eligible to request loans based on contribution history and cooperative rules.
-- A member is eligible to borrow up to 2x total savings, subject to available pool liquidity and approval.
-- Loan eligibility must be separated from loan availability.
-- Loan disbursement depends on available cooperative pool and admin approval.
-- All loans are interest-free as part of the halal operating model.
-- Quick loan: short-term repayment over 3 months.
-- Normal loan: long-term repayment over 18 months.
+- Financing funds come from the primary cooperative account funded by member contributions.
+- Members may become eligible to request financing based on contribution history and cooperative rules.
+- A member is eligible to request financing up to 2x total savings, subject to available pool liquidity and approval.
+- Financing eligibility must be separated from financing availability.
+- Financing disbursement depends on available cooperative pool and admin approval.
+- All financing is interest-free as part of the Halaal-standard operating model.
+- Quick financing: short-term repayment over 3 months.
+- Normal financing: long-term repayment over 18 months.
 - Charges are configurable and can be attached to defined transaction types.
 - Monthly cooperative levy is a core recurring charge.
 - Cooperatives may run businesses and distribute profit dividends to members.
@@ -48,8 +49,8 @@ This file gives the fastest reliable summary of what the system is, who it serve
 - Multi-tenant cooperative management.
 - Member and admin roles.
 - Contribution ledger.
-- Loan request and approval workflow.
-- Quick loan and normal loan workflows.
+- Financing request and approval workflow.
+- Quick financing and normal financing workflows.
 - Repayment schedule and outstanding balance tracking.
 - Configurable charges.
 - Monthly cooperative levy support.

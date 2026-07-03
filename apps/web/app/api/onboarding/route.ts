@@ -6,7 +6,11 @@ import {
   syncTenantDomainVerificationByHostname,
 } from "@halaalvest/db"
 import { createWorkspaceReadyEmail } from "@halaalvest/notifications"
-import { normalizeWorkspaceSlug, onboardingFormSchema } from "@/lib/signup-flow"
+import {
+  composeMemberNumber,
+  normalizeWorkspaceSlug,
+  onboardingFormSchema,
+} from "@/lib/signup-flow"
 import { hashPassword } from "@/lib/password"
 import { createServerNotificationService } from "@/lib/server-notifications"
 import { verifySignedSignupToken } from "@/lib/signup-token"
@@ -50,9 +54,13 @@ export async function POST(request: Request) {
       currentSize: input.currentSize,
       name: input.cooperativeName,
       officeAddress: input.officeAddress,
+      memberNumberPrefix: input.memberNumberPrefix || null,
       ownerEmail: verification.primaryContactEmail,
       ownerFullName: input.primaryContactFullName,
-      ownerMemberNumber: input.primaryContactMemberNumber,
+      ownerMemberNumber: composeMemberNumber(
+        input.memberNumberPrefix,
+        input.primaryContactMemberNumber
+      ),
       ownerPasswordHash: hashPassword(input.password),
       slug: normalizeWorkspaceSlug(verification.workspaceSlug),
       startDate: input.startDate,

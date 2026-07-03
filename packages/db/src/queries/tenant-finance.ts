@@ -3,6 +3,7 @@ import { allocateBusinessProfitByShare } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
+import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import { getTenantById } from "./tenants"
 
 export type BusinessProfitDistributionFrequency =
@@ -501,11 +502,11 @@ export async function getTenantFinanceSetup(
         currencyCode: true,
       },
     }),
-    typeof prisma.tenantBusinessPolicy?.findUnique === "function"
-      ? prisma.tenantBusinessPolicy.findUnique({
-          where: { tenantId },
-        })
-      : null,
+    readOptionalTenantBusinessPolicy(prisma, (tenantBusinessPolicy) =>
+      tenantBusinessPolicy.findUnique({
+        where: { tenantId },
+      })
+    ),
     prisma.tenantShareStructureVersion.findMany({
       where: { tenantId },
       orderBy: { effectiveFrom: "asc" },
@@ -582,13 +583,17 @@ export async function getTenantBusinessProfitPolicy(
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
 
-  if (!prisma || typeof prisma.tenantBusinessPolicy?.findUnique !== "function") {
+  if (!prisma) {
     return defaultTenantBusinessProfitPolicy
   }
 
-  const policy = await prisma.tenantBusinessPolicy.findUnique({
-    where: { tenantId },
-  })
+  const policy = await readOptionalTenantBusinessPolicy(
+    prisma,
+    (tenantBusinessPolicy) =>
+      tenantBusinessPolicy.findUnique({
+        where: { tenantId },
+      }),
+  )
 
   return normalizeTenantBusinessProfitPolicy(policy)
 }
@@ -883,12 +888,13 @@ export async function updateTenantBusinessProfitPolicy(
     )
   }
 
-  const previousPolicy =
-    typeof prisma.tenantBusinessPolicy?.findUnique === "function"
-      ? await prisma.tenantBusinessPolicy.findUnique({
-          where: { tenantId: input.tenantId },
-        })
-      : null
+  const previousPolicy = await readOptionalTenantBusinessPolicy(
+    prisma,
+    (tenantBusinessPolicy) =>
+      tenantBusinessPolicy.findUnique({
+        where: { tenantId: input.tenantId },
+      }),
+  )
   const policy = await prisma.tenantBusinessPolicy.upsert({
     create: {
       tenantId: input.tenantId,

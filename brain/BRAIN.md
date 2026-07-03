@@ -29,7 +29,7 @@ This folder is the structured memory for halaalvest. It keeps product, architect
 
 ## Current Status
 - Repository initialized with Brain docs before application code.
-- Product concept: multi-tenant cooperative savings and loan management SaaS.
-- Highest-risk domains: financial correctness, auditability, permissions, trust, and loan liquidity.
-- Domain operating lens: Halaal cooperative money safety, contribution health, portfolio risk, admin action queues, compliance watch, and member trust.
+- Product concept: multi-tenant cooperative savings and interest-free financing management SaaS.
+- Highest-risk domains: financial correctness, auditability, permissions, trust, and financing liquidity.
+- Domain operating lens: Halaal-standard cooperative money safety, contribution health, portfolio risk, admin action queues, compliance watch, and member trust.
 - Primary external architecture and coding-standard reference for performance-sensitive work: `midday` at `/Users/M1PRO/Documents/code/_kitchen_sink/midday`.

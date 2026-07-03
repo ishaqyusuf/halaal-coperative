@@ -29,7 +29,7 @@ export function SignupShell({
   title: string
 }) {
   return (
-    <main className="min-h-svh bg-background">
+    <main className="web-readable min-h-svh bg-background">
       <section className="mx-auto flex min-h-svh w-full max-w-7xl flex-col gap-8 px-5 py-6 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between border-b pb-5">
           <Link

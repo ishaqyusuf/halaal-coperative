@@ -50,3 +50,23 @@ This file gives a task-oriented view of near-term execution priorities.
 - Plan Status: Proposed
 - Plan File: brain/plans/2026-06-26-feature-after-service-trpc-route-implementation-and-usage-migration.md
 - Created Date: 2026-06-26
+
+### Recent Cooperative Backfill Gate And Alert Tone
+- Priority: High
+- Description: Track plan in `brain/plans/2026-07-03-bug-fix-recent-cooperative-backfill-gate.md`.
+- Related Feature: Onboarding finance setup and member backfill
+- Status: Roadmap
+- Plan Status: Proposed
+- Plan File: brain/plans/2026-07-03-bug-fix-recent-cooperative-backfill-gate.md
+- Intake File: brain/intake/2026-07-03-recent-cooperative-backfill-cleanup.md
+- Created Date: 2026-07-03
+
+### Getting Started And Member Backfill UI Simplification
+- Priority: Medium
+- Description: Track plan in `brain/plans/2026-07-03-ux-ui-getting-started-backfill-simplification.md`.
+- Related Feature: Onboarding finance setup and member backfill
+- Status: Roadmap
+- Plan Status: Proposed
+- Plan File: brain/plans/2026-07-03-ux-ui-getting-started-backfill-simplification.md
+- Intake File: brain/intake/2026-07-03-recent-cooperative-backfill-cleanup.md
+- Created Date: 2026-07-03

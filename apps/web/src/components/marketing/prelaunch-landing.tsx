@@ -12,9 +12,9 @@ const pillars = [
       "Contribution tracking, balances, charges, and statements designed for cooperative finance teams.",
   },
   {
-    label: "Halal lending",
+    label: "Interest-free financing",
     description:
-      "Interest-free loan workflows with eligibility checks, liquidity awareness, and accountable approvals.",
+      "Financing workflows with eligibility checks, liquidity awareness, and accountable approvals.",
   },
   {
     label: "Cooperative rollout",
@@ -34,7 +34,7 @@ const contactTeamHref =
 
 export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
   return (
-    <main className="min-h-svh bg-background text-foreground">
+    <main className="web-readable min-h-svh bg-background text-foreground">
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
           <Link aria-label="Halaalvest home" href="/">
@@ -56,9 +56,10 @@ export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
               Cooperative finance infrastructure
             </Badge>
             <h1 className="mt-6 max-w-4xl font-heading text-5xl leading-[1.02] font-semibold tracking-tight sm:text-6xl lg:text-7xl">
-              A cleaner operating backbone for halal cooperatives.
+              A cleaner operating backbone for interest-free cooperative
+              finance.
             </h1>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
               Halaalvest is building the public signup, cooperative workspace, and
               governed finance layer cooperative teams need before serious
               growth arrives.
@@ -168,7 +169,7 @@ export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
       <footer>
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-5 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>halaalvest</p>
-          <p>Halal cooperative operations platform</p>
+          <p>Interest-free cooperative operations platform</p>
         </div>
       </footer>
     </main>

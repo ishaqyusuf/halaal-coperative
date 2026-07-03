@@ -1,6 +1,6 @@
 # halaalvest
 
-Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant halal cooperative operations platform. Amanah is treated as a case-study tenant profile, not the product boundary.
+Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant interest-free cooperative operations platform. Amanah is treated as a case-study tenant profile, not the product boundary.
 
 ## Workspace
 

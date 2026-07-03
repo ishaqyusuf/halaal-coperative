@@ -11,6 +11,7 @@ import { recordContribution } from "./contributions"
 import { createAuditLogEntry } from "./audit"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
+import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import {
   createMemberShareLedgerEntry,
   getResolvedShareAmountForMonth,
@@ -66,16 +67,17 @@ async function getBusinessProfitSeasonPolicy(
   tenantId: string,
   prisma: any
 ): Promise<BusinessProfitSeasonPolicy> {
-  const policy =
-    typeof prisma.tenantBusinessPolicy?.findUnique === "function"
-      ? await prisma.tenantBusinessPolicy.findUnique({
-          select: {
-            financialYearStartMonth: true,
-            profitDistributionFrequency: true,
-          },
-          where: { tenantId },
-        })
-      : null
+  const policy = await readOptionalTenantBusinessPolicy(
+    prisma,
+    (tenantBusinessPolicy) =>
+      tenantBusinessPolicy.findUnique({
+        select: {
+          financialYearStartMonth: true,
+          profitDistributionFrequency: true,
+        },
+        where: { tenantId },
+      }),
+  )
 
   return {
     financialYearStartMonth: Number(policy?.financialYearStartMonth ?? 1),

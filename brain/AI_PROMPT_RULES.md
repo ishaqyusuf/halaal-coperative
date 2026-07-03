@@ -10,6 +10,7 @@ This file captures prompt-level instructions and durable context that future AI 
 ## Project Rules
 - Treat this product as a financial system, not a generic CRUD app.
 - Preserve the project's 100% halal financial model in product and engineering decisions.
+- Public, signup, notification, and marketing copy must not assume the audience is Muslim; use neutral greetings and inclusive terms like interest-free, ethical, transparent, cooperative, financing, and member-owned unless a tenant explicitly configures a religious tone.
 - For cooperative finance and admin workflow prompts, think like a Halaal investment cooperative operator: protect member funds, surface pending/overdue/risky work, preserve auditability, and keep member trust central.
 - Multi-tenant isolation is mandatory in all data and authorization decisions.
 - Use append-only ledger thinking for money-related events whenever possible.

@@ -8,7 +8,7 @@ This file documents the primary business feature set for the Amanah cooperative 
 - Keep this aligned with implemented business rules.
 
 ## Goal
-- Provide a halal, multi-tenant cooperative operations platform for managing member savings, interest-free loans, charges, dividends, and office workflows.
+- Provide a multi-tenant cooperative operations platform for managing member savings, interest-free financing, charges, dividends, and office workflows.
 
 ## Users
 - Tenant admin.
@@ -21,17 +21,17 @@ This file documents the primary business feature set for the Amanah cooperative 
 - Onboard members as civil servant, individual, or business.
 - Record contributions through direct deduction or indirect payment flow.
 - Apply configured charges such as cooperative levy.
-- Let eligible members request quick or normal loans.
-- Approve loans based on policy and available contribution pool liquidity.
+- Let eligible members request quick or normal financing.
+- Approve financing based on policy and available contribution pool liquidity.
 - Track repayments, balances, transactions, and dividends.
 - Provide dashboards and account history for members and staff.
 
 ## Business Rules
-- Loan funds come from the cooperative contribution pool.
-- Loans are interest-free.
-- Member borrowing cap is up to 2x total savings, subject to liquidity and approval.
-- Quick loan term is 3 months.
-- Normal loan term is 18 months.
+- Financing funds come from the cooperative contribution pool.
+- Financing is interest-free.
+- Member financing cap is up to 2x total savings, subject to liquidity and approval.
+- Quick financing term is 3 months.
+- Normal financing term is 18 months.
 - Cooperatives may distribute business profit as dividends to members.
 - Cooperatives may continue creating and operating business pools after initial migration; only historical migration inputs and published allocation history should lock.
 - Business profit should be attributed to configured profit-sharing periods, such as annual, semi-annual, quarterly, or ad-hoc seasons.
@@ -39,7 +39,7 @@ This file documents the primary business feature set for the Amanah cooperative 
 
 ## Data Model Impact
 - Members need category and payment channel attributes.
-- Loan products need configurable terms and eligibility policies.
+- Financing products need configurable terms and eligibility policies.
 - Charges need reusable definitions and applications.
 - Dividend periods and allocations need tenant-scoped records.
 - Business and profit records need a clear distinction between historical migration records, live operating records, draft allocation periods, and published allocations.
@@ -49,10 +49,10 @@ This file documents the primary business feature set for the Amanah cooperative 
 ## Permissions
 - Members can view their own account progress and activity.
 - Staff permissions must be scoped by tenant role.
-- Loan approvals, dividend publication, and charge configuration are privileged actions.
+- Financing approvals, dividend publication, and charge configuration are privileged actions.
 
 ## Edge Cases
-- Eligible member cannot borrow because pool funds are insufficient.
+- Eligible member cannot receive financing because pool funds are insufficient.
 - Offline-created contribution or repayment records sync after a delay.
 - Direct deduction remittance arrives later than expected.
 - Dividend distribution rules vary by tenant policy.

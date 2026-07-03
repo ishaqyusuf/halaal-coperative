@@ -1,6 +1,7 @@
 import "@halaalvest/ui/globals.css"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
 import { getMarketingConfig } from "@/lib/marketing-config"
+import "./readability.css"
 
 const marketing = getMarketingConfig()
 const iconName =
@@ -17,9 +18,9 @@ export const metadata = {
       ? "halaalvest"
       : "halaalvest | Pre-Launch",
   description: !marketing.showHomePage
-    ? "Public signup entry for halaalvest, the halal cooperative operations platform."
+    ? "Public signup entry for halaalvest, the interest-free cooperative operations platform."
     : marketing.isLaunchReady
-      ? "Launch marketing site for halaalvest, the halal cooperative operations platform."
+      ? "Launch marketing site for halaalvest, the interest-free cooperative operations platform."
       : "Pre-launch landing page for halaalvest. Join early access before the cooperative platform goes live.",
   icons: {
     icon: [

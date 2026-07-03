@@ -40,7 +40,8 @@ function createRandomContact() {
   return {
     primaryContactEmail: `${emailHandle}${randomInt(10, 99)}@example.test`,
     primaryContactFullName,
-    primaryContactMemberNumber: `PC-${randomInt(1000, 9999)}`,
+    memberNumberPrefix: "PC-",
+    primaryContactMemberNumber: String(randomInt(1000, 9999)),
   }
 }
 
@@ -64,6 +65,7 @@ const devFormDefaults = {
       password: "password123",
       primaryContactEmail: contact.primaryContactEmail,
       primaryContactFullName: contact.primaryContactFullName,
+      memberNumberPrefix: contact.memberNumberPrefix,
       primaryContactMemberNumber: contact.primaryContactMemberNumber,
       startDate: randomStartDate(),
       token: "",
@@ -75,6 +77,7 @@ const devFormDefaults = {
 
     return {
       cooperativeName,
+      memberNumberPrefix: contact.memberNumberPrefix,
       primaryContactEmail: contact.primaryContactEmail,
       primaryContactFullName: contact.primaryContactFullName,
       primaryContactMemberNumber: contact.primaryContactMemberNumber,

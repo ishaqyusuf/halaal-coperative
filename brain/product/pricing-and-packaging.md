@@ -1,7 +1,7 @@
 # Pricing And Packaging
 
 ## Purpose
-- Define the public pricing posture for Halaalvest as a halal cooperative SaaS platform.
+- Define the public pricing posture for Halaalvest as an interest-free cooperative SaaS platform.
 - Keep packaging aligned with member trust, predictable cooperative budgets, and non-interest-based finance.
 
 ## Pricing Principle

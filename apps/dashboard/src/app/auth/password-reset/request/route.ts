@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         tenantHostname: request.headers.get("x-tenant-hostname"),
       })
       const bodyText = [
-        `Assalamu alaikum ${user.fullName},`,
+        `Hello ${user.fullName},`,
         "",
         `Use this link to set a new password for ${tenant.name}.`,
         `This link expires on ${reset.expiresAt}.`,

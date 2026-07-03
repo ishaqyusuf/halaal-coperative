@@ -70,6 +70,7 @@ export type TenantBootstrapInput = {
   ownerFullName: string
   ownerEmail: string
   ownerPasswordHash?: string
+  memberNumberPrefix?: string | null
   ownerMemberNumber?: string
   currentSize?: number
   officeAddress?: string | null
@@ -490,6 +491,7 @@ export async function createTenantWorkspaceBootstrap(
         name: input.name.trim(),
         currentSize: input.currentSize,
         officeAddress: input.officeAddress?.trim() || null,
+        memberNumberPrefix: input.memberNumberPrefix?.trim() || null,
         startDate: input.startDate
           ? new Date(`${input.startDate}T00:00:00.000Z`)
           : null,

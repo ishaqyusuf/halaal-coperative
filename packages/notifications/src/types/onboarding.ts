@@ -19,7 +19,7 @@ function buildSignupEmailVerificationBody(
   payload: SignupEmailVerificationPayload,
 ) {
   return [
-    `Assalamu alaikum ${payload.recipientName},`,
+    `Hello ${payload.recipientName},`,
     "",
     `Your HalaalVest signup for ${payload.tenantName} is almost ready.`,
     "Confirm this email address to continue setting up the cooperative workspace.",
@@ -54,7 +54,7 @@ type WorkspaceReadyPayload = z.infer<typeof workspaceReadySchema>
 
 function buildWorkspaceReadyBody(payload: WorkspaceReadyPayload) {
   return [
-    `Assalamu alaikum ${payload.recipientName},`,
+    `Hello ${payload.recipientName},`,
     "",
     `${payload.tenantName} is ready in HalaalVest.`,
     `Dashboard: ${payload.dashboardUrl}`,
@@ -89,7 +89,7 @@ const workspaceInvitationSchema = directEmailSchema.extend({
 type WorkspaceInvitationPayload = z.infer<typeof workspaceInvitationSchema>
 
 function buildWorkspaceInvitationBody(payload: WorkspaceInvitationPayload) {
-  return `Assalamu alaikum ${payload.recipientName},\n\nYou have been invited to join ${payload.tenantName}${payload.roleLabel ? ` as ${payload.roleLabel}` : ""}.`
+  return `Hello ${payload.recipientName},\n\nYou have been invited to join ${payload.tenantName}${payload.roleLabel ? ` as ${payload.roleLabel}` : ""}.`
 }
 
 export const workspaceInvitation = defineHalaalNotification({

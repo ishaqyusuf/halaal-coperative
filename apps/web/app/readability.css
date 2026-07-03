@@ -1,0 +1,83 @@
+.web-readable {
+  --web-secondary-text: color-mix(
+    in oklch,
+    var(--foreground) 74%,
+    var(--background)
+  );
+  --web-inverse-secondary-text: color-mix(
+    in oklch,
+    var(--background) 86%,
+    var(--foreground)
+  );
+  font-size: 1rem;
+  line-height: 1.75rem;
+}
+
+.web-readable .text-muted-foreground,
+.web-readable .text-foreground\/60,
+.web-readable .text-foreground\/70 {
+  color: var(--web-secondary-text);
+}
+
+.web-readable .text-background\/60,
+.web-readable .text-background\/70,
+.web-readable .text-background\/80 {
+  color: var(--web-inverse-secondary-text);
+}
+
+.web-readable .text-xs,
+.web-readable .text-sm,
+.web-readable .text-base {
+  font-size: 1rem;
+  line-height: 1.75rem;
+}
+
+.web-readable [class~="text-[11px]"] {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.web-readable :is(a, button)[class*="group/button"],
+.web-readable [data-slot="button"] {
+  min-height: 2.75rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.web-readable [class*="group/badge"] {
+  min-height: 1.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.web-readable [data-slot="card"],
+.web-readable [data-slot="card-description"],
+.web-readable [data-slot="alert"],
+.web-readable [data-slot="alert-description"] {
+  font-size: 1rem;
+  line-height: 1.75rem;
+}
+
+.web-readable [data-slot="label"],
+.web-readable [data-slot="progress-label"],
+.web-readable [data-slot="progress-value"] {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.web-readable [data-slot="input-group"] {
+  min-height: 2.75rem;
+  height: auto;
+}
+
+.web-readable :is(input, textarea, select) {
+  min-height: 2.75rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.web-readable :is(input, textarea, select)::placeholder {
+  color: var(--web-secondary-text);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}

@@ -1,13 +1,15 @@
 # Halaal Cooperative Operating Model
 
 ## Purpose
-- Define the durable product and finance lens for Halaalvest as a Halaal cooperative operations platform.
+- Define the durable product and finance lens for Halaalvest as a Halaal-standard, interest-free cooperative operations platform.
 - Use this document when designing dashboards, finance workflows, member operations, policy rules, reporting, permissions, and data models.
 
 ## Product Posture
 - Halaalvest is a software platform for cooperatives, thrift societies, and member-owned finance groups.
+- The addressable audience is any cooperative that wants transparent, interest-free, member-owned finance operations; public copy should not imply the product is only for Muslim cooperatives.
 - The platform is not positioned as a direct lender unless a future regulated business line explicitly changes that.
 - The system should help tenant cooperatives manage member savings, charges, interest-free financing, repayments, profit allocation, statements, approvals, and audit history.
+- Default platform communications should use neutral greetings and inclusive operating language. Islamic greetings or explicitly religious communication tone should be tenant-configurable later, not the global default.
 
 ## Primary Users
 - Tenant admin: owns cooperative setup, policy configuration, roles, approvals, and governance.
@@ -16,7 +18,7 @@
 - Member: views personal savings, charges, financing, repayment progress, statements, and eligible actions.
 
 ## Core Finance Principles
-- Preserve the 100% Halaal model: no interest-bearing loan logic.
+- Preserve the 100% Halaal / interest-free finance model: no interest-bearing loan logic.
 - Treat member financing as cooperative pool deployment, not guaranteed credit.
 - Make fees, charges, and levies explicit, policy-backed, and auditable.
 - Keep member savings, share capital, loan/financing principal, repayment servicing, charges, and profit allocation distinct.
@@ -54,4 +56,3 @@
 - TODO: Confirm formal terminology for cooperative financing products across UI: loan, financing, qard, facility, or tenant-configurable label.
 - TODO: Confirm whether Halaal compliance review requires an explicit Sharia-review workflow in the MVP.
 - TODO: Confirm non-compliant income and purification handling if tenant investment pools later require it.
-

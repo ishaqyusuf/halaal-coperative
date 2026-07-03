@@ -17,13 +17,13 @@ export const memberServices = [
 
 export const adminStats = [
   { label: "Members", value: "1,248", detail: "38 pending review" },
-  { label: "Loan requests", value: "19", detail: "₦8.4m requested" },
+  { label: "Financing requests", value: "19", detail: "₦8.4m requested" },
   { label: "Collections", value: "₦42m", detail: "94% on schedule" },
 ] as const;
 
 export const adminExceptions = [
   {
-    label: "Loan approvals",
+    label: "Financing approvals",
     value: "7 waiting",
     detail: "2 high-priority member requests need review.",
   },
@@ -47,7 +47,7 @@ export const detailSections = {
   },
   financing: {
     title: "Financing",
-    subtitle: "Request, monitor, and repay Shariah-aligned financing.",
+    subtitle: "Request, monitor, and repay interest-free cooperative financing.",
     rows: ["Eligible for ₦500k", "One active repayment", "Request draft saved"],
   },
   shares: {
@@ -62,12 +62,12 @@ export const detailSections = {
   },
   finance: {
     title: "Finance",
-    subtitle: "Review collections, loan requests, and ledger exceptions.",
-    rows: ["19 loan requests", "₦42m collected", "8 ledger exceptions"],
+    subtitle: "Review collections, financing requests, and ledger exceptions.",
+    rows: ["19 financing requests", "₦42m collected", "8 ledger exceptions"],
   },
   reports: {
     title: "Reports",
     subtitle: "Board-ready operational and member finance summaries.",
-    rows: ["Monthly summary", "Loan portfolio", "Commitment variance"],
+    rows: ["Monthly summary", "Financing portfolio", "Commitment variance"],
   },
 };

@@ -30,6 +30,7 @@ function createMigrationStatePrismaStub(input: {
   migrationFinalizedAt?: Date | null
   shareCapitalPlans: number
   startDate: Date | null
+  tenantBusinessPolicyFindError?: unknown
 }) {
   const auditLogCreates: unknown[] = []
   const tenantBusinessPolicyUpserts: unknown[] = []
@@ -118,13 +119,18 @@ function createMigrationStatePrismaStub(input: {
       },
     },
     tenantBusinessPolicy: {
-      findUnique: async () =>
-        input.historicalProfitMigrationMode
+      findUnique: async () => {
+        if (input.tenantBusinessPolicyFindError) {
+          throw input.tenantBusinessPolicyFindError
+        }
+
+        return input.historicalProfitMigrationMode
           ? {
               historicalProfitMigrationMode:
                 input.historicalProfitMigrationMode,
             }
-          : null,
+          : null
+      },
       upsert: async (query: unknown) => {
         tenantBusinessPolicyUpserts.push(query)
         return query
@@ -293,6 +299,31 @@ describe("tenant initial migration state query", () => {
     expect(reviewedNoProfitPools.snapshot.missingStepKeys).toEqual([
       "finalization",
     ])
+  })
+
+  test("keeps setup gate readable when optional business policy table is missing", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 12,
+        appliedBackfillMembers: 12,
+        businessProfitPools: 0,
+        chargeScheduleVersions: 2,
+        initialMigrationStatus: null,
+        legacyLoans: 1,
+        memberProfiles: 12,
+        shareCapitalPlans: 1,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+        tenantBusinessPolicyFindError: {
+          code: "P2021",
+          message:
+            "The table `public.tenant_business_policies` does not exist in the current database.",
+        },
+      }) as never
+    )
+
+    expect(state.snapshot.status).toBe("historical_setup_in_progress")
+    expect(state.snapshot.missingStepKeys).toContain("business_profit_pools")
   })
 
   test("requires business profit seasons before member migration", async () => {

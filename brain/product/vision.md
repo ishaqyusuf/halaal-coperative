@@ -13,7 +13,7 @@ This file captures the customer problem, target users, and long-term product vis
 
 ## Vision
 - Build the trusted operating system for cooperative savings and credit societies in Africa.
-- Help cooperatives manage contributions, halal loans, charges, dividends, statements, and member trust in one secure platform.
+- Help cooperatives manage contributions, interest-free financing, charges, dividends, statements, and member trust in one secure platform.
 
 ## Target Customers
 - Employee cooperatives inside organizations.
@@ -21,10 +21,11 @@ This file captures the customer problem, target users, and long-term product vis
 - Civil servant-focused cooperatives with payroll deduction flows.
 - Individual and business member cooperatives.
 - Administrators and finance officers managing recurring savings pools.
+- Any cooperative that wants transparent, interest-free, member-owned finance operations without being limited to a Muslim-only audience.
 
 ## Value Proposition
 - Replace manual ledgers with transparent digital records.
-- Give members visibility into savings, charges, loans, and repayment progress.
+- Give members visibility into savings, charges, financing, and repayment progress.
 - Support both direct deduction and indirect contribution workflows in one platform.
 - Keep operations running with offline mode and later online sync.
 - Give admins reliable controls, approvals, and reporting.
@@ -32,10 +33,11 @@ This file captures the customer problem, target users, and long-term product vis
 
 ## Positioning
 - Preferred: cooperative management platform.
-- Alternative: digital cooperative and loan management system.
-- Operating principle: halal, interest-free cooperative finance.
+- Alternative: digital cooperative and interest-free financing management system.
+- Operating principle: Halaal-standard, interest-free cooperative finance.
+- Public voice: inclusive, neutral, and operator-focused. Lead with transparent, ethical, interest-free cooperative finance rather than religious audience cues.
 - Avoid positioning as a direct lender unless that becomes a regulated business line later.
-- Current public positioning should emphasize staged contributions, approval-controlled signup, transparent member records, halal loan operations, charges, statements, and guided setup without invented traction metrics.
+- Current public positioning should emphasize staged contributions, approval-controlled signup, transparent member records, interest-free financing operations, charges, statements, and guided setup without invented traction metrics.
 
 ## Pricing Posture
 - Price as predictable tenant SaaS subscriptions with active-member bands, not as a share of savings, financing, repayments, dividends, or cooperative profits.

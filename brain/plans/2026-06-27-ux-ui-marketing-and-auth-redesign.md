@@ -10,7 +10,7 @@ Done
 2026-06-27
 
 ## Last Updated
-2026-06-27
+2026-07-03
 
 ## Intake
 - Intake File: brain/intake/2026-06-27-halaalvest-product-and-onboarding.md
@@ -29,7 +29,7 @@ Existing public/auth surfaces include:
 Brain notes show the landing page and login page have had prior redesign passes, but the user requested a higher-quality redesign and cleanup.
 
 ## Proposed Approach
-Run a focused public/auth redesign pass. Remove demo language and filler content, build a concrete Halaalvest narrative around cooperative savings, halal loans, charges, statements, approvals, and member trust, and tighten the UI into a premium operational SaaS feel. Make the landing page useful as the first screen, and make login/reset/signup pages calm, direct, and obviously tenant-aware. Preserve existing route behavior, auth handling, and visibility gates.
+Run a focused public/auth redesign pass. Remove demo language and filler content, build a concrete Halaalvest narrative around cooperative savings, interest-free financing, charges, statements, approvals, and member trust, and tighten the UI into a premium operational SaaS feel. Make the landing page useful as the first screen, and make login/reset/signup pages calm, direct, and obviously tenant-aware. Preserve existing route behavior, auth handling, and visibility gates.
 
 ## Implementation Steps
 - Inventory visible marketing/auth copy and identify dummy, placeholder, duplicated, or unnecessary content.
@@ -60,7 +60,7 @@ Run a focused public/auth redesign pass. Remove demo language and filler content
 ## Acceptance Criteria
 - Marketing landing page contains no dummy or placeholder content.
 - Login, reset, signup, and awaiting-approval pages contain no unnecessary demo-only copy.
-- Public pages present Halaalvest as a credible cooperative management platform for halal savings, contributions, loans, charges, and member trust.
+- Public pages present Halaalvest as a credible cooperative management platform for interest-free savings and financing, contributions, charges, and member trust.
 - Login page clearly supports the intended user paths without exposing signup when admin policy hides it.
 - Pages are responsive on mobile and desktop, with no visible overlap or clipped button/card text.
 - Existing auth, signup, reset, and route gating behavior is preserved.

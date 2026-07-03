@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useWatch } from "react-hook-form"
 import {
   Alert,
   AlertDescription,
@@ -30,6 +31,11 @@ import {
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
 import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupText,
+} from "@halaalvest/ui/components/input-group"
+import {
   Progress,
   ProgressLabel,
   ProgressValue,
@@ -42,6 +48,7 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
   getOnboardingDefaultsFromVerification,
+  normalizeMemberNumberPrefix,
   onboardingFormSchema,
   type OnboardingFormInput,
   type SignupVerificationPayload,
@@ -84,6 +91,12 @@ export function OnboardingForm({
       token,
     },
   })
+  const memberNumberPrefix = useWatch({
+    control: form.control,
+    name: "memberNumberPrefix",
+  })
+  const normalizedMemberNumberPrefix =
+    normalizeMemberNumberPrefix(memberNumberPrefix) ?? ""
   const { showError, showSuccess } = useNotifications()
   const [result, setResult] = useState<OnboardingResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -247,6 +260,7 @@ export function OnboardingForm({
                     primaryContactEmail: verification.primaryContactEmail,
                     primaryContactFullName:
                       verification.primaryContactFullName,
+                    memberNumberPrefix: verification.memberNumberPrefix,
                     primaryContactMemberNumber:
                       verification.primaryContactMemberNumber,
                     token: form.getValues("token"),
@@ -333,13 +347,49 @@ export function OnboardingForm({
 
               <FormField
                 control={form.control}
+                name="memberNumberPrefix"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Membership number prefix</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="PC-"
+                        {...field}
+                        onChange={(event) =>
+                          field.onChange(event.target.value.toUpperCase())
+                        }
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Optional. Leave blank if your cooperative does not use a
+                      shared prefix.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="primaryContactMemberNumber"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Admin member number</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      {normalizedMemberNumberPrefix ? (
+                        <InputGroup>
+                          <InputGroupText>
+                            {normalizedMemberNumberPrefix}
+                          </InputGroupText>
+                          <InputGroupInput placeholder="1001" {...field} />
+                        </InputGroup>
+                      ) : (
+                        <Input placeholder="1001" {...field} />
+                      )}
                     </FormControl>
+                    <FormDescription>
+                      Use only the number part when a prefix is set.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

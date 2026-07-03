@@ -16,8 +16,8 @@ const operatingPillars = [
     body: "Track contributions, charges, repayments, and member balances from one ledger-aware operating surface.",
   },
   {
-    label: "Halal approval governance",
-    body: "Separate eligibility, liquidity, approval, and repayment follow-up so lending decisions stay principled and reviewable.",
+    label: "Interest-free approval governance",
+    body: "Separate eligibility, liquidity, approval, and repayment follow-up so financing decisions stay principled and reviewable.",
   },
   {
     label: "Cooperative rollout",
@@ -56,7 +56,10 @@ const productSignals = [
 
 export function LaunchLanding({ signupHref }: { signupHref: string }) {
   return (
-    <main id="top" className="min-h-svh bg-background text-foreground">
+    <main
+      id="top"
+      className="web-readable min-h-svh bg-background text-foreground"
+    >
       <header className="border-b border-border bg-background/95">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
           <Link aria-label="Halaalvest home" href="#top">
@@ -115,10 +118,11 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
               <h1 className="max-w-4xl font-heading text-5xl leading-[1.02] font-semibold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
                 Halaalvest
               </h1>
-              <p className="max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
-                A premium cooperative management platform for halal savings,
-                staged monthly contributions, approval-controlled member signup,
-                loans, charges, and trustworthy member records.
+              <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
+                A premium cooperative management platform for interest-free
+                savings and financing, staged monthly contributions,
+                approval-controlled member signup, charges, and trustworthy
+                member records.
               </p>
             </div>
 
@@ -332,7 +336,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
             <Link
               className={buttonVariants({
                 className:
-                  "h-11 rounded-md border-background/30 px-5 text-sm text-background hover:bg-background/10 hover:text-background",
+                  "h-11 rounded-md border-background/30 bg-transparent px-5 text-sm text-background hover:bg-background/10 hover:text-background",
                 size: "lg",
                 variant: "outline",
               })}
@@ -347,7 +351,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
       <footer className="border-t border-border">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-5 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>halaalvest</p>
-          <p>Halal cooperative operations platform</p>
+          <p>Interest-free cooperative operations platform</p>
         </div>
       </footer>
     </main>

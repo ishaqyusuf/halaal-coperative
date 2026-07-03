@@ -25,7 +25,7 @@ function buildMemberOnboardingVerificationRequestedBody(
   payload: MemberOnboardingVerificationRequestedPayload,
 ) {
   return [
-    `Assalamu alaikum ${payload.recipientName},`,
+    `Hello ${payload.recipientName},`,
     "",
     `Your membership signup for ${payload.tenantName} is almost complete.`,
     "Confirm your email address to move into the cooperative approval queue.",
@@ -64,7 +64,7 @@ type MemberOnboardingApprovedPayload = z.infer<
 function buildMemberOnboardingApprovedBody(
   payload: MemberOnboardingApprovedPayload,
 ) {
-  return `Assalamu alaikum ${payload.recipientName},\n\nYour membership for ${payload.tenantName} has been approved.\nYou can now sign in to your dashboard and continue with your cooperative account.`
+  return `Hello ${payload.recipientName},\n\nYour membership for ${payload.tenantName} has been approved.\nYou can now sign in to your dashboard and continue with your cooperative account.`
 }
 
 export const memberOnboardingApproved = defineHalaalNotification({
@@ -98,7 +98,7 @@ function buildMemberOnboardingRejectedBody(
   payload: MemberOnboardingRejectedPayload,
 ) {
   return [
-    `Assalamu alaikum ${payload.recipientName},`,
+    `Hello ${payload.recipientName},`,
     "",
     `Your membership signup for ${payload.tenantName} was not approved yet.`,
     payload.reason ?? "Please contact the cooperative team for the next steps.",

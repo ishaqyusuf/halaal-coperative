@@ -5,6 +5,7 @@ import {
 } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
+import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import { getTenantById } from "./tenants"
 
 type InitialMigrationLifecycleInput = {
@@ -173,14 +174,14 @@ export async function getTenantInitialMigrationState(
           },
         })
       : 0,
-    typeof prisma.tenantBusinessPolicy?.findUnique === "function"
-      ? prisma.tenantBusinessPolicy.findUnique({
-          select: {
-            historicalProfitMigrationMode: true,
-          },
-          where: { tenantId },
-        })
-      : null,
+    readOptionalTenantBusinessPolicy(prisma, (tenantBusinessPolicy) =>
+      tenantBusinessPolicy.findUnique({
+        select: {
+          historicalProfitMigrationMode: true,
+        },
+        where: { tenantId },
+      })
+    ),
     prisma.backfillBatch.count({
       where: {
         tenantId,

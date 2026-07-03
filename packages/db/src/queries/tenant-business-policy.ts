@@ -1,8 +1,16 @@
+import type { PrismaClient } from "../../generated/prisma/client"
 import { isPrismaMissingTableError } from "../prisma-errors"
 
+type TenantBusinessPolicyDelegate = PrismaClient["tenantBusinessPolicy"]
+
 export async function readOptionalTenantBusinessPolicy<T>(
-  prisma: any,
-  read: (delegate: any) => Promise<T>,
+  prisma:
+    | {
+        tenantBusinessPolicy?: TenantBusinessPolicyDelegate
+      }
+    | null
+    | undefined,
+  read: (delegate: TenantBusinessPolicyDelegate) => Promise<T>,
 ): Promise<T | null> {
   const delegate = prisma?.tenantBusinessPolicy
 

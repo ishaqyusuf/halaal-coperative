@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useWatch } from "react-hook-form"
 import {
   Alert,
   AlertDescription,
@@ -23,19 +22,12 @@ import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  InputGroupText,
-} from "@halaalvest/ui/components/input-group"
 import {
   Progress,
   ProgressLabel,
@@ -50,7 +42,6 @@ import { DatePickerInput } from "@/components/date-picker-input"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
   getOnboardingDefaultsFromVerification,
-  normalizeMemberNumberPrefix,
   onboardingFormSchema,
   type OnboardingFormInput,
   type SignupVerificationPayload,
@@ -93,12 +84,6 @@ export function OnboardingForm({
       token,
     },
   })
-  const memberNumberPrefix = useWatch({
-    control: form.control,
-    name: "memberNumberPrefix",
-  })
-  const normalizedMemberNumberPrefix =
-    normalizeMemberNumberPrefix(memberNumberPrefix) ?? ""
   const { showError, showSuccess } = useNotifications()
   const [result, setResult] = useState<OnboardingResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -287,118 +272,38 @@ export function OnboardingForm({
             <ProgressValue>Step 2 of 2</ProgressValue>
           </Progress>
 
-          <Alert>
-            <AlertTitle>Verified contact</AlertTitle>
-            <AlertDescription>
-              {verification.primaryContactEmail} will become the first tenant
-              admin for this cooperative workspace.
-            </AlertDescription>
-          </Alert>
-
           <form
             className="flex flex-col gap-5"
             onSubmit={form.handleSubmit(onSubmit)}
           >
             <input type="hidden" {...form.register("token")} />
+            <input
+              type="hidden"
+              value={verification.cooperativeName}
+              {...form.register("cooperativeName")}
+            />
+            <input
+              type="hidden"
+              value={verification.memberNumberPrefix}
+              {...form.register("memberNumberPrefix")}
+            />
+            <input
+              type="hidden"
+              value={verification.primaryContactEmail}
+              {...form.register("primaryContactEmail")}
+            />
+            <input
+              type="hidden"
+              value={verification.primaryContactFullName}
+              {...form.register("primaryContactFullName")}
+            />
+            <input
+              type="hidden"
+              value={verification.primaryContactMemberNumber}
+              {...form.register("primaryContactMemberNumber")}
+            />
 
             <FieldGroup className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="cooperativeName"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Cooperative name</FormLabel>
-                    <FormControl>
-                      <Input disabled readOnly {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="primaryContactFullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Admin full name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="primaryContactEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Verified admin email</FormLabel>
-                    <FormControl>
-                      <Input disabled readOnly {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-[minmax(8rem,0.85fr)_minmax(0,1.15fr)] gap-4 md:col-span-2">
-                <FormField
-                  control={form.control}
-                  name="memberNumberPrefix"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Membership number prefix{" "}
-                        <span className="font-normal text-muted-foreground">
-                          (optional)
-                        </span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="PC-"
-                          {...field}
-                          onChange={(event) =>
-                            field.onChange(event.target.value.toUpperCase())
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="primaryContactMemberNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Admin member number</FormLabel>
-                      <FormControl>
-                        {normalizedMemberNumberPrefix ? (
-                          <InputGroup>
-                            <InputGroupAddon align="inline-start">
-                              <InputGroupText>
-                                {normalizedMemberNumberPrefix}
-                              </InputGroupText>
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="1001" {...field} />
-                          </InputGroup>
-                        ) : (
-                          <Input placeholder="1001" {...field} />
-                        )}
-                      </FormControl>
-                      <FormDescription>
-                        Use only the number part when a prefix is set.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
               <FormField
                 control={form.control}
                 name="currentSize"

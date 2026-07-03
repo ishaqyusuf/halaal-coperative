@@ -1,21 +1,5 @@
 import Link from "next/link"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Separator } from "@halaalvest/ui/components/separator"
-
-const setupPath = [
-  {
-    label: "Verify contact",
-    text: "Confirm the primary admin before workspace creation.",
-  },
-  {
-    label: "Create workspace",
-    text: "Save the cooperative profile and first password.",
-  },
-  {
-    label: "Open setup",
-    text: "Move into charges, shares, members, loans, and commitments.",
-  },
-]
 
 export function SignupShell({
   children,
@@ -47,7 +31,7 @@ export function SignupShell({
         </header>
 
         <div className="grid flex-1 gap-8 lg:grid-cols-[0.78fr_1fr] lg:items-start">
-          <aside className="flex flex-col gap-8 border bg-card p-6 text-card-foreground lg:sticky lg:top-8 lg:min-h-[calc(100svh-7rem)] lg:p-8">
+          <aside className="flex flex-col border bg-card p-6 text-card-foreground lg:sticky lg:top-8 lg:p-8">
             <div className="flex flex-col gap-5">
               <Badge variant="outline">{eyebrow}</Badge>
               <div className="flex flex-col gap-4">
@@ -58,42 +42,6 @@ export function SignupShell({
                   {description}
                 </p>
               </div>
-            </div>
-
-            <Separator />
-
-            <div className="flex flex-col gap-3">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Setup path
-              </p>
-              {setupPath.map((step, index) => (
-                <div
-                  className="grid grid-cols-[2rem_1fr] gap-3 border bg-muted/35 p-3"
-                  key={step.label}
-                >
-                  <div className="flex size-8 items-center justify-center border bg-background text-xs font-medium">
-                    {index + 1}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {step.label}
-                    </p>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      {step.text}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-auto border bg-muted/35 p-4">
-              <p className="text-sm font-medium text-foreground">
-                Built for governed cooperative operations.
-              </p>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Signup only opens the workspace. Live finance work continues in
-                the guided dashboard setup after verification.
-              </p>
             </div>
           </aside>
 

@@ -23,7 +23,6 @@ import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -32,6 +31,7 @@ import {
 import { Input } from "@halaalvest/ui/components/input"
 import {
   InputGroup,
+  InputGroupAddon,
   InputGroupInput,
   InputGroupText,
 } from "@halaalvest/ui/components/input-group"
@@ -47,7 +47,6 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
   createWorkspaceSlugSuggestion,
-  normalizeMemberNumberPrefix,
   normalizeWorkspaceSlug,
   signupIntentSchema,
   type SignupIntentInput,
@@ -133,16 +132,10 @@ export function SignupForm({
     control: form.control,
     name: "cooperativeName",
   })
-  const memberNumberPrefix = useWatch({
-    control: form.control,
-    name: "memberNumberPrefix",
-  })
   const workspaceSlug = useWatch({
     control: form.control,
     name: "workspaceSlug",
   })
-  const normalizedMemberNumberPrefix =
-    normalizeMemberNumberPrefix(memberNumberPrefix) ?? ""
   const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug ?? "")
   const canSubmit =
     availability.status !== "checking" &&
@@ -270,20 +263,20 @@ export function SignupForm({
   if (result) {
     const emailWasSent = result.verificationDelivery.status === "sent"
     const emailFailed = result.verificationDelivery.status === "failed"
-    const deliveryTitle = emailWasSent
-      ? "Check the primary contact inbox."
+    const successTitle = emailWasSent
+      ? "Verification email sent"
       : emailFailed
-        ? "Verification email could not be sent."
+        ? "Verification link created"
       : result.emailDeliveryConfigured
-        ? "Verification email is prepared."
-        : "Email delivery is not configured."
-    const deliveryDescription = emailWasSent
-      ? `The verification email was sent to ${result.verificationEmail.recipient.value}. The secure link expires ${formatExpiry(result.expiresAt)}.`
+        ? "Verification email ready"
+        : "Verification link ready"
+    const successDescription = emailWasSent
+      ? "Ask the admin to open the email and continue setup from the secure link."
       : emailFailed
-        ? `${result.verificationDelivery.errorMessage ?? "The email provider did not accept the verification email."} The secure link expires ${formatExpiry(result.expiresAt)}.`
+        ? "The email could not be delivered, but the secure verification link was created."
       : result.emailDeliveryConfigured
-        ? `The verification email was prepared for ${result.verificationEmail.recipient.value}. The secure link expires ${formatExpiry(result.expiresAt)}.`
-        : `Email transport is not configured in this environment. The secure link expires ${formatExpiry(result.expiresAt)}.`
+        ? "The email is prepared and ready for the configured delivery service."
+        : "Email delivery is not configured here, so use the secure link to continue."
     const deliveryLabel = emailWasSent
       ? "Sent to inbox"
       : emailFailed
@@ -297,10 +290,12 @@ export function SignupForm({
       <Card>
         <CardHeader>
           <CardAction>
-            <Badge>{emailWasSent ? "Email sent" : emailFailed ? "Email failed" : "Email prepared"}</Badge>
+            <Badge variant={emailFailed ? "outline" : "default"}>
+              {emailFailed ? "Link ready" : "Success"}
+            </Badge>
           </CardAction>
-          <CardTitle className="text-2xl">{deliveryTitle}</CardTitle>
-          <CardDescription>{deliveryDescription}</CardDescription>
+          <CardTitle className="text-2xl">{successTitle}</CardTitle>
+          <CardDescription>{successDescription}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <Progress value={50}>
@@ -308,52 +303,35 @@ export function SignupForm({
             <ProgressValue>Step 1 of 2</ProgressValue>
           </Progress>
 
-          <Alert>
-            <AlertTitle>
-              {emailWasSent
-                ? "Verification comes before setup"
-                : "Verification comes before setup"}
-            </AlertTitle>
+          <Alert variant={emailFailed ? "destructive" : "default"}>
+            <AlertTitle>Next step</AlertTitle>
             <AlertDescription>
               {emailWasSent
-                ? "Use the email action to continue into onboarding. The cooperative workspace is not created until the verified profile is submitted."
-                : "Use the secure link to continue into onboarding. The cooperative workspace is not created until the verified profile is submitted."}
+                ? "Open the email to continue onboarding. The workspace is created after the verified profile is submitted."
+                : "Use the secure link to continue onboarding. The workspace is created after the verified profile is submitted."}
             </AlertDescription>
           </Alert>
 
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="border bg-muted/35 p-3">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="border-l-2 border-primary bg-muted/30 py-2 pl-3">
               <p className="text-xs text-muted-foreground">Recipient</p>
               <p className="mt-1 truncate text-sm font-medium">
                 {result.verificationEmail.recipient.value}
               </p>
             </div>
-            <div className="border bg-muted/35 p-3">
+            <div className="border-l-2 border-primary bg-muted/30 py-2 pl-3">
               <p className="text-xs text-muted-foreground">Delivery</p>
               <p className="mt-1 text-sm font-medium">{deliveryLabel}</p>
             </div>
-            <div className="border bg-muted/35 p-3">
-              <p className="text-xs text-muted-foreground">Next screen</p>
-              <p className="mt-1 text-sm font-medium">Cooperative profile</p>
+            <div className="border-l-2 border-primary bg-muted/30 py-2 pl-3">
+              <p className="text-xs text-muted-foreground">Expires</p>
+              <p className="mt-1 text-sm font-medium">
+                {formatExpiry(result.expiresAt)}
+              </p>
             </div>
           </div>
-
-          <details className="border p-4">
-            <summary className="cursor-pointer text-sm font-medium">
-              Review notification copy
-            </summary>
-            <div className="mt-4 flex flex-col gap-3 text-sm leading-6 text-muted-foreground">
-              <p className="font-medium text-foreground">
-                {result.verificationEmail.subject}
-              </p>
-              <p>{result.verificationEmail.previewText}</p>
-              <pre className="text-xs leading-6 whitespace-pre-wrap text-foreground">
-                {result.verificationEmail.bodyText}
-              </pre>
-            </div>
-          </details>
         </CardContent>
-        <CardFooter className="flex flex-wrap gap-2">
+        <CardFooter className="flex flex-wrap items-center gap-2">
           {showSecureLink ? (
             <Link
               className={buttonVariants({ size: "lg" })}
@@ -363,7 +341,11 @@ export function SignupForm({
                 ? result.verificationEmail.actionLabel
                 : "Continue with secure link"}
             </Link>
-          ) : null}
+          ) : (
+            <p className="text-xs leading-5 text-muted-foreground">
+              The admin can continue from the verification email.
+            </p>
+          )}
           <Button
             variant="ghost"
             size="lg"
@@ -417,6 +399,23 @@ export function SignupForm({
             <FieldGroup className="grid gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
+                name="cooperativeName"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Cooperative name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Noor Cooperative Society"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="primaryContactFullName"
                 render={({ field }) => (
                   <FormItem>
@@ -449,66 +448,37 @@ export function SignupForm({
 
               <FormField
                 control={form.control}
-                name="cooperativeName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cooperative name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Noor Cooperative Society"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="memberNumberPrefix"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Membership number prefix</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="PC-"
-                        {...field}
-                        onChange={(event) =>
-                          field.onChange(event.target.value.toUpperCase())
-                        }
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Optional. Leave blank if your cooperative does not use a
-                      shared prefix.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
                 name="primaryContactMemberNumber"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Admin member number</FormLabel>
-                    <FormControl>
-                      {normalizedMemberNumberPrefix ? (
-                        <InputGroup>
-                          <InputGroupText>
-                            {normalizedMemberNumberPrefix}
-                          </InputGroupText>
-                          <InputGroupInput placeholder="1001" {...field} />
-                        </InputGroup>
-                      ) : (
-                        <Input placeholder="1001" {...field} />
-                      )}
-                    </FormControl>
-                    <FormDescription>
-                      Use only the number part when a prefix is set.
-                    </FormDescription>
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Admin number</FormLabel>
+                    <div className="grid grid-cols-[4rem_minmax(0,1fr)] gap-3">
+                      <FormField
+                        control={form.control}
+                        name="memberNumberPrefix"
+                        render={({ field: prefixField }) => (
+                          <FormItem className="space-y-0">
+                            <FormControl>
+                              <Input
+                                aria-label="Member number prefix"
+                                className="w-16 px-2 text-center uppercase"
+                                placeholder="PC-"
+                                {...prefixField}
+                                onChange={(event) =>
+                                  prefixField.onChange(
+                                    event.target.value.toUpperCase()
+                                  )
+                                }
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormControl>
+                        <Input placeholder="Number" {...field} />
+                      </FormControl>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -519,7 +489,7 @@ export function SignupForm({
                 name="workspaceSlug"
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel>Workspace URL</FormLabel>
+                    <FormLabel>Website</FormLabel>
                     <FormControl>
                       <InputGroup>
                         <InputGroupInput
@@ -532,12 +502,11 @@ export function SignupForm({
                             )
                           }}
                         />
-                        <InputGroupText>{workspaceUrlSuffix}</InputGroupText>
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupText>{workspaceUrlSuffix}</InputGroupText>
+                        </InputGroupAddon>
                       </InputGroup>
                     </FormControl>
-                    <FormDescription>
-                      This becomes the cooperative workspace URL after verification.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -548,7 +517,7 @@ export function SignupForm({
               <Alert>
                 <AlertTitle>Checking availability</AlertTitle>
                 <AlertDescription>
-                  We are checking the cooperative name and workspace URL.
+                  We are checking the cooperative name and website.
                 </AlertDescription>
               </Alert>
             ) : availability.status === "ready" ? (
@@ -560,7 +529,7 @@ export function SignupForm({
                     : "destructive"
                 }
               >
-                <AlertTitle>Workspace availability</AlertTitle>
+                <AlertTitle>Website availability</AlertTitle>
                 <AlertDescription>
                   <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -571,12 +540,12 @@ export function SignupForm({
                             : "destructive"
                         }
                       >
-                        URL
+                        Website
                       </Badge>
                       <span>
                         {availability.workspaceSlug.available
                           ? `${formatWorkspaceUrlPreview(availability.workspaceSlug.normalized, workspaceUrlSuffix)} is available.`
-                          : "That workspace URL is not available."}
+                          : "That website is not available."}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -605,9 +574,9 @@ export function SignupForm({
               </Alert>
             ) : normalizedWorkspaceSlug ? (
               <Alert>
-                <AlertTitle>Suggested workspace</AlertTitle>
+                <AlertTitle>Suggested website</AlertTitle>
                 <AlertDescription>
-                  Your workspace URL will use{" "}
+                  Your website will use{" "}
                   <span className="font-medium">{normalizedWorkspaceSlug}</span>
                   .
                 </AlertDescription>

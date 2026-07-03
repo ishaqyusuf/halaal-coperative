@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { allocateBusinessProfitByShare } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
+import { isPrismaMissingColumnError } from "../prisma-errors"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
@@ -67,6 +68,28 @@ type BusinessProfitSeasonBucket = BusinessProfitSeasonReviewRow & {
   profitEntries: BusinessProfitSeasonProfitEntry[]
 }
 
+const dividendPeriodReviewSelect = {
+  id: true,
+  name: true,
+  periodStart: true,
+  periodEnd: true,
+  totalProfitAmount: true,
+  deductionAmount: true,
+  deductionReason: true,
+  distributableAmount: true,
+  status: true,
+} as const
+
+const legacyDividendPeriodReviewSelect = {
+  id: true,
+  name: true,
+  periodStart: true,
+  periodEnd: true,
+  totalProfitAmount: true,
+  distributableAmount: true,
+  status: true,
+} as const
+
 const businessProfitDistributionFrequencies = new Set([
   "annual",
   "semi_annual",
@@ -95,6 +118,32 @@ export const defaultTenantBusinessProfitPolicy: TenantBusinessProfitPolicySettin
     requiresProfitDistributionApproval: true,
     reserveRetentionPercentage: 0,
   }
+
+async function listDividendPeriodsForBusinessProfitReview(
+  prisma: any,
+  input: {
+    orderBy?: any
+    tenantId: string
+  },
+) {
+  try {
+    return await prisma.dividendPeriod.findMany({
+      orderBy: input.orderBy,
+      select: dividendPeriodReviewSelect,
+      where: { tenantId: input.tenantId },
+    })
+  } catch (error) {
+    if (!isPrismaMissingColumnError(error)) {
+      throw error
+    }
+
+    return prisma.dividendPeriod.findMany({
+      orderBy: input.orderBy,
+      select: legacyDividendPeriodReviewSelect,
+      where: { tenantId: input.tenantId },
+    })
+  }
+}
 
 function normalizeTenantBusinessProfitPolicy(
   policy: any,
@@ -546,8 +595,8 @@ export async function getTenantFinanceSetup(
       },
       orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
     }),
-    prisma.dividendPeriod.findMany({
-      where: { tenantId },
+    listDividendPeriodsForBusinessProfitReview(prisma, {
+      tenantId,
       orderBy: [{ periodStart: "desc" }, { createdAt: "desc" }],
     }),
   ])
@@ -624,8 +673,8 @@ export async function listBusinessProfitSeasonReviews(
         },
       },
     }),
-    prisma.dividendPeriod.findMany({
-      where: { tenantId },
+    listDividendPeriodsForBusinessProfitReview(prisma, {
+      tenantId,
     }),
   ])
 
@@ -674,8 +723,8 @@ export async function saveBusinessProfitSeasonReviews(
         },
       },
     }),
-    prisma.dividendPeriod.findMany({
-      where: { tenantId: input.tenantId },
+    listDividendPeriodsForBusinessProfitReview(prisma, {
+      tenantId: input.tenantId,
     }),
   ])
   const seasons = buildBusinessProfitSeasonReviewRows({

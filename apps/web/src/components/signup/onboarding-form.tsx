@@ -32,6 +32,7 @@ import {
 import { Input } from "@halaalvest/ui/components/input"
 import {
   InputGroup,
+  InputGroupAddon,
   InputGroupInput,
   InputGroupText,
 } from "@halaalvest/ui/components/input-group"
@@ -45,6 +46,7 @@ import { Spinner } from "@halaalvest/ui/components/spinner"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { useNotifications } from "@halaalvest/notifications-react"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
   getOnboardingDefaultsFromVerification,
@@ -337,63 +339,65 @@ export function OnboardingForm({
                     <FormControl>
                       <Input disabled readOnly {...field} />
                     </FormControl>
-                    <FormDescription>
-                      This value is locked from the verification link.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="memberNumberPrefix"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Membership number prefix</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="PC-"
-                        {...field}
-                        onChange={(event) =>
-                          field.onChange(event.target.value.toUpperCase())
-                        }
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Optional. Leave blank if your cooperative does not use a
-                      shared prefix.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-[minmax(8rem,0.85fr)_minmax(0,1.15fr)] gap-4 md:col-span-2">
+                <FormField
+                  control={form.control}
+                  name="memberNumberPrefix"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Membership number prefix{" "}
+                        <span className="font-normal text-muted-foreground">
+                          (optional)
+                        </span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="PC-"
+                          {...field}
+                          onChange={(event) =>
+                            field.onChange(event.target.value.toUpperCase())
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="primaryContactMemberNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Admin member number</FormLabel>
-                    <FormControl>
-                      {normalizedMemberNumberPrefix ? (
-                        <InputGroup>
-                          <InputGroupText>
-                            {normalizedMemberNumberPrefix}
-                          </InputGroupText>
-                          <InputGroupInput placeholder="1001" {...field} />
-                        </InputGroup>
-                      ) : (
-                        <Input placeholder="1001" {...field} />
-                      )}
-                    </FormControl>
-                    <FormDescription>
-                      Use only the number part when a prefix is set.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="primaryContactMemberNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Admin member number</FormLabel>
+                      <FormControl>
+                        {normalizedMemberNumberPrefix ? (
+                          <InputGroup>
+                            <InputGroupAddon align="inline-start">
+                              <InputGroupText>
+                                {normalizedMemberNumberPrefix}
+                              </InputGroupText>
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="1001" {...field} />
+                          </InputGroup>
+                        ) : (
+                          <Input placeholder="1001" {...field} />
+                        )}
+                      </FormControl>
+                      <FormDescription>
+                        Use only the number part when a prefix is set.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
@@ -420,7 +424,13 @@ export function OnboardingForm({
                   <FormItem>
                     <FormLabel>Cooperative start date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePickerInput
+                        allowClear={false}
+                        placeholder="Select start date"
+                        value={field.value}
+                        onBlur={field.onBlur}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

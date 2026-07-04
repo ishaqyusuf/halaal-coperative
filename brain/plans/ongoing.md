@@ -1,3 +1,24 @@
+## Loan Form Charge Deducted From Next Commitment
+- Status: Ready
+- Objective: Add a tenant-configurable loan form charge that uses the existing charge system to register the fee value and application, is created when a member picks up or submits a loan form, remains auditable as a pending charge, and is deducted from the member's next contribution/payment commitment without introducing interest-bearing logic.
+- Current Phase: Product and data workflow design confirmed; implementation has not started.
+- Next Step: Decide the trigger name and timing for "loan form pickup" versus "loan request submission", then implement pending loan-fee charge creation and next-payment settlement in the finance query layer.
+- Blockers: Confirm whether the operational trigger should be a separate staff action for form pickup or automatic on loan request submission.
+- Related Files: packages/db/prisma/models/charges.prisma, packages/db/prisma/models/loans.prisma, packages/db/prisma/models/contributions.prisma, packages/db/src/queries/charges.ts, packages/db/src/queries/loans.ts, packages/db/src/queries/contributions.ts, packages/db/src/queries/monthly-records.ts, apps/api/src/routers/dashboard-actions.route.ts, apps/dashboard/src/components/forms/finance-forms.tsx, apps/dashboard/src/components/forms/tenant-finance-forms.tsx, apps/dashboard/src/components/loans-page-view.tsx, apps/dashboard/src/components/charges-page-view.tsx, brain/features/member-commitments-and-payment-allocation.md
+- Last Updated: 2026-07-04
+
+### Plan
+1. Confirm the business trigger and copy: either a staff-recorded "loan form picked up" event or automatic charge creation when `submitLoanRequest` creates a `LoanRequest`.
+2. Model the fee using the existing charge system: register the configurable value on a one-time/manual `ChargeDefinition` with `purpose: loan_fee` and `appliesToLoanRequests: true`; avoid hard-coded fee amounts or a parallel loan-form-fee table.
+3. Add a pending loan-form `ChargeApplication` linked to `loanRequestId` and `memberId` instead of immediately debiting savings at the time the form is picked up.
+4. Extend payment allocation so the next member payment/monthly-record application settles pending loan-form charges before final savings allocation, while preserving clear ledger entries and member-facing explainability.
+5. Add admin visibility on the loan request and charges surfaces for pending, settled, waived, and reversed loan-form charges.
+6. Add audit logs, notifications where useful, and tests for charge creation, next-payment deduction, waiver/reversal, partial or insufficient payment, tenant scoping, and role guards.
+7. Update Brain docs after implementation to describe the durable finance rule and accepted operational workflow.
+
+### Resume Prompt
+Continue the loan form charge deducted from next commitment work in Halaalvest. Current phase: product and data workflow design is ready, but implementation has not started. Next step: confirm whether "loan form pickup" should be a separate staff action or automatic on loan request submission, then implement pending `loan_fee` charge creation and next-payment settlement using the existing charge system as the source of truth for the fee value and application: `ChargeDefinition` for the registered value and `ChargeApplication` for member/loan-request charge records. Relevant files include `packages/db/src/queries/charges.ts`, `packages/db/src/queries/loans.ts`, `packages/db/src/queries/contributions.ts`, `packages/db/src/queries/monthly-records.ts`, `apps/api/src/routers/dashboard-actions.route.ts`, and the related dashboard forms/views. Blocker: trigger timing needs confirmation. Keep the Halaal finance model interest-free, configurable, tenant-scoped, auditable, avoid a parallel loan-form-fee table, and update `brain/plans/ongoing.md` as progress continues.
+
 ## Dashboard Operations Rollout
 - Status: In Progress
 - Objective: Implement dashboard operations phase by phase using a role-filtered navigation shell, keep Brain synchronized, and continue through members, finance, experience, and settings workflows.

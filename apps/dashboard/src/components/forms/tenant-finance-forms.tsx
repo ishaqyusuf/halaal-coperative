@@ -957,7 +957,7 @@ export function ShareStructureVersionForm({
                         onChange={(effectiveFrom) =>
                           updateShareHistoryRow(row.id, { effectiveFrom })
                         }
-                        placeholder="Date"
+                        placeholder="Select share effective date"
                         value={row.effectiveFrom}
                       />
                     </td>
@@ -1718,7 +1718,7 @@ export function ChargeDefinitionForm({
                                       effectiveFrom: value,
                                     })
                                   }
-                                  placeholder="Date"
+                                  placeholder="Select charge effective date"
                                   value={row.effectiveFrom}
                                 />
                               </td>
@@ -2749,7 +2749,7 @@ function ShareBusinessProfitHistoryTableForm({
                           capitalAmount: values.value,
                         })
                       }
-                      placeholder="Capital"
+                      placeholder="Enter business capital"
                       value={businessRow.capitalAmount}
                       valueIsNumericString
                     />
@@ -2762,7 +2762,7 @@ function ShareBusinessProfitHistoryTableForm({
                       onChange={(startDate) =>
                         updateBusinessRow(businessRow.id, { startDate })
                       }
-                      placeholder="Start"
+                      placeholder="Select business start date"
                       value={businessRow.startDate}
                     />
                   </td>
@@ -2775,7 +2775,7 @@ function ShareBusinessProfitHistoryTableForm({
                       onChange={(endDate) =>
                         updateBusinessRow(businessRow.id, { endDate })
                       }
-                      placeholder="End"
+                      placeholder="Select business end date"
                       value={businessRow.endDate}
                     />
                   </td>
@@ -2849,7 +2849,7 @@ function ShareBusinessProfitHistoryTableForm({
                                         { profitDate }
                                       )
                                     }
-                                    placeholder="Profit"
+                                    placeholder="Select profit date"
                                     value={profitRow.profitDate}
                                   />
                                 </td>
@@ -2866,7 +2866,7 @@ function ShareBusinessProfitHistoryTableForm({
                                         { amount: values.value }
                                       )
                                     }
-                                    placeholder="Amount"
+                                    placeholder="Enter profit amount"
                                     value={profitRow.amount}
                                     valueIsNumericString
                                   />
@@ -2884,7 +2884,7 @@ function ShareBusinessProfitHistoryTableForm({
                                         { deductionAmount: values.value }
                                       )
                                     }
-                                    placeholder="Deduction"
+                                    placeholder="Enter deduction amount"
                                     value={profitRow.deductionAmount}
                                     valueIsNumericString
                                   />
@@ -2899,7 +2899,7 @@ function ShareBusinessProfitHistoryTableForm({
                                         { reason: event.target.value }
                                       )
                                     }
-                                    placeholder="Reason"
+                                    placeholder="Enter deduction reason"
                                     value={profitRow.reason}
                                   />
                                 </td>
@@ -3389,7 +3389,7 @@ function ShareBusinessSingleForm({
                         onChange={(profitDate) =>
                           updateProfitHistoryRow(row.id, { profitDate })
                         }
-                        placeholder="Date"
+                        placeholder="Select profit date"
                         value={row.profitDate}
                       />
                     </Field>
@@ -3432,7 +3432,7 @@ function ShareBusinessSingleForm({
                             reason: event.target.value,
                           })
                         }
-                        placeholder="Deduction reason"
+                        placeholder="Enter deduction reason"
                         value={row.reason}
                       />
                     </Field>

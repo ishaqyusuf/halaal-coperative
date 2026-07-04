@@ -1226,7 +1226,7 @@ export function CommitmentHistoryEntryForm({
                         onChange={(effectiveFrom) =>
                           updateRow(row.id, { effectiveFrom })
                         }
-                        placeholder="Date"
+                        placeholder="Select commitment date"
                         value={row.effectiveFrom}
                       />
                       <input name="notes" type="hidden" value={row.notes} />
@@ -1242,7 +1242,7 @@ export function CommitmentHistoryEntryForm({
                         onValueChange={(values) =>
                           updateRow(row.id, { amount: values.value })
                         }
-                        placeholder="Amount"
+                        placeholder="Enter commitment amount"
                         value={row.amount}
                         valueIsNumericString
                       />
@@ -1626,7 +1626,7 @@ export function LoanHistoryEntryForm({
                           onChange={(openedAt) =>
                             updateLoanDate(row.id, openedAt)
                           }
-                          placeholder="Date"
+                          placeholder="Select loan date"
                           value={row.openedAt}
                         />
                         <input
@@ -1664,7 +1664,7 @@ export function LoanHistoryEntryForm({
                               principalAmount: values.value,
                             })
                           }
-                          placeholder="Amount"
+                          placeholder="Enter loan amount"
                           value={row.principalAmount}
                           valueIsNumericString
                         />
@@ -1725,7 +1725,7 @@ export function LoanHistoryEntryForm({
                                 values.value,
                             })
                           }
-                          placeholder="Repayment"
+                          placeholder="Enter monthly repayment"
                           value={row.scheduledMonthlyPrincipalRepayment}
                           valueIsNumericString
                         />
@@ -1748,7 +1748,7 @@ export function LoanHistoryEntryForm({
                               savingsDuringLoan: values.value,
                             })
                           }
-                          placeholder="Commitment"
+                          placeholder="Enter savings commitment"
                           value={row.savingsDuringLoan}
                           valueIsNumericString
                         />

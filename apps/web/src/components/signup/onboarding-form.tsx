@@ -167,7 +167,7 @@ export function OnboardingForm({
             </div>
             <div className="border bg-muted/35 p-3">
               <p className="text-xs text-muted-foreground">Next action</p>
-              <p className="mt-1 text-sm font-medium">Open guided setup</p>
+              <p className="mt-1 text-sm font-medium">Get Started</p>
             </div>
           </div>
 
@@ -199,32 +199,13 @@ export function OnboardingForm({
             </Alert>
           ) : null}
 
-          <details className="border p-4">
-            <summary className="cursor-pointer text-sm font-medium">
-              Review workspace notification
-            </summary>
-            <div className="mt-4 flex flex-col gap-3 text-sm leading-6 text-muted-foreground">
-              <p className="font-medium text-foreground">
-                {result.workspaceReadyEmail.subject}
-              </p>
-              <pre className="whitespace-pre-wrap text-xs leading-6 text-foreground">
-                {result.workspaceReadyEmail.bodyText}
-              </pre>
-            </div>
-          </details>
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2">
           <Link
             className={buttonVariants({ size: "lg" })}
             href={result.dashboardUrl}
           >
-            Open guided setup
-          </Link>
-          <Link
-            className={buttonVariants({ size: "lg", variant: "outline" })}
-            href={result.siteUrl}
-          >
-            View public site
+            Get Started
           </Link>
         </CardFooter>
       </Card>
@@ -242,7 +223,7 @@ export function OnboardingForm({
                 type="button"
                 variant="outline"
                 onClick={() =>
-                  applyDevFormFill(form, "onboarding", {
+                  void applyDevFormFill(form, "onboarding", {
                     cooperativeName: verification.cooperativeName,
                     primaryContactEmail: verification.primaryContactEmail,
                     primaryContactFullName:
@@ -313,7 +294,7 @@ export function OnboardingForm({
                     <FormControl>
                       <Input
                         inputMode="numeric"
-                        placeholder="125"
+                        placeholder="Enter current member count"
                         {...field}
                       />
                     </FormControl>
@@ -350,7 +331,7 @@ export function OnboardingForm({
                     <FormLabel>Office address</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="12 Emir Road, Kaduna North, Kaduna State"
+                        placeholder="Enter office address"
                         {...field}
                       />
                     </FormControl>

@@ -372,7 +372,7 @@ export function SignupForm({
                 size="sm"
                 type="button"
                 variant="outline"
-                onClick={() => applyDevFormFill(form, "signup")}
+                onClick={() => void applyDevFormFill(form, "signup")}
               >
                 Autofill dev data
               </Button>
@@ -404,10 +404,7 @@ export function SignupForm({
                   <FormItem className="md:col-span-2">
                     <FormLabel>Cooperative name</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Noor Cooperative Society"
-                        {...field}
-                      />
+                      <Input placeholder="Enter cooperative name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -437,7 +434,7 @@ export function SignupForm({
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="yourname@gmail.com"
+                        placeholder="Enter admin email"
                         {...field}
                       />
                     </FormControl>
@@ -451,8 +448,11 @@ export function SignupForm({
                 name="primaryContactMemberNumber"
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel>Admin number</FormLabel>
-                    <div className="grid grid-cols-[4rem_minmax(0,1fr)] gap-3">
+                    <FormLabel>
+                      Admin Membership No (Leave prefix blank if you don't have
+                      a Membership No Prefix).
+                    </FormLabel>
+                    <div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-3">
                       <FormField
                         control={form.control}
                         name="memberNumberPrefix"
@@ -461,8 +461,8 @@ export function SignupForm({
                             <FormControl>
                               <Input
                                 aria-label="Member number prefix"
-                                className="w-16 px-2 text-center uppercase"
-                                placeholder="PC-"
+                                className="w-32 px-2 text-center uppercase"
+                                placeholder="Prefix"
                                 {...prefixField}
                                 onChange={(event) =>
                                   prefixField.onChange(
@@ -476,7 +476,10 @@ export function SignupForm({
                         )}
                       />
                       <FormControl>
-                        <Input placeholder="Number" {...field} />
+                        <Input
+                          placeholder="Enter admin membership no"
+                          {...field}
+                        />
                       </FormControl>
                     </div>
                     <FormMessage />
@@ -493,7 +496,7 @@ export function SignupForm({
                     <FormControl>
                       <InputGroup>
                         <InputGroupInput
-                          placeholder="noor"
+                          placeholder="Enter website name"
                           {...field}
                           onChange={(event) => {
                             setWorkspaceSlugEdited(true)

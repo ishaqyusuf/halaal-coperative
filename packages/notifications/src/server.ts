@@ -5,8 +5,21 @@ import {
   type NotificationInput,
 } from "./index"
 
+const DEFAULT_EMAIL_FROM_NAME = "Welcome to Halaalvest"
+
 function discardNotification(_input: NotificationInput) {
   return `notification-${Date.now()}-${Math.random()}`
+}
+
+function formatServerEmailFrom(from: string | undefined) {
+  const trimmedFrom = from?.trim()
+
+  if (!trimmedFrom) return undefined
+  if (trimmedFrom.includes("<") && trimmedFrom.includes(">")) {
+    return trimmedFrom
+  }
+
+  return `${DEFAULT_EMAIL_FROM_NAME} <${trimmedFrom}>`
 }
 
 function isEmailTestModeEnabled() {
@@ -29,9 +42,10 @@ function getEmailTestCopyRecipient() {
 
 export function getServerEmailDeliveryConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim()
-  const from =
+  const from = formatServerEmailFrom(
     process.env.HALAAL_VEST_EMAIL_FROM?.trim() ||
-    process.env.EMAIL_FROM_ADDRESS?.trim()
+      process.env.EMAIL_FROM_ADDRESS?.trim(),
+  )
   const replyTo =
     process.env.HALAAL_VEST_EMAIL_REPLY_TO?.trim() ||
     process.env.EMAIL_REPLY_TO?.trim()

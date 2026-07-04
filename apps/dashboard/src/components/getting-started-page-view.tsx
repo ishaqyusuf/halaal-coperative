@@ -861,7 +861,7 @@ function ProfitSeasonsStep({
                           <Input
                             defaultValue={season.deductionReason ?? ""}
                             name={`deductionReason-${season.key}`}
-                            placeholder="Deduction reason"
+                            placeholder="Enter season deduction reason"
                           />
                         </td>
                         <td className="pt-2 text-right text-sm">

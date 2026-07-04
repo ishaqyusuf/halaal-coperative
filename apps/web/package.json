@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.5.0",
     "@halaalvest/db": "workspace:*",
     "@halaalvest/domain": "workspace:*",
     "@halaalvest/jobs": "workspace:*",

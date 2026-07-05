@@ -23,11 +23,7 @@ import {
   CurrencyInput,
   CurrencyPrefixInput,
 } from "@halaalvest/ui/components/currency-input"
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-} from "@halaalvest/ui/components/field"
+import { Field, FieldGroup, FieldLabel } from "@halaalvest/ui/components/field"
 import {
   Form,
   FormControl,
@@ -50,7 +46,7 @@ import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { QuickFill } from "@/components/quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
-import { Trash2Icon } from "lucide-react"
+import { PlusIcon, Trash2Icon } from "lucide-react"
 import {
   createChargeDefinitionAction,
   createChargeDefinitionVersionAction,
@@ -119,6 +115,29 @@ function DeleteInlineRowButton({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  )
+}
+
+function AddInlineRowButton({
+  disabled,
+  label,
+  onAdd,
+}: {
+  disabled?: boolean
+  label: string
+  onAdd: () => void
+}) {
+  return (
+    <Button
+      className="w-full"
+      disabled={disabled}
+      onClick={onAdd}
+      type="button"
+      variant="outline"
+    >
+      <PlusIcon className="size-4" />
+      {label}
+    </Button>
   )
 }
 
@@ -496,10 +515,7 @@ export function BusinessProfitPolicyForm({
 
   return (
     <Form {...form}>
-      <form
-        className="space-y-3"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
+      <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
         <div className="overflow-x-auto">
           <table className={`${compactInputTableClassName} min-w-[1120px]`}>
             <colgroup>
@@ -515,28 +531,52 @@ export function BusinessProfitPolicyForm({
             </colgroup>
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
                   Frequency
                 </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
                   Year start
                 </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
                   Distributable
                 </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
                   Reserve
                 </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
                   Basis
                 </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
                   Expense
                 </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
                   History
                 </th>
-                <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
                   Approval
                 </th>
                 <th scope="col">
@@ -730,6 +770,14 @@ function shareHistoryRowHasValue(row: ShareHistoryRow) {
   )
 }
 
+function normalizeShareHistoryRows(rows: ShareHistoryRow[]) {
+  const compactRows = rows.filter(
+    (row, index) => shareHistoryRowHasValue(row) || index === rows.length - 1
+  )
+
+  return compactRows.length > 0 ? compactRows : [createShareHistoryRow()]
+}
+
 function shareHistoryRowIsComplete(row: ShareHistoryRow) {
   return Boolean(row.amount && row.effectiveFrom && row.valueType)
 }
@@ -752,11 +800,17 @@ function sortShareHistoryRowsByDate(a: ShareHistoryRow, b: ShareHistoryRow) {
 
 export function ShareStructureVersionForm({
   financeStartDate,
+  formId,
   onSuccess,
+  redirectTo,
+  showSubmitButton = true,
   stayOnStepHref,
 }: {
   financeStartDate?: string | null
+  formId?: string
   onSuccess?: () => void
+  redirectTo?: string
+  showSubmitButton?: boolean
   stayOnStepHref?: string
 }) {
   const router = useRouter()
@@ -811,7 +865,7 @@ export function ShareStructureVersionForm({
       return
     }
 
-    if (stayOnStepHref) {
+    if (stayOnStepHref && !redirectTo) {
       router.replace(stayOnStepHref)
     }
 
@@ -839,6 +893,10 @@ export function ShareStructureVersionForm({
         })
         resetShareHistoryRows()
         onSuccess?.()
+        if (redirectTo) {
+          router.push(redirectTo)
+          return
+        }
       } catch (error) {
         showError(
           "Could not save share update",
@@ -862,22 +920,16 @@ export function ShareStructureVersionForm({
       const updatedRows = currentRows.map((row) =>
         row.id === rowId ? { ...row, ...patch } : row
       )
-      const compactRows = updatedRows.filter(
-        (row, index) =>
-          shareHistoryRowHasValue(row) || index === updatedRows.length - 1
-      )
-      const lastRow = compactRows.at(-1)
 
-      if (!lastRow) {
-        return [createShareHistoryRow()]
-      }
-
-      if (shareHistoryRowHasValue(lastRow)) {
-        return [...compactRows, createShareHistoryRow()]
-      }
-
-      return compactRows
+      return normalizeShareHistoryRows(updatedRows)
     })
+  }
+
+  function addShareHistoryRow() {
+    setShareHistoryRows((currentRows) => [
+      ...normalizeShareHistoryRows(currentRows),
+      createShareHistoryRow(),
+    ])
   }
 
   function deleteShareHistoryRow(rowId: string) {
@@ -894,12 +946,13 @@ export function ShareStructureVersionForm({
     <Form {...form}>
       <form
         className="space-y-3"
+        id={formId}
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <h3 className="shrink-0 text-sm font-medium">Share History</h3>
-            <div className="min-w-10 flex-1 border-border/70 border-t" />
+            <div className="min-w-10 flex-1 border-t border-border/70" />
             <QuickFill
               args={{
                 createRow: createShareHistoryRow,
@@ -933,13 +986,22 @@ export function ShareStructureVersionForm({
               </colgroup>
               <thead>
                 <tr>
-                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  <th
+                    className="text-left text-xs font-medium text-muted-foreground"
+                    scope="col"
+                  >
                     Date
                   </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  <th
+                    className="text-left text-xs font-medium text-muted-foreground"
+                    scope="col"
+                  >
                     Rule
                   </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                  <th
+                    className="text-left text-xs font-medium text-muted-foreground"
+                    scope="col"
+                  >
                     Value
                   </th>
                   <th scope="col">
@@ -1009,32 +1071,26 @@ export function ShareStructureVersionForm({
                     </td>
                   </tr>
                 ))}
+                <tr>
+                  <td colSpan={4}>
+                    <AddInlineRowButton
+                      disabled={isPending}
+                      label="Add Amount"
+                      onAdd={addShareHistoryRow}
+                    />
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Notes</FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  value={field.value ?? ""}
-                  placeholder="Annual review adjustment"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="flex justify-end">
-          <Button disabled={isPending} type="submit">
-            Add share
-          </Button>
-        </div>
+        {showSubmitButton ? (
+          <div className="flex justify-end">
+            <Button disabled={isPending} type="submit">
+              Add share
+            </Button>
+          </div>
+        ) : null}
       </form>
     </Form>
   )
@@ -1067,6 +1123,12 @@ const chargeDefinitionSchema = z.object({
 })
 
 type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
+
+function getChargeKindForValueType(
+  chargeValueType: ChargeDefinitionValues["chargeValueType"]
+): ChargeDefinitionValues["kind"] {
+  return chargeValueType === "percentage" ? "percentage" : "fixed"
+}
 
 type ChargeHistoryRow = {
   amount: string
@@ -1188,7 +1250,7 @@ function buildChargeDefinitionRows(
           : [createChargeHistoryRow(`charge-history-${definition.id}`)],
       isActive: definition.isActive,
       isMonthlyLevy: definition.isMonthlyLevy ?? false,
-      kind: definition.kind,
+      kind: getChargeKindForValueType(definition.chargeValueType),
       name: definition.name,
       purpose: definition.purpose ?? "general",
       saved: true,
@@ -1203,72 +1265,45 @@ function chargeDefinitionRowHasValue(row: ChargeDefinitionInputRow) {
   )
 }
 
-function chargeDefinitionRowCanAppendNext(row: ChargeDefinitionInputRow) {
-  return Boolean(
-    row.code &&
-      row.name &&
-      row.historyRows.some(chargeHistoryRowHasValue)
-  )
-}
-
 function normalizeChargeHistoryRows(rows: ChargeHistoryRow[]) {
   const compactRows = rows.filter(
-    (row, index) =>
-      chargeHistoryRowHasValue(row) || index === rows.length - 1
+    (row, index) => chargeHistoryRowHasValue(row) || index === rows.length - 1
   )
-  const lastRow = compactRows.at(-1)
 
-  if (!lastRow) {
-    return [createChargeHistoryRow()]
-  }
-
-  if (chargeHistoryRowHasValue(lastRow)) {
-    return [...compactRows, createChargeHistoryRow()]
-  }
-
-  return compactRows
+  return compactRows.length > 0 ? compactRows : [createChargeHistoryRow()]
 }
 
 function normalizeChargeDefinitionRows(rows: ChargeDefinitionInputRow[]) {
   const compactRows = rows.filter(
     (row, index) =>
-      row.saved ||
-      chargeDefinitionRowHasValue(row) ||
-      index === rows.length - 1
+      row.saved || chargeDefinitionRowHasValue(row) || index === rows.length - 1
   )
-  const lastRow = compactRows.at(-1)
 
-  if (!lastRow) {
-    return [createChargeDefinitionRow()]
-  }
-
-  if (lastRow.saved) {
-    return [...compactRows, createChargeDefinitionRow()]
-  }
-
-  if (!lastRow.saved && chargeDefinitionRowCanAppendNext(lastRow)) {
-    return [...compactRows, createChargeDefinitionRow()]
-  }
-
-  return compactRows
+  return compactRows.length > 0 ? compactRows : [createChargeDefinitionRow()]
 }
 
 export function ChargeDefinitionForm({
   financeStartDate,
+  formId,
   initialDefinitions,
   onSuccess,
+  redirectTo,
+  showSubmitButton = true,
   stayOnStepHref,
 }: {
   financeStartDate?: string | null
+  formId?: string
   initialDefinitions?: ChargeDefinitionInitialDefinition[]
   onSuccess?: () => void
+  redirectTo?: string
+  showSubmitButton?: boolean
   stayOnStepHref?: string
 }) {
   const router = useRouter()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
-  const [chargeRows, setChargeRows] = useState<ChargeDefinitionInputRow[]>(
-    () => buildChargeDefinitionRows(initialDefinitions)
+  const [chargeRows, setChargeRows] = useState<ChargeDefinitionInputRow[]>(() =>
+    buildChargeDefinitionRows(initialDefinitions)
   )
 
   function resetChargeRows() {
@@ -1280,19 +1315,22 @@ export function ChargeDefinitionForm({
     patch: Partial<
       Pick<
         ChargeDefinitionInputRow,
-        | "chargeFrequency"
-        | "chargeValueType"
-        | "code"
-        | "kind"
-        | "name"
-        | "purpose"
+        "chargeFrequency" | "chargeValueType" | "code" | "name" | "purpose"
       >
     >
   ) {
     setChargeRows((currentRows) =>
       normalizeChargeDefinitionRows(
         currentRows.map((row) =>
-          row.id === rowId ? { ...row, ...patch } : row
+          row.id === rowId
+            ? {
+                ...row,
+                ...patch,
+                kind: patch.chargeValueType
+                  ? getChargeKindForValueType(patch.chargeValueType)
+                  : row.kind,
+              }
+            : row
         )
       )
     )
@@ -1325,8 +1363,17 @@ export function ChargeDefinitionForm({
 
   function deleteChargeRow(rowId: string) {
     setChargeRows((currentRows) =>
-      normalizeChargeDefinitionRows(currentRows.filter((row) => row.id !== rowId))
+      normalizeChargeDefinitionRows(
+        currentRows.filter((row) => row.id !== rowId)
+      )
     )
+  }
+
+  function addChargeRow() {
+    setChargeRows((currentRows) => [
+      ...normalizeChargeDefinitionRows(currentRows),
+      createChargeDefinitionRow(),
+    ])
   }
 
   function deleteChargeHistoryRow(chargeRowId: string, rowId: string) {
@@ -1346,14 +1393,34 @@ export function ChargeDefinitionForm({
     )
   }
 
+  function addChargeHistoryRow(chargeRowId: string) {
+    setChargeRows((currentRows) =>
+      normalizeChargeDefinitionRows(
+        currentRows.map((chargeRow) =>
+          chargeRow.id === chargeRowId
+            ? {
+                ...chargeRow,
+                historyRows: [
+                  ...normalizeChargeHistoryRows(chargeRow.historyRows),
+                  createChargeHistoryRow(),
+                ],
+              }
+            : chargeRow
+        )
+      )
+    )
+  }
+
   function getValidChargeRows() {
-    const startedRows = chargeRows.filter(chargeDefinitionRowHasValue)
+    const startedRows = chargeRows
+      .filter(chargeDefinitionRowHasValue)
+      .map((chargeRow) => ({
+        ...chargeRow,
+        kind: getChargeKindForValueType(chargeRow.chargeValueType),
+      }))
 
     if (startedRows.length === 0) {
-      showError(
-        "Charge required",
-        "Add at least one charge and history row."
-      )
+      showError("Charge required", "Add at least one charge and history row.")
       return null
     }
 
@@ -1363,7 +1430,7 @@ export function ChargeDefinitionForm({
       if (!result.success) {
         showError(
           "Complete charge row",
-          "Each started charge row needs a charge name, code, frequency, value, kind, and purpose."
+          "Each started charge row needs a charge name, code, frequency, value, and purpose."
         )
         return null
       }
@@ -1423,12 +1490,14 @@ export function ChargeDefinitionForm({
     startTransition(async () => {
       try {
         for (const chargeRow of validChargeRows) {
+          const chargeKind = getChargeKindForValueType(
+            chargeRow.chargeValueType
+          )
+
           if (chargeRow.saved) {
             await updateChargeDefinitionAction(
               objectToFormData({
-                appliesToLoanRequests: String(
-                  chargeRow.appliesToLoanRequests
-                ),
+                appliesToLoanRequests: String(chargeRow.appliesToLoanRequests),
                 appliesToLoans: String(chargeRow.appliesToLoans),
                 appliesToMembers: String(chargeRow.appliesToMembers),
                 chargeDefinitionId: chargeRow.chargeDefinitionId,
@@ -1460,7 +1529,7 @@ export function ChargeDefinitionForm({
                   chargeDefinitionId: chargeRow.chargeDefinitionId,
                   chargeValueType: chargeRow.chargeValueType,
                   effectiveFrom: historyRow.effectiveFrom,
-                  kind: chargeRow.kind,
+                  kind: chargeKind,
                 })
               )
             }
@@ -1483,7 +1552,7 @@ export function ChargeDefinitionForm({
                 (row) => row.effectiveFrom
               ),
               isMonthlyLevy: chargeRow.isMonthlyLevy,
-              kind: chargeRow.kind,
+              kind: chargeKind,
               name: chargeRow.name,
               purpose: chargeRow.purpose,
             })
@@ -1495,11 +1564,15 @@ export function ChargeDefinitionForm({
           "Charge definitions and history rows were recorded."
         )
         setChargeRows(buildChargeDefinitionRows(initialDefinitions))
+        onSuccess?.()
+        if (redirectTo) {
+          router.push(redirectTo)
+          return
+        }
         router.refresh()
         if (stayOnStepHref) {
           router.replace(stayOnStepHref)
         }
-        onSuccess?.()
       } catch (error) {
         showError(
           "Could not save charges",
@@ -1512,6 +1585,7 @@ export function ChargeDefinitionForm({
   return (
     <form
       className="space-y-3"
+      id={formId}
       onSubmit={(event) => {
         event.preventDefault()
         submitChargeRows()
@@ -1519,7 +1593,7 @@ export function ChargeDefinitionForm({
     >
       <div className="flex items-center gap-3">
         <h3 className="shrink-0 text-sm font-medium">Charge History</h3>
-        <div className="min-w-10 flex-1 border-border/70 border-t" />
+        <div className="min-w-10 flex-1 border-t border-border/70" />
         <Button
           disabled={isPending}
           onClick={resetChargeRows}
@@ -1531,34 +1605,45 @@ export function ChargeDefinitionForm({
         </Button>
       </div>
       <div className="overflow-x-auto">
-        <table className={`${compactInputTableClassName} min-w-[920px]`}>
+        <table className={`${compactInputTableClassName} min-w-[800px]`}>
           <colgroup>
             <col />
             <col className="w-[120px]" />
             <col className="w-[160px]" />
             <col className="w-[140px]" />
-            <col className="w-[120px]" />
             <col className="w-[150px]" />
             <col className="w-8" />
           </colgroup>
           <thead>
             <tr>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
                 Charge
               </th>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
                 Code
               </th>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
                 Frequency
               </th>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
                 Value
               </th>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
-                Kind
-              </th>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
                 Purpose
               </th>
               <th scope="col">
@@ -1570,8 +1655,8 @@ export function ChargeDefinitionForm({
             {chargeRows.map((chargeRow) => (
               <Fragment key={chargeRow.id}>
                 <tr aria-hidden="true">
-                  <td colSpan={7}>
-                    <div className="border-border/70 border-t" />
+                  <td colSpan={6}>
+                    <div className="border-t border-border/70" />
                   </td>
                 </tr>
                 <tr className="align-top" key={`${chargeRow.id}-charge`}>
@@ -1613,7 +1698,10 @@ export function ChargeDefinitionForm({
                           label: "Recurring monthly",
                           value: "recurring_monthly",
                         },
-                        { label: "Per contribution", value: "per_contribution" },
+                        {
+                          label: "Per contribution",
+                          value: "per_contribution",
+                        },
                         { label: "One time", value: "one_time" },
                         { label: "Manual", value: "manual" },
                       ]}
@@ -1639,25 +1727,9 @@ export function ChargeDefinitionForm({
                   <td>
                     <SelectFormInput
                       disabled={isPending}
-                      onChange={(kind) =>
-                        updateChargeRow(chargeRow.id, {
-                          kind: kind as ChargeDefinitionValues["kind"],
-                        })
-                      }
-                      options={[
-                        { label: "Fixed", value: "fixed" },
-                        { label: "Percentage", value: "percentage" },
-                      ]}
-                      value={chargeRow.kind}
-                    />
-                  </td>
-                  <td>
-                    <SelectFormInput
-                      disabled={isPending}
                       onChange={(purpose) =>
                         updateChargeRow(chargeRow.id, {
-                          purpose:
-                            purpose as ChargeDefinitionValues["purpose"],
+                          purpose: purpose as ChargeDefinitionValues["purpose"],
                         })
                       }
                       options={[
@@ -1684,20 +1756,28 @@ export function ChargeDefinitionForm({
                   </td>
                 </tr>
                 <tr key={`${chargeRow.id}-history`}>
-                  <td colSpan={7}>
-                    <div className="pl-6">
-                      <table className={`${compactInputTableClassName} min-w-[420px]`}>
+                  <td colSpan={6}>
+                    <div className="flex justify-end pl-6">
+                      <table
+                        className={`${compactInputTableClassName} !w-[430px] max-w-full`}
+                      >
                         <colgroup>
+                          <col className="w-[210px]" />
                           <col className="w-[150px]" />
-                          <col />
                           <col className="w-8" />
                         </colgroup>
                         <thead>
                           <tr>
-                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                            <th
+                              className="text-left text-xs font-medium text-muted-foreground"
+                              scope="col"
+                            >
                               Date
                             </th>
-                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                            <th
+                              className="text-left text-xs font-medium text-muted-foreground"
+                              scope="col"
+                            >
                               Amount
                             </th>
                             <th scope="col">
@@ -1714,9 +1794,13 @@ export function ChargeDefinitionForm({
                                   disabled={isPending}
                                   min={financeStartDate ?? undefined}
                                   onChange={(value) =>
-                                    updateChargeHistoryRow(chargeRow.id, row.id, {
-                                      effectiveFrom: value,
-                                    })
+                                    updateChargeHistoryRow(
+                                      chargeRow.id,
+                                      row.id,
+                                      {
+                                        effectiveFrom: value,
+                                      }
+                                    )
                                   }
                                   placeholder="Select charge effective date"
                                   value={row.effectiveFrom}
@@ -1753,9 +1837,7 @@ export function ChargeDefinitionForm({
                               </td>
                               <td>
                                 <DeleteInlineRowButton
-                                  disabled={
-                                    isPending || Boolean(row.versionId)
-                                  }
+                                  disabled={isPending || Boolean(row.versionId)}
                                   label="charge history row"
                                   onDelete={() =>
                                     deleteChargeHistoryRow(chargeRow.id, row.id)
@@ -1764,6 +1846,15 @@ export function ChargeDefinitionForm({
                               </td>
                             </tr>
                           ))}
+                          <tr>
+                            <td colSpan={3}>
+                              <AddInlineRowButton
+                                disabled={isPending}
+                                label="Add Amount"
+                                onAdd={() => addChargeHistoryRow(chargeRow.id)}
+                              />
+                            </td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>
@@ -1771,14 +1862,25 @@ export function ChargeDefinitionForm({
                 </tr>
               </Fragment>
             ))}
+            <tr>
+              <td colSpan={6}>
+                <AddInlineRowButton
+                  disabled={isPending}
+                  label="Add Charge"
+                  onAdd={addChargeRow}
+                />
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
-      <div className="flex justify-end">
-        <Button disabled={isPending} type="submit">
-          Record charges
-        </Button>
-      </div>
+      {showSubmitButton ? (
+        <div className="flex justify-end">
+          <Button disabled={isPending} type="submit">
+            Record charges
+          </Button>
+        </div>
+      ) : null}
     </form>
   )
 }
@@ -2047,9 +2149,7 @@ function normalizeBusinessProfitStatus(
   return "draft"
 }
 
-function createBusinessProfitHistoryRow(
-  id?: string
-): BusinessProfitHistoryRow {
+function createBusinessProfitHistoryRow(id?: string): BusinessProfitHistoryRow {
   return {
     allocatableProfitAmount: "",
     amount: "",
@@ -2175,9 +2275,7 @@ function normalizeBusinessHistoryStatus(
 function createBusinessHistoryRow(id?: string): BusinessHistoryInputRow {
   const rowId =
     id ??
-    `business-history-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}`
+    `business-history-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
   return {
     capitalAmount: "",
@@ -2198,46 +2296,54 @@ function buildBusinessHistoryRows(
   initialBusinesses: ShareBusinessInitialBusiness[] | undefined
 ): BusinessHistoryInputRow[] {
   const savedRows =
-    initialBusinesses?.map((business): BusinessHistoryInputRow => ({
-      capitalAmount: String(business.capitalAmount),
-      businessId: business.id,
-      endDate: business.endDate ?? "",
-      id: `business-history-${business.id}`,
-      linkedDividendPeriodId: business.linkedDividendPeriodId ?? "",
-      name: business.name,
-      notes: business.notes ?? "",
-      profitRows:
-        business.profitEntries.length > 0
-          ? business.profitEntries.map((entry): BusinessProfitHistoryRow => ({
-              allocatableProfitAmount: String(entry.allocatableProfitAmount),
-              amount: String(entry.profitAmount),
-              deductionAmount: String(entry.expenseAmount),
-              id: `business-profit-history-${entry.id}`,
-              linkedDividendPeriodId: entry.linkedDividendPeriodId ?? "",
-              profitDate: entry.profitDate,
-              profitEntryId: entry.id,
-              reason: entry.reason ?? "",
-              sourceType: normalizeBusinessProfitSourceType(entry.sourceType),
-              status: normalizeBusinessProfitStatus(entry.status),
-            }))
-          : [
-              {
-                allocatableProfitAmount: String(business.profitAmount),
-                amount: String(business.profitAmount),
-                deductionAmount: "",
-                id: `business-profit-history-${business.id}`,
-                linkedDividendPeriodId: "",
-                profitDate: business.startDate,
-                profitEntryId: "",
-                reason: "",
-                sourceType: "backfill",
-                status: "draft",
-              },
-            ],
-      saved: true,
-      startDate: business.startDate,
-      status: normalizeBusinessHistoryStatus(business.status),
-    })) ?? []
+    initialBusinesses?.map(
+      (business): BusinessHistoryInputRow => ({
+        capitalAmount: String(business.capitalAmount),
+        businessId: business.id,
+        endDate: business.endDate ?? "",
+        id: `business-history-${business.id}`,
+        linkedDividendPeriodId: business.linkedDividendPeriodId ?? "",
+        name: business.name,
+        notes: business.notes ?? "",
+        profitRows:
+          business.profitEntries.length > 0
+            ? business.profitEntries.map(
+                (entry): BusinessProfitHistoryRow => ({
+                  allocatableProfitAmount: String(
+                    entry.allocatableProfitAmount
+                  ),
+                  amount: String(entry.profitAmount),
+                  deductionAmount: String(entry.expenseAmount),
+                  id: `business-profit-history-${entry.id}`,
+                  linkedDividendPeriodId: entry.linkedDividendPeriodId ?? "",
+                  profitDate: entry.profitDate,
+                  profitEntryId: entry.id,
+                  reason: entry.reason ?? "",
+                  sourceType: normalizeBusinessProfitSourceType(
+                    entry.sourceType
+                  ),
+                  status: normalizeBusinessProfitStatus(entry.status),
+                })
+              )
+            : [
+                {
+                  allocatableProfitAmount: String(business.profitAmount),
+                  amount: String(business.profitAmount),
+                  deductionAmount: "",
+                  id: `business-profit-history-${business.id}`,
+                  linkedDividendPeriodId: "",
+                  profitDate: business.startDate,
+                  profitEntryId: "",
+                  reason: "",
+                  sourceType: "backfill",
+                  status: "draft",
+                },
+              ],
+        saved: true,
+        startDate: business.startDate,
+        status: normalizeBusinessHistoryStatus(business.status),
+      })
+    ) ?? []
 
   return [...savedRows, createBusinessHistoryRow("business-history-initial")]
 }
@@ -2245,20 +2351,11 @@ function buildBusinessHistoryRows(
 function businessHistoryRowHasValue(row: BusinessHistoryInputRow) {
   return Boolean(
     row.capitalAmount ||
-      row.endDate ||
-      row.name ||
-      row.notes ||
-      row.startDate ||
-      row.profitRows.some(businessProfitHistoryRowHasValue)
-  )
-}
-
-function businessHistoryRowCanAppendNext(row: BusinessHistoryInputRow) {
-  return Boolean(
-    row.name &&
-      row.capitalAmount &&
-      row.startDate &&
-      row.profitRows.some(businessProfitHistoryRowHasValue)
+    row.endDate ||
+    row.name ||
+    row.notes ||
+    row.startDate ||
+    row.profitRows.some(businessProfitHistoryRowHasValue)
   )
 }
 
@@ -2267,17 +2364,10 @@ function normalizeProfitRows(rows: BusinessProfitHistoryRow[]) {
     (row, index) =>
       businessProfitHistoryRowHasValue(row) || index === rows.length - 1
   )
-  const lastRow = compactRows.at(-1)
 
-  if (!lastRow) {
-    return [createBusinessProfitHistoryRow()]
-  }
-
-  if (businessProfitHistoryRowHasValue(lastRow)) {
-    return [...compactRows, createBusinessProfitHistoryRow()]
-  }
-
-  return compactRows
+  return compactRows.length > 0
+    ? compactRows
+    : [createBusinessProfitHistoryRow()]
 }
 
 function normalizeBusinessHistoryRows(rows: BusinessHistoryInputRow[]) {
@@ -2285,21 +2375,8 @@ function normalizeBusinessHistoryRows(rows: BusinessHistoryInputRow[]) {
     (row, index) =>
       row.saved || businessHistoryRowHasValue(row) || index === rows.length - 1
   )
-  const lastRow = compactRows.at(-1)
 
-  if (!lastRow) {
-    return [createBusinessHistoryRow()]
-  }
-
-  if (lastRow.saved) {
-    return [...compactRows, createBusinessHistoryRow()]
-  }
-
-  if (!lastRow.saved && businessHistoryRowCanAppendNext(lastRow)) {
-    return [...compactRows, createBusinessHistoryRow()]
-  }
-
-  return compactRows
+  return compactRows.length > 0 ? compactRows : [createBusinessHistoryRow()]
 }
 
 export function ShareBusinessForm(props: ShareBusinessFormProps) {
@@ -2384,6 +2461,13 @@ function ShareBusinessProfitHistoryTableForm({
     )
   }
 
+  function addBusinessRow() {
+    setBusinessRows((currentRows) => [
+      ...normalizeBusinessHistoryRows(currentRows),
+      createBusinessHistoryRow(),
+    ])
+  }
+
   function deleteBusinessProfitRow(businessRowId: string, profitRowId: string) {
     setBusinessRows((currentRows) =>
       normalizeBusinessHistoryRows(
@@ -2394,6 +2478,24 @@ function ShareBusinessProfitHistoryTableForm({
                 profitRows: normalizeProfitRows(
                   businessRow.profitRows.filter((row) => row.id !== profitRowId)
                 ),
+              }
+            : businessRow
+        )
+      )
+    )
+  }
+
+  function addBusinessProfitRow(businessRowId: string) {
+    setBusinessRows((currentRows) =>
+      normalizeBusinessHistoryRows(
+        currentRows.map((businessRow) =>
+          businessRow.id === businessRowId
+            ? {
+                ...businessRow,
+                profitRows: [
+                  ...normalizeProfitRows(businessRow.profitRows),
+                  createBusinessProfitHistoryRow(),
+                ],
               }
             : businessRow
         )
@@ -2678,7 +2780,7 @@ function ShareBusinessProfitHistoryTableForm({
     >
       <div className="flex items-center gap-3">
         <h3 className="shrink-0 text-sm font-medium">Business History</h3>
-        <div className="min-w-10 flex-1 border-border/70 border-t" />
+        <div className="min-w-10 flex-1 border-t border-border/70" />
         <Button
           disabled={isPending}
           onClick={resetBusinessRows}
@@ -2700,16 +2802,28 @@ function ShareBusinessProfitHistoryTableForm({
           </colgroup>
           <thead>
             <tr>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
                 Business
               </th>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
                 Capital
               </th>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
                 Start date
               </th>
-              <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
                 End date
               </th>
               <th scope="col">
@@ -2722,7 +2836,7 @@ function ShareBusinessProfitHistoryTableForm({
               <Fragment key={businessRow.id}>
                 <tr aria-hidden="true">
                   <td colSpan={5}>
-                    <div className="border-border/70 border-t" />
+                    <div className="border-t border-border/70" />
                   </td>
                 </tr>
                 <tr className="align-top" key={`${businessRow.id}-business`}>
@@ -2795,7 +2909,9 @@ function ShareBusinessProfitHistoryTableForm({
                 <tr key={`${businessRow.id}-profits`}>
                   <td colSpan={5}>
                     <div className="pl-6">
-                      <table className={`${compactInputTableClassName} min-w-[760px]`}>
+                      <table
+                        className={`${compactInputTableClassName} min-w-[760px]`}
+                      >
                         <colgroup>
                           <col className="w-[150px]" />
                           <col className="w-[140px]" />
@@ -2806,19 +2922,34 @@ function ShareBusinessProfitHistoryTableForm({
                         </colgroup>
                         <thead>
                           <tr>
-                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                            <th
+                              className="text-left text-xs font-medium text-muted-foreground"
+                              scope="col"
+                            >
                               Profit
                             </th>
-                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                            <th
+                              className="text-left text-xs font-medium text-muted-foreground"
+                              scope="col"
+                            >
                               Amount
                             </th>
-                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                            <th
+                              className="text-left text-xs font-medium text-muted-foreground"
+                              scope="col"
+                            >
                               Deduction
                             </th>
-                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                            <th
+                              className="text-left text-xs font-medium text-muted-foreground"
+                              scope="col"
+                            >
                               Reason
                             </th>
-                            <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                            <th
+                              className="text-left text-xs font-medium text-muted-foreground"
+                              scope="col"
+                            >
                               Shareable
                             </th>
                             <th scope="col">
@@ -2935,6 +3066,17 @@ function ShareBusinessProfitHistoryTableForm({
                               </tr>
                             )
                           })}
+                          <tr>
+                            <td colSpan={6}>
+                              <AddInlineRowButton
+                                disabled={isPending}
+                                label="Add Profit"
+                                onAdd={() =>
+                                  addBusinessProfitRow(businessRow.id)
+                                }
+                              />
+                            </td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>
@@ -2942,6 +3084,15 @@ function ShareBusinessProfitHistoryTableForm({
                 </tr>
               </Fragment>
             ))}
+            <tr>
+              <td colSpan={5}>
+                <AddInlineRowButton
+                  disabled={isPending}
+                  label="Add Business"
+                  onAdd={addBusinessRow}
+                />
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -3002,23 +3153,16 @@ function ShareBusinessSingleForm({
       const updatedRows = currentRows.map((row) =>
         row.id === rowId ? { ...row, ...patch } : row
       )
-      const compactRows = updatedRows.filter(
-        (row, index) =>
-          businessProfitHistoryRowHasValue(row) ||
-          index === updatedRows.length - 1
-      )
-      const lastRow = compactRows.at(-1)
 
-      if (!lastRow) {
-        return [createBusinessProfitHistoryRow()]
-      }
-
-      if (businessProfitHistoryRowHasValue(lastRow)) {
-        return [...compactRows, createBusinessProfitHistoryRow()]
-      }
-
-      return compactRows
+      return normalizeProfitRows(updatedRows)
     })
+  }
+
+  function addProfitHistoryRow() {
+    setProfitHistoryRows((currentRows) => [
+      ...normalizeProfitRows(currentRows),
+      createBusinessProfitHistoryRow(),
+    ])
   }
 
   function sortProfitHistoryRows() {
@@ -3027,7 +3171,9 @@ function ShareBusinessSingleForm({
         .filter(businessProfitHistoryRowHasValue)
         .sort(sortBusinessProfitHistoryRowsByDate)
 
-      return [...sortedRows, createBusinessProfitHistoryRow()]
+      return sortedRows.length > 0
+        ? sortedRows
+        : [createBusinessProfitHistoryRow()]
     })
   }
 
@@ -3324,11 +3470,9 @@ function ShareBusinessSingleForm({
           )}
         />
         {profitHistoryMode ? (
-          <div className="md:col-span-2 flex flex-col gap-3 border border-border/70 bg-muted/20 p-3">
+          <div className="flex flex-col gap-3 border border-border/70 bg-muted/20 p-3 md:col-span-2">
             <div className="flex items-center gap-3">
-              <h3 className="shrink-0 text-sm font-medium">
-                Profit History
-              </h3>
+              <h3 className="shrink-0 text-sm font-medium">Profit History</h3>
               <Separator className="min-w-10 flex-1" />
               <QuickFill
                 args={{
@@ -3456,6 +3600,10 @@ function ShareBusinessSingleForm({
                   </div>
                 )
               })}
+              <AddInlineRowButton
+                label="Add Profit"
+                onAdd={addProfitHistoryRow}
+              />
             </FieldGroup>
           </div>
         ) : null}

@@ -77,6 +77,9 @@ type GettingStartedStepKey =
   | "admin-member"
   | "review"
 
+const gettingStartedChargeFormId = "getting-started-charge-history-form"
+const gettingStartedShareFormId = "getting-started-share-history-form"
+
 type ChargeDefinitionRow = {
   appliesToLoanRequests?: boolean
   appliesToLoans?: boolean
@@ -548,6 +551,7 @@ function StepFooter({
   hideNext = false,
   nextHrefOverride,
   nextLabel = "Next",
+  nextSubmitFormId,
   nextStep,
   previousStep,
   requireHistoryConfirmation = false,
@@ -555,6 +559,7 @@ function StepFooter({
   hideNext?: boolean
   nextHrefOverride?: string
   nextLabel?: string
+  nextSubmitFormId?: string
   nextStep?: GettingStartedStepKey
   previousStep?: GettingStartedStepKey
   requireHistoryConfirmation?: boolean
@@ -577,7 +582,11 @@ function StepFooter({
           <span />
         )}
         {hasNext ? (
-          requireHistoryConfirmation ? (
+          nextSubmitFormId ? (
+            <Button form={nextSubmitFormId} type="submit">
+              {nextLabel}
+            </Button>
+          ) : requireHistoryConfirmation ? (
             <AlertDialog>
               <AlertDialogTrigger render={<Button />}>
                 {nextLabel}
@@ -643,8 +652,10 @@ function ChargesStep({
       <CardContent className="grid gap-5">
         <ChargeDefinitionForm
           financeStartDate={tenantStartDate}
+          formId={gettingStartedChargeFormId}
           initialDefinitions={chargeDefinitions}
-          stayOnStepHref={stepHref("charges")}
+          redirectTo={stepHref("shares")}
+          showSubmitButton={false}
         />
       </CardContent>
     </Card>
@@ -664,7 +675,9 @@ function SharesStep({
       <CardContent className="grid gap-5">
         <ShareStructureVersionForm
           financeStartDate={tenantStartDate}
-          stayOnStepHref={stepHref("shares")}
+          formId={gettingStartedShareFormId}
+          redirectTo={stepHref("profit-policy")}
+          showSubmitButton={false}
         />
       </CardContent>
     </Card>
@@ -1062,6 +1075,12 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
       props.shareBusinesses.every(
         (business) => business.profitEntries.length === 0
       ))
+  const nextSubmitFormId =
+    props.activeStep === "charges"
+      ? gettingStartedChargeFormId
+      : props.activeStep === "shares"
+        ? gettingStartedShareFormId
+        : undefined
 
   return (
     <div>
@@ -1099,6 +1118,7 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
           props.activeStep === "profit-seasons" &&
           props.businessProfitSeasons.length > 0
         }
+        nextSubmitFormId={nextSubmitFormId}
         nextStep={nextStep}
         previousStep={previousStep}
         requireHistoryConfirmation={requireHistoryConfirmation}

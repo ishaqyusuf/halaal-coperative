@@ -348,7 +348,9 @@ function buildCommitmentHistoryRows(
   ]
 }
 
-function buildLoanHistoryRows(initialRows: LoanHistoryInitialRow[] | undefined) {
+function buildLoanHistoryRows(
+  initialRows: LoanHistoryInitialRow[] | undefined
+) {
   if (!initialRows?.length) {
     return [createLoanRow("loan-history-initial")]
   }
@@ -381,33 +383,31 @@ function commitmentRowHasValue(row: CommitmentHistoryInputRow) {
 function loanRowHasValue(row: LoanHistoryInputRow) {
   return Boolean(
     row.closedAt ||
-      row.draftId ||
-      row.guarantorOneCreateEmail ||
-      row.guarantorOneCreateFullName ||
-      row.guarantorOneCreateJoinedAt ||
-      row.guarantorOneCreateMemberNumber ||
-      row.guarantorOneCreatePhone ||
-      row.guarantorOneMemberId ||
-      row.guarantorTwoCreateEmail ||
-      row.guarantorTwoCreateFullName ||
-      row.guarantorTwoCreateJoinedAt ||
-      row.guarantorTwoCreateMemberNumber ||
-      row.guarantorTwoCreatePhone ||
-      row.guarantorTwoMemberId ||
-      row.loanLabel ||
-      row.notes ||
-      row.openedAt ||
-      row.outstandingPrincipalBalance ||
-      row.principalAmount ||
-      row.savingsDuringLoan ||
-      row.scheduledMonthlyPrincipalRepayment
+    row.draftId ||
+    row.guarantorOneCreateEmail ||
+    row.guarantorOneCreateFullName ||
+    row.guarantorOneCreateJoinedAt ||
+    row.guarantorOneCreateMemberNumber ||
+    row.guarantorOneCreatePhone ||
+    row.guarantorOneMemberId ||
+    row.guarantorTwoCreateEmail ||
+    row.guarantorTwoCreateFullName ||
+    row.guarantorTwoCreateJoinedAt ||
+    row.guarantorTwoCreateMemberNumber ||
+    row.guarantorTwoCreatePhone ||
+    row.guarantorTwoMemberId ||
+    row.loanLabel ||
+    row.notes ||
+    row.openedAt ||
+    row.outstandingPrincipalBalance ||
+    row.principalAmount ||
+    row.savingsDuringLoan ||
+    row.scheduledMonthlyPrincipalRepayment
   )
 }
 
 function sortLoanRowsByDate(a: LoanHistoryInputRow, b: LoanHistoryInputRow) {
-  return (a.openedAt || "9999-99-99").localeCompare(
-    b.openedAt || "9999-99-99"
-  )
+  return (a.openedAt || "9999-99-99").localeCompare(b.openedAt || "9999-99-99")
 }
 
 function randomItem<TValue>(values: readonly TValue[]) {
@@ -581,10 +581,7 @@ function buildRandomCommitmentHistoryRows(memberJoinedAt?: string | null) {
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
   )
   const availableMonths = monthsBetween(joinedDate, todayUtc)
-  const rowCount = Math.min(
-    availableMonths + 1,
-    randomItem([3, 4, 5, 6])
-  )
+  const rowCount = Math.min(availableMonths + 1, randomItem([3, 4, 5, 6]))
   const offsets = new Set<number>()
 
   while (offsets.size < rowCount) {
@@ -609,47 +606,49 @@ function normalizeCommitmentRows(rows: CommitmentHistoryInputRow[]) {
   const compactRows = rows.filter(
     (row, index) => commitmentRowHasValue(row) || index === rows.length - 1
   )
-  const lastRow = compactRows.at(-1)
 
-  if (!lastRow) {
-    return [createCommitmentRow()]
-  }
-
-  if (commitmentRowHasValue(lastRow)) {
-    return [...compactRows, createCommitmentRow()]
-  }
-
-  return compactRows
+  return compactRows.length > 0 ? compactRows : [createCommitmentRow()]
 }
 
 function normalizeLoanRows(rows: LoanHistoryInputRow[]) {
   const compactRows = rows.filter(
     (row, index) => loanRowHasValue(row) || index === rows.length - 1
   )
-  const lastRow = compactRows.at(-1)
 
-  if (!lastRow) {
-    return [createLoanRow()]
-  }
-
-  if (loanRowHasValue(lastRow)) {
-    return [...compactRows, createLoanRow()]
-  }
-
-  return compactRows
+  return compactRows.length > 0 ? compactRows : [createLoanRow()]
 }
 
-function sortLoanRowsWithBlankTail(rows: LoanHistoryInputRow[]) {
+function sortLoanRowsWithExistingBlankRows(rows: LoanHistoryInputRow[]) {
   const normalizedRows = normalizeLoanRows(rows)
   const filledRows = normalizedRows
     .filter(loanRowHasValue)
     .sort(sortLoanRowsByDate)
   const blankRows = normalizedRows.filter((row) => !loanRowHasValue(row))
 
-  return [
-    ...filledRows,
-    ...(blankRows.length > 0 ? blankRows : [createLoanRow()]),
-  ]
+  return [...filledRows, ...blankRows]
+}
+
+function AddInlineRowButton({
+  disabled,
+  label,
+  onAdd,
+}: {
+  disabled?: boolean
+  label: string
+  onAdd: () => void
+}) {
+  return (
+    <Button
+      className="w-full"
+      disabled={disabled}
+      onClick={onAdd}
+      type="button"
+      variant="outline"
+    >
+      <PlusIcon className="size-4" />
+      {label}
+    </Button>
+  )
 }
 
 function getCommitmentRowFieldError(
@@ -1099,14 +1098,26 @@ export function CommitmentHistoryEntryForm({
   }
 
   function deleteRow(rowId: string) {
-    const updatedRows = form
-      .getValues("rows")
-      .filter((row) => row.id !== rowId)
+    const updatedRows = form.getValues("rows").filter((row) => row.id !== rowId)
 
     form.setValue("rows", normalizeCommitmentRows(updatedRows), {
       shouldDirty: true,
       shouldValidate: true,
     })
+  }
+
+  function addCommitmentRow() {
+    form.setValue(
+      "rows",
+      [
+        ...normalizeCommitmentRows(form.getValues("rows")),
+        createCommitmentRow(),
+      ],
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+      }
+    )
   }
 
   function validateBeforeSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1164,7 +1175,7 @@ export function CommitmentHistoryEntryForm({
         ) : null}
         <div className="flex items-center gap-3">
           <h3 className="shrink-0 text-sm font-medium">Commitment History</h3>
-          <div className="min-w-10 flex-1 border-border/70 border-t" />
+          <div className="min-w-10 flex-1 border-t border-border/70" />
           <CommitmentHistoryQuickFillButton
             disabled={disabled || !memberId}
             memberJoinedAt={memberJoinedAt}
@@ -1257,6 +1268,15 @@ export function CommitmentHistoryEntryForm({
                   </tr>
                 )
               })}
+              <tr>
+                <td colSpan={3}>
+                  <AddInlineRowButton
+                    disabled={disabled || !memberId}
+                    label="Add Commitment"
+                    onAdd={addCommitmentRow}
+                  />
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -1269,7 +1289,11 @@ export function CommitmentHistoryEntryForm({
         ) : null}
         {redirectTo && formId ? (
           <MemberBackfillFooterPortal>
-            <Button disabled={disabled || !memberId} form={formId} type="submit">
+            <Button
+              disabled={disabled || !memberId}
+              form={formId}
+              type="submit"
+            >
               Next
             </Button>
           </MemberBackfillFooterPortal>
@@ -1377,7 +1401,7 @@ export function LoanHistoryEntryForm({
       const editedRows = currentRows.map((row) =>
         row.id === rowId ? { ...row, openedAt } : row
       )
-      const sortedRows = sortLoanRowsWithBlankTail(editedRows)
+      const sortedRows = sortLoanRowsWithExistingBlankRows(editedRows)
       const afterIndex = sortedRows.findIndex((row) => row.id === rowId)
 
       form.setValue("rows", sortedRows, {
@@ -1406,6 +1430,17 @@ export function LoanHistoryEntryForm({
     [form]
   )
 
+  const addLoanRow = useCallback(() => {
+    form.setValue(
+      "rows",
+      [...normalizeLoanRows(form.getValues("rows")), createLoanRow()],
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+      }
+    )
+  }, [form])
+
   useEffect(() => {
     return () => {
       if (flashTimeoutRef.current) {
@@ -1427,13 +1462,7 @@ export function LoanHistoryEntryForm({
     } as Partial<LoanHistoryInputRow>)
     router.refresh()
     void setCreateMemberParams({ gmId: null })
-  }, [
-    gmId,
-    pendingGuarantorTarget,
-    router,
-    setCreateMemberParams,
-    updateRow,
-  ])
+  }, [gmId, pendingGuarantorTarget, router, setCreateMemberParams, updateRow])
 
   function handleCreateGuarantor({
     fieldPrefix,
@@ -1469,10 +1498,13 @@ export function LoanHistoryEntryForm({
           continue
         }
 
-        form.setError(issue.path.join(".") as FieldPath<LoanHistoryFormValues>, {
-          message: issue.message,
-          type: "manual",
-        })
+        form.setError(
+          issue.path.join(".") as FieldPath<LoanHistoryFormValues>,
+          {
+            message: issue.message,
+            type: "manual",
+          }
+        )
       }
     },
     [form]
@@ -1515,7 +1547,7 @@ export function LoanHistoryEntryForm({
           ) : null}
           <div className="flex items-center gap-3">
             <h3 className="shrink-0 text-sm font-medium">Loan History</h3>
-            <div className="min-w-10 flex-1 border-border/70 border-t" />
+            <div className="min-w-10 flex-1 border-t border-border/70" />
             <LoanHistoryQuickFillButton
               disabled={disabled || !memberId}
               guarantorOptions={guarantorOptions}
@@ -1721,8 +1753,7 @@ export function LoanHistoryEntryForm({
                           inputMode="decimal"
                           onValueChange={(values) =>
                             updateRow(row.id, {
-                              scheduledMonthlyPrincipalRepayment:
-                                values.value,
+                              scheduledMonthlyPrincipalRepayment: values.value,
                             })
                           }
                           placeholder="Enter monthly repayment"
@@ -1767,6 +1798,15 @@ export function LoanHistoryEntryForm({
                     </tr>
                   )
                 })}
+                <tr>
+                  <td colSpan={7}>
+                    <AddInlineRowButton
+                      disabled={disabled || !memberId}
+                      label="Add Loan"
+                      onAdd={addLoanRow}
+                    />
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

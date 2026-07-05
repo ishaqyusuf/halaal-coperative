@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@halaalvest/ui/components/select"
-import { Trash2Icon } from "lucide-react"
+import { PlusIcon, Trash2Icon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { upsertMemberActivityEventAction } from "@/lib/dashboard-actions"
@@ -142,17 +142,31 @@ function normalizeActivityWindowRows(rows: ActivityWindowInputRow[]) {
   const compactRows = rows.filter(
     (row, index) => activityWindowRowHasValue(row) || index === rows.length - 1
   )
-  const lastRow = compactRows.at(-1)
 
-  if (!lastRow) {
-    return [createActivityWindowRow()]
-  }
+  return compactRows.length > 0 ? compactRows : [createActivityWindowRow()]
+}
 
-  if (activityWindowRowHasValue(lastRow)) {
-    return [...compactRows, createActivityWindowRow()]
-  }
-
-  return compactRows
+function AddInlineRowButton({
+  disabled,
+  label,
+  onAdd,
+}: {
+  disabled?: boolean
+  label: string
+  onAdd: () => void
+}) {
+  return (
+    <Button
+      className="w-full"
+      disabled={disabled}
+      onClick={onAdd}
+      type="button"
+      variant="outline"
+    >
+      <PlusIcon className="size-4" />
+      {label}
+    </Button>
+  )
 }
 
 function hasActivityWindowFieldError(
@@ -261,6 +275,14 @@ export function MemberBackfillActivityWindowsForm({
     )
   }
 
+  function addActivityWindowRow() {
+    setErrors({})
+    setRows((currentRows) => [
+      ...normalizeActivityWindowRows(currentRows),
+      createActivityWindowRow(),
+    ])
+  }
+
   function validateBeforeSubmit(event: FormEvent<HTMLFormElement>) {
     const result = createActivityWindowFormSchema(minMonth).safeParse({ rows })
 
@@ -318,7 +340,7 @@ export function MemberBackfillActivityWindowsForm({
       ) : null}
       <div className="flex items-center gap-3">
         <h3 className="shrink-0 text-sm font-medium">Activity Windows</h3>
-        <div className="min-w-10 flex-1 border-border/70 border-t" />
+        <div className="min-w-10 flex-1 border-t border-border/70" />
         {showSubmitButton ? (
           <Button disabled={disabled} size="sm" type="submit" variant="ghost">
             Save activity
@@ -440,6 +462,15 @@ export function MemberBackfillActivityWindowsForm({
                 </tr>
               )
             })}
+            <tr>
+              <td colSpan={4}>
+                <AddInlineRowButton
+                  disabled={disabled}
+                  label="Add Activity Window"
+                  onAdd={addActivityWindowRow}
+                />
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

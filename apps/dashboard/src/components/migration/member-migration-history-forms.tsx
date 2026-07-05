@@ -780,6 +780,9 @@ function GuarantorMemberCombobox({
       .filter((option) => option.label.toLowerCase().includes(normalizedQuery))
       .slice(0, 50)
   }, [createName, options])
+  const hasSelectableFilteredOption = filteredOptions.some(
+    (option) => !disabledOptionIdSet.has(option.id)
+  )
 
   function selectMember(nextValue: string) {
     onValueChange(nextValue)
@@ -824,7 +827,7 @@ function GuarantorMemberCombobox({
             value={query}
           />
           <CommandList>
-            {createName || filteredOptions.length === 0 ? (
+            {createName || !hasSelectableFilteredOption ? (
               <CommandItem
                 onSelect={createMember}
                 value={createName ? `create:${createName}` : "create-member"}

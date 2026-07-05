@@ -9,7 +9,7 @@ export function getDashboardTenantUrlConfig(): TenantUrlConfig {
       : process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() ||
         process.env.HALAAL_VEST_DASHBOARD_ROOT_DOMAIN?.trim() ||
         process.env.APP_ROOT_DOMAIN?.trim() ||
-        "app.halaalvest.localhost"
+        "halaalvest.localhost"
 
   return {
     internalPrefix: "",

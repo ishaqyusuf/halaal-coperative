@@ -472,9 +472,16 @@ const historicalProfitMigrationModeOptions = [
 
 export function BusinessProfitPolicyForm({
   defaultPolicy,
+  formId,
+  redirectTo,
+  showSubmitButton = true,
 }: {
   defaultPolicy: TenantBusinessProfitPolicySettings
+  formId?: string
+  redirectTo?: string
+  showSubmitButton?: boolean
 }) {
+  const router = useRouter()
   const form = useZodForm<BusinessProfitPolicyValues>(
     businessProfitPolicySchema,
     {
@@ -504,6 +511,10 @@ export function BusinessProfitPolicyForm({
       try {
         await updateTenantBusinessProfitPolicyAction(objectToFormData(values))
         showSuccess("Policy saved", "Business profit policy updated.")
+        if (redirectTo) {
+          router.push(redirectTo)
+          return
+        }
       } catch (error) {
         showError(
           "Could not save policy",
@@ -515,224 +526,155 @@ export function BusinessProfitPolicyForm({
 
   return (
     <Form {...form}>
-      <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
-        <div className="overflow-x-auto">
-          <table className={`${compactInputTableClassName} min-w-[1120px]`}>
-            <colgroup>
-              <col className="w-[150px]" />
-              <col className="w-[150px]" />
-              <col className="w-[120px]" />
-              <col className="w-[120px]" />
-              <col className="w-[170px]" />
-              <col className="w-[210px]" />
-              <col className="w-[190px]" />
-              <col className="w-[120px]" />
-              <col className="w-24" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  Frequency
-                </th>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  Year start
-                </th>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  Distributable
-                </th>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  Reserve
-                </th>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  Basis
-                </th>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  Expense
-                </th>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  History
-                </th>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  Approval
-                </th>
-                <th scope="col">
-                  <span className="sr-only">Action</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="align-top">
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="profitDistributionFrequency"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SelectFormInput
-                            onChange={field.onChange}
-                            options={distributionFrequencyOptions}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+      <form
+        className="space-y-4"
+        id={formId}
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <FormField
+            control={form.control}
+            name="profitDistributionFrequency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Frequency</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={distributionFrequencyOptions}
+                    value={field.value}
                   />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="financialYearStartMonth"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SelectFormInput
-                            onChange={field.onChange}
-                            options={financialYearStartMonthOptions}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="financialYearStartMonth"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Year start</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={financialYearStartMonthOptions}
+                    value={field.value}
                   />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="defaultDistributablePercentage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <PercentageFormInput {...field} placeholder="100" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="defaultDistributablePercentage"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Distributable</FormLabel>
+                <FormControl>
+                  <PercentageFormInput
+                    {...field}
+                    placeholder="Enter distributable percentage"
                   />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="reserveRetentionPercentage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <PercentageFormInput {...field} placeholder="0" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="reserveRetentionPercentage"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Reserve</FormLabel>
+                <FormControl>
+                  <PercentageFormInput
+                    {...field}
+                    placeholder="Enter reserve percentage"
                   />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="distributionBasis"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SelectFormInput
-                            onChange={field.onChange}
-                            options={distributionBasisOptions}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="distributionBasis"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Basis</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={distributionBasisOptions}
+                    value={field.value}
                   />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="expenseTreatment"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SelectFormInput
-                            onChange={field.onChange}
-                            options={expenseTreatmentOptions}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="expenseTreatment"
+            render={({ field }) => (
+              <FormItem className="xl:col-span-2">
+                <FormLabel>Expense</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={expenseTreatmentOptions}
+                    value={field.value}
                   />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="historicalProfitMigrationMode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SelectFormInput
-                            onChange={field.onChange}
-                            options={historicalProfitMigrationModeOptions}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="historicalProfitMigrationMode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>History</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={historicalProfitMigrationModeOptions}
+                    value={field.value}
                   />
-                </td>
-                <td>
-                  <FormField
-                    control={form.control}
-                    name="requiresProfitDistributionApproval"
-                    render={({ field }) => (
-                      <FormItem className="flex h-9 items-center gap-2 rounded-md border border-input bg-transparent px-3">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={(checked) =>
-                              field.onChange(checked === true)
-                            }
-                          />
-                        </FormControl>
-                        <FormLabel className="text-xs">Required</FormLabel>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="requiresProfitDistributionApproval"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3 md:mt-6">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
                   />
-                </td>
-                <td>
-                  <Button disabled={isPending} type="submit">
-                    Save
-                  </Button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </FormControl>
+                <FormLabel className="text-xs">Approval required</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
+        {showSubmitButton ? (
+          <div className="flex justify-end">
+            <Button disabled={isPending} type="submit">
+              Save
+            </Button>
+          </div>
+        ) : null}
       </form>
     </Form>
   )

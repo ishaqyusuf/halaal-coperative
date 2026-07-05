@@ -49,10 +49,7 @@ import { Textarea } from "@halaalvest/ui/components/textarea"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
-import {
-  WorkspaceEmptyState,
-  WorkspacePageShell,
-} from "@/components/dashboard"
+import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import {
   BusinessProfitPolicyForm,
   ChargeDefinitionForm,
@@ -79,6 +76,7 @@ type GettingStartedStepKey =
 
 const gettingStartedChargeFormId = "getting-started-charge-history-form"
 const gettingStartedShareFormId = "getting-started-share-history-form"
+const gettingStartedProfitPolicyFormId = "getting-started-profit-policy-form"
 
 type ChargeDefinitionRow = {
   appliesToLoanRequests?: boolean
@@ -96,7 +94,12 @@ type ChargeDefinitionRow = {
   isMonthlyLevy?: boolean
   kind: "fixed" | "percentage"
   name: string
-  purpose?: "general" | "member_share" | "loan_fee" | "membership_fee" | "penalty"
+  purpose?:
+    | "general"
+    | "member_share"
+    | "loan_fee"
+    | "membership_fee"
+    | "penalty"
   versions: Array<{
     amount: number
     chargeValueType: "fixed_amount" | "percentage"
@@ -295,7 +298,7 @@ const stepGroups = [
 
 function isStepComplete(
   key: GettingStartedStepKey,
-  snapshot: InitialMigrationSnapshot,
+  snapshot: InitialMigrationSnapshot
 ) {
   const missing = new Set(snapshot.missingStepKeys)
 
@@ -360,7 +363,10 @@ function getStepMeta(key: GettingStartedStepKey) {
         "Anchor historical finance so every charge, share, loan, and contribution is dated against the same start month.",
       label: "Cooperative start date",
     },
-  } satisfies Record<GettingStartedStepKey, { description: string; label: string }>
+  } satisfies Record<
+    GettingStartedStepKey,
+    { description: string; label: string }
+  >
 
   return meta[key]
 }
@@ -404,13 +410,7 @@ function SetupCardHeader({
   )
 }
 
-function MetricBlock({
-  label,
-  value,
-}: {
-  label: string
-  value: ReactNode
-}) {
+function MetricBlock({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="border border-border/70 bg-muted/20 p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
@@ -446,10 +446,7 @@ function ConfirmationForm({
   const notesId = `${id}-notes`
 
   return (
-    <form
-      action={action}
-      className="border border-border/70 bg-muted/20 p-4"
-    >
+    <form action={action} className="border border-border/70 bg-muted/20 p-4">
       <FieldSet>
         <FieldLegend>{title}</FieldLegend>
         <FieldDescription>{description}</FieldDescription>
@@ -522,7 +519,7 @@ function StepRail({
                     "border px-3 py-3 text-left transition-colors",
                     isActive
                       ? "border-foreground bg-primary text-primary-foreground"
-                      : "border-border/70 bg-muted/20 hover:bg-muted/40",
+                      : "border-border/70 bg-muted/20 hover:bg-muted/40"
                   )}
                   href={stepHref(key)}
                 >
@@ -695,7 +692,12 @@ function ProfitPolicyStep({
         description="Set the distribution calendar that migration and future profit allocations use."
       />
       <CardContent className="grid gap-5">
-        <BusinessProfitPolicyForm defaultPolicy={businessPolicy} />
+        <BusinessProfitPolicyForm
+          defaultPolicy={businessPolicy}
+          formId={gettingStartedProfitPolicyFormId}
+          redirectTo={stepHref("business")}
+          showSubmitButton={false}
+        />
       </CardContent>
     </Card>
   )
@@ -800,28 +802,52 @@ function ProfitSeasonsStep({
                 </colgroup>
                 <thead>
                   <tr>
-                    <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                    <th
+                      className="text-left text-xs font-medium text-muted-foreground"
+                      scope="col"
+                    >
                       Season
                     </th>
-                    <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                    <th
+                      className="text-left text-xs font-medium text-muted-foreground"
+                      scope="col"
+                    >
                       Period
                     </th>
-                    <th className="text-right text-xs font-medium text-muted-foreground" scope="col">
+                    <th
+                      className="text-right text-xs font-medium text-muted-foreground"
+                      scope="col"
+                    >
                       Estimated profit
                     </th>
-                    <th className="text-right text-xs font-medium text-muted-foreground" scope="col">
+                    <th
+                      className="text-right text-xs font-medium text-muted-foreground"
+                      scope="col"
+                    >
                       Row deductions
                     </th>
-                    <th className="text-right text-xs font-medium text-muted-foreground" scope="col">
+                    <th
+                      className="text-right text-xs font-medium text-muted-foreground"
+                      scope="col"
+                    >
                       Season deduction
                     </th>
-                    <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                    <th
+                      className="text-left text-xs font-medium text-muted-foreground"
+                      scope="col"
+                    >
                       Reason
                     </th>
-                    <th className="text-right text-xs font-medium text-muted-foreground" scope="col">
+                    <th
+                      className="text-right text-xs font-medium text-muted-foreground"
+                      scope="col"
+                    >
                       Distributable
                     </th>
-                    <th className="text-left text-xs font-medium text-muted-foreground" scope="col">
+                    <th
+                      className="text-left text-xs font-medium text-muted-foreground"
+                      scope="col"
+                    >
                       Status
                     </th>
                   </tr>
@@ -992,7 +1018,7 @@ function ReviewStep({
   tenantName,
 }: Pick<GettingStartedPageViewProps, "migrationSnapshot" | "tenantName">) {
   const blockingSteps = migrationSnapshot.missingStepKeys.filter(
-    (key) => key !== "finalization",
+    (key) => key !== "finalization"
   )
 
   if (migrationSnapshot.canUseLiveFinancialWrites) {
@@ -1080,7 +1106,9 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
       ? gettingStartedChargeFormId
       : props.activeStep === "shares"
         ? gettingStartedShareFormId
-        : undefined
+        : props.activeStep === "profit-policy"
+          ? gettingStartedProfitPolicyFormId
+          : undefined
 
   return (
     <div>
@@ -1134,7 +1162,7 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
     "review"
   const completionPercent = Math.round(
     (migrationSnapshot.completedStepCount / migrationSnapshot.totalStepCount) *
-      100,
+      100
   )
 
   return (
@@ -1184,10 +1212,7 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <StepRail
-          activeStep={props.activeStep}
-          snapshot={migrationSnapshot}
-        />
+        <StepRail activeStep={props.activeStep} snapshot={migrationSnapshot} />
         <ActiveStepPanel {...props} />
       </section>
     </WorkspacePageShell>

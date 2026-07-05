@@ -1583,7 +1583,7 @@ export function ChargeDefinitionForm({
                           name: event.target.value,
                         })
                       }
-                      placeholder="Administrative fee"
+                      placeholder="Enter charge title"
                       value={chargeRow.name}
                     />
                   </td>
@@ -1595,7 +1595,7 @@ export function ChargeDefinitionForm({
                           code: event.target.value,
                         })
                       }
-                      placeholder="ADM"
+                      placeholder="Enter charge code name"
                       value={chargeRow.code}
                     />
                   </td>
@@ -1733,7 +1733,7 @@ export function ChargeDefinitionForm({
                                         { amount }
                                       )
                                     }
-                                    placeholder="10"
+                                    placeholder="Enter charge percentage"
                                     value={row.amount}
                                   />
                                 ) : (
@@ -1746,7 +1746,7 @@ export function ChargeDefinitionForm({
                                         { amount }
                                       )
                                     }
-                                    placeholder="2000"
+                                    placeholder="Enter charge amount"
                                     value={row.amount}
                                   />
                                 )}

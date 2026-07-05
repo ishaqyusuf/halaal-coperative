@@ -8,7 +8,7 @@ import {
 } from "@halaalvest/db"
 import type { StagedMonthlyContributionRow } from "@halaalvest/db"
 import type { ContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
 type ContributionLedgerRow = {
@@ -68,6 +68,7 @@ export type ContributionsPageData =
   | {
       canRecordContributions: boolean
       filters: ContributionsFilterParams
+      quickFillEnabled: boolean
       state: "unavailable"
     }
   | {
@@ -80,6 +81,7 @@ export type ContributionsPageData =
       members: {
         items: ContributionMemberRow[]
       }
+      quickFillEnabled: boolean
       stagedContributions: StagedMonthlyContributionRow[]
       state: "ready"
     }
@@ -115,6 +117,7 @@ export async function loadContributionsPageData(
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
   const canRecordContributions = hasAnyRole(context.auth.membership?.role, allStaffRoles)
+  const quickFillEnabled = canShowQuickFill(context)
   const currentMonthFilter = getCurrentMonthFilter()
   currentMonthFilter.isActive = isCurrentMonthDateFilter(filters, currentMonthFilter)
 
@@ -122,6 +125,7 @@ export async function loadContributionsPageData(
     return {
       canRecordContributions,
       filters,
+      quickFillEnabled,
       state: "unavailable" as const,
     }
   }
@@ -158,6 +162,7 @@ export async function loadContributionsPageData(
     filters,
     loans: loans as ContributionLoanRow[],
     members: members as { items: ContributionMemberRow[] },
+    quickFillEnabled,
     stagedContributions,
     state: "ready" as const,
   }

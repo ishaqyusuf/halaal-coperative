@@ -39,6 +39,7 @@ export function ContributionsPageView({
   filterList,
   loans,
   members,
+  quickFillEnabled,
   stagedContributions,
 }: ContributionsPageData & { filterList?: PageFilterData[] }) {
   const activeCommitmentPlans = commitmentPlans.filter((plan) => plan.isActive)
@@ -187,7 +188,7 @@ export function ContributionsPageView({
             />
             <div className="mt-5">
               <ContributionPlanForm
-                devMode={process.env.NODE_ENV !== "production"}
+                devMode={quickFillEnabled}
                 members={memberOptions}
               />
             </div>
@@ -205,7 +206,7 @@ export function ContributionsPageView({
                   id: plan.id,
                   label: `${plan.member.fullName} · ${formatCurrency(Number(plan.amount))}`,
                 }))}
-                devMode={process.env.NODE_ENV !== "production"}
+                devMode={quickFillEnabled}
                 loans={activeLoans.map((loan) => ({
                   id: loan.id,
                   label: `${loan.member.fullName} · ${loan.loanProduct.name}`,

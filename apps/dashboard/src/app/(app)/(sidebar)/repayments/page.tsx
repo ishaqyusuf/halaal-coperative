@@ -2,7 +2,11 @@ import { createDbRuntime, getRepaymentFilterMetadata, listLoans, listRepaymentSc
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { RepaymentsPageView } from "@/components/repayments-page-view"
 import { loadRepaymentsFilterParams } from "@/hooks/use-repayments-filter-params"
-import { getDashboardPageData, getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardPageData,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 
 export default async function RepaymentsPage({
@@ -58,5 +62,5 @@ export default async function RepaymentsPage({
   const highPriorityItems = overdueItems.filter((item) => item.collectionFollowUps[0]?.priority === "high")
   const resolvedCases = overdueItems.filter((item) => item.collectionFollowUps[0]?.resolutionStatus === "resolved")
 
-  return <RepaymentsPageView assignedToUserId={assignedToUserId} assignees={assignees} canPostRepayment={canPostRepayment} dashboard={dashboard} escalatedItems={escalatedItems} filterList={filterList} from={from} highPriorityItems={highPriorityItems} loans={loans} memberId={memberId} openCases={openCases} overdueItems={overdueItems} promiseTrackingItems={promiseTrackingItems} repayments={repayments} resolutionStatus={resolutionStatus} resolvedCases={resolvedCases} scheduleItems={scheduleItems} scheduleStatus={scheduleStatus} stage={stage} to={to} uniqueMembers={uniqueMembers} />
+  return <RepaymentsPageView assignedToUserId={assignedToUserId} assignees={assignees} canPostRepayment={canPostRepayment} dashboard={dashboard} escalatedItems={escalatedItems} filterList={filterList} from={from} highPriorityItems={highPriorityItems} loans={loans} memberId={memberId} openCases={openCases} overdueItems={overdueItems} promiseTrackingItems={promiseTrackingItems} quickFillEnabled={canShowQuickFill(context)} repayments={repayments} resolutionStatus={resolutionStatus} resolvedCases={resolvedCases} scheduleItems={scheduleItems} scheduleStatus={scheduleStatus} stage={stage} to={to} uniqueMembers={uniqueMembers} />
 }

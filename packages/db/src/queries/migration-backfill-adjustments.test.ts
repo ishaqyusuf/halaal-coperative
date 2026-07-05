@@ -139,26 +139,24 @@ describe("migration backfill adjustments", () => {
     })
   })
 
-  test("blocks adjustment edits after migration finalization", async () => {
+  test("allows adjustment edits after setup finalization before member backfill is applied", async () => {
     const prisma = createAdjustmentPrismaStub({
       initialMigrationStatus: "finalized",
     })
 
-    await expect(
-      upsertMigrationBackfillAdjustment(
-        {
-          actorUserId: "user-1",
-          memberId: "member-1",
-          month: new Date("2025-09-10T00:00:00.000Z"),
-          savingsContribution: 1000,
-          tenantId: "tenant-1",
-        },
-        prisma as never
-      )
-    ).rejects.toThrow("Migration adjustments are locked")
+    await upsertMigrationBackfillAdjustment(
+      {
+        actorUserId: "user-1",
+        memberId: "member-1",
+        month: new Date("2025-09-10T00:00:00.000Z"),
+        savingsContribution: 1000,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
 
-    expect(prisma.adjustmentUpserts).toHaveLength(0)
-    expect(prisma.auditLogCreates).toHaveLength(0)
+    expect(prisma.adjustmentUpserts).toHaveLength(1)
+    expect(prisma.auditLogCreates).toHaveLength(1)
   })
 
   test("blocks adjustment edits after the member ledger is applied", async () => {

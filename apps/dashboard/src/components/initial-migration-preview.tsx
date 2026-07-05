@@ -525,6 +525,7 @@ function LoanHistoryPanel({
   memberJoinedAt,
   memberNumberPrefix,
   memberOptions,
+  quickFillEnabled,
 }: {
   disabled: boolean
   loans: Array<LegacyLoanDraftRow & { status: string }>
@@ -532,6 +533,7 @@ function LoanHistoryPanel({
   memberJoinedAt?: string | null
   memberNumberPrefix?: string | null
   memberOptions: MemberOption[]
+  quickFillEnabled: boolean
 }) {
   return (
     <div className="space-y-3">
@@ -554,6 +556,7 @@ function LoanHistoryPanel({
         memberJoinedAt={memberJoinedAt}
         memberNumberPrefix={memberNumberPrefix}
         memberOptions={memberOptions}
+        quickFillEnabled={quickFillEnabled}
       />
     </div>
   )
@@ -765,6 +768,7 @@ export function InitialMigrationPreview({
   migrationSnapshot,
   migrationMemberReview,
   profitMigrationOptions,
+  quickFillEnabled,
   selectedMigrationMemberId,
   selectedMigrationMemberLabel,
   section = "overview",
@@ -779,6 +783,7 @@ export function InitialMigrationPreview({
   migrationSnapshot?: InitialMigrationSnapshot
   migrationMemberReview?: MigrationMemberReviewRow[]
   profitMigrationOptions?: ProfitMigrationOptionRow[]
+  quickFillEnabled: boolean
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   section?: "loans" | "member-preview" | "overview"
@@ -1205,7 +1210,7 @@ export function InitialMigrationPreview({
               {canCreateMigrationMemberProfile ? (
                 <MemberCreateModal
                   description="Create the member profile before generating historical ledger rows."
-                  devMode={process.env.NODE_ENV !== "production"}
+                  devMode={quickFillEnabled}
                   memberNumberPrefix={memberNumberPrefix}
                   title="Create migration member"
                   triggerLabel="Create member"
@@ -1403,6 +1408,7 @@ export function InitialMigrationPreview({
                 memberJoinedAt={selectedMemberHeadline?.joinedAt ?? null}
                 memberNumberPrefix={memberNumberPrefix}
                 memberOptions={memberOptions ?? []}
+                quickFillEnabled={quickFillEnabled}
               />
             }
             profit={

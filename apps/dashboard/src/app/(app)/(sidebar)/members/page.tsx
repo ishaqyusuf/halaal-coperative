@@ -118,7 +118,7 @@ export default async function MembersPage({
             createAction={
               data.canManageMembers ? (
                 <MemberCreateModal
-                  devMode={process.env.NODE_ENV !== "production"}
+                  devMode={data.quickFillEnabled}
                   memberNumberPrefix={data.tenant?.memberNumberPrefix}
                 />
               ) : undefined
@@ -170,7 +170,7 @@ export default async function MembersPage({
             createAction={
               data.canManageMembers ? (
                 <MemberCreateModal
-                  devMode={process.env.NODE_ENV !== "production"}
+                  devMode={data.quickFillEnabled}
                   memberNumberPrefix={data.tenant?.memberNumberPrefix}
                 />
               ) : undefined
@@ -179,7 +179,7 @@ export default async function MembersPage({
               data.canManageImports && data.referenceData ? (
                 <MemberImportPanel
                   batches={data.batches}
-                  devMode={process.env.NODE_ENV !== "production"}
+                  devMode={data.quickFillEnabled}
                   initialColumnSettings={initialImportColumnSettings}
                   referenceData={data.referenceData}
                 />

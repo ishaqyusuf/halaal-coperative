@@ -5,7 +5,11 @@ import {
   listLoans,
   listMembers,
 } from "@halaalvest/db"
-import { getDashboardPageData, getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardPageData,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 import { allStaffRoles, financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 
 type LoanNumericValue = number | string | { toString(): string }
@@ -69,6 +73,7 @@ export type LoansPageData =
       members: {
         items: LoanMemberOptionRow[]
       }
+      quickFillEnabled: boolean
       state: "ready"
     }
 
@@ -98,6 +103,7 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
     loanRequests: loanRequests as LoanRequestRow[],
     loans: loans as LoanPortfolioRow[],
     members,
+    quickFillEnabled: canShowQuickFill(context),
     state: "ready" as const,
   }
 }

@@ -119,7 +119,7 @@ describe("migration profit adjustments", () => {
   test("lists profit entries with disbursed and available amounts", async () => {
     const options = await listMigrationProfitAdjustmentOptions(
       "tenant-1",
-      createProfitAdjustmentPrismaStub() as never,
+      createProfitAdjustmentPrismaStub() as never
     )
 
     expect(options).toEqual([
@@ -146,7 +146,7 @@ describe("migration profit adjustments", () => {
     const options = await listMigrationProfitAdjustmentOptions(
       "tenant-1",
       createProfitAdjustmentPrismaStub() as never,
-      "member-1",
+      "member-1"
     )
 
     expect(options[0]).toMatchObject({
@@ -170,7 +170,7 @@ describe("migration profit adjustments", () => {
         profitEntryId: "profit-1",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.adjustmentUpserts[0]).toMatchObject({
@@ -191,26 +191,24 @@ describe("migration profit adjustments", () => {
     })
   })
 
-  test("blocks profit adjustment edits after migration finalization", async () => {
+  test("allows profit adjustment edits after setup finalization before member backfill is applied", async () => {
     const prisma = createProfitAdjustmentPrismaStub({
       initialMigrationStatus: "finalized",
     })
 
-    await expect(
-      upsertMigrationProfitAdjustment(
-        {
-          actorUserId: "user-1",
-          allocatedProfitAmount: 15000,
-          memberId: "member-1",
-          profitEntryId: "profit-1",
-          tenantId: "tenant-1",
-        },
-        prisma as never,
-      ),
-    ).rejects.toThrow("Migration adjustments are locked")
+    await upsertMigrationProfitAdjustment(
+      {
+        actorUserId: "user-1",
+        allocatedProfitAmount: 15000,
+        memberId: "member-1",
+        profitEntryId: "profit-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
 
-    expect(prisma.adjustmentUpserts).toHaveLength(0)
-    expect(prisma.auditLogCreates).toHaveLength(0)
+    expect(prisma.adjustmentUpserts).toHaveLength(1)
+    expect(prisma.auditLogCreates).toHaveLength(1)
   })
 
   test("blocks profit adjustment edits after the member ledger is applied", async () => {
@@ -227,8 +225,8 @@ describe("migration profit adjustments", () => {
           profitEntryId: "profit-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("historical ledger has already been applied")
 
     expect(prisma.adjustmentUpserts).toHaveLength(0)
@@ -246,9 +244,11 @@ describe("migration profit adjustments", () => {
           sharePercentage: 10,
           tenantId: "tenant-1",
         },
-        createProfitAdjustmentPrismaStub() as never,
-      ),
-    ).rejects.toThrow("Set either a member profit amount or a share percentage, not both.")
+        createProfitAdjustmentPrismaStub() as never
+      )
+    ).rejects.toThrow(
+      "Set either a member profit amount or a share percentage, not both."
+    )
   })
 
   test("rejects profit adjustments above the remaining available profit", async () => {
@@ -261,8 +261,10 @@ describe("migration profit adjustments", () => {
           profitEntryId: "profit-1",
           tenantId: "tenant-1",
         },
-        createProfitAdjustmentPrismaStub() as never,
-      ),
-    ).rejects.toThrow("Member profit adjustment cannot exceed the remaining available profit amount.")
+        createProfitAdjustmentPrismaStub() as never
+      )
+    ).rejects.toThrow(
+      "Member profit adjustment cannot exceed the remaining available profit amount."
+    )
   })
 })

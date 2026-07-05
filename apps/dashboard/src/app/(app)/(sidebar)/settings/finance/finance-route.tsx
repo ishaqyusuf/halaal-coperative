@@ -16,7 +16,7 @@ import {
 } from "@halaalvest/db"
 import { TenantFinancePageView } from "@/components/tenant-finance-page-view"
 import type { TenantFinanceSection } from "@/components/tenant-finance-page-view"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 
 function toDateString(value: Date | string | null | undefined) {
   if (!value) return null
@@ -211,6 +211,7 @@ export async function FinanceSettingsRoute({
       : undefined)
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
+  const quickFillEnabled = canShowQuickFill(context)
   const today = new Date()
 
   if (context.tenant && runtime.status === "database-configured") {
@@ -443,6 +444,7 @@ export async function FinanceSettingsRoute({
             ? `${previewMember.fullName} (${previewMember.memberNumber})`
             : null
         }
+        quickFillEnabled={quickFillEnabled}
         section={section}
         tenantName={data.tenant?.name ?? context.tenant.name}
         tenantStartDate={
@@ -466,6 +468,7 @@ export async function FinanceSettingsRoute({
       memberOptions={demoMemberOptions}
       memberNumberPrefix={context.tenant?.memberNumberPrefix ?? null}
       migrationMemberReview={demoMigrationMemberReview}
+      quickFillEnabled={quickFillEnabled}
       selectedMigrationMemberId={demoMemberOptions[0]?.id ?? null}
       selectedMigrationMemberLabel={demoMemberOptions[0]?.label ?? null}
       section={section}

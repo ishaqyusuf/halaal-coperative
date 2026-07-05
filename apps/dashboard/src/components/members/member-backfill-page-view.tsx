@@ -372,6 +372,7 @@ function LoansStep({ data }: { data: MemberBackfillData }) {
           memberJoinedAt={data.member.joinedAt}
           memberNumberPrefix={data.memberNumberPrefix}
           memberOptions={data.memberOptions}
+          quickFillEnabled={data.quickFillEnabled}
           redirectTo={nextHref}
           showSubmitButton={!nextHref}
         />

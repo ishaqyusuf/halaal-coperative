@@ -20,6 +20,7 @@ export function RepaymentsPageView({
   openCases,
   overdueItems,
   promiseTrackingItems,
+  quickFillEnabled,
   repayments,
   resolutionStatus,
   resolvedCases,
@@ -42,6 +43,7 @@ export function RepaymentsPageView({
   openCases: Array<any>
   overdueItems: Array<any>
   promiseTrackingItems: Array<any>
+  quickFillEnabled: boolean
   repayments: Array<any>
   resolutionStatus: string
   resolvedCases: Array<any>
@@ -69,7 +71,7 @@ export function RepaymentsPageView({
           <DashboardSectionHeader eyebrow="Posting" title="Post repayment" description="Apply repayments against due items and keep installment status synchronized." />
           <div className="mt-5">
             <RepaymentPostForm
-              devMode={process.env.NODE_ENV !== "production"}
+              devMode={quickFillEnabled}
               loans={loans.filter((loan) => ["disbursed", "active"].includes(loan.status)).map((loan) => ({ id: loan.id, label: `${loan.member.fullName} · ${loan.loanProduct.name}` }))}
               scheduleItems={scheduleItems.filter((item) => ["pending", "due", "overdue", "partially_paid"].includes(item.status)).map((item) => ({ id: item.id, label: `${item.loan.member.fullName} · installment ${item.installmentNumber} · due ${item.dueAt.toISOString().slice(0, 10)}` }))}
             />

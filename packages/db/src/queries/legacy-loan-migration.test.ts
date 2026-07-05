@@ -259,30 +259,28 @@ describe("legacy loan migration drafts", () => {
     })
   })
 
-  test("blocks legacy loan draft creation after migration finalization", async () => {
+  test("allows legacy loan draft creation after setup finalization before member backfill is applied", async () => {
     const prisma = createLegacyLoanDraftPrismaStub({
       initialMigrationStatus: "finalized",
     })
 
-    await expect(
-      createLegacyLoanMigrationDraft(
-        {
-          actorUserId: "user-1",
-          loanLabel: "Loan A",
-          memberId: "member-1",
-          openedAt: new Date("2025-08-01T00:00:00.000Z"),
-          outstandingPrincipalBalance: 65000,
-          principalAmount: 120000,
-          savingsDuringLoan: 5000,
-          scheduledMonthlyPrincipalRepayment: 10000,
-          tenantId: "tenant-1",
-        },
-        prisma as never
-      )
-    ).rejects.toThrow("Legacy loan migration drafts are locked")
+    await createLegacyLoanMigrationDraft(
+      {
+        actorUserId: "user-1",
+        loanLabel: "Loan A",
+        memberId: "member-1",
+        openedAt: new Date("2025-08-01T00:00:00.000Z"),
+        outstandingPrincipalBalance: 65000,
+        principalAmount: 120000,
+        savingsDuringLoan: 5000,
+        scheduledMonthlyPrincipalRepayment: 10000,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
 
-    expect(prisma.draftCreates).toHaveLength(0)
-    expect(prisma.auditLogCreates).toHaveLength(0)
+    expect(prisma.draftCreates).toHaveLength(1)
+    expect(prisma.auditLogCreates).toHaveLength(1)
   })
 
   test("blocks legacy loan draft updates after member backfill is applied", async () => {

@@ -1,5 +1,5 @@
 import { createDbRuntime, getMemberStatementDetail } from "@halaalvest/db"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole, memberManagementRoles } from "@/lib/workspace-access"
 
 type MemberStatementDetail = NonNullable<
@@ -17,6 +17,7 @@ export type MemberDetailPageData =
       canManageCommitments: boolean
       canManageMembers: boolean
       detail: MemberStatementDetail
+      quickFillEnabled: boolean
       state: "ready"
       tenantStartDate: string | null
     }
@@ -51,6 +52,7 @@ export async function loadMemberDetailPageData(
     canManageCommitments: hasAnyRole(context.auth.membership?.role, allStaffRoles),
     canManageMembers: hasAnyRole(context.auth.membership?.role, memberManagementRoles),
     detail,
+    quickFillEnabled: canShowQuickFill(context),
     tenantStartDate: toDateString(context.tenant.startDate),
   }
 }

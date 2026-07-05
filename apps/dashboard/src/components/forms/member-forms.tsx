@@ -6,6 +6,7 @@ import { Tick02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
+import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import {
   Form,
   FormControl,
@@ -17,6 +18,7 @@ import {
 import { Input } from "@halaalvest/ui/components/input"
 import {
   InputGroup,
+  InputGroupAddon,
   InputGroupInput,
   InputGroupText,
 } from "@halaalvest/ui/components/input-group"
@@ -54,11 +56,14 @@ function CurrencyFormInput({
   value?: string
 }) {
   return (
-    <Input
+    <CurrencyInput
+      allowNegative={false}
+      decimalScale={2}
       inputMode="decimal"
+      onValueChange={(values) => onChange(values.value)}
       placeholder={placeholder}
       value={value ?? ""}
-      onChange={(event) => onChange(event.target.value)}
+      valueIsNumericString
     />
   )
 }
@@ -412,7 +417,9 @@ export function MemberCreateForm({
                 <FormControl>
                   {memberNumberPrefix ? (
                     <InputGroup>
-                      <InputGroupText>{memberNumberPrefix}</InputGroupText>
+                      <InputGroupAddon align="inline-start">
+                        <InputGroupText>{memberNumberPrefix}</InputGroupText>
+                      </InputGroupAddon>
                       <InputGroupInput {...field} placeholder="1024" />
                     </InputGroup>
                   ) : (

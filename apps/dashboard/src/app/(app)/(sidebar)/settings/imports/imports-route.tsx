@@ -22,7 +22,7 @@ import type { ImportAvailability } from "@/components/forms/import-forms"
 import { loadImportFilterParams } from "@/hooks/use-import-filter-params"
 import { loadImportParams } from "@/hooks/use-import-params"
 import type { DashboardImportKind } from "@/lib/import-csv"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
 export type ImportSettingsSection =
@@ -182,6 +182,7 @@ export async function ImportsSettingsRoute({
     context.auth.membership?.role,
     allStaffRoles
   )
+  const quickFillEnabled = canShowQuickFill(context)
 
   if (!context.tenant || runtime.status !== "database-configured") {
     return (
@@ -465,7 +466,7 @@ export async function ImportsSettingsRoute({
             />
             <ImportDataTable
               batches={batches}
-              devMode={process.env.NODE_ENV !== "production"}
+              devMode={quickFillEnabled}
               importAvailability={importAvailability}
               importKind={importKind}
               referenceData={referenceData}

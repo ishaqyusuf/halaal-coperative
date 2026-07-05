@@ -24,7 +24,6 @@ import {
 import { Button } from "@halaalvest/ui/components/button"
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -789,10 +788,6 @@ function GuarantorMemberCombobox({
   }
 
   function createMember() {
-    if (!createName) {
-      return
-    }
-
     onCreate(createName)
     setQuery("")
     setOpen(false)
@@ -829,13 +824,15 @@ function GuarantorMemberCombobox({
             value={query}
           />
           <CommandList>
-            {createName ? (
+            {createName || filteredOptions.length === 0 ? (
               <CommandItem
                 onSelect={createMember}
-                value={`create:${createName}`}
+                value={createName ? `create:${createName}` : "create-member"}
               >
                 <PlusIcon className="size-3.5" />
-                <span className="truncate">{`Create "${createName}"`}</span>
+                <span className="truncate">
+                  {createName ? `Create "${createName}"` : "Create Member"}
+                </span>
               </CommandItem>
             ) : value ? (
               <CommandItem onSelect={() => selectMember("")} value="clear">
@@ -865,9 +862,7 @@ function GuarantorMemberCombobox({
                   )
                 })}
               </CommandGroup>
-            ) : (
-              <CommandEmpty>No members found.</CommandEmpty>
-            )}
+            ) : null}
           </CommandList>
         </Command>
       </PopoverContent>
@@ -1305,6 +1300,7 @@ export function LoanHistoryEntryForm({
   memberJoinedAt,
   memberNumberPrefix,
   memberOptions,
+  quickFillEnabled,
   redirectTo,
   showSubmitButton = true,
 }: {
@@ -1315,6 +1311,7 @@ export function LoanHistoryEntryForm({
   memberJoinedAt?: string | null
   memberNumberPrefix?: string | null
   memberOptions: MemberOption[]
+  quickFillEnabled: boolean
   redirectTo?: string
   showSubmitButton?: boolean
 }) {
@@ -1827,7 +1824,7 @@ export function LoanHistoryEntryForm({
 
       <MemberCreateModal
         description="Create a member profile and select them as guarantor."
-        devMode={process.env.NODE_ENV !== "production"}
+        devMode={quickFillEnabled}
         initialValues={{ fullName: createMemberName ?? "" }}
         memberNumberPrefix={memberNumberPrefix}
         onOpenChange={(nextOpen) => {

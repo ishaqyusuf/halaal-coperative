@@ -100,6 +100,14 @@ type DashboardPageData = {
   }
 }
 
+export function canShowQuickFill(context: {
+  auth: { user: { email: string } | null }
+}) {
+  const email = context.auth.user?.email.toLowerCase() ?? ""
+
+  return process.env.NODE_ENV !== "production" || email.includes("@test.com")
+}
+
 export async function getDashboardServerContext(): Promise<DashboardServerContext> {
   const headerStore = await headers()
   const cookieStore = await cookies()

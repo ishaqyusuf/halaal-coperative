@@ -17,7 +17,7 @@ import {
   listMembers,
   listMigrationProfitAdjustmentOptions,
 } from "@halaalvest/db"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 
 type BackfillMember = NonNullable<Awaited<ReturnType<typeof getMemberById>>>
@@ -192,6 +192,7 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     })),
     migrationSnapshot: migrationState.snapshot,
     profitMigrationOptions: profitOptions.map(serializeProfitAdjustmentOption),
+    quickFillEnabled: canShowQuickFill(context),
     review: {
       ...review,
       joinedAt: toDateString(review.joinedAt) ?? "",

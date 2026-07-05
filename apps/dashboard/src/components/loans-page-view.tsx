@@ -26,6 +26,7 @@ export function LoansPageView({
   loanRequests,
   loans,
   members,
+  quickFillEnabled,
 }: LoansPageData) {
   return (
     <WorkspacePageShell
@@ -42,7 +43,7 @@ export function LoansPageView({
           />
           <div className="mt-5">
             <LoanRequestForm
-              devMode={process.env.NODE_ENV !== "production"}
+              devMode={quickFillEnabled}
               loanProducts={loanProducts.map((product) => ({
                 id: product.id,
                 label: `${product.name} (up to ${product.termMonths} months)`,

@@ -223,6 +223,7 @@ export function TenantFinancePageView({
   memberNumberPrefix,
   migrationMemberReview,
   profitMigrationOptions,
+  quickFillEnabled,
   selectedMigrationMemberId,
   selectedMigrationMemberLabel,
   section = "overview",
@@ -242,6 +243,7 @@ export function TenantFinancePageView({
   memberNumberPrefix?: string | null
   migrationMemberReview: MigrationMemberReviewRow[]
   profitMigrationOptions?: ProfitMigrationOptionRow[]
+  quickFillEnabled: boolean
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   section?: TenantFinanceSection
@@ -419,6 +421,7 @@ export function TenantFinancePageView({
                 migrationSnapshot={initialMigrationSnapshot}
                 migrationMemberReview={migrationMemberReview}
                 profitMigrationOptions={profitMigrationOptions}
+                quickFillEnabled={quickFillEnabled}
                 selectedMigrationMemberId={selectedMigrationMemberId}
                 selectedMigrationMemberLabel={selectedMigrationMemberLabel}
                 section={

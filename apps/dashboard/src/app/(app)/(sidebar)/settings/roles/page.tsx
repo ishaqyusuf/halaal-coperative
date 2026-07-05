@@ -2,7 +2,7 @@ import { cooperativeRoles, getRoleDisplayName, getRoleScopeSummary } from "@hala
 import { createDbRuntime, listTenantUsersWithMemberships } from "@halaalvest/db"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { RoleAssignmentForm } from "@/components/forms/settings-forms"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
 export default async function RolesPage() {
@@ -28,7 +28,7 @@ export default async function RolesPage() {
         <DashboardSectionCard>
           <DashboardSectionHeader eyebrow="Assignment" title="Assign workspace roles" description="Provision cooperative roles without introducing a separate permission matrix." />
           <div className="mt-5">
-            <RoleAssignmentForm devMode={process.env.NODE_ENV !== "production"} roles={cooperativeRoles.map((role) => ({ label: getRoleDisplayName(role), value: role }))} />
+            <RoleAssignmentForm devMode={canShowQuickFill(context)} roles={cooperativeRoles.map((role) => ({ label: getRoleDisplayName(role), value: role }))} />
           </div>
         </DashboardSectionCard>
       ) : null}

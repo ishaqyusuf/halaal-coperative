@@ -1,6 +1,10 @@
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, WorkspacePageShell } from "@/components/dashboard"
 import { CooperativeProfileForm } from "@/components/forms/settings-forms"
-import { getDashboardPageData, getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardPageData,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 import { hasAnyRole, workspaceConfigurationRoles } from "@/lib/workspace-access"
 
 export default async function CooperativeProfilePage() {
@@ -22,7 +26,7 @@ export default async function CooperativeProfilePage() {
           <div className="mt-5">
             <CooperativeProfileForm
               defaultValues={{ currentSize: tenant.currentSize?.toString() ?? "", memberNumberPrefix: tenant.memberNumberPrefix ?? "", name: tenant.name, officeAddress: tenant.officeAddress ?? "", region: tenant.region ?? "", startDate: tenant.startDate ?? "", timezone: tenant.timezone }}
-              devMode={process.env.NODE_ENV !== "production"}
+              devMode={canShowQuickFill(context)}
             />
           </div>
         </DashboardSectionCard>

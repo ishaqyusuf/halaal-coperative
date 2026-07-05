@@ -1,7 +1,7 @@
 import { createDbRuntime, listChargeApplications, listChargeDefinitions, listMembers } from "@halaalvest/db"
 import { ChargesPageView } from "@/components/charges-page-view"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 
 export default async function ChargesPage() {
@@ -77,6 +77,7 @@ export default async function ChargesPage() {
       members={members}
       monthlyLevies={monthlyLevies}
       postedApplications={postedApplications}
+      quickFillEnabled={canShowQuickFill(context)}
     />
   )
 }

@@ -7,7 +7,7 @@ import {
 } from "@halaalvest/db"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
 import type { DashboardImportReferenceData } from "@/lib/import-csv"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole, memberManagementRoles } from "@/lib/workspace-access"
 import {
   getActiveMemberFilters,
@@ -53,6 +53,7 @@ export type MembersPageData =
       canManageImports: boolean
       canManageMembers: boolean
       filters: MembersFilterParams
+      quickFillEnabled: boolean
       state: "unavailable"
       tenant: MembersPageTenant | null
     }
@@ -68,6 +69,7 @@ export type MembersPageData =
         total: number
       }
       referenceData: DashboardImportReferenceData | null
+      quickFillEnabled: boolean
       signupSettings: MembersPageSignupSettings
       state: "ready"
       summary: {
@@ -114,6 +116,7 @@ export async function loadMembersPageData(
   const runtime = createDbRuntime()
   const canManageMembers = hasAnyRole(context.auth.membership?.role, memberManagementRoles)
   const canManageImports = hasAnyRole(context.auth.membership?.role, allStaffRoles)
+  const quickFillEnabled = canShowQuickFill(context)
   const tenant = toMembersPageTenant(context.tenant)
 
   if (!context.tenant || runtime.status !== "database-configured") {
@@ -122,6 +125,7 @@ export async function loadMembersPageData(
       canManageImports,
       canManageMembers,
       filters,
+      quickFillEnabled,
       tenant,
     }
   }
@@ -152,6 +156,7 @@ export async function loadMembersPageData(
       canManageImports,
       canManageMembers,
       filters,
+      quickFillEnabled,
       tenant,
     }
   }
@@ -165,6 +170,7 @@ export async function loadMembersPageData(
     filters,
     hasFilters: hasActiveMemberFilters(filters),
     members: members as { items: MembersPageMemberRow[]; total: number },
+    quickFillEnabled,
     referenceData,
     signupSettings,
     tenant,

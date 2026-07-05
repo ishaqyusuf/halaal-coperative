@@ -38,6 +38,7 @@ export function MemberDetailView({
   canManageCommitments,
   canManageMembers,
   detail,
+  quickFillEnabled,
 }: MemberDetailPageData) {
   const activePlan = detail.member.contributionPlans.find((plan) => plan.isActive) ?? null
   const today = new Date()
@@ -302,7 +303,7 @@ export function MemberDetailView({
                   kycStatus: detail.member.kycStatus,
                   memberId: detail.member.id,
                 }}
-                devMode={process.env.NODE_ENV !== "production"}
+                devMode={quickFillEnabled}
               />
             </div>
           </DashboardSectionCard>
@@ -311,7 +312,7 @@ export function MemberDetailView({
             <div className="mt-5">
               <MemberDocumentForm
                 defaultMemberId={detail.member.id}
-                devMode={process.env.NODE_ENV !== "production"}
+                devMode={quickFillEnabled}
               />
             </div>
           </DashboardSectionCard>

@@ -32,6 +32,7 @@ export function ChargesPageView({
   members,
   monthlyLevies,
   postedApplications,
+  quickFillEnabled,
 }: {
   activeCharges: Array<{
     amount: number | string | { toString(): string }
@@ -73,6 +74,7 @@ export function ChargesPageView({
   }
   monthlyLevies: Array<unknown>
   postedApplications: Array<unknown>
+  quickFillEnabled: boolean
 }) {
   return (
     <WorkspacePageShell
@@ -114,7 +116,7 @@ export function ChargesPageView({
               description="Configure a reusable cooperative charge and keep the posting rules centralized."
             />
             <div className="mt-5">
-              <ChargeDefinitionForm devMode={process.env.NODE_ENV !== "production"} />
+              <ChargeDefinitionForm devMode={quickFillEnabled} />
             </div>
           </DashboardSectionCard>
 
@@ -130,7 +132,7 @@ export function ChargesPageView({
                   id: charge.id,
                   label: `${charge.name} (${charge.code})`,
                 }))}
-                devMode={process.env.NODE_ENV !== "production"}
+                devMode={quickFillEnabled}
                 members={members.items.map((member) => ({
                   id: member.id,
                   label: `${member.fullName} (${member.memberNumber})`,

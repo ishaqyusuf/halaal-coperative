@@ -6,7 +6,7 @@ import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { MemberSignupForm } from "@/components/onboarding/member-signup-form"
 import { resolveMemberSignupGate } from "@/lib/member-signup-access"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
@@ -106,7 +106,7 @@ export default async function MemberSignupPage({
 
         {context.tenant && memberSignupOpen && gate?.access === "granted" ? (
           <MemberSignupForm
-            devMode={process.env.NODE_ENV !== "production"}
+            devMode={canShowQuickFill(context)}
             memberNumberPrefix={context.tenant.memberNumberPrefix}
             signupToken={gate.token}
             tenantName={context.tenant.name}

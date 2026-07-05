@@ -112,7 +112,6 @@ import {
   sendTenantRoleNotificationEmails,
 } from "../lib/server-notifications"
 
-
 type DashboardActionState = {
   context: TRPCContext
   revalidatePaths: string[]
@@ -1134,18 +1133,21 @@ export async function rejectMemberOnboardingAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
-  const rejectionDraft = createEmailDraftFromType("member.onboarding_rejected", {
-    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
-      pathname: "/login",
-    }),
-    reason: rejected.request.rejectionReason
-      ? `Reason: ${rejected.request.rejectionReason}`
-      : null,
-    recipientEmail: rejected.user.email,
-    recipientName: rejected.user.fullName,
-    requestId: rejected.request.id,
-    tenantName: actor.tenant.name,
-  })
+  const rejectionDraft = createEmailDraftFromType(
+    "member.onboarding_rejected",
+    {
+      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+        pathname: "/login",
+      }),
+      reason: rejected.request.rejectionReason
+        ? `Reason: ${rejected.request.rejectionReason}`
+        : null,
+      recipientEmail: rejected.user.email,
+      recipientName: rejected.user.fullName,
+      requestId: rejected.request.id,
+      tenantName: actor.tenant.name,
+    }
+  )
 
   await sendEmailDraftWithAudit({
     draft: rejectionDraft,
@@ -1524,10 +1526,7 @@ function getChargeDefinitionHistoryRows(formData: FormData) {
     formData,
     "historyEffectiveFrom"
   )
-  const historyAmountValues = getFormDataStringValues(
-    formData,
-    "historyAmount"
-  )
+  const historyAmountValues = getFormDataStringValues(formData, "historyAmount")
   const historyRowCount = Math.max(
     historyEffectiveFromValues.length,
     historyAmountValues.length
@@ -1587,10 +1586,7 @@ function getShareStructureHistoryRows(
     formData,
     "historyEffectiveFrom"
   )
-  const historyAmountValues = getFormDataStringValues(
-    formData,
-    "historyAmount"
-  )
+  const historyAmountValues = getFormDataStringValues(formData, "historyAmount")
   const historyValueTypeValues = getFormDataStringValues(
     formData,
     "historyValueType"
@@ -1853,10 +1849,14 @@ export async function updateTenantBusinessProfitPolicyAction(
     defaultDistributablePercentage: Number(
       getRequiredString(formData, "defaultDistributablePercentage")
     ),
-    distributionBasis: getRequiredString(formData, "distributionBasis") as
-      | "share_capital_balance",
-    expenseTreatment: getRequiredString(formData, "expenseTreatment") as
-      | "deduct_reviewed_expenses_before_distribution",
+    distributionBasis: getRequiredString(
+      formData,
+      "distributionBasis"
+    ) as "share_capital_balance",
+    expenseTreatment: getRequiredString(
+      formData,
+      "expenseTreatment"
+    ) as "deduct_reviewed_expenses_before_distribution",
     financialYearStartMonth: Number(
       getRequiredString(formData, "financialYearStartMonth")
     ),
@@ -1954,11 +1954,8 @@ function parseBusinessProfitHistoryAmount(value: string, label: string) {
 
 export async function createShareBusinessAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
-  const sourceType =
-    ((formData.get("sourceType") as string | null)?.trim() || "manual") as
-      | "manual"
-      | "backfill"
-      | "import"
+  const sourceType = ((formData.get("sourceType") as string | null)?.trim() ||
+    "manual") as "manual" | "backfill" | "import"
   await requireBusinessProfitOperationOpen(actor, sourceType)
   const endDate = (formData.get("endDate") as string | null)?.trim()
   const startDate = getRequiredString(formData, "startDate")
@@ -2255,6 +2252,15 @@ export async function saveBusinessProfitMigrationWorksheetAction(
 
 export async function saveBusinessProfitSeasonReviewAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
+  const redirectTo =
+    (formData.get("redirectTo") as string | null)?.trim() ||
+    "/getting-started?step=admin-member"
+  const migrationState = await getTenantInitialMigrationState(actor.tenant.id)
+
+  if (migrationState.snapshot.canUseLiveFinancialWrites) {
+    return { redirectTo }
+  }
+
   await requireHistoricalFinanceSetupMutable(actor)
   const seasonKeys = getAllTrimmedStrings(formData, "seasonKey").filter(Boolean)
 
@@ -2271,15 +2277,19 @@ export async function saveBusinessProfitSeasonReviewAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
+  await finalizeTenantInitialMigration({
+    actorUserId: actor.user.id,
+    tenantId: actor.tenant.id,
+  })
+
   revalidatePath("/getting-started")
   revalidatePath("/settings/finance")
   revalidatePath("/settings/finance/business")
   revalidatePath("/business")
+  revalidatePath("/")
 
   return {
-    redirectTo:
-      (formData.get("redirectTo") as string | null)?.trim() ||
-      "/getting-started?step=admin-member",
+    redirectTo,
   }
 }
 
@@ -2302,9 +2312,7 @@ export async function updateChargeDefinitionAction(formData: FormData) {
   )?.trim()
   const code = (formData.get("code") as string | null)?.trim()
   const effectiveFrom = (formData.get("effectiveFrom") as string | null)?.trim()
-  const isMonthlyLevy = (
-    formData.get("isMonthlyLevy") as string | null
-  )?.trim()
+  const isMonthlyLevy = (formData.get("isMonthlyLevy") as string | null)?.trim()
   const kind = (formData.get("kind") as string | null)?.trim()
   const name = (formData.get("name") as string | null)?.trim()
   const purpose = (formData.get("purpose") as string | null)?.trim()
@@ -2644,17 +2652,6 @@ export async function finalizeInitialMigrationAction(formData: FormData) {
     )
   }
 
-  const migrationState = await getTenantInitialMigrationState(actor.tenant.id)
-  const blockingSteps = migrationState.snapshot.missingStepKeys.filter(
-    (stepKey) => stepKey !== "finalization"
-  )
-
-  if (blockingSteps.length > 0) {
-    throw new Error(
-      "Initial migration cannot be finalized until every setup and member backfill step is complete."
-    )
-  }
-
   await finalizeTenantInitialMigration({
     actorUserId: actor.user.id,
     tenantId: actor.tenant.id,
@@ -2868,14 +2865,14 @@ function buildLegacyLoanMigrationRows(formData: FormData) {
     }
     const started = Boolean(
       row.closedAt ||
-        row.notes ||
-        row.openedAt ||
-        row.outstandingPrincipalBalance ||
-        row.principalAmount ||
-        row.savingsDuringLoan ||
-        row.scheduledMonthlyPrincipalRepayment ||
-        indexedValue(guarantorOneValues, index) ||
-        indexedValue(guarantorTwoValues, index)
+      row.notes ||
+      row.openedAt ||
+      row.outstandingPrincipalBalance ||
+      row.principalAmount ||
+      row.savingsDuringLoan ||
+      row.scheduledMonthlyPrincipalRepayment ||
+      indexedValue(guarantorOneValues, index) ||
+      indexedValue(guarantorTwoValues, index)
     )
 
     if (!started) {
@@ -2938,8 +2935,10 @@ async function resolveMigrationGuarantorMemberId({
       .toLowerCase()
       .trim() || null
   const phoneNumber =
-    indexedValue(getAllTrimmedStrings(formData, `${prefix}CreatePhone`), index)
-      .trim() || null
+    indexedValue(
+      getAllTrimmedStrings(formData, `${prefix}CreatePhone`),
+      index
+    ).trim() || null
   const started = Boolean(
     fullName || memberNumber || joinedAtValue || email || phoneNumber
   )
@@ -2985,8 +2984,8 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
   const memberId = getRequiredString(formData, "memberId")
   await requireMemberMigrationDraftMutable(actor, memberId)
   const rows = buildLegacyLoanMigrationRows(formData)
-  const allowEmptyRows = getOptionalTrimmedString(formData, "allowEmptyRows")
-    === "true"
+  const allowEmptyRows =
+    getOptionalTrimmedString(formData, "allowEmptyRows") === "true"
 
   if (rows.length === 0) {
     if (allowEmptyRows) {
@@ -3110,8 +3109,8 @@ export async function upsertMemberAmountLogAction(formData: FormData) {
   const memberId = getRequiredString(formData, "memberId")
   await requireMemberMigrationDraftMutable(actor, memberId)
   const rows = buildMemberAmountLogRows(formData)
-  const allowEmptyRows = getOptionalTrimmedString(formData, "allowEmptyRows")
-    === "true"
+  const allowEmptyRows =
+    getOptionalTrimmedString(formData, "allowEmptyRows") === "true"
 
   if (rows.length === 0) {
     if (allowEmptyRows) {
@@ -4049,7 +4048,6 @@ export async function queueBackfillApplyAction(formData: FormData) {
   revalidateMemberBackfillPaths(memberId)
 }
 
-
 export const dashboardActionInputSchema = z.object({
   fields: z.array(z.tuple([z.string(), z.string()])),
 })
@@ -4072,7 +4070,9 @@ function formAction<TResult>(
   return authenticatedProcedure
     .input(dashboardActionInputSchema)
     .mutation(({ ctx, input }) =>
-      runDashboardActionWithContext(ctx, () => handler(formDataFromInput(input)))
+      runDashboardActionWithContext(ctx, () =>
+        handler(formDataFromInput(input))
+      )
     )
 }
 
@@ -4182,82 +4182,232 @@ export type DashboardNoInputActionName = Exclude<
 export const dashboardActionsRouter = createTRPCRouter({
   createMemberAction: formAction(dashboardActionHandlers.createMemberAction),
   updateMemberAction: formAction(dashboardActionHandlers.updateMemberAction),
-  updateMemberStatusAction: formAction(dashboardActionHandlers.updateMemberStatusAction),
-  approveMemberOnboardingAction: formAction(dashboardActionHandlers.approveMemberOnboardingAction),
-  rejectMemberOnboardingAction: formAction(dashboardActionHandlers.rejectMemberOnboardingAction),
-  updateMemberKycAction: formAction(dashboardActionHandlers.updateMemberKycAction),
-  createMemberDocumentAction: formAction(dashboardActionHandlers.createMemberDocumentAction),
-  updateMemberDocumentReviewAction: formAction(dashboardActionHandlers.updateMemberDocumentReviewAction),
-  recordContributionAction: formAction(dashboardActionHandlers.recordContributionAction),
-  setMemberContributionPlanAction: formAction(dashboardActionHandlers.setMemberContributionPlanAction),
-  updateContributionPlanAction: formAction(dashboardActionHandlers.updateContributionPlanAction),
-  closeContributionPlanAction: formAction(dashboardActionHandlers.closeContributionPlanAction),
-  updateMemberPaymentAllocationPreferenceAction: formAction(dashboardActionHandlers.updateMemberPaymentAllocationPreferenceAction),
-  recordMemberPaymentAction: formAction(dashboardActionHandlers.recordMemberPaymentAction),
-  createMonthlyRecordAction: formAction(dashboardActionHandlers.createMonthlyRecordAction),
-  updateMonthlyRecordSettingsAction: formAction(dashboardActionHandlers.updateMonthlyRecordSettingsAction),
-  generateMonthlyRecordsNowAction: noInputAction(dashboardActionHandlers.generateMonthlyRecordsNowAction),
-  applyMonthlyRecordMemberAction: formAction(dashboardActionHandlers.applyMonthlyRecordMemberAction),
-  cancelMonthlyRecordMemberAction: formAction(dashboardActionHandlers.cancelMonthlyRecordMemberAction),
-  createChargeDefinitionAction: formAction(dashboardActionHandlers.createChargeDefinitionAction),
-  createTenantShareStructureVersionAction: formAction(dashboardActionHandlers.createTenantShareStructureVersionAction),
-  updateTenantShareStructureVersionAction: formAction(dashboardActionHandlers.updateTenantShareStructureVersionAction),
-  createChargeDefinitionVersionAction: formAction(dashboardActionHandlers.createChargeDefinitionVersionAction),
-  updateChargeDefinitionVersionAction: formAction(dashboardActionHandlers.updateChargeDefinitionVersionAction),
-  updateTenantBusinessProfitPolicyAction: formAction(dashboardActionHandlers.updateTenantBusinessProfitPolicyAction),
-  createShareBusinessAction: formAction(dashboardActionHandlers.createShareBusinessAction),
-  updateShareBusinessAction: formAction(dashboardActionHandlers.updateShareBusinessAction),
-  createShareBusinessProfitEntryAction: formAction(dashboardActionHandlers.createShareBusinessProfitEntryAction),
-  updateShareBusinessProfitEntryAction: formAction(dashboardActionHandlers.updateShareBusinessProfitEntryAction),
-  generateShareProfitAllocationsAction: formAction(dashboardActionHandlers.generateShareProfitAllocationsAction),
-  publishShareProfitAllocationsAction: formAction(dashboardActionHandlers.publishShareProfitAllocationsAction),
-  saveBusinessProfitMigrationWorksheetAction: formAction(dashboardActionHandlers.saveBusinessProfitMigrationWorksheetAction),
-  saveBusinessProfitSeasonReviewAction: formAction(dashboardActionHandlers.saveBusinessProfitSeasonReviewAction),
-  updateChargeDefinitionAction: formAction(dashboardActionHandlers.updateChargeDefinitionAction),
+  updateMemberStatusAction: formAction(
+    dashboardActionHandlers.updateMemberStatusAction
+  ),
+  approveMemberOnboardingAction: formAction(
+    dashboardActionHandlers.approveMemberOnboardingAction
+  ),
+  rejectMemberOnboardingAction: formAction(
+    dashboardActionHandlers.rejectMemberOnboardingAction
+  ),
+  updateMemberKycAction: formAction(
+    dashboardActionHandlers.updateMemberKycAction
+  ),
+  createMemberDocumentAction: formAction(
+    dashboardActionHandlers.createMemberDocumentAction
+  ),
+  updateMemberDocumentReviewAction: formAction(
+    dashboardActionHandlers.updateMemberDocumentReviewAction
+  ),
+  recordContributionAction: formAction(
+    dashboardActionHandlers.recordContributionAction
+  ),
+  setMemberContributionPlanAction: formAction(
+    dashboardActionHandlers.setMemberContributionPlanAction
+  ),
+  updateContributionPlanAction: formAction(
+    dashboardActionHandlers.updateContributionPlanAction
+  ),
+  closeContributionPlanAction: formAction(
+    dashboardActionHandlers.closeContributionPlanAction
+  ),
+  updateMemberPaymentAllocationPreferenceAction: formAction(
+    dashboardActionHandlers.updateMemberPaymentAllocationPreferenceAction
+  ),
+  recordMemberPaymentAction: formAction(
+    dashboardActionHandlers.recordMemberPaymentAction
+  ),
+  createMonthlyRecordAction: formAction(
+    dashboardActionHandlers.createMonthlyRecordAction
+  ),
+  updateMonthlyRecordSettingsAction: formAction(
+    dashboardActionHandlers.updateMonthlyRecordSettingsAction
+  ),
+  generateMonthlyRecordsNowAction: noInputAction(
+    dashboardActionHandlers.generateMonthlyRecordsNowAction
+  ),
+  applyMonthlyRecordMemberAction: formAction(
+    dashboardActionHandlers.applyMonthlyRecordMemberAction
+  ),
+  cancelMonthlyRecordMemberAction: formAction(
+    dashboardActionHandlers.cancelMonthlyRecordMemberAction
+  ),
+  createChargeDefinitionAction: formAction(
+    dashboardActionHandlers.createChargeDefinitionAction
+  ),
+  createTenantShareStructureVersionAction: formAction(
+    dashboardActionHandlers.createTenantShareStructureVersionAction
+  ),
+  updateTenantShareStructureVersionAction: formAction(
+    dashboardActionHandlers.updateTenantShareStructureVersionAction
+  ),
+  createChargeDefinitionVersionAction: formAction(
+    dashboardActionHandlers.createChargeDefinitionVersionAction
+  ),
+  updateChargeDefinitionVersionAction: formAction(
+    dashboardActionHandlers.updateChargeDefinitionVersionAction
+  ),
+  updateTenantBusinessProfitPolicyAction: formAction(
+    dashboardActionHandlers.updateTenantBusinessProfitPolicyAction
+  ),
+  createShareBusinessAction: formAction(
+    dashboardActionHandlers.createShareBusinessAction
+  ),
+  updateShareBusinessAction: formAction(
+    dashboardActionHandlers.updateShareBusinessAction
+  ),
+  createShareBusinessProfitEntryAction: formAction(
+    dashboardActionHandlers.createShareBusinessProfitEntryAction
+  ),
+  updateShareBusinessProfitEntryAction: formAction(
+    dashboardActionHandlers.updateShareBusinessProfitEntryAction
+  ),
+  generateShareProfitAllocationsAction: formAction(
+    dashboardActionHandlers.generateShareProfitAllocationsAction
+  ),
+  publishShareProfitAllocationsAction: formAction(
+    dashboardActionHandlers.publishShareProfitAllocationsAction
+  ),
+  saveBusinessProfitMigrationWorksheetAction: formAction(
+    dashboardActionHandlers.saveBusinessProfitMigrationWorksheetAction
+  ),
+  saveBusinessProfitSeasonReviewAction: formAction(
+    dashboardActionHandlers.saveBusinessProfitSeasonReviewAction
+  ),
+  updateChargeDefinitionAction: formAction(
+    dashboardActionHandlers.updateChargeDefinitionAction
+  ),
   applyChargeAction: formAction(dashboardActionHandlers.applyChargeAction),
-  waiveChargeApplicationAction: formAction(dashboardActionHandlers.waiveChargeApplicationAction),
-  reverseChargeApplicationAction: formAction(dashboardActionHandlers.reverseChargeApplicationAction),
-  submitLoanRequestAction: formAction(dashboardActionHandlers.submitLoanRequestAction),
-  reviewLoanRequestAction: formAction(dashboardActionHandlers.reviewLoanRequestAction),
+  waiveChargeApplicationAction: formAction(
+    dashboardActionHandlers.waiveChargeApplicationAction
+  ),
+  reverseChargeApplicationAction: formAction(
+    dashboardActionHandlers.reverseChargeApplicationAction
+  ),
+  submitLoanRequestAction: formAction(
+    dashboardActionHandlers.submitLoanRequestAction
+  ),
+  reviewLoanRequestAction: formAction(
+    dashboardActionHandlers.reviewLoanRequestAction
+  ),
   disburseLoanAction: formAction(dashboardActionHandlers.disburseLoanAction),
   postRepaymentAction: formAction(dashboardActionHandlers.postRepaymentAction),
-  updateCooperativeProfileAction: formAction(dashboardActionHandlers.updateCooperativeProfileAction),
-  updateTenantFinanceStartDateAction: formAction(dashboardActionHandlers.updateTenantFinanceStartDateAction),
-  finalizeInitialMigrationAction: formAction(dashboardActionHandlers.finalizeInitialMigrationAction),
-  unlockInitialMigrationAction: formAction(dashboardActionHandlers.unlockInitialMigrationAction),
-  createLegacyLoanMigrationDraftAction: formAction(dashboardActionHandlers.createLegacyLoanMigrationDraftAction),
-  updateLegacyLoanMigrationDraftAction: formAction(dashboardActionHandlers.updateLegacyLoanMigrationDraftAction),
-  upsertMemberAmountLogAction: formAction(dashboardActionHandlers.upsertMemberAmountLogAction),
-  markLegacyLoansReviewedAction: formAction(dashboardActionHandlers.markLegacyLoansReviewedAction),
-  markBusinessProfitPoolsReviewedAction: formAction(dashboardActionHandlers.markBusinessProfitPoolsReviewedAction),
-  upsertMigrationBackfillAdjustmentAction: formAction(dashboardActionHandlers.upsertMigrationBackfillAdjustmentAction),
-  setMigrationBackfillDefaultingMonthsAction: formAction(dashboardActionHandlers.setMigrationBackfillDefaultingMonthsAction),
-  upsertMemberActivityEventAction: formAction(dashboardActionHandlers.upsertMemberActivityEventAction),
-  deleteMemberActivityEventAction: formAction(dashboardActionHandlers.deleteMemberActivityEventAction),
-  upsertMigrationProfitAdjustmentAction: formAction(dashboardActionHandlers.upsertMigrationProfitAdjustmentAction),
-  updateMemberSignupAccessModeAction: formAction(dashboardActionHandlers.updateMemberSignupAccessModeAction),
-  createMemberSignupLinkAction: formAction(dashboardActionHandlers.createMemberSignupLinkAction),
-  updateMemberSignupLinkAction: formAction(dashboardActionHandlers.updateMemberSignupLinkAction),
-  toggleMemberSignupLinkAction: formAction(dashboardActionHandlers.toggleMemberSignupLinkAction),
-  rotateMemberSignupLinkAction: formAction(dashboardActionHandlers.rotateMemberSignupLinkAction),
-  createTenantDomainAction: formAction(dashboardActionHandlers.createTenantDomainAction),
-  setTenantDomainPrimaryAction: formAction(dashboardActionHandlers.setTenantDomainPrimaryAction),
-  updateTenantDomainVerificationStatusAction: formAction(dashboardActionHandlers.updateTenantDomainVerificationStatusAction),
-  runTenantDomainVerificationCheckAction: formAction(dashboardActionHandlers.runTenantDomainVerificationCheckAction),
-  provisionTenantUserRoleAction: formAction(dashboardActionHandlers.provisionTenantUserRoleAction),
-  saveNotificationPreferenceAction: formAction(dashboardActionHandlers.saveNotificationPreferenceAction),
-  refreshCollectionsStatusesAction: noInputAction(dashboardActionHandlers.refreshCollectionsStatusesAction),
-  recordCollectionFollowUpAction: formAction(dashboardActionHandlers.recordCollectionFollowUpAction),
-  importMembersCsvAction: formAction(dashboardActionHandlers.importMembersCsvAction),
-  importDeductionSourcesCsvAction: formAction(dashboardActionHandlers.importDeductionSourcesCsvAction),
-  importLoanProductsCsvAction: formAction(dashboardActionHandlers.importLoanProductsCsvAction),
-  importContributionsCsvAction: formAction(dashboardActionHandlers.importContributionsCsvAction),
-  importChargesCsvAction: formAction(dashboardActionHandlers.importChargesCsvAction),
-  importLoanMigrationsCsvAction: formAction(dashboardActionHandlers.importLoanMigrationsCsvAction),
-  importRepaymentMigrationsCsvAction: formAction(dashboardActionHandlers.importRepaymentMigrationsCsvAction),
-  stageImportBatchAction: formAction(dashboardActionHandlers.stageImportBatchAction),
-  applyImportBatchAction: formAction(dashboardActionHandlers.applyImportBatchAction),
-  queueBackfillDraftAction: formAction(dashboardActionHandlers.queueBackfillDraftAction),
-  getBackfillPreviewAction: formAction(dashboardActionHandlers.getBackfillPreviewAction),
-  queueBackfillApplyAction: formAction(dashboardActionHandlers.queueBackfillApplyAction),
+  updateCooperativeProfileAction: formAction(
+    dashboardActionHandlers.updateCooperativeProfileAction
+  ),
+  updateTenantFinanceStartDateAction: formAction(
+    dashboardActionHandlers.updateTenantFinanceStartDateAction
+  ),
+  finalizeInitialMigrationAction: formAction(
+    dashboardActionHandlers.finalizeInitialMigrationAction
+  ),
+  unlockInitialMigrationAction: formAction(
+    dashboardActionHandlers.unlockInitialMigrationAction
+  ),
+  createLegacyLoanMigrationDraftAction: formAction(
+    dashboardActionHandlers.createLegacyLoanMigrationDraftAction
+  ),
+  updateLegacyLoanMigrationDraftAction: formAction(
+    dashboardActionHandlers.updateLegacyLoanMigrationDraftAction
+  ),
+  upsertMemberAmountLogAction: formAction(
+    dashboardActionHandlers.upsertMemberAmountLogAction
+  ),
+  markLegacyLoansReviewedAction: formAction(
+    dashboardActionHandlers.markLegacyLoansReviewedAction
+  ),
+  markBusinessProfitPoolsReviewedAction: formAction(
+    dashboardActionHandlers.markBusinessProfitPoolsReviewedAction
+  ),
+  upsertMigrationBackfillAdjustmentAction: formAction(
+    dashboardActionHandlers.upsertMigrationBackfillAdjustmentAction
+  ),
+  setMigrationBackfillDefaultingMonthsAction: formAction(
+    dashboardActionHandlers.setMigrationBackfillDefaultingMonthsAction
+  ),
+  upsertMemberActivityEventAction: formAction(
+    dashboardActionHandlers.upsertMemberActivityEventAction
+  ),
+  deleteMemberActivityEventAction: formAction(
+    dashboardActionHandlers.deleteMemberActivityEventAction
+  ),
+  upsertMigrationProfitAdjustmentAction: formAction(
+    dashboardActionHandlers.upsertMigrationProfitAdjustmentAction
+  ),
+  updateMemberSignupAccessModeAction: formAction(
+    dashboardActionHandlers.updateMemberSignupAccessModeAction
+  ),
+  createMemberSignupLinkAction: formAction(
+    dashboardActionHandlers.createMemberSignupLinkAction
+  ),
+  updateMemberSignupLinkAction: formAction(
+    dashboardActionHandlers.updateMemberSignupLinkAction
+  ),
+  toggleMemberSignupLinkAction: formAction(
+    dashboardActionHandlers.toggleMemberSignupLinkAction
+  ),
+  rotateMemberSignupLinkAction: formAction(
+    dashboardActionHandlers.rotateMemberSignupLinkAction
+  ),
+  createTenantDomainAction: formAction(
+    dashboardActionHandlers.createTenantDomainAction
+  ),
+  setTenantDomainPrimaryAction: formAction(
+    dashboardActionHandlers.setTenantDomainPrimaryAction
+  ),
+  updateTenantDomainVerificationStatusAction: formAction(
+    dashboardActionHandlers.updateTenantDomainVerificationStatusAction
+  ),
+  runTenantDomainVerificationCheckAction: formAction(
+    dashboardActionHandlers.runTenantDomainVerificationCheckAction
+  ),
+  provisionTenantUserRoleAction: formAction(
+    dashboardActionHandlers.provisionTenantUserRoleAction
+  ),
+  saveNotificationPreferenceAction: formAction(
+    dashboardActionHandlers.saveNotificationPreferenceAction
+  ),
+  refreshCollectionsStatusesAction: noInputAction(
+    dashboardActionHandlers.refreshCollectionsStatusesAction
+  ),
+  recordCollectionFollowUpAction: formAction(
+    dashboardActionHandlers.recordCollectionFollowUpAction
+  ),
+  importMembersCsvAction: formAction(
+    dashboardActionHandlers.importMembersCsvAction
+  ),
+  importDeductionSourcesCsvAction: formAction(
+    dashboardActionHandlers.importDeductionSourcesCsvAction
+  ),
+  importLoanProductsCsvAction: formAction(
+    dashboardActionHandlers.importLoanProductsCsvAction
+  ),
+  importContributionsCsvAction: formAction(
+    dashboardActionHandlers.importContributionsCsvAction
+  ),
+  importChargesCsvAction: formAction(
+    dashboardActionHandlers.importChargesCsvAction
+  ),
+  importLoanMigrationsCsvAction: formAction(
+    dashboardActionHandlers.importLoanMigrationsCsvAction
+  ),
+  importRepaymentMigrationsCsvAction: formAction(
+    dashboardActionHandlers.importRepaymentMigrationsCsvAction
+  ),
+  stageImportBatchAction: formAction(
+    dashboardActionHandlers.stageImportBatchAction
+  ),
+  applyImportBatchAction: formAction(
+    dashboardActionHandlers.applyImportBatchAction
+  ),
+  queueBackfillDraftAction: formAction(
+    dashboardActionHandlers.queueBackfillDraftAction
+  ),
+  getBackfillPreviewAction: formAction(
+    dashboardActionHandlers.getBackfillPreviewAction
+  ),
+  queueBackfillApplyAction: formAction(
+    dashboardActionHandlers.queueBackfillApplyAction
+  ),
 })

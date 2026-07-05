@@ -1,6 +1,14 @@
 "use client"
 
-import { Fragment, useId, useState, useTransition } from "react"
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 import { z } from "zod"
 import { useTenantRouter } from "@halaalvest/tenant-url/next"
 import { ArrowUpDownIcon } from "@hugeicons/core-free-icons"
@@ -41,6 +49,7 @@ import {
 import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { GettingStartedFooterPortal } from "@/components/getting-started-footer-slot"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
@@ -2275,6 +2284,25 @@ function createBusinessHistoryRow(id?: string): BusinessHistoryInputRow {
   }
 }
 
+function sortBusinessHistoryRowsByStartDate(
+  a: BusinessHistoryInputRow,
+  b: BusinessHistoryInputRow
+) {
+  if (a.startDate && b.startDate) {
+    return a.startDate.localeCompare(b.startDate)
+  }
+
+  if (a.startDate) {
+    return -1
+  }
+
+  if (b.startDate) {
+    return 1
+  }
+
+  return a.id.localeCompare(b.id)
+}
+
 function buildBusinessHistoryRows(
   initialBusinesses: ShareBusinessInitialBusiness[] | undefined
 ): BusinessHistoryInputRow[] {
@@ -2329,7 +2357,7 @@ function buildBusinessHistoryRows(
     ) ?? []
 
   return savedRows.length > 0
-    ? savedRows
+    ? [...savedRows].sort(sortBusinessHistoryRowsByStartDate)
     : [createBusinessHistoryRow("business-history-initial")]
 }
 
@@ -2360,7 +2388,9 @@ function normalizeBusinessHistoryRows(rows: BusinessHistoryInputRow[]) {
     (row) => row.saved || businessHistoryRowHasValue(row)
   )
 
-  return compactRows.length > 0 ? compactRows : [createBusinessHistoryRow()]
+  return compactRows.length > 0
+    ? compactRows.sort(sortBusinessHistoryRowsByStartDate)
+    : [createBusinessHistoryRow()]
 }
 
 const businessQuickFillTitles = [
@@ -2516,7 +2546,7 @@ function createRandomBusinessHistoryRows(financeStartDate?: string | null) {
         startDate,
       }),
       startDate: formatInputDate(startDate),
-      status: "completed",
+      status: "completed" as const,
     }
   })
 }
@@ -2551,6 +2581,10 @@ function ShareBusinessProfitHistoryTableForm({
   )
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
+  const [flashBusinessRowId, setFlashBusinessRowId] = useState<string | null>(
+    null
+  )
+  const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const businessRows = form.watch("businessRows") ?? []
 
   function setBusinessRows(
@@ -2572,11 +2606,25 @@ function ShareBusinessProfitHistoryTableForm({
   }
 
   function quickFillBusinessRows() {
-    setBusinessRows((currentRows) => [
-      ...currentRows.filter((row) => row.saved),
-      ...createRandomBusinessHistoryRows(financeStartDate),
-    ])
+    setBusinessRows((currentRows) =>
+      normalizeBusinessHistoryRows([
+        ...currentRows.filter((row) => row.saved),
+        ...createRandomBusinessHistoryRows(financeStartDate),
+      ])
+    )
   }
+
+  const flashMovedBusinessRow = useCallback((rowId: string) => {
+    if (flashTimeoutRef.current) {
+      clearTimeout(flashTimeoutRef.current)
+    }
+
+    setFlashBusinessRowId(rowId)
+    flashTimeoutRef.current = setTimeout(() => {
+      setFlashBusinessRowId(null)
+      flashTimeoutRef.current = null
+    }, 900)
+  }, [])
 
   function updateBusinessRow(
     rowId: string,
@@ -2595,6 +2643,33 @@ function ShareBusinessProfitHistoryTableForm({
       )
     )
   }
+
+  const updateBusinessStartDate = useCallback(
+    (rowId: string, startDate: string) => {
+      const currentRows = form.getValues("businessRows") ?? []
+      const beforeIndex = currentRows.findIndex((row) => row.id === rowId)
+      const updatedRows = currentRows.map((row) =>
+        row.id === rowId ? { ...row, startDate } : row
+      )
+      const sortedRows = normalizeBusinessHistoryRows(updatedRows)
+      const afterIndex = sortedRows.findIndex((row) => row.id === rowId)
+
+      form.setValue("businessRows", sortedRows, { shouldDirty: true })
+
+      if (beforeIndex !== afterIndex) {
+        flashMovedBusinessRow(rowId)
+      }
+    },
+    [flashMovedBusinessRow, form]
+  )
+
+  useEffect(() => {
+    return () => {
+      if (flashTimeoutRef.current) {
+        clearTimeout(flashTimeoutRef.current)
+      }
+    }
+  }, [])
 
   function updateBusinessProfitRow(
     businessRowId: string,
@@ -3026,7 +3101,14 @@ function ShareBusinessProfitHistoryTableForm({
                       <div className="border-t border-border/70" />
                     </td>
                   </tr>
-                  <tr className="align-top" key={`${businessRow.id}-business`}>
+                  <tr
+                    className={cn(
+                      "align-top [&_td]:transition-colors [&_td]:duration-700",
+                      flashBusinessRowId === businessRow.id &&
+                        "[&_td]:bg-muted/70"
+                    )}
+                    key={`${businessRow.id}-business`}
+                  >
                     <td>
                       <Input
                         disabled={isPending}
@@ -3061,7 +3143,7 @@ function ShareBusinessProfitHistoryTableForm({
                         disabled={isPending}
                         min={financeStartDate ?? undefined}
                         onChange={(startDate) =>
-                          updateBusinessRow(businessRow.id, { startDate })
+                          updateBusinessStartDate(businessRow.id, startDate)
                         }
                         placeholder="Start date"
                         value={businessRow.startDate}

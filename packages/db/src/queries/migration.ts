@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import {
   buildInitialMigrationSnapshot,
+  type InitialMigrationStepKey,
   type InitialMigrationStatus,
 } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
@@ -17,6 +18,20 @@ function isTerminalInitialMigrationStatus(
   status: InitialMigrationStatus | null | undefined
 ) {
   return status === "finalized" || status === "live_operations"
+}
+
+function getMissingGettingStartedSetupStepKeys(
+  missingStepKeys: InitialMigrationStepKey[]
+) {
+  const requiredSetupStepKeys = new Set<InitialMigrationStepKey>([
+    "finance_start_date",
+    "charge_schedules",
+    "business_profit_pools",
+    "business_profit_seasons",
+    "share_capital_plan",
+  ])
+
+  return missingStepKeys.filter((stepKey) => requiredSetupStepKeys.has(stepKey))
 }
 
 function getActiveEmergencyUnlock(unlockUntil: Date | null | undefined) {
@@ -336,13 +351,13 @@ export async function finalizeTenantInitialMigration(
     )
   }
 
-  const missingStepKeys = migrationState.snapshot.missingStepKeys.filter(
-    (stepKey) => stepKey !== "finalization"
+  const missingStepKeys = getMissingGettingStartedSetupStepKeys(
+    migrationState.snapshot.missingStepKeys
   )
 
   if (missingStepKeys.length > 0) {
     throw new Error(
-      `Initial migration cannot be finalized until these steps are complete: ${missingStepKeys.join(", ")}.`
+      `Initial setup cannot be finalized until these steps are complete: ${missingStepKeys.join(", ")}.`
     )
   }
 

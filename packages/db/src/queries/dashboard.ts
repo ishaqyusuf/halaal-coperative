@@ -157,7 +157,7 @@ function getEmptyOverviewSummary(input: {
 
 export async function getDashboardMetrics(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<DashboardMetrics> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -187,9 +187,14 @@ export async function getDashboardMetrics(
   ])
 
   const totalContributions = Number(contributionSum._sum.amount ?? 0)
-  const outstandingLoans = Number(outstandingLoanSum._sum.outstandingPrincipal ?? 0)
+  const outstandingLoans = Number(
+    outstandingLoanSum._sum.outstandingPrincipal ?? 0
+  )
   const reserveBuffer = Number(policy?.reserveBufferAmount ?? 0)
-  const availablePool = Math.max(0, totalContributions - outstandingLoans - reserveBuffer)
+  const availablePool = Math.max(
+    0,
+    totalContributions - outstandingLoans - reserveBuffer
+  )
 
   // Delinquency: loans with overdue schedule items / total active loans
   const overdueScheduleCount = await prisma.repaymentScheduleItem.count({
@@ -224,7 +229,7 @@ export async function getDashboardMetrics(
 
 export async function getOverviewSummary(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<OverviewSummary> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -427,7 +432,8 @@ export async function getOverviewSummary(
   const unpaidMemberCount =
     monthlyRows.length > 0
       ? monthlyRows.filter(
-          (row) => row.status !== "cancelled" && Number(row.totalPaidAmount) <= 0
+          (row) =>
+            row.status !== "cancelled" && Number(row.totalPaidAmount) <= 0
         ).length
       : 0
   const collectionCoverage =
@@ -439,17 +445,20 @@ export async function getOverviewSummary(
   )
   const par30Amount = overdueScheduleItems.reduce(
     (total, item) =>
-      total + (getDaysOverdue(item.dueAt) >= 30 ? Number(item.principalDue) : 0),
+      total +
+      (getDaysOverdue(item.dueAt) >= 30 ? Number(item.principalDue) : 0),
     0
   )
   const par60Amount = overdueScheduleItems.reduce(
     (total, item) =>
-      total + (getDaysOverdue(item.dueAt) >= 60 ? Number(item.principalDue) : 0),
+      total +
+      (getDaysOverdue(item.dueAt) >= 60 ? Number(item.principalDue) : 0),
     0
   )
   const par90Amount = overdueScheduleItems.reduce(
     (total, item) =>
-      total + (getDaysOverdue(item.dueAt) >= 90 ? Number(item.principalDue) : 0),
+      total +
+      (getDaysOverdue(item.dueAt) >= 90 ? Number(item.principalDue) : 0),
     0
   )
   const pendingCommitmentAmount = Number(
@@ -468,6 +477,7 @@ export async function getOverviewSummary(
     Number(pendingProfitEntries._sum.allocatableProfitAmount ?? 0) +
     Number(pendingShareAllocations._sum.allocatedProfitAmount ?? 0)
   const setupWarnings =
+    tenant.initialMigrationStatus === "finalized" ||
     tenant.initialMigrationStatus === "live_operations"
       ? []
       : [
@@ -563,7 +573,10 @@ export async function getOverviewSummary(
       tenantName: tenant.name,
     },
     primaryMetrics: {
-      actionQueueTotal: actionQueue.reduce((total, item) => total + item.count, 0),
+      actionQueueTotal: actionQueue.reduce(
+        (total, item) => total + item.count,
+        0
+      ),
       collectionCoverage,
       deployableFunds,
       portfolioAtRiskAmount: overdueAmount,
@@ -574,7 +587,8 @@ export async function getOverviewSummary(
       collectionGap,
       expectedThisMonth,
       paidMemberCount,
-      periodLabel: currentMonthlyRecord?.periodLabel ?? getFallbackPeriodLabel(),
+      periodLabel:
+        currentMonthlyRecord?.periodLabel ?? getFallbackPeriodLabel(),
       receivedThisMonth,
       unpaidMemberCount,
     },

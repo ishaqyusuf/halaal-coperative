@@ -102,7 +102,8 @@ export function buildInitialMigrationSnapshot(input: {
   const emergencyUnlockActive = input.emergencyUnlockActive ?? false
 
   return {
-    canUseLiveFinancialWrites: input.status === "live_operations",
+    canUseLiveFinancialWrites:
+      input.status === "finalized" || input.status === "live_operations",
     canUseMigrationTools: !terminalStatus || emergencyUnlockActive,
     completedStepCount: steps.length - missingStepKeys.length,
     emergencyUnlockActive,

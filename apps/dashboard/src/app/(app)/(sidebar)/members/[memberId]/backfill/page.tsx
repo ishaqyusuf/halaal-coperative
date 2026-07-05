@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation"
+import type { SearchParams } from "nuqs"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { MemberBackfillPageView } from "@/components/members/member-backfill-page-view"
-import { resolveMemberBackfillStep } from "@/components/members/member-backfill-steps"
+import { loadMemberBackfillParams } from "@/hooks/use-member-backfill-params"
 import { loadMemberBackfillWorkflowData } from "@/lib/members"
-
-type SearchParams = Record<string, string | string[] | undefined>
 
 export default async function MemberBackfillPage({
   params,
@@ -15,7 +14,8 @@ export default async function MemberBackfillPage({
 }) {
   const { memberId } = await params
   const resolvedSearchParams = searchParams ? await searchParams : {}
-  const activeStep = resolveMemberBackfillStep(resolvedSearchParams.step)
+  const memberBackfillParams = loadMemberBackfillParams(resolvedSearchParams)
+  const activeStep = memberBackfillParams.step ?? "baseline"
   const data = await loadMemberBackfillWorkflowData(memberId)
 
   if (data.state === "unavailable") {

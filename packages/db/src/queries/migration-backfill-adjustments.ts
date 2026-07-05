@@ -29,10 +29,7 @@ export async function assertMigrationAdjustmentMutationOpen(
     prisma
   )
 
-  if (
-    !migrationState.snapshot.canUseMigrationTools &&
-    !migrationState.snapshot.canUseLiveFinancialWrites
-  ) {
+  if (!migrationState.snapshot.canUseMigrationTools) {
     throw new Error(
       "Migration adjustments are locked because initial migration is finalized."
     )

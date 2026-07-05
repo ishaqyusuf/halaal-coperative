@@ -8,19 +8,16 @@ async function assertMigrationAdjustmentMutationOpen(
     memberId: string
     tenantId: string
   },
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(
     input.tenantId,
-    prisma,
+    prisma
   )
 
-  if (
-    !migrationState.snapshot.canUseMigrationTools &&
-    !migrationState.snapshot.canUseLiveFinancialWrites
-  ) {
+  if (!migrationState.snapshot.canUseMigrationTools) {
     throw new Error(
-      "Migration adjustments are locked because initial migration is finalized.",
+      "Migration adjustments are locked because initial migration is finalized."
     )
   }
 
@@ -50,7 +47,7 @@ async function assertMigrationAdjustmentMutationOpen(
 
   if (appliedMonths.length > 0 || appliedBatches.length > 0) {
     throw new Error(
-      "This member's historical ledger has already been applied. Use correction workflows instead of migration adjustment edits.",
+      "This member's historical ledger has already been applied. Use correction workflows instead of migration adjustment edits."
     )
   }
 }
@@ -58,7 +55,7 @@ async function assertMigrationAdjustmentMutationOpen(
 export async function listMigrationProfitAdjustmentOptions(
   tenantId: string,
   prismaOverride?: PrismaClient,
-  memberId?: string | null,
+  memberId?: string | null
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return []
@@ -88,42 +85,62 @@ export async function listMigrationProfitAdjustmentOptions(
   })
 
   return entries.map((entry: any) => {
-    const allocatableProfitAmount = Number(entry.allocatableProfitAmount ?? entry.profitAmount)
+    const allocatableProfitAmount = Number(
+      entry.allocatableProfitAmount ?? entry.profitAmount
+    )
     const resolveAdjustmentAmount = (adjustment: any) =>
       adjustment.allocatedProfitAmount == null
-        ? allocatableProfitAmount * (Number(adjustment.sharePercentage ?? 0) / 100)
+        ? allocatableProfitAmount *
+          (Number(adjustment.sharePercentage ?? 0) / 100)
         : Number(adjustment.allocatedProfitAmount)
     const totalAdjusted = (entry.migrationProfitAdjustments ?? []).reduce(
-      (sum: number, adjustment: any) => sum + resolveAdjustmentAmount(adjustment),
-      0,
+      (sum: number, adjustment: any) =>
+        sum + resolveAdjustmentAmount(adjustment),
+      0
     )
     const totalAllocated = (entry.allocations ?? []).reduce(
-      (sum: number, allocation: any) => sum + Number(allocation.allocatedProfitAmount),
-      0,
+      (sum: number, allocation: any) =>
+        sum + Number(allocation.allocatedProfitAmount),
+      0
     )
     const memberAdjustedAmount = memberId
       ? (entry.migrationProfitAdjustments ?? [])
           .filter((adjustment: any) => adjustment.memberId === memberId)
-          .reduce((sum: number, adjustment: any) => sum + resolveAdjustmentAmount(adjustment), 0)
+          .reduce(
+            (sum: number, adjustment: any) =>
+              sum + resolveAdjustmentAmount(adjustment),
+            0
+          )
       : 0
     const memberPublishedAmount = memberId
       ? (entry.allocations ?? [])
           .filter((allocation: any) => allocation.memberId === memberId)
-          .reduce((sum: number, allocation: any) => sum + Number(allocation.allocatedProfitAmount), 0)
+          .reduce(
+            (sum: number, allocation: any) =>
+              sum + Number(allocation.allocatedProfitAmount),
+            0
+          )
       : 0
     const totalOtherAdjusted = memberId
       ? (entry.migrationProfitAdjustments ?? [])
           .filter((adjustment: any) => adjustment.memberId !== memberId)
-          .reduce((sum: number, adjustment: any) => sum + resolveAdjustmentAmount(adjustment), 0)
+          .reduce(
+            (sum: number, adjustment: any) =>
+              sum + resolveAdjustmentAmount(adjustment),
+            0
+          )
       : totalAdjusted
     const editableAvailableAmount = Math.max(
       0,
-      allocatableProfitAmount - totalAllocated - totalOtherAdjusted,
+      allocatableProfitAmount - totalAllocated - totalOtherAdjusted
     )
 
     return {
       id: entry.id,
-      availableAmount: Math.max(0, allocatableProfitAmount - totalAdjusted - totalAllocated),
+      availableAmount: Math.max(
+        0,
+        allocatableProfitAmount - totalAdjusted - totalAllocated
+      ),
       allocatableProfitAmount,
       businessName: entry.shareBusiness?.name ?? "Business profit",
       editableAvailableAmount,
@@ -150,14 +167,16 @@ export async function upsertMigrationProfitAdjustment(
     sharePercentage?: number | null
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
   await assertMigrationAdjustmentMutationOpen(input, prisma)
 
   if (typeof prisma.migrationProfitAdjustment?.upsert !== "function") {
-    throw new Error("Migration profit adjustments require the latest Prisma migration and generated client.")
+    throw new Error(
+      "Migration profit adjustments require the latest Prisma migration and generated client."
+    )
   }
 
   if (input.allocatedProfitAmount == null && input.sharePercentage == null) {
@@ -165,14 +184,19 @@ export async function upsertMigrationProfitAdjustment(
   }
 
   if (input.allocatedProfitAmount != null && input.sharePercentage != null) {
-    throw new Error("Set either a member profit amount or a share percentage, not both.")
+    throw new Error(
+      "Set either a member profit amount or a share percentage, not both."
+    )
   }
 
   if (input.allocatedProfitAmount != null && input.allocatedProfitAmount < 0) {
     throw new Error("Member profit amount cannot be negative.")
   }
 
-  if (input.sharePercentage != null && (input.sharePercentage < 0 || input.sharePercentage > 100)) {
+  if (
+    input.sharePercentage != null &&
+    (input.sharePercentage < 0 || input.sharePercentage > 100)
+  ) {
     throw new Error("Share percentage must be between 0 and 100.")
   }
 
@@ -193,36 +217,47 @@ export async function upsertMigrationProfitAdjustment(
 
   const adjustedAmount =
     input.allocatedProfitAmount ??
-    Number(profitEntry.allocatableProfitAmount ?? profitEntry.profitAmount) * ((input.sharePercentage ?? 0) / 100)
-  const allocatableProfitAmount = Number(profitEntry.allocatableProfitAmount ?? profitEntry.profitAmount)
+    Number(profitEntry.allocatableProfitAmount ?? profitEntry.profitAmount) *
+      ((input.sharePercentage ?? 0) / 100)
+  const allocatableProfitAmount = Number(
+    profitEntry.allocatableProfitAmount ?? profitEntry.profitAmount
+  )
 
   if (adjustedAmount > allocatableProfitAmount) {
-    throw new Error("Member profit adjustment cannot exceed the allocatable profit amount.")
+    throw new Error(
+      "Member profit adjustment cannot exceed the allocatable profit amount."
+    )
   }
 
   const totalAllocated = (profitEntry.allocations ?? []).reduce(
-    (sum: number, allocation: any) => sum + Number(allocation.allocatedProfitAmount),
-    0,
+    (sum: number, allocation: any) =>
+      sum + Number(allocation.allocatedProfitAmount),
+    0
   )
-  const totalOtherAdjusted = (profitEntry.migrationProfitAdjustments ?? []).reduce(
-    (sum: number, adjustment: any) => {
-      if (adjustment.memberId === input.memberId) {
-        return sum
-      }
+  const totalOtherAdjusted = (
+    profitEntry.migrationProfitAdjustments ?? []
+  ).reduce((sum: number, adjustment: any) => {
+    if (adjustment.memberId === input.memberId) {
+      return sum
+    }
 
-      const amount =
-        adjustment.allocatedProfitAmount == null
-          ? allocatableProfitAmount * (Number(adjustment.sharePercentage ?? 0) / 100)
-          : Number(adjustment.allocatedProfitAmount)
+    const amount =
+      adjustment.allocatedProfitAmount == null
+        ? allocatableProfitAmount *
+          (Number(adjustment.sharePercentage ?? 0) / 100)
+        : Number(adjustment.allocatedProfitAmount)
 
-      return sum + amount
-    },
+    return sum + amount
+  }, 0)
+  const availableAmount = Math.max(
     0,
+    allocatableProfitAmount - totalAllocated - totalOtherAdjusted
   )
-  const availableAmount = Math.max(0, allocatableProfitAmount - totalAllocated - totalOtherAdjusted)
 
   if (adjustedAmount > availableAmount) {
-    throw new Error("Member profit adjustment cannot exceed the remaining available profit amount.")
+    throw new Error(
+      "Member profit adjustment cannot exceed the remaining available profit amount."
+    )
   }
 
   const data = {
@@ -246,21 +281,24 @@ export async function upsertMigrationProfitAdjustment(
     },
   })
 
-  await createAuditLogEntry({
-    action: "migration.profit_adjustment.upserted",
-    actorType: "user",
-    actorUserId: input.actorUserId,
-    entityId: adjustment.id,
-    entityType: "MigrationProfitAdjustment",
-    metadata: {
-      adjustedAmount,
-      allocatedProfitAmount: input.allocatedProfitAmount ?? null,
-      memberId: input.memberId,
-      profitEntryId: input.profitEntryId,
-      sharePercentage: input.sharePercentage ?? null,
+  await createAuditLogEntry(
+    {
+      action: "migration.profit_adjustment.upserted",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityId: adjustment.id,
+      entityType: "MigrationProfitAdjustment",
+      metadata: {
+        adjustedAmount,
+        allocatedProfitAmount: input.allocatedProfitAmount ?? null,
+        memberId: input.memberId,
+        profitEntryId: input.profitEntryId,
+        sharePercentage: input.sharePercentage ?? null,
+      },
+      tenantId: input.tenantId,
     },
-    tenantId: input.tenantId,
-  }, prisma)
+    prisma
+  )
 
   return adjustment
 }

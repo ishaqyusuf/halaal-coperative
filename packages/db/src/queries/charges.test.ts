@@ -119,7 +119,7 @@ function createChargePrismaStub({
 }
 
 describe("charge migration guards", () => {
-  test("blocks historical charge setup after migration finalization", async () => {
+  test("blocks backdated charge setup after migration finalization", async () => {
     const prisma = createChargePrismaStub({
       initialMigrationStatus: "finalized",
     })
@@ -134,9 +134,9 @@ describe("charge migration guards", () => {
           name: "Admin levy",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
-    ).rejects.toThrow("Charge definition writes are locked")
+        prisma as never
+      )
+    ).rejects.toThrow("Live charge definition updates cannot be backdated")
 
     expect(prisma.chargeDefinitionCreates).toHaveLength(0)
   })
@@ -155,7 +155,7 @@ describe("charge migration guards", () => {
         name: "Admin levy",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.chargeDefinitionCreates).toHaveLength(1)
@@ -177,8 +177,8 @@ describe("charge migration guards", () => {
           name: "Admin levy",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("cannot be backdated")
 
     expect(prisma.chargeDefinitionCreates).toHaveLength(0)
@@ -197,8 +197,8 @@ describe("charge migration guards", () => {
           memberId: "member-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.chargeDefinitionLookups).toHaveLength(0)
@@ -220,8 +220,8 @@ describe("charge migration guards", () => {
           name: "Admin levy",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("member ledger backfill has already started")
 
     expect(prisma.chargeDefinitionCreates).toHaveLength(0)
@@ -238,7 +238,7 @@ describe("charge migration guards", () => {
       {
         isActive: false,
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.chargeDefinitionUpdates).toHaveLength(1)
@@ -258,8 +258,8 @@ describe("charge migration guards", () => {
           amount: 150,
           effectiveFrom: new Date("2025-01-01T00:00:00.000Z"),
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("cannot be backdated")
 
     expect(prisma.chargeDefinitionVersionCreates).toHaveLength(0)
@@ -279,8 +279,8 @@ describe("charge migration guards", () => {
           sourceType: "backfill",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Charge definition not found")
 
     expect(prisma.chargeDefinitionLookups).toHaveLength(1)
@@ -301,8 +301,8 @@ describe("charge migration guards", () => {
           sourceType: "import",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Charge definition not found")
 
     expect(prisma.chargeDefinitionLookups).toHaveLength(1)

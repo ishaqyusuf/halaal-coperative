@@ -44,7 +44,7 @@ describe("initial migration lifecycle", () => {
     expect(snapshot.missingStepKeys).toEqual([])
   })
 
-  test("allows audited emergency unlock after finalization", () => {
+  test("opens live writes and allows audited emergency unlock after finalization", () => {
     const snapshot = buildInitialMigrationSnapshot({
       emergencyUnlockActive: true,
       hasBusinessProfitPools: true,
@@ -59,6 +59,6 @@ describe("initial migration lifecycle", () => {
     })
 
     expect(snapshot.canUseMigrationTools).toBe(true)
-    expect(snapshot.canUseLiveFinancialWrites).toBe(false)
+    expect(snapshot.canUseLiveFinancialWrites).toBe(true)
   })
 })

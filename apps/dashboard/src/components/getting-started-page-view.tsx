@@ -1,7 +1,7 @@
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import type { MemberLedgerBackfillRow } from "@halaalvest/backfill"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
-import type { ComponentProps, ReactNode } from "react"
+import { Fragment, type ComponentProps, type ReactNode } from "react"
 import {
   Alert,
   AlertDescription,
@@ -29,7 +29,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@halaalvest/ui/components/card"
-import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import {
   Field,
   FieldDescription,
@@ -46,9 +45,16 @@ import {
 } from "@halaalvest/ui/components/progress"
 import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@halaalvest/ui/components/tooltip"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
+import { BusinessProfitSeasonDeductionPopover } from "@/components/business-profit-season-deduction-popover"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import {
   BusinessProfitPolicyForm,
@@ -57,16 +63,22 @@ import {
   ShareBusinessForm,
   ShareStructureVersionForm,
 } from "@/components/forms/tenant-finance-forms"
-import { GettingStartedFooterActionsSlot } from "@/components/getting-started-footer-slot"
-import { InitialMigrationPreview } from "@/components/initial-migration-preview"
 import {
-  type GettingStartedStepKey,
-  gettingStartedStepKeys,
-} from "@/hooks/use-getting-started-params"
+  GettingStartedFooterActionsSlot,
+  GettingStartedFooterPortal,
+} from "@/components/getting-started-footer-slot"
+import { type GettingStartedStepKey } from "@/hooks/use-getting-started-params"
 import {
   finalizeInitialMigrationAction,
   saveBusinessProfitSeasonReviewAction,
 } from "@/lib/dashboard-actions"
+import {
+  ArrowRightIcon,
+  CheckCircle2Icon,
+  ClipboardListIcon,
+  HistoryIcon,
+  UsersIcon,
+} from "lucide-react"
 
 type ChargeDefinitionRow = {
   appliesToLoanRequests?: boolean
@@ -149,6 +161,13 @@ type BusinessProfitSeasonRow = {
   label: string
   periodEnd: string
   periodStart: string
+  profitEntries: Array<{
+    businessName: string
+    deductionAmount: number
+    profitAmount: number
+    profitDate: string
+    reason?: string | null
+  }>
   profitEntryCount: number
   status: "pending" | "draft" | "approved" | "published" | "closed"
 }
@@ -253,10 +272,19 @@ type GettingStartedPageViewProps = {
   tenantStartDate: string | null
 }
 
-const orderedStepKeys = [...gettingStartedStepKeys]
+const setupStepKeys: GettingStartedStepKey[] = [
+  "start-date",
+  "charges",
+  "shares",
+  "profit-policy",
+  "business",
+  "profit-seasons",
+]
+const orderedStepKeys = [...setupStepKeys]
 
 const compactInputTableClassName =
   "w-full table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0"
+const profitSeasonsReviewFormId = "profit-seasons-review-form"
 
 const stepGroups = [
   {
@@ -266,14 +294,6 @@ const stepGroups = [
   {
     label: "Financial history",
     steps: ["charges", "shares", "profit-policy", "business", "profit-seasons"],
-  },
-  {
-    label: "Member migration",
-    steps: ["admin-member"],
-  },
-  {
-    label: "Go live",
-    steps: ["review"],
   },
 ] satisfies Array<{ label: string; steps: GettingStartedStepKey[] }>
 
@@ -306,8 +326,8 @@ function getStepMeta(key: GettingStartedStepKey) {
   const meta = {
     "admin-member": {
       description:
-        "Migrate the registered admin as the first member with commitments, loans, activity windows, and generated ledger rows.",
-      label: "Admin member migration",
+        "Start member backfill onboarding with the registered admin, then repeat it for every member.",
+      label: "Member onboarding",
     },
     business: {
       description:
@@ -711,10 +731,24 @@ function BusinessStep({
 
 function ProfitSeasonsStep({
   businessProfitSeasons,
-}: Pick<GettingStartedPageViewProps, "businessProfitSeasons">) {
+  migrationSnapshot,
+  tenantName,
+}: Pick<
+  GettingStartedPageViewProps,
+  "businessProfitSeasons" | "migrationSnapshot" | "tenantName"
+>) {
   const pendingCount = businessProfitSeasons.filter(
     (season) => season.status === "pending" || season.status === "draft"
   ).length
+
+  if (migrationSnapshot.canUseLiveFinancialWrites) {
+    return (
+      <ReviewStep
+        migrationSnapshot={migrationSnapshot}
+        tenantName={tenantName}
+      />
+    )
+  }
 
   return (
     <Card>
@@ -733,6 +767,7 @@ function ProfitSeasonsStep({
           <form
             action={saveBusinessProfitSeasonReviewAction}
             className="grid gap-4"
+            id={profitSeasonsReviewFormId}
           >
             <input
               name="redirectTo"
@@ -749,16 +784,14 @@ function ProfitSeasonsStep({
               </Alert>
             ) : null}
             <div className="overflow-x-auto">
-              <table className={`${compactInputTableClassName} min-w-[1120px]`}>
+              <table className={`${compactInputTableClassName} min-w-[820px]`}>
                 <colgroup>
-                  <col className="w-[180px]" />
-                  <col className="w-[170px]" />
-                  <col className="w-[140px]" />
-                  <col className="w-[140px]" />
-                  <col className="w-[150px]" />
-                  <col />
-                  <col className="w-[150px]" />
+                  <col className="w-[250px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[105px]" />
                   <col className="w-[120px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[92px]" />
                 </colgroup>
                 <thead>
                   <tr>
@@ -769,34 +802,22 @@ function ProfitSeasonsStep({
                       Season
                     </th>
                     <th
-                      className="text-left text-xs font-medium text-muted-foreground"
+                      className="text-right text-xs font-medium text-muted-foreground"
                       scope="col"
                     >
-                      Period
+                      Profit
                     </th>
                     <th
                       className="text-right text-xs font-medium text-muted-foreground"
                       scope="col"
                     >
-                      Estimated profit
+                      Row deduct.
                     </th>
                     <th
                       className="text-right text-xs font-medium text-muted-foreground"
                       scope="col"
                     >
-                      Row deductions
-                    </th>
-                    <th
-                      className="text-right text-xs font-medium text-muted-foreground"
-                      scope="col"
-                    >
-                      Season deduction
-                    </th>
-                    <th
-                      className="text-left text-xs font-medium text-muted-foreground"
-                      scope="col"
-                    >
-                      Reason
+                      Season deduct.
                     </th>
                     <th
                       className="text-right text-xs font-medium text-muted-foreground"
@@ -818,77 +839,148 @@ function ProfitSeasonsStep({
                       0,
                       season.grossProfitAmount - season.entryDeductionAmount
                     )
+                    const visibleBusinessNames = season.businessNames.slice(
+                      0,
+                      1
+                    )
+                    const hiddenBusinessCount =
+                      season.businessNames.length - visibleBusinessNames.length
 
                     return (
-                      <tr className="align-top" key={season.key}>
-                        <td>
-                          <input
-                            name="seasonKey"
-                            type="hidden"
-                            value={season.key}
-                          />
-                          <p className="font-medium">{season.label}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {season.businessNames.join(", ")}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {season.profitEntryCount} profit row(s)
-                          </p>
-                        </td>
-                        <td className="pt-2 text-sm">
-                          {formatDate(season.periodStart)} -{" "}
-                          {formatDate(season.periodEnd)}
-                        </td>
-                        <td className="pt-2 text-right text-sm">
-                          {formatCurrency(season.grossProfitAmount)}
-                        </td>
-                        <td className="pt-2 text-right text-sm">
-                          {formatCurrency(season.entryDeductionAmount)}
-                        </td>
-                        <td>
-                          <CurrencyPrefixInput
-                            className="ml-auto w-36"
-                            defaultValue={season.deductionAmount || ""}
-                            max={maxSeasonDeduction}
-                            min="0"
-                            name={`deductionAmount-${season.key}`}
-                            step="0.01"
-                            type="number"
-                          />
-                        </td>
-                        <td>
-                          <Input
-                            defaultValue={season.deductionReason ?? ""}
-                            name={`deductionReason-${season.key}`}
-                            placeholder="Enter season deduction reason"
-                          />
-                        </td>
-                        <td className="pt-2 text-right text-sm">
-                          {formatCurrency(season.distributableAmount)}
-                        </td>
-                        <td>
-                          <Badge
-                            variant={
-                              season.status === "pending" ||
-                              season.status === "draft"
-                                ? "secondary"
-                                : "default"
-                            }
-                          >
-                            {season.status === "pending"
-                              ? "Needs review"
-                              : season.status}
-                          </Badge>
-                        </td>
-                      </tr>
+                      <Fragment key={season.key}>
+                        <tr aria-hidden="true">
+                          <td colSpan={6}>
+                            <div className="border-t border-border/70" />
+                          </td>
+                        </tr>
+                        <tr className="align-top">
+                          <td>
+                            <input
+                              name="seasonKey"
+                              type="hidden"
+                              value={season.key}
+                            />
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger
+                                  render={
+                                    <button
+                                      className="text-left font-medium underline-offset-4 hover:underline"
+                                      type="button"
+                                    />
+                                  }
+                                >
+                                  {season.label}
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  align="start"
+                                  className="grid max-w-[460px] gap-2 rounded-sm border border-border bg-popover p-3 text-popover-foreground shadow-xl [&>*:last-child]:bg-popover [&>*:last-child]:fill-popover"
+                                  side="right"
+                                  sideOffset={12}
+                                >
+                                  <div className="border-b border-border/70 pb-2">
+                                    <p className="text-sm font-semibold">
+                                      Profit entries
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {season.label}
+                                    </p>
+                                  </div>
+                                  <div className="grid gap-2">
+                                    {season.profitEntries.map((entry) => (
+                                      <div
+                                        className="grid gap-1 border-b border-border/70 pb-2 last:border-b-0 last:pb-0"
+                                        key={`${season.key}-${entry.businessName}-${entry.profitDate}`}
+                                      >
+                                        <div className="flex items-center justify-between gap-3">
+                                          <span className="font-medium">
+                                            {entry.businessName}
+                                          </span>
+                                          <span className="tabular-nums">
+                                            {formatCurrency(entry.profitAmount)}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3 text-muted-foreground">
+                                          <span>
+                                            {formatDate(entry.profitDate)}
+                                          </span>
+                                          <span>
+                                            deduction{" "}
+                                            {formatCurrency(
+                                              entry.deductionAmount
+                                            )}
+                                          </span>
+                                        </div>
+                                        {entry.reason ? (
+                                          <p className="text-muted-foreground">
+                                            {entry.reason}
+                                          </p>
+                                        ) : null}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {visibleBusinessNames.map((businessName) => (
+                                <Badge
+                                  key={`${season.key}-${businessName}`}
+                                  variant="secondary"
+                                >
+                                  {businessName}
+                                </Badge>
+                              ))}
+                              {hiddenBusinessCount > 0 ? (
+                                <Badge variant="outline">
+                                  +{hiddenBusinessCount}
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="pt-2 text-right text-sm">
+                            {formatCurrency(season.grossProfitAmount)}
+                          </td>
+                          <td className="pt-2 text-right text-sm">
+                            {formatCurrency(season.entryDeductionAmount)}
+                          </td>
+                          <td>
+                            <BusinessProfitSeasonDeductionPopover
+                              initialAmount={season.deductionAmount}
+                              initialReason={season.deductionReason}
+                              maxAmount={maxSeasonDeduction}
+                              seasonKey={season.key}
+                            />
+                          </td>
+                          <td className="pt-2 text-right text-sm">
+                            {formatCurrency(season.distributableAmount)}
+                          </td>
+                          <td>
+                            <Badge
+                              variant={
+                                season.status === "pending" ||
+                                season.status === "draft"
+                                  ? "secondary"
+                                  : "default"
+                              }
+                            >
+                              {season.status === "pending"
+                                ? "Needs review"
+                                : season.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      </Fragment>
                     )
                   })}
                 </tbody>
               </table>
             </div>
-            <Button className="w-fit" type="submit">
-              Save and next
-            </Button>
+            <GettingStartedFooterPortal>
+              <Button form={profitSeasonsReviewFormId} type="submit">
+                Finalize
+              </Button>
+            </GettingStartedFooterPortal>
           </form>
         )}
       </CardContent>
@@ -897,77 +989,138 @@ function ProfitSeasonsStep({
 }
 
 function AdminMemberStep(props: GettingStartedPageViewProps) {
-  const {
-    adminMember,
-    generatedLedgerError,
-    generatedLedgerRows,
-    legacyLoanDrafts,
-    memberActivityEvents,
-    memberAmountLogs,
-    memberNumberPrefix,
-    memberOptions,
-    migrationMemberReview,
-    migrationSnapshot,
-    selectedMigrationMemberId,
-    selectedMigrationMemberLabel,
-  } = props
+  const { adminMember, memberOptions, tenantName } = props
+  const backfillHref = adminMember
+    ? `/members/${adminMember.id}/backfill?step=baseline`
+    : "/settings/imports/members"
+  const onboardingSteps = [
+    {
+      body: "Confirm identity, joined date, member number, and the member's opening position.",
+      icon: ClipboardListIcon,
+      label: "Confirm profile",
+    },
+    {
+      body: "Capture savings commitments, legacy loans, activity windows, repayments, and profit adjustments.",
+      icon: HistoryIcon,
+      label: "Capture history",
+    },
+    {
+      body: "Review generated monthly ledger rows, then apply the approved member backfill.",
+      icon: CheckCircle2Icon,
+      label: "Apply backfill",
+    },
+  ]
 
   return (
-    <Card>
-      <SetupCardHeader
-        eyebrow="Step 7"
-        title="First member migration"
-        description="Use the registered admin as the first migrated member, then save commitment history, loan history, activity windows, and profit adjustments."
-        action={
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/settings/imports/members"
-          >
-            Add or import members
-          </Link>
-        }
-      />
-      <CardContent className="grid gap-5">
-        {adminMember ? (
-          <div className="border border-border/70 bg-muted/20 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">
-                  Registered admin member
-                </p>
-                <h3 className="mt-1 text-lg font-semibold">
-                  {adminMember.fullName}
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {adminMember.memberNumber} · Joined{" "}
-                  {formatDate(adminMember.joinedAt)}
-                </p>
-              </div>
-              <Badge>{adminMember.email ?? "Admin account"}</Badge>
+    <Card className="overflow-hidden">
+      <div className="border-b border-border/70 bg-primary/5 px-6 py-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center border border-primary/25 bg-background text-primary">
+              <CheckCircle2Icon className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <Badge className="w-fit" variant="secondary">
+                Setup complete
+              </Badge>
+              <CardTitle className="mt-3 text-2xl">
+                Member onboarding is ready
+              </CardTitle>
+              <CardDescription className="mt-2 max-w-2xl text-sm">
+                {`${tenantName}'s setup is finalized.`} The next workflow is to
+                onboard each member through historical backfill, starting with
+                the registered admin.
+              </CardDescription>
             </div>
           </div>
-        ) : (
-          <WorkspaceEmptyState
-            title="Create the admin member profile first."
-            body="The registered admin user must also exist as a member before commitment and loan migration can be reviewed."
-          />
-        )}
+          <Link className={buttonVariants({})} href={backfillHref}>
+            {adminMember ? "Start admin backfill" : "Add members"}
+            <ArrowRightIcon className="size-4" />
+          </Link>
+        </div>
+      </div>
+      <CardContent className="grid gap-6 p-6">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]">
+          <div className="border border-border/70 bg-muted/15 p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <UsersIcon className="size-4 text-muted-foreground" />
+                  <p className="text-xs font-medium text-muted-foreground">
+                    First member workflow
+                  </p>
+                </div>
+                <h3 className="mt-2 text-lg font-semibold">
+                  {adminMember
+                    ? adminMember.fullName
+                    : "Create the admin member profile"}
+                </h3>
+                {adminMember ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <span>{adminMember.memberNumber}</span>
+                    <span>Joined {formatDate(adminMember.joinedAt)}</span>
+                    {adminMember.email ? (
+                      <span>{adminMember.email}</span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    The registered admin user must also exist as a member before
+                    backfill onboarding can start.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {adminMember ? <Badge>Admin account</Badge> : null}
+                <Link className={buttonVariants({})} href={backfillHref}>
+                  {adminMember ? "Begin backfill" : "Add or import members"}
+                </Link>
+              </div>
+            </div>
+          </div>
 
-        <InitialMigrationPreview
-          generatedLedgerError={generatedLedgerError}
-          generatedLedgerRows={generatedLedgerRows}
-          legacyLoanDrafts={legacyLoanDrafts}
-          memberActivityEvents={memberActivityEvents}
-          memberAmountLogs={memberAmountLogs}
-          memberOptions={memberOptions}
-          memberNumberPrefix={memberNumberPrefix}
-          migrationMemberReview={migrationMemberReview}
-          migrationSnapshot={migrationSnapshot}
-          profitMigrationOptions={props.profitMigrationOptions}
-          selectedMigrationMemberId={selectedMigrationMemberId}
-          selectedMigrationMemberLabel={selectedMigrationMemberLabel}
-          section="member-preview"
-        />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-1">
+            <MetricBlock label="Setup status" value="Finalized" />
+            <MetricBlock
+              label="Members ready"
+              value={memberOptions.length.toString()}
+            />
+          </div>
+        </div>
+
+        <div className="border border-border/70">
+          <div className="border-b border-border/70 px-4 py-3">
+            <p className="text-sm font-semibold">Onboard every member</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Continue this workflow for each member while normal live
+              operations stay available.
+            </p>
+          </div>
+          <div className="grid divide-y divide-border/70 md:grid-cols-3 md:divide-x md:divide-y-0">
+            {onboardingSteps.map((step, index) => {
+              const Icon = step.icon
+
+              return (
+                <div className="p-4" key={step.label}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-8 shrink-0 items-center justify-center border border-border bg-background">
+                      <Icon className="size-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        {String(index + 1).padStart(2, "0")}
+                      </p>
+                      <p className="text-sm font-semibold">{step.label}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {step.body}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
@@ -1051,17 +1204,25 @@ function ReviewStep({
 
 function ActiveStepPanel(props: GettingStartedPageViewProps) {
   const activeIndex = orderedStepKeys.indexOf(props.activeStep)
-  const previousStep = orderedStepKeys[activeIndex - 1]
-  const nextStep = orderedStepKeys[activeIndex + 1]
+  const previousStep =
+    props.activeStep === "admin-member"
+      ? "profit-seasons"
+      : orderedStepKeys[activeIndex - 1]
+  const nextStep =
+    props.activeStep === "admin-member"
+      ? undefined
+      : props.activeStep === "profit-seasons"
+        ? "admin-member"
+        : orderedStepKeys[activeIndex + 1]
   const requireHistoryConfirmation =
     (props.activeStep === "charges" && props.chargeDefinitions.length === 0) ||
     (props.activeStep === "shares" && props.shareStructureVersions.length === 0)
-  const hasStepNextAction = [
-    "charges",
-    "shares",
-    "profit-policy",
-    "business",
-  ].includes(props.activeStep)
+  const hasStepNextAction =
+    ["charges", "shares", "profit-policy", "business"].includes(
+      props.activeStep
+    ) ||
+    (props.activeStep === "profit-seasons" &&
+      props.businessProfitSeasons.length > 0)
 
   return (
     <div>
@@ -1085,6 +1246,8 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
       ) : props.activeStep === "profit-seasons" ? (
         <ProfitSeasonsStep
           businessProfitSeasons={props.businessProfitSeasons}
+          migrationSnapshot={props.migrationSnapshot}
+          tenantName={props.tenantName}
         />
       ) : props.activeStep === "admin-member" ? (
         <AdminMemberStep {...props} />
@@ -1096,10 +1259,7 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
       )}
       <StepFooter
         hasStepNextAction={hasStepNextAction}
-        hideNext={
-          props.activeStep === "profit-seasons" &&
-          props.businessProfitSeasons.length > 0
-        }
+        hideNext={props.activeStep === "admin-member"}
         nextStep={nextStep}
         previousStep={previousStep}
         requireHistoryConfirmation={requireHistoryConfirmation}
@@ -1112,11 +1272,17 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
   const { migrationSnapshot, tenantName } = props
   const firstIncompleteStep =
     orderedStepKeys.find((key) => !isStepComplete(key, migrationSnapshot)) ??
-    "review"
+    "admin-member"
+  const completedSetupStepCount = orderedStepKeys.filter((key) =>
+    isStepComplete(key, migrationSnapshot)
+  ).length
   const completionPercent = Math.round(
-    (migrationSnapshot.completedStepCount / migrationSnapshot.totalStepCount) *
-      100
+    (completedSetupStepCount / orderedStepKeys.length) * 100
   )
+  const nextStepLabel =
+    firstIncompleteStep === "admin-member"
+      ? "Member onboarding"
+      : getStepMeta(firstIncompleteStep).label
 
   return (
     <WorkspacePageShell
@@ -1145,8 +1311,7 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
           <CardHeader>
             <CardDescription>Progress</CardDescription>
             <CardTitle>
-              {migrationSnapshot.completedStepCount}/
-              {migrationSnapshot.totalStepCount}
+              {completedSetupStepCount}/{orderedStepKeys.length}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1159,7 +1324,7 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
         <Card size="sm">
           <CardHeader>
             <CardDescription>Next</CardDescription>
-            <CardTitle>{getStepMeta(firstIncompleteStep).label}</CardTitle>
+            <CardTitle>{nextStepLabel}</CardTitle>
           </CardHeader>
         </Card>
       </section>

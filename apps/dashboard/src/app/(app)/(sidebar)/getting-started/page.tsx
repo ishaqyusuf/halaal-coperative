@@ -16,10 +16,7 @@ import {
   listMemberAmountLogs,
   listMembers,
 } from "@halaalvest/db"
-import {
-  WorkspaceEmptyState,
-  WorkspacePageShell,
-} from "@/components/dashboard"
+import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { GettingStartedPageView } from "@/components/getting-started-page-view"
 import {
   type GettingStartedStepKey,
@@ -29,7 +26,7 @@ import { getDashboardServerContext } from "@/lib/server-context"
 
 function resolveDefaultStep(
   missingStepKeys: string[],
-  needsProfitPolicy: boolean,
+  needsProfitPolicy: boolean
 ): GettingStartedStepKey {
   if (missingStepKeys.includes("finance_start_date")) return "start-date"
   if (missingStepKeys.includes("charge_schedules")) return "charges"
@@ -43,12 +40,12 @@ function resolveDefaultStep(
     missingStepKeys.some((stepKey) =>
       ["member_profiles", "legacy_loans", "member_ledger_backfill"].includes(
         stepKey
-      ),
+      )
     )
   ) {
     return "admin-member"
   }
-  return "review"
+  return "admin-member"
 }
 
 function toDateString(value: Date | string | null | undefined) {
@@ -100,7 +97,8 @@ export default async function GettingStartedPage({
     )
   }
 
-  const requestedStep = gettingStartedParams.step as GettingStartedStepKey | null
+  const requestedStep =
+    gettingStartedParams.step as GettingStartedStepKey | null
   const requestedMigrationMemberId = gettingStartedParams.migrationMemberId
   const [
     data,
@@ -119,22 +117,21 @@ export default async function GettingStartedPage({
     requestedStep ??
     resolveDefaultStep(
       migrationState.snapshot.missingStepKeys,
-      !data.businessPolicy.id,
+      !data.businessPolicy.id
     )
   const adminMember =
     memberOptions.items.find(
-      (member: any) => member.user?.id === context.auth.user?.id,
+      (member: any) => member.user?.id === context.auth.user?.id
     ) ??
     memberOptions.items.find(
       (member: any) =>
-        member.user?.email &&
-        member.user.email === context.auth.user?.email,
+        member.user?.email && member.user.email === context.auth.user?.email
     ) ??
     null
   const selectedMember =
     (requestedMigrationMemberId
       ? memberOptions.items.find(
-          (member: any) => member.id === requestedMigrationMemberId,
+          (member: any) => member.id === requestedMigrationMemberId
         )
       : null) ??
     adminMember ??
@@ -150,7 +147,7 @@ export default async function GettingStartedPage({
         "business_profit_seasons",
         "share_capital_plan",
         "member_profiles",
-      ].includes(stepKey),
+      ].includes(stepKey)
     )
   let generatedLedgerRows: MemberLedgerBackfillRow[] | undefined
   let generatedLedgerError: string | null = null
@@ -162,8 +159,8 @@ export default async function GettingStartedPage({
           await buildBackfillDraftInputForMember({
             memberId: selectedMember.id,
             tenantId: context.tenant.id,
-          }),
-        ),
+          })
+        )
       )
     } catch (error) {
       generatedLedgerError =
@@ -186,13 +183,12 @@ export default async function GettingStartedPage({
         listMigrationProfitAdjustmentOptions(
           context.tenant.id,
           undefined,
-          selectedMember.id,
+          selectedMember.id
         ),
       ])
     : null
   const selectedMemberAmountLogs = selectedMemberMigrationInputs?.[0] ?? []
-  const selectedMemberActivityEvents =
-    selectedMemberMigrationInputs?.[1] ?? []
+  const selectedMemberActivityEvents = selectedMemberMigrationInputs?.[1] ?? []
   const profitMigrationOptions = selectedMemberMigrationInputs?.[2] ?? []
   const today = new Date()
 
@@ -216,7 +212,7 @@ export default async function GettingStartedPage({
             .reverse()
             .find(
               (version: any) =>
-                new Date(version.effectiveFrom).getTime() <= today.getTime(),
+                new Date(version.effectiveFrom).getTime() <= today.getTime()
             ) ?? null
 
         return {
@@ -268,6 +264,13 @@ export default async function GettingStartedPage({
         label: season.label,
         periodEnd: toDateString(season.periodEnd) ?? "",
         periodStart: toDateString(season.periodStart) ?? "",
+        profitEntries: (season.profitEntries ?? []).map((entry: any) => ({
+          businessName: entry.businessName,
+          deductionAmount: entry.deductionAmount,
+          profitAmount: entry.profitAmount,
+          profitDate: toDateString(entry.profitDate) ?? "",
+          reason: entry.reason,
+        })),
         profitEntryCount: season.profitEntryCount,
         status: season.status,
       }))}
@@ -341,7 +344,7 @@ export default async function GettingStartedPage({
         profitAmount: Number(business.profitAmount),
         profitEntries: (business.profitEntries ?? []).map((entry: any) => ({
           allocatableProfitAmount: Number(
-            entry.allocatableProfitAmount ?? entry.profitAmount,
+            entry.allocatableProfitAmount ?? entry.profitAmount
           ),
           expenseAmount: Number(entry.expenseAmount ?? 0),
           id: entry.id,
@@ -363,7 +366,7 @@ export default async function GettingStartedPage({
           id: version.id,
           notes: version.notes,
           valueType: version.valueType ?? "fixed_amount",
-        }),
+        })
       )}
       tenantName={data.tenant?.name ?? context.tenant.name}
       tenantStartDate={toDateString(data.tenant?.startDate)}

@@ -9,6 +9,7 @@ import {
   useState,
 } from "react"
 import { useNotifications } from "@halaalvest/notifications-react"
+import { useTenantRouter } from "@halaalvest/tenant-url/next"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +40,6 @@ import {
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { ChevronsUpDownIcon, PlusIcon, Trash2Icon } from "lucide-react"
-import { useRouter } from "next/navigation"
 import type { FieldErrors, FieldPath } from "react-hook-form"
 import { z } from "zod"
 import { DatePickerInput } from "@/components/date-picker-input"
@@ -372,7 +372,6 @@ function buildLoanHistoryRows(
         row.scheduledMonthlyPrincipalRepayment
       ),
     })),
-    createLoanRow(),
   ]
 }
 
@@ -549,22 +548,19 @@ function buildRandomLoanHistoryRows(
     nextOffset += repaymentMonths + randomInt(1, Math.min(4, maximumGapMonths))
   }
 
-  return [
-    ...loanRows.map((loan, index) => {
-      const hasNextLoan = index < loanRows.length - 1
+  return loanRows.map((loan, index) => {
+    const hasNextLoan = index < loanRows.length - 1
 
-      return {
-        ...loan.row,
-        closedAt: hasNextLoan
-          ? formatIsoDate(
-              addMonths(joinedDate, loan.openedOffset + loan.repaymentMonths)
-            )
-          : "",
-        outstandingPrincipalBalance: "",
-      }
-    }),
-    createLoanRow(),
-  ]
+    return {
+      ...loan.row,
+      closedAt: hasNextLoan
+        ? formatIsoDate(
+            addMonths(joinedDate, loan.openedOffset + loan.repaymentMonths)
+          )
+        : "",
+      outstandingPrincipalBalance: "",
+    }
+  })
 }
 
 function buildRandomCommitmentHistoryRows(memberJoinedAt?: string | null) {
@@ -611,9 +607,7 @@ function normalizeCommitmentRows(rows: CommitmentHistoryInputRow[]) {
 }
 
 function normalizeLoanRows(rows: LoanHistoryInputRow[]) {
-  const compactRows = rows.filter(
-    (row, index) => loanRowHasValue(row) || index === rows.length - 1
-  )
+  const compactRows = rows.filter(loanRowHasValue)
 
   return compactRows.length > 0 ? compactRows : [createLoanRow()]
 }
@@ -1069,7 +1063,7 @@ export function CommitmentHistoryEntryForm({
   redirectTo?: string
   showSubmitButton?: boolean
 }) {
-  const router = useRouter()
+  const router = useTenantRouter()
   const form = useZodForm<CommitmentHistoryFormValues>(
     commitmentHistoryFormSchema,
     {
@@ -1185,10 +1179,10 @@ export function CommitmentHistoryEntryForm({
           </Button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0">
+          <table className="ml-auto w-full max-w-[520px] min-w-[420px] table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0">
             <colgroup>
-              <col className="w-[150px]" />
-              <col />
+              <col className="w-[220px]" />
+              <col className="w-[140px]" />
               <col className="w-8" />
             </colgroup>
             <thead>
@@ -1324,7 +1318,7 @@ export function LoanHistoryEntryForm({
   redirectTo?: string
   showSubmitButton?: boolean
 }) {
-  const router = useRouter()
+  const router = useTenantRouter()
   const {
     gm,
     gmId,

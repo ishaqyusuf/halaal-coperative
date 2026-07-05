@@ -34,7 +34,6 @@ import { MemberBackfillApplyForm } from "./member-backfill-apply-form"
 import { MemberBackfillFooterActionsSlot } from "./member-backfill-footer-slot"
 import {
   getMemberBackfillAdjacentSteps,
-  getMemberBackfillStepMeta,
   memberBackfillStepHref,
   memberBackfillSteps,
   type MemberBackfillStepKey,
@@ -80,10 +79,7 @@ function statusTone(status: MemberBackfillData["review"]["status"]) {
   return "neutral"
 }
 
-function isStepComplete(
-  step: MemberBackfillStepKey,
-  data: MemberBackfillData
-) {
+function isStepComplete(step: MemberBackfillStepKey, data: MemberBackfillData) {
   if (step === "baseline") return true
   if (step === "commitments") {
     return (
@@ -110,7 +106,7 @@ function MetricBlock({
   return (
     <div className={cn("border border-border/70 bg-muted/20 p-3", className)}>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 break-words text-sm font-semibold text-foreground">
+      <p className="mt-1 text-sm font-semibold break-words text-foreground">
         {value}
       </p>
     </div>
@@ -152,10 +148,10 @@ function StepRail({
                 key={step.key}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-medium">
-                    Step {index + 1}
-                  </span>
-                  <Badge variant={active || !complete ? "secondary" : "default"}>
+                  <span className="text-xs font-medium">Step {index + 1}</span>
+                  <Badge
+                    variant={active || !complete ? "secondary" : "default"}
+                  >
                     {complete ? "Done" : "Todo"}
                   </Badge>
                 </div>
@@ -270,7 +266,10 @@ function BaselineStep({ data }: { data: MemberBackfillData }) {
           label="Commitment rows"
           value={data.memberAmountLogs.length}
         />
-        <MetricBlock label="Activity windows" value={data.memberActivityEvents.length} />
+        <MetricBlock
+          label="Activity windows"
+          value={data.memberActivityEvents.length}
+        />
         <MetricBlock label="Loan drafts" value={data.legacyLoanDrafts.length} />
         <MetricBlock
           label="Generated rows"
@@ -311,7 +310,8 @@ function CommitmentsStep({ data }: { data: MemberBackfillData }) {
 }
 
 function ActivityStep({ data }: { data: MemberBackfillData }) {
-  const disabled = !data.canEditBackfill || data.review.status === "backfill_applied"
+  const disabled =
+    !data.canEditBackfill || data.review.status === "backfill_applied"
   const nextHref = disabled
     ? undefined
     : memberBackfillStepHref(data.member.id, "loans")
@@ -381,7 +381,8 @@ function LoansStep({ data }: { data: MemberBackfillData }) {
 }
 
 function ProfitStep({ data }: { data: MemberBackfillData }) {
-  const disabled = !data.canEditBackfill || data.review.status === "backfill_applied"
+  const disabled =
+    !data.canEditBackfill || data.review.status === "backfill_applied"
   const profitMigrationOptions =
     data.profitMigrationOptions as ProfitMigrationOption[]
 
@@ -611,7 +612,6 @@ export function MemberBackfillPageView({
   activeStep: MemberBackfillStepKey
   data: MemberBackfillData
 }) {
-  const activeMeta = getMemberBackfillStepMeta(activeStep)
   const canAutoSaveStep =
     data.canEditBackfill && data.review.status !== "backfill_applied"
   const hasStepNextAction =
@@ -627,7 +627,9 @@ export function MemberBackfillPageView({
       description={`${data.member.memberNumber} joined ${formatDate(data.member.joinedAt)}. Complete historical setup for this member before applying generated ledger rows.`}
     >
       <div className="flex flex-wrap items-center gap-3">
-        <DashboardActionLink href="/members">Back to members</DashboardActionLink>
+        <DashboardActionLink href="/members">
+          Back to members
+        </DashboardActionLink>
         <DashboardActionLink href={`/members/${data.member.id}`}>
           Open member detail
         </DashboardActionLink>
@@ -639,24 +641,6 @@ export function MemberBackfillPageView({
       <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
         <StepRail activeStep={activeStep} data={data} />
         <main>
-          <DashboardSurfaceCard className="mb-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Current step
-                </p>
-                <h2 className="mt-1 text-xl font-semibold text-foreground">
-                  {activeMeta.label}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {activeMeta.description}
-                </p>
-              </div>
-              <Badge variant="secondary">
-                Step {memberBackfillSteps.findIndex((step) => step.key === activeStep) + 1}
-              </Badge>
-            </div>
-          </DashboardSurfaceCard>
           <ActiveStepPanel activeStep={activeStep} data={data} />
           <StepFooter
             activeStep={activeStep}

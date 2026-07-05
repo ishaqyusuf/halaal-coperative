@@ -49,6 +49,15 @@ export type BusinessProfitSeasonReviewRow = {
   label: string
   periodEnd: Date
   periodStart: Date
+  profitEntries: Array<{
+    businessName: string
+    deductionAmount: number
+    expenseAmount: number
+    id: string
+    profitAmount: number
+    profitDate: Date | string
+    reason: string | null
+  }>
   profitEntryCount: number
   status: "pending" | "draft" | "approved" | "published" | "closed"
 }
@@ -59,14 +68,13 @@ type BusinessProfitSeasonProfitEntry = {
   id: string
   profitAmount?: unknown
   profitDate: Date | string
+  reason?: string | null
   shareBusiness?: {
     name?: string | null
   } | null
 }
 
-type BusinessProfitSeasonBucket = BusinessProfitSeasonReviewRow & {
-  profitEntries: BusinessProfitSeasonProfitEntry[]
-}
+type BusinessProfitSeasonBucket = BusinessProfitSeasonReviewRow
 
 const dividendPeriodReviewSelect = {
   id: true,
@@ -124,7 +132,7 @@ async function listDividendPeriodsForBusinessProfitReview(
   input: {
     orderBy?: any
     tenantId: string
-  },
+  }
 ) {
   try {
     return await prisma.dividendPeriod.findMany({
@@ -146,14 +154,14 @@ async function listDividendPeriodsForBusinessProfitReview(
 }
 
 function normalizeTenantBusinessProfitPolicy(
-  policy: any,
+  policy: any
 ): TenantBusinessProfitPolicySettings {
   return {
     ...defaultTenantBusinessProfitPolicy,
     ...(policy
       ? {
           defaultDistributablePercentage: Number(
-            policy.defaultDistributablePercentage,
+            policy.defaultDistributablePercentage
           ),
           distributionBasis:
             policy.distributionBasis ??
@@ -170,11 +178,9 @@ function normalizeTenantBusinessProfitPolicy(
             policy.profitDistributionFrequency ??
             defaultTenantBusinessProfitPolicy.profitDistributionFrequency,
           requiresProfitDistributionApproval: Boolean(
-            policy.requiresProfitDistributionApproval,
+            policy.requiresProfitDistributionApproval
           ),
-          reserveRetentionPercentage: Number(
-            policy.reserveRetentionPercentage,
-          ),
+          reserveRetentionPercentage: Number(policy.reserveRetentionPercentage),
         }
       : {}),
   }
@@ -183,7 +189,7 @@ function normalizeTenantBusinessProfitPolicy(
 function assertBusinessPolicyChoice(
   value: string,
   validValues: Set<string>,
-  label: string,
+  label: string
 ) {
   if (!validValues.has(value)) {
     throw new Error(`${label} is not supported.`)
@@ -198,13 +204,13 @@ function assertPercentage(value: number, label: string) {
 
 async function assertHistoricalFinanceSetupMutationOpen(
   tenantId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseMigrationTools) {
     throw new Error(
-      "Historical finance setup is locked because initial migration is finalized.",
+      "Historical finance setup is locked because initial migration is finalized."
     )
   }
 
@@ -214,20 +220,20 @@ async function assertHistoricalFinanceSetupMutationOpen(
     migrationState.counts.appliedBackfillMonths > 0
   ) {
     throw new Error(
-      "Historical finance setup is locked because member ledger backfill has already started.",
+      "Historical finance setup is locked because member ledger backfill has already started."
     )
   }
 }
 
 function isHistoricalBusinessProfitSource(
-  sourceType: string | null | undefined,
+  sourceType: string | null | undefined
 ) {
   return sourceType === "backfill" || sourceType === "import"
 }
 
 async function createOptionalAuditLogEntry(
   input: Parameters<typeof createAuditLogEntry>[0],
-  prisma: any,
+  prisma: any
 ) {
   if (typeof prisma.auditLog?.create !== "function") {
     return null
@@ -269,7 +275,7 @@ function formatSeasonDate(value: Date) {
 }
 
 function getBusinessProfitSeasonSpanMonths(
-  frequency: BusinessProfitDistributionFrequency,
+  frequency: BusinessProfitDistributionFrequency
 ) {
   if (frequency === "quarterly") return 3
   if (frequency === "semi_annual") return 6
@@ -280,7 +286,7 @@ function getBusinessProfitSeasonSpanMonths(
 
 function getBusinessProfitSeasonPeriod(
   profitDateValue: Date | string,
-  policy: TenantBusinessProfitPolicySettings,
+  policy: TenantBusinessProfitPolicySettings
 ) {
   const profitDate = dateFromDateOnly(toDateOnly(profitDateValue))
 
@@ -292,7 +298,7 @@ function getBusinessProfitSeasonPeriod(
   }
 
   const spanMonths = getBusinessProfitSeasonSpanMonths(
-    policy.profitDistributionFrequency,
+    policy.profitDistributionFrequency
   )
   const profitMonthIndex =
     profitDate.getUTCFullYear() * 12 + profitDate.getUTCMonth()
@@ -317,10 +323,10 @@ function getBusinessProfitSeasonPeriod(
 function getBusinessProfitSeasonLabel(
   policy: TenantBusinessProfitPolicySettings,
   periodStart: Date,
-  periodEnd: Date,
+  periodEnd: Date
 ) {
   const range = `${formatSeasonDate(periodStart)} - ${formatSeasonDate(
-    periodEnd,
+    periodEnd
   )}`
 
   if (policy.profitDistributionFrequency === "quarterly") {
@@ -351,7 +357,7 @@ function buildBusinessProfitSeasonReviewRows(input: {
     input.dividendPeriods.map((period) => [
       getBusinessProfitSeasonKey(period.periodStart, period.periodEnd),
       period,
-    ]),
+    ])
   )
   const buckets = new Map<
     string,
@@ -363,10 +369,7 @@ function buildBusinessProfitSeasonReviewRows(input: {
   >()
 
   for (const entry of input.entries) {
-    const period = getBusinessProfitSeasonPeriod(
-      entry.profitDate,
-      input.policy,
-    )
+    const period = getBusinessProfitSeasonPeriod(entry.profitDate, input.policy)
     const key = getBusinessProfitSeasonKey(period.periodStart, period.periodEnd)
     const bucket = buckets.get(key) ?? {
       entries: [],
@@ -384,35 +387,35 @@ function buildBusinessProfitSeasonReviewRows(input: {
       const grossProfitAmount = roundCurrency(
         bucket.entries.reduce(
           (total, entry) => total + Number(entry.profitAmount ?? 0),
-          0,
-        ),
+          0
+        )
       )
       const entryDeductionAmount = roundCurrency(
         bucket.entries.reduce(
           (total, entry) => total + Number(entry.expenseAmount ?? 0),
-          0,
-        ),
+          0
+        )
       )
       const fallbackSeasonDeduction = existingPeriod
         ? Math.max(
             0,
             Number(existingPeriod.totalProfitAmount ?? 0) -
               Number(existingPeriod.distributableAmount ?? 0) -
-              entryDeductionAmount,
+              entryDeductionAmount
           )
         : 0
       const deductionAmount = roundCurrency(
-        Number(existingPeriod?.deductionAmount ?? fallbackSeasonDeduction),
+        Number(existingPeriod?.deductionAmount ?? fallbackSeasonDeduction)
       )
       const businessNames = Array.from(
         new Set(
           bucket.entries.map(
-            (entry) => entry.shareBusiness?.name ?? "Business profit",
-          ),
-        ),
+            (entry) => entry.shareBusiness?.name ?? "Business profit"
+          )
+        )
       ).sort((a, b) => a.localeCompare(b))
       const distributableAmount = roundCurrency(
-        grossProfitAmount - entryDeductionAmount - deductionAmount,
+        grossProfitAmount - entryDeductionAmount - deductionAmount
       )
 
       return {
@@ -429,11 +432,19 @@ function buildBusinessProfitSeasonReviewRows(input: {
           : getBusinessProfitSeasonLabel(
               input.policy,
               bucket.periodStart,
-              bucket.periodEnd,
+              bucket.periodEnd
             ),
         periodEnd: bucket.periodEnd,
         periodStart: bucket.periodStart,
-        profitEntries: bucket.entries,
+        profitEntries: bucket.entries.map((entry) => ({
+          businessName: entry.shareBusiness?.name ?? "Business profit",
+          deductionAmount: roundCurrency(Number(entry.expenseAmount ?? 0)),
+          expenseAmount: roundCurrency(Number(entry.expenseAmount ?? 0)),
+          id: entry.id,
+          profitAmount: roundCurrency(Number(entry.profitAmount ?? 0)),
+          profitDate: entry.profitDate,
+          reason: entry.reason ?? null,
+        })),
         profitEntryCount: bucket.entries.length,
         status: existingPeriod?.status ?? "pending",
       }
@@ -441,7 +452,7 @@ function buildBusinessProfitSeasonReviewRows(input: {
     .sort(
       (a, b) =>
         a.periodStart.getTime() - b.periodStart.getTime() ||
-        a.label.localeCompare(b.label),
+        a.label.localeCompare(b.label)
     )
 }
 
@@ -450,17 +461,17 @@ async function assertBusinessProfitMutationOpen(
     sourceType?: BusinessProfitSourceType | string | null
     tenantId: string
   },
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(
     input.tenantId,
-    prisma,
+    prisma
   )
 
   if (isHistoricalBusinessProfitSource(input.sourceType)) {
     if (!migrationState.snapshot.canUseMigrationTools) {
       throw new Error(
-        "Historical business profit migration records are locked because initial migration is finalized.",
+        "Historical business profit migration records are locked because initial migration is finalized."
       )
     }
 
@@ -470,7 +481,7 @@ async function assertBusinessProfitMutationOpen(
       migrationState.counts.appliedBackfillMonths > 0
     ) {
       throw new Error(
-        "Historical business profit migration records are locked because member ledger backfill has already started.",
+        "Historical business profit migration records are locked because member ledger backfill has already started."
       )
     }
 
@@ -486,7 +497,7 @@ async function assertBusinessProfitMutationOpen(
 
   if (!migrationState.snapshot.canUseMigrationTools) {
     throw new Error(
-      "Business profit records are locked until live operations are available.",
+      "Business profit records are locked until live operations are available."
     )
   }
 
@@ -496,27 +507,27 @@ async function assertBusinessProfitMutationOpen(
     migrationState.counts.appliedBackfillMonths > 0
   ) {
     throw new Error(
-      "Business profit records are locked because member ledger backfill has already started. Finish migration or create live business records after go-live.",
+      "Business profit records are locked because member ledger backfill has already started. Finish migration or create live business records after go-live."
     )
   }
 }
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
     throw new Error(
-      "Live financial record writes are locked until initial migration is finalized.",
+      "Live financial record writes are locked until initial migration is finalized."
     )
   }
 }
 
 export async function getTenantFinanceSetup(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
 
@@ -610,7 +621,7 @@ export async function getTenantFinanceSetup(
         shareBusiness: {
           name: business.name,
         },
-      })),
+      }))
     ),
     policy: normalizedBusinessPolicy,
   })
@@ -628,7 +639,7 @@ export async function getTenantFinanceSetup(
 
 export async function getTenantBusinessProfitPolicy(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
 
@@ -641,7 +652,7 @@ export async function getTenantBusinessProfitPolicy(
     (tenantBusinessPolicy) =>
       tenantBusinessPolicy.findUnique({
         where: { tenantId },
-      }),
+      })
   )
 
   return normalizeTenantBusinessProfitPolicy(policy)
@@ -649,7 +660,7 @@ export async function getTenantBusinessProfitPolicy(
 
 export async function listBusinessProfitSeasonReviews(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<BusinessProfitSeasonReviewRow[]> {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
 
@@ -682,7 +693,7 @@ export async function listBusinessProfitSeasonReviews(
     dividendPeriods,
     entries,
     policy,
-  }).map(({ profitEntries: _profitEntries, ...row }) => row)
+  })
 }
 
 export async function saveBusinessProfitSeasonReviews(
@@ -695,14 +706,14 @@ export async function saveBusinessProfitSeasonReviews(
     }>
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
 
   await assertHistoricalFinanceSetupMutationOpen(
     input.tenantId,
-    prisma as PrismaClient,
+    prisma as PrismaClient
   )
 
   const [policy, entries, dividendPeriods] = await Promise.all([
@@ -733,7 +744,7 @@ export async function saveBusinessProfitSeasonReviews(
     policy,
   })
   const submittedSeasonsByKey = new Map(
-    input.seasons.map((season) => [season.key, season]),
+    input.seasons.map((season) => [season.key, season])
   )
 
   return prisma.$transaction(async (tx: any) => {
@@ -742,16 +753,16 @@ export async function saveBusinessProfitSeasonReviews(
     for (const season of seasons) {
       const submittedSeason = submittedSeasonsByKey.get(season.key)
       const deductionAmount = roundCurrency(
-        Number(submittedSeason?.deductionAmount ?? season.deductionAmount ?? 0),
+        Number(submittedSeason?.deductionAmount ?? season.deductionAmount ?? 0)
       )
       const deductionReason =
         submittedSeason?.deductionReason?.trim() ||
         (deductionAmount > 0 ? season.deductionReason : null)
       const baseAllocatableAmount = roundCurrency(
-        season.grossProfitAmount - season.entryDeductionAmount,
+        season.grossProfitAmount - season.entryDeductionAmount
       )
       const distributableAmount = roundCurrency(
-        baseAllocatableAmount - deductionAmount,
+        baseAllocatableAmount - deductionAmount
       )
 
       if (!Number.isFinite(deductionAmount) || deductionAmount < 0) {
@@ -760,7 +771,7 @@ export async function saveBusinessProfitSeasonReviews(
 
       if (deductionAmount > baseAllocatableAmount) {
         throw new Error(
-          `${season.label} deduction cannot exceed its shareable profit.`,
+          `${season.label} deduction cannot exceed its shareable profit.`
         )
       }
 
@@ -781,7 +792,7 @@ export async function saveBusinessProfitSeasonReviews(
         existingPeriod?.status === "closed"
       ) {
         throw new Error(
-          `${existingPeriod.name} is already ${existingPeriod.status} and cannot be edited.`,
+          `${existingPeriod.name} is already ${existingPeriod.status} and cannot be edited.`
         )
       }
 
@@ -817,7 +828,7 @@ export async function saveBusinessProfitSeasonReviews(
 
       for (const [index, entry] of season.profitEntries.entries()) {
         const entryBaseAllocatable = roundCurrency(
-          Number(entry.profitAmount ?? 0) - Number(entry.expenseAmount ?? 0),
+          Number(entry.profitAmount ?? 0) - Number(entry.expenseAmount ?? 0)
         )
         const reviewedAllocatable =
           index === season.profitEntries.length - 1
@@ -826,11 +837,11 @@ export async function saveBusinessProfitSeasonReviews(
                 baseAllocatableAmount > 0
                   ? distributableAmount *
                       (entryBaseAllocatable / baseAllocatableAmount)
-                  : 0,
+                  : 0
               )
 
         remainingDistributable = roundCurrency(
-          remainingDistributable - reviewedAllocatable,
+          remainingDistributable - reviewedAllocatable
         )
 
         await tx.shareBusinessProfitEntry.update({
@@ -857,7 +868,7 @@ export async function saveBusinessProfitSeasonReviews(
         },
         tenantId: input.tenantId,
       },
-      tx,
+      tx
     )
 
     return reviewedSeasonIds
@@ -877,7 +888,7 @@ export async function updateTenantBusinessProfitPolicy(
     reserveRetentionPercentage: number
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -886,8 +897,7 @@ export async function updateTenantBusinessProfitPolicy(
     input.distributionBasis ??
     defaultTenantBusinessProfitPolicy.distributionBasis
   const expenseTreatment =
-    input.expenseTreatment ??
-    defaultTenantBusinessProfitPolicy.expenseTreatment
+    input.expenseTreatment ?? defaultTenantBusinessProfitPolicy.expenseTreatment
   const historicalProfitMigrationMode =
     input.historicalProfitMigrationMode ??
     defaultTenantBusinessProfitPolicy.historicalProfitMigrationMode
@@ -895,22 +905,22 @@ export async function updateTenantBusinessProfitPolicy(
   assertBusinessPolicyChoice(
     input.profitDistributionFrequency,
     businessProfitDistributionFrequencies,
-    "Profit distribution frequency",
+    "Profit distribution frequency"
   )
   assertBusinessPolicyChoice(
     distributionBasis,
     businessProfitDistributionBases,
-    "Distribution basis",
+    "Distribution basis"
   )
   assertBusinessPolicyChoice(
     expenseTreatment,
     businessProfitExpenseTreatments,
-    "Expense treatment",
+    "Expense treatment"
   )
   assertBusinessPolicyChoice(
     historicalProfitMigrationMode,
     historicalProfitMigrationModes,
-    "Historical profit migration mode",
+    "Historical profit migration mode"
   )
 
   if (
@@ -923,17 +933,16 @@ export async function updateTenantBusinessProfitPolicy(
 
   assertPercentage(
     input.defaultDistributablePercentage,
-    "Default distributable percentage",
+    "Default distributable percentage"
   )
   assertPercentage(input.reserveRetentionPercentage, "Reserve retention")
 
   if (
-    input.defaultDistributablePercentage +
-      input.reserveRetentionPercentage >
+    input.defaultDistributablePercentage + input.reserveRetentionPercentage >
     100
   ) {
     throw new Error(
-      "Distributable percentage plus reserve retention cannot exceed 100.",
+      "Distributable percentage plus reserve retention cannot exceed 100."
     )
   }
 
@@ -942,7 +951,7 @@ export async function updateTenantBusinessProfitPolicy(
     (tenantBusinessPolicy) =>
       tenantBusinessPolicy.findUnique({
         where: { tenantId: input.tenantId },
-      }),
+      })
   )
   const policy = await prisma.tenantBusinessPolicy.upsert({
     create: {
@@ -986,7 +995,7 @@ export async function updateTenantBusinessProfitPolicy(
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return normalizeTenantBusinessProfitPolicy(policy)
@@ -994,7 +1003,7 @@ export async function updateTenantBusinessProfitPolicy(
 
 export async function listTenantShareStructureVersions(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return []
@@ -1015,7 +1024,7 @@ export async function createTenantShareStructureVersion(
     valueType?: "fixed_amount" | "percentage"
     createdByUserId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -1044,7 +1053,7 @@ export async function upsertTenantShareStructureVersion(
     valueType?: "fixed_amount" | "percentage"
     createdByUserId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -1090,7 +1099,7 @@ export async function updateTenantShareStructureVersion(
     notes?: string
     valueType?: "fixed_amount" | "percentage"
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -1125,7 +1134,7 @@ export async function updateTenantShareStructureVersion(
 export async function listChargeDefinitionVersions(
   tenantId: string,
   chargeDefinitionId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return []
@@ -1150,7 +1159,7 @@ export async function createChargeDefinitionVersion(
     notes?: string
     createdByUserId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -1164,7 +1173,9 @@ export async function createChargeDefinitionVersion(
         effectiveFrom: input.effectiveFrom,
         amount: input.amount,
         kind: input.kind,
-        chargeValueType: input.chargeValueType ?? (input.kind === "percentage" ? "percentage" : "fixed_amount"),
+        chargeValueType:
+          input.chargeValueType ??
+          (input.kind === "percentage" ? "percentage" : "fixed_amount"),
         notes: input.notes,
         createdByUserId: input.createdByUserId,
       },
@@ -1208,7 +1219,7 @@ export async function updateChargeDefinitionVersion(
     chargeValueType?: "fixed_amount" | "percentage"
     notes?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -1276,7 +1287,7 @@ export async function updateChargeDefinitionVersion(
 
 export async function listShareBusinesses(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return []
@@ -1330,13 +1341,13 @@ export async function createShareBusiness(
       reason?: string
     }>
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
   await assertBusinessProfitMutationOpen(
     { sourceType: input.sourceType ?? "manual", tenantId: input.tenantId },
-    prisma,
+    prisma
   )
 
   return prisma.$transaction(async (tx: any) => {
@@ -1355,14 +1366,16 @@ export async function createShareBusiness(
         : [])
     const totalProfitAmount = profitEntries.reduce(
       (total, entry) => total + entry.profitAmount,
-      0,
+      0
     )
     const business = await tx.shareBusiness.create({
       data: {
         tenantId: input.tenantId,
         name: input.name,
         capitalAmount: input.capitalAmount,
-        profitAmount: input.profitEntries ? totalProfitAmount : input.profitAmount,
+        profitAmount: input.profitEntries
+          ? totalProfitAmount
+          : input.profitAmount,
         startDate: input.startDate,
         endDate: input.endDate,
         status: input.status ?? "planned",
@@ -1417,7 +1430,7 @@ export async function createShareBusiness(
         },
         tenantId: input.tenantId,
       },
-      tx,
+      tx
     )
 
     return tx.shareBusiness.findFirst({
@@ -1448,7 +1461,7 @@ export async function updateShareBusiness(
     linkedDividendPeriodId?: string | null
     actorUserId?: string | null
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -1479,8 +1492,8 @@ export async function updateShareBusiness(
   if (
     existing.profitEntries.some((entry: any) =>
       entry.allocations.some(
-        (allocation: { status: string }) => allocation.status === "published",
-      ),
+        (allocation: { status: string }) => allocation.status === "published"
+      )
     )
   ) {
     throw new Error("Published profit allocations cannot be edited.")
@@ -1489,13 +1502,13 @@ export async function updateShareBusiness(
   await assertBusinessProfitMutationOpen(
     {
       sourceType: existing.profitEntries.some((entry: any) =>
-        isHistoricalBusinessProfitSource(entry.sourceType),
+        isHistoricalBusinessProfitSource(entry.sourceType)
       )
         ? "backfill"
         : "manual",
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   const updatedBusiness = await prisma.shareBusiness.update({
@@ -1527,7 +1540,7 @@ export async function updateShareBusiness(
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return updatedBusiness
@@ -1537,14 +1550,19 @@ export async function createMemberShareLedgerEntry(
   input: {
     tenantId: string
     memberId: string
-    sourceType: "monthly_share_charge" | "backfill" | "manual_adjustment" | "import" | "reversal"
+    sourceType:
+      | "monthly_share_charge"
+      | "backfill"
+      | "manual_adjustment"
+      | "import"
+      | "reversal"
     amount: number
     effectiveDate: Date
     sourceId?: string
     notes?: string
     createdByUserId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -1573,7 +1591,7 @@ export async function listMemberShareLedgerEntries(
     asOfDate?: Date
     memberId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return []
@@ -1599,7 +1617,7 @@ export async function listMemberShareLedgerEntries(
 export async function getMemberShareBalancesAtDate(
   tenantId: string,
   asOfDate: Date,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return []
@@ -1623,7 +1641,12 @@ export async function getMemberShareBalancesAtDate(
   })
   const balances = new Map<
     string,
-    { memberId: string; memberName: string; memberNumber: string; shareBalance: number }
+    {
+      memberId: string
+      memberName: string
+      memberNumber: string
+      shareBalance: number
+    }
   >()
 
   for (const entry of entries) {
@@ -1639,13 +1662,17 @@ export async function getMemberShareBalancesAtDate(
 
   return Array.from(balances.values())
     .filter((balance) => balance.shareBalance > 0)
-    .sort((a, b) => b.shareBalance - a.shareBalance || a.memberName.localeCompare(b.memberName))
+    .sort(
+      (a, b) =>
+        b.shareBalance - a.shareBalance ||
+        a.memberName.localeCompare(b.memberName)
+    )
 }
 
 async function getEligibleMemberShareBalancesAtDate(
   tenantId: string,
   asOfDate: Date,
-  prisma: any,
+  prisma: any
 ) {
   const [shareLedgerEntries, amountLogs] = await Promise.all([
     prisma.memberShareLedgerEntry.findMany({
@@ -1744,7 +1771,7 @@ async function getEligibleMemberShareBalancesAtDate(
     .sort(
       (a, b) =>
         b.shareBalance - a.shareBalance ||
-        a.memberName.localeCompare(b.memberName),
+        a.memberName.localeCompare(b.memberName)
     )
 }
 
@@ -1755,17 +1782,25 @@ function roundCurrency(value: number) {
 export async function getSharePoolSummary(
   tenantId: string,
   asOfDate = new Date(),
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
-  const balances = await getMemberShareBalancesAtDate(tenantId, asOfDate, prismaOverride)
-  const totalShareBalance = balances.reduce((total, balance) => total + balance.shareBalance, 0)
+  const balances = await getMemberShareBalancesAtDate(
+    tenantId,
+    asOfDate,
+    prismaOverride
+  )
+  const totalShareBalance = balances.reduce(
+    (total, balance) => total + balance.shareBalance,
+    0
+  )
 
   return {
     asOfDate,
     memberCount: balances.length,
     topMembers: balances.slice(0, 5).map((balance) => ({
       ...balance,
-      sharePercentage: totalShareBalance > 0 ? balance.shareBalance / totalShareBalance : 0,
+      sharePercentage:
+        totalShareBalance > 0 ? balance.shareBalance / totalShareBalance : 0,
     })),
     totalShareBalance,
   }
@@ -1786,24 +1821,30 @@ export async function createShareBusinessProfitEntry(
     notes?: string
     createdByUserId?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
   await assertBusinessProfitMutationOpen(
     { sourceType: input.sourceType ?? "manual", tenantId: input.tenantId },
-    prisma,
+    prisma
   )
   const expenseAmount = input.expenseAmount ?? 0
   const allocatableProfitAmount =
-    input.allocatableProfitAmount ?? Math.max(0, input.profitAmount - expenseAmount)
+    input.allocatableProfitAmount ??
+    Math.max(0, input.profitAmount - expenseAmount)
 
   if (expenseAmount < 0) {
     throw new Error("Expense amount cannot be negative.")
   }
 
-  if (allocatableProfitAmount < 0 || allocatableProfitAmount > input.profitAmount) {
-    throw new Error("Allocatable profit must be between zero and the recorded profit amount.")
+  if (
+    allocatableProfitAmount < 0 ||
+    allocatableProfitAmount > input.profitAmount
+  ) {
+    throw new Error(
+      "Allocatable profit must be between zero and the recorded profit amount."
+    )
   }
 
   const profitEntry = await prisma.shareBusinessProfitEntry.create({
@@ -1838,7 +1879,7 @@ export async function createShareBusinessProfitEntry(
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return profitEntry
@@ -1859,20 +1900,26 @@ export async function updateShareBusinessProfitEntry(
     notes?: string
     actorUserId?: string | null
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
   const expenseAmount = input.expenseAmount ?? 0
   const allocatableProfitAmount =
-    input.allocatableProfitAmount ?? Math.max(0, input.profitAmount - expenseAmount)
+    input.allocatableProfitAmount ??
+    Math.max(0, input.profitAmount - expenseAmount)
 
   if (expenseAmount < 0) {
     throw new Error("Expense amount cannot be negative.")
   }
 
-  if (allocatableProfitAmount < 0 || allocatableProfitAmount > input.profitAmount) {
-    throw new Error("Allocatable profit must be between zero and the recorded profit amount.")
+  if (
+    allocatableProfitAmount < 0 ||
+    allocatableProfitAmount > input.profitAmount
+  ) {
+    throw new Error(
+      "Allocatable profit must be between zero and the recorded profit amount."
+    )
   }
 
   return prisma.$transaction(async (tx: any) => {
@@ -1899,10 +1946,14 @@ export async function updateShareBusinessProfitEntry(
           : (input.sourceType ?? existing.sourceType),
         tenantId: input.tenantId,
       },
-      tx as PrismaClient,
+      tx as PrismaClient
     )
 
-    if (existing.allocations.some((allocation: { status: string }) => allocation.status === "published")) {
+    if (
+      existing.allocations.some(
+        (allocation: { status: string }) => allocation.status === "published"
+      )
+    ) {
       throw new Error("Published profit allocations cannot be edited.")
     }
 
@@ -1947,7 +1998,7 @@ export async function updateShareBusinessProfitEntry(
         },
         tenantId: input.tenantId,
       },
-      tx,
+      tx
     )
 
     return updatedProfitEntry
@@ -1960,7 +2011,7 @@ export async function generateShareProfitAllocations(
     tenantId: string
     profitEntryId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -1976,22 +2027,27 @@ export async function generateShareProfitAllocations(
     if (!profitEntry) throw new Error("Business profit entry not found")
     await assertBusinessProfitMutationOpen(
       { sourceType: profitEntry.sourceType, tenantId: input.tenantId },
-      tx as PrismaClient,
+      tx as PrismaClient
     )
 
     const balances = await getMemberShareBalancesAtDate(
       input.tenantId,
       profitEntry.profitDate,
-      tx as PrismaClient,
+      tx as PrismaClient
     )
-    const totalShareBalance = balances.reduce((total, balance) => total + balance.shareBalance, 0)
+    const totalShareBalance = balances.reduce(
+      (total, balance) => total + balance.shareBalance,
+      0
+    )
 
     if (totalShareBalance <= 0) {
       throw new Error("No member share balances exist on this profit date.")
     }
 
     const allocations = allocateBusinessProfitByShare({
-      profitAmount: Number(profitEntry.allocatableProfitAmount ?? profitEntry.profitAmount),
+      profitAmount: Number(
+        profitEntry.allocatableProfitAmount ?? profitEntry.profitAmount
+      ),
       balances,
     })
 
@@ -2004,21 +2060,23 @@ export async function generateShareProfitAllocations(
     })
 
     await tx.shareProfitAllocation.createMany({
-      data: allocations.map((allocation: {
-        allocatedProfitAmount: number
-        memberId: string
-        shareBalance: number
-        sharePercentage: number
-      }) => ({
-        tenantId: input.tenantId,
-        memberId: allocation.memberId,
-        profitEntryId: input.profitEntryId,
-        memberShareBalance: allocation.shareBalance,
-        totalShareBalance,
-        sharePercentage: allocation.sharePercentage,
-        allocatedProfitAmount: allocation.allocatedProfitAmount,
-        status: "draft",
-      })),
+      data: allocations.map(
+        (allocation: {
+          allocatedProfitAmount: number
+          memberId: string
+          shareBalance: number
+          sharePercentage: number
+        }) => ({
+          tenantId: input.tenantId,
+          memberId: allocation.memberId,
+          profitEntryId: input.profitEntryId,
+          memberShareBalance: allocation.shareBalance,
+          totalShareBalance,
+          sharePercentage: allocation.sharePercentage,
+          allocatedProfitAmount: allocation.allocatedProfitAmount,
+          status: "draft",
+        })
+      ),
     })
 
     await createOptionalAuditLogEntry(
@@ -2034,7 +2092,7 @@ export async function generateShareProfitAllocations(
         },
         tenantId: input.tenantId,
       },
-      tx,
+      tx
     )
 
     return tx.shareProfitAllocation.findMany({
@@ -2061,7 +2119,7 @@ export async function publishShareProfitAllocations(
     tenantId: string
     profitEntryId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -2080,10 +2138,12 @@ export async function publishShareProfitAllocations(
     if (!profitEntry) throw new Error("Business profit entry not found")
     await assertBusinessProfitMutationOpen(
       { sourceType: profitEntry.sourceType, tenantId: input.tenantId },
-      tx as PrismaClient,
+      tx as PrismaClient
     )
     if (!profitEntry.linkedDividendPeriodId) {
-      throw new Error("Link this profit entry to a dividend period before publishing.")
+      throw new Error(
+        "Link this profit entry to a dividend period before publishing."
+      )
     }
     if (profitEntry.allocations.length === 0) {
       throw new Error("Generate share profit allocations before publishing.")
@@ -2135,7 +2195,7 @@ export async function publishShareProfitAllocations(
         },
         tenantId: input.tenantId,
       },
-      tx,
+      tx
     )
 
     return tx.shareProfitAllocation.findMany({
@@ -2161,7 +2221,7 @@ export async function getBusinessProfitMigrationWorksheet(
     profitEntryId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -2206,10 +2266,10 @@ export async function getBusinessProfitMigrationWorksheet(
   const eligibleMembers = await getEligibleMemberShareBalancesAtDate(
     input.tenantId,
     eligibilityDate,
-    prisma,
+    prisma
   )
   const totalShareBalance = roundCurrency(
-    eligibleMembers.reduce((total, member) => total + member.shareBalance, 0),
+    eligibleMembers.reduce((total, member) => total + member.shareBalance, 0)
   )
   const expenseLines =
     (profitEntry.expenseLines ?? []).length > 0
@@ -2228,23 +2288,23 @@ export async function getBusinessProfitMigrationWorksheet(
           ]
         : []
   const expenseTotal = roundCurrency(
-    expenseLines.reduce((total: number, line: any) => total + line.amount, 0),
+    expenseLines.reduce((total: number, line: any) => total + line.amount, 0)
   )
   const shareableDividend = roundCurrency(
-    Number(profitEntry.profitAmount) - expenseTotal,
+    Number(profitEntry.profitAmount) - expenseTotal
   )
   const existingAllocations = new Map(
     (profitEntry.allocations ?? []).map((allocation: any) => [
       allocation.memberId,
       allocation,
-    ]),
+    ])
   )
   const allocatedTotal = roundCurrency(
     (profitEntry.allocations ?? []).reduce(
       (total: number, allocation: any) =>
         total + Number(allocation.allocatedProfitAmount),
-      0,
-    ),
+      0
+    )
   )
 
   return {
@@ -2277,7 +2337,7 @@ export async function getBusinessProfitMigrationWorksheet(
     profitEntry: {
       allocatableProfitAmount: Number(profitEntry.allocatableProfitAmount),
       hasPublishedAllocations: (profitEntry.allocations ?? []).some(
-        (allocation: any) => allocation.status === "published",
+        (allocation: any) => allocation.status === "published"
       ),
       id: profitEntry.id,
       linkedDividendPeriod: profitEntry.linkedDividendPeriod,
@@ -2314,7 +2374,7 @@ export async function saveBusinessProfitMigrationWorksheet(
     profitEntryId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
@@ -2337,12 +2397,12 @@ export async function saveBusinessProfitMigrationWorksheet(
 
     await assertBusinessProfitMutationOpen(
       { sourceType: profitEntry.sourceType, tenantId: input.tenantId },
-      tx as PrismaClient,
+      tx as PrismaClient
     )
 
     if (
       (profitEntry.allocations ?? []).some(
-        (allocation: any) => allocation.status === "published",
+        (allocation: any) => allocation.status === "published"
       )
     ) {
       throw new Error("Published profit allocations cannot be edited.")
@@ -2366,7 +2426,7 @@ export async function saveBusinessProfitMigrationWorksheet(
     }
 
     const expenseTotal = roundCurrency(
-      normalizedExpenseLines.reduce((total, line) => total + line.amount, 0),
+      normalizedExpenseLines.reduce((total, line) => total + line.amount, 0)
     )
     const shareableDividend = roundCurrency(input.profitAmount - expenseTotal)
 
@@ -2377,17 +2437,19 @@ export async function saveBusinessProfitMigrationWorksheet(
     const eligibleMembers = await getEligibleMemberShareBalancesAtDate(
       input.tenantId,
       profitEntry.shareBusiness.startDate,
-      tx,
+      tx
     )
     const eligibleById = new Map(
-      eligibleMembers.map((member) => [member.memberId, member]),
+      eligibleMembers.map((member) => [member.memberId, member])
     )
     const totalShareBalance = roundCurrency(
-      eligibleMembers.reduce((total, member) => total + member.shareBalance, 0),
+      eligibleMembers.reduce((total, member) => total + member.shareBalance, 0)
     )
 
     if (eligibleMembers.length === 0 || totalShareBalance <= 0) {
-      throw new Error("No eligible member share balances exist on this business start date.")
+      throw new Error(
+        "No eligible member share balances exist on this business start date."
+      )
     }
 
     const allocationRows = input.allocations
@@ -2426,14 +2488,14 @@ export async function saveBusinessProfitMigrationWorksheet(
         }
       })
       .filter((allocation): allocation is NonNullable<typeof allocation> =>
-        Boolean(allocation),
+        Boolean(allocation)
       )
 
     const allocatedTotal = roundCurrency(
       allocationRows.reduce(
         (total, allocation) => total + allocation.allocatedProfitAmount,
-        0,
-      ),
+        0
+      )
     )
 
     if (Math.abs(allocatedTotal - shareableDividend) > 0.01) {
@@ -2516,7 +2578,7 @@ export async function getResolvedShareAmountForMonth(
     memberId: string
     month: Date
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return 0

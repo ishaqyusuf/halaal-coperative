@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node ../../scripts/with-workspace-env.mjs PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-1441} TZ=UTC portless app.halaalvest next dev --turbopack",
     "dev:portless": "node ../../scripts/with-workspace-env.mjs PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 portless app.halaalvest next dev --turbopack",
-    "build": "node ../../scripts/with-workspace-env.mjs next build --webpack",
+    "build": "bun next build --turbopack",
     "start": "node ../../scripts/with-workspace-env.mjs next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",

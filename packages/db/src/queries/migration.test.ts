@@ -38,8 +38,7 @@ function createMigrationStatePrismaStub(input: {
   const tenantState = {
     id: "tenant-1",
     initialMigrationStatus: input.initialMigrationStatus ?? "not_started",
-    migrationEmergencyUnlockUntil:
-      input.migrationEmergencyUnlockUntil ?? null,
+    migrationEmergencyUnlockUntil: input.migrationEmergencyUnlockUntil ?? null,
     migrationFinalizedAt: input.migrationFinalizedAt ?? null,
     startDate: input.startDate,
   }
@@ -50,12 +49,13 @@ function createMigrationStatePrismaStub(input: {
         const rows =
           input.appliedBackfillMonths ??
           Array.from(
-          { length: input.appliedBackfillMonthMembers ?? 0 },
-          (_, index) => ({
-            memberId: `member-${index + 1}`,
-            month: input.memberJoinedAt ?? new Date("2025-01-01T00:00:00.000Z"),
-          })
-        )
+            { length: input.appliedBackfillMonthMembers ?? 0 },
+            (_, index) => ({
+              memberId: `member-${index + 1}`,
+              month:
+                input.memberJoinedAt ?? new Date("2025-01-01T00:00:00.000Z"),
+            })
+          )
 
         return rows.map((row) => ({
           ...(query?.select?.memberId ? { memberId: row.memberId } : {}),
@@ -577,7 +577,7 @@ describe("tenant initial migration state query", () => {
     expect(prisma.tenantUpdateCalls).toHaveLength(0)
   })
 
-  test("blocks finalization when required migration evidence is missing", async () => {
+  test("allows setup finalization before member backfill is applied", async () => {
     const prisma = createMigrationStatePrismaStub({
       appliedBackfillBatches: 0,
       businessProfitPools: 1,
@@ -588,12 +588,34 @@ describe("tenant initial migration state query", () => {
       startDate: new Date("2025-01-01T00:00:00.000Z"),
     })
 
+    await finalizeTenantInitialMigration(
+      { actorUserId: "user-1", tenantId: "tenant-1" },
+      prisma as never
+    )
+    expect(prisma.tenantUpdateCalls).toHaveLength(1)
+    expect(prisma.tenantUpdateCalls[0]).toMatchObject({
+      data: { initialMigrationStatus: "live_operations" },
+      where: { id: "tenant-1" },
+    })
+  })
+
+  test("blocks finalization when required setup evidence is missing", async () => {
+    const prisma = createMigrationStatePrismaStub({
+      appliedBackfillBatches: 0,
+      businessProfitPools: 0,
+      chargeScheduleVersions: 0,
+      legacyLoans: 0,
+      memberProfiles: 0,
+      shareCapitalPlans: 0,
+      startDate: null,
+    })
+
     await expect(
       finalizeTenantInitialMigration(
         { actorUserId: "user-1", tenantId: "tenant-1" },
         prisma as never
       )
-    ).rejects.toThrow("member_ledger_backfill")
+    ).rejects.toThrow("finance_start_date")
     expect(prisma.tenantUpdateCalls).toHaveLength(0)
   })
 

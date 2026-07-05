@@ -100,10 +100,7 @@ async function assertLegacyLoanMigrationDraftMutationOpen(
     prisma
   )
 
-  if (
-    !migrationState.snapshot.canUseMigrationTools &&
-    !migrationState.snapshot.canUseLiveFinancialWrites
-  ) {
+  if (!migrationState.snapshot.canUseMigrationTools) {
     throw new Error(
       "Legacy loan migration drafts are locked because initial migration is finalized."
     )

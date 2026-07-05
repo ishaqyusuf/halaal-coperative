@@ -6,6 +6,7 @@ import {
   createTenantShareStructureVersion,
   updateTenantBusinessProfitPolicy,
   updateShareBusinessProfitEntry,
+  upsertTenantShareStructureVersion,
 } from "./tenant-finance"
 
 function withMigrationState(
@@ -144,6 +145,56 @@ describe("tenant finance queries", () => {
     ).rejects.toThrow("Historical finance setup is locked")
 
     expect(shareStructureCreates).toHaveLength(0)
+  })
+
+  test("upserts share structure versions by tenant and effective date", async () => {
+    const shareStructureUpserts: Record<string, unknown>[] = []
+
+    await upsertTenantShareStructureVersion(
+      {
+        amount: 2000,
+        effectiveFrom: new Date("2025-01-01T00:00:00.000Z"),
+        tenantId: "tenant-1",
+        valueType: "fixed_amount",
+      },
+      withMigrationState(
+        {},
+        {
+          tenantShareStructureVersion: {
+            count: async () => 1,
+            upsert: async (input: Record<string, unknown>) => {
+              shareStructureUpserts.push(input)
+              return input
+            },
+          },
+        },
+      ) as never,
+    )
+
+    expect(shareStructureUpserts).toHaveLength(1)
+    const upsertInput = shareStructureUpserts[0] as {
+      update: Record<string, unknown>
+    }
+
+    expect(upsertInput).toMatchObject({
+      where: {
+        tenantId_effectiveFrom: {
+          tenantId: "tenant-1",
+          effectiveFrom: new Date("2025-01-01T00:00:00.000Z"),
+        },
+      },
+      create: {
+        amount: 2000,
+        tenantId: "tenant-1",
+        valueType: "fixed_amount",
+      },
+      update: {
+        amount: 2000,
+        basis: "after_charge_deductions",
+        valueType: "fixed_amount",
+      },
+    })
+    expect(upsertInput.update).not.toHaveProperty("notes")
   })
 
   test("blocks business profit setup after member backfill starts", async () => {

@@ -3,6 +3,7 @@ import {
   projectBackfillDraftToMemberLedgerRows,
   type MemberLedgerBackfillRow,
 } from "@halaalvest/backfill"
+import type { SearchParams } from "nuqs"
 import {
   buildBackfillDraftInputForMember,
   createDbRuntime,
@@ -20,40 +21,11 @@ import {
   WorkspacePageShell,
 } from "@/components/dashboard"
 import { GettingStartedPageView } from "@/components/getting-started-page-view"
+import {
+  type GettingStartedStepKey,
+  loadGettingStartedParams,
+} from "@/hooks/use-getting-started-params"
 import { getDashboardServerContext } from "@/lib/server-context"
-
-type GettingStartedStepKey =
-  | "start-date"
-  | "charges"
-  | "shares"
-  | "profit-policy"
-  | "business"
-  | "profit-seasons"
-  | "admin-member"
-  | "review"
-
-const stepKeys = new Set<GettingStartedStepKey>([
-  "start-date",
-  "charges",
-  "shares",
-  "profit-policy",
-  "business",
-  "profit-seasons",
-  "admin-member",
-  "review",
-])
-
-function firstValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value
-}
-
-function resolveRequestedStep(value: string | string[] | undefined) {
-  const requestedStep = firstValue(value)
-
-  return requestedStep && stepKeys.has(requestedStep as GettingStartedStepKey)
-    ? (requestedStep as GettingStartedStepKey)
-    : null
-}
 
 function resolveDefaultStep(
   missingStepKeys: string[],
@@ -90,9 +62,10 @@ function toDateString(value: Date | string | null | undefined) {
 export default async function GettingStartedPage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>
+  searchParams?: Promise<SearchParams>
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : {}
+  const gettingStartedParams = loadGettingStartedParams(resolvedSearchParams)
   const context = await getDashboardServerContext()
 
   if (!context.tenant) {
@@ -127,10 +100,8 @@ export default async function GettingStartedPage({
     )
   }
 
-  const requestedStep = resolveRequestedStep(resolvedSearchParams.step)
-  const requestedMigrationMemberId = firstValue(
-    resolvedSearchParams.migrationMemberId,
-  )
+  const requestedStep = gettingStartedParams.step as GettingStartedStepKey | null
+  const requestedMigrationMemberId = gettingStartedParams.migrationMemberId
   const [
     data,
     migrationState,
@@ -144,7 +115,7 @@ export default async function GettingStartedPage({
     listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
     listInitialMigrationMemberReview(context.tenant.id),
   ])
-  const activeStep =
+  const activeStep: GettingStartedStepKey =
     requestedStep ??
     resolveDefaultStep(
       migrationState.snapshot.missingStepKeys,

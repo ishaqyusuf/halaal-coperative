@@ -1,8 +1,8 @@
 "use client"
 
-import { Fragment, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { Fragment, useId, useState, useTransition } from "react"
 import { z } from "zod"
+import { useTenantRouter } from "@halaalvest/tenant-url/next"
 import { ArrowUpDownIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
@@ -42,6 +42,7 @@ import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { DatePickerInput } from "@/components/date-picker-input"
+import { GettingStartedFooterPortal } from "@/components/getting-started-footer-slot"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { QuickFill } from "@/components/quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
@@ -481,7 +482,9 @@ export function BusinessProfitPolicyForm({
   redirectTo?: string
   showSubmitButton?: boolean
 }) {
-  const router = useRouter()
+  const router = useTenantRouter()
+  const fallbackFormId = useId()
+  const resolvedFormId = formId ?? fallbackFormId
   const form = useZodForm<BusinessProfitPolicyValues>(
     businessProfitPolicySchema,
     {
@@ -528,7 +531,7 @@ export function BusinessProfitPolicyForm({
     <Form {...form}>
       <form
         className="space-y-4"
-        id={formId}
+        id={resolvedFormId}
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -675,6 +678,13 @@ export function BusinessProfitPolicyForm({
             </Button>
           </div>
         ) : null}
+        {redirectTo ? (
+          <GettingStartedFooterPortal>
+            <Button disabled={isPending} form={resolvedFormId} type="submit">
+              Next
+            </Button>
+          </GettingStartedFooterPortal>
+        ) : null}
       </form>
     </Form>
   )
@@ -755,7 +765,9 @@ export function ShareStructureVersionForm({
   showSubmitButton?: boolean
   stayOnStepHref?: string
 }) {
-  const router = useRouter()
+  const router = useTenantRouter()
+  const fallbackFormId = useId()
+  const resolvedFormId = formId ?? fallbackFormId
   const form = useZodForm<ShareStructureVersionValues>(
     shareStructureVersionSchema,
     {
@@ -888,7 +900,7 @@ export function ShareStructureVersionForm({
     <Form {...form}>
       <form
         className="space-y-3"
-        id={formId}
+        id={resolvedFormId}
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="space-y-3">
@@ -923,7 +935,7 @@ export function ShareStructureVersionForm({
               <colgroup>
                 <col className="w-[150px]" />
                 <col />
-                <col />
+                <col className="w-[150px]" />
                 <col className="w-8" />
               </colgroup>
               <thead>
@@ -961,7 +973,7 @@ export function ShareStructureVersionForm({
                         onChange={(effectiveFrom) =>
                           updateShareHistoryRow(row.id, { effectiveFrom })
                         }
-                        placeholder="Select share effective date"
+                        placeholder="Effective Date"
                         value={row.effectiveFrom}
                       />
                     </td>
@@ -1032,6 +1044,13 @@ export function ShareStructureVersionForm({
               Add share
             </Button>
           </div>
+        ) : null}
+        {redirectTo ? (
+          <GettingStartedFooterPortal>
+            <Button disabled={isPending} form={resolvedFormId} type="submit">
+              Next
+            </Button>
+          </GettingStartedFooterPortal>
         ) : null}
       </form>
     </Form>
@@ -1198,7 +1217,9 @@ function buildChargeDefinitionRows(
       saved: true,
     })) ?? []
 
-  return [...savedRows, createChargeDefinitionRow("charge-definition-initial")]
+  return savedRows.length > 0
+    ? savedRows
+    : [createChargeDefinitionRow("charge-definition-initial")]
 }
 
 function chargeDefinitionRowHasValue(row: ChargeDefinitionInputRow) {
@@ -1217,8 +1238,7 @@ function normalizeChargeHistoryRows(rows: ChargeHistoryRow[]) {
 
 function normalizeChargeDefinitionRows(rows: ChargeDefinitionInputRow[]) {
   const compactRows = rows.filter(
-    (row, index) =>
-      row.saved || chargeDefinitionRowHasValue(row) || index === rows.length - 1
+    (row) => row.saved || chargeDefinitionRowHasValue(row)
   )
 
   return compactRows.length > 0 ? compactRows : [createChargeDefinitionRow()]
@@ -1241,7 +1261,9 @@ export function ChargeDefinitionForm({
   showSubmitButton?: boolean
   stayOnStepHref?: string
 }) {
-  const router = useRouter()
+  const router = useTenantRouter()
+  const fallbackFormId = useId()
+  const resolvedFormId = formId ?? fallbackFormId
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [chargeRows, setChargeRows] = useState<ChargeDefinitionInputRow[]>(() =>
@@ -1527,7 +1549,7 @@ export function ChargeDefinitionForm({
   return (
     <form
       className="space-y-3"
-      id={formId}
+      id={resolvedFormId}
       onSubmit={(event) => {
         event.preventDefault()
         submitChargeRows()
@@ -1690,7 +1712,8 @@ export function ChargeDefinitionForm({
                         chargeRow.saved ||
                         isPending ||
                         (!chargeDefinitionRowHasValue(chargeRow) &&
-                          chargeRows.filter((row) => !row.saved).length === 1)
+                          chargeRows.filter((row) => !row.saved).length === 1 &&
+                          chargeRows.every((row) => !row.saved))
                       }
                       label="charge row"
                       onDelete={() => deleteChargeRow(chargeRow.id)}
@@ -1823,6 +1846,13 @@ export function ChargeDefinitionForm({
           </Button>
         </div>
       ) : null}
+      {redirectTo ? (
+        <GettingStartedFooterPortal>
+          <Button disabled={isPending} form={resolvedFormId} type="submit">
+            Next
+          </Button>
+        </GettingStartedFooterPortal>
+      ) : null}
     </form>
   )
 }
@@ -1847,7 +1877,7 @@ export function ChargeDefinitionVersionForm({
   financeStartDate?: string | null
   stayOnStepHref?: string
 }) {
-  const router = useRouter()
+  const router = useTenantRouter()
   const form = useZodForm<ChargeVersionValues>(chargeVersionSchema, {
     defaultValues: {
       amount: "",
@@ -2049,18 +2079,20 @@ const shareBusinessSchema = z.object({
 
 type ShareBusinessValues = z.infer<typeof shareBusinessSchema>
 
-type BusinessProfitHistoryRow = {
-  allocatableProfitAmount: string
-  amount: string
-  deductionAmount: string
-  id: string
-  linkedDividendPeriodId: string
-  profitDate: string
-  profitEntryId: string
-  reason: string
-  sourceType: "manual" | "backfill" | "import"
-  status: "draft" | "reviewed" | "approved" | "archived"
-}
+const businessProfitHistoryRowSchema = z.object({
+  allocatableProfitAmount: z.string(),
+  amount: z.string(),
+  deductionAmount: z.string(),
+  id: z.string(),
+  linkedDividendPeriodId: z.string(),
+  profitDate: z.string(),
+  profitEntryId: z.string(),
+  reason: z.string(),
+  sourceType: z.enum(["manual", "backfill", "import"]),
+  status: z.enum(["draft", "reviewed", "approved", "archived"]),
+})
+
+type BusinessProfitHistoryRow = z.infer<typeof businessProfitHistoryRowSchema>
 
 function normalizeBusinessProfitSourceType(
   sourceType: string | null | undefined
@@ -2181,23 +2213,32 @@ type ShareBusinessFormProps = {
   initialBusinesses?: ShareBusinessInitialBusiness[]
   onSuccess?: () => void
   profitHistoryMode?: boolean
+  redirectTo?: string
+  showSubmitButton?: boolean
   sourceType?: "manual" | "backfill" | "import"
   stayOnStepHref?: string
 }
 
-type BusinessHistoryInputRow = {
-  capitalAmount: string
-  businessId: string
-  endDate: string
-  id: string
-  linkedDividendPeriodId: string
-  name: string
-  notes: string
-  profitRows: BusinessProfitHistoryRow[]
-  saved: boolean
-  startDate: string
-  status: "planned" | "active" | "completed" | "archived"
-}
+const businessHistoryInputRowSchema = z.object({
+  capitalAmount: z.string(),
+  businessId: z.string(),
+  endDate: z.string(),
+  id: z.string(),
+  linkedDividendPeriodId: z.string(),
+  name: z.string(),
+  notes: z.string(),
+  profitRows: z.array(businessProfitHistoryRowSchema),
+  saved: z.boolean(),
+  startDate: z.string(),
+  status: z.enum(["planned", "active", "completed", "archived"]),
+})
+
+const businessHistoryTableSchema = z.object({
+  businessRows: z.array(businessHistoryInputRowSchema),
+})
+
+type BusinessHistoryInputRow = z.infer<typeof businessHistoryInputRowSchema>
+type BusinessHistoryTableValues = z.infer<typeof businessHistoryTableSchema>
 
 function normalizeBusinessHistoryStatus(
   status: string | null | undefined
@@ -2287,7 +2328,9 @@ function buildBusinessHistoryRows(
       })
     ) ?? []
 
-  return [...savedRows, createBusinessHistoryRow("business-history-initial")]
+  return savedRows.length > 0
+    ? savedRows
+    : [createBusinessHistoryRow("business-history-initial")]
 }
 
 function businessHistoryRowHasValue(row: BusinessHistoryInputRow) {
@@ -2314,11 +2357,168 @@ function normalizeProfitRows(rows: BusinessProfitHistoryRow[]) {
 
 function normalizeBusinessHistoryRows(rows: BusinessHistoryInputRow[]) {
   const compactRows = rows.filter(
-    (row, index) =>
-      row.saved || businessHistoryRowHasValue(row) || index === rows.length - 1
+    (row) => row.saved || businessHistoryRowHasValue(row)
   )
 
   return compactRows.length > 0 ? compactRows : [createBusinessHistoryRow()]
+}
+
+const businessQuickFillTitles = [
+  "Retail Trading Pool",
+  "Commodity Sales Pool",
+  "Transport Services Pool",
+  "Equipment Leasing Pool",
+  "Community Market Pool",
+  "Agriculture Supply Pool",
+  "Seasonal Trade Pool",
+  "Member Services Pool",
+]
+
+const businessQuickFillReasons = [
+  "Operating expenses",
+  "Market logistics",
+  "Supplier deductions",
+  "Maintenance costs",
+  "Trading expenses",
+]
+
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function randomItem<TItem>(items: TItem[]) {
+  return items[randomInt(0, items.length - 1)]!
+}
+
+function parseInputDate(value: string | null | undefined) {
+  const [year, month, day] = (value ?? "").split("-").map(Number)
+
+  if (!year || !month || !day) {
+    return null
+  }
+
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+function formatInputDate(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date)
+  nextDate.setUTCDate(nextDate.getUTCDate() + days)
+
+  return nextDate
+}
+
+function daysBetween(startDate: Date, endDate: Date) {
+  return Math.max(
+    0,
+    Math.floor(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    )
+  )
+}
+
+function randomDateBetween(startDate: Date, endDate: Date) {
+  const earliestDate = startDate <= endDate ? startDate : endDate
+  const latestDate = startDate <= endDate ? endDate : startDate
+
+  return addDays(
+    earliestDate,
+    randomInt(0, daysBetween(earliestDate, latestDate))
+  )
+}
+
+function randomAmount(min: number, max: number, step = 1000) {
+  return String(randomInt(Math.ceil(min / step), Math.floor(max / step)) * step)
+}
+
+function createRandomBusinessProfitRows({
+  businessId,
+  endDate,
+  startDate,
+}: {
+  businessId: string
+  endDate: Date
+  startDate: Date
+}) {
+  const profitCount = randomInt(3, 5)
+  const usedDates = new Set<string>()
+  const profitRows: BusinessProfitHistoryRow[] = []
+
+  for (let index = 0; index < profitCount; index += 1) {
+    let profitDate = formatInputDate(randomDateBetween(startDate, endDate))
+
+    for (
+      let attempt = 0;
+      usedDates.has(profitDate) && attempt < 20;
+      attempt += 1
+    ) {
+      profitDate = formatInputDate(randomDateBetween(startDate, endDate))
+    }
+
+    usedDates.add(profitDate)
+
+    const amount = randomAmount(60_000, 450_000, 5000)
+    const hasDeduction = Math.random() > 0.45
+    const maxDeduction = Math.max(5000, Math.floor(Number(amount) * 0.18))
+    const deductionAmount = hasDeduction
+      ? randomAmount(5000, maxDeduction, 1000)
+      : ""
+
+    profitRows.push({
+      ...createBusinessProfitHistoryRow(`${businessId}-profit-${index}`),
+      amount,
+      deductionAmount,
+      profitDate,
+      reason: deductionAmount ? randomItem(businessQuickFillReasons) : "",
+    })
+  }
+
+  return profitRows.sort(sortBusinessProfitHistoryRowsByDate)
+}
+
+function createRandomBusinessHistoryRows(financeStartDate?: string | null) {
+  const today = new Date()
+  const todayUtc = new Date(
+    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  )
+  const configuredStartDate =
+    parseInputDate(financeStartDate) ?? addDays(todayUtc, -720)
+  const minimumStartDate =
+    configuredStartDate <= todayUtc
+      ? configuredStartDate
+      : addDays(todayUtc, -720)
+  const latestStartDate =
+    addDays(todayUtc, -150) > minimumStartDate
+      ? addDays(todayUtc, -150)
+      : minimumStartDate
+  const businessCount = randomInt(1, 5)
+
+  return Array.from({ length: businessCount }, (_, index) => {
+    const businessId = `business-history-quick-fill-${Date.now()}-${index}`
+    const startDate = randomDateBetween(minimumStartDate, latestStartDate)
+    const minimumEndDate = addDays(startDate, 90)
+    const endDate = randomDateBetween(
+      minimumEndDate > todayUtc ? startDate : minimumEndDate,
+      todayUtc
+    )
+
+    return {
+      ...createBusinessHistoryRow(businessId),
+      capitalAmount: randomAmount(300_000, 2_500_000, 10_000),
+      endDate: formatInputDate(endDate),
+      name: randomItem(businessQuickFillTitles),
+      profitRows: createRandomBusinessProfitRows({
+        businessId,
+        endDate,
+        startDate,
+      }),
+      startDate: formatInputDate(startDate),
+      status: "completed",
+    }
+  })
 }
 
 export function ShareBusinessForm(props: ShareBusinessFormProps) {
@@ -2334,17 +2534,48 @@ function ShareBusinessProfitHistoryTableForm({
   initialBusinesses,
   onSuccess,
   sourceType = "backfill",
+  redirectTo,
+  showSubmitButton = true,
   stayOnStepHref,
 }: ShareBusinessFormProps) {
-  const router = useRouter()
+  const router = useTenantRouter()
+  const fallbackFormId = useId()
+  const resolvedFormId = fallbackFormId
+  const form = useZodForm<BusinessHistoryTableValues>(
+    businessHistoryTableSchema,
+    {
+      defaultValues: {
+        businessRows: buildBusinessHistoryRows(initialBusinesses),
+      },
+    }
+  )
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
-  const [businessRows, setBusinessRows] = useState<BusinessHistoryInputRow[]>(
-    () => buildBusinessHistoryRows(initialBusinesses)
-  )
+  const businessRows = form.watch("businessRows") ?? []
+
+  function setBusinessRows(
+    updater: (
+      currentRows: BusinessHistoryInputRow[]
+    ) => BusinessHistoryInputRow[]
+  ) {
+    form.setValue(
+      "businessRows",
+      updater(form.getValues("businessRows") ?? []),
+      { shouldDirty: true }
+    )
+  }
 
   function resetBusinessRows() {
-    setBusinessRows(buildBusinessHistoryRows(initialBusinesses))
+    form.reset({
+      businessRows: buildBusinessHistoryRows(initialBusinesses),
+    })
+  }
+
+  function quickFillBusinessRows() {
+    setBusinessRows((currentRows) => [
+      ...currentRows.filter((row) => row.saved),
+      ...createRandomBusinessHistoryRows(financeStartDate),
+    ])
   }
 
   function updateBusinessRow(
@@ -2445,8 +2676,8 @@ function ShareBusinessProfitHistoryTableForm({
     )
   }
 
-  function getValidBusinessRows() {
-    const startedRows = businessRows.filter(businessHistoryRowHasValue)
+  function getValidBusinessRows(values: BusinessHistoryTableValues) {
+    const startedRows = values.businessRows.filter(businessHistoryRowHasValue)
 
     if (startedRows.length === 0) {
       showError(
@@ -2590,8 +2821,8 @@ function ShareBusinessProfitHistoryTableForm({
     }))
   }
 
-  function submitBusinessRows() {
-    const validBusinessRows = getValidBusinessRows()
+  function submitBusinessRows(values: BusinessHistoryTableValues) {
+    const validBusinessRows = getValidBusinessRows(values)
 
     if (!validBusinessRows) {
       return
@@ -2697,7 +2928,13 @@ function ShareBusinessProfitHistoryTableForm({
           "Business history saved",
           "Business and profit history rows were recorded."
         )
-        setBusinessRows(buildBusinessHistoryRows(initialBusinesses))
+        form.reset({
+          businessRows: buildBusinessHistoryRows(initialBusinesses),
+        })
+        if (redirectTo) {
+          router.push(redirectTo)
+          return
+        }
         router.refresh()
         if (stayOnStepHref) {
           router.replace(stayOnStepHref)
@@ -2713,337 +2950,362 @@ function ShareBusinessProfitHistoryTableForm({
   }
 
   return (
-    <form
-      className="space-y-3"
-      onSubmit={(event) => {
-        event.preventDefault()
-        submitBusinessRows()
-      }}
-    >
-      <div className="flex items-center gap-3">
-        <h3 className="shrink-0 text-sm font-medium">Business History</h3>
-        <div className="min-w-10 flex-1 border-t border-border/70" />
-        <Button
-          disabled={isPending}
-          onClick={resetBusinessRows}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          Clear
-        </Button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className={`${compactInputTableClassName} min-w-[820px]`}>
-          <colgroup>
-            <col />
-            <col className="w-[140px]" />
-            <col className="w-[150px]" />
-            <col className="w-[150px]" />
-            <col className="w-8" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th
-                className="text-left text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                Business
-              </th>
-              <th
-                className="text-left text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                Capital
-              </th>
-              <th
-                className="text-left text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                Start date
-              </th>
-              <th
-                className="text-left text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                End date
-              </th>
-              <th scope="col">
-                <span className="sr-only">Action</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {businessRows.map((businessRow) => (
-              <Fragment key={businessRow.id}>
-                <tr aria-hidden="true">
-                  <td colSpan={5}>
-                    <div className="border-t border-border/70" />
-                  </td>
-                </tr>
-                <tr className="align-top" key={`${businessRow.id}-business`}>
-                  <td>
-                    <Input
-                      disabled={isPending}
-                      onChange={(event) =>
-                        updateBusinessRow(businessRow.id, {
-                          name: event.target.value,
-                        })
-                      }
-                      placeholder="Ramadan retail pool"
-                      value={businessRow.name}
-                    />
-                  </td>
-                  <td>
-                    <CurrencyInput
-                      allowNegative={false}
-                      decimalScale={2}
-                      disabled={isPending}
-                      inputMode="decimal"
-                      onValueChange={(values) =>
-                        updateBusinessRow(businessRow.id, {
-                          capitalAmount: values.value,
-                        })
-                      }
-                      placeholder="Enter business capital"
-                      value={businessRow.capitalAmount}
-                      valueIsNumericString
-                    />
-                  </td>
-                  <td>
-                    <DatePickerInput
-                      allowClear={false}
-                      disabled={isPending}
-                      min={financeStartDate ?? undefined}
-                      onChange={(startDate) =>
-                        updateBusinessRow(businessRow.id, { startDate })
-                      }
-                      placeholder="Select business start date"
-                      value={businessRow.startDate}
-                    />
-                  </td>
-                  <td>
-                    <DatePickerInput
-                      disabled={isPending}
-                      min={
-                        businessRow.startDate || financeStartDate || undefined
-                      }
-                      onChange={(endDate) =>
-                        updateBusinessRow(businessRow.id, { endDate })
-                      }
-                      placeholder="Select business end date"
-                      value={businessRow.endDate}
-                    />
-                  </td>
-                  <td>
-                    <DeleteInlineRowButton
-                      disabled={
-                        businessRow.saved ||
-                        isPending ||
-                        (!businessHistoryRowHasValue(businessRow) &&
-                          businessRows.filter((row) => !row.saved).length === 1)
-                      }
-                      label="business row"
-                      onDelete={() => deleteBusinessRow(businessRow.id)}
-                    />
-                  </td>
-                </tr>
-                <tr key={`${businessRow.id}-profits`}>
-                  <td colSpan={5}>
-                    <div className="pl-6">
-                      <table
-                        className={`${compactInputTableClassName} min-w-[760px]`}
-                      >
-                        <colgroup>
-                          <col className="w-[150px]" />
-                          <col className="w-[140px]" />
-                          <col className="w-[140px]" />
-                          <col />
-                          <col className="w-[140px]" />
-                          <col className="w-8" />
-                        </colgroup>
-                        <thead>
-                          <tr>
-                            <th
-                              className="text-left text-xs font-medium text-muted-foreground"
-                              scope="col"
-                            >
-                              Profit
-                            </th>
-                            <th
-                              className="text-left text-xs font-medium text-muted-foreground"
-                              scope="col"
-                            >
-                              Amount
-                            </th>
-                            <th
-                              className="text-left text-xs font-medium text-muted-foreground"
-                              scope="col"
-                            >
-                              Deduction
-                            </th>
-                            <th
-                              className="text-left text-xs font-medium text-muted-foreground"
-                              scope="col"
-                            >
-                              Reason
-                            </th>
-                            <th
-                              className="text-left text-xs font-medium text-muted-foreground"
-                              scope="col"
-                            >
-                              Shareable
-                            </th>
-                            <th scope="col">
-                              <span className="sr-only">Action</span>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {businessRow.profitRows.map((profitRow) => {
-                            const shareableBalance =
-                              calculateShareableBalance(profitRow)
+    <Form {...form}>
+      <form
+        className="space-y-3"
+        id={resolvedFormId}
+        onSubmit={form.handleSubmit(submitBusinessRows)}
+      >
+        <div className="flex items-center gap-3">
+          <h3 className="shrink-0 text-sm font-medium">Business History</h3>
+          <div className="min-w-10 flex-1 border-t border-border/70" />
+          <Button
+            disabled={isPending}
+            onClick={quickFillBusinessRows}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Quick fill
+          </Button>
+          <Button
+            disabled={isPending}
+            onClick={resetBusinessRows}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Clear
+          </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className={`${compactInputTableClassName} min-w-[820px]`}>
+            <colgroup>
+              <col />
+              <col className="w-[140px]" />
+              <col className="w-[150px]" />
+              <col className="w-[150px]" />
+              <col className="w-8" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
+                  Title
+                </th>
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
+                  Amount
+                </th>
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
+                  Start date
+                </th>
+                <th
+                  className="text-left text-xs font-medium text-muted-foreground"
+                  scope="col"
+                >
+                  End date
+                </th>
+                <th scope="col">
+                  <span className="sr-only">Action</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {businessRows.map((businessRow) => (
+                <Fragment key={businessRow.id}>
+                  <tr aria-hidden="true">
+                    <td colSpan={5}>
+                      <div className="border-t border-border/70" />
+                    </td>
+                  </tr>
+                  <tr className="align-top" key={`${businessRow.id}-business`}>
+                    <td>
+                      <Input
+                        disabled={isPending}
+                        onChange={(event) =>
+                          updateBusinessRow(businessRow.id, {
+                            name: event.target.value,
+                          })
+                        }
+                        placeholder="Title"
+                        value={businessRow.name}
+                      />
+                    </td>
+                    <td>
+                      <CurrencyInput
+                        allowNegative={false}
+                        decimalScale={2}
+                        disabled={isPending}
+                        inputMode="decimal"
+                        onValueChange={(values) =>
+                          updateBusinessRow(businessRow.id, {
+                            capitalAmount: values.value,
+                          })
+                        }
+                        placeholder="Amount"
+                        value={businessRow.capitalAmount}
+                        valueIsNumericString
+                      />
+                    </td>
+                    <td>
+                      <DatePickerInput
+                        allowClear={false}
+                        disabled={isPending}
+                        min={financeStartDate ?? undefined}
+                        onChange={(startDate) =>
+                          updateBusinessRow(businessRow.id, { startDate })
+                        }
+                        placeholder="Start date"
+                        value={businessRow.startDate}
+                      />
+                    </td>
+                    <td>
+                      <DatePickerInput
+                        disabled={isPending}
+                        min={
+                          businessRow.startDate || financeStartDate || undefined
+                        }
+                        onChange={(endDate) =>
+                          updateBusinessRow(businessRow.id, { endDate })
+                        }
+                        placeholder="End date"
+                        value={businessRow.endDate}
+                      />
+                    </td>
+                    <td>
+                      <DeleteInlineRowButton
+                        disabled={
+                          businessRow.saved ||
+                          isPending ||
+                          (!businessHistoryRowHasValue(businessRow) &&
+                            businessRows.filter((row) => !row.saved).length ===
+                              1)
+                        }
+                        label="business row"
+                        onDelete={() => deleteBusinessRow(businessRow.id)}
+                      />
+                    </td>
+                  </tr>
+                  <tr key={`${businessRow.id}-profits`}>
+                    <td colSpan={5}>
+                      <div className="pl-6">
+                        <div className="mb-2 flex items-center gap-3">
+                          <h4 className="shrink-0 text-xs font-medium text-muted-foreground">
+                            Profit History
+                          </h4>
+                          <div className="min-w-10 flex-1 border-t border-border/70" />
+                        </div>
+                        <table
+                          className={`${compactInputTableClassName} min-w-[760px]`}
+                        >
+                          <colgroup>
+                            <col className="w-[150px]" />
+                            <col className="w-[140px]" />
+                            <col className="w-[140px]" />
+                            <col />
+                            <col className="w-[140px]" />
+                            <col className="w-8" />
+                          </colgroup>
+                          <thead>
+                            <tr>
+                              <th
+                                className="text-left text-xs font-medium text-muted-foreground"
+                                scope="col"
+                              >
+                                Date
+                              </th>
+                              <th
+                                className="text-left text-xs font-medium text-muted-foreground"
+                                scope="col"
+                              >
+                                Amount
+                              </th>
+                              <th
+                                className="text-left text-xs font-medium text-muted-foreground"
+                                scope="col"
+                              >
+                                Deduction
+                              </th>
+                              <th
+                                className="text-left text-xs font-medium text-muted-foreground"
+                                scope="col"
+                              >
+                                Reason
+                              </th>
+                              <th
+                                className="text-left text-xs font-medium text-muted-foreground"
+                                scope="col"
+                              >
+                                Shareable
+                              </th>
+                              <th scope="col">
+                                <span className="sr-only">Action</span>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {businessRow.profitRows.map((profitRow) => {
+                              const shareableBalance =
+                                calculateShareableBalance(profitRow)
 
-                            return (
-                              <tr className="align-top" key={profitRow.id}>
-                                <td>
-                                  <DatePickerInput
-                                    allowClear={false}
-                                    disabled={isPending}
-                                    min={
-                                      businessRow.startDate ||
-                                      financeStartDate ||
-                                      undefined
-                                    }
-                                    onChange={(profitDate) =>
-                                      updateBusinessProfitRow(
-                                        businessRow.id,
-                                        profitRow.id,
-                                        { profitDate }
-                                      )
-                                    }
-                                    placeholder="Select profit date"
-                                    value={profitRow.profitDate}
-                                  />
-                                </td>
-                                <td>
-                                  <CurrencyInput
-                                    allowNegative={false}
-                                    decimalScale={2}
-                                    disabled={isPending}
-                                    inputMode="decimal"
-                                    onValueChange={(values) =>
-                                      updateBusinessProfitRow(
-                                        businessRow.id,
-                                        profitRow.id,
-                                        { amount: values.value }
-                                      )
-                                    }
-                                    placeholder="Enter profit amount"
-                                    value={profitRow.amount}
-                                    valueIsNumericString
-                                  />
-                                </td>
-                                <td>
-                                  <CurrencyInput
-                                    allowNegative={false}
-                                    decimalScale={2}
-                                    disabled={isPending}
-                                    inputMode="decimal"
-                                    onValueChange={(values) =>
-                                      updateBusinessProfitRow(
-                                        businessRow.id,
-                                        profitRow.id,
-                                        { deductionAmount: values.value }
-                                      )
-                                    }
-                                    placeholder="Enter deduction amount"
-                                    value={profitRow.deductionAmount}
-                                    valueIsNumericString
-                                  />
-                                </td>
-                                <td>
-                                  <Input
-                                    disabled={isPending}
-                                    onChange={(event) =>
-                                      updateBusinessProfitRow(
-                                        businessRow.id,
-                                        profitRow.id,
-                                        { reason: event.target.value }
-                                      )
-                                    }
-                                    placeholder="Enter deduction reason"
-                                    value={profitRow.reason}
-                                  />
-                                </td>
-                                <td>
-                                  <CurrencyInput
-                                    decimalScale={2}
-                                    disabled={isPending}
-                                    fixedDecimalScale
-                                    readOnly
-                                    value={
-                                      Number.isFinite(shareableBalance)
-                                        ? shareableBalance.toFixed(2)
-                                        : "0.00"
-                                    }
-                                    valueIsNumericString
-                                  />
-                                </td>
-                                <td>
-                                  <DeleteInlineRowButton
-                                    disabled={
-                                      isPending ||
-                                      Boolean(profitRow.profitEntryId)
-                                    }
-                                    label="profit row"
-                                    onDelete={() =>
-                                      deleteBusinessProfitRow(
-                                        businessRow.id,
-                                        profitRow.id
-                                      )
-                                    }
-                                  />
-                                </td>
-                              </tr>
-                            )
-                          })}
-                          <tr>
-                            <td colSpan={6}>
-                              <AddInlineRowButton
-                                disabled={isPending}
-                                label="Add Profit"
-                                onAdd={() =>
-                                  addBusinessProfitRow(businessRow.id)
-                                }
-                              />
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </td>
-                </tr>
-              </Fragment>
-            ))}
-            <tr>
-              <td colSpan={5}>
-                <AddInlineRowButton
-                  disabled={isPending}
-                  label="Add Business"
-                  onAdd={addBusinessRow}
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div className="flex justify-end">
-        <Button disabled={isPending} type="submit">
-          Record businesses
-        </Button>
-      </div>
-    </form>
+                              return (
+                                <tr className="align-top" key={profitRow.id}>
+                                  <td>
+                                    <DatePickerInput
+                                      allowClear={false}
+                                      disabled={isPending}
+                                      min={
+                                        businessRow.startDate ||
+                                        financeStartDate ||
+                                        undefined
+                                      }
+                                      onChange={(profitDate) =>
+                                        updateBusinessProfitRow(
+                                          businessRow.id,
+                                          profitRow.id,
+                                          { profitDate }
+                                        )
+                                      }
+                                      placeholder="Date"
+                                      value={profitRow.profitDate}
+                                    />
+                                  </td>
+                                  <td>
+                                    <CurrencyInput
+                                      allowNegative={false}
+                                      decimalScale={2}
+                                      disabled={isPending}
+                                      inputMode="decimal"
+                                      onValueChange={(values) =>
+                                        updateBusinessProfitRow(
+                                          businessRow.id,
+                                          profitRow.id,
+                                          { amount: values.value }
+                                        )
+                                      }
+                                      placeholder="Amount"
+                                      value={profitRow.amount}
+                                      valueIsNumericString
+                                    />
+                                  </td>
+                                  <td>
+                                    <CurrencyInput
+                                      allowNegative={false}
+                                      decimalScale={2}
+                                      disabled={isPending}
+                                      inputMode="decimal"
+                                      onValueChange={(values) =>
+                                        updateBusinessProfitRow(
+                                          businessRow.id,
+                                          profitRow.id,
+                                          { deductionAmount: values.value }
+                                        )
+                                      }
+                                      placeholder="Deduction"
+                                      value={profitRow.deductionAmount}
+                                      valueIsNumericString
+                                    />
+                                  </td>
+                                  <td>
+                                    <Input
+                                      disabled={isPending}
+                                      onChange={(event) =>
+                                        updateBusinessProfitRow(
+                                          businessRow.id,
+                                          profitRow.id,
+                                          { reason: event.target.value }
+                                        )
+                                      }
+                                      placeholder="Reason"
+                                      value={profitRow.reason}
+                                    />
+                                  </td>
+                                  <td>
+                                    <CurrencyInput
+                                      decimalScale={2}
+                                      disabled={isPending}
+                                      fixedDecimalScale
+                                      readOnly
+                                      value={
+                                        Number.isFinite(shareableBalance)
+                                          ? shareableBalance.toFixed(2)
+                                          : "0.00"
+                                      }
+                                      valueIsNumericString
+                                    />
+                                  </td>
+                                  <td>
+                                    <DeleteInlineRowButton
+                                      disabled={
+                                        isPending ||
+                                        Boolean(profitRow.profitEntryId)
+                                      }
+                                      label="profit row"
+                                      onDelete={() =>
+                                        deleteBusinessProfitRow(
+                                          businessRow.id,
+                                          profitRow.id
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                            <tr>
+                              <td colSpan={6}>
+                                <AddInlineRowButton
+                                  disabled={isPending}
+                                  label="Add Profit"
+                                  onAdd={() =>
+                                    addBusinessProfitRow(businessRow.id)
+                                  }
+                                />
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                </Fragment>
+              ))}
+              <tr>
+                <td colSpan={5}>
+                  <AddInlineRowButton
+                    disabled={isPending}
+                    label="Add Business"
+                    onAdd={addBusinessRow}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {showSubmitButton ? (
+          <div className="flex justify-end">
+            <Button disabled={isPending} type="submit">
+              Record businesses
+            </Button>
+          </div>
+        ) : null}
+        {redirectTo ? (
+          <GettingStartedFooterPortal>
+            <Button disabled={isPending} form={resolvedFormId} type="submit">
+              Next
+            </Button>
+          </GettingStartedFooterPortal>
+        ) : null}
+      </form>
+    </Form>
   )
 }
 
@@ -3055,7 +3317,7 @@ function ShareBusinessSingleForm({
   sourceType = "manual",
   stayOnStepHref,
 }: ShareBusinessFormProps) {
-  const router = useRouter()
+  const router = useTenantRouter()
   const form = useZodForm<ShareBusinessValues>(shareBusinessSchema, {
     defaultValues: {
       capitalAmount: "",
@@ -3606,7 +3868,7 @@ export function ShareBusinessProfitEntryForm({
   financeStartDate?: string | null
   stayOnStepHref?: string
 }) {
-  const router = useRouter()
+  const router = useTenantRouter()
   const form = useZodForm<ShareBusinessProfitEntryValues>(
     shareBusinessProfitEntrySchema,
     {

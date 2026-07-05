@@ -57,26 +57,16 @@ import {
   ShareBusinessForm,
   ShareStructureVersionForm,
 } from "@/components/forms/tenant-finance-forms"
+import { GettingStartedFooterActionsSlot } from "@/components/getting-started-footer-slot"
 import { InitialMigrationPreview } from "@/components/initial-migration-preview"
 import {
+  type GettingStartedStepKey,
+  gettingStartedStepKeys,
+} from "@/hooks/use-getting-started-params"
+import {
   finalizeInitialMigrationAction,
-  markBusinessProfitPoolsReviewedAction,
   saveBusinessProfitSeasonReviewAction,
 } from "@/lib/dashboard-actions"
-
-type GettingStartedStepKey =
-  | "start-date"
-  | "charges"
-  | "shares"
-  | "profit-policy"
-  | "business"
-  | "profit-seasons"
-  | "admin-member"
-  | "review"
-
-const gettingStartedChargeFormId = "getting-started-charge-history-form"
-const gettingStartedShareFormId = "getting-started-share-history-form"
-const gettingStartedProfitPolicyFormId = "getting-started-profit-policy-form"
 
 type ChargeDefinitionRow = {
   appliesToLoanRequests?: boolean
@@ -263,16 +253,7 @@ type GettingStartedPageViewProps = {
   tenantStartDate: string | null
 }
 
-const orderedStepKeys: GettingStartedStepKey[] = [
-  "start-date",
-  "charges",
-  "shares",
-  "profit-policy",
-  "business",
-  "profit-seasons",
-  "admin-member",
-  "review",
-]
+const orderedStepKeys = [...gettingStartedStepKeys]
 
 const compactInputTableClassName =
   "w-full table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0"
@@ -380,7 +361,7 @@ function formatDate(value: string | null) {
 }
 
 function stepHref(key: GettingStartedStepKey) {
-  return `/getting-started?step=${key}`
+  return `?step=${key}`
 }
 
 function SetupCardHeader({
@@ -545,18 +526,18 @@ function StepRail({
 }
 
 function StepFooter({
+  hasStepNextAction = false,
   hideNext = false,
   nextHrefOverride,
   nextLabel = "Next",
-  nextSubmitFormId,
   nextStep,
   previousStep,
   requireHistoryConfirmation = false,
 }: {
+  hasStepNextAction?: boolean
   hideNext?: boolean
   nextHrefOverride?: string
   nextLabel?: string
-  nextSubmitFormId?: string
   nextStep?: GettingStartedStepKey
   previousStep?: GettingStartedStepKey
   requireHistoryConfirmation?: boolean
@@ -579,10 +560,8 @@ function StepFooter({
           <span />
         )}
         {hasNext ? (
-          nextSubmitFormId ? (
-            <Button form={nextSubmitFormId} type="submit">
-              {nextLabel}
-            </Button>
+          hasStepNextAction ? (
+            <GettingStartedFooterActionsSlot />
           ) : requireHistoryConfirmation ? (
             <AlertDialog>
               <AlertDialogTrigger render={<Button />}>
@@ -649,7 +628,6 @@ function ChargesStep({
       <CardContent className="grid gap-5">
         <ChargeDefinitionForm
           financeStartDate={tenantStartDate}
-          formId={gettingStartedChargeFormId}
           initialDefinitions={chargeDefinitions}
           redirectTo={stepHref("shares")}
           showSubmitButton={false}
@@ -672,7 +650,6 @@ function SharesStep({
       <CardContent className="grid gap-5">
         <ShareStructureVersionForm
           financeStartDate={tenantStartDate}
-          formId={gettingStartedShareFormId}
           redirectTo={stepHref("profit-policy")}
           showSubmitButton={false}
         />
@@ -694,7 +671,6 @@ function ProfitPolicyStep({
       <CardContent className="grid gap-5">
         <BusinessProfitPolicyForm
           defaultPolicy={businessPolicy}
-          formId={gettingStartedProfitPolicyFormId}
           redirectTo={stepHref("business")}
           showSubmitButton={false}
         />
@@ -724,25 +700,9 @@ function BusinessStep({
           financeStartDate={tenantStartDate}
           initialBusinesses={shareBusinesses}
           profitHistoryMode
+          redirectTo={stepHref("profit-seasons")}
+          showSubmitButton={false}
           sourceType="backfill"
-          stayOnStepHref={stepHref("business")}
-        />
-        {shareBusinesses.length === 0 ? (
-          <Alert>
-            <AlertTitle>No business pool recorded yet</AlertTitle>
-            <AlertDescription>
-              Add a historical business pool, or explicitly confirm there are no
-              business profits to migrate.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        <ConfirmationForm
-          action={markBusinessProfitPoolsReviewedAction}
-          buttonLabel="Save no-profit review"
-          description="Type NO BUSINESS PROFITS only if this cooperative has no business profit history to allocate."
-          id="business-profit-review"
-          placeholder="NO BUSINESS PROFITS"
-          title="Confirm no historical business profits"
         />
       </CardContent>
     </Card>
@@ -1095,20 +1055,13 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
   const nextStep = orderedStepKeys[activeIndex + 1]
   const requireHistoryConfirmation =
     (props.activeStep === "charges" && props.chargeDefinitions.length === 0) ||
-    (props.activeStep === "shares" &&
-      props.shareStructureVersions.length === 0) ||
-    (props.activeStep === "business" &&
-      props.shareBusinesses.every(
-        (business) => business.profitEntries.length === 0
-      ))
-  const nextSubmitFormId =
-    props.activeStep === "charges"
-      ? gettingStartedChargeFormId
-      : props.activeStep === "shares"
-        ? gettingStartedShareFormId
-        : props.activeStep === "profit-policy"
-          ? gettingStartedProfitPolicyFormId
-          : undefined
+    (props.activeStep === "shares" && props.shareStructureVersions.length === 0)
+  const hasStepNextAction = [
+    "charges",
+    "shares",
+    "profit-policy",
+    "business",
+  ].includes(props.activeStep)
 
   return (
     <div>
@@ -1142,11 +1095,11 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
         />
       )}
       <StepFooter
+        hasStepNextAction={hasStepNextAction}
         hideNext={
           props.activeStep === "profit-seasons" &&
           props.businessProfitSeasons.length > 0
         }
-        nextSubmitFormId={nextSubmitFormId}
         nextStep={nextStep}
         previousStep={previousStep}
         requireHistoryConfirmation={requireHistoryConfirmation}

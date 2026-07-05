@@ -88,7 +88,9 @@ function PercentageTemplateInput({
 
 function updateTemplateValue<Name extends QuickFillName>(
   setTemplate: (
-    updater: (template: QuickFillTemplateFor<Name>) => QuickFillTemplateFor<Name>
+    updater: (
+      template: QuickFillTemplateFor<Name>
+    ) => QuickFillTemplateFor<Name>
   ) => void,
   patch: Partial<QuickFillTemplateFor<Name>>
 ) {
@@ -100,7 +102,9 @@ function renderChargeHistoryTemplateFields<Name extends QuickFillName>({
   template,
 }: {
   setTemplate: (
-    updater: (template: QuickFillTemplateFor<Name>) => QuickFillTemplateFor<Name>
+    updater: (
+      template: QuickFillTemplateFor<Name>
+    ) => QuickFillTemplateFor<Name>
   ) => void
   template: ChargeHistoryQuickFillTemplate
 }) {
@@ -125,7 +129,9 @@ function renderShareHistoryTemplateFields<Name extends QuickFillName>({
   template,
 }: {
   setTemplate: (
-    updater: (template: QuickFillTemplateFor<Name>) => QuickFillTemplateFor<Name>
+    updater: (
+      template: QuickFillTemplateFor<Name>
+    ) => QuickFillTemplateFor<Name>
   ) => void
   template: ShareHistoryQuickFillTemplate
 }) {
@@ -182,7 +188,9 @@ function renderBusinessProfitHistoryTemplateFields<Name extends QuickFillName>({
   template,
 }: {
   setTemplate: (
-    updater: (template: QuickFillTemplateFor<Name>) => QuickFillTemplateFor<Name>
+    updater: (
+      template: QuickFillTemplateFor<Name>
+    ) => QuickFillTemplateFor<Name>
   ) => void
   template: BusinessProfitHistoryQuickFillTemplate
 }) {
@@ -196,7 +204,7 @@ function renderBusinessProfitHistoryTemplateFields<Name extends QuickFillName>({
               amount,
             } as unknown as Partial<QuickFillTemplateFor<Name>>)
           }
-          placeholder="85000"
+          placeholder="Amount"
           value={template.amount}
         />
       </Field>
@@ -208,7 +216,7 @@ function renderBusinessProfitHistoryTemplateFields<Name extends QuickFillName>({
               deductionAmount,
             } as unknown as Partial<QuickFillTemplateFor<Name>>)
           }
-          placeholder="0"
+          placeholder="Deduction"
           value={template.deductionAmount}
         />
       </Field>
@@ -220,7 +228,7 @@ function renderBusinessProfitHistoryTemplateFields<Name extends QuickFillName>({
               reason: event.target.value,
             } as unknown as Partial<QuickFillTemplateFor<Name>>)
           }
-          placeholder="Expense reason when deduction is set"
+          placeholder="Reason"
           type="text"
           value={template.reason}
         />
@@ -234,7 +242,9 @@ function renderCommitmentHistoryTemplateFields<Name extends QuickFillName>({
   template,
 }: {
   setTemplate: (
-    updater: (template: QuickFillTemplateFor<Name>) => QuickFillTemplateFor<Name>
+    updater: (
+      template: QuickFillTemplateFor<Name>
+    ) => QuickFillTemplateFor<Name>
   ) => void
   template: CommitmentHistoryQuickFillTemplate
 }) {
@@ -259,7 +269,9 @@ function renderLoanHistoryTemplateFields<Name extends QuickFillName>({
   template,
 }: {
   setTemplate: (
-    updater: (template: QuickFillTemplateFor<Name>) => QuickFillTemplateFor<Name>
+    updater: (
+      template: QuickFillTemplateFor<Name>
+    ) => QuickFillTemplateFor<Name>
   ) => void
   template: LoanHistoryQuickFillTemplate
 }) {
@@ -312,7 +324,9 @@ function renderTemplateFields<Name extends QuickFillName>({
 }: {
   name: Name
   setTemplate: (
-    updater: (template: QuickFillTemplateFor<Name>) => QuickFillTemplateFor<Name>
+    updater: (
+      template: QuickFillTemplateFor<Name>
+    ) => QuickFillTemplateFor<Name>
   ) => void
   template: QuickFillTemplateFor<Name>
 }) {

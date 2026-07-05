@@ -10,11 +10,9 @@ import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
-import { Button, buttonVariants } from "@halaalvest/ui/components/button"
-import { Input } from "@halaalvest/ui/components/input"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { buildTenantSiteHostname } from "@halaalvest/utils"
-import { DevLoginFab } from "./dev-login-fab"
+import { LoginForm } from "./login-form"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
@@ -121,7 +119,9 @@ export default async function LoginPage({
   const tenantHostname = context.tenant
     ? buildTenantSiteHostname(context.tenant.slug)
     : "app.halaalvest.local"
-  const heroEyebrow = context.tenant ? "Cooperative workspace" : "Platform access"
+  const heroEyebrow = context.tenant
+    ? "Cooperative workspace"
+    : "Platform access"
   const heroTitle = context.tenant
     ? `Welcome back to ${context.tenant.name}`
     : "Sign in to your cooperative workspace"
@@ -156,7 +156,7 @@ export default async function LoginPage({
     >
       {isDevelopment ? (
         <div className="border-b border-[#d6a63a]/50 bg-[#fff2c7] px-4 py-2 text-xs font-medium text-[#0b1f36] dark:border-[#d6a63a]/40 dark:bg-[#2a240e] dark:text-[#f7faf7]">
-          Development environment - quick login enabled
+          Development environment - email suggestions enabled
         </div>
       ) : null}
 
@@ -231,13 +231,14 @@ export default async function LoginPage({
                 </Badge>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Enter your email and password to access the current cooperative host.
+                Enter your email and password to access the current cooperative
+                host.
               </p>
 
               {error === "invalid-account" ? (
                 <div className="mt-5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                  The account could not be used for this cooperative host, or the
-                  credentials were invalid.
+                  The account could not be used for this cooperative host, or
+                  the credentials were invalid.
                 </div>
               ) : null}
 
@@ -247,73 +248,15 @@ export default async function LoginPage({
                 </div>
               ) : null}
 
-              <form
+              <LoginForm
                 action={loginAction}
-                method="post"
-                className="mt-6 space-y-4"
-              >
-                <input type="hidden" name="next" value={nextPath} />
-
-                <label
-                  className="grid gap-1.5 text-sm font-medium text-foreground"
-                  htmlFor="email"
-                >
-                  Email
-                  <Input
-                    id="email"
-                    type="email"
-                    name="email"
-                    placeholder="name@cooperative.com"
-                    required
-                    className="h-10 bg-background text-sm md:text-sm"
-                  />
-                </label>
-
-                <div className="grid gap-1.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <label
-                      className="text-sm font-medium text-foreground"
-                      htmlFor="password"
-                    >
-                      Password
-                    </label>
-                    <a
-                      className="text-xs font-medium text-[#1f7a3d] underline-offset-4 hover:underline dark:text-[#71d98b]"
-                      href={resetPasswordHref}
-                    >
-                      Reset password
-                    </a>
-                  </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    name="password"
-                    placeholder="Enter your password"
-                    required
-                    className="h-10 bg-background text-sm md:text-sm"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="h-10 w-full bg-[#1f7a3d] text-white hover:bg-[#176332] dark:bg-[#3fbf70] dark:text-[#071b2c] dark:hover:bg-[#71d98b]"
-                >
-                  Sign in
-                </Button>
-
-                {showMemberSignupCta ? (
-                  <a
-                    className={cn(
-                      buttonVariants({ size: "lg", variant: "outline" }),
-                      "h-10 w-full border-[#1f7a3d]/35 text-[#1f7a3d] hover:bg-[#1f7a3d]/10 dark:border-[#71d98b]/45 dark:text-[#71d98b]"
-                    )}
-                    href={memberSignupHref}
-                  >
-                    Start member signup
-                  </a>
-                ) : null}
-              </form>
+                devAccounts={devAccounts}
+                isDevelopment={isDevelopment}
+                memberSignupHref={memberSignupHref}
+                nextPath={nextPath}
+                resetPasswordHref={resetPasswordHref}
+                showMemberSignupCta={showMemberSignupCta}
+              />
             </div>
 
             <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
@@ -321,67 +264,14 @@ export default async function LoginPage({
             </p>
 
             {isDevelopment ? (
-              <>
-                <div className="mt-4 border border-[#d6a63a]/60 bg-[#fff2c7] px-3 py-2 text-xs font-medium text-[#0b1f36] dark:border-[#d6a63a]/40 dark:bg-[#2a240e] dark:text-[#f7faf7]">
-                  Development mode - {devAccounts.length} quick-login account
-                  {devAccounts.length === 1 ? "" : "s"} available
-                </div>
-                <details className="mt-3 border border-[#d6a63a]/60 bg-background/80 text-sm sm:hidden">
-                  <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-[#0b1f36] dark:text-[#f7faf7]">
-                    Quick login accounts
-                  </summary>
-                  <div className="space-y-3 border-t border-border p-3">
-                    {devAccounts.map((account) => (
-                      <form
-                        key={account.userId}
-                        action={loginAction}
-                        method="post"
-                        className="rounded-md border border-border bg-background p-3"
-                      >
-                        <input
-                          type="hidden"
-                          name="userId"
-                          value={account.userId}
-                        />
-                        <input type="hidden" name="next" value={nextPath} />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">
-                            {account.fullName}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {account.email}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <Badge variant="outline">{account.roleLabel}</Badge>
-                            {account.isPlatformOwner ? (
-                              <Badge variant="secondary">Platform owner</Badge>
-                            ) : null}
-                          </div>
-                        </div>
-                        <Button
-                          type="submit"
-                          variant="outline"
-                          className="mt-3 w-full justify-center"
-                        >
-                          Login as {account.fullName}
-                        </Button>
-                      </form>
-                    ))}
-                  </div>
-                </details>
-              </>
+              <div className="mt-4 border border-[#d6a63a]/60 bg-[#fff2c7] px-3 py-2 text-xs font-medium text-[#0b1f36] dark:border-[#d6a63a]/40 dark:bg-[#2a240e] dark:text-[#f7faf7]">
+                Development mode - {devAccounts.length} email suggestion
+                {devAccounts.length === 1 ? "" : "s"} available
+              </div>
             ) : null}
           </div>
         </section>
       </div>
-
-      {isDevelopment ? (
-        <DevLoginFab
-          accounts={devAccounts}
-          action={loginAction}
-          nextPath={nextPath}
-        />
-      ) : null}
     </main>
   )
 }

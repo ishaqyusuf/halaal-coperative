@@ -10,7 +10,6 @@ import {
   applyImportBatch,
   closeContributionPlan,
   createTenantCustomDomain,
-  createTenantShareStructureVersion,
   createChargeDefinition,
   createChargeDefinitionVersion,
   createImportBatch,
@@ -79,6 +78,7 @@ import {
   updateMemberSignupLink,
   updateTenantMemberSignupSettings,
   updateLegacyLoanMigrationDraft,
+  upsertTenantShareStructureVersion,
   upsertMemberActivityEvent,
   upsertMigrationBackfillAdjustment,
   updateMemberStatus,
@@ -1746,7 +1746,7 @@ export async function createTenantShareStructureVersionAction(
   const notes = (formData.get("notes") as string | null)?.trim() || undefined
 
   for (const historyRow of historyRows) {
-    await createTenantShareStructureVersion({
+    await upsertTenantShareStructureVersion({
       amount: parseShareHistoryAmount(historyRow.amount),
       basis: "after_charge_deductions",
       createdByUserId: actor.user.id,

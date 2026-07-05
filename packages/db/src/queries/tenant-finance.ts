@@ -1034,6 +1034,52 @@ export async function createTenantShareStructureVersion(
   })
 }
 
+export async function upsertTenantShareStructureVersion(
+  input: {
+    tenantId: string
+    effectiveFrom: Date
+    amount: number
+    basis?: "after_charge_deductions"
+    notes?: string
+    valueType?: "fixed_amount" | "percentage"
+    createdByUserId?: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+  await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+
+  const updateData: Record<string, unknown> = {
+    amount: input.amount,
+    basis: input.basis ?? "after_charge_deductions",
+    valueType: input.valueType ?? "fixed_amount",
+  }
+
+  if (input.notes !== undefined) {
+    updateData.notes = input.notes
+  }
+
+  return prisma.tenantShareStructureVersion.upsert({
+    where: {
+      tenantId_effectiveFrom: {
+        tenantId: input.tenantId,
+        effectiveFrom: input.effectiveFrom,
+      },
+    },
+    create: {
+      tenantId: input.tenantId,
+      effectiveFrom: input.effectiveFrom,
+      amount: input.amount,
+      basis: input.basis ?? "after_charge_deductions",
+      notes: input.notes,
+      valueType: input.valueType ?? "fixed_amount",
+      createdByUserId: input.createdByUserId,
+    },
+    update: updateData,
+  })
+}
+
 export async function updateTenantShareStructureVersion(
   input: {
     tenantId: string

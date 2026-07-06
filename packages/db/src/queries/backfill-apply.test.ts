@@ -327,7 +327,11 @@ function createAppliedMemberDraftSavePrismaStub() {
   }
 }
 
-function createLegacyLoanBackfillApplyPrismaStub(monthRows?: any[]) {
+function createLegacyLoanBackfillApplyPrismaStub(
+  monthRows?: any[],
+  loanChargeDefinitions: any[] = []
+) {
+  const chargeApplicationCreates: any[] = []
   const loanCreates: unknown[] = []
   const loanRequestCreates: unknown[] = []
   const repaymentCreates: unknown[] = []
@@ -381,11 +385,40 @@ function createLegacyLoanBackfillApplyPrismaStub(monthRows?: any[]) {
       update: async (input: unknown) => input,
     },
     chargeApplication: {
+      create: async (input: any) => {
+        chargeApplicationCreates.push(input)
+        return {
+          id: `charge-application-${chargeApplicationCreates.length}`,
+          ...input.data,
+        }
+      },
       deleteMany: async () => undefined,
       findMany: async () => [],
+      findFirst: async () => null,
     },
     chargeDefinition: {
-      findMany: async () => [],
+      findFirst: async (input: any) => {
+        const id = input.where.id
+        const definition = loanChargeDefinitions.find(
+          (item) => item.id === id
+        )
+
+        return definition
+          ? {
+              id: definition.id,
+              isMonthlyLevy: false,
+              name: definition.name,
+              purpose: "loan_fee",
+            }
+          : null
+      },
+      findMany: async (input: any) => {
+        if (!input.where.OR) {
+          return []
+        }
+
+        return loanChargeDefinitions
+      },
     },
     contribution: {
       deleteMany: async () => undefined,
@@ -495,6 +528,7 @@ function createLegacyLoanBackfillApplyPrismaStub(monthRows?: any[]) {
     ...createOpenMigrationStatePrismaModels(),
     $transaction: async (callback: (tx: any) => Promise<unknown>) =>
       callback(tx),
+    chargeApplicationCreates,
     loanCreates,
     loanRequestCreates,
     repaymentCreates,
@@ -702,6 +736,47 @@ describe("apply backfill batch", () => {
         amount: 10000,
         loanId: "loan-1",
         reference: "backfill-batch-legacy-loan-2025-8",
+      },
+    })
+  })
+
+  test("posts configured loan fee charges for legacy loan backfill requests", async () => {
+    const prisma = createLegacyLoanBackfillApplyPrismaStub(undefined, [
+      {
+        appliesToLoanRequests: true,
+        createdAt: new Date("2025-01-01T00:00:00.000Z"),
+        id: "loan-charge-1",
+        isActive: true,
+        name: "Loan application fee",
+        purpose: "loan_fee",
+        versions: [
+          {
+            amount: 2500,
+            chargeValueType: "fixed_amount",
+            createdAt: new Date("2025-01-01T00:00:00.000Z"),
+            effectiveFrom: new Date("2025-01-01T00:00:00.000Z"),
+            kind: "fixed",
+          },
+        ],
+      },
+    ])
+
+    await applyBackfillBatch(
+      {
+        actorUserId: "user-1",
+        batchId: "batch-legacy-loan",
+        memberId: "member-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.chargeApplicationCreates[0]).toMatchObject({
+      data: {
+        amount: 2500,
+        chargeDefinitionId: "loan-charge-1",
+        loanRequestId: "loan-request-1",
+        memberId: "member-1",
       },
     })
   })

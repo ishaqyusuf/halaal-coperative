@@ -1,5 +1,6 @@
 import type { PrismaClient, RepaymentScheduleStatus } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { applyLoanRequestChargesInTransaction } from "./charges"
 import { getDashboardMetrics } from "./dashboard"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
@@ -406,6 +407,18 @@ export async function submitLoanRequest(
         notes: "Loan request submitted from dashboard workflow.",
       },
     })
+
+    await applyLoanRequestChargesInTransaction(
+      {
+        actorUserId: input.actorUserId,
+        assessedAt: request.requestedAt,
+        loanRequestId: request.id,
+        memberId: request.memberId,
+        requestedAmount: Number(request.requestedAmount),
+        tenantId: input.tenantId,
+      },
+      tx as unknown as PrismaClient,
+    )
 
     await tx.auditLog.create({
       data: {

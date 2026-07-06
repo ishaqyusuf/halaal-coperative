@@ -14,6 +14,7 @@
 - The active monthly commitment can change over time and should be tracked historically.
 - When requesting a loan, the member chooses a repayment duration in months.
 - The system calculates an estimated monthly servicing amount from `requestedAmount / requestedTermMonths`.
+- Any configured loan-fee charge is posted as a separate charge application when the loan request is created; it is not added to principal or monthly servicing.
 - The member may add a recurring extra monthly savings amount alongside the scheduled loan servicing amount.
 - Extra monthly savings remains part of the member savings balance and does not reduce the loan principal.
 - Any later payment can still overpay beyond the scheduled figures, with extra allocation directed to savings or loan payoff.
@@ -30,6 +31,7 @@
 - `Loan.termMonths`: approved repayment duration copied from the request.
 - `Loan.estimatedMonthlyServicing`: approved monthly servicing estimate copied from the request.
 - `Loan.extraMonthlySavingsAmount`: approved recurring extra monthly savings copied from the request.
+- Loan-fee `ChargeApplication` rows link to `LoanRequest.loanRequestId`, including loan requests materialized from legacy migration backfill.
 
 ## Workflow
 - Staff can set or replace a member’s monthly commitment plan from `/contributions`.

@@ -169,55 +169,80 @@ export type CreateChargeDefinitionInput = {
   appliesToLoans?: boolean
 }
 
+function normalizeChargeDefinitionInput<
+  TInput extends {
+    appliesToLoanRequests?: boolean
+    appliesToLoans?: boolean
+    appliesToMembers?: boolean
+    chargeFrequency?: "recurring_monthly" | "per_contribution" | "one_time" | "manual"
+    purpose?: "general" | "member_share" | "loan_fee" | "membership_fee" | "penalty"
+  },
+>(input: TInput) {
+  if (input.purpose !== "loan_fee") {
+    return input
+  }
+
+  return {
+    ...input,
+    appliesToLoanRequests: true,
+    appliesToLoans: input.appliesToLoans ?? false,
+    appliesToMembers: false,
+    chargeFrequency: input.chargeFrequency ?? "one_time",
+  }
+}
+
 export async function createChargeDefinition(
   input: CreateChargeDefinitionInput,
   prismaOverride?: PrismaClient,
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  const normalizedInput = normalizeChargeDefinitionInput(input)
   const mutationMode = await getChargeDefinitionMutationMode(
-    input.tenantId,
+    normalizedInput.tenantId,
     prisma,
   )
 
   if (mutationMode === "live_operations") {
-    assertLiveChargeEffectiveDateNotBackdated(input.effectiveFrom)
+    assertLiveChargeEffectiveDateNotBackdated(normalizedInput.effectiveFrom)
   }
 
   return prisma.$transaction(async (tx) => {
     const definition = await tx.chargeDefinition.create({
       data: {
-        tenantId: input.tenantId,
-        name: input.name,
-        code: input.code,
-        kind: input.kind,
-        chargeFrequency: input.chargeFrequency ?? "recurring_monthly",
+        tenantId: normalizedInput.tenantId,
+        name: normalizedInput.name,
+        code: normalizedInput.code,
+        kind: normalizedInput.kind,
+        chargeFrequency: normalizedInput.chargeFrequency ?? "recurring_monthly",
         chargeValueType:
-          input.chargeValueType ?? (input.kind === "percentage" ? "percentage" : "fixed_amount"),
-        purpose: input.purpose ?? "general",
-        amount: input.amount,
-        isMonthlyLevy: input.isMonthlyLevy ?? false,
-        appliesToMembers: input.appliesToMembers ?? true,
-        appliesToLoanRequests: input.appliesToLoanRequests ?? false,
-        appliesToLoans: input.appliesToLoans ?? false,
+          normalizedInput.chargeValueType ??
+          (normalizedInput.kind === "percentage" ? "percentage" : "fixed_amount"),
+        purpose: normalizedInput.purpose ?? "general",
+        amount: normalizedInput.amount,
+        isMonthlyLevy: normalizedInput.isMonthlyLevy ?? false,
+        appliesToMembers: normalizedInput.appliesToMembers ?? true,
+        appliesToLoanRequests: normalizedInput.appliesToLoanRequests ?? false,
+        appliesToLoans: normalizedInput.appliesToLoans ?? false,
         isActive: true,
       },
     })
 
     await tx.chargeDefinitionVersion.create({
       data: {
-        tenantId: input.tenantId,
+        tenantId: normalizedInput.tenantId,
         chargeDefinitionId: definition.id,
-        effectiveFrom: input.effectiveFrom,
-        amount: input.amount,
-        kind: input.kind,
+        effectiveFrom: normalizedInput.effectiveFrom,
+        amount: normalizedInput.amount,
+        kind: normalizedInput.kind,
         chargeValueType:
-          input.chargeValueType ?? (input.kind === "percentage" ? "percentage" : "fixed_amount"),
+          normalizedInput.chargeValueType ??
+          (normalizedInput.kind === "percentage" ? "percentage" : "fixed_amount"),
       },
     })
 
     return tx.chargeDefinition.findFirst({
-      where: { id: definition.id, tenantId: input.tenantId },
+      where: { id: definition.id, tenantId: normalizedInput.tenantId },
       include: {
         versions: {
           orderBy: { effectiveFrom: "desc" },
@@ -254,6 +279,7 @@ export async function updateChargeDefinition(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
   const mutationMode = await getChargeDefinitionMutationMode(tenantId, prisma)
+  const normalizedInput = normalizeChargeDefinitionInput(input)
 
   const {
     amount,
@@ -263,7 +289,7 @@ export async function updateChargeDefinition(
     chargeValueType,
     notes,
     ...definitionUpdates
-  } = input
+  } = normalizedInput
 
   return prisma.$transaction(async (tx) => {
     const currentDefinition = await tx.chargeDefinition.findFirst({
@@ -347,6 +373,105 @@ export type ApplyChargeInput = {
   sourceType?: "backfill" | "import"
 }
 
+async function applyChargeInTransaction(
+  input: ApplyChargeInput,
+  tx: PrismaClient,
+) {
+  const chargeDef = await tx.chargeDefinition.findFirst({
+    where: { id: input.chargeDefinitionId, tenantId: input.tenantId },
+  })
+  if (!chargeDef) throw new Error("Charge definition not found")
+
+  const isShareCharge = (chargeDef as any).purpose === "member_share"
+  const ledgerAccountCode = isShareCharge ? "3200" : chargeDef.isMonthlyLevy ? "3100" : "3000"
+  const savingsAccount = await getLedgerAccountByCode(input.tenantId, "1000", tx)
+  const incomeAccount = await getLedgerAccountByCode(input.tenantId, ledgerAccountCode, tx)
+
+  if (!savingsAccount || !incomeAccount) {
+    throw new Error("Ledger accounts not initialized for this cooperative")
+  }
+
+  const application = await tx.chargeApplication.create({
+    data: {
+      tenantId: input.tenantId,
+      memberId: input.memberId,
+      chargeDefinitionId: input.chargeDefinitionId,
+      amount: input.amount,
+      assessedAt: input.assessedAt,
+      status: "posted",
+      contributionId: input.contributionId,
+      loanRequestId: input.loanRequestId,
+      loanId: input.loanId,
+      notes: input.notes,
+    },
+  })
+
+  // Post ledger: debit Member Savings, credit Charge/Levy Income or Member Share Capital.
+  await postLedgerTransaction(
+    {
+      tenantId: input.tenantId,
+      transactionType: chargeDef.isMonthlyLevy ? "levy" : "charge",
+      postedAt: input.assessedAt,
+      memberId: input.memberId,
+      chargeApplicationId: application.id,
+      narration: `${chargeDef.name} assessed`,
+      sourceType: input.sourceType,
+      entries: [
+        { ledgerAccountId: savingsAccount.id, direction: "debit", amount: input.amount },
+        { ledgerAccountId: incomeAccount.id, direction: "credit", amount: input.amount },
+      ],
+    },
+    tx as unknown as PrismaClient,
+  )
+
+  if (isShareCharge) {
+    await createMemberShareLedgerEntry(
+      {
+        tenantId: input.tenantId,
+        memberId: input.memberId,
+        amount: input.amount,
+        effectiveDate: input.assessedAt,
+        sourceType: "monthly_share_charge",
+        sourceId: application.id,
+        notes: input.notes ?? `${chargeDef.name} posted to member share balance`,
+        createdByUserId: input.actorUserId,
+      },
+      tx as unknown as PrismaClient,
+    )
+  }
+
+  await tx.member.update({
+    where: { id: input.memberId, tenantId: input.tenantId },
+    data: {
+      totalSavingsSnapshot: {
+        decrement: input.amount,
+      },
+    },
+  })
+
+  await tx.auditLog.create({
+    data: {
+      tenantId: input.tenantId,
+      actorUserId: input.actorUserId,
+      actorType: "user",
+      action: "charge.applied",
+      entityType: "ChargeApplication",
+      entityId: application.id,
+      metadata: {
+        memberId: input.memberId,
+        chargeDefinitionId: input.chargeDefinitionId,
+        amount: input.amount,
+        loanRequestId: input.loanRequestId ?? null,
+        loanId: input.loanId ?? null,
+        sourceType: input.sourceType ?? "live",
+      },
+      occurredAt: new Date(),
+    },
+  })
+
+  return application
+}
+
 export async function applyCharge(
   input: ApplyChargeInput,
   prismaOverride?: PrismaClient,
@@ -357,98 +482,119 @@ export async function applyCharge(
     await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   }
 
-  const chargeDef = await prisma.chargeDefinition.findFirst({
-    where: { id: input.chargeDefinitionId, tenantId: input.tenantId },
-  })
-  if (!chargeDef) throw new Error("Charge definition not found")
+  return prisma.$transaction((tx) =>
+    applyChargeInTransaction(input, tx as unknown as PrismaClient),
+  )
+}
 
-  const isShareCharge = (chargeDef as any).purpose === "member_share"
-  const ledgerAccountCode = isShareCharge ? "3200" : chargeDef.isMonthlyLevy ? "3100" : "3000"
-  const savingsAccount = await getLedgerAccountByCode(input.tenantId, "1000", prisma)
-  const incomeAccount = await getLedgerAccountByCode(input.tenantId, ledgerAccountCode, prisma)
-
-  if (!savingsAccount || !incomeAccount) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+function calculateLoanRequestChargeAmount(input: {
+  chargeValueType: "fixed_amount" | "percentage"
+  requestedAmount: number
+  versionAmount: number
+}) {
+  if (input.chargeValueType === "percentage") {
+    return Number(((input.requestedAmount * input.versionAmount) / 100).toFixed(2))
   }
 
-  return prisma.$transaction(async (tx) => {
-    const application = await tx.chargeApplication.create({
-      data: {
+  return Number(input.versionAmount.toFixed(2))
+}
+
+export type ApplyLoanRequestChargesInput = {
+  actorUserId: string
+  assessedAt: Date
+  loanRequestId: string
+  memberId: string
+  requestedAmount: number
+  sourceType?: "backfill" | "import"
+  tenantId: string
+}
+
+export async function applyLoanRequestChargesInTransaction(
+  input: ApplyLoanRequestChargesInput,
+  tx: PrismaClient,
+) {
+  const definitions = await tx.chargeDefinition.findMany({
+    where: {
+      tenantId: input.tenantId,
+      isActive: true,
+      OR: [{ purpose: "loan_fee" }, { appliesToLoanRequests: true }],
+    },
+    include: {
+      versions: {
+        where: {
+          effectiveFrom: {
+            lte: input.assessedAt,
+          },
+        },
+        orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+        take: 1,
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  })
+
+  const applications = []
+
+  for (const definition of definitions) {
+    const version = definition.versions[0]
+    if (!version) continue
+
+    const existingApplication = await tx.chargeApplication.findFirst({
+      where: {
         tenantId: input.tenantId,
-        memberId: input.memberId,
-        chargeDefinitionId: input.chargeDefinitionId,
-        amount: input.amount,
-        assessedAt: input.assessedAt,
-        status: "posted",
-        contributionId: input.contributionId,
+        chargeDefinitionId: definition.id,
         loanRequestId: input.loanRequestId,
-        loanId: input.loanId,
-        notes: input.notes,
       },
     })
-
-    // Post ledger: debit Member Savings, credit Charge/Levy Income or Member Share Capital.
-    await postLedgerTransaction(
-      {
-        tenantId: input.tenantId,
-        transactionType: chargeDef.isMonthlyLevy ? "levy" : "charge",
-        postedAt: input.assessedAt,
-        memberId: input.memberId,
-        chargeApplicationId: application.id,
-        narration: `${chargeDef.name} assessed`,
-        sourceType: input.sourceType,
-        entries: [
-          { ledgerAccountId: savingsAccount.id, direction: "debit", amount: input.amount },
-          { ledgerAccountId: incomeAccount.id, direction: "credit", amount: input.amount },
-        ],
-      },
-      tx as unknown as PrismaClient,
-    )
-
-    if (isShareCharge) {
-      await createMemberShareLedgerEntry(
-        {
-          tenantId: input.tenantId,
-          memberId: input.memberId,
-          amount: input.amount,
-          effectiveDate: input.assessedAt,
-          sourceType: "monthly_share_charge",
-          sourceId: application.id,
-          notes: input.notes ?? `${chargeDef.name} posted to member share balance`,
-          createdByUserId: input.actorUserId,
-        },
-        tx as unknown as PrismaClient,
-      )
+    if (existingApplication) {
+      applications.push(existingApplication)
+      continue
     }
 
-    await tx.member.update({
-      where: { id: input.memberId, tenantId: input.tenantId },
-      data: {
-        totalSavingsSnapshot: {
-          decrement: input.amount,
-        },
-      },
+    const amount = calculateLoanRequestChargeAmount({
+      chargeValueType:
+        version.chargeValueType ??
+        (version.kind === "percentage" ? "percentage" : "fixed_amount"),
+      requestedAmount: input.requestedAmount,
+      versionAmount: Number(version.amount),
     })
 
-    await tx.auditLog.create({
-      data: {
-        tenantId: input.tenantId,
-        actorUserId: input.actorUserId,
-        actorType: "user",
-        action: "charge.applied",
-        entityType: "ChargeApplication",
-        entityId: application.id,
-        metadata: {
+    if (amount <= 0) continue
+
+    applications.push(
+      await applyChargeInTransaction(
+        {
+          actorUserId: input.actorUserId,
+          amount,
+          assessedAt: input.assessedAt,
+          chargeDefinitionId: definition.id,
+          loanRequestId: input.loanRequestId,
           memberId: input.memberId,
-          chargeDefinitionId: input.chargeDefinitionId,
-          amount: input.amount,
+          notes: "Automatically posted for loan application.",
+          sourceType: input.sourceType,
+          tenantId: input.tenantId,
         },
-        occurredAt: new Date(),
-      },
-    })
+        tx,
+      ),
+    )
+  }
 
-    return application
-  })
+  return applications
+}
+
+export async function applyLoanRequestCharges(
+  input: ApplyLoanRequestChargesInput,
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  if (input.sourceType !== "backfill" && input.sourceType !== "import") {
+    await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  }
+
+  return prisma.$transaction((tx) =>
+    applyLoanRequestChargesInTransaction(input, tx as unknown as PrismaClient),
+  )
 }
 
 async function restoreChargeToMemberSavings(input: {

@@ -1288,7 +1288,14 @@ export function ChargeDefinitionForm({
     patch: Partial<
       Pick<
         ChargeDefinitionInputRow,
-        "chargeFrequency" | "chargeValueType" | "code" | "name" | "purpose"
+        | "appliesToLoanRequests"
+        | "appliesToLoans"
+        | "appliesToMembers"
+        | "chargeFrequency"
+        | "chargeValueType"
+        | "code"
+        | "name"
+        | "purpose"
       >
     >
   ) {
@@ -1299,6 +1306,20 @@ export function ChargeDefinitionForm({
             ? {
                 ...row,
                 ...patch,
+                ...(patch.purpose === "loan_fee"
+                  ? {
+                      appliesToLoanRequests: true,
+                      appliesToLoans: false,
+                      appliesToMembers: false,
+                      chargeFrequency: "one_time" as const,
+                    }
+                  : patch.purpose
+                    ? {
+                        appliesToLoanRequests: false,
+                        appliesToLoans: false,
+                        appliesToMembers: true,
+                      }
+                  : {}),
                 kind: patch.chargeValueType
                   ? getChargeKindForValueType(patch.chargeValueType)
                   : row.kind,

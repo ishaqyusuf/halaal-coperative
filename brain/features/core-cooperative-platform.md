@@ -22,6 +22,7 @@ This file documents the primary business feature set for the Amanah cooperative 
 - Record contributions through direct deduction or indirect payment flow.
 - Apply configured charges such as cooperative levy.
 - Let eligible members request quick or normal financing.
+- Automatically post configured loan-fee charges when a loan application is created.
 - Approve financing based on policy and available contribution pool liquidity.
 - Track repayments, balances, transactions, and dividends.
 - Provide dashboards and account history for members and staff.
@@ -41,6 +42,7 @@ This file documents the primary business feature set for the Amanah cooperative 
 - Members need category and payment channel attributes.
 - Financing products need configurable terms and eligibility policies.
 - Charges need reusable definitions and applications.
+- Loan-fee charge definitions use `ChargePurpose.loan_fee`, are one-time loan-application charges, and post explicit `ChargeApplication` rows linked to `LoanRequest`.
 - Dividend periods and allocations need tenant-scoped records.
 - Business and profit records need a clear distinction between historical migration records, live operating records, draft allocation periods, and published allocations.
 - Dividend periods can carry reviewed season deduction metadata during initial migration so profit distribution remains auditable before publication.

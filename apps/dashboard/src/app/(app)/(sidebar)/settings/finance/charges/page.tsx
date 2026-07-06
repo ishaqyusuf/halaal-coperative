@@ -97,6 +97,9 @@ type RawChargeVersion = {
 }
 
 type RawCharge = {
+  appliesToLoanRequests?: boolean | null
+  appliesToLoans?: boolean | null
+  appliesToMembers?: boolean | null
   chargeFrequency?:
     | "recurring_monthly"
     | "per_contribution"
@@ -109,6 +112,7 @@ type RawCharge = {
   isActive: boolean
   kind: string
   name: string
+  purpose?: "general" | "member_share" | "loan_fee" | "membership_fee" | "penalty" | null
   versions: RawChargeVersion[]
 }
 
@@ -142,6 +146,9 @@ function mapChargeRows(rows: RawCharge[]): Charge[] {
     )
 
     return {
+      appliesToLoanRequests: charge.appliesToLoanRequests ?? false,
+      appliesToLoans: charge.appliesToLoans ?? false,
+      appliesToMembers: charge.appliesToMembers ?? true,
       chargeFrequency: charge.chargeFrequency ?? "recurring_monthly",
       chargeValueType:
         charge.chargeValueType ??
@@ -155,6 +162,7 @@ function mapChargeRows(rows: RawCharge[]): Charge[] {
       isActive: charge.isActive,
       kind: charge.kind,
       name: charge.name,
+      purpose: charge.purpose ?? "general",
       versions,
     }
   })

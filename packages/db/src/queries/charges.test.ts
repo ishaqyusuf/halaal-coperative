@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  applyLoanRequestCharges,
   applyCharge,
   createChargeDefinition,
   updateChargeDefinition,
@@ -51,6 +52,12 @@ function createChargePrismaStub({
         chargeValueType: "fixed_amount",
         kind: "fixed",
       }),
+    },
+    ledgerAccount: {
+      findUnique: async (input: unknown) => {
+        ledgerLookups.push(input)
+        return null
+      },
     },
   }
 
@@ -118,6 +125,100 @@ function createChargePrismaStub({
   }
 }
 
+function createLoanRequestChargePrismaStub(
+  definitions: Array<{
+    amount: number
+    chargeValueType: "fixed_amount" | "percentage"
+    effectiveFrom?: Date
+    id: string
+    kind: "fixed" | "percentage"
+    name?: string
+  }>
+) {
+  const chargeApplicationCreates: any[] = []
+  const chargeApplicationFindFirstCalls: unknown[] = []
+
+  const tx = {
+    auditLog: {
+      create: async (input: unknown) => input,
+    },
+    chargeApplication: {
+      create: async (input: any) => {
+        const application = {
+          id: `charge-application-${chargeApplicationCreates.length + 1}`,
+          ...input.data,
+        }
+        chargeApplicationCreates.push(input)
+        return application
+      },
+      findFirst: async (input: unknown) => {
+        chargeApplicationFindFirstCalls.push(input)
+        return null
+      },
+    },
+    chargeDefinition: {
+      findFirst: async (input: any) => {
+        const id = input.where.id
+        const definition = definitions.find((item) => item.id === id)
+
+        return definition
+          ? {
+              id: definition.id,
+              isMonthlyLevy: false,
+              name: definition.name ?? "Loan fee",
+              purpose: "loan_fee",
+            }
+          : null
+      },
+      findMany: async (input: any) =>
+        definitions.map((definition) => {
+          const effectiveFrom =
+            definition.effectiveFrom ?? new Date("2025-01-01T00:00:00.000Z")
+          const assessedAt = input.include.versions.where.effectiveFrom.lte
+
+          return {
+            appliesToLoanRequests: true,
+            createdAt: new Date("2025-01-01T00:00:00.000Z"),
+            id: definition.id,
+            isActive: true,
+            name: definition.name ?? "Loan fee",
+            purpose: "loan_fee",
+            versions:
+              effectiveFrom <= assessedAt
+                ? [
+                    {
+                      amount: definition.amount,
+                      chargeValueType: definition.chargeValueType,
+                      createdAt: effectiveFrom,
+                      effectiveFrom,
+                      kind: definition.kind,
+                    },
+                  ]
+                : [],
+          }
+        }),
+    },
+    ledgerAccount: {
+      findUnique: async (input: any) => ({
+        id: `ledger-${input.where.tenantId_code.code}`,
+      }),
+    },
+    ledgerTransaction: {
+      create: async (input: unknown) => input,
+    },
+    member: {
+      update: async (input: unknown) => input,
+    },
+  }
+
+  return {
+    $transaction: async (callback: (tx: typeof tx) => Promise<unknown>) =>
+      callback(tx),
+    chargeApplicationCreates,
+    chargeApplicationFindFirstCalls,
+  }
+}
+
 describe("charge migration guards", () => {
   test("blocks backdated charge setup after migration finalization", async () => {
     const prisma = createChargePrismaStub({
@@ -160,6 +261,33 @@ describe("charge migration guards", () => {
 
     expect(prisma.chargeDefinitionCreates).toHaveLength(1)
     expect(prisma.chargeDefinitionVersionCreates).toHaveLength(1)
+  })
+
+  test("normalizes loan fee definitions to one-time loan request charges", async () => {
+    const prisma = createChargePrismaStub()
+
+    await createChargeDefinition(
+      {
+        amount: 2500,
+        appliesToMembers: true,
+        code: "LOAN-FEE",
+        effectiveFrom: new Date("2025-01-01T00:00:00.000Z"),
+        kind: "fixed",
+        name: "Loan application fee",
+        purpose: "loan_fee",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.chargeDefinitionCreates[0]).toMatchObject({
+      data: {
+        appliesToLoanRequests: true,
+        appliesToMembers: false,
+        chargeFrequency: "one_time",
+        purpose: "loan_fee",
+      },
+    })
   })
 
   test("blocks backdated live charge definitions after go-live", async () => {
@@ -281,10 +409,9 @@ describe("charge migration guards", () => {
         },
         prisma as never
       )
-    ).rejects.toThrow("Charge definition not found")
+    ).rejects.toThrow("Ledger accounts not initialized")
 
-    expect(prisma.chargeDefinitionLookups).toHaveLength(1)
-    expect(prisma.ledgerLookups).toHaveLength(0)
+    expect(prisma.ledgerLookups).toHaveLength(2)
   })
 
   test("allows import charge posting through the live-write guard", async () => {
@@ -303,9 +430,99 @@ describe("charge migration guards", () => {
         },
         prisma as never
       )
-    ).rejects.toThrow("Charge definition not found")
+    ).rejects.toThrow("Ledger accounts not initialized")
 
-    expect(prisma.chargeDefinitionLookups).toHaveLength(1)
-    expect(prisma.ledgerLookups).toHaveLength(0)
+    expect(prisma.ledgerLookups).toHaveLength(2)
+  })
+
+  test("posts fixed loan request charges from the effective version", async () => {
+    const prisma = createLoanRequestChargePrismaStub([
+      {
+        amount: 2500,
+        chargeValueType: "fixed_amount",
+        id: "loan-charge-1",
+        kind: "fixed",
+      },
+    ])
+
+    await applyLoanRequestCharges(
+      {
+        actorUserId: "user-1",
+        assessedAt: new Date("2025-02-01T00:00:00.000Z"),
+        loanRequestId: "loan-request-1",
+        memberId: "member-1",
+        requestedAmount: 100000,
+        sourceType: "backfill",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.chargeApplicationCreates[0]).toMatchObject({
+      data: {
+        amount: 2500,
+        chargeDefinitionId: "loan-charge-1",
+        loanRequestId: "loan-request-1",
+        memberId: "member-1",
+      },
+    })
+  })
+
+  test("posts percentage loan request charges against requested amount", async () => {
+    const prisma = createLoanRequestChargePrismaStub([
+      {
+        amount: 2.5,
+        chargeValueType: "percentage",
+        id: "loan-charge-1",
+        kind: "percentage",
+      },
+    ])
+
+    await applyLoanRequestCharges(
+      {
+        actorUserId: "user-1",
+        assessedAt: new Date("2025-02-01T00:00:00.000Z"),
+        loanRequestId: "loan-request-1",
+        memberId: "member-1",
+        requestedAmount: 120000,
+        sourceType: "backfill",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.chargeApplicationCreates[0]).toMatchObject({
+      data: {
+        amount: 3000,
+        chargeDefinitionId: "loan-charge-1",
+      },
+    })
+  })
+
+  test("ignores future-dated loan request charge versions", async () => {
+    const prisma = createLoanRequestChargePrismaStub([
+      {
+        amount: 2500,
+        chargeValueType: "fixed_amount",
+        effectiveFrom: new Date("2025-03-01T00:00:00.000Z"),
+        id: "loan-charge-1",
+        kind: "fixed",
+      },
+    ])
+
+    await applyLoanRequestCharges(
+      {
+        actorUserId: "user-1",
+        assessedAt: new Date("2025-02-01T00:00:00.000Z"),
+        loanRequestId: "loan-request-1",
+        memberId: "member-1",
+        requestedAmount: 100000,
+        sourceType: "backfill",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.chargeApplicationCreates).toHaveLength(0)
   })
 })

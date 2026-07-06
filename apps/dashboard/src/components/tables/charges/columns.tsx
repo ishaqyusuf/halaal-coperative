@@ -15,6 +15,9 @@ export type ChargeVersion = {
 }
 
 export type Charge = {
+  appliesToLoanRequests?: boolean
+  appliesToLoans?: boolean
+  appliesToMembers?: boolean
   chargeFrequency:
     | "recurring_monthly"
     | "per_contribution"
@@ -27,6 +30,7 @@ export type Charge = {
   isActive: boolean
   kind: string
   name: string
+  purpose?: "general" | "member_share" | "loan_fee" | "membership_fee" | "penalty"
   versions: ChargeVersion[]
 }
 

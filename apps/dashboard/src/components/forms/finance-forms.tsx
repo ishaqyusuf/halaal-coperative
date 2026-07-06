@@ -499,6 +499,13 @@ const chargeDefinitionSchema = z.object({
   isMonthlyLevy: z.boolean().default(false),
   kind: z.enum(["fixed", "percentage"]),
   name: z.string().min(1, "Name is required."),
+  purpose: z.enum([
+    "general",
+    "member_share",
+    "loan_fee",
+    "membership_fee",
+    "penalty",
+  ]).default("general"),
 })
 
 type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
@@ -515,6 +522,7 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
       isMonthlyLevy: false,
       kind: "fixed",
       name: "",
+      purpose: "general",
     },
   })
   const { showError, showSuccess } = useNotifications()
@@ -535,6 +543,7 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
           isMonthlyLevy: false,
           kind: "fixed",
           name: "",
+          purpose: "general",
         })
       } catch (error) {
         showError(
@@ -603,6 +612,40 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
                 <NativeSelect {...field}>
                   <option value="fixed">Fixed</option>
                   <option value="percentage">Percentage</option>
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="purpose"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Purpose</FormLabel>
+              <FormControl>
+                <NativeSelect
+                  {...field}
+                  onChange={(event) => {
+                    const purpose = event.target.value as ChargeDefinitionValues["purpose"]
+                    field.onChange(purpose)
+                    if (purpose === "loan_fee") {
+                      form.setValue("appliesToLoanRequests", true)
+                      form.setValue("appliesToLoans", false)
+                      form.setValue("appliesToMembers", false)
+                    } else {
+                      form.setValue("appliesToLoanRequests", false)
+                      form.setValue("appliesToLoans", false)
+                      form.setValue("appliesToMembers", true)
+                    }
+                  }}
+                >
+                  <option value="general">General charge</option>
+                  <option value="member_share">Member share</option>
+                  <option value="loan_fee">Loan fee</option>
+                  <option value="membership_fee">Membership fee</option>
+                  <option value="penalty">Penalty</option>
                 </NativeSelect>
               </FormControl>
               <FormMessage />

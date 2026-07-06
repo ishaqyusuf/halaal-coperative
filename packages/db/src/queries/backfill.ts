@@ -6,7 +6,7 @@ import {
 } from "@halaalvest/backfill"
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { applyCharge } from "./charges"
+import { applyCharge, applyLoanRequestChargesInTransaction } from "./charges"
 import { recordContribution } from "./contributions"
 import { createAuditLogEntry } from "./audit"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
@@ -989,6 +989,19 @@ async function createLegacyBackfillLoanFromEvent(input: {
       tenantId: input.tenantId,
     },
   })
+
+  await applyLoanRequestChargesInTransaction(
+    {
+      actorUserId: input.actorUserId,
+      assessedAt: startDate,
+      loanRequestId: request.id,
+      memberId: input.memberId,
+      requestedAmount: principalAmount,
+      sourceType: "backfill",
+      tenantId: input.tenantId,
+    },
+    input.tx as PrismaClient,
+  )
 
   const loan = await input.tx.loan.create({
     data: {

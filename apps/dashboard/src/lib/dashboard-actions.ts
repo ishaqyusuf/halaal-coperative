@@ -417,6 +417,19 @@ export async function upsertMigrationProfitAdjustmentAction(
   )
 }
 
+export async function saveMemberProfitSeasonAdjustmentsAction(
+  formData: FormData
+) {
+  const result = await callDashboardFormAction(
+    "saveMemberProfitSeasonAdjustmentsAction",
+    formData
+  )
+
+  if (result.redirectTo) {
+    redirect(result.redirectTo)
+  }
+}
+
 export async function updateMemberSignupAccessModeAction(formData: FormData) {
   return callDashboardFormAction(
     "updateMemberSignupAccessModeAction",

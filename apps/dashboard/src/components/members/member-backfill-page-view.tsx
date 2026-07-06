@@ -1,8 +1,6 @@
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
-import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
-import { Input } from "@halaalvest/ui/components/input"
 import { Separator } from "@halaalvest/ui/components/separator"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
@@ -26,12 +24,19 @@ import {
 } from "@/components/migration/member-migration-history-forms"
 import {
   queueBackfillDraftAction,
-  upsertMigrationProfitAdjustmentAction,
+  saveMemberProfitSeasonAdjustmentsAction,
 } from "@/lib/dashboard-actions"
 import type { loadMemberBackfillWorkflowData } from "@/lib/members"
 import { MemberBackfillActivityWindowsForm } from "./member-backfill-activity-windows-form"
 import { MemberBackfillApplyForm } from "./member-backfill-apply-form"
-import { MemberBackfillFooterActionsSlot } from "./member-backfill-footer-slot"
+import {
+  MemberBackfillFooterActionsSlot,
+  MemberBackfillFooterPortal,
+} from "./member-backfill-footer-slot"
+import {
+  MemberProfitSeasonAdjustmentTable,
+  type MemberProfitSeasonAdjustmentSeason,
+} from "./member-profit-season-adjustment-table"
 import {
   getMemberBackfillAdjacentSteps,
   memberBackfillStepHref,
@@ -50,9 +55,14 @@ type ProfitMigrationOption = {
   editableAvailableAmount: number
   id: string
   memberMigrationAdjustmentAmount: number
+  memberMigrationAdjustmentSharePercentage?: number | null
   profitDate: string
+  profitAmount: number
+  seasonKey: string
   seasonLabel?: string | null
+  seasonPeriodStart?: string | null
   seasonPeriodEnd?: string | null
+  seasonStatus?: string | null
 }
 
 const memberBackfillLoanHistoryFormId = "member-backfill-loan-history-form"
@@ -60,6 +70,8 @@ const memberBackfillCommitmentHistoryFormId =
   "member-backfill-commitment-history-form"
 const memberBackfillActivityWindowsFormId =
   "member-backfill-activity-windows-form"
+const memberBackfillProfitAdjustmentFormId =
+  "member-backfill-profit-adjustment-form"
 
 function displayEnum(value: string) {
   return value.replaceAll("_", " ")
@@ -71,6 +83,71 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
   }).format(new Date(`${value}T00:00:00.000Z`))
+}
+
+function getFallbackSeasonLabel(option: ProfitMigrationOption) {
+  return option.seasonLabel ?? `Dividend season (${formatDate(option.profitDate)})`
+}
+
+function getSeasonSharePercentage(entries: ProfitMigrationOption[]) {
+  const sharePercentages = entries
+    .map((entry) => entry.memberMigrationAdjustmentSharePercentage)
+    .filter((value): value is number => value != null)
+
+  if (sharePercentages.length !== entries.length) {
+    return null
+  }
+
+  const [firstSharePercentage] = sharePercentages
+
+  return sharePercentages.every((value) => value === firstSharePercentage)
+    ? firstSharePercentage
+    : null
+}
+
+function groupProfitMigrationOptionsBySeason(
+  options: ProfitMigrationOption[]
+) {
+  const seasonsByKey = new Map<string, ProfitMigrationOption[]>()
+
+  for (const option of options) {
+    const seasonEntries = seasonsByKey.get(option.seasonKey) ?? []
+    seasonEntries.push(option)
+    seasonsByKey.set(option.seasonKey, seasonEntries)
+  }
+
+  return Array.from(seasonsByKey.entries())
+    .map(([key, entries]): MemberProfitSeasonAdjustmentSeason => {
+      const firstEntry = entries[0]!
+
+      return {
+        businessNames: Array.from(
+          new Set(entries.map((entry) => entry.businessName))
+        ).sort((a, b) => a.localeCompare(b)),
+        editableAvailableAmount: entries.reduce(
+          (total, entry) => total + entry.editableAvailableAmount,
+          0
+        ),
+        entries,
+        key,
+        label: getFallbackSeasonLabel(firstEntry),
+        memberMigrationAdjustmentAmount: entries.reduce(
+          (total, entry) => total + entry.memberMigrationAdjustmentAmount,
+          0
+        ),
+        memberMigrationAdjustmentSharePercentage:
+          getSeasonSharePercentage(entries),
+        periodEnd: firstEntry.seasonPeriodEnd,
+        periodStart: firstEntry.seasonPeriodStart,
+        status: firstEntry.seasonStatus,
+      }
+    })
+    .sort((a, b) => {
+      const aDate = a.periodStart ?? a.entries[0]?.profitDate ?? ""
+      const bDate = b.periodStart ?? b.entries[0]?.profitDate ?? ""
+
+      return aDate.localeCompare(bDate) || a.label.localeCompare(b.label)
+    })
 }
 
 function statusTone(status: MemberBackfillData["review"]["status"]) {
@@ -386,89 +463,53 @@ function ProfitStep({ data }: { data: MemberBackfillData }) {
     !data.canEditBackfill || data.review.status === "backfill_applied"
   const profitMigrationOptions =
     data.profitMigrationOptions as ProfitMigrationOption[]
+  const profitMigrationSeasons = groupProfitMigrationOptionsBySeason(
+    profitMigrationOptions
+  )
+  const nextHref = disabled
+    ? undefined
+    : memberBackfillStepHref(data.member.id, "review")
 
   return (
     <DashboardSectionCard>
       <DashboardSectionHeader
         eyebrow="Step 5"
-        title="Profit exceptions"
-        description="Add member-specific historical profit adjustments only when the default allocation is not enough."
+        title="Profit seasons"
+        description="Capture member-specific historical profit adjustments by dividend season."
       />
-      <div className="mt-5 grid gap-3">
-        {profitMigrationOptions.length > 0 ? (
-          profitMigrationOptions.map((option) => (
-            <form
-              action={upsertMigrationProfitAdjustmentAction}
-              className="grid gap-3 border border-border/70 bg-muted/20 p-3 sm:grid-cols-[minmax(0,1fr)_150px_150px_auto]"
-              key={option.id}
-            >
-              <input name="memberId" type="hidden" value={data.member.id} />
-              <input name="profitEntryId" type="hidden" value={option.id} />
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {option.businessName}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {formatDate(option.profitDate)} available{" "}
-                  {formatCurrency(option.editableAvailableAmount)}
-                </p>
-                {option.seasonLabel ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {option.seasonLabel}
-                    {option.seasonPeriodEnd
-                      ? ` · ends ${formatDate(option.seasonPeriodEnd)}`
-                      : ""}
-                  </p>
-                ) : null}
-                {option.memberMigrationAdjustmentAmount > 0 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Current member adjustment{" "}
-                    {formatCurrency(option.memberMigrationAdjustmentAmount)}
-                  </p>
-                ) : null}
-              </div>
-              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-                Amount
-                <CurrencyPrefixInput
-                  disabled={disabled}
-                  min="0"
-                  name="allocatedProfitAmount"
-                  placeholder="0"
-                  step="0.01"
-                  type="number"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-                Share %
-                <Input
-                  disabled={disabled}
-                  max="100"
-                  min="0"
-                  name="sharePercentage"
-                  placeholder="Optional"
-                  step="0.01"
-                  type="number"
-                />
-              </label>
-              <div className="flex items-end justify-end">
-                <Button disabled={disabled} size="sm" type="submit">
-                  Save
-                </Button>
-              </div>
-            </form>
-          ))
+      <form
+        action={saveMemberProfitSeasonAdjustmentsAction}
+        className="mt-5 grid gap-4"
+        id={memberBackfillProfitAdjustmentFormId}
+      >
+        <input name="memberId" type="hidden" value={data.member.id} />
+        {nextHref ? (
+          <input name="redirectTo" type="hidden" value={nextHref} />
+        ) : null}
+        {profitMigrationSeasons.length > 0 ? (
+          <MemberProfitSeasonAdjustmentTable
+            disabled={disabled}
+            seasons={profitMigrationSeasons}
+          />
         ) : (
           <DashboardSurfaceCard>
             <p className="text-sm font-medium text-foreground">
-              No profit periods available.
+              No profit seasons available.
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Add business profit periods before member-specific profit
-              exceptions can be captured.
+              Continue to review if this member has no season-specific
+              historical profit adjustment.
             </p>
           </DashboardSurfaceCard>
         )}
-      </div>
+        {nextHref ? (
+          <MemberBackfillFooterPortal>
+            <Button form={memberBackfillProfitAdjustmentFormId} type="submit">
+              Next
+            </Button>
+          </MemberBackfillFooterPortal>
+        ) : null}
+      </form>
     </DashboardSectionCard>
   )
 }
@@ -619,7 +660,8 @@ export function MemberBackfillPageView({
     canAutoSaveStep &&
     (activeStep === "commitments" ||
       activeStep === "activity" ||
-      activeStep === "loans")
+      activeStep === "loans" ||
+      activeStep === "profit")
 
   return (
     <WorkspacePageShell

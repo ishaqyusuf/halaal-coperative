@@ -83,6 +83,7 @@ function serializeProfitAdjustmentOption(option: ProfitAdjustmentOption) {
   return {
     ...option,
     profitDate: toDateString(option.profitDate) ?? "",
+    seasonPeriodStart: toDateString(option.seasonPeriodStart),
     seasonPeriodEnd: toDateString(option.seasonPeriodEnd),
   }
 }

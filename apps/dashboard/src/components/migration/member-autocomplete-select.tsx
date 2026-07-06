@@ -15,6 +15,7 @@ type MemberAutocompleteSelectProps = {
   onValueChange?: (value: string) => void
   options: MemberAutocompleteOption[]
   placeholder?: string
+  promotedOptionIds?: readonly string[]
   value?: string | null
 }
 
@@ -25,6 +26,7 @@ export function MemberAutocompleteSelect({
   onValueChange,
   options,
   placeholder = "Search member",
+  promotedOptionIds = [],
   value,
 }: MemberAutocompleteSelectProps) {
   const inputId = useId()
@@ -35,6 +37,17 @@ export function MemberAutocompleteSelect({
     : ""
   const [query, setQuery] = useState(selectedDisplayValue)
   const [selectedId, setSelectedId] = useState(selectedOption?.id ?? "")
+  const promotedOptionOrder = useMemo(() => {
+    const order = new Map<string, number>()
+
+    for (const id of promotedOptionIds) {
+      if (id && !order.has(id)) {
+        order.set(id, order.size)
+      }
+    }
+
+    return order
+  }, [promotedOptionIds])
 
   const optionEntries = useMemo(() => {
     return options
@@ -42,8 +55,19 @@ export function MemberAutocompleteSelect({
         ...option,
         displayValue: `${option.label} (${option.id.slice(0, 8)})`,
       }))
-      .sort((a, b) => a.label.localeCompare(b.label))
-  }, [options])
+      .sort((a, b) => {
+        const aPromotedIndex =
+          promotedOptionOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER
+        const bPromotedIndex =
+          promotedOptionOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER
+
+        if (aPromotedIndex !== bPromotedIndex) {
+          return aPromotedIndex - bPromotedIndex
+        }
+
+        return a.label.localeCompare(b.label)
+      })
+  }, [options, promotedOptionOrder])
 
   return (
     <div>

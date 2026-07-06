@@ -3,6 +3,10 @@ import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 
+function roundCurrency(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
 async function assertMigrationAdjustmentMutationOpen(
   input: {
     memberId: string
@@ -72,8 +76,11 @@ export async function listMigrationProfitAdjustmentOptions(
       allocations: true,
       linkedDividendPeriod: {
         select: {
+          id: true,
           name: true,
+          periodStart: true,
           periodEnd: true,
+          status: true,
         },
       },
       migrationProfitAdjustments: true,
@@ -115,6 +122,11 @@ export async function listMigrationProfitAdjustmentOptions(
             0
           )
       : 0
+    const memberAdjustment = memberId
+      ? ((entry.migrationProfitAdjustments ?? []).find(
+          (adjustment: any) => adjustment.memberId === memberId
+        ) ?? null)
+      : null
     const memberPublishedAmount = memberId
       ? (entry.allocations ?? [])
           .filter((allocation: any) => allocation.memberId === memberId)
@@ -150,14 +162,158 @@ export async function listMigrationProfitAdjustmentOptions(
       expenseAmount: Number(entry.expenseAmount ?? 0),
       memberAllocatedAmount: memberAdjustedAmount + memberPublishedAmount,
       memberMigrationAdjustmentAmount: memberAdjustedAmount,
+      memberMigrationAdjustmentSharePercentage:
+        memberAdjustment?.sharePercentage == null
+          ? null
+          : Number(memberAdjustment.sharePercentage),
       memberPublishedAllocationAmount: memberPublishedAmount,
       seasonLabel: entry.linkedDividendPeriod?.name ?? null,
+      seasonKey: entry.linkedDividendPeriod?.id
+        ? `season:${entry.linkedDividendPeriod.id}`
+        : `profit-entry:${entry.id}`,
+      seasonPeriodStart: entry.linkedDividendPeriod?.periodStart ?? null,
       seasonPeriodEnd: entry.linkedDividendPeriod?.periodEnd ?? null,
+      seasonStatus: entry.linkedDividendPeriod?.status ?? null,
       profitAmount: Number(entry.profitAmount),
       profitDate: entry.profitDate,
       totalDisbursedAmount: totalAdjusted + totalAllocated,
     }
   })
+}
+
+export async function saveMigrationProfitSeasonAdjustments(
+  input: {
+    actorUserId: string
+    memberId: string
+    notes?: string | null
+    seasons: Array<{
+      allocatedProfitAmount?: number | null
+      key: string
+      sharePercentage?: number | null
+    }>
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const saveAdjustments = async (client: PrismaClient) => {
+    const entries = await listMigrationProfitAdjustmentOptions(
+      input.tenantId,
+      client,
+      input.memberId
+    )
+    const entriesBySeasonKey = new Map<
+      string,
+      Awaited<ReturnType<typeof listMigrationProfitAdjustmentOptions>>
+    >()
+
+    for (const entry of entries) {
+      const seasonEntries = entriesBySeasonKey.get(entry.seasonKey) ?? []
+      seasonEntries.push(entry)
+      entriesBySeasonKey.set(entry.seasonKey, seasonEntries)
+    }
+
+    for (const season of input.seasons) {
+      const allocatedProfitAmount = season.allocatedProfitAmount ?? null
+      const sharePercentage = season.sharePercentage ?? null
+
+      if (allocatedProfitAmount == null && sharePercentage == null) {
+        continue
+      }
+
+      if (allocatedProfitAmount != null && sharePercentage != null) {
+        throw new Error(
+          "Set either a member profit amount or a share percentage, not both."
+        )
+      }
+
+      const seasonEntries = entriesBySeasonKey.get(season.key)
+
+      if (!seasonEntries || seasonEntries.length === 0) {
+        throw new Error("Dividend season not found.")
+      }
+
+      if (sharePercentage != null) {
+        for (const entry of seasonEntries) {
+          await upsertMigrationProfitAdjustment(
+            {
+              actorUserId: input.actorUserId,
+              memberId: input.memberId,
+              notes: input.notes,
+              profitEntryId: entry.id,
+              sharePercentage,
+              tenantId: input.tenantId,
+            },
+            client
+          )
+        }
+
+        continue
+      }
+
+      const seasonAmount = roundCurrency(Number(allocatedProfitAmount))
+      const totalEditableAvailableAmount = roundCurrency(
+        seasonEntries.reduce(
+          (total, entry) => total + Number(entry.editableAvailableAmount),
+          0
+        )
+      )
+
+      if (!Number.isFinite(seasonAmount) || seasonAmount < 0) {
+        throw new Error("Member profit amount cannot be negative.")
+      }
+
+      if (seasonAmount > totalEditableAvailableAmount) {
+        throw new Error(
+          "Member profit adjustment cannot exceed the remaining available season profit amount."
+        )
+      }
+
+      if (seasonAmount > 0 && totalEditableAvailableAmount <= 0) {
+        throw new Error("Dividend season has no available profit to allocate.")
+      }
+
+      let remainingAmount = seasonAmount
+
+      for (const [index, entry] of seasonEntries.entries()) {
+        const entryAmount =
+          index === seasonEntries.length - 1
+            ? remainingAmount
+            : roundCurrency(
+                totalEditableAvailableAmount > 0
+                  ? seasonAmount *
+                      (Number(entry.editableAvailableAmount) /
+                        totalEditableAvailableAmount)
+                  : 0
+              )
+
+        remainingAmount = roundCurrency(remainingAmount - entryAmount)
+
+        await upsertMigrationProfitAdjustment(
+          {
+            actorUserId: input.actorUserId,
+            allocatedProfitAmount: entryAmount,
+            memberId: input.memberId,
+            notes: input.notes,
+            profitEntryId: entry.id,
+            tenantId: input.tenantId,
+          },
+          client
+        )
+      }
+    }
+  }
+
+  if (typeof (prisma as any).$transaction === "function") {
+    await (prisma as any).$transaction((tx: PrismaClient) =>
+      saveAdjustments(tx)
+    )
+    return
+  }
+
+  await saveAdjustments(prisma)
 }
 
 export async function upsertMigrationProfitAdjustment(

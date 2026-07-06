@@ -47,6 +47,7 @@ import {
   recordMemberPayment,
   saveBusinessProfitMigrationWorksheet,
   saveBusinessProfitSeasonReviews,
+  saveMigrationProfitSeasonAdjustments,
   upsertMigrationProfitAdjustment,
   recordContribution,
   reverseChargeApplication,
@@ -3328,6 +3329,43 @@ export async function upsertMigrationProfitAdjustmentAction(
   revalidatePath(`/settings/finance/migration/${memberId}`)
 }
 
+export async function saveMemberProfitSeasonAdjustmentsAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+  await requireMemberMigrationDraftMutable(actor, memberId)
+  const seasonKeys = getAllTrimmedStrings(formData, "seasonKey").filter(
+    Boolean
+  )
+  const redirectTo = (formData.get("redirectTo") as string | null)?.trim()
+
+  await saveMigrationProfitSeasonAdjustments({
+    actorUserId: actor.user.id,
+    memberId,
+    notes: (formData.get("notes") as string | null)?.trim() || null,
+    seasons: seasonKeys.map((key) => ({
+      allocatedProfitAmount:
+        getOptionalNumber(formData, `allocatedProfitAmount-${key}`) ?? null,
+      key,
+      sharePercentage:
+        getOptionalNumber(formData, `sharePercentage-${key}`) ?? null,
+    })),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
+  revalidatePath("/settings/finance/migration")
+  revalidatePath(`/settings/finance/migration/${memberId}`)
+  revalidateMemberBackfillPaths(memberId)
+
+  return {
+    redirectTo:
+      redirectTo && redirectTo.startsWith("/") ? redirectTo : undefined,
+  }
+}
+
 function getOptionalPositiveInteger(formData: FormData, key: string) {
   const rawValue = (formData.get(key) as string | null)?.trim()
 
@@ -4138,6 +4176,7 @@ const dashboardActionHandlers = {
   upsertMemberActivityEventAction,
   deleteMemberActivityEventAction,
   upsertMigrationProfitAdjustmentAction,
+  saveMemberProfitSeasonAdjustmentsAction,
   updateMemberSignupAccessModeAction,
   createMemberSignupLinkAction,
   updateMemberSignupLinkAction,
@@ -4334,6 +4373,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   upsertMigrationProfitAdjustmentAction: formAction(
     dashboardActionHandlers.upsertMigrationProfitAdjustmentAction
+  ),
+  saveMemberProfitSeasonAdjustmentsAction: formAction(
+    dashboardActionHandlers.saveMemberProfitSeasonAdjustmentsAction
   ),
   updateMemberSignupAccessModeAction: formAction(
     dashboardActionHandlers.updateMemberSignupAccessModeAction

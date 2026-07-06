@@ -611,6 +611,25 @@ function normalizeLoanRows(rows: LoanHistoryInputRow[]) {
   return compactRows.length > 0 ? compactRows : [createLoanRow()]
 }
 
+function getUsedGuarantorIds(rows: LoanHistoryInputRow[]) {
+  const guarantorIds: string[] = []
+  const seenGuarantorIds = new Set<string>()
+
+  for (const row of rows) {
+    for (const guarantorId of [
+      row.guarantorOneMemberId,
+      row.guarantorTwoMemberId,
+    ]) {
+      if (guarantorId && !seenGuarantorIds.has(guarantorId)) {
+        seenGuarantorIds.add(guarantorId)
+        guarantorIds.push(guarantorId)
+      }
+    }
+  }
+
+  return guarantorIds
+}
+
 function sortLoanRowsWithExistingBlankRows(rows: LoanHistoryInputRow[]) {
   const normalizedRows = normalizeLoanRows(rows)
   const filledRows = normalizedRows
@@ -750,6 +769,7 @@ function GuarantorMemberCombobox({
   onCreate,
   onValueChange,
   options,
+  promotedOptionIds = [],
   value,
 }: {
   disabled: boolean
@@ -759,6 +779,7 @@ function GuarantorMemberCombobox({
   onCreate: (name: string) => void
   onValueChange: (memberId: string) => void
   options: MemberOption[]
+  promotedOptionIds?: readonly string[]
   value: string
 }) {
   const [open, setOpen] = useState(false)
@@ -769,17 +790,42 @@ function GuarantorMemberCombobox({
     () => new Set(disabledOptionIds),
     [disabledOptionIds]
   )
+  const promotedOptionOrder = useMemo(() => {
+    const order = new Map<string, number>()
+
+    for (const id of promotedOptionIds) {
+      if (id && !order.has(id)) {
+        order.set(id, order.size)
+      }
+    }
+
+    return order
+  }, [promotedOptionIds])
+  const orderedOptions = useMemo(() => {
+    if (promotedOptionOrder.size === 0) {
+      return options
+    }
+
+    return [...options].sort((a, b) => {
+      const aPromotedIndex =
+        promotedOptionOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER
+      const bPromotedIndex =
+        promotedOptionOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER
+
+      return aPromotedIndex - bPromotedIndex
+    })
+  }, [options, promotedOptionOrder])
   const filteredOptions = useMemo(() => {
     const normalizedQuery = createName.toLowerCase()
 
     if (!normalizedQuery) {
-      return options.slice(0, 50)
+      return orderedOptions.slice(0, 50)
     }
 
-    return options
+    return orderedOptions
       .filter((option) => option.label.toLowerCase().includes(normalizedQuery))
       .slice(0, 50)
-  }, [createName, options])
+  }, [createName, orderedOptions])
   const hasSelectableFilteredOption = filteredOptions.some(
     (option) => !disabledOptionIdSet.has(option.id)
   )
@@ -882,6 +928,7 @@ function GuarantorMemberInput({
   label,
   onCreateMember,
   options,
+  promotedOptionIds,
   row,
   updateRow,
 }: {
@@ -897,6 +944,7 @@ function GuarantorMemberInput({
     rowId: string
   }) => void
   options: MemberOption[]
+  promotedOptionIds?: readonly string[]
   row: LoanHistoryInputRow
   updateRow: (patch: Partial<LoanHistoryInputRow>) => void
 }) {
@@ -930,6 +978,7 @@ function GuarantorMemberInput({
         }
         onValueChange={(memberId) => updateRow({ [existingField]: memberId })}
         options={options}
+        promotedOptionIds={promotedOptionIds}
         value={row[existingField]}
       />
       <input name={existingField} type="hidden" value={row[existingField]} />
@@ -1355,6 +1404,7 @@ export function LoanHistoryEntryForm({
     },
   })
   const rows = form.watch("rows")
+  const promotedGuarantorIds = useMemo(() => getUsedGuarantorIds(rows), [rows])
 
   function resetRows() {
     form.reset({
@@ -1707,6 +1757,7 @@ export function LoanHistoryEntryForm({
                           label="G1"
                           onCreateMember={handleCreateGuarantor}
                           options={guarantorOptions}
+                          promotedOptionIds={promotedGuarantorIds}
                           row={row}
                           updateRow={(patch) =>
                             updateRow(row.id, {
@@ -1733,6 +1784,7 @@ export function LoanHistoryEntryForm({
                           label="G2"
                           onCreateMember={handleCreateGuarantor}
                           options={guarantorOptions}
+                          promotedOptionIds={promotedGuarantorIds}
                           row={row}
                           updateRow={(patch) => updateRow(row.id, patch)}
                         />

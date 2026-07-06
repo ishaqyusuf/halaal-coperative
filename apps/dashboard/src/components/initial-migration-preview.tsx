@@ -574,6 +574,10 @@ function LegacyLoanDraftEditDialog({
   const guarantorOptions = memberOptions.filter(
     (member) => member.id !== loan.memberId
   )
+  const promotedGuarantorIds = [
+    loan.guarantorOneMemberId,
+    loan.guarantorTwoMemberId,
+  ].filter((id): id is string => Boolean(id))
 
   return (
     <Dialog>
@@ -685,6 +689,7 @@ function LegacyLoanDraftEditDialog({
               name="guarantorOneMemberId"
               options={guarantorOptions}
               placeholder="Search member"
+              promotedOptionIds={promotedGuarantorIds}
               value={loan.guarantorOneMemberId}
             />
           </div>
@@ -697,6 +702,7 @@ function LegacyLoanDraftEditDialog({
               name="guarantorTwoMemberId"
               options={guarantorOptions}
               placeholder="Search member"
+              promotedOptionIds={promotedGuarantorIds}
               value={loan.guarantorTwoMemberId}
             />
           </div>

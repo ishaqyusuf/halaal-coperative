@@ -26,15 +26,43 @@ export async function ensureTenantLedgerAccounts(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
+  const standardAccountCodes = STANDARD_CHART_OF_ACCOUNTS.map(
+    (account) => account.code,
+  )
+
+  await prisma.ledgerAccount.createMany({
+    data: STANDARD_CHART_OF_ACCOUNTS.map((account) => ({
+      tenantId,
+      ...account,
+    })),
+    skipDuplicates: true,
+  })
+
+  const createdAccounts = await prisma.ledgerAccount.findMany({
+    select: {
+      code: true,
+      id: true,
+    },
+    where: {
+      tenantId,
+      code: {
+        in: standardAccountCodes,
+      },
+    },
+  })
+
   const accounts: Record<string, string> = {}
 
-  for (const account of STANDARD_CHART_OF_ACCOUNTS) {
-    const result = await prisma.ledgerAccount.upsert({
-      where: { tenantId_code: { tenantId, code: account.code } },
-      update: {},
-      create: { tenantId, ...account },
-    })
-    accounts[account.code] = result.id
+  for (const account of createdAccounts) {
+    accounts[account.code] = account.id
+  }
+
+  if (createdAccounts.length !== STANDARD_CHART_OF_ACCOUNTS.length) {
+    const missingCodes = standardAccountCodes.filter((code) => !accounts[code])
+
+    throw new Error(
+      `Ledger bootstrap failed for account codes: ${missingCodes.join(", ")}`,
+    )
   }
 
   return accounts

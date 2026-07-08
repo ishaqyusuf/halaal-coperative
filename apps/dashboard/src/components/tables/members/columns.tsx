@@ -176,14 +176,7 @@ export const columns: ColumnDef<Member>[] = [
       <Checkbox
         aria-label={`Select ${row.original.fullName}`}
         checked={row.getIsSelected()}
-        onCheckedChange={(checked) => {
-          if (checked === "indeterminate") {
-            row.toggleSelected()
-            return
-          }
-
-          row.toggleSelected(checked)
-        }}
+        onCheckedChange={(checked) => row.toggleSelected(checked)}
       />
     ),
     enableHiding: false,

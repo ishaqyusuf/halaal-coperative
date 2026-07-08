@@ -108,6 +108,8 @@ const defaultBootstrapPolicy = {
   reserveBuffer: 450_000,
 } as const
 
+const tenantBootstrapTransactionTimeoutMs = 20_000
+
 function toTenantRecord(input: {
   id: string
   slug: string
@@ -465,142 +467,147 @@ export async function createTenantWorkspaceBootstrap(
   const primarySiteHostname = buildTenantSiteHostname(slug)
   const primaryDashboardHostname = primarySiteHostname
 
-  const tenant = await prisma.$transaction(async (tx) => {
-    const existingTenant = await tx.tenant.findFirst({
-      where: {
-        OR: [
-          {
-            slug,
-          },
-          {
-            name: {
-              equals: input.name.trim(),
-              mode: "insensitive",
+  const tenant = await prisma.$transaction(
+    async (tx) => {
+      const existingTenant = await tx.tenant.findFirst({
+        where: {
+          OR: [
+            {
+              slug,
+            },
+            {
+              name: {
+                equals: input.name.trim(),
+                mode: "insensitive",
+              },
+            },
+          ],
+        },
+        select: {
+          name: true,
+          slug: true,
+        },
+      })
+
+      if (existingTenant?.slug === slug) {
+        throw new Error("That workspace subdomain is not available.")
+      }
+
+      if (existingTenant) {
+        throw new Error("That cooperative name is already in use.")
+      }
+
+      const createdTenant = await tx.tenant.create({
+        data: {
+          slug,
+          name: input.name.trim(),
+          currentSize: input.currentSize,
+          officeAddress: input.officeAddress?.trim() || null,
+          city: input.city?.trim() || null,
+          state: input.state?.trim() || input.region?.trim() || null,
+          country: input.country?.trim() || null,
+          memberNumberPrefix: input.memberNumberPrefix?.trim() || null,
+          startDate: input.startDate
+            ? new Date(`${input.startDate}T00:00:00.000Z`)
+            : null,
+          region: input.state?.trim() || input.region?.trim() || null,
+          currencyCode: input.currencyCode?.trim().toUpperCase() || "NGN",
+          timezone: input.timezone?.trim() || "Africa/Lagos",
+          status: "pending",
+        },
+        include: {
+          members: {
+            select: {
+              id: true,
             },
           },
-        ],
-      },
-      select: {
-        name: true,
-        slug: true,
-      },
-    })
+        },
+      })
 
-    if (existingTenant?.slug === slug) {
-      throw new Error("That workspace subdomain is not available.")
-    }
-
-    if (existingTenant) {
-      throw new Error("That cooperative name is already in use.")
-    }
-
-    const createdTenant = await tx.tenant.create({
-      data: {
-        slug,
-        name: input.name.trim(),
-        currentSize: input.currentSize,
-        officeAddress: input.officeAddress?.trim() || null,
-        city: input.city?.trim() || null,
-        state: input.state?.trim() || input.region?.trim() || null,
-        country: input.country?.trim() || null,
-        memberNumberPrefix: input.memberNumberPrefix?.trim() || null,
-        startDate: input.startDate
-          ? new Date(`${input.startDate}T00:00:00.000Z`)
-          : null,
-        region: input.state?.trim() || input.region?.trim() || null,
-        currencyCode: input.currencyCode?.trim().toUpperCase() || "NGN",
-        timezone: input.timezone?.trim() || "Africa/Lagos",
-        status: "pending",
-      },
-      include: {
-        members: {
-          select: {
-            id: true,
+      await tx.tenantDomain.createMany({
+        data: [
+          {
+            tenantId: createdTenant.id,
+            hostname: primarySiteHostname,
+            kind: "site",
+            isPrimary: true,
           },
-        },
-      },
-    })
+        ],
+      })
 
-    await tx.tenantDomain.createMany({
-      data: [
-        {
+      const owner = await tx.user.create({
+        data: {
           tenantId: createdTenant.id,
-          hostname: primarySiteHostname,
-          kind: "site",
-          isPrimary: true,
+          email: input.ownerEmail.trim().toLowerCase(),
+          fullName: input.ownerFullName.trim(),
+          passwordHash: input.ownerPasswordHash,
         },
-      ],
-    })
+      })
 
-    const owner = await tx.user.create({
-      data: {
-        tenantId: createdTenant.id,
-        email: input.ownerEmail.trim().toLowerCase(),
-        fullName: input.ownerFullName.trim(),
-        passwordHash: input.ownerPasswordHash,
-      },
-    })
-
-    await tx.membership.create({
-      data: {
-        tenantId: createdTenant.id,
-        userId: owner.id,
-        role: "tenant_admin",
-        isDefault: true,
-      },
-    })
-
-    if (input.ownerMemberNumber?.trim()) {
-      await tx.member.create({
+      await tx.membership.create({
         data: {
           tenantId: createdTenant.id,
           userId: owner.id,
-          memberNumber: input.ownerMemberNumber.trim(),
-          fullName: input.ownerFullName.trim(),
-          memberType: "individual",
-          joinedAt: input.startDate
-            ? new Date(`${input.startDate}T00:00:00.000Z`)
-            : new Date(),
-          status: "active",
+          role: "tenant_admin",
+          isDefault: true,
         },
       })
-    }
 
-    await tx.tenantPolicy.create({
-      data: {
-        tenantId: createdTenant.id,
-        reserveBufferAmount:
-          input.reserveBufferAmount ?? defaultBootstrapPolicy.reserveBuffer,
-        monthlyLevyAmount:
-          input.monthlyLevyAmount ?? defaultBootstrapPolicy.monthlyLevyAmount,
-        quickLoanTermMonths:
-          input.quickLoanTermMonths ??
-          defaultBootstrapPolicy.quickLoanTermMonths,
-        normalLoanTermMonths:
-          input.normalLoanTermMonths ??
-          defaultBootstrapPolicy.normalLoanTermMonths,
-        loanEligibilityMultiple:
-          input.loanEligibilityMultiple ??
-          defaultBootstrapPolicy.eligibilityMultiple,
-        requiresDualLoanApproval:
-          input.requiresDualLoanApproval ??
-          defaultBootstrapPolicy.requiresDualLoanApproval,
-        allowOfflineFinancialCapture:
-          input.allowOfflineFinancialCapture ??
-          defaultBootstrapPolicy.allowOfflineFinancialCapture,
-      },
-    })
+      if (input.ownerMemberNumber?.trim()) {
+        await tx.member.create({
+          data: {
+            tenantId: createdTenant.id,
+            userId: owner.id,
+            memberNumber: input.ownerMemberNumber.trim(),
+            fullName: input.ownerFullName.trim(),
+            memberType: "individual",
+            joinedAt: input.startDate
+              ? new Date(`${input.startDate}T00:00:00.000Z`)
+              : new Date(),
+            status: "active",
+          },
+        })
+      }
 
-    await ensureTenantLedgerAccounts(
-      createdTenant.id,
-      tx as unknown as PrismaClient
-    )
+      await tx.tenantPolicy.create({
+        data: {
+          tenantId: createdTenant.id,
+          reserveBufferAmount:
+            input.reserveBufferAmount ?? defaultBootstrapPolicy.reserveBuffer,
+          monthlyLevyAmount:
+            input.monthlyLevyAmount ?? defaultBootstrapPolicy.monthlyLevyAmount,
+          quickLoanTermMonths:
+            input.quickLoanTermMonths ??
+            defaultBootstrapPolicy.quickLoanTermMonths,
+          normalLoanTermMonths:
+            input.normalLoanTermMonths ??
+            defaultBootstrapPolicy.normalLoanTermMonths,
+          loanEligibilityMultiple:
+            input.loanEligibilityMultiple ??
+            defaultBootstrapPolicy.eligibilityMultiple,
+          requiresDualLoanApproval:
+            input.requiresDualLoanApproval ??
+            defaultBootstrapPolicy.requiresDualLoanApproval,
+          allowOfflineFinancialCapture:
+            input.allowOfflineFinancialCapture ??
+            defaultBootstrapPolicy.allowOfflineFinancialCapture,
+        },
+      })
 
-    return {
-      ownerUserId: owner.id,
-      tenant: createdTenant,
-    }
-  })
+      await ensureTenantLedgerAccounts(
+        createdTenant.id,
+        tx as unknown as PrismaClient,
+      )
+
+      return {
+        ownerUserId: owner.id,
+        tenant: createdTenant,
+      }
+    },
+    {
+      timeout: tenantBootstrapTransactionTimeoutMs,
+    },
+  )
 
   const onboarding = await getTenantOnboardingState(tenant.tenant.id)
 

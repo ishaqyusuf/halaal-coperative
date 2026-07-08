@@ -7,6 +7,27 @@ function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
+type MigrationProfitAdjustmentOption = {
+  id: string
+  availableAmount: number
+  allocatableProfitAmount: number
+  businessName: string
+  editableAvailableAmount: number
+  expenseAmount: number
+  memberAllocatedAmount: number
+  memberMigrationAdjustmentAmount: number
+  memberMigrationAdjustmentSharePercentage: number | null
+  memberPublishedAllocationAmount: number
+  profitAmount: number
+  profitDate: Date
+  seasonKey: string
+  seasonLabel: string | null
+  seasonPeriodEnd: Date | null
+  seasonPeriodStart: Date | null
+  seasonStatus: string | null
+  totalDisbursedAmount: number
+}
+
 async function assertMigrationAdjustmentMutationOpen(
   input: {
     memberId: string
@@ -63,7 +84,7 @@ export async function listMigrationProfitAdjustmentOptions(
   tenantId: string,
   prismaOverride?: PrismaClient,
   memberId?: string | null
-) {
+): Promise<MigrationProfitAdjustmentOption[]> {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return []
 

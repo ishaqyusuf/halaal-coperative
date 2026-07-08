@@ -70,9 +70,41 @@ function createLockedLoanPrismaStub() {
   }
 }
 
-function createLiveLoanRequestPrismaStub() {
+function createLiveLoanRequestPrismaStub(input?: {
+  existingCycle?: { id: string; status: "closed" | "draft" | "open" | "paused" } | null
+  existingLoanRequests?: Array<{
+    amount: number
+    loanType: "normal" | "quick"
+    status:
+      | "approved"
+      | "cancelled"
+      | "draft"
+      | "expired"
+      | "rejected"
+      | "submitted"
+      | "under_review"
+  }>
+  loanType?: "normal" | "quick"
+}) {
   const chargeApplicationCreates: any[] = []
   const loanRequestCreates: any[] = []
+  const existingCycle =
+    input && "existingCycle" in input
+      ? input.existingCycle
+      : {
+    id: "cycle-1",
+    normalBudgetAmount: 70000,
+    normalAllocationPercentage: 70,
+    periodEnd: new Date("2026-07-31T00:00:00.000Z"),
+    periodStart: new Date("2026-07-01T00:00:00.000Z"),
+    projectedCommitmentAmount: 100000,
+    quickBudgetAmount: 30000,
+    quickAllocationPercentage: 30,
+    receivedContributionAmount: 100000,
+    reserveBufferAmount: 0,
+    status: "open" as const,
+    totalCapacityAmount: 100000,
+  }
 
   const tx = {
     appliedBackfillMonth: {
@@ -134,11 +166,15 @@ function createLiveLoanRequestPrismaStub() {
     chargeDefinitionVersion: {
       count: async () => 1,
     },
+    financingCycle: {
+      findUnique: async () => existingCycle,
+    },
     loanApproval: {
       create: async (input: unknown) => input,
     },
     loan: {
       count: async () => 0,
+      findMany: async () => [],
     },
     legacyLoanMigrationDraft: {
       count: async () => 0,
@@ -151,6 +187,14 @@ function createLiveLoanRequestPrismaStub() {
           ...input.data,
         }
       },
+      findMany: async () =>
+        (input?.existingLoanRequests ?? []).map((request) => ({
+          requestedAmount: request.amount,
+          status: request.status,
+          loanProduct: {
+            loanType: request.loanType,
+          },
+        })),
     },
     member: {
       findMany: async () => [],
@@ -181,17 +225,35 @@ function createLiveLoanRequestPrismaStub() {
     contribution: {
       aggregate: async () => ({ _sum: { amount: 250000 } }),
     },
+    contributionPlan: {
+      aggregate: async () => ({ _sum: { amount: 100000 } }),
+    },
+    financingCycle: {
+      findUnique: async () => existingCycle,
+    },
     loan: {
       aggregate: async () => ({ _sum: { outstandingPrincipal: 0 } }),
       count: async () => 0,
+      findMany: async () => [],
     },
     loanProduct: {
       findFirst: async () => ({
         id: "product-1",
         isActive: true,
+        loanType: input?.loanType ?? "quick",
         maxSavingsMultiple: 2,
         termMonths: 12,
       }),
+    },
+    loanRequest: {
+      findMany: async () =>
+        (input?.existingLoanRequests ?? []).map((request) => ({
+          requestedAmount: request.amount,
+          status: request.status,
+          loanProduct: {
+            loanType: request.loanType,
+          },
+        })),
     },
     loanRequestCreates,
     member: {
@@ -223,6 +285,96 @@ function createLiveLoanRequestPrismaStub() {
   }
 }
 
+function createLiveDisbursementPrismaStub(input?: {
+  approvedHoldAmount?: number
+  outstandingFinancingAmount?: number
+  principalAmount?: number
+  reserveBufferAmount?: number
+  totalContributionAmount?: number
+}) {
+  const ledgerLookups: unknown[] = []
+  const loanLookups: unknown[] = []
+  const principalAmount = input?.principalAmount ?? 100000
+
+  return {
+    ...createLockedLoanPrismaStub(),
+    appliedBackfillMonth: {
+      findMany: async () => [],
+    },
+    auditLog: {
+      count: async () => 0,
+    },
+    backfillBatch: {
+      count: async () => 0,
+      findMany: async () => [],
+    },
+    chargeDefinitionVersion: {
+      count: async () => 1,
+    },
+    contribution: {
+      aggregate: async () => ({
+        _sum: { amount: input?.totalContributionAmount ?? 0 },
+      }),
+    },
+    ledgerAccount: {
+      findUnique: async (lookup: unknown) => {
+        ledgerLookups.push(lookup)
+        return { id: `ledger-${ledgerLookups.length}` }
+      },
+    },
+    ledgerLookups,
+    legacyLoanMigrationDraft: {
+      count: async () => 0,
+    },
+    loan: {
+      aggregate: async (args: any) =>
+        args._sum.outstandingPrincipal
+          ? {
+              _sum: {
+                outstandingPrincipal:
+                  input?.outstandingFinancingAmount ?? 0,
+              },
+            }
+          : {
+              _sum: {
+                principalAmount: input?.approvedHoldAmount ?? 0,
+              },
+            },
+      count: async () => 0,
+      findFirst: async (lookup: unknown) => {
+        loanLookups.push(lookup)
+        return {
+          id: "loan-1",
+          principalAmount,
+          tenantId: "tenant-1",
+        }
+      },
+    },
+    loanLookups,
+    shareBusinessProfitEntry: {
+      count: async () => 1,
+    },
+    tenant: {
+      findUnique: async () => ({
+        id: "tenant-1",
+        initialMigrationStatus: "live_operations",
+        migrationEmergencyUnlockUntil: null,
+        migrationFinalizedAt: new Date("2026-01-31T00:00:00.000Z"),
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+      }),
+    },
+    tenantPolicy: {
+      findUnique: async () => ({
+        disbursementRequiresDeployableFunds: true,
+        reserveBufferAmount: input?.reserveBufferAmount ?? 0,
+      }),
+    },
+    tenantShareStructureVersion: {
+      count: async () => 1,
+    },
+  }
+}
+
 describe("loan live write guards", () => {
   test("blocks loan requests before live operations", async () => {
     const prisma = createLockedLoanPrismaStub()
@@ -249,12 +401,12 @@ describe("loan live write guards", () => {
 
     await submitLoanRequest(
       {
-        actorUserId: "user-1",
-        loanProductId: "product-1",
-        memberId: "member-1",
-        requestedAmount: 100000,
-        requestedTermMonths: 10,
-        tenantId: "tenant-1",
+          actorUserId: "user-1",
+          loanProductId: "product-1",
+          memberId: "member-1",
+          requestedAmount: 25000,
+          requestedTermMonths: 10,
+          tenantId: "tenant-1",
       },
       prisma as never
     )
@@ -268,6 +420,75 @@ describe("loan live write guards", () => {
         memberId: "member-1",
       },
     })
+  })
+
+  test("blocks loan requests when the monthly financing cycle is missing", async () => {
+    const prisma = createLiveLoanRequestPrismaStub({ existingCycle: null })
+
+    await expect(
+      submitLoanRequest(
+        {
+          actorUserId: "user-1",
+          loanProductId: "product-1",
+          memberId: "member-1",
+          requestedAmount: 25000,
+          requestedTermMonths: 10,
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("Current monthly financing cycle is not open")
+
+    expect(prisma.loanRequestCreates).toHaveLength(0)
+  })
+
+  test("blocks loan requests when the selected product allocation is exhausted", async () => {
+    const prisma = createLiveLoanRequestPrismaStub({
+      existingLoanRequests: [
+        { amount: 29000, loanType: "quick", status: "submitted" },
+        { amount: 100000, loanType: "quick", status: "rejected" },
+      ],
+    })
+
+    await expect(
+      submitLoanRequest(
+        {
+          actorUserId: "user-1",
+          loanProductId: "product-1",
+          memberId: "member-1",
+          requestedAmount: 2000,
+          requestedTermMonths: 10,
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("Quick financing allocation")
+
+    expect(prisma.loanRequestCreates).toHaveLength(0)
+  })
+
+  test("does not reserve rejected, cancelled, or expired request amounts", async () => {
+    const prisma = createLiveLoanRequestPrismaStub({
+      existingLoanRequests: [
+        { amount: 30000, loanType: "quick", status: "rejected" },
+        { amount: 30000, loanType: "quick", status: "cancelled" },
+        { amount: 30000, loanType: "quick", status: "expired" },
+      ],
+    })
+
+    await submitLoanRequest(
+      {
+        actorUserId: "user-1",
+        loanProductId: "product-1",
+        memberId: "member-1",
+        requestedAmount: 25000,
+        requestedTermMonths: 10,
+        tenantId: "tenant-1",
+      },
+      prisma as never,
+    )
+
+    expect(prisma.loanRequestCreates).toHaveLength(1)
   })
 
   test("blocks loan disbursement before live operations", async () => {
@@ -286,6 +507,28 @@ describe("loan live write guards", () => {
 
     expect(prisma.ledgerLookups).toHaveLength(0)
     expect(prisma.loanLookups).toHaveLength(0)
+  })
+
+  test("blocks loan disbursement when deployable funds are insufficient", async () => {
+    const prisma = createLiveDisbursementPrismaStub({
+      principalAmount: 100000,
+      reserveBufferAmount: 10000,
+      totalContributionAmount: 50000,
+    })
+
+    await expect(
+      disburseLoan(
+        {
+          actorUserId: "user-1",
+          loanId: "loan-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("Deployable funds are insufficient")
+
+    expect(prisma.ledgerLookups).toHaveLength(0)
+    expect(prisma.loanLookups).toHaveLength(1)
   })
 
   test("blocks repayment posting before live operations", async () => {

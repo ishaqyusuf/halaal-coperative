@@ -214,6 +214,51 @@ describe("initial migration backfill helpers", () => {
     ])
   })
 
+  test("projects per-contribution admin charges into rows and segment headers", () => {
+    const draft = buildBackfillDraft({
+      amountLogs: [{ amount: 10000, effectiveFrom: "2025-01" }],
+      chargeDefinitions: [
+        {
+          code: "admin",
+          frequency: "per_contribution",
+          label: "Admin charge",
+          versions: [
+            {
+              amount: 5,
+              effectiveFrom: "2025-01",
+              valueType: "percentage",
+            },
+          ],
+        },
+      ],
+      defaultShareVersions: [{ amount: 0, effectiveFrom: "2025-01" }],
+      endMonth: "2025-02",
+      memberJoinedMonth: "2025-01",
+      startMonth: "2025-01",
+    })
+
+    const rows = projectBackfillDraftToMemberLedgerRows(draft)
+    const segments = groupRowsByEffectiveDateSegment(rows)
+
+    expect(rows.map((row) => row.chargeDeductions)).toEqual([
+      { "Admin charge": 500 },
+      { "Admin charge": 500 },
+    ])
+    expect(segments[0]).toMatchObject({
+      kind: "monthly",
+      reasonList: ["Commitment", "Admin charge"],
+      summary: {
+        chargeSummaries: [
+          {
+            label: "Admin charge",
+            maxAmount: 500,
+            minAmount: 500,
+          },
+        ],
+      },
+    })
+  })
+
   test("keeps a business profit month in its own segment", () => {
     const draft = buildBackfillDraft({
       amountLogs: [{ amount: 15000, effectiveFrom: "2025-01" }],

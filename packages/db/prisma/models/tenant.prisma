@@ -5,6 +5,9 @@ model Tenant {
   memberNumberPrefix                 String?                @map("member_number_prefix")
   currentSize                        Int?                   @map("current_size")
   officeAddress                      String?                @map("office_address")
+  city                               String?
+  state                              String?
+  country                            String?
   startDate                          DateTime?              @map("start_date") @db.Date
   region                             String?
   currencyCode                       String                 @default("NGN") @map("currency_code")
@@ -37,6 +40,7 @@ model Tenant {
   chargeDefinitionVersions        ChargeDefinitionVersion[]
   chargeApplications              ChargeApplication[]
   loanProducts                    LoanProduct[]
+  financingCycles                 FinancingCycle[]
   loanRequests                    LoanRequest[]
   loanApprovals                   LoanApproval[]
   loans                           Loan[]
@@ -82,6 +86,11 @@ model TenantPolicy {
   quickLoanTermMonths          Int                    @default(3) @map("quick_loan_term_months")
   normalLoanTermMonths         Int                    @default(18) @map("normal_loan_term_months")
   reserveBufferAmount          Decimal                @default(0) @map("reserve_buffer_amount") @db.Decimal(18, 2)
+  financingCapacityBasis       FinancingCapacityBasis @default(projected_monthly_commitments) @map("financing_capacity_basis")
+  quickLoanAllocationPercentage Decimal                @default(30) @map("quick_loan_allocation_percentage") @db.Decimal(5, 2)
+  normalLoanAllocationPercentage Decimal               @default(70) @map("normal_loan_allocation_percentage") @db.Decimal(5, 2)
+  loanIntakeReservationMode    LoanIntakeReservationMode @default(submitted_request_amount) @map("loan_intake_reservation_mode")
+  disbursementRequiresDeployableFunds Boolean          @default(true) @map("disbursement_requires_deployable_funds")
   monthlyLevyAmount            Decimal?               @map("monthly_levy_amount") @db.Decimal(18, 2)
   requiresDualLoanApproval     Boolean                @default(false) @map("requires_dual_loan_approval")
   allowOfflineFinancialCapture Boolean                @default(true) @map("allow_offline_financial_capture")

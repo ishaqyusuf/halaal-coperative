@@ -1,5 +1,40 @@
 # Progress
 
+## 2026-07-08
+
+### Loan Policy And Monthly Financing Cycle Model
+
+- Source mode: Brain intake direct work.
+- Source Brain record: `brain/plans/2026-07-08-feature-loan-policy-and-monthly-financing-cycle-model.md`.
+- Changed source files: `packages/db/prisma/enums/loans.prisma`, `packages/db/prisma/models/tenant.prisma`, `packages/db/prisma/models/loans.prisma`, `packages/db/prisma/migrations/20260708120000_add_financing_cycles/migration.sql`, `packages/db/src/queries/financing-cycles.ts`, `packages/db/src/queries/financing-cycles.test.ts`, `packages/db/src/index.ts`, `packages/db/src/test-utils.ts`, `packages/db/prisma/seed.ts`.
+- Brain files updated: `brain/plans/2026-07-08-feature-loan-policy-and-monthly-financing-cycle-model.md`, `brain/intake/2026-07-08-monthly-financing-cycle-loan-settings.md`, `brain/tasks/roadmap.md`, `brain/tasks/done.md`, `brain/database/schema.md`, `brain/features/core-cooperative-platform.md`, `brain/progress.md`.
+- Current status: Added tenant financing-cycle policy defaults, monthly cycle schema and migration, preview/open/status/policy DB helpers, cycle usage summaries by quick/normal loan type, and focused tests for capacity math, tenant scoping, snapshots, and audit behavior.
+- Checks run: `bun --cwd packages/db db:generate`; `bun --cwd packages/db test src/queries/financing-cycles.test.ts src/queries/loans.test.ts`.
+- Skipped checks: Full monorepo typecheck, build, lint, browser QA, and dev server were intentionally skipped under fast Bun monorepo command discipline.
+- Unresolved issues: None for this phase. Request intake enforcement and dashboard/settings UI remain in the next two intake phases.
+
+### Financing Settings Workspace
+
+- Source mode: Brain intake direct work.
+- Source Brain record: `brain/plans/2026-07-08-feature-financing-settings-workspace.md`.
+- Changed source files: `packages/db/src/queries/financing-cycles.ts`, `packages/db/src/queries/financing-cycles.test.ts`, `apps/api/src/routers/dashboard-actions.route.ts`, `apps/dashboard/src/lib/dashboard-actions.ts`, `apps/dashboard/src/app/(app)/(sidebar)/settings/finance/finance-route.tsx`, `apps/dashboard/src/components/forms/tenant-finance-forms.tsx`, `apps/dashboard/src/components/tenant-finance-page-view.tsx`.
+- Brain files updated: `brain/plans/2026-07-08-feature-financing-settings-workspace.md`, `brain/intake/2026-07-08-monthly-financing-cycle-loan-settings.md`, `brain/tasks/roadmap.md`, `brain/tasks/done.md`, `brain/features/core-cooperative-platform.md`, `brain/product/admin-dashboard-kpi-framework.md`, `brain/progress.md`.
+- Current status: Added the live `/settings/finance/loan` workspace with current-month projected-capacity preview, policy/product forms, audited financing policy updates, audited loan product settings, current-cycle open/pause/close controls, and a separated historical loan migration section.
+- Checks run: `bun --cwd packages/db test src/queries/financing-cycles.test.ts src/queries/loans.test.ts`; `git -C /Users/M1PRO/Documents/code/halaal-coperative diff --check`.
+- Skipped checks: Full monorepo typecheck, build, lint, browser QA, dev server, and manual dashboard role checks were intentionally skipped under fast Bun monorepo command discipline.
+- Unresolved issues: None for this phase. Loan intake quota enforcement, disbursement blocking by deployable funds, and dashboard/loan workspace capacity visibility remain in the final intake phase.
+
+### Loan Intake Capacity Enforcement And Dashboard Visibility
+
+- Source mode: Brain intake direct work.
+- Source Brain record: `brain/plans/2026-07-08-feature-loan-intake-capacity-enforcement-and-dashboard-visibility.md`.
+- Changed source files: `packages/db/src/queries/financing-cycles.ts`, `packages/db/src/queries/financing-cycles.test.ts`, `packages/db/src/queries/loans.ts`, `packages/db/src/queries/loans.test.ts`, `packages/db/src/queries/dashboard.ts`, `apps/dashboard/src/lib/loans/load-loans-page.ts`, `apps/dashboard/src/components/loans-page-view.tsx`, `apps/dashboard/src/components/forms/finance-forms.tsx`.
+- Brain files updated: `brain/plans/2026-07-08-feature-loan-intake-capacity-enforcement-and-dashboard-visibility.md`, `brain/intake/2026-07-08-monthly-financing-cycle-loan-settings.md`, `brain/tasks/roadmap.md`, `brain/tasks/done.md`, `brain/features/core-cooperative-platform.md`, `brain/features/member-commitments-and-payment-allocation.md`, `brain/product/admin-dashboard-kpi-framework.md`, `brain/progress.md`.
+- Current status: Added current-month financing-cycle intake enforcement, quick/normal quota blocking, released capacity for rejected/cancelled/expired requests, deployable-funds disbursement blocking, loan workspace capacity cards/warnings, and overview financing-cycle action queue warnings.
+- Checks run: `bun --cwd packages/db test src/queries/financing-cycles.test.ts src/queries/loans.test.ts`; `git -C /Users/M1PRO/Documents/code/halaal-coperative diff --check`.
+- Skipped checks: Full monorepo typecheck, build, lint, browser QA, dev server, and manual dashboard quota walkthrough were intentionally skipped under fast Bun monorepo command discipline.
+- Unresolved issues: None for this intake.
+
 ## 2026-07-02
 
 ### Halaalvest Mobile Initialization

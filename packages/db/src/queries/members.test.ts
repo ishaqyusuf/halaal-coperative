@@ -24,7 +24,9 @@ function createMemberPrismaStub({
   shareStructureVersions?: number
   startDate?: Date | null
 } = {}) {
+  const contributionPlanCreateMany: unknown[] = []
   const memberCreates: unknown[] = []
+  const memberAmountLogCreateMany: unknown[] = []
   const memberDocumentCreates: unknown[] = []
   const memberDocumentLookups: unknown[] = []
   const memberDocumentUpdates: unknown[] = []
@@ -47,6 +49,11 @@ function createMemberPrismaStub({
     },
     contributionPlan: {
       create: async (input: unknown) => input,
+      createMany: async (input: unknown) => {
+        contributionPlanCreateMany.push(input)
+
+        return { count: 1 }
+      },
     },
     legacyLoanMigrationDraft: {
       count: async () => 0,
@@ -90,6 +97,13 @@ function createMemberPrismaStub({
           memberNumber: "MBR-001",
           memberType: "individual",
         }
+      },
+    },
+    memberAmountLog: {
+      createMany: async (input: unknown) => {
+        memberAmountLogCreateMany.push(input)
+
+        return { count: 1 }
       },
     },
     memberDocument: {
@@ -138,6 +152,8 @@ function createMemberPrismaStub({
   return {
     $transaction: async (callback: (tx: typeof tx) => Promise<unknown>) =>
       callback(tx),
+    contributionPlanCreateMany,
+    memberAmountLogCreateMany,
     memberDocumentCreates,
     memberDocumentLookups,
     memberDocumentUpdates,
@@ -198,6 +214,52 @@ describe("member profile migration guards", () => {
     await createMember(memberInput, prisma as never)
 
     expect(prisma.memberCreates).toHaveLength(1)
+  })
+
+  test("registers starting and historical commitments as contribution plan history", async () => {
+    const prisma = createMemberPrismaStub()
+
+    await createMember(
+      {
+        ...memberInput,
+        commitmentHistory: [
+          {
+            amount: 20000,
+            effectiveFrom: new Date("2025-03-01T00:00:00.000Z"),
+            notes: "Adjusted commitment.",
+          },
+        ],
+        monthlyCommitment: 10000,
+      },
+      prisma as never,
+    )
+
+    expect(prisma.contributionPlanCreateMany).toHaveLength(1)
+    expect(prisma.contributionPlanCreateMany[0]).toMatchObject({
+      data: [
+        {
+          amount: 10000,
+          endsAt: new Date("2025-03-01T00:00:00.000Z"),
+          interval: "monthly",
+          isActive: false,
+          memberId: "member-1",
+          name: "Monthly commitment",
+          startsAt: new Date("2025-01-01T00:00:00.000Z"),
+          tenantId: "tenant-1",
+        },
+        {
+          amount: 20000,
+          endsAt: null,
+          interval: "monthly",
+          isActive: true,
+          memberId: "member-1",
+          name: "Monthly commitment",
+          startsAt: new Date("2025-03-01T00:00:00.000Z"),
+          tenantId: "tenant-1",
+        },
+      ],
+    })
+    expect(prisma.memberAmountLogCreateMany).toHaveLength(1)
   })
 
   test("blocks member updates after member backfill starts", async () => {

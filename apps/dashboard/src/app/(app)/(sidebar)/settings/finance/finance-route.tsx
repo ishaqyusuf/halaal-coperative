@@ -6,6 +6,7 @@ import {
   buildBackfillDraftInputForMember,
   createDbRuntime,
   getTenantFinanceSetup,
+  getTenantFinancingSettingsWorkspace,
   getTenantInitialMigrationState,
   listInitialMigrationMemberReview,
   listLegacyLoanMigrationDrafts,
@@ -169,6 +170,70 @@ const demoLegacyLoanDrafts = [
   },
 ]
 
+const demoFinancingSettings = {
+  currentCyclePreview: {
+    capacityBasis: "projected_monthly_commitments" as const,
+    collectionCoverage: 0.42,
+    existingCycle: null,
+    intakeReservationMode: "submitted_request_amount" as const,
+    normal: {
+      approvedAmount: 0,
+      budgetAmount: 140000,
+      disbursedAmount: 0,
+      heldAmount: 0,
+      remainingAmount: 140000,
+      requestedReservedAmount: 0,
+    },
+    normalAllocationPercentage: 70,
+    periodEnd: "2026-07-31",
+    periodStart: "2026-07-01",
+    projectedCommitmentAmount: 200000,
+    quick: {
+      approvedAmount: 0,
+      budgetAmount: 60000,
+      disbursedAmount: 0,
+      heldAmount: 0,
+      remainingAmount: 60000,
+      requestedReservedAmount: 0,
+    },
+    quickAllocationPercentage: 30,
+    receivedContributionAmount: 84000,
+    reserveBufferAmount: 0,
+    totalCapacityAmount: 200000,
+  },
+  policy: {
+    disbursementRequiresDeployableFunds: true,
+    financingCapacityBasis: "projected_monthly_commitments" as const,
+    id: null,
+    loanEligibilityMultiple: 2,
+    loanIntakeReservationMode: "submitted_request_amount" as const,
+    normalLoanAllocationPercentage: 70,
+    normalLoanTermMonths: 18,
+    quickLoanAllocationPercentage: 30,
+    quickLoanTermMonths: 3,
+    requiresDualLoanApproval: false,
+    reserveBufferAmount: 0,
+  },
+  products: {
+    normal: {
+      id: null,
+      isActive: true,
+      loanType: "normal" as const,
+      maxSavingsMultiple: 2,
+      name: "Normal financing",
+      termMonths: 18,
+    },
+    quick: {
+      id: null,
+      isActive: true,
+      loanType: "quick" as const,
+      maxSavingsMultiple: 2,
+      name: "Quick financing",
+      termMonths: 3,
+    },
+  },
+}
+
 const demoMemberAmountLogs = [
   {
     amount: 5000,
@@ -194,6 +259,17 @@ const demoMigrationMemberReview = [
   },
 ]
 
+function toFinancingSettingsView(settings: any) {
+  return {
+    ...settings,
+    currentCyclePreview: {
+      ...settings.currentCyclePreview,
+      periodEnd: toDateString(settings.currentCyclePreview.periodEnd),
+      periodStart: toDateString(settings.currentCyclePreview.periodStart),
+    },
+  }
+}
+
 export async function FinanceSettingsRoute({
   migrationMemberId,
   searchParams,
@@ -217,12 +293,14 @@ export async function FinanceSettingsRoute({
   if (context.tenant && runtime.status === "database-configured") {
     const [
       data,
+      financingSettings,
       migrationState,
       legacyLoanDrafts,
       memberOptions,
       migrationMemberReview,
     ] = await Promise.all([
       getTenantFinanceSetup(context.tenant.id),
+      getTenantFinancingSettingsWorkspace({ tenantId: context.tenant.id }),
       getTenantInitialMigrationState(context.tenant.id),
       listLegacyLoanMigrationDrafts(context.tenant.id),
       listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
@@ -384,6 +462,7 @@ export async function FinanceSettingsRoute({
           totalProfitAmount: Number(period.totalProfitAmount),
         }))}
         generatedLedgerRows={generatedLedgerRows}
+        financingSettings={toFinancingSettingsView(financingSettings)}
         initialMigrationSnapshot={migrationState.snapshot}
         legacyLoanDrafts={legacyLoanDrafts.map((draft) => ({
           closedAt: draft.closedAt
@@ -462,6 +541,7 @@ export async function FinanceSettingsRoute({
     <TenantFinancePageView
       chargeDefinitions={demoChargeDefinitions}
       dividendPeriods={demoDividendPeriods}
+      financingSettings={demoFinancingSettings}
       initialMigrationSnapshot={migrationState.snapshot}
       legacyLoanDrafts={demoLegacyLoanDrafts}
       memberAmountLogs={demoMemberAmountLogs}

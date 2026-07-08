@@ -519,6 +519,7 @@ function CommitmentHistoryPanel({
 }
 
 function LoanHistoryPanel({
+  cooperativeStartDate,
   disabled,
   loans,
   memberId,
@@ -527,6 +528,7 @@ function LoanHistoryPanel({
   memberOptions,
   quickFillEnabled,
 }: {
+  cooperativeStartDate?: string | null
   disabled: boolean
   loans: Array<LegacyLoanDraftRow & { status: string }>
   memberId: string | null | undefined
@@ -538,6 +540,7 @@ function LoanHistoryPanel({
   return (
     <div className="space-y-3">
       <LoanHistoryEntryForm
+        cooperativeStartDate={cooperativeStartDate}
         disabled={disabled}
         initialRows={loans.map((loan) => ({
           closedAt: loan.closedAt,
@@ -778,6 +781,7 @@ export function InitialMigrationPreview({
   selectedMigrationMemberId,
   selectedMigrationMemberLabel,
   section = "overview",
+  tenantStartDate,
 }: {
   generatedLedgerError?: string | null
   generatedLedgerRows?: MemberLedgerBackfillRow[]
@@ -793,6 +797,7 @@ export function InitialMigrationPreview({
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   section?: "loans" | "member-preview" | "overview"
+  tenantStartDate?: string | null
 }) {
   const isLoansOnly = section === "loans"
   const isMemberPreview = section === "member-preview"
@@ -1215,6 +1220,7 @@ export function InitialMigrationPreview({
             <div className="flex flex-wrap items-end gap-2">
               {canCreateMigrationMemberProfile ? (
                 <MemberCreateModal
+                  cooperativeStartDate={tenantStartDate}
                   description="Create the member profile before generating historical ledger rows."
                   devMode={quickFillEnabled}
                   memberNumberPrefix={memberNumberPrefix}
@@ -1404,6 +1410,7 @@ export function InitialMigrationPreview({
             }
             loan={
               <LoanHistoryPanel
+                cooperativeStartDate={tenantStartDate}
                 disabled={
                   !hasRealMigrationContext ||
                   !canEditMemberMigrationInputs ||

@@ -55,7 +55,11 @@ import { GettingStartedFooterPortal } from "@/components/getting-started-footer-
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { QuickFill } from "@/components/quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
-import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
+import type {
+  LoanProductSettingsRow,
+  TenantBusinessProfitPolicySettings,
+  TenantFinancingSettingsWorkspace,
+} from "@halaalvest/db"
 import { PlusIcon, Trash2Icon } from "lucide-react"
 import {
   createChargeDefinitionAction,
@@ -64,13 +68,17 @@ import {
   createShareBusinessProfitEntryAction,
   createTenantShareStructureVersionAction,
   generateShareProfitAllocationsAction,
+  openMonthlyFinancingCycleAction,
   publishShareProfitAllocationsAction,
   updateChargeDefinitionAction,
   updateChargeDefinitionVersionAction,
+  updateLoanProductSettingsAction,
+  updateMonthlyFinancingCycleStatusAction,
   updateShareBusinessAction,
   updateShareBusinessProfitEntryAction,
   updateTenantFinanceStartDateAction,
   updateTenantBusinessProfitPolicyAction,
+  updateTenantFinancingPolicyAction,
 } from "@/lib/dashboard-actions"
 
 const compactInputTableClassName =
@@ -699,6 +707,560 @@ export function BusinessProfitPolicyForm({
   )
 }
 
+const financingPolicySchema = z
+  .object({
+    disbursementRequiresDeployableFunds: z.boolean().default(true),
+    loanEligibilityMultiple: z
+      .string()
+      .min(1, "Eligibility multiple is required."),
+    normalLoanAllocationPercentage: z
+      .string()
+      .min(1, "Normal allocation is required."),
+    normalLoanTermMonths: z
+      .string()
+      .min(1, "Normal term is required."),
+    quickLoanAllocationPercentage: z
+      .string()
+      .min(1, "Quick allocation is required."),
+    quickLoanTermMonths: z.string().min(1, "Quick term is required."),
+    requiresDualLoanApproval: z.boolean().default(false),
+    reserveBufferAmount: z.string().min(1, "Reserve buffer is required."),
+  })
+  .superRefine((values, ctx) => {
+    const quickAllocation = Number(values.quickLoanAllocationPercentage)
+    const normalAllocation = Number(values.normalLoanAllocationPercentage)
+    const eligibilityMultiple = Number(values.loanEligibilityMultiple)
+    const quickTerm = Number(values.quickLoanTermMonths)
+    const normalTerm = Number(values.normalLoanTermMonths)
+    const reserveBuffer = Number(values.reserveBufferAmount)
+
+    if (
+      !Number.isFinite(quickAllocation) ||
+      quickAllocation < 0 ||
+      quickAllocation > 100
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Quick allocation must be between 0 and 100.",
+        path: ["quickLoanAllocationPercentage"],
+      })
+    }
+
+    if (
+      !Number.isFinite(normalAllocation) ||
+      normalAllocation < 0 ||
+      normalAllocation > 100
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Normal allocation must be between 0 and 100.",
+        path: ["normalLoanAllocationPercentage"],
+      })
+    }
+
+    if (
+      Number.isFinite(quickAllocation) &&
+      Number.isFinite(normalAllocation) &&
+      Number((quickAllocation + normalAllocation).toFixed(2)) !== 100
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Quick and normal allocation must total 100.",
+        path: ["normalLoanAllocationPercentage"],
+      })
+    }
+
+    if (!Number.isFinite(eligibilityMultiple) || eligibilityMultiple <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Eligibility multiple must be greater than 0.",
+        path: ["loanEligibilityMultiple"],
+      })
+    }
+
+    if (!Number.isInteger(quickTerm) || quickTerm <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Quick term must be a positive whole number.",
+        path: ["quickLoanTermMonths"],
+      })
+    }
+
+    if (!Number.isInteger(normalTerm) || normalTerm <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Normal term must be a positive whole number.",
+        path: ["normalLoanTermMonths"],
+      })
+    }
+
+    if (!Number.isFinite(reserveBuffer) || reserveBuffer < 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Reserve buffer must be 0 or greater.",
+        path: ["reserveBufferAmount"],
+      })
+    }
+  })
+
+type FinancingPolicyValues = z.infer<typeof financingPolicySchema>
+
+export function FinancingPolicyForm({
+  defaultPolicy,
+}: {
+  defaultPolicy: TenantFinancingSettingsWorkspace["policy"]
+}) {
+  const form = useZodForm<FinancingPolicyValues>(financingPolicySchema, {
+    defaultValues: {
+      disbursementRequiresDeployableFunds:
+        defaultPolicy.disbursementRequiresDeployableFunds,
+      loanEligibilityMultiple: String(defaultPolicy.loanEligibilityMultiple),
+      normalLoanAllocationPercentage: String(
+        defaultPolicy.normalLoanAllocationPercentage
+      ),
+      normalLoanTermMonths: String(defaultPolicy.normalLoanTermMonths),
+      quickLoanAllocationPercentage: String(
+        defaultPolicy.quickLoanAllocationPercentage
+      ),
+      quickLoanTermMonths: String(defaultPolicy.quickLoanTermMonths),
+      requiresDualLoanApproval: defaultPolicy.requiresDualLoanApproval,
+      reserveBufferAmount: String(defaultPolicy.reserveBufferAmount),
+    },
+  })
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+
+  function onSubmit(values: FinancingPolicyValues) {
+    startTransition(async () => {
+      try {
+        await updateTenantFinancingPolicyAction(
+          objectToFormData(values, { booleanMode: "true-false" })
+        )
+        showSuccess("Policy saved", "Financing settings updated.")
+      } catch (error) {
+        showError(
+          "Could not save policy",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+        <div className="grid gap-3 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="quickLoanAllocationPercentage"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Quick allocation</FormLabel>
+                <FormControl>
+                  <PercentageFormInput {...field} placeholder="30" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="normalLoanAllocationPercentage"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Normal allocation</FormLabel>
+                <FormControl>
+                  <PercentageFormInput {...field} placeholder="70" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="quickLoanTermMonths"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Quick term months</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    inputMode="numeric"
+                    min="1"
+                    placeholder="3"
+                    type="number"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="normalLoanTermMonths"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Normal term months</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    inputMode="numeric"
+                    min="1"
+                    placeholder="18"
+                    type="number"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="loanEligibilityMultiple"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Eligibility multiple</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    inputMode="decimal"
+                    min="0.01"
+                    placeholder="2"
+                    step="0.01"
+                    type="number"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="reserveBufferAmount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Reserve buffer</FormLabel>
+                <FormControl>
+                  <CurrencyFormInput {...field} placeholder="0.00" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="requiresDualLoanApproval"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="text-xs">Dual approval</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="disbursementRequiresDeployableFunds"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="text-xs">Deployable funds check</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button disabled={isPending} type="submit">
+            Save policy
+          </Button>
+        </div>
+      </form>
+    </Form>
+  )
+}
+
+const loanProductSettingsSchema = z
+  .object({
+    isActive: z.boolean().default(true),
+    loanProductId: z.string().optional(),
+    loanType: z.enum(["quick", "normal"]),
+    maxSavingsMultiple: z.string().min(1, "Savings multiple is required."),
+    name: z.string().min(1, "Product name is required."),
+    termMonths: z.string().min(1, "Term months is required."),
+  })
+  .superRefine((values, ctx) => {
+    const termMonths = Number(values.termMonths)
+    const maxSavingsMultiple = Number(values.maxSavingsMultiple)
+
+    if (!Number.isInteger(termMonths) || termMonths <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Term months must be a positive whole number.",
+        path: ["termMonths"],
+      })
+    }
+
+    if (!Number.isFinite(maxSavingsMultiple) || maxSavingsMultiple <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Savings multiple must be greater than 0.",
+        path: ["maxSavingsMultiple"],
+      })
+    }
+  })
+
+type LoanProductSettingsValues = z.infer<typeof loanProductSettingsSchema>
+
+export function LoanProductSettingsForm({
+  product,
+}: {
+  product: LoanProductSettingsRow
+}) {
+  const form = useZodForm<LoanProductSettingsValues>(
+    loanProductSettingsSchema,
+    {
+      defaultValues: {
+        isActive: product.isActive,
+        loanProductId: product.id ?? "",
+        loanType: product.loanType,
+        maxSavingsMultiple: String(product.maxSavingsMultiple),
+        name: product.name,
+        termMonths: String(product.termMonths),
+      },
+    }
+  )
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+
+  function onSubmit(values: LoanProductSettingsValues) {
+    startTransition(async () => {
+      try {
+        await updateLoanProductSettingsAction(
+          objectToFormData(values, { booleanMode: "true-false" })
+        )
+        showSuccess("Product saved", `${values.name} updated.`)
+      } catch (error) {
+        showError(
+          "Could not save product",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+        <input type="hidden" {...form.register("loanProductId")} />
+        <input type="hidden" {...form.register("loanType")} />
+        <div className="grid gap-3 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Product name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="termMonths"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Term months</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    inputMode="numeric"
+                    min="1"
+                    type="number"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="maxSavingsMultiple"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Savings multiple</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    type="number"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="isActive"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3 md:mt-6">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="text-xs">Active</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button disabled={isPending} type="submit" variant="outline">
+            Save product
+          </Button>
+        </div>
+      </form>
+    </Form>
+  )
+}
+
+const financingCycleControlSchema = z.object({
+  financingCycleId: z.string().optional(),
+  status: z.enum(["open", "paused", "closed"]).optional(),
+  statusNote: z.string().optional(),
+})
+
+type FinancingCycleControlValues = z.infer<
+  typeof financingCycleControlSchema
+>
+
+const cycleStatusOptions = [
+  { label: "Open intake", value: "open" },
+  { label: "Pause intake", value: "paused" },
+  { label: "Close intake", value: "closed" },
+]
+
+export function FinancingCycleControlForm({
+  currentCycle,
+}: {
+  currentCycle: TenantFinancingSettingsWorkspace["currentCyclePreview"]["existingCycle"]
+}) {
+  const form = useZodForm<FinancingCycleControlValues>(
+    financingCycleControlSchema,
+    {
+      defaultValues: {
+        financingCycleId: currentCycle?.id ?? "",
+        status:
+          currentCycle?.status === "open"
+            ? "paused"
+            : currentCycle?.status === "paused"
+              ? "open"
+              : "open",
+        statusNote: "",
+      },
+    }
+  )
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+
+  function onSubmit(values: FinancingCycleControlValues) {
+    startTransition(async () => {
+      try {
+        const formData = objectToFormData(values)
+
+        if (currentCycle?.id) {
+          await updateMonthlyFinancingCycleStatusAction(formData)
+          showSuccess("Cycle updated", "Monthly financing cycle status saved.")
+          return
+        }
+
+        await openMonthlyFinancingCycleAction(formData)
+        showSuccess("Cycle opened", "Monthly capacity snapshot created.")
+      } catch (error) {
+        showError(
+          currentCycle?.id ? "Could not update cycle" : "Could not open cycle",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
+        {currentCycle?.id ? (
+          <>
+            <input type="hidden" {...form.register("financingCycleId")} />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cycle action</FormLabel>
+                  <FormControl>
+                    <SelectFormInput
+                      onChange={field.onChange}
+                      options={cycleStatusOptions}
+                      value={field.value}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        ) : null}
+        <FormField
+          control={form.control}
+          name="statusNote"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Audit note</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  placeholder="Board approval, quota pause, or month-end note"
+                  rows={3}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="flex justify-end">
+          <Button disabled={isPending} type="submit">
+            {currentCycle?.id ? "Update cycle" : "Open current cycle"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  )
+}
+
 const shareStructureVersionSchema = z.object({
   notes: z.string().optional(),
 })
@@ -709,6 +1271,13 @@ type ShareRuleValueType = "fixed_amount" | "percentage"
 
 type ShareHistoryRow = {
   amount: string
+  effectiveFrom: string
+  id: string
+  valueType: ShareRuleValueType
+}
+
+type ShareStructureVersionInitialVersion = {
+  amount: number
   effectiveFrom: string
   id: string
   valueType: ShareRuleValueType
@@ -759,9 +1328,28 @@ function sortShareHistoryRowsByDate(a: ShareHistoryRow, b: ShareHistoryRow) {
   return a.id.localeCompare(b.id)
 }
 
+function buildShareHistoryRows(
+  initialVersions: ShareStructureVersionInitialVersion[] | undefined
+): ShareHistoryRow[] {
+  const savedRows =
+    initialVersions?.map(
+      (version): ShareHistoryRow => ({
+        amount: String(version.amount),
+        effectiveFrom: version.effectiveFrom,
+        id: `share-history-${version.id}`,
+        valueType: version.valueType,
+      })
+    ) ?? []
+
+  return savedRows.length > 0
+    ? [...savedRows].sort(sortShareHistoryRowsByDate)
+    : [createShareHistoryRow("share-history-initial")]
+}
+
 export function ShareStructureVersionForm({
   financeStartDate,
   formId,
+  initialVersions,
   onSuccess,
   redirectTo,
   showSubmitButton = true,
@@ -769,6 +1357,7 @@ export function ShareStructureVersionForm({
 }: {
   financeStartDate?: string | null
   formId?: string
+  initialVersions?: ShareStructureVersionInitialVersion[]
   onSuccess?: () => void
   redirectTo?: string
   showSubmitButton?: boolean
@@ -788,7 +1377,7 @@ export function ShareStructureVersionForm({
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [shareHistoryRows, setShareHistoryRows] = useState<ShareHistoryRow[]>(
-    () => [createShareHistoryRow("share-history-initial")]
+    () => buildShareHistoryRows(initialVersions)
   )
 
   function onSubmit(values: ShareStructureVersionValues) {
@@ -828,10 +1417,6 @@ export function ShareStructureVersionForm({
       return
     }
 
-    if (stayOnStepHref && !redirectTo) {
-      router.replace(stayOnStepHref)
-    }
-
     startTransition(async () => {
       try {
         await createTenantShareStructureVersionAction(
@@ -854,12 +1439,16 @@ export function ShareStructureVersionForm({
         form.reset({
           notes: "",
         })
-        resetShareHistoryRows()
-        onSuccess?.()
         if (redirectTo) {
           router.push(redirectTo)
           return
         }
+        resetShareHistoryRows()
+        router.refresh()
+        if (stayOnStepHref) {
+          router.replace(stayOnStepHref)
+        }
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not save share update",
@@ -870,7 +1459,7 @@ export function ShareStructureVersionForm({
   }
 
   function resetShareHistoryRows() {
-    setShareHistoryRows([createShareHistoryRow("share-history-initial")])
+    setShareHistoryRows(buildShareHistoryRows(initialVersions))
   }
 
   function updateShareHistoryRow(

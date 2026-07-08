@@ -332,7 +332,6 @@ async function seedMonthlyRecordMembers(input: {
       contributionPlans: {
         where: {
           interval: "monthly",
-          isActive: true,
           startsAt: { lt: end },
           OR: [{ endsAt: null }, { endsAt: { gte: start } }],
         },

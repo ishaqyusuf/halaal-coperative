@@ -234,6 +234,27 @@ export async function updateTenantBusinessProfitPolicyAction(
   )
 }
 
+export async function updateTenantFinancingPolicyAction(formData: FormData) {
+  return callDashboardFormAction("updateTenantFinancingPolicyAction", formData)
+}
+
+export async function updateLoanProductSettingsAction(formData: FormData) {
+  return callDashboardFormAction("updateLoanProductSettingsAction", formData)
+}
+
+export async function openMonthlyFinancingCycleAction(formData: FormData) {
+  return callDashboardFormAction("openMonthlyFinancingCycleAction", formData)
+}
+
+export async function updateMonthlyFinancingCycleStatusAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "updateMonthlyFinancingCycleStatusAction",
+    formData
+  )
+}
+
 export async function createShareBusinessAction(formData: FormData) {
   return callDashboardFormAction("createShareBusinessAction", formData)
 }

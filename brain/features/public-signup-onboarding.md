@@ -22,7 +22,7 @@
 - `/signup`: collect primary contact name, primary contact email, and cooperative name with `useZodForm`.
 - Success state: show the verification email draft and, in dev mode, a direct continue link.
 - `/onboarding?token=...`: validate the token server-side, prefill verified contact details, and submit the simplified cooperative profile with `useZodForm`.
-- Onboarding fields now focus on cooperative name, current size, office address, cooperative start date, and admin password setup.
+- Onboarding fields now focus on cooperative name, current size range, office address, city, state, country, cooperative start date, and admin password setup.
 - Completion state: show dashboard/site hostnames and a workspace-ready email draft.
 
 ## API/Data Impact
@@ -35,7 +35,7 @@
 - Signup verification and onboarding workspace emails are now persisted in `notification_outbox`, which supports nullable `tenantId` so pre-tenant verification delivery can be tracked durably.
 - Tenant-scoped workspace-ready email outcomes are still mirrored into `audit_logs` using `notification.email_sent|queued|failed` actions for operational history inside the tenant workspace.
 - `apps/web/.env.example` documents `HALAAL_VEST_SIGNUP_TOKEN_SECRET` for production-safe signing.
-- Cooperative profile details beyond tenant name and primary contact are persisted on the tenant record as `currentSize`, `officeAddress`, and `startDate`.
+- Cooperative profile details beyond tenant name and primary contact are persisted on the tenant record as `currentSize`, `officeAddress`, `city`, `state`, `country`, and `startDate`; `currentSize` is selected from shared range options and stored as the existing representative integer, while `region` is mirrored from `state` for older readers.
 - The onboarding API hashes the submitted admin password and stores it on the owner user created during `createTenantWorkspaceBootstrap`.
 
 ## Permissions

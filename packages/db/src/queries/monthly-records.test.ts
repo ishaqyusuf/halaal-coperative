@@ -7,7 +7,11 @@ import {
   getOrCreateMonthlyRecordsPageData,
 } from "./monthly-records"
 
-function createLockedMonthlyRecordPrismaStub() {
+function createLockedMonthlyRecordPrismaStub({
+  initialMigrationStatus = "historical_setup_in_progress",
+}: {
+  initialMigrationStatus?: string
+} = {}) {
   const monthlyRecordUpserts: unknown[] = []
   const monthlyRecordMemberLookups: unknown[] = []
   const monthlyRecordDetailLoads: unknown[] = []
@@ -28,6 +32,10 @@ function createLockedMonthlyRecordPrismaStub() {
     },
     backfillBatch: {
       count: async () => 0,
+      findMany: async () => [],
+    },
+    chargeDefinition: {
+      findFirst: async () => null,
       findMany: async () => [],
     },
     chargeDefinitionVersion: {
@@ -64,6 +72,7 @@ function createLockedMonthlyRecordPrismaStub() {
 
         return {
           id: "monthly-record-1",
+          memberRows: [],
           periodLabel: "January 2026",
           periodMonth: 1,
           periodYear: 2026,
@@ -92,9 +101,12 @@ function createLockedMonthlyRecordPrismaStub() {
     tenant: {
       findUnique: async () => ({
         id: "tenant-1",
-        initialMigrationStatus: "historical_setup_in_progress",
+        initialMigrationStatus,
         migrationEmergencyUnlockUntil: null,
-        migrationFinalizedAt: null,
+        migrationFinalizedAt:
+          initialMigrationStatus === "live_operations"
+            ? new Date("2025-02-01T00:00:00.000Z")
+            : null,
         startDate: new Date("2025-01-01T00:00:00.000Z"),
       }),
     },
@@ -193,5 +205,44 @@ describe("monthly record live write guards", () => {
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.transactions).toHaveLength(0)
+  })
+
+  test("monthly record seeding selects the latest period-effective commitment history row", async () => {
+    const prisma = createLockedMonthlyRecordPrismaStub({
+      initialMigrationStatus: "live_operations",
+    })
+
+    await getMonthlyRecordDetail(
+      "tenant-1",
+      "monthly-record-1",
+      prisma as never,
+    )
+
+    expect(prisma.seedMemberLookups).toHaveLength(1)
+    const lookup = prisma.seedMemberLookups[0] as {
+      include: {
+        contributionPlans: {
+          orderBy: unknown
+          take: number
+          where: Record<string, unknown>
+        }
+      }
+    }
+
+    expect(lookup.include.contributionPlans.where).toMatchObject({
+      interval: "monthly",
+      startsAt: { lt: new Date("2026-02-01T00:00:00.000Z") },
+      OR: [
+        { endsAt: null },
+        { endsAt: { gte: new Date("2026-01-01T00:00:00.000Z") } },
+      ],
+    })
+    expect(lookup.include.contributionPlans.where).not.toHaveProperty(
+      "isActive",
+    )
+    expect(lookup.include.contributionPlans.orderBy).toEqual({
+      startsAt: "desc",
+    })
+    expect(lookup.include.contributionPlans.take).toBe(1)
   })
 })

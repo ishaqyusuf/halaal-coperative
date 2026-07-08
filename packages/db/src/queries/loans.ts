@@ -2,6 +2,10 @@ import type { PrismaClient, RepaymentScheduleStatus } from "../../generated/pris
 import { createPrismaClient } from "../prisma"
 import { applyLoanRequestChargesInTransaction } from "./charges"
 import { getDashboardMetrics } from "./dashboard"
+import {
+  assertLoanRequestIntakeCapacity,
+  getDeployableFundsSnapshot,
+} from "./financing-cycles"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
 
@@ -377,6 +381,16 @@ export async function submitLoanRequest(
     input.requestedAmount,
     input.requestedTermMonths,
   )
+  const capacityCheck = await assertLoanRequestIntakeCapacity(
+    {
+      loanProduct: {
+        loanType: loanProduct.loanType,
+      },
+      requestedAmount: input.requestedAmount,
+      tenantId: input.tenantId,
+    },
+    prisma,
+  )
 
   return prisma.$transaction(async (tx) => {
     const request = await tx.loanRequest.create({
@@ -430,6 +444,7 @@ export async function submitLoanRequest(
         entityId: request.id,
         metadata: {
           availablePool: metrics.availablePool,
+          capacity: capacityCheck,
           eligibleAmount,
           estimatedMonthlyServicing,
           extraMonthlySavingsAmount: input.extraMonthlySavingsAmount ?? 0,
@@ -733,6 +748,33 @@ export async function disburseLoan(
   if (!prisma) throw new Error("Database not configured")
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
+  const existingLoan = await prisma.loan.findFirst({
+    where: { id: input.loanId, tenantId: input.tenantId },
+  })
+  if (!existingLoan) throw new Error("Loan not found")
+
+  const policy = await prisma.tenantPolicy.findUnique({
+    where: { tenantId: input.tenantId },
+  })
+  const requiresDeployableFunds =
+    policy?.disbursementRequiresDeployableFunds ?? true
+  const deployableFunds = await getDeployableFundsSnapshot(
+    {
+      excludeLoanId: existingLoan.id,
+      tenantId: input.tenantId,
+    },
+    prisma,
+  )
+
+  if (
+    requiresDeployableFunds &&
+    Number(existingLoan.principalAmount) > deployableFunds.deployableFunds
+  ) {
+    throw new Error(
+      `Deployable funds are insufficient for this disbursement. Available: ${deployableFunds.deployableFunds.toLocaleString("en-NG")}.`,
+    )
+  }
+
   const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
   const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", prisma)
 
@@ -741,11 +783,6 @@ export async function disburseLoan(
   }
 
   return prisma.$transaction(async (tx) => {
-    const existingLoan = await tx.loan.findFirst({
-      where: { id: input.loanId, tenantId: input.tenantId },
-    })
-    if (!existingLoan) throw new Error("Loan not found")
-
     const loan = await tx.loan.update({
       where: { id: existingLoan.id },
       data: {
@@ -822,6 +859,7 @@ export async function disburseLoan(
         entityType: "Loan",
         entityId: loan.id,
         metadata: {
+          deployableFunds,
           loanRequestId: loan.loanRequestId,
           principalAmount: Number(loan.principalAmount),
           scheduledMonthlyServicing: Number(loan.estimatedMonthlyServicing),

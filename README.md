@@ -28,18 +28,12 @@ bun run lint
 bun run typecheck
 ```
 
-Development starters automatically start the local PostgreSQL container and wait until it accepts connections before launching the apps. Docker Desktop or another Docker-compatible daemon with Compose must be available.
+Development starters load the configured `DATABASE_URL` and run deployed Prisma migrations before launching the apps. Configure your hosted development or staging database in the existing env-loading flow before running dev commands.
 
-To start only the database:
-
-```bash
-bun run db:start
-```
-
-The local database uses `localhost:5432`, database `amanah_cooperative`, and a persistent Docker volume. If startup fails, inspect the service with:
+Use a hosted PostgreSQL connection string such as:
 
 ```bash
-docker compose logs postgres
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/amanah_cooperative?sslmode=require
 ```
 
 To run local dev against the production database, put the production `DATABASE_URL` in ignored file `.env.production.local`, then run:
@@ -48,7 +42,7 @@ To run local dev against the production database, put the production `DATABASE_U
 bun run dev:prod
 ```
 
-`dev:prod` does not start the local database or run migrations, and it refuses to run if `DATABASE_URL` still points at localhost.
+`dev:prod` does not run migrations, and it refuses to run if `DATABASE_URL` still points at localhost.
 
 ## Portless
 

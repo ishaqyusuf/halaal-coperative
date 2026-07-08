@@ -1,6 +1,7 @@
 import { Button } from "@halaalvest/ui/components/button"
 import type { MemberLedgerBackfillRow } from "@halaalvest/backfill"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
+import type { TenantFinancingSettingsWorkspace } from "@halaalvest/db"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { formatCurrency } from "@halaalvest/utils"
 import {
@@ -24,8 +25,11 @@ import { DatePickerInput } from "@/components/date-picker-input"
 import {
   ChargeDefinitionForm,
   ChargeDefinitionVersionForm,
+  FinancingCycleControlForm,
+  FinancingPolicyForm,
   FinanceStartDateForm,
   GenerateShareProfitAllocationsButton,
+  LoanProductSettingsForm,
   PublishShareProfitAllocationsButton,
   ShareBusinessForm,
   ShareBusinessProfitEntryForm,
@@ -185,6 +189,18 @@ type MigrationMemberReviewRow = {
   status: "profile_only" | "configured" | "backfill_draft" | "backfill_applied"
 }
 
+type FinancingSettingsRow = {
+  currentCyclePreview: Omit<
+    TenantFinancingSettingsWorkspace["currentCyclePreview"],
+    "periodEnd" | "periodStart"
+  > & {
+    periodEnd: string | null
+    periodStart: string | null
+  }
+  policy: TenantFinancingSettingsWorkspace["policy"]
+  products: TenantFinancingSettingsWorkspace["products"]
+}
+
 export type TenantFinanceSection =
   | "business"
   | "charges"
@@ -214,6 +230,7 @@ function HistoricalSetupLockedNotice({
 export function TenantFinancePageView({
   chargeDefinitions,
   dividendPeriods,
+  financingSettings,
   generatedLedgerRows,
   initialMigrationSnapshot,
   legacyLoanDrafts,
@@ -234,6 +251,7 @@ export function TenantFinancePageView({
 }: {
   chargeDefinitions: ChargeDefinitionRow[]
   dividendPeriods: DividendPeriodRow[]
+  financingSettings: FinancingSettingsRow
   generatedLedgerRows?: MemberLedgerBackfillRow[]
   initialMigrationSnapshot?: InitialMigrationSnapshot
   legacyLoanDrafts: LegacyLoanDraftRow[]
@@ -323,6 +341,16 @@ export function TenantFinancePageView({
   const showLoan = section === "loan"
   const showMigration = section === "migration"
   const showMigrationMember = section === "migration-member"
+  const financingPreview = financingSettings.currentCyclePreview
+  const currentCycleStatus = financingPreview.existingCycle?.status ?? "draft"
+  const collectionCoveragePercent = `${Math.round(
+    financingPreview.collectionCoverage * 100
+  )}%`
+  const collectionGap = Math.max(
+    0,
+    financingPreview.projectedCommitmentAmount -
+      financingPreview.receivedContributionAmount
+  )
 
   return (
     <DashboardPageShell>
@@ -409,8 +437,213 @@ export function TenantFinancePageView({
             </section>
           ) : null}
 
+          {showLoan ? (
+            <section className="scroll-mt-24" id="live-financing-settings">
+              <DashboardSectionCard>
+                <DashboardSectionHeader
+                  eyebrow="Financing policy"
+                  title="Monthly financing settings"
+                  description="Configure projected commitment capacity, quick and normal allocation, member caps, and current cycle controls."
+                  actions={
+                    <TrendPill
+                      tone={
+                        currentCycleStatus === "open"
+                          ? "positive"
+                          : currentCycleStatus === "paused"
+                            ? "warning"
+                            : "neutral"
+                      }
+                    >
+                      {currentCycleStatus.replaceAll("_", " ")}
+                    </TrendPill>
+                  }
+                />
+
+                <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                  <DashboardStatCard
+                    label="Projected commitments"
+                    value={formatCurrency(
+                      financingPreview.projectedCommitmentAmount
+                    )}
+                    detail={`Cycle ${financingPreview.periodStart ?? "current"} to ${financingPreview.periodEnd ?? "month end"}`}
+                  />
+                  <DashboardStatCard
+                    label="Actual collections"
+                    value={formatCurrency(
+                      financingPreview.receivedContributionAmount
+                    )}
+                    detail={`${collectionCoveragePercent} of projected commitments received`}
+                    tone={
+                      financingPreview.receivedContributionAmount >=
+                      financingPreview.projectedCommitmentAmount
+                        ? "positive"
+                        : "warning"
+                    }
+                  />
+                  <DashboardStatCard
+                    label="Reserve buffer"
+                    value={formatCurrency(financingPreview.reserveBufferAmount)}
+                    detail="Deducted before quick and normal allocation."
+                  />
+                  <DashboardStatCard
+                    label="Quick budget"
+                    value={formatCurrency(financingPreview.quick.budgetAmount)}
+                    detail={`${financingPreview.quickAllocationPercentage}% allocation with ${formatCurrency(financingPreview.quick.remainingAmount)} remaining`}
+                    tone="positive"
+                  />
+                  <DashboardStatCard
+                    label="Normal budget"
+                    value={formatCurrency(financingPreview.normal.budgetAmount)}
+                    detail={`${financingPreview.normalAllocationPercentage}% allocation with ${formatCurrency(financingPreview.normal.remainingAmount)} remaining`}
+                    tone="positive"
+                  />
+                  <DashboardStatCard
+                    label="Collection gap"
+                    value={formatCurrency(collectionGap)}
+                    detail="Shown separately from projected capacity."
+                    tone={collectionGap > 0 ? "warning" : "positive"}
+                  />
+                </div>
+
+                <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                  <DashboardSurfaceCard>
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Policy controls
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Allocation, terms, reserve, approval, and final
+                          deployable-funds safeguard.
+                        </p>
+                      </div>
+                      <TrendPill tone="neutral">
+                        {financingSettings.policy.financingCapacityBasis.replaceAll(
+                          "_",
+                          " "
+                        )}
+                      </TrendPill>
+                    </div>
+                    <FinancingPolicyForm
+                      defaultPolicy={financingSettings.policy}
+                    />
+                  </DashboardSurfaceCard>
+
+                  <DashboardSurfaceCard>
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Cycle controls
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Opening a cycle snapshots this month&apos;s projected
+                          capacity and allocation.
+                        </p>
+                      </div>
+                      <TrendPill
+                        tone={
+                          currentCycleStatus === "open"
+                            ? "positive"
+                            : currentCycleStatus === "paused"
+                              ? "warning"
+                              : "neutral"
+                        }
+                      >
+                        {financingPreview.existingCycle
+                          ? currentCycleStatus
+                          : "not opened"}
+                      </TrendPill>
+                    </div>
+                    <FinancingCycleControlForm
+                      currentCycle={financingPreview.existingCycle}
+                    />
+                    {financingPreview.receivedContributionAmount <
+                    financingPreview.totalCapacityAmount ? (
+                      <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                        <p className="font-medium">
+                          Actual collections are below projected capacity
+                        </p>
+                        <p className="mt-1">
+                          Disbursement still needs the deployable-funds check
+                          even when the monthly cycle is open.
+                        </p>
+                      </div>
+                    ) : null}
+                  </DashboardSurfaceCard>
+
+                  <DashboardSurfaceCard>
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Quick product
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Short-term financing settings for the quick
+                          allocation.
+                        </p>
+                      </div>
+                      <TrendPill
+                        tone={
+                          financingSettings.products.quick.isActive
+                            ? "positive"
+                            : "warning"
+                        }
+                      >
+                        {financingSettings.products.quick.isActive
+                          ? "active"
+                          : "inactive"}
+                      </TrendPill>
+                    </div>
+                    <LoanProductSettingsForm
+                      product={financingSettings.products.quick}
+                    />
+                  </DashboardSurfaceCard>
+
+                  <DashboardSurfaceCard>
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Normal product
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Standard financing settings for the normal
+                          allocation.
+                        </p>
+                      </div>
+                      <TrendPill
+                        tone={
+                          financingSettings.products.normal.isActive
+                            ? "positive"
+                            : "warning"
+                        }
+                      >
+                        {financingSettings.products.normal.isActive
+                          ? "active"
+                          : "inactive"}
+                      </TrendPill>
+                    </div>
+                    <LoanProductSettingsForm
+                      product={financingSettings.products.normal}
+                    />
+                  </DashboardSurfaceCard>
+                </div>
+              </DashboardSectionCard>
+            </section>
+          ) : null}
+
           {showLoan || showMigration || showMigrationMember ? (
             <section className="scroll-mt-24" id="migration-workbench">
+              {showLoan ? (
+                <div className="mb-4 border-t border-border pt-6">
+                  <p className="text-sm font-semibold text-foreground">
+                    Historical loan migration
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Legacy loan setup remains separate from live financing
+                    policy and monthly cycle controls.
+                  </p>
+                </div>
+              ) : null}
               <InitialMigrationPreview
                 generatedLedgerRows={generatedLedgerRows}
                 legacyLoanDrafts={legacyLoanDrafts}
@@ -431,6 +664,7 @@ export function TenantFinancePageView({
                       ? "member-preview"
                       : "overview"
                 }
+                tenantStartDate={tenantStartDate}
               />
             </section>
           ) : null}

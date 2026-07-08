@@ -95,15 +95,19 @@ export function normalizeColumnOrder(
   const definedIds = new Set(allColumnIds)
   const savedIds = new Set(savedOrder)
 
-  const orderWithoutActions = savedOrder.filter(
-    (id) => id !== "actions" && definedIds.has(id)
+  const orderWithoutFixedColumns = savedOrder.filter(
+    (id) => id !== "actions" && id !== "select" && definedIds.has(id)
   )
 
   const newColumns = allColumnIds.filter(
-    (id) => id !== "actions" && !savedIds.has(id)
+    (id) => id !== "actions" && id !== "select" && !savedIds.has(id)
   )
 
-  const result = [...orderWithoutActions, ...newColumns]
+  const result = [
+    ...(definedIds.has("select") ? ["select"] : []),
+    ...orderWithoutFixedColumns,
+    ...newColumns,
+  ]
 
   if (definedIds.has("actions")) {
     result.push("actions")

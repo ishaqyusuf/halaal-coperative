@@ -1,0 +1,426 @@
+{"kind":"deck","id":"pr/661pve","name":"Deck"}
+{"kind":"layout","layoutId":"806fb42e-f0b8-473a-b83b-a1ec796d23ff","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"6eb736ad-a168-4e70-8cc7-c44b757375f4","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/off01p","slide":1,"title":"COOPERATIVE DEMO","textShapes":5}
+{"kind":"shape","id":"sh/kf6dcbul","slide":1,"bbox":[792,0,488,720]}
+{"kind":"shape","id":"sh/vu9knih4","slide":1,"bbox":[848,84,312,312]}
+{"kind":"shape","id":"sh/29gr2p8n","slide":1,"bbox":[902,140,84,84]}
+{"kind":"shape","id":"sh/d8bat47y","slide":1,"bbox":[1008,246,84,84]}
+{"kind":"textbox","id":"sh/knih4byh","slide":1,"text":"COOPERATIVE DEMO","textPreview":"COOPERATIVE DEMO","textChars":16,"textLines":1,"bbox":[56,54,360,32]}
+{"kind":"textbox","id":"sh/v6psfil0","slide":1,"text":"Halaalvest Cooperative Operations Platform","textPreview":"Halaalvest Cooperative Operations Platform","textChars":42,"textLines":1,"bbox":[56,150,720,220]}
+{"kind":"textbox","id":"sh/2lszqtcj","slide":1,"text":"A simple digital platform for members, contributions, financing, repayments, reports, and approvals.","textPreview":"A simple digital platform for members, contributions, financing, repayments, reports, and approvals.","textChars":100,"textLines":1,"bbox":[56,410,690,112]}
+{"kind":"textbox","id":"sh/dcbulwva","slide":1,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/kre1w7mp","slide":1,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/off01p","slide":1,"text":"Introduce Halaalvest as a practical operations system for cooperatives. Keep the opening focused on everyday cooperative work: members, savings, contributions, approvals, repayments, and reports."}
+{"kind":"slide","id":"sl/opwg6x","slide":2,"title":"The Current Challenge","textShapes":8}
+{"kind":"textbox","id":"sh/36hcrmhk","slide":2,"text":"The Current Challenge","textPreview":"The Current Challenge","textChars":21,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":2,"text":"Cooperative teams often carry critical records across too many places.","textPreview":"Cooperative teams often carry critical records across too many places.","textChars":70,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/lc7u54zi","slide":2,"bbox":[828,88,340,420]}
+{"kind":"textbox","id":"sh/ed8bat47","slide":2,"text":"Manual work creates avoidable blind spots.","textPreview":"Manual work creates avoidable blind spots.","textChars":42,"textLines":1,"bbox":[872,150,250,160]}
+{"kind":"shape","id":"sh/7u54zido","slide":2,"bbox":[872,354,96,16]}
+{"kind":"shape","id":"sh/wfyxobm5","slide":2,"bbox":[88,276,16,16]}
+{"kind":"textbox","id":"sh/l0rqd4vm","slide":2,"text":"Spreadsheets, paper files, and manual reconciliation slow down reporting.","textPreview":"Spreadsheets, paper files, and manual reconciliation slow down reporting.","textChars":73,"textLines":1,"bbox":[120,268,650,82]}
+{"kind":"shape","id":"sh/e1w7mp0b","slide":2,"bbox":[88,364,16,16]}
+{"kind":"textbox","id":"sh/7mp0bi9s","slide":2,"text":"Member balances and repayment positions can be hard to explain quickly.","textPreview":"Member balances and repayment positions can be hard to explain quickly.","textChars":71,"textLines":1,"bbox":[120,356,650,82]}
+{"kind":"shape","id":"sh/zed8v6ps","slide":2,"bbox":[88,452,16,16]}
+{"kind":"textbox","id":"sh/6xkf6dcb","slide":2,"text":"Approvals, follow-ups, and audit history become difficult to track.","textPreview":"Approvals, follow-ups, and audit history become difficult to track.","textChars":67,"textLines":1,"bbox":[120,444,650,82]}
+{"kind":"textbox","id":"sh/hk3q5o7q","slide":2,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/opwg6x","slide":2,"text":"Emphasize pain points without sounding like blame. The goal is to show why a shared system matters: faster reporting, clearer balances, better follow-up, and stronger member trust."}
+{"kind":"slide","id":"sl/iunlre","slide":3,"title":"What The Platform Solves","textShapes":10}
+{"kind":"textbox","id":"sh/xczed8v6","slide":3,"text":"What The Platform Solves","textPreview":"What The Platform Solves","textChars":24,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/qpg3ex0n","slide":3,"text":"One operational source of truth for the cooperative.","textPreview":"One operational source of truth for the cooperative.","textChars":52,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/fa9w3m94","slide":3,"bbox":[56,278,350,210]}
+{"kind":"textbox","id":"sh/8jqh0fep","slide":3,"text":"Members","textPreview":"Members","textChars":7,"textLines":1,"bbox":[84,306,294,48]}
+{"kind":"textbox","id":"sh/x4nap4r6","slide":3,"text":"Profiles, categories, status, and documents","textPreview":"Profiles, categories, status, and documents","textChars":43,"textLines":1,"bbox":[84,380,294,82]}
+{"kind":"shape","id":"sh/qd4vmtwr","slide":3,"bbox":[448,278,350,210]}
+{"kind":"textbox","id":"sh/fyxobm58","slide":3,"text":"Money records","textPreview":"Money records","textChars":13,"textLines":1,"bbox":[476,306,294,48]}
+{"kind":"textbox","id":"sh/87ed8bat","slide":3,"text":"Contributions, charges, financing, and repayments","textPreview":"Contributions, charges, financing, and repayments","textChars":49,"textLines":1,"bbox":[476,380,294,82]}
+{"kind":"shape","id":"sh/xs72x4na","slide":3,"bbox":[840,278,350,210]}
+{"kind":"textbox","id":"sh/xkf6dcbu","slide":3,"text":"Governance","textPreview":"Governance","textChars":10,"textLines":1,"bbox":[868,306,294,48]}
+{"kind":"textbox","id":"sh/4zidonyd","slide":3,"text":"Approvals, reports, roles, and audit history","textPreview":"Approvals, reports, roles, and audit history","textChars":44,"textLines":1,"bbox":[868,380,294,82]}
+{"kind":"textbox","id":"sh/fepkzupw","slide":3,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/mtwra5gb","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/iunlre","slide":3,"text":"Position the platform as the central workspace for daily cooperative operations. The key message is not technology for its own sake; it is operational clarity."}
+{"kind":"slide","id":"sl/sb4qv9","slide":4,"title":"Who The Platform Serves","textShapes":12}
+{"kind":"textbox","id":"sh/bi9s36hc","slide":4,"text":"Who The Platform Serves","textPreview":"Who The Platform Serves","textChars":23,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/032lszqt","slide":4,"text":"Each role gets access based on responsibility.","textPreview":"Each role gets access based on responsibility.","textChars":46,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/tovahoza","slide":4,"bbox":[56,258,548,116]}
+{"kind":"shape","id":"sh/i9s36hcr","slide":4,"bbox":[80,288,22,22]}
+{"kind":"textbox","id":"sh/bulwval8","slide":4,"text":"Admins","textPreview":"Admins","textChars":6,"textLines":1,"bbox":[126,282,430,36]}
+{"kind":"textbox","id":"sh/0fepkzup","slide":4,"text":"Setup, policy, roles, and governance","textPreview":"Setup, policy, roles, and governance","textChars":36,"textLines":1,"bbox":[126,322,430,34]}
+{"kind":"shape","id":"sh/p0bi9s36","slide":4,"bbox":[660,258,548,116]}
+{"kind":"shape","id":"sh/idonyd0z","slide":4,"bbox":[684,288,22,22]}
+{"kind":"textbox","id":"sh/byhgn29g","slide":4,"text":"Finance officers","textPreview":"Finance officers","textChars":16,"textLines":1,"bbox":[730,282,430,36]}
+{"kind":"textbox","id":"sh/ra5gbq1o","slide":4,"text":"Contributions, charges, financing, reports","textPreview":"Contributions, charges, financing, reports","textChars":42,"textLines":1,"bbox":[730,322,430,34]}
+{"kind":"shape","id":"sh/2p8nqxs7","slide":4,"bbox":[56,416,548,116]}
+{"kind":"shape","id":"sh/9gr2p8nq","slide":4,"bbox":[80,446,22,22]}
+{"kind":"textbox","id":"sh/gvy90je9","slide":4,"text":"Operations staff","textPreview":"Operations staff","textChars":16,"textLines":1,"bbox":[126,440,430,36]}
+{"kind":"textbox","id":"sh/r2p8nqxs","slide":4,"text":"Onboarding, KYC, documents, follow-ups","textPreview":"Onboarding, KYC, documents, follow-ups","textChars":38,"textLines":1,"bbox":[126,480,430,34]}
+{"kind":"shape","id":"sh/2hwfyxob","slide":4,"bbox":[660,416,548,116]}
+{"kind":"shape","id":"sh/94fu18jq","slide":4,"bbox":[684,446,22,22]}
+{"kind":"textbox","id":"sh/kjm1cfa9","slide":4,"text":"Members","textPreview":"Members","textChars":7,"textLines":1,"bbox":[730,440,430,36]}
+{"kind":"textbox","id":"sh/rqd4vmtw","slide":4,"text":"Account history and self-service when enabled","textPreview":"Account history and self-service when enabled","textChars":45,"textLines":1,"bbox":[730,480,430,34]}
+{"kind":"textbox","id":"sh/25kb6xkf","slide":4,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/sb4qv9","slide":4,"text":"Explain that the system is role-based. Admins do not need every staff member to see or change everything; access can follow actual responsibilities."}
+{"kind":"slide","id":"sl/4b6pto","slide":5,"title":"Guided Getting Started","textShapes":14}
+{"kind":"textbox","id":"sh/54zidony","slide":5,"text":"Guided Getting Started","textPreview":"Guided Getting Started","textChars":22,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/udg7adsj","slide":5,"text":"The setup path turns a new workspace into a usable cooperative system.","textPreview":"The setup path turns a new workspace into a usable cooperative system.","textChars":70,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":5,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[76,284,72,36]}
+{"kind":"shape","id":"sh/cvixczed","slide":5,"bbox":[160,299,930,1]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":5,"text":"Profile and start date","textPreview":"Profile and start date","textChars":22,"textLines":1,"bbox":[182,278,830,42]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":5,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[76,348,72,36]}
+{"kind":"shape","id":"sh/nap4r65w","slide":5,"bbox":[160,363,930,1]}
+{"kind":"textbox","id":"sh/c7u54zid","slide":5,"text":"Charges and contribution rules","textPreview":"Charges and contribution rules","textChars":30,"textLines":1,"bbox":[182,342,830,42]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":5,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[76,412,72,36]}
+{"kind":"shape","id":"sh/l0rqd4vm","slide":5,"bbox":[160,427,930,1]}
+{"kind":"textbox","id":"sh/wfyxobm5","slide":5,"text":"Share and financing settings","textPreview":"Share and financing settings","textChars":28,"textLines":1,"bbox":[182,406,830,42]}
+{"kind":"textbox","id":"sh/7u54zido","slide":5,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[76,476,72,36]}
+{"kind":"shape","id":"sh/ed8bat47","slide":5,"bbox":[160,491,930,1]}
+{"kind":"textbox","id":"sh/lc7u54zi","slide":5,"text":"Staff roles","textPreview":"Staff roles","textChars":11,"textLines":1,"bbox":[182,470,830,42]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[76,540,72,36]}
+{"kind":"shape","id":"sh/36hcrmhk","slide":5,"bbox":[160,555,930,1]}
+{"kind":"textbox","id":"sh/eloj2t83","slide":5,"text":"Members and records","textPreview":"Members and records","textChars":19,"textLines":1,"bbox":[182,534,830,42]}
+{"kind":"textbox","id":"sh/pg3ex0nu","slide":5,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/wval87ed","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/4b6pto","slide":5,"text":"Show that new cooperatives are guided through setup instead of left to guess. Mention profile, start date, charges, contribution rules, share settings, financing rules, staff roles, and member onboarding."}
+{"kind":"slide","id":"sl/ektzh3","slide":6,"title":"Dedicated Cooperative Subdomain","textShapes":9}
+{"kind":"textbox","id":"sh/rytsvu9k","slide":6,"text":"Dedicated Cooperative Subdomain","textPreview":"Dedicated Cooperative Subdomain","textChars":31,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/gfmlkjm1","slide":6,"text":"Every cooperative can have a direct workspace link.","textPreview":"Every cooperative can have a direct workspace link.","textChars":51,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/90je9cvi","slide":6,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/y1kre1w7","slide":6,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/rmhk3q5o","slide":6,"text":"A dedicated subdomain makes the platform easier to access and easier to share with staff and members.","textPreview":"A dedicated subdomain makes the platform easier to access and easier to share with staff and members.","textChars":101,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/g7adsji5","slide":6,"bbox":[826,424,308,40]}
+{"kind":"textbox","id":"sh/9s36hcrm","slide":6,"text":"yourcoop.halaalvest.com","textPreview":"yourcoop.halaalvest.com","textChars":23,"textLines":1,"bbox":[844,432,276,26]}
+{"kind":"shape","id":"sh/yxobm58z","slide":6,"bbox":[826,478,308,40]}
+{"kind":"textbox","id":"sh/nih4byhg","slide":6,"text":"staff.yourcoop.halaalvest.com","textPreview":"staff.yourcoop.halaalvest.com","textChars":29,"textLines":1,"bbox":[844,486,276,26]}
+{"kind":"textbox","id":"sh/72x4nap4","slide":6,"text":"A dedicated subdomain makes the platform easier to access and easier to share with staff and members.","textPreview":"A dedicated subdomain makes the platform easier to access and easier to share with staff and members.","textChars":101,"textLines":1,"bbox":[88,292,610,118]}
+{"kind":"textbox","id":"sh/ih4byhgn","slide":6,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/p8nqxs72","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/ektzh3","slide":6,"text":"Explain that each cooperative can have its own access link. This makes the workspace feel more organized and reduces confusion when staff or members need to sign in."}
+{"kind":"slide","id":"sl/r3nb27","slide":7,"title":"Future Personalized Domain","textShapes":9}
+{"kind":"textbox","id":"sh/2p8nqxs7","slide":7,"text":"Future Personalized Domain","textPreview":"Future Personalized Domain","textChars":26,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/9gr2p8nq","slide":7,"text":"A branded domain can make the member experience feel more trusted.","textPreview":"A branded domain can make the member experience feel more trusted.","textChars":66,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/gvy90je9","slide":7,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/r2p8nqxs","slide":7,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/2hwfyxob","slide":7,"text":"Established cooperatives can later connect their own domain for a more familiar member portal.","textPreview":"Established cooperatives can later connect their own domain for a more familiar member portal.","textChars":94,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/94fu18jq","slide":7,"bbox":[826,424,308,40]}
+{"kind":"textbox","id":"sh/kjm1cfa9","slide":7,"text":"members.yourcoop.com","textPreview":"members.yourcoop.com","textChars":20,"textLines":1,"bbox":[844,432,276,26]}
+{"kind":"shape","id":"sh/rqd4vmtw","slide":7,"bbox":[826,478,308,40]}
+{"kind":"textbox","id":"sh/25kb6xkf","slide":7,"text":"portal.yourcoop.org","textPreview":"portal.yourcoop.org","textChars":19,"textLines":1,"bbox":[844,486,276,26]}
+{"kind":"textbox","id":"sh/4fu18jqh","slide":7,"text":"Established cooperatives can later connect their own domain for a more familiar member portal.","textPreview":"Established cooperatives can later connect their own domain for a more familiar member portal.","textChars":94,"textLines":1,"bbox":[88,292,610,118]}
+{"kind":"textbox","id":"sh/x0nuxc3y","slide":7,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/m94fu18j","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/r3nb27","slide":7,"text":"Present this as a future branding and trust feature. Cooperatives that already have a website or official domain can eventually bring the member portal under their own trusted address."}
+{"kind":"slide","id":"sl/kva6lu","slide":8,"title":"Historical Data Integration","textShapes":9}
+{"kind":"textbox","id":"sh/hoza1gvy","slide":8,"text":"Historical Data Integration","textPreview":"Historical Data Integration","textChars":27,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":8,"text":"Existing cooperatives do not need to start from zero.","textPreview":"Existing cooperatives do not need to start from zero.","textChars":53,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/zidonyd0","slide":8,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/svu9knih","slide":8,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/hgn29gr2","slide":8,"text":"Old records can be brought into the platform so the cooperative continues from its real current position.","textPreview":"Old records can be brought into the platform so the cooperative continues from its real current position.","textChars":105,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/ap4r65wj","slide":8,"bbox":[88,298,16,16]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":8,"text":"Member lists and opening balances","textPreview":"Member lists and opening balances","textChars":33,"textLines":1,"bbox":[120,290,600,66]}
+{"kind":"shape","id":"sh/sji5snel","slide":8,"bbox":[88,370,16,16]}
+{"kind":"textbox","id":"sh/h4byhgn2","slide":8,"text":"Past contributions, charges, and levies","textPreview":"Past contributions, charges, and levies","textChars":39,"textLines":1,"bbox":[120,362,600,66]}
+{"kind":"shape","id":"sh/p4r65wju","slide":8,"bbox":[88,442,16,16]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":8,"text":"Existing financing and repayment history","textPreview":"Existing financing and repayment history","textChars":40,"textLines":1,"bbox":[120,434,600,66]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":8,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/kva6lu","slide":8,"text":"Make clear that existing cooperatives can migrate old records. Mention member lists, savings balances, contributions, repayments, charges, levies, financing history, and share or profit history where available."}
+{"kind":"slide","id":"sl/8ec2cb","slide":9,"title":"Review Before Applying","textShapes":14}
+{"kind":"textbox","id":"sh/vy90je9c","slide":9,"text":"Review Before Applying","textPreview":"Review Before Applying","textChars":22,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/oj2t83it","slide":9,"text":"Historical records are checked before they become live finance records.","textPreview":"Historical records are checked before they become live finance records.","textChars":71,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"textbox","id":"sh/d4vmtwra","slide":9,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[76,284,72,36]}
+{"kind":"shape","id":"sh/61032lsz","slide":9,"bbox":[160,299,930,1]}
+{"kind":"textbox","id":"sh/vmtwra5g","slide":9,"text":"Import","textPreview":"Import","textChars":6,"textLines":1,"bbox":[182,278,830,42]}
+{"kind":"textbox","id":"sh/o7qpg3ex","slide":9,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[76,348,72,36]}
+{"kind":"shape","id":"sh/dsji5sne","slide":9,"bbox":[160,363,930,1]}
+{"kind":"textbox","id":"sh/6tovahoz","slide":9,"text":"Stage","textPreview":"Stage","textChars":5,"textLines":1,"bbox":[182,342,830,42]}
+{"kind":"textbox","id":"sh/vahoza1g","slide":9,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[76,412,72,36]}
+{"kind":"shape","id":"sh/7qpg3ex0","slide":9,"bbox":[160,427,930,1]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":9,"text":"Review","textPreview":"Review","textChars":6,"textLines":1,"bbox":[182,406,830,42]}
+{"kind":"textbox","id":"sh/pwb2hwfy","slide":9,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[76,476,72,36]}
+{"kind":"shape","id":"sh/0bi9s36h","slide":9,"bbox":[160,491,930,1]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":9,"text":"Correct","textPreview":"Correct","textChars":7,"textLines":1,"bbox":[182,470,830,42]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":9,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[76,540,72,36]}
+{"kind":"shape","id":"sh/p4r65wju","slide":9,"bbox":[160,555,930,1]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":9,"text":"Apply","textPreview":"Apply","textChars":5,"textLines":1,"bbox":[182,534,830,42]}
+{"kind":"textbox","id":"sh/72x4nap4","slide":9,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/ih4byhgn","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/8ec2cb","slide":9,"text":"This slide is about trust. Imported history should be staged first, reviewed by staff, corrected where needed, then applied into the live system. This protects accuracy and avoids silent mistakes."}
+{"kind":"slide","id":"sl/f0y4bu","slide":10,"title":"Member Management","textShapes":9}
+{"kind":"textbox","id":"sh/gvy90je9","slide":10,"text":"Member Management","textPreview":"Member Management","textChars":17,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/ra5gbq1o","slide":10,"text":"A clean member record is the foundation of the cooperative database.","textPreview":"A clean member record is the foundation of the cooperative database.","textChars":68,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/2p8nqxs7","slide":10,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/94fu18jq","slide":10,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/kjm1cfa9","slide":10,"text":"Staff can register members, manage categories, track status, review KYC or documents, and view account history.","textPreview":"Staff can register members, manage categories, track status, review KYC or documents, and view account history.","textChars":111,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/r2p8nqxs","slide":10,"bbox":[88,298,16,16]}
+{"kind":"textbox","id":"sh/2hwfyxob","slide":10,"text":"Member profiles","textPreview":"Member profiles","textChars":15,"textLines":1,"bbox":[120,290,600,66]}
+{"kind":"shape","id":"sh/9w3m94fu","slide":10,"bbox":[88,370,16,16]}
+{"kind":"textbox","id":"sh/kb6xkf6d","slide":10,"text":"KYC and document review","textPreview":"KYC and document review","textChars":23,"textLines":1,"bbox":[120,362,600,66]}
+{"kind":"shape","id":"sh/2p8nqxs7","slide":10,"bbox":[88,442,16,16]}
+{"kind":"textbox","id":"sh/ra5gbq1o","slide":10,"text":"Account history","textPreview":"Account history","textChars":15,"textLines":1,"bbox":[120,434,600,66]}
+{"kind":"textbox","id":"sh/gvy90je9","slide":10,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/9gr2p8nq","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/f0y4bu","slide":10,"text":"Present member management as the foundation. Once member records are clean, contributions, financing, repayments, reports, and member statements become easier to manage."}
+{"kind":"slide","id":"sl/fszhhq","slide":11,"title":"Contributions & Savings Tracking","textShapes":9}
+{"kind":"textbox","id":"sh/sfil0rqd","slide":11,"text":"Contributions & Savings Tracking","textPreview":"Contributions & Savings Tracking","textChars":32,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/zupwb2hw","slide":11,"text":"Finance teams can see what is expected, paid, and outstanding.","textPreview":"Finance teams can see what is expected, paid, and outstanding.","textChars":62,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/a9w3m94f","slide":11,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":11,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/orytsvu9","slide":11,"text":"The platform tracks expected contributions, received payments, unpaid members, savings balances, and payment channels.","textPreview":"The platform tracks expected contributions, received payments, unpaid members, savings balances, and payment channels.","textChars":118,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/z61032ls","slide":11,"bbox":[88,298,16,16]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":11,"text":"Expected vs received","textPreview":"Expected vs received","textChars":20,"textLines":1,"bbox":[120,290,600,66]}
+{"kind":"shape","id":"sh/hk3q5o7q","slide":11,"bbox":[88,370,16,16]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":11,"text":"Paid and unpaid members","textPreview":"Paid and unpaid members","textChars":23,"textLines":1,"bbox":[120,362,600,66]}
+{"kind":"shape","id":"sh/29gr2p8n","slide":11,"bbox":[88,442,16,16]}
+{"kind":"textbox","id":"sh/vu9knih4","slide":11,"text":"Direct and indirect payments","textPreview":"Direct and indirect payments","textChars":28,"textLines":1,"bbox":[120,434,600,66]}
+{"kind":"textbox","id":"sh/kf6dcbul","slide":11,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/d0z61032","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/fszhhq","slide":11,"text":"Highlight that finance officers can quickly see what has been paid and what is outstanding. This supports liquidity planning and member follow-up."}
+{"kind":"slide","id":"sl/ugylq2","slide":12,"title":"Interest-Free Financing Workflow","textShapes":9}
+{"kind":"textbox","id":"sh/0rqd4vmt","slide":12,"text":"Interest-Free Financing Workflow","textPreview":"Interest-Free Financing Workflow","textChars":32,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":12,"text":"Financing is managed from request to repayment with clear policy checks.","textPreview":"Financing is managed from request to repayment with clear policy checks.","textChars":72,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/il0rqd4v","slide":12,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/t47y1kre","slide":12,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/0je9cvix","slide":12,"text":"Members request financing, and admins approve based on policy, savings, eligibility, and available cooperative funds.","textPreview":"Members request financing, and admins approve based on policy, savings, eligibility, and available cooperative funds.","textChars":117,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/byhgn29g","slide":12,"bbox":[88,298,16,16]}
+{"kind":"textbox","id":"sh/idonyd0z","slide":12,"text":"Request and approval","textPreview":"Request and approval","textChars":20,"textLines":1,"bbox":[120,290,600,66]}
+{"kind":"shape","id":"sh/p0bi9s36","slide":12,"bbox":[88,370,16,16]}
+{"kind":"textbox","id":"sh/0fepkzup","slide":12,"text":"Eligibility and fund checks","textPreview":"Eligibility and fund checks","textChars":27,"textLines":1,"bbox":[120,362,600,66]}
+{"kind":"shape","id":"sh/itgfmlkj","slide":12,"bbox":[88,442,16,16]}
+{"kind":"textbox","id":"sh/7ed8bat4","slide":12,"text":"Disbursement and repayment tracking","textPreview":"Disbursement and repayment tracking","textChars":35,"textLines":1,"bbox":[120,434,600,66]}
+{"kind":"textbox","id":"sh/0z61032l","slide":12,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/pkzupwb2","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/ugylq2","slide":12,"text":"Avoid interest-based language. Emphasize cooperative pool deployment, eligibility, available funds, approval history, disbursement tracking, and transparent repayment."}
+{"kind":"slide","id":"sl/eobyl9","slide":13,"title":"Charges, Levies & Repayments","textShapes":9}
+{"kind":"textbox","id":"sh/8bat47y1","slide":13,"text":"Charges, Levies & Repayments","textPreview":"Charges, Levies & Repayments","textChars":28,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":13,"text":"Every charge and repayment stays clear and traceable.","textPreview":"Every charge and repayment stays clear and traceable.","textChars":53,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/q5o7qpg3","slide":13,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/18jqh0fe","slide":13,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":13,"text":"Cooperatives can manage levies, service charges, repayment schedules, waivers, adjustments, and overdue follow-ups.","textPreview":"Cooperatives can manage levies, service charges, repayment schedules, waivers, adjustments, and overdue follow-ups.","textChars":115,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/j2t83itg","slide":13,"bbox":[88,298,16,16]}
+{"kind":"textbox","id":"sh/qh0fepkz","slide":13,"text":"Configured charges","textPreview":"Configured charges","textChars":18,"textLines":1,"bbox":[120,290,600,66]}
+{"kind":"shape","id":"sh/1cfa9w3m","slide":13,"bbox":[88,370,16,16]}
+{"kind":"textbox","id":"sh/crmhk3q5","slide":13,"text":"Repayment schedules","textPreview":"Repayment schedules","textChars":19,"textLines":1,"bbox":[120,362,600,66]}
+{"kind":"shape","id":"sh/2t83itgf","slide":13,"bbox":[88,442,16,16]}
+{"kind":"textbox","id":"sh/re1w7mp0","slide":13,"text":"Waivers and adjustments","textPreview":"Waivers and adjustments","textChars":23,"textLines":1,"bbox":[120,434,600,66]}
+{"kind":"textbox","id":"sh/kzupwb2h","slide":13,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/9knih4by","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/eobyl9","slide":13,"text":"Explain that fees, charges, and levies should be explicit and policy-backed. The system should make it clear why a member was charged and how repayments were recorded."}
+{"kind":"slide","id":"sl/n0c9z6","slide":14,"title":"Admin Dashboard","textShapes":12}
+{"kind":"textbox","id":"sh/8v6psfil","slide":14,"text":"Admin Dashboard","textPreview":"Admin Dashboard","textChars":15,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/fa9w3m94","slide":14,"text":"The dashboard answers the daily question: what needs attention now?","textPreview":"The dashboard answers the daily question: what needs attention now?","textChars":67,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/qpg3ex0n","slide":14,"bbox":[56,260,250,238]}
+{"kind":"textbox","id":"sh/x4nap4r6","slide":14,"text":"Funds","textPreview":"Funds","textChars":5,"textLines":1,"bbox":[80,294,200,54]}
+{"kind":"shape","id":"sh/8jqh0fep","slide":14,"bbox":[80,374,64,8]}
+{"kind":"textbox","id":"sh/fyxobm58","slide":14,"text":"Deployable funds after holds and commitments","textPreview":"Deployable funds after holds and commitments","textChars":44,"textLines":1,"bbox":[80,414,198,64]}
+{"kind":"shape","id":"sh/qd4vmtwr","slide":14,"bbox":[352,260,250,238]}
+{"kind":"textbox","id":"sh/xs72x4na","slide":14,"text":"Collections","textPreview":"Collections","textChars":11,"textLines":1,"bbox":[376,294,200,54]}
+{"kind":"shape","id":"sh/87ed8bat","slide":14,"bbox":[376,374,64,8]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":14,"text":"Expected, received, and unpaid members","textPreview":"Expected, received, and unpaid members","textChars":38,"textLines":1,"bbox":[376,414,198,64]}
+{"kind":"shape","id":"sh/7y1kre1w","slide":14,"bbox":[648,260,250,238]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":14,"text":"Risk","textPreview":"Risk","textChars":4,"textLines":1,"bbox":[672,294,200,54]}
+{"kind":"shape","id":"sh/p4r65wju","slide":14,"bbox":[672,374,64,8]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":14,"text":"Overdue repayments and follow-ups","textPreview":"Overdue repayments and follow-ups","textChars":33,"textLines":1,"bbox":[672,414,198,64]}
+{"kind":"shape","id":"sh/7qpg3ex0","slide":14,"bbox":[944,260,250,238]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":14,"text":"Queue","textPreview":"Queue","textChars":5,"textLines":1,"bbox":[968,294,200,54]}
+{"kind":"shape","id":"sh/pwb2hwfy","slide":14,"bbox":[968,374,64,8]}
+{"kind":"textbox","id":"sh/itgfmlkj","slide":14,"text":"Approvals, KYC reviews, imports, setup warnings","textPreview":"Approvals, KYC reviews, imports, setup warnings","textChars":47,"textLines":1,"bbox":[968,414,198,64]}
+{"kind":"textbox","id":"sh/7ed8bat4","slide":14,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":14,"text":"14","textPreview":"14","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/n0c9z6","slide":14,"text":"The dashboard should be exception-led. It should help admins see deployable funds, collection coverage, overdue repayments, pending approvals, KYC reviews, failed imports, and setup warnings."}
+{"kind":"slide","id":"sl/8348b2","slide":15,"title":"Reports, Transparency & Audit Trail","textShapes":9}
+{"kind":"textbox","id":"sh/l0rqd4vm","slide":15,"text":"Reports, Transparency & Audit Trail","textPreview":"Reports, Transparency & Audit Trail","textChars":35,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/ed8bat47","slide":15,"text":"Clear records build member confidence.","textPreview":"Clear records build member confidence.","textChars":38,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/7u54zido","slide":15,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":15,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/lc7u54zi","slide":15,"text":"The platform supports member statements, contribution summaries, repayment reports, finance summaries, approval history, and audit records.","textPreview":"The platform supports member statements, contribution summaries, repayment reports, finance summaries, approval history, and audit records.","textChars":139,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/eloj2t83","slide":15,"bbox":[88,298,16,16]}
+{"kind":"textbox","id":"sh/36hcrmhk","slide":15,"text":"Member statements","textPreview":"Member statements","textChars":17,"textLines":1,"bbox":[120,290,600,66]}
+{"kind":"shape","id":"sh/wval87ed","slide":15,"bbox":[88,370,16,16]}
+{"kind":"textbox","id":"sh/pg3ex0nu","slide":15,"text":"Finance and repayment reports","textPreview":"Finance and repayment reports","textChars":29,"textLines":1,"bbox":[120,362,600,66]}
+{"kind":"shape","id":"sh/loj2t83i","slide":15,"bbox":[88,442,16,16]}
+{"kind":"textbox","id":"sh/w3m94fu1","slide":15,"text":"Approval and audit history","textPreview":"Approval and audit history","textChars":26,"textLines":1,"bbox":[120,434,600,66]}
+{"kind":"textbox","id":"sh/3itgfmlk","slide":15,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/ex0nuxc3","slide":15,"text":"15","textPreview":"15","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/8348b2","slide":15,"text":"Tie reporting to accountability. The cooperative should be able to explain member balances, repayments, approvals, charges, and historical records."}
+{"kind":"slide","id":"sl/cqpsol","slide":16,"title":"Demo Walkthrough","textShapes":18}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":16,"text":"Demo Walkthrough","textPreview":"Demo Walkthrough","textChars":16,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":16,"text":"The live demo follows one complete cooperative workflow.","textPreview":"The live demo follows one complete cooperative workflow.","textChars":56,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":16,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[76,250,72,36]}
+{"kind":"shape","id":"sh/pwb2hwfy","slide":16,"bbox":[160,265,930,1]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":16,"text":"Setup cooperative","textPreview":"Setup cooperative","textChars":17,"textLines":1,"bbox":[182,244,830,42]}
+{"kind":"textbox","id":"sh/7qpg3ex0","slide":16,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[76,302,72,36]}
+{"kind":"shape","id":"sh/i5sneloj","slide":16,"bbox":[160,317,930,1]}
+{"kind":"textbox","id":"sh/pkzupwb2","slide":16,"text":"Add or import members","textPreview":"Add or import members","textChars":21,"textLines":1,"bbox":[182,296,830,42]}
+{"kind":"textbox","id":"sh/0z61032l","slide":16,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[76,354,72,36]}
+{"kind":"shape","id":"sh/qpg3ex0n","slide":16,"bbox":[160,369,930,1]}
+{"kind":"textbox","id":"sh/fa9w3m94","slide":16,"text":"Record contributions","textPreview":"Record contributions","textChars":20,"textLines":1,"bbox":[182,348,830,42]}
+{"kind":"textbox","id":"sh/8v6psfil","slide":16,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[76,406,72,36]}
+{"kind":"shape","id":"sh/xczed8v6","slide":16,"bbox":[160,421,930,1]}
+{"kind":"textbox","id":"sh/qd4vmtwr","slide":16,"text":"Request financing","textPreview":"Request financing","textChars":17,"textLines":1,"bbox":[182,400,830,42]}
+{"kind":"textbox","id":"sh/fyxobm58","slide":16,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[76,458,72,36]}
+{"kind":"shape","id":"sh/8jqh0fep","slide":16,"bbox":[160,473,930,1]}
+{"kind":"textbox","id":"sh/x4nap4r6","slide":16,"text":"Approve financing","textPreview":"Approve financing","textChars":17,"textLines":1,"bbox":[182,452,830,42]}
+{"kind":"textbox","id":"sh/q1orytsv","slide":16,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[76,510,72,36]}
+{"kind":"shape","id":"sh/fmlkjm1c","slide":16,"bbox":[160,525,930,1]}
+{"kind":"textbox","id":"sh/r2p8nqxs","slide":16,"text":"Post repayment","textPreview":"Post repayment","textChars":14,"textLines":1,"bbox":[182,504,830,42]}
+{"kind":"textbox","id":"sh/2hwfyxob","slide":16,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[76,562,72,36]}
+{"kind":"shape","id":"sh/94fu18jq","slide":16,"bbox":[160,577,930,1]}
+{"kind":"textbox","id":"sh/kjm1cfa9","slide":16,"text":"View dashboard and reports","textPreview":"View dashboard and reports","textChars":26,"textLines":1,"bbox":[182,556,830,42]}
+{"kind":"textbox","id":"sh/ra5gbq1o","slide":16,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/2p8nqxs7","slide":16,"text":"16","textPreview":"16","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/cqpsol","slide":16,"text":"Use this as the live flow. It keeps the presentation focused and makes the product easier to understand because the audience can follow one story from setup to report."}
+{"kind":"slide","id":"sl/abuccf","slide":17,"title":"Free Beta Until Official Release","textShapes":9}
+{"kind":"textbox","id":"sh/szqtcj6t","slide":17,"text":"Free Beta Until Official Release","textPreview":"Free Beta Until Official Release","textChars":32,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/3ex0nuxc","slide":17,"text":"Early cooperatives can use the platform free during beta.","textPreview":"Early cooperatives can use the platform free during beta.","textChars":57,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/at47y1kr","slide":17,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/l87ed8ba","slide":17,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/sneloj2t","slide":17,"text":"Beta users help shape the final product through real workflow feedback before paid subscription begins.","textPreview":"Beta users help shape the final product through real workflow feedback before paid subscription begins.","textChars":103,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/32lszqtc","slide":17,"bbox":[88,298,16,16]}
+{"kind":"textbox","id":"sh/ahoza1gv","slide":17,"text":"Free beta access","textPreview":"Free beta access","textChars":16,"textLines":1,"bbox":[120,290,600,66]}
+{"kind":"shape","id":"sh/lwval87e","slide":17,"bbox":[88,370,16,16]}
+{"kind":"textbox","id":"sh/wb2hwfyx","slide":17,"text":"Guided setup support","textPreview":"Guided setup support","textChars":20,"textLines":1,"bbox":[120,362,600,66]}
+{"kind":"shape","id":"sh/2lszqtcj","slide":17,"bbox":[88,442,16,16]}
+{"kind":"textbox","id":"sh/v6psfil0","slide":17,"text":"Feedback-led improvements","textPreview":"Feedback-led improvements","textChars":25,"textLines":1,"bbox":[120,434,600,66]}
+{"kind":"textbox","id":"sh/knih4byh","slide":17,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/d8bat47y","slide":17,"text":"17","textPreview":"17","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/abuccf","slide":17,"text":"Say clearly that beta is free until official release. Also clarify that beta is a market-entry period, not a permanent free live-finance tier."}
+{"kind":"slide","id":"sl/vdcvvc","slide":18,"title":"Platform Pricing & Subscription","textShapes":9}
+{"kind":"textbox","id":"sh/idonyd0z","slide":18,"text":"Platform Pricing & Subscription","textPreview":"Platform Pricing & Subscription","textChars":31,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/t47y1kre","slide":18,"text":"Pricing is designed to be predictable for cooperative budgets.","textPreview":"Pricing is designed to be predictable for cooperative budgets.","textChars":62,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/0je9cvix","slide":18,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":18,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/il0rqd4v","slide":18,"text":"After release, pricing will depend on cooperative size, feature needs, support level, and optional add-ons.","textPreview":"After release, pricing will depend on cooperative size, feature needs, support level, and optional add-ons.","textChars":107,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/tcj6tova","slide":18,"bbox":[88,298,16,16]}
+{"kind":"textbox","id":"sh/0rqd4vmt","slide":18,"text":"No percentage of member funds","textPreview":"No percentage of member funds","textChars":29,"textLines":1,"bbox":[120,290,600,66]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":18,"bbox":[88,370,16,16]}
+{"kind":"textbox","id":"sh/ixczed8v","slide":18,"text":"Transparent subscription and setup fees","textPreview":"Transparent subscription and setup fees","textChars":39,"textLines":1,"bbox":[120,362,600,66]}
+{"kind":"shape","id":"sh/s72x4nap","slide":18,"bbox":[88,442,16,16]}
+{"kind":"textbox","id":"sh/lszqtcj6","slide":18,"text":"Provider costs kept separate where applicable","textPreview":"Provider costs kept separate where applicable","textChars":45,"textLines":1,"bbox":[120,434,600,66]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":18,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/3m94fu18","slide":18,"text":"18","textPreview":"18","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/vdcvvc","slide":18,"text":"Emphasize predictable subscription pricing. The platform should not take a percentage of member savings, financing, repayments, dividends, or cooperative profit."}
+{"kind":"slide","id":"sl/3n7irb","slide":19,"title":"Proposed Pricing Template","textShapes":29}
+{"kind":"textbox","id":"sh/pwb2hwfy","slide":19,"text":"Proposed Pricing Template","textPreview":"Proposed Pricing Template","textChars":25,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":19,"text":"Plans can be finalized after member size, migration needs, and support expectations are known.","textPreview":"Plans can be finalized after member size, migration needs, and support expectations are known.","textChars":94,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/7qpg3ex0","slide":19,"bbox":[56,212,170,48]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":19,"text":"Plan","textPreview":"Plan","textChars":4,"textLines":1,"bbox":[68,224,146,24]}
+{"kind":"shape","id":"sh/p4r65wju","slide":19,"bbox":[226,212,180,48]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":19,"text":"Price","textPreview":"Price","textChars":5,"textLines":1,"bbox":[238,224,156,24]}
+{"kind":"shape","id":"sh/7y1kre1w","slide":19,"bbox":[406,212,250,48]}
+{"kind":"textbox","id":"sh/0nuxc3yl","slide":19,"text":"Best fit","textPreview":"Best fit","textChars":8,"textLines":1,"bbox":[418,224,226,24]}
+{"kind":"shape","id":"sh/p8nqxs72","slide":19,"bbox":[656,212,510,48]}
+{"kind":"textbox","id":"sh/xobm58z2","slide":19,"text":"Included direction","textPreview":"Included direction","textChars":18,"textLines":1,"bbox":[668,224,486,24]}
+{"kind":"shape","id":"sh/83itgfml","slide":19,"bbox":[56,260,170,58]}
+{"kind":"textbox","id":"sh/fil0rqd4","slide":19,"text":"Free Beta","textPreview":"Free Beta","textChars":9,"textLines":1,"bbox":[68,272,146,36]}
+{"kind":"shape","id":"sh/qxs72x4n","slide":19,"bbox":[226,260,180,58]}
+{"kind":"textbox","id":"sh/x0nuxc3y","slide":19,"text":"NGN 0","textPreview":"NGN 0","textChars":5,"textLines":1,"bbox":[238,272,156,36]}
+{"kind":"shape","id":"sh/4fu18jqh","slide":19,"bbox":[406,260,250,58]}
+{"kind":"textbox","id":"sh/fu18jqh0","slide":19,"text":"Pilot cooperatives","textPreview":"Pilot cooperatives","textChars":18,"textLines":1,"bbox":[418,272,226,36]}
+{"kind":"shape","id":"sh/m94fu18j","slide":19,"bbox":[656,260,510,58]}
+{"kind":"textbox","id":"sh/xc3ylc7u","slide":19,"text":"Core workflows while beta is active","textPreview":"Core workflows while beta is active","textChars":35,"textLines":1,"bbox":[668,272,486,36]}
+{"kind":"shape","id":"sh/4r65wjud","slide":19,"bbox":[56,318,170,58]}
+{"kind":"textbox","id":"sh/032lszqt","slide":19,"text":"Starter","textPreview":"Starter","textChars":7,"textLines":1,"bbox":[68,330,146,36]}
+{"kind":"shape","id":"sh/tovahoza","slide":19,"bbox":[226,318,180,58]}
+{"kind":"textbox","id":"sh/ixczed8v","slide":19,"text":"NGN 50k-75k/mo","textPreview":"NGN 50k-75k/mo","textChars":14,"textLines":1,"bbox":[238,330,156,36]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":19,"bbox":[406,318,250,58]}
+{"kind":"textbox","id":"sh/0fepkzup","slide":19,"text":"Small cooperatives","textPreview":"Small cooperatives","textChars":18,"textLines":1,"bbox":[418,330,226,36]}
+{"kind":"shape","id":"sh/p0bi9s36","slide":19,"bbox":[656,318,510,58]}
+{"kind":"textbox","id":"sh/i9s36hcr","slide":19,"text":"Members, contributions, basic reports","textPreview":"Members, contributions, basic reports","textChars":37,"textLines":1,"bbox":[668,330,486,36]}
+{"kind":"shape","id":"sh/bulwval8","slide":19,"bbox":[56,376,170,58]}
+{"kind":"textbox","id":"sh/0je9cvix","slide":19,"text":"Standard","textPreview":"Standard","textChars":8,"textLines":1,"bbox":[68,388,146,36]}
+{"kind":"shape","id":"sh/t47y1kre","slide":19,"bbox":[226,376,180,58]}
+{"kind":"textbox","id":"sh/zqtcj6to","slide":19,"text":"NGN 120k-180k/mo","textPreview":"NGN 120k-180k/mo","textChars":16,"textLines":1,"bbox":[238,388,156,36]}
+{"kind":"shape","id":"sh/65wjudg7","slide":19,"bbox":[406,376,250,58]}
+{"kind":"textbox","id":"sh/hwfyxobm","slide":19,"text":"Established societies","textPreview":"Established societies","textChars":21,"textLines":1,"bbox":[418,388,226,36]}
+{"kind":"shape","id":"sh/obm58z25","slide":19,"bbox":[656,376,510,58]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":19,"text":"Member login, reports, custom domain","textPreview":"Member login, reports, custom domain","textChars":36,"textLines":1,"bbox":[668,388,486,36]}
+{"kind":"shape","id":"sh/6xkf6dcb","slide":19,"bbox":[56,434,170,58]}
+{"kind":"textbox","id":"sh/hk3q5o7q","slide":19,"text":"Growth","textPreview":"Growth","textChars":6,"textLines":1,"bbox":[68,446,146,36]}
+{"kind":"shape","id":"sh/oza1gvy9","slide":19,"bbox":[226,434,180,58]}
+{"kind":"textbox","id":"sh/z61032ls","slide":19,"text":"NGN 250k-350k/mo","textPreview":"NGN 250k-350k/mo","textChars":16,"textLines":1,"bbox":[238,446,156,36]}
+{"kind":"shape","id":"sh/al87ed8b","slide":19,"bbox":[406,434,250,58]}
+{"kind":"textbox","id":"sh/qpg3ex0n","slide":19,"text":"Larger groups","textPreview":"Larger groups","textChars":13,"textLines":1,"bbox":[418,446,226,36]}
+{"kind":"shape","id":"sh/fa9w3m94","slide":19,"bbox":[656,434,510,58]}
+{"kind":"textbox","id":"sh/8v6psfil","slide":19,"text":"Advanced roles, exports, notifications","textPreview":"Advanced roles, exports, notifications","textChars":38,"textLines":1,"bbox":[668,446,486,36]}
+{"kind":"shape","id":"sh/xczed8v6","slide":19,"bbox":[56,492,170,58]}
+{"kind":"textbox","id":"sh/qd4vmtwr","slide":19,"text":"Enterprise","textPreview":"Enterprise","textChars":10,"textLines":1,"bbox":[68,504,146,36]}
+{"kind":"shape","id":"sh/fyxobm58","slide":19,"bbox":[226,492,180,58]}
+{"kind":"textbox","id":"sh/8jqh0fep","slide":19,"text":"Custom","textPreview":"Custom","textChars":6,"textLines":1,"bbox":[238,504,156,36]}
+{"kind":"shape","id":"sh/x4nap4r6","slide":19,"bbox":[406,492,250,58]}
+{"kind":"textbox","id":"sh/q1orytsv","slide":19,"text":"Multi-branch needs","textPreview":"Multi-branch needs","textChars":18,"textLines":1,"bbox":[418,504,226,36]}
+{"kind":"shape","id":"sh/fmlkjm1c","slide":19,"bbox":[656,492,510,58]}
+{"kind":"textbox","id":"sh/5sneloj2","slide":19,"text":"Migration, integrations, SLA support","textPreview":"Migration, integrations, SLA support","textChars":36,"textLines":1,"bbox":[668,504,486,36]}
+{"kind":"textbox","id":"sh/cbulwval","slide":19,"text":"Setup and historical migration may be separate when data is complex.","textPreview":"Setup and historical migration may be separate when data is complex.","textChars":68,"textLines":1,"bbox":[56,590,900,32]}
+{"kind":"textbox","id":"sh/nqxs72x4","slide":19,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/u54zidon","slide":19,"text":"19","textPreview":"19","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/3n7irb","slide":19,"text":"Keep the pricing flexible. Mention that setup and historical data migration may be a one-time service depending on data size and complexity."}
+{"kind":"slide","id":"sl/ld18kz","slide":20,"title":"Continuous Improvement With Feedback","textShapes":9}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":20,"text":"Continuous Improvement With Feedback","textPreview":"Continuous Improvement With Feedback","textChars":36,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/p4r65wju","slide":20,"text":"The platform will keep improving around real cooperative work.","textPreview":"The platform will keep improving around real cooperative work.","textChars":62,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/wjudg7ad","slide":20,"bbox":[798,114,368,438]}
+{"kind":"textbox","id":"sh/7qpg3ex0","slide":20,"text":"Key point","textPreview":"Key point","textChars":9,"textLines":1,"bbox":[842,164,260,32]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":20,"text":"Updates will be shaped by staff feedback, member needs, reporting gaps, and workflows observed during beta and live use.","textPreview":"Updates will be shaped by staff feedback, member needs, reporting gaps, and workflows observed during beta and live use.","textChars":120,"textLines":1,"bbox":[842,216,276,178]}
+{"kind":"shape","id":"sh/pwb2hwfy","slide":20,"bbox":[88,298,16,16]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":20,"text":"Workflow refinements","textPreview":"Workflow refinements","textChars":20,"textLines":1,"bbox":[120,290,600,66]}
+{"kind":"shape","id":"sh/7ed8bat4","slide":20,"bbox":[88,370,16,16]}
+{"kind":"textbox","id":"sh/itgfmlkj","slide":20,"text":"Report improvements","textPreview":"Report improvements","textChars":19,"textLines":1,"bbox":[120,362,600,66]}
+{"kind":"shape","id":"sh/cvixczed","slide":20,"bbox":[88,442,16,16]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":20,"text":"Member experience updates","textPreview":"Member experience updates","textChars":25,"textLines":1,"bbox":[120,434,600,66]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":20,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/nap4r65w","slide":20,"text":"20","textPreview":"20","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/ld18kz","slide":20,"text":"This reassures the audience that the product will evolve with their operations. Use this to invite honest feedback during the beta period."}
+{"kind":"slide","id":"sl/y3ejqi","slide":21,"title":"Upcoming Features","textShapes":12}
+{"kind":"textbox","id":"sh/5sneloj2","slide":21,"text":"Upcoming Features","textPreview":"Upcoming Features","textChars":17,"textLines":1,"bbox":[56,44,900,92]}
+{"kind":"textbox","id":"sh/u54zidon","slide":21,"text":"The roadmap focuses on communication, intelligence, mobility, and trust.","textPreview":"The roadmap focuses on communication, intelligence, mobility, and trust.","textChars":72,"textLines":1,"bbox":[56,140,760,68]}
+{"kind":"shape","id":"sh/nqxs72x4","slide":21,"bbox":[56,260,250,98]}
+{"kind":"shape","id":"sh/czed8v6p","slide":21,"bbox":[78,282,18,18]}
+{"kind":"textbox","id":"sh/5kb6xkf6","slide":21,"text":"WhatsApp notifications","textPreview":"WhatsApp notifications","textChars":22,"textLines":1,"bbox":[112,278,164,52]}
+{"kind":"shape","id":"sh/ytsvu9kn","slide":21,"bbox":[352,260,250,98]}
+{"kind":"shape","id":"sh/neloj2t8","slide":21,"bbox":[374,282,18,18]}
+{"kind":"textbox","id":"sh/gn29gr2p","slide":21,"text":"AI-assisted reporting","textPreview":"AI-assisted reporting","textChars":21,"textLines":1,"bbox":[408,278,164,52]}
+{"kind":"shape","id":"sh/58z25kb6","slide":21,"bbox":[648,260,250,98]}
+{"kind":"shape","id":"sh/d8bat47y","slide":21,"bbox":[670,282,18,18]}
+{"kind":"textbox","id":"sh/knih4byh","slide":21,"text":"Mobile app","textPreview":"Mobile app","textChars":10,"textLines":1,"bbox":[704,278,164,52]}
+{"kind":"shape","id":"sh/v6psfil0","slide":21,"bbox":[944,260,250,98]}
+{"kind":"shape","id":"sh/2lszqtcj","slide":21,"bbox":[966,282,18,18]}
+{"kind":"textbox","id":"sh/d0z61032","slide":21,"text":"Automated reminders","textPreview":"Automated reminders","textChars":19,"textLines":1,"bbox":[1000,278,164,52]}
+{"kind":"shape","id":"sh/kf6dcbul","slide":21,"bbox":[56,406,250,98]}
+{"kind":"shape","id":"sh/vu9knih4","slide":21,"bbox":[78,428,18,18]}
+{"kind":"textbox","id":"sh/29gr2p8n","slide":21,"text":"Member self-service","textPreview":"Member self-service","textChars":19,"textLines":1,"bbox":[112,424,164,52]}
+{"kind":"shape","id":"sh/donyd0z6","slide":21,"bbox":[352,406,250,98]}
+{"kind":"shape","id":"sh/k3q5o7qp","slide":21,"bbox":[374,428,18,18]}
+{"kind":"textbox","id":"sh/kb6xkf6d","slide":21,"text":"Custom reports","textPreview":"Custom reports","textChars":14,"textLines":1,"bbox":[408,424,164,52]}
+{"kind":"shape","id":"sh/9w3m94fu","slide":21,"bbox":[648,406,250,98]}
+{"kind":"shape","id":"sh/25kb6xkf","slide":21,"bbox":[670,428,18,18]}
+{"kind":"textbox","id":"sh/rqd4vmtw","slide":21,"text":"Deeper integrations","textPreview":"Deeper integrations","textChars":19,"textLines":1,"bbox":[704,424,164,52]}
+{"kind":"shape","id":"sh/kzupwb2h","slide":21,"bbox":[944,406,250,98]}
+{"kind":"shape","id":"sh/9knih4by","slide":21,"bbox":[966,428,18,18]}
+{"kind":"textbox","id":"sh/2t83itgf","slide":21,"text":"Personalized domains","textPreview":"Personalized domains","textChars":20,"textLines":1,"bbox":[1000,424,164,52]}
+{"kind":"textbox","id":"sh/re1w7mp0","slide":21,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/gvy90je9","slide":21,"text":"21","textPreview":"21","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/y3ejqi","slide":21,"text":"Present these as features in the pipeline. Avoid promising that all of them are available today. Call out WhatsApp notifications, AI assistance, mobile app, automated reminders, member self-service, integrations, and personalized domains."}
+{"kind":"slide","id":"sl/sc4918","slide":22,"title":"Next Steps","textShapes":18}
+{"kind":"shape","id":"sh/2x4nap4r","slide":22,"bbox":[0,560,1280,160]}
+{"kind":"textbox","id":"sh/donyd0z6","slide":22,"text":"Next Steps","textPreview":"Next Steps","textChars":10,"textLines":1,"bbox":[56,64,780,92]}
+{"kind":"textbox","id":"sh/k3q5o7qp","slide":22,"text":"Start with a pilot, validate the data, gather feedback, then agree the launch and subscription path.","textPreview":"Start with a pilot, validate the data, gather feedback, then agree the launch and subscription path.","textChars":100,"textLines":1,"bbox":[56,180,760,92]}
+{"kind":"textbox","id":"sh/val87ed8","slide":22,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[56,354,44,28]}
+{"kind":"textbox","id":"sh/6psfil0r","slide":22,"text":"Pilot setup","textPreview":"Pilot setup","textChars":11,"textLines":1,"bbox":[104,352,210,36]}
+{"kind":"textbox","id":"sh/dcbulwva","slide":22,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[350,354,44,28]}
+{"kind":"textbox","id":"sh/kre1w7mp","slide":22,"text":"Sample data entry","textPreview":"Sample data entry","textChars":17,"textLines":1,"bbox":[398,352,210,36]}
+{"kind":"textbox","id":"sh/v6psfil0","slide":22,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[644,354,44,28]}
+{"kind":"textbox","id":"sh/2lszqtcj","slide":22,"text":"Historical data review","textPreview":"Historical data review","textChars":22,"textLines":1,"bbox":[692,352,210,36]}
+{"kind":"textbox","id":"sh/szqtcj6t","slide":22,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[938,354,44,28]}
+{"kind":"textbox","id":"sh/lkjm1cfa","slide":22,"text":"Staff demo","textPreview":"Staff demo","textChars":10,"textLines":1,"bbox":[986,352,210,36]}
+{"kind":"textbox","id":"sh/at47y1kr","slide":22,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[56,452,44,28]}
+{"kind":"textbox","id":"sh/3ex0nuxc","slide":22,"text":"Feedback collection","textPreview":"Feedback collection","textChars":19,"textLines":1,"bbox":[104,450,210,36]}
+{"kind":"textbox","id":"sh/sneloj2t","slide":22,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[350,452,44,28]}
+{"kind":"textbox","id":"sh/l87ed8ba","slide":22,"text":"Beta usage","textPreview":"Beta usage","textChars":10,"textLines":1,"bbox":[398,450,210,36]}
+{"kind":"textbox","id":"sh/ahoza1gv","slide":22,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[644,452,44,28]}
+{"kind":"textbox","id":"sh/32lszqtc","slide":22,"text":"Subscription discussion after release","textPreview":"Subscription discussion after release","textChars":37,"textLines":1,"bbox":[692,450,210,36]}
+{"kind":"textbox","id":"sh/wb2hwfyx","slide":22,"text":"Halaalvest cooperative demo","textPreview":"Halaalvest cooperative demo","textChars":27,"textLines":1,"bbox":[56,660,360,24]}
+{"kind":"textbox","id":"sh/lwval87e","slide":22,"text":"22","textPreview":"22","textChars":2,"textLines":1,"bbox":[1160,658,64,26]}
+{"kind":"notes","id":"nt/sc4918","slide":22,"text":"Close with a clear path forward: pilot setup, sample data entry, historical data review, staff demo, feedback collection, beta usage, and final subscription discussion after official release."}

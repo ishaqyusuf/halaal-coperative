@@ -418,8 +418,6 @@ export async function createMemberWithState(
 ) {
   await assertMemberProfileMutationOpen(input.tenantId, tx)
   const commitmentHistory = normalizeCommitmentHistory(input)
-  const activeCommitment =
-    commitmentHistory[commitmentHistory.length - 1] ?? null
 
   const member = await tx.member.create({
     data: {
@@ -439,17 +437,18 @@ export async function createMemberWithState(
     },
   })
 
-  if (activeCommitment) {
-    await tx.contributionPlan.create({
-      data: {
-        amount: activeCommitment.amount,
+  if (commitmentHistory.length > 0) {
+    await tx.contributionPlan.createMany({
+      data: commitmentHistory.map((entry, index) => ({
+        amount: entry.amount,
+        endsAt: commitmentHistory[index + 1]?.effectiveFrom ?? null,
         interval: "monthly",
-        isActive: true,
+        isActive: index === commitmentHistory.length - 1,
         memberId: member.id,
         name: "Monthly commitment",
-        startsAt: activeCommitment.effectiveFrom,
+        startsAt: entry.effectiveFrom,
         tenantId: input.tenantId,
-      },
+      })),
     })
   }
 

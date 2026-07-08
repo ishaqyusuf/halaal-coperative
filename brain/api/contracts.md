@@ -59,15 +59,15 @@ This file captures payload shapes, response conventions, and contract assumption
   - `primaryDashboardHostname`: legacy dashboard alias hostname when configured; the canonical tenant host now serves both public and authenticated flows.
   - `steps`: labeled step list with completion state.
 - `trpc.onboarding.bootstrap`
-  - Request creates tenant name, slug, primary admin identity, default policy values, and base routing hostnames.
+  - Request creates tenant name, slug, primary admin identity, optional city/state/country profile fields, default policy values, and base routing hostnames.
   - Response returns the created tenant record, owner user id, primary hostnames, and refreshed onboarding state.
 - `POST /api/signup`
   - Request validates `cooperativeName`, `primaryContactFullName`, and `primaryContactEmail`.
   - Response returns `expiresAt`, `onboardingUrl`, delivery metadata, and the verification email draft.
 - `POST /api/onboarding`
-  - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, `currentSize`, `officeAddress`, `startDate`, and the signed `token`.
+  - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, selected cooperative size range in `currentSize`, `officeAddress`, required `city`, `state`, `country`, `startDate`, and the signed `token`.
   - The route derives the slug from `cooperativeName` and applies server-side tenant policy defaults instead of asking for public policy fields.
-  - `currentSize`, `officeAddress`, and `startDate` are persisted on the tenant record during workspace bootstrap.
+  - The selected `currentSize` range is persisted as the existing representative integer, while `officeAddress`, `city`, `state`, `country`, and `startDate` are persisted directly on the tenant record during workspace bootstrap; `region` is also written from `state` for legacy readers.
 - `trpc.notifications.list`
   - array of shared notification payloads built from `@halaalvest/notifications` types.
 - `trpc.members.list`

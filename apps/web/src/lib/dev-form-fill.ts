@@ -1,6 +1,10 @@
 "use client"
 
 import type { FieldValues, UseFormReturn } from "react-hook-form"
+import {
+  cooperativeCountryOptions,
+  cooperativeSizeRanges,
+} from "@halaalvest/domain"
 import { createWorkspaceSlugSuggestion } from "@/lib/signup-flow"
 
 type FakerInstance = typeof import("@faker-js/faker").faker
@@ -72,6 +76,18 @@ const cities = [
   "Jos North, Plateau State",
   "Port Harcourt, Rivers State",
 ]
+const locationDefaults = [
+  { city: "Lagos Island", state: "Lagos" },
+  { city: "Kano Municipal", state: "Kano" },
+  { city: "Ilorin", state: "Kwara" },
+  { city: "Ikeja", state: "Lagos" },
+  { city: "Abuja Municipal", state: "FCT" },
+  { city: "Ibadan North", state: "Oyo" },
+  { city: "Abeokuta South", state: "Ogun" },
+  { city: "Minna", state: "Niger" },
+  { city: "Jos North", state: "Plateau" },
+  { city: "Port Harcourt", state: "Rivers" },
+]
 const memberNumberPrefixes = ["", "PC-", "MEM-", "COOP-", "HV-", "MS-"]
 
 async function getFaker() {
@@ -141,17 +157,23 @@ function createRandomOfficeAddress(faker: FakerInstance) {
 const devFormDefaults = {
   onboarding: (faker: FakerInstance) => {
     const contact = createRandomContact(faker)
+    const location = faker.helpers.arrayElement(locationDefaults)
 
     return {
+      city: location.city,
       cooperativeName: createRandomCooperativeName(faker),
       confirmPassword: "password123",
-      currentSize: faker.number.int({ max: 850, min: 25 }),
+      country: faker.helpers.arrayElement(cooperativeCountryOptions),
+      currentSize: String(
+        faker.helpers.arrayElement(cooperativeSizeRanges).value,
+      ),
       officeAddress: createRandomOfficeAddress(faker),
       password: "password123",
       primaryContactEmail: contact.primaryContactEmail,
       primaryContactFullName: contact.primaryContactFullName,
       memberNumberPrefix: contact.memberNumberPrefix,
       primaryContactMemberNumber: contact.primaryContactMemberNumber,
+      state: location.state,
       startDate: randomStartDate(),
       token: "",
     }

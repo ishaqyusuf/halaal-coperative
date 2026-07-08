@@ -2,7 +2,10 @@ import type { StickyColumnConfig, TableConfig } from "@/components/tables/core"
 import type { TableId } from "./table-settings"
 
 export const STICKY_COLUMNS: Record<TableId, StickyColumnConfig[]> = {
-  members: [{ id: "member", width: 320 }],
+  members: [
+    { id: "select", width: 50 },
+    { id: "member", width: 320 },
+  ],
   contributions: [{ id: "member", width: 300 }],
   charges: [{ id: "name", width: 300 }],
   shares: [{ id: "effectiveFrom", width: 180 }],
@@ -98,7 +101,7 @@ export const SORT_FIELD_MAPS: Record<TableId, Record<string, string>> = {
 }
 
 export const NON_REORDERABLE_COLUMNS: Record<TableId, Set<string>> = {
-  members: new Set(["member", "actions"]),
+  members: new Set(["select", "member", "actions"]),
   contributions: new Set(["member", "actions"]),
   charges: new Set(["name", "actions"]),
   shares: new Set(["effectiveFrom", "actions"]),

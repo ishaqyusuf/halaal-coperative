@@ -904,10 +904,12 @@ type LoanRequestValues = z.infer<typeof loanRequestSchema>
 
 export function LoanRequestForm({
   devMode,
+  disabledReason,
   loanProducts,
   members,
 }: {
   devMode: boolean
+  disabledReason?: string | null
   loanProducts: Array<{ id: string; label: string }>
   members: Array<{ id: string; label: string }>
 }) {
@@ -964,6 +966,7 @@ export function LoanRequestForm({
           </div>
           {devMode ? (
             <Button
+              disabled={Boolean(disabledReason)}
               type="button"
               variant="outline"
               onClick={() =>
@@ -977,6 +980,12 @@ export function LoanRequestForm({
             </Button>
           ) : null}
         </div>
+        {disabledReason ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 md:col-span-2 xl:col-span-6">
+            <p className="font-medium">Loan request intake unavailable</p>
+            <p className="mt-1">{disabledReason}</p>
+          </div>
+        ) : null}
         <FormField
           control={form.control}
           name="memberId"
@@ -1078,7 +1087,7 @@ export function LoanRequestForm({
           )}
         />
         <div className="xl:col-span-6">
-          <Button disabled={isPending} type="submit">
+          <Button disabled={isPending || Boolean(disabledReason)} type="submit">
             Submit loan request
           </Button>
         </div>

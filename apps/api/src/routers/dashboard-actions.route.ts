@@ -23,6 +23,7 @@ import {
   finalizeTenantInitialMigration,
   generateShareProfitAllocations,
   disburseLoan,
+  openMonthlyFinancingCycle,
   getImportBatchKind,
   getImportReferenceData,
   getTenantInitialMigrationState,
@@ -77,6 +78,9 @@ import {
   updateMember,
   updateMemberDocumentReview,
   updateMemberSignupLink,
+  updateLoanProductSettings,
+  updateMonthlyFinancingCycleStatus,
+  updateTenantFinancingCyclePolicy,
   updateTenantMemberSignupSettings,
   updateLegacyLoanMigrationDraft,
   upsertTenantShareStructureVersion,
@@ -88,6 +92,10 @@ import {
   type MembershipRole,
 } from "@halaalvest/db"
 import { createEmailDraftFromType } from "@halaalvest/notifications"
+import {
+  isCooperativeCountry,
+  parseCooperativeSizeRangeValue,
+} from "@halaalvest/domain"
 import {
   backfillApplyHandler,
   backfillApplyTask,
@@ -1887,6 +1895,98 @@ export async function updateTenantBusinessProfitPolicyAction(
   revalidatePath("/getting-started")
 }
 
+export async function updateTenantFinancingPolicyAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await updateTenantFinancingCyclePolicy({
+    actorUserId: actor.user.id,
+    disbursementRequiresDeployableFunds: getOptionalBoolean(
+      formData,
+      "disbursementRequiresDeployableFunds"
+    ),
+    loanEligibilityMultiple: Number(
+      getRequiredString(formData, "loanEligibilityMultiple")
+    ),
+    normalLoanAllocationPercentage: Number(
+      getRequiredString(formData, "normalLoanAllocationPercentage")
+    ),
+    normalLoanTermMonths: Number(
+      getRequiredString(formData, "normalLoanTermMonths")
+    ),
+    quickLoanAllocationPercentage: Number(
+      getRequiredString(formData, "quickLoanAllocationPercentage")
+    ),
+    quickLoanTermMonths: Number(
+      getRequiredString(formData, "quickLoanTermMonths")
+    ),
+    requiresDualLoanApproval: getOptionalBoolean(
+      formData,
+      "requiresDualLoanApproval"
+    ),
+    reserveBufferAmount: Number(
+      getRequiredString(formData, "reserveBufferAmount")
+    ),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/loan")
+  revalidatePath("/loans")
+}
+
+export async function updateLoanProductSettingsAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await updateLoanProductSettings({
+    actorUserId: actor.user.id,
+    isActive: getOptionalBoolean(formData, "isActive"),
+    loanProductId: getOptionalTrimmedString(formData, "loanProductId"),
+    loanType: getRequiredString(formData, "loanType") as "normal" | "quick",
+    maxSavingsMultiple: Number(
+      getRequiredString(formData, "maxSavingsMultiple")
+    ),
+    name: getRequiredString(formData, "name"),
+    tenantId: actor.tenant.id,
+    termMonths: Number(getRequiredString(formData, "termMonths")),
+  })
+
+  revalidatePath("/settings/finance/loan")
+  revalidatePath("/loans")
+}
+
+export async function openMonthlyFinancingCycleAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await openMonthlyFinancingCycle({
+    actorUserId: actor.user.id,
+    statusNote: getOptionalTrimmedString(formData, "statusNote") ?? undefined,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance/loan")
+  revalidatePath("/loans")
+}
+
+export async function updateMonthlyFinancingCycleStatusAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await updateMonthlyFinancingCycleStatus({
+    actorUserId: actor.user.id,
+    financingCycleId: getRequiredString(formData, "financingCycleId"),
+    status: getRequiredString(formData, "status") as
+      | "closed"
+      | "open"
+      | "paused",
+    statusNote: getOptionalTrimmedString(formData, "statusNote") ?? undefined,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance/loan")
+  revalidatePath("/loans")
+}
+
 type ShareBusinessProfitHistoryRow = {
   deductionAmount: string
   profitAmount: string
@@ -2596,20 +2696,36 @@ export async function postRepaymentAction(formData: FormData) {
 
 export async function updateCooperativeProfileAction(formData: FormData) {
   const actor = await requireDashboardActor(workspaceConfigurationRoles)
+  const rawCurrentSize = (formData.get("currentSize") as string | null)?.trim()
+  const country = getOptionalTrimmedString(formData, "country")
+  const state = getOptionalTrimmedString(formData, "state")
+  let currentSize: number | null = null
+
+  if (rawCurrentSize) {
+    currentSize = parseCooperativeSizeRangeValue(rawCurrentSize)
+
+    if (currentSize === null) {
+      throw new Error("Select a valid cooperative size.")
+    }
+  }
+
+  if (country && !isCooperativeCountry(country)) {
+    throw new Error("Select a valid cooperative country.")
+  }
 
   await updateTenantProfile({
     actorUserId: actor.user.id,
-    currentSize: (() => {
-      const rawValue = (formData.get("currentSize") as string | null)?.trim()
-      return rawValue ? Number(rawValue) : null
-    })(),
+    city: getOptionalTrimmedString(formData, "city"),
+    country,
+    currentSize,
     memberNumberPrefix: normalizeMemberNumberPrefix(
       (formData.get("memberNumberPrefix") as string | null) ?? null
     ),
     name: getRequiredString(formData, "name"),
     officeAddress:
       (formData.get("officeAddress") as string | null)?.trim() || null,
-    region: (formData.get("region") as string | null)?.trim() || null,
+    region: state,
+    state,
     startDate: actor.tenant.startDate ?? null,
     tenantId: actor.tenant.id,
     timezone: getRequiredString(formData, "timezone"),
@@ -2625,13 +2741,16 @@ export async function updateTenantFinanceStartDateAction(formData: FormData) {
 
   await updateTenantProfile({
     actorUserId: actor.user.id,
+    city: actor.tenant.city ?? null,
+    country: actor.tenant.country ?? null,
     currentSize: actor.tenant.currentSize ?? null,
     memberNumberPrefix: normalizeMemberNumberPrefix(
       actor.tenant.memberNumberPrefix ?? null
     ),
     name: actor.tenant.name,
     officeAddress: actor.tenant.officeAddress ?? null,
-    region: actor.tenant.region ?? null,
+    region: actor.tenant.state ?? actor.tenant.region ?? null,
+    state: actor.tenant.state ?? actor.tenant.region ?? null,
     startDate: (formData.get("startDate") as string | null)?.trim() || null,
     tenantId: actor.tenant.id,
     timezone: actor.tenant.timezone,
@@ -4146,6 +4265,10 @@ const dashboardActionHandlers = {
   createChargeDefinitionVersionAction,
   updateChargeDefinitionVersionAction,
   updateTenantBusinessProfitPolicyAction,
+  updateTenantFinancingPolicyAction,
+  updateLoanProductSettingsAction,
+  openMonthlyFinancingCycleAction,
+  updateMonthlyFinancingCycleStatusAction,
   createShareBusinessAction,
   updateShareBusinessAction,
   createShareBusinessProfitEntryAction,
@@ -4289,6 +4412,18 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   updateTenantBusinessProfitPolicyAction: formAction(
     dashboardActionHandlers.updateTenantBusinessProfitPolicyAction
+  ),
+  updateTenantFinancingPolicyAction: formAction(
+    dashboardActionHandlers.updateTenantFinancingPolicyAction
+  ),
+  updateLoanProductSettingsAction: formAction(
+    dashboardActionHandlers.updateLoanProductSettingsAction
+  ),
+  openMonthlyFinancingCycleAction: formAction(
+    dashboardActionHandlers.openMonthlyFinancingCycleAction
+  ),
+  updateMonthlyFinancingCycleStatusAction: formAction(
+    dashboardActionHandlers.updateMonthlyFinancingCycleStatusAction
   ),
   createShareBusinessAction: formAction(
     dashboardActionHandlers.createShareBusinessAction

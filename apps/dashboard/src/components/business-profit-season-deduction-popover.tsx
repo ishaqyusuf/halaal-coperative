@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
@@ -57,11 +57,13 @@ export function BusinessProfitSeasonDeductionPopover({
   initialAmount,
   initialReason,
   maxAmount,
+  onTotalAmountChange,
   seasonKey,
 }: {
   initialAmount: number
   initialReason?: string | null
   maxAmount: number
+  onTotalAmountChange?: (amount: number) => void
   seasonKey: string
 }) {
   const initialLines = useMemo(() => {
@@ -88,6 +90,10 @@ export function BusinessProfitSeasonDeductionPopover({
       .map((line) => line.reason.trim())
       .filter(Boolean)
       .join("; ") || ""
+
+  useEffect(() => {
+    onTotalAmountChange?.(totalAmount)
+  }, [onTotalAmountChange, totalAmount])
 
   function updateLine(lineId: string, patch: Partial<DeductionLine>) {
     setLines((currentLines) =>
@@ -195,9 +201,13 @@ export function BusinessProfitSeasonDeductionPopover({
                   allowNegative={false}
                   decimalScale={2}
                   inputMode="decimal"
-                  isAllowed={(values) =>
-                    !values.floatValue || values.floatValue <= maxAmount
-                  }
+                  isAllowed={(values) => {
+                    const nextLineAmount = values.floatValue ?? 0
+                    const otherLineTotal =
+                      totalAmount - parseAmount(line.amount)
+
+                    return otherLineTotal + nextLineAmount <= maxAmount
+                  }}
                   onValueChange={(values) =>
                     updateLine(line.id, { amount: values.value })
                   }
@@ -241,5 +251,37 @@ export function BusinessProfitSeasonDeductionPopover({
         </PopoverContent>
       </Popover>
     </div>
+  )
+}
+
+export function BusinessProfitSeasonDeductionCells({
+  initialAmount,
+  initialReason,
+  maxAmount,
+  seasonKey,
+}: {
+  initialAmount: number
+  initialReason?: string | null
+  maxAmount: number
+  seasonKey: string
+}) {
+  const [deductionAmount, setDeductionAmount] = useState(initialAmount)
+  const distributableAmount = Math.max(0, maxAmount - deductionAmount)
+
+  return (
+    <Fragment>
+      <td>
+        <BusinessProfitSeasonDeductionPopover
+          initialAmount={initialAmount}
+          initialReason={initialReason}
+          maxAmount={maxAmount}
+          onTotalAmountChange={setDeductionAmount}
+          seasonKey={seasonKey}
+        />
+      </td>
+      <td className="pt-2 text-right text-sm">
+        {formatCurrency(distributableAmount)}
+      </td>
+    </Fragment>
   )
 }

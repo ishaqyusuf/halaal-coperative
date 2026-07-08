@@ -3,6 +3,7 @@
 import type { RouterOutputs } from "@halaalvest/api/trpc/routers/_app"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,15 +104,18 @@ const ActionsCell = memo(
 
     return (
       <div className="flex w-full items-center justify-center gap-1">
-        <Button
-          disabled={isBackfilled}
-          size="sm"
-          type="button"
-          variant="ghost"
-          onClick={goToBackfill}
-        >
-          {backfillLabel}
-        </Button>
+        {isBackfilled ? (
+          <Badge
+            className="border-emerald-200 bg-emerald-50 text-emerald-700"
+            variant="outline"
+          >
+            Backfilled
+          </Badge>
+        ) : (
+          <Button size="sm" type="button" variant="ghost" onClick={goToBackfill}>
+            {backfillLabel}
+          </Button>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button className="h-8 w-8 p-0" variant="ghost" />}>
@@ -167,6 +171,35 @@ const ActionsCell = memo(
 ActionsCell.displayName = "ActionsCell"
 
 export const columns: ColumnDef<Member>[] = [
+  {
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label={`Select ${row.original.fullName}`}
+        checked={row.getIsSelected()}
+        onCheckedChange={(checked) => {
+          if (checked === "indeterminate") {
+            row.toggleSelected()
+            return
+          }
+
+          row.toggleSelected(checked)
+        }}
+      />
+    ),
+    enableHiding: false,
+    enableResizing: false,
+    enableSorting: false,
+    id: "select",
+    maxSize: 50,
+    meta: {
+      className:
+        "w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20 justify-center",
+      skeleton: { type: "checkbox" },
+      sticky: true,
+    },
+    minSize: 50,
+    size: 50,
+  },
   {
     accessorKey: "fullName",
     cell: ({ row }) => (

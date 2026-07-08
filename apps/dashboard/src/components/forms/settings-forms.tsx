@@ -2,6 +2,12 @@
 
 import { useTransition } from "react"
 import { z } from "zod"
+import {
+  cooperativeCountryOptions,
+  cooperativeSizeRanges,
+  isCooperativeCountry,
+  parseCooperativeSizeRangeValue,
+} from "@halaalvest/domain"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
@@ -15,6 +21,14 @@ import {
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@halaalvest/ui/components/select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
@@ -25,11 +39,26 @@ import {
 } from "@/lib/dashboard-actions"
 
 const profileSchema = z.object({
-  currentSize: z.string().optional(),
+  city: z.string().trim().optional(),
+  country: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (value) => !value || isCooperativeCountry(value),
+      "Select a valid cooperative country.",
+    ),
+  currentSize: z
+    .string()
+    .optional()
+    .refine(
+      (value) => !value || parseCooperativeSizeRangeValue(value) !== null,
+      "Select a valid cooperative size.",
+    ),
   memberNumberPrefix: z.string().optional(),
   name: z.string().min(1, "Cooperative name is required."),
   officeAddress: z.string().optional(),
-  region: z.string().optional(),
+  state: z.string().trim().optional(),
   timezone: z.string().min(1, "Timezone is required."),
 })
 
@@ -107,9 +136,25 @@ export function CooperativeProfileForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Current size</FormLabel>
-              <FormControl>
-                <Input {...field} inputMode="numeric" />
-              </FormControl>
+              <Select
+                value={field.value ? String(field.value) : ""}
+                onValueChange={(value) => field.onChange(value ?? "")}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select cooperative size" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectGroup>
+                    {cooperativeSizeRanges.map((range) => (
+                      <SelectItem key={range.value} value={String(range.value)}>
+                        {range.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -158,13 +203,63 @@ export function CooperativeProfileForm({
         />
         <FormField
           control={form.control}
-          name="region"
+          name="city"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Region</FormLabel>
+              <FormLabel>City</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="Lagos Island"
+                />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="state"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>State</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="Lagos"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="country"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Country</FormLabel>
+              <Select
+                value={field.value ?? ""}
+                onValueChange={(value) => field.onChange(value ?? "")}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectGroup>
+                    {cooperativeCountryOptions.map((country) => (
+                      <SelectItem key={country} value={country}>
+                        {country}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

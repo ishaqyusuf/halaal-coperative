@@ -18,6 +18,37 @@ model LoanProduct {
   @@map("loan_products")
 }
 
+model FinancingCycle {
+  id                          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                    String                    @map("tenant_id") @db.Uuid
+  periodStart                 DateTime                  @map("period_start") @db.Date
+  periodEnd                   DateTime                  @map("period_end") @db.Date
+  status                      FinancingCycleStatus      @default(draft)
+  capacityBasis               FinancingCapacityBasis    @map("capacity_basis")
+  intakeReservationMode       LoanIntakeReservationMode @map("intake_reservation_mode")
+  projectedCommitmentAmount   Decimal                   @map("projected_commitment_amount") @db.Decimal(18, 2)
+  receivedContributionAmount  Decimal                   @default(0) @map("received_contribution_amount") @db.Decimal(18, 2)
+  reserveBufferAmount         Decimal                   @map("reserve_buffer_amount") @db.Decimal(18, 2)
+  totalCapacityAmount         Decimal                   @map("total_capacity_amount") @db.Decimal(18, 2)
+  quickAllocationPercentage   Decimal                   @map("quick_allocation_percentage") @db.Decimal(5, 2)
+  normalAllocationPercentage  Decimal                   @map("normal_allocation_percentage") @db.Decimal(5, 2)
+  quickBudgetAmount           Decimal                   @map("quick_budget_amount") @db.Decimal(18, 2)
+  normalBudgetAmount          Decimal                   @map("normal_budget_amount") @db.Decimal(18, 2)
+  openedAt                    DateTime?                 @map("opened_at") @db.Timestamptz(6)
+  pausedAt                    DateTime?                 @map("paused_at") @db.Timestamptz(6)
+  closedAt                    DateTime?                 @map("closed_at") @db.Timestamptz(6)
+  statusNote                  String?                   @map("status_note")
+  createdAt                   DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, periodStart, periodEnd], map: "financing_cycles_tenant_period_key")
+  @@index([tenantId, status], map: "financing_cycles_tenant_status_idx")
+  @@index([tenantId, periodStart], map: "financing_cycles_tenant_period_start_idx")
+  @@map("financing_cycles")
+}
+
 model LoanRequest {
   id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId              String             @map("tenant_id") @db.Uuid

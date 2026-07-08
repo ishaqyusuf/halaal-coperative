@@ -51,6 +51,8 @@ export async function POST(request: Request) {
     }
 
     const result = await createTenantWorkspaceBootstrap({
+      city: input.city,
+      country: input.country,
       currentSize: input.currentSize,
       name: input.cooperativeName,
       officeAddress: input.officeAddress,
@@ -63,6 +65,7 @@ export async function POST(request: Request) {
       ),
       ownerPasswordHash: hashPassword(input.password),
       slug: normalizeWorkspaceSlug(verification.workspaceSlug),
+      state: input.state,
       startDate: input.startDate,
     })
 

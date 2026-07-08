@@ -35,7 +35,7 @@ import { columns } from "./columns"
 import { MembersEmptyState, MembersNoResults } from "./empty-states"
 import { MembersTableHeader } from "./table-header"
 
-const NON_CLICKABLE_COLUMNS = new Set(["actions"])
+const NON_CLICKABLE_COLUMNS = new Set(["select", "actions"])
 const COLUMN_IDS = getColumnIds(columns)
 
 type MembersSortField =
@@ -89,7 +89,7 @@ export function MembersDataTable({
   const { filters } = useMembersFilterParams()
   const { params } = useSortParams()
   const parentRef = useRef<HTMLDivElement>(null)
-  const { setColumns } = useMembersStore()
+  const { rowSelection, setColumns, setRowSelection } = useMembersStore()
   const deferredSearch = useDeferredValue(filters.q)
 
   useScrollHeader(parentRef, { extraOffset: SUMMARY_GRID_HEIGHTS.members })
@@ -139,6 +139,9 @@ export function MembersDataTable({
     queryInput,
     {
       getNextPageParam: ({ meta }) => meta?.cursor,
+      refetchInterval: 5000,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
     }
   )
 
@@ -162,16 +165,19 @@ export function MembersDataTable({
     columns,
     data: tableData,
     enableColumnResizing: true,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     meta: tableMeta,
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
     state: {
       columnOrder,
       columnSizing,
       columnVisibility,
+      rowSelection,
     },
   })
 
@@ -188,7 +194,7 @@ export function MembersDataTable({
   })
 
   const tableScroll = useTableScroll({
-    startFromColumn: 1,
+    startFromColumn: 2,
     useColumnWidths: true,
   })
 
@@ -281,6 +287,7 @@ export function MembersDataTable({
                         onCellClick={setOpen}
                         row={row}
                         rowHeight={rowHeight}
+                        isSelected={rowSelection[row.id] ?? false}
                         virtualStart={virtualRow.start}
                       />
                     )

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { updateTenantProfile } from "./tenants"
+import { resolveTenantState, updateTenantProfile } from "./tenants"
 
 function createTenantProfilePrismaStub({
   initialMigrationStatus = "live_operations",
@@ -87,11 +87,14 @@ function createTenantProfilePrismaStub({
 
 const profileInput = {
   actorUserId: "user-1",
+  city: "Kaduna North",
+  country: "Nigeria",
   currentSize: 120,
   memberNumberPrefix: "MBR",
   name: "Halaal Cooperative",
   officeAddress: "Kaduna",
   region: "Kaduna",
+  state: "Kaduna",
   startDate: "2025-01-01",
   tenantId: "tenant-1",
   timezone: "Africa/Lagos",
@@ -128,5 +131,70 @@ describe("tenant profile migration guards", () => {
 
     expect(prisma.tenantUpdates).toHaveLength(1)
     expect(prisma.auditLogCreates).toHaveLength(1)
+  })
+
+  test("persists location fields and mirrors state into region", async () => {
+    const prisma = createTenantProfilePrismaStub()
+
+    await updateTenantProfile(
+      {
+        ...profileInput,
+        city: " Kaduna North ",
+        country: " Nigeria ",
+        region: "Legacy Region",
+        state: " Kaduna ",
+      },
+      prisma as never,
+    )
+
+    const update = prisma.tenantUpdates[0] as {
+      data: Record<string, unknown>
+    }
+    const audit = prisma.auditLogCreates[0] as {
+      data: {
+        metadata: Record<string, unknown>
+      }
+    }
+
+    expect(update.data).toMatchObject({
+      city: "Kaduna North",
+      country: "Nigeria",
+      region: "Kaduna",
+      state: "Kaduna",
+    })
+    expect(audit.data.metadata).toMatchObject({
+      city: "Kaduna North",
+      country: "Nigeria",
+      region: "Kaduna",
+      state: "Kaduna",
+    })
+  })
+
+  test("maps existing region as the state display fallback", () => {
+    expect(resolveTenantState({ region: "Kaduna", state: null })).toBe(
+      "Kaduna",
+    )
+  })
+
+  test("uses legacy region as the stored state when no state is supplied", async () => {
+    const prisma = createTenantProfilePrismaStub()
+
+    await updateTenantProfile(
+      {
+        ...profileInput,
+        region: "Kaduna",
+        state: null,
+      },
+      prisma as never,
+    )
+
+    const update = prisma.tenantUpdates[0] as {
+      data: Record<string, unknown>
+    }
+
+    expect(update.data).toMatchObject({
+      region: "Kaduna",
+      state: "Kaduna",
+    })
   })
 })

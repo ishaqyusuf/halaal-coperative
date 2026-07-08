@@ -38,11 +38,6 @@ import {
   FieldSet,
 } from "@halaalvest/ui/components/field"
 import { Input } from "@halaalvest/ui/components/input"
-import {
-  Progress,
-  ProgressLabel,
-  ProgressValue,
-} from "@halaalvest/ui/components/progress"
 import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import {
@@ -54,7 +49,7 @@ import {
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
-import { BusinessProfitSeasonDeductionPopover } from "@/components/business-profit-season-deduction-popover"
+import { BusinessProfitSeasonDeductionCells } from "@/components/business-profit-season-deduction-popover"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import {
   BusinessProfitPolicyForm,
@@ -658,8 +653,12 @@ function ChargesStep({
 }
 
 function SharesStep({
+  shareStructureVersions,
   tenantStartDate,
-}: Pick<GettingStartedPageViewProps, "tenantStartDate">) {
+}: Pick<
+  GettingStartedPageViewProps,
+  "shareStructureVersions" | "tenantStartDate"
+>) {
   return (
     <Card>
       <SetupCardHeader
@@ -670,6 +669,7 @@ function SharesStep({
       <CardContent className="grid gap-5">
         <ShareStructureVersionForm
           financeStartDate={tenantStartDate}
+          initialVersions={shareStructureVersions}
           redirectTo={stepHref("profit-policy")}
           showSubmitButton={false}
         />
@@ -944,17 +944,12 @@ function ProfitSeasonsStep({
                           <td className="pt-2 text-right text-sm">
                             {formatCurrency(season.entryDeductionAmount)}
                           </td>
-                          <td>
-                            <BusinessProfitSeasonDeductionPopover
-                              initialAmount={season.deductionAmount}
-                              initialReason={season.deductionReason}
-                              maxAmount={maxSeasonDeduction}
-                              seasonKey={season.key}
-                            />
-                          </td>
-                          <td className="pt-2 text-right text-sm">
-                            {formatCurrency(season.distributableAmount)}
-                          </td>
+                          <BusinessProfitSeasonDeductionCells
+                            initialAmount={season.deductionAmount}
+                            initialReason={season.deductionReason}
+                            maxAmount={maxSeasonDeduction}
+                            seasonKey={season.key}
+                          />
                           <td>
                             <Badge
                               variant={
@@ -1234,7 +1229,10 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
           tenantStartDate={props.tenantStartDate}
         />
       ) : props.activeStep === "shares" ? (
-        <SharesStep tenantStartDate={props.tenantStartDate} />
+        <SharesStep
+          shareStructureVersions={props.shareStructureVersions}
+          tenantStartDate={props.tenantStartDate}
+        />
       ) : props.activeStep === "profit-policy" ? (
         <ProfitPolicyStep businessPolicy={props.businessPolicy} />
       ) : props.activeStep === "business" ? (
@@ -1273,16 +1271,6 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
   const firstIncompleteStep =
     orderedStepKeys.find((key) => !isStepComplete(key, migrationSnapshot)) ??
     "admin-member"
-  const completedSetupStepCount = orderedStepKeys.filter((key) =>
-    isStepComplete(key, migrationSnapshot)
-  ).length
-  const completionPercent = Math.round(
-    (completedSetupStepCount / orderedStepKeys.length) * 100
-  )
-  const nextStepLabel =
-    firstIncompleteStep === "admin-member"
-      ? "Member onboarding"
-      : getStepMeta(firstIncompleteStep).label
 
   return (
     <WorkspacePageShell
@@ -1298,37 +1286,6 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
       title="Getting started"
       description={`Complete ${tenantName}'s historical setup before normal workspace records open.`}
     >
-      <section className="grid gap-4 md:grid-cols-3">
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Status</CardDescription>
-            <CardTitle>
-              {migrationSnapshot.status.replaceAll("_", " ")}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Progress</CardDescription>
-            <CardTitle>
-              {completedSetupStepCount}/{orderedStepKeys.length}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Progress value={completionPercent}>
-              <ProgressLabel>Steps complete</ProgressLabel>
-              <ProgressValue>{completionPercent}%</ProgressValue>
-            </Progress>
-          </CardContent>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Next</CardDescription>
-            <CardTitle>{nextStepLabel}</CardTitle>
-          </CardHeader>
-        </Card>
-      </section>
-
       <section className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
         <StepRail activeStep={props.activeStep} snapshot={migrationSnapshot} />
         <ActiveStepPanel {...props} />

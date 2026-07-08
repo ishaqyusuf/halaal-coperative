@@ -3,6 +3,7 @@ import {
   DashboardSectionCard,
   DashboardSectionHeader,
   DashboardStatCard,
+  DashboardSurfaceCard,
   TrendPill,
 } from "@/components/dashboard"
 import {
@@ -22,12 +23,24 @@ export function LoansPageView({
   canReview,
   canSubmit,
   dashboard,
+  financingCycle,
   loanProducts,
   loanRequests,
   loans,
   members,
   quickFillEnabled,
 }: LoansPageData) {
+  const intakeDisabledReason =
+    financingCycle.intakeStatus === "open"
+      ? null
+      : financingCycle.intakeStatus === "missing"
+        ? "Open the current monthly financing cycle before accepting loan requests."
+        : `The current monthly financing cycle is ${financingCycle.intakeStatus}; intake is closed.`
+  const productUsageByType = {
+    normal: financingCycle.normal,
+    quick: financingCycle.quick,
+  }
+
   return (
     <WorkspacePageShell
       eyebrow="Loans"
@@ -44,9 +57,10 @@ export function LoansPageView({
           <div className="mt-5">
             <LoanRequestForm
               devMode={quickFillEnabled}
+              disabledReason={intakeDisabledReason}
               loanProducts={loanProducts.map((product) => ({
                 id: product.id,
-                label: `${product.name} (up to ${product.termMonths} months)`,
+                label: `${product.name} (up to ${product.termMonths} months, ${formatCurrency(productUsageByType[product.loanType].remainingAmount)} remaining)`,
               }))}
               members={members.items.map((member) => ({
                 id: member.id,
@@ -57,6 +71,80 @@ export function LoansPageView({
         </DashboardSectionCard>
       ) : null}
 
+      <DashboardSectionCard>
+        <DashboardSectionHeader
+          actions={
+            <TrendPill
+              tone={
+                financingCycle.intakeStatus === "open"
+                  ? "positive"
+                  : "warning"
+              }
+            >
+              {financingCycle.intakeStatus === "open"
+                ? "intake open"
+                : "intake closed"}
+            </TrendPill>
+          }
+          description="Monthly cycle capacity reserves submitted, under-review, and approved requests against quick and normal budgets."
+          eyebrow="Cycle capacity"
+          title="Current monthly financing capacity"
+        />
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <DashboardStatCard
+            detail={`${formatCurrency(financingCycle.quick.requestedReservedAmount)} requested or held`}
+            label="Quick remaining"
+            tone={
+              financingCycle.quick.remainingAmount <= 0
+                ? "warning"
+                : "positive"
+            }
+            value={formatCurrency(financingCycle.quick.remainingAmount)}
+          />
+          <DashboardStatCard
+            detail={`${formatCurrency(financingCycle.normal.requestedReservedAmount)} requested or held`}
+            label="Normal remaining"
+            tone={
+              financingCycle.normal.remainingAmount <= 0
+                ? "warning"
+                : "positive"
+            }
+            value={formatCurrency(financingCycle.normal.remainingAmount)}
+          />
+          <DashboardStatCard
+            detail={`${formatCurrency(financingCycle.deployableFunds.approvedHoldAmount)} approved holds excluded`}
+            label="Deployable funds"
+            tone={
+              financingCycle.deployableFunds.deployableFunds > 0
+                ? "positive"
+                : "warning"
+            }
+            value={formatCurrency(financingCycle.deployableFunds.deployableFunds)}
+          />
+          <DashboardStatCard
+            detail={`${Math.round(financingCycle.collectionCoverage * 100)}% of projected commitments collected`}
+            label="Collections"
+            tone={
+              financingCycle.receivedContributionAmount >=
+              financingCycle.projectedCommitmentAmount
+                ? "positive"
+                : "warning"
+            }
+            value={formatCurrency(financingCycle.receivedContributionAmount)}
+          />
+        </div>
+        {financingCycle.warnings.length ? (
+          <DashboardSurfaceCard className="mt-4 border-amber-200 bg-amber-50 text-amber-950">
+            <p className="text-sm font-medium">Financing cycle warnings</p>
+            <ul className="mt-2 space-y-1 text-sm">
+              {financingCycle.warnings.map((warning) => (
+                <li key={warning.key}>{warning.label}</li>
+              ))}
+            </ul>
+          </DashboardSurfaceCard>
+        ) : null}
+      </DashboardSectionCard>
+
       <section className="grid gap-4 sm:grid-cols-3">
         <DashboardStatCard
           detail="Currently approved, disbursed, or active loan records."
@@ -65,8 +153,8 @@ export function LoansPageView({
         />
         <DashboardStatCard
           detail="Current liquidity available for approved disbursement."
-          label="Available pool"
-          value={formatCurrency(dashboard.availablePool)}
+          label="Deployable funds"
+          value={formatCurrency(financingCycle.deployableFunds.deployableFunds)}
         />
         <DashboardStatCard
           detail="Share of active facilities with overdue repayment items."
@@ -97,7 +185,7 @@ export function LoansPageView({
         />
         <div className="mt-5">
           <LoanPortfolioTable
-            availablePool={dashboard.availablePool}
+            availablePool={financingCycle.deployableFunds.deployableFunds}
             canReview={canReview}
             items={loans}
           />

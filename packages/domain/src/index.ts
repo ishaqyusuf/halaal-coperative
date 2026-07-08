@@ -1,4 +1,6 @@
 export * from "./modules/dashboard"
+export * from "./modules/cooperative-location"
+export * from "./modules/cooperative-size"
 export * from "./modules/finance"
 export * from "./modules/marketing"
 export * from "./modules/migration"

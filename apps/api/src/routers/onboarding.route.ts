@@ -1,4 +1,5 @@
 import { createTenantWorkspaceBootstrap, getTenantOnboardingState } from "@halaalvest/db"
+import { isCooperativeCountry } from "@halaalvest/domain"
 import { z } from "zod"
 
 import { authenticatedProcedure, createTRPCRouter, tenantProcedure } from "../lib.trpc"
@@ -16,6 +17,13 @@ export const onboardingRouter = createTRPCRouter({
         ownerFullName: z.string().min(2),
         ownerEmail: z.email(),
         ownerMemberNumber: z.string().min(1).optional(),
+        city: z.string().min(1).optional(),
+        state: z.string().min(1).optional(),
+        country: z
+          .string()
+          .min(1)
+          .refine(isCooperativeCountry, "Select a valid cooperative country.")
+          .optional(),
         region: z.string().min(2).optional(),
         currencyCode: z.string().length(3).optional(),
         timezone: z.string().min(2).optional(),

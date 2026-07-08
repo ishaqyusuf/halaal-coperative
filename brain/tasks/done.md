@@ -180,3 +180,42 @@ This file records completed work and important outcomes.
 - Plan Status: Done
 - Plan File: brain/plans/2026-07-03-feature-inclusive-interest-free-cooperative-positioning.md
 - Created Date: 2026-07-03
+
+### Loan Policy And Monthly Financing Cycle Model
+
+- Priority: High
+- Description: Added tenant financing-cycle policy fields, monthly cycle snapshots, preview/open/status/policy DB helpers, seed/test defaults, and focused query tests.
+- Related Feature: Monthly financing cycle loan settings
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-07-08-feature-loan-policy-and-monthly-financing-cycle-model.md
+- Intake File: brain/intake/2026-07-08-monthly-financing-cycle-loan-settings.md
+- Created Date: 2026-07-08
+- Completed Date: 2026-07-08
+- Checks: `bun --cwd packages/db db:generate`; `bun --cwd packages/db test src/queries/financing-cycles.test.ts src/queries/loans.test.ts`
+
+### Financing Settings Workspace
+
+- Priority: High
+- Description: Added the live `/settings/finance/loan` financing settings workspace with current-month capacity preview, audited tenant policy/product/cycle actions, client forms, and a separated legacy loan migration section.
+- Related Feature: Monthly financing cycle loan settings
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-07-08-feature-financing-settings-workspace.md
+- Intake File: brain/intake/2026-07-08-monthly-financing-cycle-loan-settings.md
+- Created Date: 2026-07-08
+- Completed Date: 2026-07-08
+- Checks: `bun --cwd packages/db test src/queries/financing-cycles.test.ts src/queries/loans.test.ts`; `git -C /Users/M1PRO/Documents/code/halaal-coperative diff --check`
+
+### Loan Intake Capacity Enforcement And Dashboard Visibility
+
+- Priority: High
+- Description: Added current-cycle quota enforcement for quick/normal financing request intake, deployable-funds disbursement blocking, loan workspace capacity visibility, and overview financing-cycle warning counts.
+- Related Feature: Monthly financing cycle loan settings
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-07-08-feature-loan-intake-capacity-enforcement-and-dashboard-visibility.md
+- Intake File: brain/intake/2026-07-08-monthly-financing-cycle-loan-settings.md
+- Created Date: 2026-07-08
+- Completed Date: 2026-07-08
+- Checks: `bun --cwd packages/db test src/queries/financing-cycles.test.ts src/queries/loans.test.ts`; `git -C /Users/M1PRO/Documents/code/halaal-coperative diff --check`

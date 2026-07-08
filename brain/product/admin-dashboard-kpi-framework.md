@@ -79,6 +79,8 @@
 - Overdue amount.
 - PAR 30, PAR 60, PAR 90.
 - Guarantor, approval, or documentation exceptions when modeled.
+- Monthly financing cycle status, quick/normal capacity usage, and projected-vs-actual collection warnings when the active cycle can affect intake or disbursement decisions.
+- Loan workspaces should show quick/normal budget, requested or held amount, disbursed amount, remaining capacity, and deployable-funds warnings before staff submit or disburse financing.
 
 ### Halaal And Compliance Watch
 - Incomplete KYC.

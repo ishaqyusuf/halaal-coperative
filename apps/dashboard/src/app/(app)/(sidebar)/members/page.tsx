@@ -118,6 +118,7 @@ export default async function MembersPage({
             createAction={
               data.canManageMembers ? (
                 <MemberCreateModal
+                  cooperativeStartDate={data.tenant?.startDate}
                   devMode={data.quickFillEnabled}
                   memberNumberPrefix={data.tenant?.memberNumberPrefix}
                 />
@@ -170,6 +171,7 @@ export default async function MembersPage({
             createAction={
               data.canManageMembers ? (
                 <MemberCreateModal
+                  cooperativeStartDate={data.tenant?.startDate}
                   devMode={data.quickFillEnabled}
                   memberNumberPrefix={data.tenant?.memberNumberPrefix}
                 />

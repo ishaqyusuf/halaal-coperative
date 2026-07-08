@@ -1,4 +1,9 @@
 import { z } from "zod"
+import {
+  defaultCooperativeCountry,
+  isCooperativeCountry,
+  parseCooperativeSizeRangeValue,
+} from "@halaalvest/domain"
 import { isReservedTenantSubdomainLabel } from "@halaalvest/utils"
 
 export function normalizeWorkspaceSlug(value: string) {
@@ -42,21 +47,25 @@ const memberNumberSchema = z
   .min(1, "Enter the primary contact cooperative number.")
   .transform((value) => value.toUpperCase())
 
-function positiveIntegerField(message: string) {
-  return z.preprocess((value) => {
-    if (value === "" || value === null || value === undefined) {
-      return value
+const cooperativeSizeRangeField = z
+  .union([z.number(), z.string()])
+  .transform((value, context) => {
+    const currentSize = parseCooperativeSizeRangeValue(value)
+
+    if (currentSize === null) {
+      context.addIssue({
+        code: "custom",
+        message: "Select the current cooperative size.",
+      })
+
+      return z.NEVER
     }
 
-    if (typeof value === "number") {
-      return value
-    }
+    return currentSize
+  })
 
-    const normalized = Number(value)
-
-    return Number.isFinite(normalized) ? normalized : value
-  }, z.number().int().positive(message))
-}
+const requiredProfileTextField = (message: string) =>
+  z.string().trim().min(1, message)
 
 export const signupIntentSchema = z.object({
   cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
@@ -79,15 +88,21 @@ export const signupVerificationPayloadSchema = z.object({
 })
 
 export const onboardingFormSchema = z.object({
+  city: requiredProfileTextField("Enter the cooperative city."),
   confirmPassword: z.string().min(8, "Confirm your password."),
+  country: requiredProfileTextField("Select the cooperative country.").refine(
+    isCooperativeCountry,
+    "Select a valid cooperative country.",
+  ),
   cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
-  currentSize: positiveIntegerField("Enter the current cooperative size."),
+  currentSize: cooperativeSizeRangeField,
   memberNumberPrefix: memberNumberPrefixSchema.optional().default(""),
   officeAddress: z.string().trim().min(10, "Enter the cooperative office address."),
   password: z.string().min(8, "Password must be at least 8 characters."),
   primaryContactEmail: z.email("Enter a valid email address."),
   primaryContactFullName: z.string().trim().min(2, "Enter the primary contact name."),
   primaryContactMemberNumber: memberNumberSchema,
+  state: requiredProfileTextField("Enter the cooperative state."),
   startDate: z
     .string()
     .trim()
@@ -163,9 +178,11 @@ export function createSignupVerificationPayload(input: SignupIntentInput): Signu
 
 export function getOnboardingDefaultsFromVerification(payload: SignupVerificationPayload) {
   return {
+    city: "",
     cooperativeName: payload.cooperativeName,
     currentSize: "",
     confirmPassword: "",
+    country: defaultCooperativeCountry,
     memberNumberPrefix: payload.memberNumberPrefix,
     officeAddress: "",
     password: "",
@@ -175,6 +192,7 @@ export function getOnboardingDefaultsFromVerification(payload: SignupVerificatio
       payload.memberNumberPrefix,
       payload.primaryContactMemberNumber
     ),
+    state: "",
     startDate: "",
     token: "",
   }

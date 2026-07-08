@@ -16,6 +16,7 @@ import { cn } from "@halaalvest/ui/lib/utils"
 
 export type LedgerColumnKey =
   | "action"
+  | "charges"
   | "commitment"
   | "finalSaving"
   | "loanBalance"
@@ -48,6 +49,7 @@ type LedgerColumnVisibilityFrameProps = {
 
 const hiddenColumnClassByKey: Partial<Record<LedgerColumnKey, string>> = {
   commitment: "[&_.commitment-column]:hidden",
+  charges: "[&_.charge-column]:hidden",
   finalSaving: "[&_.final-saving-column]:hidden",
   loanBalance: "[&_.loan-balance-column]:hidden",
   repayment: "[&_.repayment-column]:hidden",
@@ -58,6 +60,7 @@ const hiddenColumnClassByKey: Partial<Record<LedgerColumnKey, string>> = {
 
 const hiddenSummaryClassByKey: Partial<Record<LedgerColumnKey, string>> = {
   commitment: "[&_.commitment-summary-when-hidden]:hidden",
+  charges: "[&_.charge-summary-when-hidden]:hidden",
   finalSaving: "[&_.final-saving-summary-when-hidden]:hidden",
   loanBalance: "[&_.loan-balance-summary-when-hidden]:hidden",
   repayment: "[&_.repayment-summary-when-hidden]:hidden",
@@ -116,7 +119,7 @@ export function LedgerColumnVisibilityFrame({
             .map((item) => (
               <button
                 className="inline-flex items-center gap-1.5 border border-border/70 px-2 py-1 text-[11px] transition-colors hover:border-foreground/30 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                key={item.columnKey}
+                key={`${item.columnKey}-${item.label}`}
                 type="button"
                 onClick={() => showColumn(item.columnKey)}
               >

@@ -5,6 +5,7 @@ import {
   SortableContext,
 } from "@dnd-kit/sortable"
 import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   TableHead,
   TableHeader,
@@ -114,7 +115,9 @@ export function MembersTableHeader<TData>({
               if (!canReorder) {
                 const stickyClass = getStickyClassName(
                   columnId,
-                  "group/header relative flex h-full items-center border-t border-border px-4"
+                  columnId === "select"
+                    ? "group/header relative flex h-full items-center justify-center border-t border-border px-0"
+                    : "group/header relative flex h-full items-center border-t border-border px-4"
                 )
                 const finalClassName = isActions
                   ? actionsFullWidth
@@ -134,6 +137,7 @@ export function MembersTableHeader<TData>({
                       sortColumn,
                       sortValue,
                       createSortQuery,
+                      table,
                       tableScroll
                     )}
                     <ResizeHandle header={header} />
@@ -154,6 +158,7 @@ export function MembersTableHeader<TData>({
                       sortColumn,
                       sortValue,
                       createSortQuery,
+                      table,
                       tableScroll
                     )}
                   </div>
@@ -174,9 +179,25 @@ function renderHeaderContent<TData>(
   sortColumn: string | undefined,
   sortValue: string | undefined,
   createSortQuery: (name: string) => void,
+  table: Table<TData>,
   tableScroll?: TableScrollState
 ) {
   const sortField = SORT_FIELD_MAPS.members[columnId]
+
+  if (columnId === "select") {
+    return (
+      <Checkbox
+        aria-label="Select all visible members"
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && "indeterminate")
+        }
+        onCheckedChange={(checked) => {
+          table.toggleAllPageRowsSelected(checked === true)
+        }}
+      />
+    )
+  }
 
   if (columnId === "actions") {
     return (

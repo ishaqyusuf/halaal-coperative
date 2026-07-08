@@ -442,6 +442,7 @@ function LoansStep({ data }: { data: MemberBackfillData }) {
       />
       <div className="mt-5">
         <LoanHistoryEntryForm
+          cooperativeStartDate={data.tenantStartDate}
           disabled={disabled}
           formId={memberBackfillLoanHistoryFormId}
           initialRows={data.legacyLoanDrafts}

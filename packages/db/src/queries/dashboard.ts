@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { getMonthlyFinancingCycleHealth } from "./financing-cycles"
 
 const activeFinancingStatuses = ["disbursed", "active"] as const
 const pendingFinancingRequestStatuses = ["submitted", "under_review"] as const
@@ -55,6 +56,7 @@ export type OverviewSummary = {
     par60Amount: number
     par90Amount: number
     pendingDisbursementCount: number
+    financingCycleWarningCount: number
   }
   complianceWatch: Array<{
     key: string
@@ -137,6 +139,7 @@ function getEmptyOverviewSummary(input: {
       periodLabel: getFallbackPeriodLabel(),
     },
     financingRisk: {
+      financingCycleWarningCount: 0,
       outstandingPrincipal: 0,
       overdueAmount: 0,
       par30Amount: 0,
@@ -313,6 +316,7 @@ export async function getOverviewSummary(
     latestContributions,
     latestRepayments,
     latestLoanRequests,
+    financingCycleHealth,
   ] = await Promise.all([
     getDashboardMetrics(tenantId, prisma),
     prisma.memberOnboardingRequest.count({
@@ -406,6 +410,7 @@ export async function getOverviewSummary(
       take: 3,
       where: { tenantId },
     }),
+    getMonthlyFinancingCycleHealth({ tenantId }, prisma),
   ])
 
   const monthlyRows = currentMonthlyRecord?.memberRows ?? []
@@ -517,6 +522,17 @@ export async function getOverviewSummary(
       severity: "critical" as const,
     },
     {
+      count: financingCycleHealth.warnings.length,
+      href: "/loans",
+      key: "financing-cycle-warnings",
+      label: "Financing cycle warnings",
+      severity: financingCycleHealth.warnings.some(
+        (warning) => warning.severity === "critical"
+      )
+        ? ("critical" as const)
+        : ("warning" as const),
+    },
+    {
       count: overdueScheduleItems.length,
       href: "/repayments?status=overdue",
       key: "overdue-follow-ups",
@@ -593,6 +609,7 @@ export async function getOverviewSummary(
       unpaidMemberCount,
     },
     financingRisk: {
+      financingCycleWarningCount: financingCycleHealth.warnings.length,
       outstandingPrincipal: metrics.outstandingLoans,
       overdueAmount,
       par30Amount,

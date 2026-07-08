@@ -85,6 +85,9 @@ type DashboardPageData = {
     memberNumberPrefix?: string | null
     currentSize?: number | null
     officeAddress?: string | null
+    city?: string | null
+    state?: string | null
+    country?: string | null
     startDate?: string | null
     region: string | null
     currencyCode: string
@@ -176,6 +179,9 @@ export async function getDashboardPageData(): Promise<DashboardPageData> {
       memberNumberPrefix: null,
       currentSize: null,
       officeAddress: null,
+      city: null,
+      state: null,
+      country: null,
       startDate: null,
       region: null,
       currencyCode: "NGN",

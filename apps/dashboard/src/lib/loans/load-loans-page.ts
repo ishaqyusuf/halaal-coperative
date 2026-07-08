@@ -1,5 +1,6 @@
 import {
   createDbRuntime,
+  getMonthlyFinancingCycleHealth,
   listLoanProducts,
   listLoanRequests,
   listLoans,
@@ -16,6 +17,7 @@ type LoanNumericValue = number | string | { toString(): string }
 
 type LoanProductOptionRow = {
   id: string
+  loanType: "normal" | "quick"
   name: string
   termMonths: number
 }
@@ -67,6 +69,7 @@ export type LoansPageData =
       canReview: boolean
       canSubmit: boolean
       dashboard: Awaited<ReturnType<typeof getDashboardPageData>>["dashboard"]
+      financingCycle: Awaited<ReturnType<typeof getMonthlyFinancingCycleHealth>>
       loanProducts: LoanProductOptionRow[]
       loanRequests: LoanRequestRow[]
       loans: LoanPortfolioRow[]
@@ -88,17 +91,20 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
     }
   }
 
-  const [members, loanProducts, loanRequests, loans] = await Promise.all([
+  const [members, loanProducts, loanRequests, loans, financingCycle] =
+    await Promise.all([
     listMembers(context.tenant.id, { page: 1, pageSize: 100 }),
     listLoanProducts(context.tenant.id),
     listLoanRequests(context.tenant.id),
     listLoans(context.tenant.id),
+    getMonthlyFinancingCycleHealth({ tenantId: context.tenant.id }),
   ])
 
   return {
     canReview: hasAnyRole(context.auth.membership?.role, financeManagementRoles),
     canSubmit: hasAnyRole(context.auth.membership?.role, allStaffRoles),
     dashboard,
+    financingCycle,
     loanProducts: loanProducts as LoanProductOptionRow[],
     loanRequests: loanRequests as LoanRequestRow[],
     loans: loans as LoanPortfolioRow[],

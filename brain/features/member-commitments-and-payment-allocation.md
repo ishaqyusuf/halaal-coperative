@@ -13,6 +13,7 @@
 - A member commitment is defined per member through `ContributionPlan`.
 - The active monthly commitment can change over time and should be tracked historically.
 - When requesting a loan, the member chooses a repayment duration in months.
+- New loan requests are accepted only when the current monthly financing cycle is open and the selected quick or normal allocation has enough remaining intake capacity.
 - The system calculates an estimated monthly servicing amount from `requestedAmount / requestedTermMonths`.
 - Any configured loan-fee charge is posted as a separate charge application when the loan request is created; it is not added to principal or monthly servicing.
 - The member may add a recurring extra monthly savings amount alongside the scheduled loan servicing amount.
@@ -48,6 +49,7 @@
   - `savings_first` sends the remainder to extra savings.
   - `loan_first` sends the remainder to extra loan payoff when a loan is selected, otherwise it falls back to savings.
 - Loan repayments are allocated across the earliest unpaid schedule items first.
+- Approval does not guarantee disbursement; disbursement can still be blocked when actual deployable funds are below the approved principal.
 - Savings allocations increase `Member.totalSavingsSnapshot`.
 - Loan allocations reduce `Loan.outstandingPrincipal`.
 - Collections follow-up records are stored separately from repayments so collections operations can be reported without mutating the repayment posting ledger.

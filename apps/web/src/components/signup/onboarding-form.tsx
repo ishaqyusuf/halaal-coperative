@@ -34,10 +34,22 @@ import {
   ProgressValue,
 } from "@halaalvest/ui/components/progress"
 import { Separator } from "@halaalvest/ui/components/separator"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@halaalvest/ui/components/select"
 import { Spinner } from "@halaalvest/ui/components/spinner"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { useNotifications } from "@halaalvest/notifications-react"
+import {
+  cooperativeCountryOptions,
+  cooperativeSizeRanges,
+} from "@halaalvest/domain"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
@@ -291,13 +303,28 @@ export function OnboardingForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Current cooperative size</FormLabel>
-                    <FormControl>
-                      <Input
-                        inputMode="numeric"
-                        placeholder="Enter current member count"
-                        {...field}
-                      />
-                    </FormControl>
+                    <Select
+                      value={field.value ? String(field.value) : ""}
+                      onValueChange={(value) => field.onChange(value ?? "")}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select cooperative size" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          {cooperativeSizeRanges.map((range) => (
+                            <SelectItem
+                              key={range.value}
+                              value={String(range.value)}
+                            >
+                              {range.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -335,6 +362,64 @@ export function OnboardingForm({
                         {...field}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter city" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter state" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <Select
+                      value={field.value ?? ""}
+                      onValueChange={(value) => field.onChange(value ?? "")}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          {cooperativeCountryOptions.map((country) => (
+                            <SelectItem key={country} value={country}>
+                              {country}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

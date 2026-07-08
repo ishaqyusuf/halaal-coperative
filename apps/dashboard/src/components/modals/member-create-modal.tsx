@@ -18,6 +18,7 @@ import { MemberBackfillStartModal } from "@/components/modals/member-backfill-st
 import { shouldPromptMemberBackfill } from "@/lib/members/member-backfill-prompt"
 
 export function MemberCreateModal({
+  cooperativeStartDate,
   description = "Add the member profile, joined date, and starting commitment.",
   devMode,
   initialValues,
@@ -29,6 +30,7 @@ export function MemberCreateModal({
   title = "Create member",
   triggerLabel = "New member",
 }: {
+  cooperativeStartDate?: string | null
   description?: string
   devMode: boolean
   initialValues?: Parameters<typeof MemberCreateForm>[0]["initialValues"]
@@ -102,6 +104,7 @@ export function MemberCreateModal({
             </DialogHeader>
 
             <MemberCreateForm
+              cooperativeStartDate={cooperativeStartDate}
               devMode={devMode}
               initialValues={initialValues}
               inModal

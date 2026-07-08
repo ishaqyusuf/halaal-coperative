@@ -5,6 +5,7 @@ import { z } from "zod"
 import { Tick02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
+import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import {
@@ -45,6 +46,7 @@ import {
   updateMemberDocumentReviewAction,
   updateMemberKycAction,
 } from "@/lib/dashboard-actions"
+import { useTRPC } from "@/trpc/client"
 
 function CurrencyFormInput({
   onChange,
@@ -181,6 +183,13 @@ export type CreatedMemberSummary = {
   memberNumber: string
 }
 
+function isBeforeCooperativeStartDate(
+  value: string | undefined,
+  cooperativeStartDate?: string | null
+) {
+  return Boolean(value && cooperativeStartDate && value < cooperativeStartDate)
+}
+
 const memberCommitmentSchema = z.object({
   amount: z.string().min(1, "Monthly commitment is required."),
   memberId: z.string().min(1),
@@ -279,12 +288,14 @@ export function MemberCommitmentForm({
 }
 
 export function MemberCreateForm({
+  cooperativeStartDate,
   devMode,
   inModal = false,
   initialValues,
   memberNumberPrefix,
   onSuccess,
 }: {
+  cooperativeStartDate?: string | null
   devMode: boolean
   inModal?: boolean
   initialValues?: Partial<MemberCreateValues>
@@ -305,9 +316,19 @@ export function MemberCreateForm({
     },
   })
   const { showError, showSuccess } = useNotifications()
+  const queryClient = useQueryClient()
+  const trpc = useTRPC()
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: MemberCreateValues) {
+    if (isBeforeCooperativeStartDate(values.joinedAt, cooperativeStartDate)) {
+      form.setError("joinedAt", {
+        message: `Joined date cannot be before the cooperative start date (${cooperativeStartDate}).`,
+        type: "manual",
+      })
+      return
+    }
+
     startTransition(async () => {
       try {
         const formData = objectToFormData(values)
@@ -315,6 +336,9 @@ export function MemberCreateForm({
         const createdMember = (await createMemberAction(
           formData
         )) as CreatedMemberSummary
+        await queryClient.invalidateQueries(
+          trpc.members.list.infiniteQueryFilter()
+        )
         showSuccess("Member added", "Member record created.")
         form.reset({
           address: "",
@@ -457,6 +481,7 @@ export function MemberCreateForm({
                   <DatePickerInput
                     {...field}
                     allowClear={false}
+                    min={cooperativeStartDate ?? undefined}
                     placeholder="Select joined date"
                   />
                 </FormControl>

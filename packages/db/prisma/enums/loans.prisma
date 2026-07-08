@@ -3,6 +3,21 @@ enum LoanType {
   normal
 }
 
+enum FinancingCapacityBasis {
+  projected_monthly_commitments
+}
+
+enum LoanIntakeReservationMode {
+  submitted_request_amount
+}
+
+enum FinancingCycleStatus {
+  draft
+  open
+  paused
+  closed
+}
+
 enum LoanRequestStatus {
   draft
   submitted

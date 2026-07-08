@@ -74,6 +74,9 @@ export type TenantBootstrapInput = {
   ownerMemberNumber?: string
   currentSize?: number
   officeAddress?: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
   startDate?: string | null
   region?: string | null
   currencyCode?: string
@@ -111,6 +114,9 @@ function toTenantRecord(input: {
   name: string
   currentSize?: number | null
   officeAddress?: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
   startDate?: Date | string | null
   region: string | null
   currencyCode: string
@@ -124,6 +130,9 @@ function toTenantRecord(input: {
     name: input.name,
     currentSize: input.currentSize ?? null,
     officeAddress: input.officeAddress ?? null,
+    city: input.city ?? null,
+    state: input.state ?? input.region ?? null,
+    country: input.country ?? null,
     startDate:
       input.startDate instanceof Date
         ? input.startDate.toISOString().slice(0, 10)
@@ -152,7 +161,7 @@ function buildTenantOnboardingSnapshot(input: {
       key: "tenant_profile",
       label: "Cooperative profile",
       description:
-        "Cooperative name, slug, region, and workspace identity are saved.",
+        "Cooperative name, slug, location, and workspace identity are saved.",
       complete: input.hasTenantProfile,
     },
     {
@@ -491,11 +500,14 @@ export async function createTenantWorkspaceBootstrap(
         name: input.name.trim(),
         currentSize: input.currentSize,
         officeAddress: input.officeAddress?.trim() || null,
+        city: input.city?.trim() || null,
+        state: input.state?.trim() || input.region?.trim() || null,
+        country: input.country?.trim() || null,
         memberNumberPrefix: input.memberNumberPrefix?.trim() || null,
         startDate: input.startDate
           ? new Date(`${input.startDate}T00:00:00.000Z`)
           : null,
-        region: input.region?.trim() || null,
+        region: input.state?.trim() || input.region?.trim() || null,
         currencyCode: input.currencyCode?.trim().toUpperCase() || "NGN",
         timezone: input.timezone?.trim() || "Africa/Lagos",
         status: "pending",

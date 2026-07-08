@@ -475,6 +475,36 @@ function chooseRandomGuarantors(options: MemberOption[]) {
   }
 }
 
+function chooseGuarantorQuickFill(
+  row: LoanHistoryInputRow,
+  options: MemberOption[]
+) {
+  const nextGuarantorOneMemberId = row.guarantorOneMemberId
+  const nextGuarantorTwoMemberId =
+    row.guarantorTwoMemberId &&
+    row.guarantorTwoMemberId !== nextGuarantorOneMemberId
+      ? row.guarantorTwoMemberId
+      : ""
+  const selectedIds = new Set(
+    [nextGuarantorOneMemberId, nextGuarantorTwoMemberId].filter(Boolean)
+  )
+  const availableOptions = options.filter(
+    (option) => !selectedIds.has(option.id)
+  )
+
+  const guarantorOneMemberId =
+    nextGuarantorOneMemberId || availableOptions.shift()?.id || ""
+  const guarantorTwoMemberId =
+    nextGuarantorTwoMemberId ||
+    availableOptions.find((option) => option.id !== guarantorOneMemberId)?.id ||
+    ""
+
+  return {
+    guarantorOneMemberId,
+    guarantorTwoMemberId,
+  }
+}
+
 function buildRandomLoanHistoryRows(
   memberJoinedAt?: string | null,
   guarantorOptions: MemberOption[] = []
@@ -1345,6 +1375,7 @@ export function CommitmentHistoryEntryForm({
 }
 
 export function LoanHistoryEntryForm({
+  cooperativeStartDate,
   disabled,
   formId,
   initialRows,
@@ -1356,6 +1387,7 @@ export function LoanHistoryEntryForm({
   redirectTo,
   showSubmitButton = true,
 }: {
+  cooperativeStartDate?: string | null
   disabled: boolean
   formId?: string
   initialRows?: LoanHistoryInitialRow[]
@@ -1377,6 +1409,8 @@ export function LoanHistoryEntryForm({
   } = useCreateMemberParams()
   const [pendingGuarantorTarget, setPendingGuarantorTarget] =
     useState<PendingGuarantorTarget | null>(null)
+  const [isGuarantorCreateClosed, setIsGuarantorCreateClosed] =
+    useState(false)
   const [flashRowId, setFlashRowId] = useState<string | null>(null)
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [quickCreatedGuarantorOptions, setQuickCreatedGuarantorOptions] =
@@ -1403,6 +1437,7 @@ export function LoanHistoryEntryForm({
       rows: buildLoanHistoryRows(initialRows),
     },
   })
+  const { showError } = useNotifications()
   const rows = form.watch("rows")
   const promotedGuarantorIds = useMemo(() => getUsedGuarantorIds(rows), [rows])
 
@@ -1485,6 +1520,26 @@ export function LoanHistoryEntryForm({
     )
   }, [form])
 
+  const quickFillGuarantors = useCallback(
+    (row: LoanHistoryInputRow) => {
+      const nextGuarantors = chooseGuarantorQuickFill(row, guarantorOptions)
+
+      if (
+        !nextGuarantors.guarantorOneMemberId &&
+        !nextGuarantors.guarantorTwoMemberId
+      ) {
+        showError(
+          "Could not quick fill guarantors",
+          "Create or select another member before quick filling guarantors."
+        )
+        return
+      }
+
+      updateRow(row.id, nextGuarantors)
+    },
+    [guarantorOptions, showError, updateRow]
+  )
+
   useEffect(() => {
     return () => {
       if (flashTimeoutRef.current) {
@@ -1517,6 +1572,7 @@ export function LoanHistoryEntryForm({
     name: string
     rowId: string
   }) {
+    setIsGuarantorCreateClosed(false)
     setPendingGuarantorTarget({ fieldPrefix, rowId })
     void setCreateMemberParams({
       gm: true,
@@ -1770,6 +1826,17 @@ export function LoanHistoryEntryForm({
                             })
                           }
                         />
+                        <div className="mt-1 flex justify-end">
+                          <Button
+                            disabled={disabled || !memberId}
+                            onClick={() => quickFillGuarantors(row)}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            Quick fill
+                          </Button>
+                        </div>
                       </td>
                       <td>
                         <GuarantorMemberInput
@@ -1878,11 +1945,13 @@ export function LoanHistoryEntryForm({
       </Form>
 
       <MemberCreateModal
+        cooperativeStartDate={cooperativeStartDate}
         description="Create a member profile and select them as guarantor."
         devMode={quickFillEnabled}
         initialValues={{ fullName: createMemberName ?? "" }}
         memberNumberPrefix={memberNumberPrefix}
         onOpenChange={(nextOpen) => {
+          setIsGuarantorCreateClosed(!nextOpen)
           if (!nextOpen) {
             void setCreateMemberParams({
               gm: false,
@@ -1892,6 +1961,7 @@ export function LoanHistoryEntryForm({
           }
         }}
         onSuccess={(createdMember) => {
+          setIsGuarantorCreateClosed(true)
           const option = {
             id: createdMember.id,
             label: `${createdMember.fullName} (${createdMember.memberNumber})`,
@@ -1908,7 +1978,12 @@ export function LoanHistoryEntryForm({
             name: null,
           })
         }}
-        open={Boolean(gm && createMemberId === "-1")}
+        open={Boolean(
+          gm &&
+            createMemberId === "-1" &&
+            pendingGuarantorTarget &&
+            !isGuarantorCreateClosed
+        )}
         suppressBackfillPrompt
         title="Create guarantor"
       />

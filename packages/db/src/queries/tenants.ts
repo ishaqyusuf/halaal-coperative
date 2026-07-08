@@ -19,6 +19,9 @@ export type TenantRecord = {
   memberNumberPrefix?: string | null
   currentSize?: number | null
   officeAddress?: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
   startDate?: string | null
   region: string | null
   currencyCode: string
@@ -72,6 +75,9 @@ const seedTenants: TenantRecord[] = [
     memberNumberPrefix: "MEM-",
     currentSize: 428,
     officeAddress: "12 Marina Road, Lagos Island, Lagos",
+    city: "Lagos Island",
+    state: "Lagos",
+    country: "Nigeria",
     startDate: "2016-01-15",
     region: "Lagos",
     currencyCode: "NGN",
@@ -87,8 +93,11 @@ const seedTenants: TenantRecord[] = [
     memberNumberPrefix: "MEM-",
     currentSize: 212,
     officeAddress: "44 Shehu Shagari Way, Abuja",
+    city: "Abuja",
+    state: "FCT",
+    country: "Nigeria",
     startDate: "2018-06-01",
-    region: "Abuja",
+    region: "FCT",
     currencyCode: "NGN",
     timezone: "Africa/Lagos",
     status: "active",
@@ -210,6 +219,9 @@ function mapPrismaTenantRecord(input: {
   memberNumberPrefix: string | null
   currentSize: number | null
   officeAddress: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
   startDate: Date | null
   region: string | null
   currencyCode: string
@@ -224,6 +236,9 @@ function mapPrismaTenantRecord(input: {
     memberNumberPrefix: input.memberNumberPrefix,
     currentSize: input.currentSize,
     officeAddress: input.officeAddress,
+    city: input.city ?? null,
+    state: resolveTenantState(input),
+    country: input.country ?? null,
     startDate: input.startDate ? input.startDate.toISOString().slice(0, 10) : null,
     region: input.region,
     currencyCode: input.currencyCode,
@@ -231,6 +246,13 @@ function mapPrismaTenantRecord(input: {
     status: input.status,
     memberCount: input.members?.length ?? 0,
   } satisfies TenantRecord
+}
+
+export function resolveTenantState(input: {
+  region?: string | null
+  state?: string | null
+}) {
+  return input.state ?? input.region ?? null
 }
 
 const platformIngressHostname = platformAppHostname
@@ -613,10 +635,13 @@ export async function updateTenantProfile(
   input: {
     actorUserId: string
     currentSize?: number | null
+    city?: string | null
+    country?: string | null
     memberNumberPrefix?: string | null
     name: string
     officeAddress?: string | null
     region?: string | null
+    state?: string | null
     startDate?: string | null
     tenantId: string
     timezone: string
@@ -670,11 +695,14 @@ export async function updateTenantProfile(
       id: input.tenantId,
     },
     data: {
+      city: input.city?.trim() || null,
+      country: input.country?.trim() || null,
       currentSize: input.currentSize ?? null,
       memberNumberPrefix: input.memberNumberPrefix ?? null,
       name: input.name,
       officeAddress: input.officeAddress ?? null,
-      region: input.region ?? null,
+      region: input.state?.trim() || input.region?.trim() || null,
+      state: input.state?.trim() || input.region?.trim() || null,
       startDate: input.startDate ? new Date(`${input.startDate}T00:00:00.000Z`) : null,
       timezone: input.timezone,
     },
@@ -688,11 +716,14 @@ export async function updateTenantProfile(
       entityId: tenant.id,
       entityType: "Tenant",
       metadata: {
+        city: input.city?.trim() || null,
+        country: input.country?.trim() || null,
         currentSize: input.currentSize ?? null,
         memberNumberPrefix: input.memberNumberPrefix ?? null,
         name: input.name,
         officeAddress: input.officeAddress ?? null,
-        region: input.region ?? null,
+        region: input.state?.trim() || input.region?.trim() || null,
+        state: input.state?.trim() || input.region?.trim() || null,
         startDate: input.startDate ?? null,
         timezone: input.timezone,
       },

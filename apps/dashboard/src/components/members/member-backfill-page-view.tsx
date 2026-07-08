@@ -89,7 +89,9 @@ function getFallbackSeasonLabel(option: ProfitMigrationOption) {
   return option.seasonLabel ?? `Dividend season (${formatDate(option.profitDate)})`
 }
 
-function getSeasonSharePercentage(entries: ProfitMigrationOption[]) {
+function getSeasonSharePercentage(
+  entries: ProfitMigrationOption[]
+): number | null {
   const sharePercentages = entries
     .map((entry) => entry.memberMigrationAdjustmentSharePercentage)
     .filter((value): value is number => value != null)
@@ -99,6 +101,10 @@ function getSeasonSharePercentage(entries: ProfitMigrationOption[]) {
   }
 
   const [firstSharePercentage] = sharePercentages
+
+  if (firstSharePercentage === undefined) {
+    return null
+  }
 
   return sharePercentages.every((value) => value === firstSharePercentage)
     ? firstSharePercentage

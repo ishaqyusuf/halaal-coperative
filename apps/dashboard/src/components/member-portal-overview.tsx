@@ -18,6 +18,7 @@ import {
   DashboardStatCard,
   TrendPill,
 } from "@/components/dashboard"
+import { MemberDocumentSelfServiceForm } from "@/components/member-document-self-service-form"
 
 type MemberStatementDetail = NonNullable<
   Awaited<ReturnType<typeof getMemberStatementDetail>>
@@ -223,6 +224,7 @@ export function MemberPortalOverview({
               value={openAccountUpdateCases.length.toString()}
             />
           </dl>
+          <MemberDocumentSelfServiceForm />
         </DashboardSectionCard>
 
         <DashboardSectionCard>

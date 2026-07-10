@@ -13,6 +13,17 @@
 - Checks run: `bun --cwd apps/dashboard typecheck`; `git diff --check` scoped to the edited dashboard app and lib files; targeted `rg` scans confirming the refactored client-fit page routes no longer import DB query helpers directly.
 - Skipped checks: Full monorepo build, full test suite, browser QA, and dev server were skipped under fast Bun monorepo command discipline.
 
+### Member Evidence Upload And Document Submission
+
+- Source mode: Goal continuation from the client-fit cooperative operations expansion spec after completion-audit gaps for receipt proof upload, opening-balance supporting documents, support attachments, and member document update submission.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/4`.
+- Changed source files: `.gitignore`, `apps/dashboard/src/app/api/uploads/route.ts`, `apps/dashboard/src/app/api/uploads/[id]/route.ts`, `apps/dashboard/src/lib/uploads/local-upload-storage.ts`, `apps/dashboard/src/components/upload-evidence-input.tsx`, receipt/support/member-document/backfill dashboard forms, `apps/api/src/routers/dashboard-actions.route.ts`, `apps/dashboard/src/lib/dashboard-actions.ts`, and member portal components.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added an authenticated local upload adapter that stores evidence files outside git under `.local/uploads`, records `file.uploaded` audit evidence when the database runtime is available, and serves tenant-scoped files through `/api/uploads/:id`. Payment receipt proof fields, support attachments, member KYC documents, and brought-forward opening-balance source documents can now upload files and save the generated app URL. Members can also submit their own pending member documents directly from the portal for staff review through the existing member-document review workflow.
+- Scope note: This is a local authenticated storage seam for pilot evidence, not cloud object storage, virus scanning, direct bank reconciliation, or final production retention policy.
+- Checks run: `bun --cwd apps/api typecheck`; `bun --cwd apps/dashboard typecheck`; `git diff --check` scoped to upload/document changes.
+- Skipped checks: Full monorepo build, full test suite, browser QA, and dev server were skipped under fast Bun monorepo command discipline.
+
 ### Receipt Audit And Settlement Cleanup
 
 - Source mode: Goal continuation from the client-fit cooperative operations expansion spec after code review.

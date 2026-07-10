@@ -1339,6 +1339,25 @@ export async function createMemberDocumentAction(formData: FormData) {
   revalidatePath("/reports")
 }
 
+export async function createOwnMemberDocumentAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  const member = await requireActorMember(actor)
+
+  const document = await createMemberDocument({
+    actorUserId: actor.user.id,
+    documentType: getRequiredString(formData, "documentType"),
+    documentUrl: getRequiredString(formData, "documentUrl"),
+    memberId: member.id,
+    reviewNotes: getOptionalTrimmedString(formData, "reviewNotes"),
+    reviewStatus: "pending",
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/support")
+  revalidatePath(`/members/${document.memberId}`)
+}
+
 export async function updateMemberDocumentReviewAction(formData: FormData) {
   const actor = await requireDashboardActor(memberManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
@@ -5730,6 +5749,7 @@ const dashboardActionHandlers = {
   rejectMemberOnboardingAction,
   updateMemberKycAction,
   createMemberDocumentAction,
+  createOwnMemberDocumentAction,
   updateMemberDocumentReviewAction,
   recordContributionAction,
   setMemberContributionPlanAction,
@@ -5875,6 +5895,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   createMemberDocumentAction: formAction(
     dashboardActionHandlers.createMemberDocumentAction
+  ),
+  createOwnMemberDocumentAction: formAction(
+    dashboardActionHandlers.createOwnMemberDocumentAction
   ),
   updateMemberDocumentReviewAction: formAction(
     dashboardActionHandlers.updateMemberDocumentReviewAction

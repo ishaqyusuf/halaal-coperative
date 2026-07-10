@@ -48,6 +48,7 @@ import {
   type MemberBackfillStepKey,
 } from "./member-backfill-steps"
 import { MemberBackfillBaselineEditDialog } from "./member-backfill-baseline-edit-dialog"
+import { OpeningSourceDocumentFields } from "./opening-source-document-fields"
 
 type MemberBackfillData = Extract<
   Awaited<ReturnType<typeof loadMemberBackfillWorkflowData>>,
@@ -236,33 +237,6 @@ function OpeningAmountInput({
   )
 }
 
-function OpeningTextInput({
-  disabled,
-  label,
-  name,
-  placeholder,
-  type = "text",
-}: {
-  disabled?: boolean
-  label: string
-  name: string
-  placeholder?: string
-  type?: string
-}) {
-  return (
-    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      <input
-        className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-        disabled={disabled}
-        name={name}
-        placeholder={placeholder}
-        type={type}
-      />
-    </label>
-  )
-}
-
 function OpeningBalanceCreateForm({
   data,
   disabled,
@@ -322,18 +296,7 @@ function OpeningBalanceCreateForm({
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <OpeningTextInput
-          disabled={disabled}
-          label="Source document name"
-          name="sourceDocumentName"
-          placeholder="Opening ledger scan"
-        />
-        <OpeningTextInput
-          disabled={disabled}
-          label="Source document URL"
-          name="sourceDocumentUrl"
-          placeholder="https://..."
-        />
+        <OpeningSourceDocumentFields disabled={disabled} />
       </div>
       <label className="grid gap-1 text-xs font-medium text-muted-foreground">
         Notes

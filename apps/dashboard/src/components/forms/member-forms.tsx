@@ -38,6 +38,7 @@ import {
   applyDashboardRandomDevFormFill,
 } from "@/lib/dev-form-fill"
 import { DatePickerInput } from "@/components/date-picker-input"
+import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import { objectToFormData } from "@/lib/form-submit"
 import {
   createMemberAction,
@@ -736,9 +737,20 @@ export function MemberKycForm({
   )
 }
 
+const documentReferenceSchema = z
+  .string()
+  .min(1, "Document reference is required.")
+  .refine((value) => {
+    if (value.startsWith("/api/uploads/")) {
+      return true
+    }
+
+    return z.string().url().safeParse(value).success
+  }, "Document URL must be a valid URL or uploaded file reference.")
+
 const memberDocumentSchema = z.object({
   documentType: z.string().min(1, "Document type is required."),
-  documentUrl: z.string().url("Document URL must be valid."),
+  documentUrl: documentReferenceSchema,
   memberId: z.string().min(1),
   reviewNotes: z.string().optional(),
   reviewStatus: z.enum(["pending", "verified", "rejected"]),
@@ -861,7 +873,20 @@ export function MemberDocumentForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Document URL</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="https://..." />
+                <div className="space-y-2">
+                  <UploadEvidenceInput
+                    disabled={isPending}
+                    onUploaded={(upload) =>
+                      form.setValue("documentUrl", upload.url, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                    purpose="member_document"
+                    value={field.value}
+                  />
+                  <Input {...field} placeholder="https://..." />
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>

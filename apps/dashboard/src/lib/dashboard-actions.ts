@@ -131,6 +131,10 @@ export async function createMemberDocumentAction(formData: FormData) {
   return callDashboardFormAction("createMemberDocumentAction", formData)
 }
 
+export async function createOwnMemberDocumentAction(formData: FormData) {
+  return callDashboardFormAction("createOwnMemberDocumentAction", formData)
+}
+
 export async function updateMemberDocumentReviewAction(formData: FormData) {
   return callDashboardFormAction("updateMemberDocumentReviewAction", formData)
 }

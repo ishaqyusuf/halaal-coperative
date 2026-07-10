@@ -22,6 +22,7 @@ import {
   reviewMemberPaymentReceiptAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 
 type Option = {
   id: string
@@ -214,6 +215,7 @@ export function PaymentReceiptsView({
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10))
   const [channel, setChannel] = useState("transfer")
   const [paymentReference, setPaymentReference] = useState("")
+  const [proofDocumentName, setProofDocumentName] = useState("")
   const [proofDocumentUrl, setProofDocumentUrl] = useState("")
   const [memberNotes, setMemberNotes] = useState("")
   const [allocations, setAllocations] = useState<AllocationDraft[]>([
@@ -316,6 +318,7 @@ export function PaymentReceiptsView({
             memberNotes,
             paidAt,
             paymentReference,
+            proofDocumentName,
             proofDocumentUrl,
             totalAmount,
           })
@@ -324,6 +327,7 @@ export function PaymentReceiptsView({
         setMemberId("")
         setMemberNotes("")
         setPaymentReference("")
+        setProofDocumentName("")
         setProofDocumentUrl("")
         showSuccess("Receipt submitted", "Receipt is waiting for finance review.")
         router.refresh()
@@ -462,6 +466,25 @@ export function PaymentReceiptsView({
               disabled={isPending}
               onChange={(event) => setPaymentReference(event.target.value)}
               value={paymentReference}
+            />
+          </Field>
+          <Field label="Proof name">
+            <Input
+              disabled={isPending}
+              onChange={(event) => setProofDocumentName(event.target.value)}
+              value={proofDocumentName}
+            />
+          </Field>
+          <Field label="Proof upload">
+            <UploadEvidenceInput
+              disabled={isPending}
+              fileName={proofDocumentName}
+              onUploaded={(upload) => {
+                setProofDocumentName(upload.fileName)
+                setProofDocumentUrl(upload.url)
+              }}
+              purpose="payment_receipt_proof"
+              value={proofDocumentUrl}
             />
           </Field>
           <Field label="Proof URL">
@@ -899,6 +922,18 @@ export function MemberPaymentReceiptsView({
               disabled={isPending}
               onChange={(event) => setProofDocumentName(event.target.value)}
               value={proofDocumentName}
+            />
+          </Field>
+          <Field label="Proof upload">
+            <UploadEvidenceInput
+              disabled={isPending}
+              fileName={proofDocumentName}
+              onUploaded={(upload) => {
+                setProofDocumentName(upload.fileName)
+                setProofDocumentUrl(upload.url)
+              }}
+              purpose="payment_receipt_proof"
+              value={proofDocumentUrl}
             />
           </Field>
           <Field label="Proof URL">

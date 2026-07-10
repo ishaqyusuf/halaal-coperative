@@ -15,6 +15,7 @@ import type {
   SupportCaseSummary,
 } from "@halaalvest/db"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
+import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import {
   addMemberSupportCaseMessageAction,
   addSupportCaseMessageAction,
@@ -364,7 +365,14 @@ export function SupportCasesView({
             />
           </Field>
           <Field label="Attachment URL">
+            <UploadEvidenceInput
+              disabled={isPending}
+              onUploaded={(upload) => setAttachmentUrl(upload.url)}
+              purpose="support_attachment"
+              value={attachmentUrl}
+            />
             <Input
+              className="mt-2"
               disabled={isPending}
               onChange={(event) => setAttachmentUrl(event.target.value)}
               placeholder="https://..."
@@ -818,7 +826,14 @@ export function MemberSupportCasesView({
           />
         </Field>
         <Field className="mt-3" label="Supporting document URL">
+          <UploadEvidenceInput
+            disabled={isPending}
+            onUploaded={(upload) => setAttachmentUrl(upload.url)}
+            purpose="support_attachment"
+            value={attachmentUrl}
+          />
           <Input
+            className="mt-2"
             disabled={isPending}
             onChange={(event) => setAttachmentUrl(event.target.value)}
             placeholder="https://..."

@@ -101,6 +101,7 @@ function serializeMemberOpeningBalance(row: MemberOpeningBalance) {
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
     reviewedByUserId: row.reviewedByUserId,
     reviewNotes: row.reviewNotes,
+    reversalNotes: row.reversalNotes,
     shareCapitalBalance: row.shareCapitalBalance,
     shareUnits: row.shareUnits,
     sourceDocumentName: row.sourceDocumentName,

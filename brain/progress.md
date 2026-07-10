@@ -2,6 +2,17 @@
 
 ## 2026-07-10
 
+### Dashboard Verification Cleanup
+
+- Source mode: Goal continuation from the client-fit cooperative operations expansion spec.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/4`.
+- Changed source files: `apps/api/src/routers/dashboard-actions.route.ts`, `apps/dashboard/src/app/(app)/(sidebar)/settings/finance/finance-route.tsx`, `apps/dashboard/src/lib/members/load-member-backfill-workflow.ts`, `apps/dashboard/package.json`, `bun.lock`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Cleaned up the dashboard verification blockers tied to the client-fit work by registering the newer share review, support/customer-service, and member receipt actions in the API action handler map; adding missing demo financing policy/product fields for procurement and Foodstuff Purchase payback settings; serializing opening-balance reversal notes for the member backfill UI; and declaring dashboard's direct `react-day-picker` and `react-hook-form` type imports.
+- Scope note: This cleanup targets source-level dashboard verification issues introduced or exposed by the client-fit feature set. It does not resolve stale `.next/types` output or the broader React type-duplication environment issue.
+- Checks run: `bun install --offline`; `git diff --check -- apps/api/src/routers/dashboard-actions.route.ts apps/dashboard/src/lib/members/load-member-backfill-workflow.ts 'apps/dashboard/src/app/(app)/(sidebar)/settings/finance/finance-route.tsx' apps/dashboard/package.json bun.lock`; `bun --cwd apps/dashboard typecheck` was rerun and no longer reported the previously fixed action-map, missing package, reversal-notes, or demo-policy source errors before the later long-running check was stopped.
+- Skipped/failed checks: The second dashboard typecheck became silent/idle for several minutes after source-level errors were removed and was stopped with Ctrl-C. Full build, browser QA, dev server, and a clean regenerated Next type pass were not run under fast Bun monorepo command discipline.
+
 ### Member Dividend Statement Visibility
 
 - Source mode: Goal continuation from the client-fit cooperative operations expansion spec.

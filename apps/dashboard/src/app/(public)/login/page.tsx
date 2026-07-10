@@ -118,7 +118,7 @@ export default async function LoginPage({
     memberSignupSettings?.memberSignupAccessMode === "public"
   const tenantHostname = context.tenant
     ? buildTenantSiteHostname(context.tenant.slug)
-    : "app.halaalvest.local"
+    : "halaalvest-dash.localhost"
   const heroEyebrow = context.tenant
     ? "Cooperative workspace"
     : "Platform access"

@@ -9,6 +9,8 @@
     "db:migrate:deploy": "node ./scripts/with-workspace-env.mjs bun run --cwd packages/db db:migrate:deploy",
     "db:push": "node ./scripts/with-workspace-env.mjs bun run --cwd packages/db db:push",
     "db:studio": "node ./scripts/with-workspace-env.mjs bun run --cwd packages/db db:studio",
+    "migrate:dev": "bun run db:migrate",
+    "migrate:prod": "node ./scripts/with-workspace-env.mjs HALAALVEST_ENV=production HALAALVEST_REQUIRE_PROD_DATABASE_URL=1 bun run --cwd packages/db db:migrate:deploy",
     "kill:ports": "node ./scripts/with-workspace-env.mjs sh ./scripts/kill-port.sh",
     "dev:prepare": "bun run kill:ports && bun run db:generate && bun run db:migrate:deploy",
     "dev:prepare:websites": "bun run kill:ports && bun run db:generate",

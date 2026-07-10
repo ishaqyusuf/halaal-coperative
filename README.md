@@ -55,6 +55,8 @@ bun run dev:web:portless
 bun run dev:api:portless
 ```
 
+The dashboard Portless route is `http://halaalvest-dash.localhost`.
+
 Install the CLI once if needed:
 
 ```bash

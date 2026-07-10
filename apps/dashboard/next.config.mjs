@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: [
-    "*.app.halaalvest.localhost",
+    "*.halaalvest-dash.localhost",
     "*.halaalvest.localhost",
     "ibadan-heritage-artisans-mutual-aid.halaalvest.localhost",
   ],

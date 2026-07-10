@@ -12,7 +12,7 @@
     "kill:ports": "node ./scripts/with-workspace-env.mjs sh ./scripts/kill-port.sh",
     "dev:prepare": "bun run kill:ports && bun run db:generate && bun run db:migrate:deploy",
     "dev:prepare:websites": "bun run kill:ports && bun run db:generate",
-    "dev": "bun run dev:prepare && turbo dev --parallel",
+    "dev": "bun scripts/dev.ts",
     "dev:api": "bun run dev:prepare && turbo dev --filter=@halaalvest/api",
     "dev:api:portless": "bun run dev:prepare && turbo dev:portless --filter=@halaalvest/api",
     "dev:websites": "bun run dev:prepare:websites && turbo dev --filter=@halaalvest/web --filter=@halaalvest/dashboard --filter=@halaalvest/jobs",

@@ -3,10 +3,14 @@
   "globalDependencies": [
     ".env",
     ".env.development",
+    ".env.remote-dev.local",
+    ".env.remote-dev",
     ".env.production.local",
     ".env.production",
     "**/.env",
     "**/.env.development",
+    "**/.env.remote-dev.local",
+    "**/.env.remote-dev",
     "**/.env.production.local",
     "**/.env.production"
   ],
@@ -18,6 +22,7 @@
     "EXPO_PUBLIC_API_URL",
     "EXPO_PUBLIC_APP_VARIANT",
     "EXPO_PUBLIC_DASHBOARD_URL",
+    "HALAALVEST_DEV_PROFILE",
     "HALAALVEST_ENV",
     "HALAALVEST_EXPO_PORT",
     "HALAALVEST_REQUIRE_PROD_DATABASE_URL",

@@ -25,9 +25,18 @@ function buildEnv(envSeed = {}) {
   const env = { ...process.env, ...envSeed };
   const isProduction =
     env.NODE_ENV === "production" || env.HALAALVEST_ENV === "production";
+  const isRemoteDev =
+    env.HALAALVEST_ENV === "remote-dev" ||
+    env.HALAALVEST_DEV_PROFILE === "remote-dev";
   const rootEnvFiles = [
     path.join(repoRoot, ".env"),
     path.join(repoRoot, ".env.development"),
+    ...(isRemoteDev
+      ? [
+          path.join(repoRoot, ".env.remote-dev"),
+          path.join(repoRoot, ".env.remote-dev.local"),
+        ]
+      : []),
     ...(isProduction
       ? [
           path.join(repoRoot, ".env.production"),
@@ -38,6 +47,12 @@ function buildEnv(envSeed = {}) {
   const workspaceEnvFiles = [
     path.join(workspaceDir, ".env"),
     path.join(workspaceDir, ".env.development"),
+    ...(isRemoteDev
+      ? [
+          path.join(workspaceDir, ".env.remote-dev"),
+          path.join(workspaceDir, ".env.remote-dev.local"),
+        ]
+      : []),
     ...(isProduction
       ? [
           path.join(workspaceDir, ".env.production"),

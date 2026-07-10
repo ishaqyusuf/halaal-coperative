@@ -22,13 +22,21 @@ Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant interest-free c
 ```bash
 bun install
 bun run dev
-bun run dev:portless
-bun run dev:prod
+bun run dev --remote-dev
+bun run dev --prod
+bun run dev -f web dashboard api
 bun run lint
 bun run typecheck
 ```
 
-Development starters load the configured `DATABASE_URL` and run deployed Prisma migrations before launching the apps. Configure your hosted development or staging database in the existing env-loading flow before running dev commands.
+Development starters load the configured `DATABASE_URL` and run deployed Prisma migrations before launching the apps. The root `dev` command is a GND-style profile router:
+
+- `bun run dev` uses the local profile and forwards to Turbo `dev`.
+- `bun run dev --remote-dev` also loads `.env.remote-dev` and `.env.remote-dev.local` when present.
+- `bun run dev --prod` loads production env files, requires a non-localhost production `DATABASE_URL`, and skips local prepare/migration.
+- `bun run dev -f dashboard api` accepts Turbo filter aliases and bare package names such as `web`, `dashboard`, `api`, and `jobs`.
+
+Configure your hosted development, remote-dev, staging, or production database in the existing env-loading flow before running dev commands.
 
 Use a hosted PostgreSQL connection string such as:
 
@@ -39,16 +47,17 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST/amanah_cooperative?sslmode=require
 To run local dev against the production database, put the production `DATABASE_URL` in ignored file `.env.production.local`, then run:
 
 ```bash
-bun run dev:prod
+bun run dev --prod
 ```
 
-`dev:prod` does not run migrations, and it refuses to run if `DATABASE_URL` still points at localhost.
+The production profile does not run migrations, and it refuses to run if `DATABASE_URL` still points at localhost.
 
 ## Portless
 
 This repo includes `plot-keys`-style `portless` scripts for stable named `.localhost` URLs.
 
 ```bash
+bun run dev -f web dashboard
 bun run dev:portless
 bun run dev:dashboard:portless
 bun run dev:web:portless

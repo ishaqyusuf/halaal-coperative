@@ -19,7 +19,7 @@ This file tracks chosen and proposed technologies for the platform.
 - Frontend: Next.js 16 App Router.
 - Backend HTTP framework: Hono.
 - API contract layer: tRPC with `superjson`.
-- Local named-host dev: Portless via workspace scripts.
+- Local named-host dev: Portless-capable workspace scripts behind a GND-style root dev router (`bun run dev`, `bun run dev --remote-dev`, `bun run dev -f dashboard api`).
 - Styling: Tailwind CSS v4 plus shadcn/base preset styling.
 - Shared UI primitives: `@halaalvest/ui`.
 - Shared notifications core: `@halaalvest/notifications`.

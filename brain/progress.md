@@ -2,6 +2,16 @@
 
 ## 2026-07-10
 
+### GND-Style Root Dev Router
+
+- Source mode: Main-branch dev workflow update requested after the client-fit cleanup work.
+- Changed source files: `package.json`, `scripts/dev.ts`, `scripts/dev-run.ts`, `scripts/dev.test.ts`, `scripts/with-workspace-env.mjs`, `turbo.json`, `README.md`.
+- Brain files updated: `brain/system/tech-stack.md`, `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added a GND-style root `bun run dev` router with `--local`, `--remote-dev`, `--prod`, and Turbo filter aliases. The remote-dev profile now has first-class env-file support through `.env.remote-dev` / `.env.remote-dev.local`, while production dev continues to require a non-localhost production database URL and skips local prepare/migration.
+- Scope note: This updates developer workflow only. It does not start a dev server, change app runtime behavior, or introduce GND's DB/Redis service manager.
+- Checks run: `bun test scripts/dev.test.ts`; `git diff --check`.
+- Skipped checks: Broad typecheck, build, browser QA, and dev server will remain skipped under fast Bun monorepo command discipline unless explicitly requested.
+
 ### Client-Fit Completion Audit
 
 - Source mode: Goal-feature-checklist completion audit for the client-fit cooperative operations expansion goal.

@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-10: Added a GND-style root dev router on `main` so `bun run dev` supports local, remote-dev, production, and Turbo filter aliases while documenting the remote-dev env-file flow.
 - 2026-07-10: Completed the client-fit cooperative operations completion audit, covering all 93 spec stories and recording the 13/13 non-deferred roadmap result with deferred/out-of-scope boundaries.
 - 2026-07-10: Added authenticated evidence upload support for receipt proofs, support attachments, member KYC documents, and brought-forward source documents, plus member self-service document submission into the existing staff review workflow.
 - 2026-07-10: Cleaned up client-fit dashboard route standards drift by moving workspace page loaders, member portal data loading, and CSV export row builders out of route files into feature-owned dashboard `lib` modules while preserving a passing dashboard typecheck.

@@ -11,7 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
-- 2026-07-10: Cleaned up dashboard verification blockers for the client-fit work by completing the API action handler map, refreshing finance demo policy defaults, serializing opening-balance reversal notes, and declaring dashboard's direct form/date type dependencies.
+- 2026-07-10: Cleaned up dashboard verification blockers for the client-fit work by completing the API action handler map, refreshing finance demo policy defaults, serializing opening-balance reversal notes, declaring dashboard's direct form/date type dependencies, narrowing shared React wrapper props, and restoring a passing dashboard typecheck.
 - 2026-07-10: Added member-facing published dividend visibility to statement data, member text statement downloads, printable staff statements, member dashboard cards, and member statements CSV export.
 - 2026-07-10: Fixed dividend period publication totals so linked business-profit allocations rebuild member-level season totals across all published profit entries and only publish the period once every linked entry is published.
 - 2026-07-10: Added brought-forward active financing opening posting so approved opening balances can create a linked active loan and one opening repayment schedule item, while reversal closes it only before repayment activity exists.

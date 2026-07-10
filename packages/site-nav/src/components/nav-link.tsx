@@ -1,9 +1,9 @@
 "use client"
 
-import type { ComponentProps } from "react"
+import type { AnchorHTMLAttributes } from "react"
 import { useSiteNav } from "./use-site-nav"
 
-export function NavLink(props: ComponentProps<"a">) {
+export function NavLink(props: AnchorHTMLAttributes<HTMLAnchorElement>) {
   const {
     props: { Link: LinkComponent },
   } = useSiteNav()

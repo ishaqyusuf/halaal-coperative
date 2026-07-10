@@ -390,6 +390,24 @@ function allocationComparable(
   )
 }
 
+function allocationAuditSnapshot(
+  allocations: Array<ReturnType<typeof normalizeAllocationInput>>
+) {
+  return allocations.map((allocation) => ({
+    amount: allocation.amount,
+    category: allocation.category,
+    contributionPlanId: allocation.contributionPlanId,
+    foodPurchaseApplicationId: allocation.foodPurchaseApplicationId,
+    loanId: allocation.loanId,
+    notes: allocation.notes,
+    periodIntent: allocation.periodIntent,
+    projectFinancingRequestId: allocation.projectFinancingRequestId,
+    procurementRepaymentScheduleItemId:
+      allocation.procurementRepaymentScheduleItemId,
+    targetPeriodStart: allocation.targetPeriodStart?.toISOString() ?? null,
+  }))
+}
+
 async function validateAllocationReferences(input: {
   allocations: Array<ReturnType<typeof normalizeAllocationInput>>
   memberId: string
@@ -1292,46 +1310,28 @@ export async function reviewMemberPaymentReceipt(
   }
 
   const totalAmount = Number(existing.totalAmount)
-  const nextAllocations = input.adjustedAllocations
-    ? normalizeAllocations(input.adjustedAllocations, totalAmount)
-    : existing.allocations.map((allocation) =>
-        normalizeAllocationInput(
-          {
-            amount: Number(allocation.amount),
-            category: allocation.category,
-            contributionPlanId: allocation.contributionPlanId,
-            foodPurchaseApplicationId: allocation.foodPurchaseApplicationId,
-            loanId: allocation.loanId,
-            notes: allocation.notes,
-            periodIntent: allocation.periodIntent,
-            projectFinancingRequestId: allocation.projectFinancingRequestId,
-            procurementRepaymentScheduleItemId:
-              allocation.procurementRepaymentScheduleItemId,
-            targetPeriodStart: allocation.targetPeriodStart,
-          },
-          0
-        )
-      )
-  const existingComparable = allocationComparable(
-    existing.allocations.map((allocation) =>
-      normalizeAllocationInput(
-        {
-          amount: Number(allocation.amount),
-          category: allocation.category,
-          contributionPlanId: allocation.contributionPlanId,
-          foodPurchaseApplicationId: allocation.foodPurchaseApplicationId,
-          loanId: allocation.loanId,
-          notes: allocation.notes,
-          periodIntent: allocation.periodIntent,
-          projectFinancingRequestId: allocation.projectFinancingRequestId,
-          procurementRepaymentScheduleItemId:
-            allocation.procurementRepaymentScheduleItemId,
-          targetPeriodStart: allocation.targetPeriodStart,
-        },
-        0
-      )
+  const existingAllocations = existing.allocations.map((allocation) =>
+    normalizeAllocationInput(
+      {
+        amount: Number(allocation.amount),
+        category: allocation.category,
+        contributionPlanId: allocation.contributionPlanId,
+        foodPurchaseApplicationId: allocation.foodPurchaseApplicationId,
+        loanId: allocation.loanId,
+        notes: allocation.notes,
+        periodIntent: allocation.periodIntent,
+        projectFinancingRequestId: allocation.projectFinancingRequestId,
+        procurementRepaymentScheduleItemId:
+          allocation.procurementRepaymentScheduleItemId,
+        targetPeriodStart: allocation.targetPeriodStart,
+      },
+      0
     )
   )
+  const nextAllocations = input.adjustedAllocations
+    ? normalizeAllocations(input.adjustedAllocations, totalAmount)
+    : existingAllocations
+  const existingComparable = allocationComparable(existingAllocations)
   const nextComparable = allocationComparable(nextAllocations)
   const allocationsChanged = existingComparable !== nextComparable
   const adjustmentReason = normalizeOptionalString(input.adjustmentReason)
@@ -1419,6 +1419,13 @@ export async function reviewMemberPaymentReceipt(
         metadata: {
           adjustmentReason,
           allocationsChanged,
+          ...(allocationsChanged
+            ? {
+                nextAllocations: allocationAuditSnapshot(nextAllocations),
+                previousAllocations:
+                  allocationAuditSnapshot(existingAllocations),
+              }
+            : {}),
           memberId: receipt.memberId,
           previousStatus: existing.status,
           reviewNotes: normalizeOptionalString(input.reviewNotes),

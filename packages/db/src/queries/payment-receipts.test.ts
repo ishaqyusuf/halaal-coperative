@@ -363,6 +363,110 @@ describe("member payment receipt queries", () => {
     ).rejects.toThrow("adjustment reason is required")
   })
 
+  test("records before and after allocation snapshots when review changes allocations", async () => {
+    const allocationCreates: Record<string, unknown>[] = []
+    const auditCreates: Record<string, unknown>[] = []
+
+    const receipt = await reviewMemberPaymentReceipt(
+      {
+        actorUserId: "finance-1",
+        adjustedAllocations: [
+          {
+            amount: 12000,
+            category: "commitment",
+            periodIntent: "current_period",
+            targetPeriodStart: new Date("2026-07-01T00:00:00.000Z"),
+          },
+          {
+            amount: 3000,
+            category: "special_savings",
+            periodIntent: "current_period",
+            targetPeriodStart: new Date("2026-07-01T00:00:00.000Z"),
+          },
+        ],
+        adjustmentReason: "Split excess into special savings.",
+        decision: "under_review",
+        receiptId: "receipt-1",
+        tenantId: "tenant-1",
+      },
+      {
+        $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            auditLog: {
+              create: async (input: Record<string, unknown>) => {
+                auditCreates.push(input)
+                return input
+              },
+            },
+            memberPaymentReceipt: {
+              update: async (input: any) =>
+                receiptRow({
+                  ...input.data,
+                  reviewedAt: new Date("2026-07-08T11:00:00.000Z"),
+                  reviewedByUserId: "finance-1",
+                  status: "under_review",
+                }),
+            },
+            memberPaymentReceiptAllocation: {
+              createMany: async (input: Record<string, unknown>) => {
+                allocationCreates.push(input)
+                return { count: 2 }
+              },
+              deleteMany: async () => ({ count: 1 }),
+            },
+          }),
+        contributionPlan: {
+          count: async () => 0,
+        },
+        loan: {
+          count: async () => 0,
+        },
+        memberPaymentReceipt: {
+          findFirst: async () => receiptRow(),
+        },
+        user: {
+          findFirst: async () => ({ id: "finance-1" }),
+        },
+      } as never
+    )
+
+    expect(receipt.status).toBe("under_review")
+    expect(allocationCreates[0]).toMatchObject({
+      data: [
+        { amount: 12000, category: "commitment" },
+        { amount: 3000, category: "special_savings" },
+      ],
+    })
+    expect(auditCreates[0]).toMatchObject({
+      data: {
+        action: "member_payment_receipt.under_review",
+        metadata: {
+          adjustmentReason: "Split excess into special savings.",
+          allocationsChanged: true,
+          previousAllocations: [
+            {
+              amount: 15000,
+              category: "commitment",
+              targetPeriodStart: "2026-07-01T00:00:00.000Z",
+            },
+          ],
+          nextAllocations: [
+            {
+              amount: 12000,
+              category: "commitment",
+              targetPeriodStart: "2026-07-01T00:00:00.000Z",
+            },
+            {
+              amount: 3000,
+              category: "special_savings",
+              targetPeriodStart: "2026-07-01T00:00:00.000Z",
+            },
+          ],
+        },
+      },
+    })
+  })
+
   test("blocks approving unsupported staged categories", async () => {
     await expect(
       reviewMemberPaymentReceipt(
@@ -1002,6 +1106,224 @@ describe("member payment receipt queries", () => {
       data: { postedContributionId: "contribution-1" },
     })
     expect(auditCreates.some((entry) => (entry as any).data.action === "member_payment_receipt.approved")).toBe(true)
+  })
+
+  test("waives remaining unpaid loan schedule rows when a receipt payoff clears the loan", async () => {
+    const allocationUpdates: Record<string, unknown>[] = []
+    const auditCreates: Record<string, unknown>[] = []
+    const loanUpdates: Record<string, unknown>[] = []
+    const scheduleUpdates: Record<string, unknown>[] = []
+    const scheduleUpdateMany: Record<string, unknown>[] = []
+    let scheduleFindCallCount = 0
+
+    const loanAllocation = {
+      amount: 5000,
+      category: "loan_extra_payment",
+      contributionPlanId: null,
+      createdAt: new Date("2026-07-08T10:00:00.000Z"),
+      foodPurchaseApplicationId: null,
+      id: "allocation-loan-1",
+      loanId: "loan-1",
+      memberId: "member-1",
+      notes: "Final loan payoff",
+      periodIntent: "current_period",
+      postedContributionId: null,
+      postedRepaymentId: null,
+      postedShareLedgerEntryId: null,
+      procurementRepaymentScheduleItemId: null,
+      projectFinancingRequestId: null,
+      receiptId: "receipt-1",
+      targetPeriodStart: new Date("2026-07-01T00:00:00.000Z"),
+      tenantId: "tenant-1",
+    }
+
+    const tx = {
+      ...liveMigrationDelegates(),
+      auditLog: {
+        create: async (input: Record<string, unknown>) => {
+          auditCreates.push(input)
+          return input
+        },
+      },
+      contributionPlan: {
+        findFirst: async () => null,
+      },
+      ledgerAccount: {
+        findUnique: async (input: any) => ({
+          id: `account-${input.where.tenantId_code.code}`,
+        }),
+      },
+      ledgerTransaction: {
+        create: async (input: Record<string, unknown>) => input,
+      },
+      loan: {
+        count: async () => 0,
+        findFirst: async () => ({
+          id: "loan-1",
+          memberId: "member-1",
+          outstandingPrincipal: 5000,
+        }),
+        update: async (input: Record<string, unknown>) => {
+          loanUpdates.push(input)
+          return input
+        },
+      },
+      member: {
+        findFirst: async () => ({ paymentAllocationPreference: "manual_split" }),
+        findMany: async () => [],
+        update: async (input: unknown) => input,
+      },
+      memberPaymentReceipt: {
+        update: async (input: any) =>
+          receiptRow({
+            ...input.data,
+            allocations: [loanAllocation],
+            reviewedAt: new Date("2026-07-08T11:00:00.000Z"),
+            reviewedByUserId: "finance-1",
+            status: "approved",
+            totalAmount: 5000,
+          }),
+      },
+      memberPaymentReceiptAllocation: {
+        findMany: async () => [loanAllocation],
+        updateMany: async (input: Record<string, unknown>) => {
+          allocationUpdates.push(input)
+          return input
+        },
+      },
+      repayment: {
+        create: async () => ({
+          id: "repayment-1",
+          paidAt: new Date("2026-07-08T00:00:00.000Z"),
+        }),
+      },
+      repaymentScheduleItem: {
+        findMany: async () => {
+          scheduleFindCallCount += 1
+
+          if (scheduleFindCallCount === 1) {
+            return [
+              {
+                amountPaid: 0,
+                id: "schedule-1",
+                installmentNumber: 1,
+                totalDue: 5000,
+              },
+              {
+                amountPaid: 0,
+                id: "schedule-2",
+                installmentNumber: 2,
+                totalDue: 15000,
+              },
+            ]
+          }
+
+          return [
+            {
+              amountPaid: 0,
+              id: "schedule-2",
+              installmentNumber: 2,
+              totalDue: 15000,
+            },
+          ]
+        },
+        update: async (input: Record<string, unknown>) => {
+          scheduleUpdates.push(input)
+          return input
+        },
+        updateMany: async (input: Record<string, unknown>) => {
+          scheduleUpdateMany.push(input)
+          return input
+        },
+      },
+    }
+
+    const receipt = await reviewMemberPaymentReceipt(
+      {
+        actorUserId: "finance-1",
+        decision: "approved",
+        receiptId: "receipt-1",
+        tenantId: "tenant-1",
+      },
+      {
+        ...liveMigrationDelegates(),
+        $transaction: async (callback: (transactionClient: unknown) => Promise<unknown>) =>
+          callback(tx),
+        contributionPlan: {
+          count: async () => 0,
+        },
+        loan: {
+          count: async (input: any) => {
+            if (input.where?.id) {
+              expect(input).toMatchObject({
+                where: {
+                  id: { in: ["loan-1"] },
+                  memberId: "member-1",
+                  tenantId: "tenant-1",
+                },
+              })
+              return 1
+            }
+
+            return 0
+          },
+        },
+        member: {
+          findMany: async () => [],
+        },
+        memberPaymentReceipt: {
+          findFirst: async () =>
+            receiptRow({
+              allocations: [loanAllocation],
+              totalAmount: 5000,
+            }),
+        },
+        user: {
+          findFirst: async () => ({ id: "finance-1" }),
+        },
+      } as never
+    )
+
+    expect(receipt.status).toBe("approved")
+    expect(loanUpdates[0]).toMatchObject({
+      data: {
+        status: "completed",
+      },
+      where: { id: "loan-1" },
+    })
+    expect(scheduleUpdates[0]).toMatchObject({
+      data: {
+        amountPaid: 5000,
+        status: "paid",
+      },
+      where: { id: "schedule-1" },
+    })
+    expect(scheduleUpdateMany[0]).toMatchObject({
+      data: {
+        status: "waived",
+      },
+      where: {
+        id: { in: ["schedule-2"] },
+        loanId: "loan-1",
+        tenantId: "tenant-1",
+      },
+    })
+    expect(allocationUpdates[0]).toMatchObject({
+      data: { postedRepaymentId: "repayment-1" },
+    })
+    expect(auditCreates).toContainEqual(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "loan.early_settled",
+          metadata: expect.objectContaining({
+            repaymentId: "repayment-1",
+            waivedScheduleItemCount: 1,
+            waivedScheduleItemIds: ["schedule-2"],
+            waivedScheduleOutstandingAmount: 15000,
+          }),
+        }),
+      })
+    )
   })
 
   test("approves share receipt allocations through the member share ledger", async () => {

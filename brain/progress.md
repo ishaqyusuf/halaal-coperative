@@ -2,6 +2,17 @@
 
 ## 2026-07-10
 
+### Receipt Audit And Settlement Cleanup
+
+- Source mode: Goal continuation from the client-fit cooperative operations expansion spec after code review.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/4`.
+- Changed source files: `packages/db/src/queries/contributions.ts`, `packages/db/src/queries/loans.ts`, `packages/db/src/queries/payment-receipts.ts`, `packages/db/src/queries/payment-receipts.test.ts`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Receipt review audit metadata now records previous and next allocation snapshots when admin approval changes member-submitted receipt allocations. Receipt-approved loan payoff now shares the direct repayment settlement behavior by completing cleared loans, waiving remaining unpaid schedule rows, and writing `loan.early_settled` audit evidence with waived schedule item details.
+- Scope note: This cleanup closes concrete review findings in the payment receipt posting path. It does not add bank integration, automatic reconciliation, or document file storage.
+- Checks run: `bun --cwd packages/db test src/queries/payment-receipts.test.ts`; `git diff --check -- packages/db/src/queries/contributions.ts packages/db/src/queries/loans.ts packages/db/src/queries/payment-receipts.ts packages/db/src/queries/payment-receipts.test.ts`; `../../node_modules/.bin/tsc --noEmit` from `packages/db`.
+- Skipped/failed checks: `bun --cwd packages/db typecheck` was attempted, but the scripted `prisma generate` step stayed silent until manually stopped. Full monorepo build, full test suite, browser QA, and dev server were skipped under fast Bun monorepo command discipline.
+
 ### Dashboard Verification Cleanup
 
 - Source mode: Goal continuation from the client-fit cooperative operations expansion spec.

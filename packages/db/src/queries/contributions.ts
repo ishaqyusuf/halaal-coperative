@@ -6,6 +6,7 @@ import type {
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
+import { stopRemainingScheduleForClearedLoan } from "./loans"
 import { getTenantInitialMigrationState } from "./migration"
 
 async function assertLiveFinancialWritesOpen(
@@ -746,7 +747,11 @@ export async function recordMemberPaymentMutation(
       where: { id: input.loanId, tenantId: input.tenantId, memberId: input.memberId },
     })
     if (!loan) throw new Error("Loan not found for the selected member.")
-    if (totalLoanAmount > Number(loan.outstandingPrincipal)) {
+    const previousOutstandingPrincipal = Number(loan.outstandingPrincipal)
+    const nextOutstandingPrincipal = previousOutstandingPrincipal - totalLoanAmount
+    const repaymentClearsLoan = nextOutstandingPrincipal <= 0
+
+    if (totalLoanAmount > previousOutstandingPrincipal) {
       throw new Error("Loan servicing amount exceeds the outstanding loan balance.")
     }
 
@@ -771,8 +776,8 @@ export async function recordMemberPaymentMutation(
         outstandingPrincipal: {
           decrement: totalLoanAmount,
         },
-        status: Number(loan.outstandingPrincipal) - totalLoanAmount <= 0 ? "completed" : "active",
-        ...(Number(loan.outstandingPrincipal) - totalLoanAmount <= 0 ? { closedAt: input.postedAt } : {}),
+        status: repaymentClearsLoan ? "completed" : "active",
+        ...(repaymentClearsLoan ? { closedAt: input.postedAt } : {}),
       },
     })
 
@@ -782,6 +787,14 @@ export async function recordMemberPaymentMutation(
       tenantId: input.tenantId,
       tx: prisma,
     })
+
+    const settlement = repaymentClearsLoan
+      ? await stopRemainingScheduleForClearedLoan({
+          loanId: loan.id,
+          tenantId: input.tenantId,
+          tx: prisma,
+        })
+      : null
 
     await postLedgerTransaction(
       {
@@ -800,6 +813,32 @@ export async function recordMemberPaymentMutation(
       },
       prisma,
     )
+
+    if (repaymentClearsLoan) {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: input.tenantId,
+          actorUserId: input.actorUserId,
+          actorType: "user",
+          action: "loan.early_settled",
+          entityType: "Loan",
+          entityId: loan.id,
+          metadata: {
+            loanId: loan.id,
+            repaymentId: repayment.id,
+            repaymentAmount: totalLoanAmount,
+            previousOutstandingPrincipal,
+            closedAt: input.postedAt.toISOString(),
+            waivedScheduleItemCount:
+              settlement?.waivedScheduleItemCount ?? 0,
+            waivedScheduleItemIds: settlement?.waivedScheduleItemIds ?? [],
+            waivedScheduleOutstandingAmount:
+              settlement?.waivedOutstandingAmount ?? 0,
+          },
+          occurredAt: input.postedAt,
+        },
+      })
+    }
   }
 
   await prisma.auditLog.create({

@@ -1189,7 +1189,7 @@ async function allocateRepaymentAcrossScheduleItems(input: {
   }
 }
 
-async function stopRemainingScheduleForClearedLoan(input: {
+export async function stopRemainingScheduleForClearedLoan(input: {
   loanId: string
   tenantId: string
   tx: PrismaClient

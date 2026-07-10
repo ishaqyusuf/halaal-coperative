@@ -18,6 +18,7 @@ import {
   normalizeDashboardRedirectPath,
 } from "@/lib/auth-redirect"
 import { verifyPassword } from "@/lib/password"
+import { getPublicRequestHost } from "@/lib/request-host"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 
 function buildCookieOptions(request: NextRequest) {
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(loginPath)
   }
 
-  const host = request.headers.get("host")
+  const host = getPublicRequestHost(request.headers)
   const scope = resolveRequestSessionScope(host) ?? platformSessionScope
   const tenantResolution = await resolveTenantAsync({
     hostname: request.headers.get("x-tenant-hostname") ?? host,

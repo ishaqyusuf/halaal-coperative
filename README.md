@@ -24,21 +24,29 @@ bun install
 bun run dev
 bun run dev --remote-dev
 bun run dev --prod
+bun run db:start
 bun run db:push --local
+bun run db:push --remote
 bun run db:push --prod
 bun run dev -f web dashboard api
 bun run lint
 bun run typecheck
 ```
 
-Development starters load the configured `DATABASE_URL` and run deployed Prisma migrations before launching the apps. The root `dev` command is a GND-style profile router:
+Development starters resolve a database profile, export the selected `DATABASE_URL`, and run deployed Prisma migrations before launching the apps. The root `dev` command is a GND-style profile router:
 
-- `bun run dev` uses the local profile and forwards to Turbo `dev`.
-- `bun run dev --remote-dev` also loads `.env.remote-dev` and `.env.remote-dev.local` when present.
+- `bun run dev` uses the local profile, starts the local Docker PostgreSQL service, and forwards to Turbo `dev`.
+- `bun run dev --remote-dev` loads `.env.remote-dev` and `.env.remote-dev.local` when present, then uses the hosted development database.
 - `bun run dev --prod` loads production env files, requires a non-localhost production `DATABASE_URL`, and skips local prepare/migration.
 - `bun run dev -f dashboard api` accepts Turbo filter aliases and bare package names such as `web`, `dashboard`, `api`, and `jobs`.
 
-Configure your hosted development, remote-dev, staging, or production database in the existing env-loading flow before running dev commands.
+The local profile defaults to Docker PostgreSQL on `localhost:55434` with database `amanah_cooperative`. Override it with `LOCAL_DATABASE_URL` or `LOCAL_POSTGRES_URL` when needed. Run the local database directly with:
+
+```bash
+bun run db:start
+```
+
+Configure your hosted remote-dev, staging, or production database in the existing env-loading flow before running dev commands.
 
 Use a hosted PostgreSQL connection string such as:
 
@@ -57,18 +65,17 @@ The production profile does not run migrations, and it refuses to run if `DATABA
 Database push commands use the same profile flags:
 
 - `bun run db:push --local` loads local development env files.
+- `bun run db:push --remote` loads remote-dev env files. `--remote-dev` is also accepted.
 - `bun run db:push --prod` loads production env files and refuses a localhost `DATABASE_URL`.
 
 ## Portless
 
-This repo includes `plot-keys`-style `portless` scripts for stable named `.localhost` URLs.
+This repo uses `plot-keys`-style `portless` hostnames by default in app dev scripts. Use the normal `dev` router and filters:
 
 ```bash
+bun run dev
 bun run dev -f web dashboard
-bun run dev:portless
-bun run dev:dashboard:portless
-bun run dev:web:portless
-bun run dev:api:portless
+bun run dev -f api
 ```
 
 Install the CLI once if needed:

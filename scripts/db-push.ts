@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-type DatabaseProfile = "local" | "prod"
+type DatabaseProfile = "local" | "remote-dev" | "prod"
 
 type DbPushCliOptions = {
   profile: DatabaseProfile
@@ -8,6 +8,8 @@ type DbPushCliOptions = {
 
 const PROFILE_FLAGS = new Map<string, DatabaseProfile>([
   ["--local", "local"],
+  ["--remote", "remote-dev"],
+  ["--remote-dev", "remote-dev"],
   ["--prod", "prod"],
 ])
 
@@ -26,7 +28,11 @@ export function parseArgs(argv: string[]): DbPushCliOptions {
     const nextProfile = PROFILE_FLAGS.get(arg)
 
     if (!nextProfile) {
-      throw new Error("Unknown db:push flag: " + arg + ". Use --local or --prod.")
+      throw new Error(
+        "Unknown db:push flag: " +
+          arg +
+          ". Use --local, --remote, --remote-dev, or --prod."
+      )
     }
 
     if (explicitProfile && explicitProfile !== nextProfile) {
@@ -60,6 +66,18 @@ export function commandForProfile(profile: DatabaseProfile): string[] {
         "packages/db",
         "db:push",
       ]
+    case "remote-dev":
+      return [
+        "node",
+        "./scripts/with-workspace-env.mjs",
+        "HALAALVEST_ENV=remote-dev",
+        "HALAALVEST_DEV_PROFILE=remote-dev",
+        "bun",
+        "run",
+        "--cwd",
+        "packages/db",
+        "db:push",
+      ]
     case "prod":
       return [
         "node",
@@ -75,15 +93,27 @@ export function commandForProfile(profile: DatabaseProfile): string[] {
   }
 }
 
-async function main() {
-  const options = parseArgs(Bun.argv.slice(2))
-  const child = Bun.spawn(commandForProfile(options.profile), {
+async function run(command: string[]) {
+  const child = Bun.spawn(command, {
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
   })
+  const exitCode = await child.exited
 
-  process.exit(await child.exited)
+  if (exitCode !== 0) {
+    process.exit(exitCode)
+  }
+}
+
+async function main() {
+  const options = parseArgs(Bun.argv.slice(2))
+
+  if (options.profile === "local") {
+    await run(["bun", "run", "db:start"])
+  }
+
+  await run(commandForProfile(options.profile))
 }
 
 if (import.meta.main) {

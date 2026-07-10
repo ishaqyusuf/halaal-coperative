@@ -10,6 +10,7 @@ import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import { NextResponse, type NextRequest } from "next/server"
 import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
 import { createPasswordResetToken } from "@/lib/password-reset-token"
+import { getPublicRequestHost } from "@/lib/request-host"
 
 export function GET(request: NextRequest) {
   return NextResponse.redirect(buildDashboardRedirectUrl(request, "/login/reset"))
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
   const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase()
-  const host = request.headers.get("host")
+  const host = getPublicRequestHost(request.headers)
   const tenantResolution = await resolveTenantAsync({
     hostname: request.headers.get("x-tenant-hostname") ?? host,
     slug: request.headers.get("x-tenant-subdomain"),

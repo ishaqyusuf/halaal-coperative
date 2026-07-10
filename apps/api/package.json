@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "--build": "tsc --noEmit",
-    "dev": "node ../../scripts/with-workspace-env.mjs bun --watch src/index.ts",
-    "dev:portless": "node ../../scripts/with-workspace-env.mjs PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 portless api.halaalvest bun --watch src/index.ts",
+    "dev": "node ../../scripts/with-workspace-env.mjs PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 portless api.halaalvest bun --watch src/index.ts",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",

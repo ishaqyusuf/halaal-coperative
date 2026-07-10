@@ -8,6 +8,7 @@ import {
 } from "@halaalvest/auth"
 import { NextResponse, type NextRequest } from "next/server"
 import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
+import { getPublicRequestHost } from "@/lib/request-host"
 
 function expiredCookieOptions(request: NextRequest) {
   return {
@@ -20,7 +21,7 @@ function expiredCookieOptions(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const host = request.headers.get("host")
+  const host = getPublicRequestHost(request.headers)
   const scope = resolveRequestSessionScope(host) ?? platformSessionScope
   const response = NextResponse.redirect(
     buildDashboardRedirectUrl(request, "/login")

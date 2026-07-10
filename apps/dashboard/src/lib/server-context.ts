@@ -26,6 +26,7 @@ import {
   productAreas,
 } from "@halaalvest/domain"
 import { cookies, headers } from "next/headers"
+import { getPublicRequestHost } from "@/lib/request-host"
 
 type DashboardMemberRow = {
   id: string
@@ -114,7 +115,7 @@ export function canShowQuickFill(context: {
 export async function getDashboardServerContext(): Promise<DashboardServerContext> {
   const headerStore = await headers()
   const cookieStore = await cookies()
-  const host = headerStore.get("host")
+  const host = getPublicRequestHost(headerStore)
   const tenantSlug = headerStore.get("x-tenant-subdomain")
   const tenantHostname = headerStore.get("x-tenant-hostname")
   const sessionScope = resolveRequestSessionScope(host)

@@ -40,13 +40,34 @@ describe("db:push script profile router", () => {
     ])
   })
 
+  test("supports remote-dev", () => {
+    const options = parseArgs(["--remote-dev"])
+
+    expect(options).toEqual({ profile: "remote-dev" })
+    expect(commandForProfile(options.profile)).toEqual([
+      "node",
+      "./scripts/with-workspace-env.mjs",
+      "HALAALVEST_ENV=remote-dev",
+      "HALAALVEST_DEV_PROFILE=remote-dev",
+      "bun",
+      "run",
+      "--cwd",
+      "packages/db",
+      "db:push",
+    ])
+  })
+
+  test("supports remote as a remote-dev alias", () => {
+    expect(parseArgs(["--remote"])).toEqual({ profile: "remote-dev" })
+  })
+
   test("rejects conflicting profile flags", () => {
-    expect(() => parseArgs(["--local", "--prod"])).toThrow(
+    expect(() => parseArgs(["--local", "--remote"])).toThrow(
       "Conflicting db:push flags"
     )
   })
 
   test("rejects unknown flags", () => {
-    expect(() => parseArgs(["--remote-dev"])).toThrow("Unknown db:push flag")
+    expect(() => parseArgs(["--staging"])).toThrow("Unknown db:push flag")
   })
 })

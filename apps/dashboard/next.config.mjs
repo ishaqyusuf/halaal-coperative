@@ -3,7 +3,6 @@ const nextConfig = {
   allowedDevOrigins: [
     "*.halaalvest-dash.localhost",
     "*.halaalvest.localhost",
-    "ibadan-heritage-artisans-mutual-aid.halaalvest.localhost",
   ],
   transpilePackages: [
     "@halaalvest/api",

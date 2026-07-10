@@ -23,7 +23,11 @@ import {
   LoanHistoryEntryForm,
 } from "@/components/migration/member-migration-history-forms"
 import {
+  applyMemberOpeningBalanceAction,
+  createMemberOpeningBalanceAction,
   queueBackfillDraftAction,
+  reviewMemberOpeningBalanceAction,
+  reverseMemberOpeningBalanceAction,
   saveMemberProfitSeasonAdjustmentsAction,
 } from "@/lib/dashboard-actions"
 import type { loadMemberBackfillWorkflowData } from "@/lib/members"
@@ -70,6 +74,7 @@ const memberBackfillCommitmentHistoryFormId =
   "member-backfill-commitment-history-form"
 const memberBackfillActivityWindowsFormId =
   "member-backfill-activity-windows-form"
+const memberOpeningBalanceFormId = "member-opening-balance-form"
 const memberBackfillProfitAdjustmentFormId =
   "member-backfill-profit-adjustment-form"
 
@@ -196,6 +201,413 @@ function MetricBlock({
   )
 }
 
+function openingBalanceStatusTone(
+  status: MemberBackfillData["memberOpeningBalances"][number]["status"]
+) {
+  if (status === "approved" || status === "applied") return "positive"
+  if (status === "pending_review") return "warning"
+  return "neutral"
+}
+
+function OpeningAmountInput({
+  disabled,
+  label,
+  name,
+  step = "0.01",
+}: {
+  disabled?: boolean
+  label: string
+  name: string
+  step?: string
+}) {
+  return (
+    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+      {label}
+      <input
+        className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+        disabled={disabled}
+        min="0"
+        name={name}
+        placeholder="0"
+        step={step}
+        type="number"
+      />
+    </label>
+  )
+}
+
+function OpeningTextInput({
+  disabled,
+  label,
+  name,
+  placeholder,
+  type = "text",
+}: {
+  disabled?: boolean
+  label: string
+  name: string
+  placeholder?: string
+  type?: string
+}) {
+  return (
+    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+      {label}
+      <input
+        className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+        disabled={disabled}
+        name={name}
+        placeholder={placeholder}
+        type={type}
+      />
+    </label>
+  )
+}
+
+function OpeningBalanceCreateForm({
+  data,
+  disabled,
+}: {
+  data: MemberBackfillData
+  disabled: boolean
+}) {
+  return (
+    <form
+      action={createMemberOpeningBalanceAction}
+      className="mt-4 grid gap-3"
+      id={memberOpeningBalanceFormId}
+    >
+      <input name="memberId" type="hidden" value={data.member.id} />
+      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+        Opening date
+        <input
+          className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+          defaultValue={data.tenantStartDate ?? data.member.joinedAt}
+          disabled={disabled}
+          name="openingDate"
+          required
+          type="date"
+        />
+      </label>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <OpeningAmountInput
+          disabled={disabled}
+          label="Commitment savings"
+          name="commitmentSavingsBalance"
+        />
+        <OpeningAmountInput
+          disabled={disabled}
+          label="Special savings"
+          name="specialSavingsBalance"
+        />
+        <OpeningAmountInput
+          disabled={disabled}
+          label="Share capital"
+          name="shareCapitalBalance"
+        />
+        <OpeningAmountInput
+          disabled={disabled}
+          label="Share units"
+          name="shareUnits"
+          step="1"
+        />
+        <OpeningAmountInput
+          disabled={disabled}
+          label="Active financing"
+          name="activeFinancingOutstanding"
+        />
+        <OpeningAmountInput
+          disabled={disabled}
+          label="Procurement"
+          name="procurementOutstanding"
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <OpeningTextInput
+          disabled={disabled}
+          label="Source document name"
+          name="sourceDocumentName"
+          placeholder="Opening ledger scan"
+        />
+        <OpeningTextInput
+          disabled={disabled}
+          label="Source document URL"
+          name="sourceDocumentUrl"
+          placeholder="https://..."
+        />
+      </div>
+      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+        Notes
+        <textarea
+          className="min-h-20 border border-border bg-background px-3 py-2 text-sm text-foreground"
+          disabled={disabled}
+          name="notes"
+          placeholder="Current book position and source note"
+        />
+      </label>
+      <div className="flex justify-end">
+        <Button disabled={disabled} size="sm" type="submit">
+          Stage opening position
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function OpeningBalanceReviewForm({
+  disabled,
+  memberId,
+  openingBalanceId,
+}: {
+  disabled: boolean
+  memberId: string
+  openingBalanceId: string
+}) {
+  return (
+    <form
+      action={reviewMemberOpeningBalanceAction}
+      className="mt-3 grid gap-2"
+    >
+      <input name="memberId" type="hidden" value={memberId} />
+      <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
+      <textarea
+        className="min-h-16 border border-border bg-background px-3 py-2 text-sm text-foreground"
+        disabled={disabled}
+        name="reviewNotes"
+        placeholder="Review note"
+      />
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          disabled={disabled}
+          name="decision"
+          size="sm"
+          type="submit"
+          value="rejected"
+          variant="outline"
+        >
+          Reject
+        </Button>
+        <Button
+          disabled={disabled}
+          name="decision"
+          size="sm"
+          type="submit"
+          value="approved"
+        >
+          Approve
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function OpeningBalanceApplyForm({
+  disabled,
+  memberId,
+  openingBalanceId,
+}: {
+  disabled: boolean
+  memberId: string
+  openingBalanceId: string
+}) {
+  return (
+    <form
+      action={applyMemberOpeningBalanceAction}
+      className="mt-3 flex justify-end border-t border-border/70 pt-3"
+    >
+      <input name="memberId" type="hidden" value={memberId} />
+      <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
+      <Button disabled={disabled} size="sm" type="submit">
+        Apply
+      </Button>
+    </form>
+  )
+}
+
+function OpeningBalanceReverseForm({
+  disabled,
+  memberId,
+  openingBalanceId,
+}: {
+  disabled: boolean
+  memberId: string
+  openingBalanceId: string
+}) {
+  return (
+    <form
+      action={reverseMemberOpeningBalanceAction}
+      className="mt-3 grid gap-2 border-t border-border/70 pt-3"
+    >
+      <input name="memberId" type="hidden" value={memberId} />
+      <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
+      <textarea
+        className="min-h-16 border border-border bg-background px-3 py-2 text-sm text-foreground"
+        disabled={disabled}
+        name="reversalNotes"
+        placeholder="Reversal note"
+        required
+      />
+      <div className="flex justify-end">
+        <Button disabled={disabled} size="sm" type="submit" variant="outline">
+          Reverse
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function OpeningBalanceRow({
+  disabled,
+  memberId,
+  row,
+}: {
+  disabled: boolean
+  memberId: string
+  row: MemberBackfillData["memberOpeningBalances"][number]
+}) {
+  const pending = row.status === "pending_review"
+  const approved = row.status === "approved"
+  const applied = row.status === "applied"
+  const totalAssets =
+    row.commitmentSavingsBalance +
+    row.specialSavingsBalance +
+    row.shareCapitalBalance
+
+  return (
+    <div className="border border-border/70 bg-muted/20 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            {formatDate(row.openingDate)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Staged assets: {formatCurrency(totalAssets)}
+          </p>
+        </div>
+        <TrendPill tone={openingBalanceStatusTone(row.status)}>
+          {displayEnum(row.status)}
+        </TrendPill>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <MetricBlock
+          label="Commitment"
+          value={formatCurrency(row.commitmentSavingsBalance)}
+        />
+        <MetricBlock
+          label="Special savings"
+          value={formatCurrency(row.specialSavingsBalance)}
+        />
+        <MetricBlock
+          label="Share capital"
+          value={formatCurrency(row.shareCapitalBalance)}
+        />
+        <MetricBlock label="Share units" value={row.shareUnits ?? "Not set"} />
+        <MetricBlock
+          label="Active financing"
+          value={formatCurrency(row.activeFinancingOutstanding)}
+        />
+        <MetricBlock
+          label="Procurement"
+          value={formatCurrency(row.procurementOutstanding)}
+        />
+      </div>
+      {row.appliedLoanId ? (
+        <p className="mt-3 break-all border-t border-border/70 pt-3 text-xs text-muted-foreground">
+          Active financing opening posted as loan {row.appliedLoanId}.
+        </p>
+      ) : null}
+      {row.appliedProcurementRequestId ? (
+        <p className="mt-3 break-all border-t border-border/70 pt-3 text-xs text-muted-foreground">
+          Procurement opening posted as request {row.appliedProcurementRequestId}.
+        </p>
+      ) : null}
+      {row.sourceDocumentName || row.sourceDocumentUrl || row.notes ? (
+        <div className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
+          {row.sourceDocumentName ? (
+            <p>Source: {row.sourceDocumentName}</p>
+          ) : null}
+          {row.sourceDocumentUrl ? (
+            <a
+              className="mt-1 inline-flex font-medium text-foreground underline-offset-4 hover:underline"
+              href={row.sourceDocumentUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Open source document
+            </a>
+          ) : null}
+          {row.notes ? <p className="mt-1">{row.notes}</p> : null}
+        </div>
+      ) : null}
+      {pending ? (
+        <OpeningBalanceReviewForm
+          disabled={disabled}
+          memberId={memberId}
+          openingBalanceId={row.id}
+        />
+      ) : approved ? (
+        <OpeningBalanceApplyForm
+          disabled={disabled}
+          memberId={memberId}
+          openingBalanceId={row.id}
+        />
+      ) : applied ? (
+        <OpeningBalanceReverseForm
+          disabled={disabled}
+          memberId={memberId}
+          openingBalanceId={row.id}
+        />
+      ) : row.status === "reversed" && row.reversalNotes ? (
+        <p className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
+          Reversal note: {row.reversalNotes}
+        </p>
+      ) : row.reviewNotes ? (
+        <p className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
+          Review note: {row.reviewNotes}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function OpeningPositionPanel({ data }: { data: MemberBackfillData }) {
+  const disabled =
+    !data.canEditBackfill || data.review.status === "backfill_applied"
+
+  return (
+    <div className="border border-border/70 bg-background p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <Badge variant="outline">Brought-forward</Badge>
+          <h3 className="mt-3 text-sm font-semibold">
+            Start from current book position
+          </h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Capture current balances and obligations as staged opening evidence.
+          </p>
+        </div>
+        <TrendPill tone="neutral">Review/apply</TrendPill>
+      </div>
+      <OpeningBalanceCreateForm data={data} disabled={disabled} />
+      <div className="mt-5 grid gap-3">
+        {data.memberOpeningBalances.length > 0 ? (
+          data.memberOpeningBalances.map((row) => (
+            <OpeningBalanceRow
+              disabled={disabled}
+              key={row.id}
+              memberId={data.member.id}
+              row={row}
+            />
+          ))
+        ) : (
+          <div className="border border-dashed border-border/70 p-3 text-sm text-muted-foreground">
+            No brought-forward opening position has been staged for this member.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function StepRail({
   activeStep,
   data,
@@ -294,7 +706,7 @@ function BaselineStep({ data }: { data: MemberBackfillData }) {
       <DashboardSectionHeader
         eyebrow="Step 1"
         title="Confirm member baseline"
-        description="Check the member identity, joined date, current commitment, and backfill state before adding history."
+        description="Check the member identity, joined date, current commitment, and opening position before choosing full history or brought-forward migration."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <MemberBackfillBaselineEditDialog
@@ -343,6 +755,19 @@ function BaselineStep({ data }: { data: MemberBackfillData }) {
           label="Address"
           value={data.member.address ?? "Not provided"}
         />
+      </div>
+      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <OpeningPositionPanel data={data} />
+        <div className="border border-border/70 bg-background p-4">
+          <Badge variant="outline">Full backfill</Badge>
+          <h3 className="mt-3 text-sm font-semibold">
+            Rebuild month-by-month history
+          </h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Use this path when the member ledger needs dated commitments,
+            charges, repayments, and profit adjustments before posting.
+          </p>
+        </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricBlock

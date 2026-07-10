@@ -5,6 +5,7 @@ import {
   getImportBatchKind,
   importCharges,
   importContributions,
+  importLoanProducts,
   importLoanMigrations,
   importMembers,
   importRepaymentMigrations,
@@ -149,6 +150,53 @@ describe("import batch queries", () => {
     ).rejects.toThrow("Member record imports are locked because initial migration is finalized")
 
     expect(prisma.memberUpserts).toHaveLength(0)
+  })
+
+  test("imports loan product codes as normalized identifiers", async () => {
+    const loanProductUpserts: any[] = []
+
+    await importLoanProducts(
+      {
+        actorUserId: "user-1",
+        rows: [
+          {
+            code: "emg",
+            loanType: "quick",
+            maxSavingsMultiple: 1,
+            name: "Emergency Support",
+            termMonths: 6,
+          },
+        ],
+        tenantId: "tenant-1",
+      },
+      {
+        appliedBackfillMonth: {
+          findMany: async () => [],
+        },
+        auditLog: {
+          create: async (input: unknown) => input,
+        },
+        backfillBatch: {
+          findMany: async () => [],
+        },
+        loanProduct: {
+          upsert: async (input: unknown) => {
+            loanProductUpserts.push(input)
+            return input
+          },
+        },
+      } as never,
+    )
+
+    expect(loanProductUpserts[0]).toMatchObject({
+      create: {
+        code: "EMG",
+        name: "Emergency Support",
+      },
+      update: {
+        code: "EMG",
+      },
+    })
   })
 
   test("blocks member imports after backfill has started", async () => {

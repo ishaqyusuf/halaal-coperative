@@ -10,7 +10,10 @@ import {
   TableEmptyState,
 } from "@/components/dashboard/static-table"
 import { DashboardSurfaceCard } from "@/components/dashboard"
-import { LoanReviewForm } from "@/components/forms/finance-forms"
+import {
+  LoanGuarantorReviewForm,
+  LoanReviewForm,
+} from "@/components/forms/finance-forms"
 
 type LoanRequestRow = {
   approvals: Array<{
@@ -23,6 +26,18 @@ type LoanRequestRow = {
   eligibleAmountSnapshot: number | string | { toString(): string }
   estimatedMonthlyServicing: number | string | { toString(): string }
   extraMonthlySavingsAmount: number | string | { toString(): string }
+  guarantorApprovals: Array<{
+    guarantorMember: {
+      fullName: string
+      memberNumber: string
+    }
+    id: string
+    requestedAt: Date
+    respondedAt?: Date | null
+    respondedByUser?: { fullName: string } | null
+    responseNotes?: string | null
+    status: "approved" | "pending" | "rejected"
+  }>
   id: string
   loanProduct: { name: string }
   member: { fullName: string }
@@ -86,6 +101,47 @@ export function LoanRequestsTable({
                         {approval.action} · {approval.actorUser.fullName} · {approval.actedAt.toISOString().slice(0, 10)}
                         {approval.notes ? ` · ${approval.notes}` : ""}
                       </p>
+                    ))}
+                  </DashboardSurfaceCard>
+                ) : null}
+                {request.guarantorApprovals.length ? (
+                  <DashboardSurfaceCard className="mt-3 space-y-3 bg-card p-3 text-xs text-muted-foreground">
+                    {request.guarantorApprovals.map((approval) => (
+                      <div key={approval.id} className="space-y-2">
+                        <p>
+                          Guarantor · {approval.guarantorMember.fullName} ·{" "}
+                          <span className="capitalize">
+                            {approval.status.replace(/_/g, " ")}
+                          </span>
+                          {approval.respondedByUser
+                            ? ` · recorded by ${approval.respondedByUser.fullName}`
+                            : ""}
+                          {approval.responseNotes
+                            ? ` · ${approval.responseNotes}`
+                            : ""}
+                        </p>
+                        {canReview && approval.status === "pending" ? (
+                          <div className="flex flex-wrap gap-2">
+                            <LoanGuarantorReviewForm
+                              defaultValues={{
+                                guarantorApprovalId: approval.id,
+                                notes: "",
+                                status: "approved",
+                              }}
+                              label="Guarantor approved"
+                            />
+                            <LoanGuarantorReviewForm
+                              defaultValues={{
+                                guarantorApprovalId: approval.id,
+                                notes: "",
+                                status: "rejected",
+                              }}
+                              label="Guarantor rejected"
+                              variant="outline"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
                     ))}
                   </DashboardSurfaceCard>
                 ) : null}

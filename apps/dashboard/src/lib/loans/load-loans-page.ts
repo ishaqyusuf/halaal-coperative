@@ -16,6 +16,7 @@ import { allStaffRoles, financeManagementRoles, hasAnyRole } from "@/lib/workspa
 type LoanNumericValue = number | string | { toString(): string }
 
 type LoanProductOptionRow = {
+  code?: string | null
   id: string
   loanType: "normal" | "quick"
   name: string
@@ -39,6 +40,18 @@ type LoanRequestRow = {
   eligibleAmountSnapshot: LoanNumericValue
   estimatedMonthlyServicing: LoanNumericValue
   extraMonthlySavingsAmount: LoanNumericValue
+  guarantorApprovals: Array<{
+    guarantorMember: {
+      fullName: string
+      memberNumber: string
+    }
+    id: string
+    requestedAt: Date
+    respondedAt?: Date | null
+    respondedByUser?: { fullName: string } | null
+    responseNotes?: string | null
+    status: "approved" | "pending" | "rejected"
+  }>
   id: string
   loanProduct: { name: string }
   member: { fullName: string }

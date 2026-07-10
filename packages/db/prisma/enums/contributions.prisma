@@ -24,6 +24,33 @@ enum PaymentAllocationPreference {
   loan_first
 }
 
+enum MemberPaymentReceiptStatus {
+  submitted
+  under_review
+  correction_requested
+  approved
+  rejected
+}
+
+enum MemberPaymentReceiptAllocationCategory {
+  commitment
+  special_savings
+  loan_servicing
+  loan_extra_payment
+  shares
+  procurement
+  project_financing
+  food_purchase
+  other
+}
+
+enum MemberPaymentReceiptPeriodIntent {
+  current_period
+  future_period
+  back_period
+  unspecified
+}
+
 enum ChargeKind {
   fixed
   percentage

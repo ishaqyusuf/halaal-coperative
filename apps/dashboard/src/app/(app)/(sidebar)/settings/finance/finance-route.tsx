@@ -17,7 +17,10 @@ import {
 } from "@halaalvest/db"
 import { TenantFinancePageView } from "@/components/tenant-finance-page-view"
 import type { TenantFinanceSection } from "@/components/tenant-finance-page-view"
-import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 
 function toDateString(value: Date | string | null | undefined) {
   if (!value) return null
@@ -45,6 +48,14 @@ const demoShareVersions = [
     valueType: "percentage" as const,
   },
 ]
+
+const demoSharePolicy = {
+  configurationMode: "monthly_history" as const,
+  compulsoryShareUnits: 1,
+  id: null,
+  maximumShareUnits: 20,
+  unitAmount: 10000,
+}
 
 const demoChargeDefinitions = [
   {
@@ -324,7 +335,7 @@ export async function FinanceSettingsRoute({
           listMigrationProfitAdjustmentOptions(
             context.tenant.id,
             undefined,
-            previewMember.id,
+            previewMember.id
           ),
         ])
       : null
@@ -339,7 +350,6 @@ export async function FinanceSettingsRoute({
           "charge_schedules",
           "business_profit_pools",
           "business_profit_seasons",
-          "share_capital_plan",
           "member_profiles",
         ].includes(stepKey)
       )
@@ -395,6 +405,7 @@ export async function FinanceSettingsRoute({
             })),
           }
         })}
+        sharePolicy={data.sharePolicy}
         shareStructureVersions={data.shareStructureVersions.map(
           (version: any) => ({
             id: version.id,
@@ -525,7 +536,6 @@ export async function FinanceSettingsRoute({
         }
         quickFillEnabled={quickFillEnabled}
         section={section}
-        tenantName={data.tenant?.name ?? context.tenant.name}
         tenantStartDate={
           data.tenant?.startDate?.toISOString().slice(0, 10) ?? null
         }
@@ -552,9 +562,9 @@ export async function FinanceSettingsRoute({
       selectedMigrationMemberId={demoMemberOptions[0]?.id ?? null}
       selectedMigrationMemberLabel={demoMemberOptions[0]?.label ?? null}
       section={section}
+      sharePolicy={demoSharePolicy}
       shareBusinesses={demoShareBusinesses}
       shareStructureVersions={demoShareVersions}
-      tenantName={context.tenant?.name ?? "Demo cooperative"}
       tenantStartDate={context.tenant?.startDate ?? "2024-01-01"}
     />
   )

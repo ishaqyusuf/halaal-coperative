@@ -2,14 +2,16 @@
 
 ## Goal
 - Add a first-run finance setup flow for each cooperative and a historical member backfill workspace.
-- Let staff define the cooperative start date, charge history, default share history, member-specific amount history, and member share overrides.
+- Let staff define the cooperative start date, selected share model, charge history, default share history when applicable, member-specific amount history, and member share overrides when applicable.
 - Generate editable month-by-month backfill rows from those histories before posting them into live contribution, charge, repayment, and future dividend records.
 
 ## User Flow
 - A tenant admin creates or updates the cooperative profile and confirms the cooperative `startDate`.
 - A tenant admin or finance officer opens the finance setup workspace and configures:
-  - default cooperative share amount from the cooperative start date
-  - dated share updates
+  - share model choice: monthly share history or unit-based shareholding
+  - share unit policy with one-share cost, compulsory member share units, and maximum member share units when unit-based shareholding is selected
+  - default cooperative share amount from the cooperative start date when monthly share history is selected
+  - dated share updates when monthly share history is selected
   - charge definitions with dated amount updates
   - historical share businesses with capital, profit, start date, end date, and optional dividend-period linkage
   - dividend/profit-sharing season policy, including distribution frequency and financial year start
@@ -18,9 +20,16 @@
   - amount history entries
   - optional member-specific share override history
   - any active loan context already carried by the member record
+- During Getting Started and the member baseline step, staff can now choose between the existing full historical backfill path and a brought-forward opening-position path.
+- Admin share setup surfaces must present the two share models as mutually exclusive. When staff select a different active model, inactive model workflows should be hidden until the selected model is saved, so monthly share history and unit-based shareholding are never treated as side-by-side setup paths.
+- The brought-forward path now has a staged opening-position data model for current book balances and active obligations.
+- The member backfill baseline step now lets finance staff stage, review, and apply approved brought-forward opening positions for one member when the row contains savings, share-capital balances, active financing outstanding, and procurement outstanding.
+- Applying an approved opening position posts commitment/special savings as a brought-forward ledger adjustment, increments the member savings snapshot, posts share capital through the member share ledger, converts any active financing outstanding amount into an active brought-forward loan with one opening repayment schedule item, converts any procurement outstanding amount into an active brought-forward procurement request with one opening repayment schedule item, marks the opening balance as applied, and writes audit evidence.
+- Finance staff can reverse an applied opening position with required notes. Reversal posts opposite brought-forward savings ledger entries, decrements the member savings snapshot, posts a negative brought-forward share ledger entry, closes the linked opening loan and cancels the linked opening procurement obligation when they have no repayment activity, marks the opening balance as reversed, and writes audit evidence.
+- Workspace admins can export brought-forward opening positions from `/reports/opening-balances-export`, including source documents, savings/share balances, unresolved financing/procurement amounts, linked applied loan id, linked applied procurement request id, review evidence, apply evidence, and reversal evidence.
 - A staff user launches backfill from the members list or member overview instead of navigating to a standalone finance route.
 - The backfill CTA opens a full-screen modal scoped to one member.
-- The system generates one monthly row per month using the member amount log, active charge versions, active share version, and loan schedule data.
+- The system generates one monthly row per month using the member amount log, active charge versions, active share version when monthly share history is selected, and loan schedule data.
 - The staff user reviews the generated rows, edits any field that needs correction, and adds extra month activities such as:
   - loan taken
   - profit dividend
@@ -35,6 +44,13 @@
 - Existing tables used directly:
   - `Tenant`
     - `startDate` is the canonical cooperative start date.
+  - `TenantPolicy`
+    - `shareConfigurationMode` stores the cooperative's selected share model.
+    - `shareUnitAmount` stores the configured cost of one share unit only when unit-based shareholding is selected.
+    - `compulsoryShareUnits` stores the minimum required share units per member only when unit-based shareholding is selected.
+    - `maximumShareUnits` stores the maximum units a member can hold only when unit-based shareholding is selected.
+    - Monthly share history is mutually exclusive with unit-based shareholding; inactive unit fields are ignored and normalized to defaults while monthly history is active.
+    - UI/workflow state should follow the currently selected model and require saving before the inactive model's workflow becomes available.
   - `Member`
   - `ContributionPlan`
   - `Contribution`
@@ -46,7 +62,7 @@
   - `AuditLog`
 - Recommended new tables:
   - `TenantShareStructureVersion`
-    - Purpose: dated default monthly share amount for the cooperative.
+    - Purpose: dated default monthly share amount for the cooperative when monthly share history mode is selected.
     - Fields:
       - `id`
       - `tenantId`
@@ -56,7 +72,7 @@
       - `createdByUserId`
       - `createdAt`
   - `MemberShareOverride`
-    - Purpose: member-specific dated monthly share override.
+    - Purpose: member-specific dated monthly share override when monthly share history mode is selected.
     - Fields:
       - `id`
       - `tenantId`
@@ -119,6 +135,7 @@
     - Notes:
       - During initial migration, generated periods can store total profit, distributable amount, deduction amount, and deduction reason before member backfill starts.
       - Published or closed periods should not be silently rewritten by migration tooling.
+      - Publishing detailed share-profit allocations rebuilds period-level member dividend totals across all linked published profit entries; the period is marked published only when every linked non-archived profit entry has published allocations.
   - `BackfillBatch`
     - Purpose: one staged backfill run for one member over a date range.
     - Fields:
@@ -172,6 +189,40 @@
       - `metadata`
       - `createdByUserId`
       - `createdAt`
+  - `MemberOpeningBalance`
+    - Purpose: staged brought-forward opening position for one member.
+    - Fields:
+      - `id`
+      - `tenantId`
+      - `memberId`
+      - `openingDate`
+      - `status` with values `pending_review`, `approved`, `rejected`, and `cancelled`
+      - `commitmentSavingsBalance`
+      - `specialSavingsBalance`
+      - `shareCapitalBalance`
+      - `shareUnits`
+      - `activeFinancingOutstanding`
+      - `procurementOutstanding`
+      - `appliedLoanId`
+      - `appliedProcurementRequestId`
+      - `sourceDocumentUrl`
+      - `sourceDocumentName`
+      - `notes`
+      - `reviewNotes`
+      - `createdByUserId`
+      - `reviewedByUserId`
+      - `reviewedAt`
+      - `appliedByUserId`
+      - `appliedAt`
+      - `reversedByUserId`
+      - `reversedAt`
+      - `reversalNotes`
+      - `createdAt`
+      - `updatedAt`
+    - Notes:
+      - Opening balances are review evidence and migration inputs until explicitly applied. The apply workflow posts savings and share capital through audited ledgers, converts active financing outstanding into a linked active loan with one opening schedule row, and can convert procurement outstanding into a linked active procurement obligation with one opening schedule row.
+      - Mutations are blocked once the member's historical ledger has already been applied, so opening positions cannot silently rewrite posted history.
+      - Dashboard actions for the member baseline step create pending opening positions and approve/reject pending rows through the same tenant/member migration lock rules.
 - Recommended enums:
   - `BackfillBatchStatus`
     - `draft`
@@ -190,8 +241,10 @@
   - Monthly member amount:
     - latest `MemberAmountLog.effectiveFrom <= month`
   - Monthly share amount:
+    - only resolves when `TenantPolicy.shareConfigurationMode` is `monthly_history`
     - latest `MemberShareOverride.effectiveFrom <= month`
     - otherwise latest `TenantShareStructureVersion.effectiveFrom <= month`
+    - resolves to zero when the cooperative uses unit-based shareholding
   - Monthly charge total:
     - sum of the latest active `ChargeDefinitionVersion` per active charge definition effective for the month
   - Monthly loan service amount:
@@ -414,12 +467,16 @@
     - replays contributions, charges, and loan repayments from the persisted backfill rows
     - recalculates member savings snapshot
     - marks the batch as applied and writes audit logs
+- Implemented client-fit onboarding entrypoint:
+  - Getting Started now presents two member migration paths after setup finalization:
+    - brought-forward opening position for current book balances and active obligations
+    - full historical backfill for month-by-month reconstruction
+  - the member backfill baseline step now explains both paths before staff enter history or approve the member migration state
 
 ## Remaining Work
 - Tighten repayment replay when multiple concurrent loans exist for one member.
 - Add draft reopen/resume UX using persisted batches instead of always hydrating the latest preview.
+- Add richer opening-obligation capture if cooperatives later need original loan labels, original procurement item details, or month-by-month opening repayment schedules instead of the current one-row outstanding-balance posting.
 - Connect applied backfill rows into the live share system beyond `totalSavingsSnapshot`, including downstream reporting surfaces.
-- Connect `ShareBusiness` registry to real dividend-period generation and future member profit pre-generation.
-- Make the getting-started flow capture dividend/profit-sharing season setup before member migration.
-- Keep the explicit dividend season review step as a gate before member backfill so profit rows, deductions, and member migration context stay deterministic.
+- Add member-facing dividend statement/export surfaces for published period allocation summaries.
 - Add migration and Prisma client regeneration so the new backfill/share-business columns are first-class typed models everywhere.

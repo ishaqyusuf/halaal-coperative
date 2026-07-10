@@ -1,0 +1,16 @@
+enum FoodPurchaseCycleStatus {
+  open
+  accounting_submitted
+  accounting_approved
+  accounting_rejected
+  closed
+  cancelled
+}
+
+enum FoodPurchaseApplicationStatus {
+  submitted
+  under_review
+  approved
+  rejected
+  cancelled
+}

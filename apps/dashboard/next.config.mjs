@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  allowedDevOrigins: ["*.app.halaalvest.localhost", "*.halaalvest.localhost"],
+  allowedDevOrigins: [
+    "*.app.halaalvest.localhost",
+    "*.halaalvest.localhost",
+    "ibadan-heritage-artisans-mutual-aid.halaalvest.localhost",
+  ],
   transpilePackages: [
     "@halaalvest/api",
     "@halaalvest/auth",

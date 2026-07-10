@@ -1,3 +1,5 @@
+/* global process */
+
 import { afterEach, describe, expect, test } from "bun:test"
 import { buildOnboardingWorkspaceUrls } from "./tenant-workspace-urls.ts"
 
@@ -13,7 +15,7 @@ const trackedEnvKeys = [
 ]
 
 const originalEnv = Object.fromEntries(
-  trackedEnvKeys.map((key) => [key, process.env[key]]),
+  trackedEnvKeys.map((key) => [key, process.env[key]])
 )
 
 function setEnv(values) {
@@ -55,11 +57,16 @@ describe("buildOnboardingWorkspaceUrls", () => {
     })
 
     expect(urls.dashboardUrl).toBe(
-      "http://mig-test-123.app.halaalvest.localhost:1441",
+      "http://mig-test-123.app.halaalvest.localhost:1441"
     )
     expect(urls.siteUrl).toBe(
-      "http://mig-test-123.app.halaalvest.localhost:1440",
+      "http://mig-test-123.app.halaalvest.localhost:1440"
     )
+    expect(urls.devDashboardUrlVariants.map((variant) => variant.url)).toEqual([
+      "http://mig-test-123.app.halaalvest.localhost:1441",
+      "http://mig-test-123.localhost:1441",
+      "http://localhost:1441/mig-test-123",
+    ])
   })
 
   test("uses the dashboard port without /app for bare localhost onboarding requests", () => {
@@ -76,5 +83,32 @@ describe("buildOnboardingWorkspaceUrls", () => {
 
     expect(urls.dashboardUrl).toBe("http://mig-test-123.localhost:1441")
     expect(urls.siteUrl).toBe("http://mig-test-123.localhost:1440")
+    expect(urls.devDashboardUrlVariants.map((variant) => variant.url)).toEqual([
+      "http://mig-test-123.localhost:1441",
+      "http://mig-test-123.app.halaalvest.localhost:1441",
+      "http://localhost:1441/mig-test-123",
+    ])
+  })
+
+  test("offers portless and direct local dashboard variants", () => {
+    setEnv({
+      DASHBOARD_APP_URL: "http://app.halaalvest.localhost",
+      HALAAL_VEST_DASHBOARD_ROOT_DOMAIN: "halaalvest.localhost",
+      HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN: "halaalvest.localhost",
+      TENANT_SITE_APP_URL: "http://halaalvest.localhost",
+    })
+
+    const urls = buildOnboardingWorkspaceUrls({
+      currentOrigin: "http://halaalvest.localhost/api/onboarding",
+      tenantSlug: "mig-test-123",
+    })
+
+    expect(urls.dashboardUrl).toBe("http://mig-test-123.halaalvest.localhost")
+    expect(urls.devDashboardUrlVariants.map((variant) => variant.url)).toEqual([
+      "http://mig-test-123.halaalvest.localhost",
+      "http://mig-test-123.app.halaalvest.localhost",
+      "http://mig-test-123.localhost:1441",
+      "http://localhost:1441/mig-test-123",
+    ])
   })
 })

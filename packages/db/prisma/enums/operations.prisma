@@ -21,6 +21,11 @@ enum ShareBasis {
   after_charge_deductions
 }
 
+enum ShareConfigurationMode {
+  monthly_history
+  unit_based
+}
+
 enum ChargePurpose {
   general
   member_share
@@ -31,10 +36,70 @@ enum ChargePurpose {
 
 enum MemberShareSourceType {
   monthly_share_charge
+  share_application
+  payment_receipt
   backfill
   manual_adjustment
   import
   reversal
+}
+
+enum MemberShareApplicationStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum SupportCaseStatus {
+  open
+  in_progress
+  waiting_on_member
+  resolved
+  closed
+}
+
+enum SupportCasePriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum SupportCaseCategory {
+  payment_issue
+  account_update
+  shares
+  financing
+  procurement
+  feature_request
+  technical
+  other
+}
+
+enum SupportCaseLinkedRecordType {
+  member
+  contribution
+  repayment
+  loan_request
+  loan
+  share_application
+  procurement
+  receipt
+  other
+}
+
+enum SupportCaseMessageAuthorType {
+  member
+  staff
+  system
+}
+
+enum SupportFinancialAdjustmentApprovalStatus {
+  not_required
+  pending
+  approved
+  rejected
 }
 
 enum ProfitEntrySourceType {

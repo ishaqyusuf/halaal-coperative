@@ -1,0 +1,10 @@
+enum ProcurementRequestStatus {
+  submitted
+  under_review
+  approved
+  rejected
+  cancelled
+  purchased
+  active
+  completed
+}

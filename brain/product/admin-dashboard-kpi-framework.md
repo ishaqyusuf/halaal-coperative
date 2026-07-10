@@ -50,7 +50,16 @@
   - pending membership approvals
   - KYC or document reviews
   - financing requests awaiting approval
+  - guarantor approvals awaiting response
   - disbursements awaiting release
+  - procurement requests awaiting review
+  - project financing requests awaiting structure/review
+  - food purchase applications awaiting committee review
+  - food purchase accounting awaiting finance/admin review
+  - brought-forward opening balances awaiting review
+  - share applications awaiting approval
+  - payment receipts awaiting review or posting
+  - support cases awaiting staff response or resolution
   - overdue repayment follow-ups
   - failed imports or monthly generation issues
   - tenant setup warnings
@@ -61,8 +70,11 @@
 - Pending approvals.
 - KYC/document review.
 - Financing approvals.
+- Procurement request reviews.
 - Disbursement holds.
+- Payment receipt reviews.
 - Overdue follow-ups.
+- Open support cases.
 - Failed imports.
 - Setup warnings.
 
@@ -71,6 +83,7 @@
 - Paid and unpaid members.
 - Collection gap.
 - Missed payroll or deduction-source issues.
+- Staged member-submitted receipts awaiting approval, especially future/back-period allocations.
 - Recent posted contributions only after exception metrics.
 
 ### Financing Risk
@@ -79,6 +92,7 @@
 - Overdue amount.
 - PAR 30, PAR 60, PAR 90.
 - Guarantor, approval, or documentation exceptions when modeled.
+- Tenant financing policy guardrails, including special-savings eligibility, strict commitment, and emergency/quick overlap rules, should be visible from the loan settings workspace.
 - Monthly financing cycle status, quick/normal capacity usage, and projected-vs-actual collection warnings when the active cycle can affect intake or disbursement decisions.
 - Loan workspaces should show quick/normal budget, requested or held amount, disbursed amount, remaining capacity, and deployable-funds warnings before staff submit or disburse financing.
 
@@ -101,6 +115,7 @@
 ### Recent Activity
 - Use one combined activity feed instead of separate card lists for each entity.
 - Include contribution posted, repayment posted, financing approved/disbursed, member approved/suspended, charge applied/waived, document reviewed, and audit-sensitive admin actions.
+- The full activity report should expose performer, authorizer or reviewer when available, timestamp, affected entity, and compact before/after metadata summaries for governance review and exports.
 
 ## Content To Demote
 - Session state.

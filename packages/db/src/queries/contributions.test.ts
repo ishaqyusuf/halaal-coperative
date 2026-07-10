@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   closeContributionPlan,
+  listContributions,
   recordContribution,
   recordMemberPayment,
   setMemberContributionPlan,
@@ -72,7 +73,148 @@ function createLockedContributionPrismaStub() {
   }
 }
 
+function createLiveContributionPolicyPrismaStub(input?: {
+  activeFinancingCount?: number
+  activeFoodPurchaseCount?: number
+  activeProcurementCount?: number
+  foodPurchaseAllowsCommitmentReductionDuringPayback?: boolean
+  procurementAllowsCommitmentReductionDuringPayback?: boolean
+  strictCommitmentDuringFinancing?: boolean
+}) {
+  const auditCreates: unknown[] = []
+  const planUpdates: unknown[] = []
+  const transactions: unknown[] = []
+  const tx = {
+    auditLog: {
+      create: async (args: unknown) => {
+        auditCreates.push(args)
+        return args
+      },
+    },
+    contributionPlan: {
+      findFirst: async () => ({
+        amount: 50000,
+        isActive: true,
+        memberId: "member-1",
+      }),
+      update: async (args: unknown) => {
+        planUpdates.push(args)
+        return {
+          amount: 30000,
+          id: "plan-1",
+          memberId: "member-1",
+        }
+      },
+    },
+    loan: {
+      count: async () => input?.activeFinancingCount ?? 0,
+    },
+    foodPurchaseApplication: {
+      count: async () => input?.activeFoodPurchaseCount ?? 0,
+    },
+    procurementRequest: {
+      count: async () => input?.activeProcurementCount ?? 0,
+    },
+    tenantPolicy: {
+      findUnique: async () => ({
+        foodPurchaseAllowsCommitmentReductionDuringPayback:
+          input?.foodPurchaseAllowsCommitmentReductionDuringPayback ?? false,
+        procurementAllowsCommitmentReductionDuringPayback:
+          input?.procurementAllowsCommitmentReductionDuringPayback ?? false,
+        strictCommitmentDuringFinancing:
+          input?.strictCommitmentDuringFinancing ?? true,
+      }),
+    },
+  }
+
+  return {
+    ...createLockedContributionPrismaStub(),
+    $transaction: async (callback: (transactionClient: typeof tx) => Promise<unknown>) => {
+      transactions.push(callback)
+      return callback(tx)
+    },
+    appliedBackfillMonth: {
+      findMany: async () => [],
+    },
+    auditLog: {
+      count: async () => 0,
+    },
+    backfillBatch: {
+      count: async () => 0,
+      findMany: async () => [],
+    },
+    chargeDefinitionVersion: {
+      count: async () => 1,
+    },
+    member: {
+      findMany: async () => [],
+    },
+    shareBusinessProfitEntry: {
+      count: async () => 1,
+    },
+    tenant: {
+      findUnique: async () => ({
+        id: "tenant-1",
+        initialMigrationStatus: "live_operations",
+        migrationEmergencyUnlockUntil: null,
+        migrationFinalizedAt: new Date("2026-07-01T00:00:00.000Z"),
+        startDate: new Date("2026-01-01T00:00:00.000Z"),
+      }),
+    },
+    tenantPolicy: {
+      findUnique: async () => ({ shareConfigurationMode: "unit_based" }),
+    },
+    tenantShareStructureVersion: {
+      count: async () => 1,
+    },
+    auditCreates,
+    planUpdates,
+    transactions,
+  }
+}
+
 describe("contribution live write guards", () => {
+  test("lists only special-savings contribution rows when requested", async () => {
+    const reads: Record<string, unknown>[] = []
+    const counts: Record<string, unknown>[] = []
+
+    const result = await listContributions(
+      "tenant-1",
+      {
+        page: 1,
+        pageSize: 500,
+        specialSavingsOnly: true,
+      },
+      {
+        contribution: {
+          count: async (input: Record<string, unknown>) => {
+            counts.push(input)
+            return 0
+          },
+          findMany: async (input: Record<string, unknown>) => {
+            reads.push(input)
+            return []
+          },
+        },
+      } as never,
+    )
+
+    expect(result.items).toEqual([])
+    expect(reads[0]).toMatchObject({
+      take: 500,
+      where: {
+        extraSavingsAmount: { gt: 0 },
+        tenantId: "tenant-1",
+      },
+    })
+    expect(counts[0]).toMatchObject({
+      where: {
+        extraSavingsAmount: { gt: 0 },
+        tenantId: "tenant-1",
+      },
+    })
+  })
+
   test("blocks contribution posting before live operations", async () => {
     const prisma = createLockedContributionPrismaStub()
 
@@ -185,6 +327,110 @@ describe("contribution live write guards", () => {
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.transactions).toHaveLength(0)
+  })
+
+  test("blocks active commitment reduction while serving financing in strict mode", async () => {
+    const prisma = createLiveContributionPolicyPrismaStub({
+      activeFinancingCount: 1,
+      strictCommitmentDuringFinancing: true,
+    })
+
+    await expect(
+      updateContributionPlan(
+        {
+          actorUserId: "user-1",
+          amount: 30000,
+          planId: "plan-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("Strict commitment policy")
+
+    expect(prisma.planUpdates).toHaveLength(0)
+  })
+
+  test("allows active commitment reduction when strict financing mode is disabled", async () => {
+    const prisma = createLiveContributionPolicyPrismaStub({
+      activeFinancingCount: 1,
+      strictCommitmentDuringFinancing: false,
+    })
+
+    await updateContributionPlan(
+      {
+        actorUserId: "user-1",
+        amount: 30000,
+        planId: "plan-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never,
+    )
+
+    expect(prisma.planUpdates).toHaveLength(1)
+    expect(prisma.auditCreates).toHaveLength(1)
+  })
+
+  test("blocks active commitment reduction while serving fixed procurement payback", async () => {
+    const prisma = createLiveContributionPolicyPrismaStub({
+      activeProcurementCount: 1,
+      procurementAllowsCommitmentReductionDuringPayback: false,
+      strictCommitmentDuringFinancing: false,
+    })
+
+    await expect(
+      updateContributionPlan(
+        {
+          actorUserId: "user-1",
+          amount: 30000,
+          planId: "plan-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("Procurement commitment policy is fixed")
+
+    expect(prisma.planUpdates).toHaveLength(0)
+  })
+
+  test("blocks active commitment reduction while serving fixed Foodstuff Purchase", async () => {
+    const prisma = createLiveContributionPolicyPrismaStub({
+      activeFoodPurchaseCount: 1,
+      foodPurchaseAllowsCommitmentReductionDuringPayback: false,
+      strictCommitmentDuringFinancing: false,
+    })
+
+    await expect(
+      updateContributionPlan(
+        {
+          actorUserId: "user-1",
+          amount: 30000,
+          planId: "plan-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("Foodstuff Purchase commitment policy is fixed")
+
+    expect(prisma.planUpdates).toHaveLength(0)
+  })
+
+  test("allows active commitment reduction when no fixed product snapshots are active", async () => {
+    const prisma = createLiveContributionPolicyPrismaStub({
+      strictCommitmentDuringFinancing: false,
+    })
+
+    await updateContributionPlan(
+      {
+        actorUserId: "user-1",
+        amount: 30000,
+        planId: "plan-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never,
+    )
+
+    expect(prisma.planUpdates).toHaveLength(1)
+    expect(prisma.auditCreates).toHaveLength(1)
   })
 
   test("allows backfill contribution posting through the live-write guard", async () => {

@@ -1,0 +1,57 @@
+model SupportCase {
+  id                          String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                    String                       @map("tenant_id") @db.Uuid
+  memberId                    String?                      @map("member_id") @db.Uuid
+  openedByUserId              String?                      @map("opened_by_user_id") @db.Uuid
+  assignedToUserId            String?                      @map("assigned_to_user_id") @db.Uuid
+  category                    SupportCaseCategory
+  status                      SupportCaseStatus            @default(open)
+  priority                    SupportCasePriority          @default(normal)
+  subject                     String
+  description                 String
+  linkedRecordType            SupportCaseLinkedRecordType? @map("linked_record_type")
+  linkedRecordId              String?                      @map("linked_record_id") @db.Uuid
+  moneyImpactRequested        Boolean                      @default(false) @map("money_impact_requested")
+  requiresFinancialAdjustment Boolean                      @default(false) @map("requires_financial_adjustment")
+  financialAdjustmentApprovalStatus   SupportFinancialAdjustmentApprovalStatus @default(not_required) @map("financial_adjustment_approval_status")
+  financialAdjustmentApprovedByUserId String?                                  @map("financial_adjustment_approved_by_user_id") @db.Uuid
+  financialAdjustmentApprovedAt       DateTime?                                @map("financial_adjustment_approved_at") @db.Timestamptz(6)
+  financialAdjustmentApprovalNotes    String?                                  @map("financial_adjustment_approval_notes")
+  resolutionSummary           String?                      @map("resolution_summary")
+  resolvedAt                  DateTime?                    @map("resolved_at") @db.Timestamptz(6)
+  closedAt                    DateTime?                    @map("closed_at") @db.Timestamptz(6)
+  createdAt                   DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member         Member?              @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  openedByUser   User?                @relation("SupportCaseOpenedBy", fields: [openedByUserId], references: [id], onDelete: SetNull)
+  assignedToUser User?                @relation("SupportCaseAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  financialAdjustmentApprovedByUser User?                @relation("SupportCaseFinancialAdjustmentApprovedBy", fields: [financialAdjustmentApprovedByUserId], references: [id], onDelete: SetNull)
+  messages       SupportCaseMessage[]
+
+  @@index([tenantId, status, priority], map: "support_cases_tenant_status_priority_idx")
+  @@index([tenantId, memberId, status], map: "support_cases_tenant_member_status_idx")
+  @@index([tenantId, assignedToUserId, status], map: "support_cases_tenant_assignee_status_idx")
+  @@index([tenantId, linkedRecordType, linkedRecordId], map: "support_cases_tenant_linked_record_idx")
+  @@index([tenantId, financialAdjustmentApprovalStatus], map: "support_cases_tenant_fin_adj_approval_idx")
+  @@map("support_cases")
+}
+
+model SupportCaseMessage {
+  id            String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String                       @map("tenant_id") @db.Uuid
+  supportCaseId String                       @map("support_case_id") @db.Uuid
+  authorUserId  String?                      @map("author_user_id") @db.Uuid
+  authorType    SupportCaseMessageAuthorType @map("author_type")
+  message       String
+  attachmentUrl String?                      @map("attachment_url")
+  createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supportCase SupportCase @relation(fields: [supportCaseId], references: [id], onDelete: Cascade)
+  authorUser  User?       @relation("SupportCaseMessageAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, supportCaseId, createdAt], map: "support_case_messages_tenant_case_created_idx")
+  @@map("support_case_messages")
+}

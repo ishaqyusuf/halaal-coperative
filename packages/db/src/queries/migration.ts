@@ -5,6 +5,7 @@ import {
   type InitialMigrationStatus,
 } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
+import { isPrismaMissingColumnError } from "../prisma-errors"
 import { createAuditLogEntry } from "./audit"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import { getTenantById } from "./tenants"
@@ -28,10 +29,35 @@ function getMissingGettingStartedSetupStepKeys(
     "charge_schedules",
     "business_profit_pools",
     "business_profit_seasons",
-    "share_capital_plan",
   ])
 
   return missingStepKeys.filter((stepKey) => requiredSetupStepKeys.has(stepKey))
+}
+
+async function readTenantShareConfigurationMode(
+  prisma: any,
+  tenantId: string
+) {
+  if (typeof prisma.tenantPolicy?.findUnique !== "function") {
+    return "monthly_history"
+  }
+
+  try {
+    const policy = await prisma.tenantPolicy.findUnique({
+      select: {
+        shareConfigurationMode: true,
+      },
+      where: { tenantId },
+    })
+
+    return policy?.shareConfigurationMode ?? "monthly_history"
+  } catch (error) {
+    if (isPrismaMissingColumnError(error)) {
+      return "monthly_history"
+    }
+
+    throw error
+  }
 }
 
 function getActiveEmergencyUnlock(unlockUntil: Date | null | undefined) {
@@ -108,6 +134,7 @@ export async function getTenantInitialMigrationState(
         hasMemberLedgerBackfill: false,
         hasMemberProfiles: Boolean(tenant?.memberCount),
         hasShareCapitalPlan: true,
+        requiresShareCapitalPlan: false,
         status: "member_migration_in_progress",
       }),
     }
@@ -125,6 +152,7 @@ export async function getTenantInitialMigrationState(
     legacyLoanReviewMarkers,
     businessProfitReviewMarkers,
     businessProfitPolicy,
+    shareConfigurationMode,
     appliedBackfillBatches,
     appliedBackfillBatchMembers,
     appliedBackfillMonths,
@@ -197,6 +225,7 @@ export async function getTenantInitialMigrationState(
         where: { tenantId },
       })
     ),
+    readTenantShareConfigurationMode(prisma, tenantId),
     prisma.backfillBatch.count({
       where: {
         tenantId,
@@ -234,7 +263,8 @@ export async function getTenantInitialMigrationState(
   const hasBusinessProfitSeasons =
     businessProfitPools === 0 ||
     reviewedBusinessProfitEntries >= businessProfitPools
-  const hasShareCapitalPlan = shareCapitalPlans > 0
+  const hasShareCapitalPlan =
+    shareConfigurationMode === "unit_based" || shareCapitalPlans > 0
   const memberProfileCount = memberProfiles.length
   const hasMemberProfiles = memberProfileCount > 0
   const legacyLoans = liveLegacyLoans + legacyLoanMigrationDrafts
@@ -281,7 +311,6 @@ export async function getTenantInitialMigrationState(
     hasChargeSchedules &&
     hasBusinessProfitPools &&
     hasBusinessProfitSeasons &&
-    hasShareCapitalPlan &&
     hasLegacyLoansReviewed
   const derivedStatus: InitialMigrationStatus = !hasFinanceStartDate
     ? "not_started"
@@ -327,6 +356,7 @@ export async function getTenantInitialMigrationState(
       hasMemberLedgerBackfill,
       hasMemberProfiles,
       hasShareCapitalPlan,
+      requiresShareCapitalPlan: false,
       status,
     }),
   }

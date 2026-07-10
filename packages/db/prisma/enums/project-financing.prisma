@@ -1,0 +1,16 @@
+enum ProjectFinancingStructure {
+  undecided
+  repayable_facility
+  investment_partnership
+  profit_sharing
+}
+
+enum ProjectFinancingRequestStatus {
+  submitted
+  under_review
+  approved
+  rejected
+  cancelled
+  active
+  completed
+}

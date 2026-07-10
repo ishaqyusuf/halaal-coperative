@@ -35,11 +35,15 @@
 - `/contributions`
 - `/charges`
 - `/loans`
+- `/procurement`
+- `/project-financing`
+- `/food-purchase`
 - `/repayments`
 - `/notifications`
 - `/domains`
 - `/settings/profile`
 - `/settings/roles`
+- `/settings/trust`
 
 ## Notes
 
@@ -58,12 +62,26 @@
 - Notifications now include tenant-level per-role preference toggles for the shared email notification types.
 - Domains now list tenant hostnames, allow admin roles to register additional custom domains, and let admins choose the primary hostname within a domain kind.
 - Domains now track verification state and allow admins to explicitly move custom domains between pending DNS and verified states before primary promotion.
-- Settings now allow cooperative profile updates and tenant-user role provisioning through the same simplified role-based architecture.
+- Settings now allow cooperative profile updates and tenant-user role provisioning through the same role-based architecture, and the roles page now shows the module/action permission matrix for staff and member boundaries.
+- The permission matrix now separates food-purchase fund release, application review, committee accounting submission, accounting review, and member application so committee work is distinct from finance approval responsibilities.
+- Settings now include a tenant-admin trust readiness page covering exports, restore/legal/monitoring readiness, feature-request triage, beta reliability messaging, and safe error disclosure.
+- Procurement is visible to staff for request review and to members for self-scoped item-purchase requests.
+- Project financing is visible to staff for request review and to members for self-scoped business funding requests.
+- Food purchase is visible to staff for committee operations and to members for self-scoped applications.
 - The primary dashboard create/update/filter forms now share a shadcn-style form system, `useZodForm` validation, and dev-only quick-fill helpers instead of mixed raw HTML form markup.
 - Repayments now include a collections follow-up section plus an action to refresh overdue schedule statuses.
 - Reports now surface audit activity, finance snapshots, and notification delivery totals from one admin route.
-- Reports now also provide downloadable CSV exports for audit activity, collections status, and notification delivery history.
+- Reports now also provide downloadable CSV exports for activity evidence, collections status, and notification delivery history.
+- The reports audit route now acts as an activity report with normalized performer, authorizer/reviewer, entity, timestamp, and metadata-summary fields.
 - Reports now also provide downloadable CSV exports for contributions, loans, and member statement summaries so finance teams can review commitment, savings, and loan exposure without leaving the dashboard.
+- Reports now also provide a downloadable CSV export for special-savings contribution rows so voluntary extra savings can be reviewed separately from monthly commitment records.
+- Reports now also provide a downloadable CSV export for brought-forward opening balances with source documents, review, apply, reversal, and unresolved-obligation evidence.
+- Reports now also provide a downloadable CSV export for payment receipts, allocation intent, proof metadata, review status, and posting links.
+- Reports now also provide a downloadable CSV export for project financing request review evidence.
+- Reports now also provide a downloadable CSV export for procurement item-purchase request review evidence.
+- Reports now also provide a downloadable CSV export for food purchase cycle, application, accounting, and profit evidence.
+- Reports now also provide a downloadable CSV export for the member register with contact, KYC, deduction source, status, and linked-login evidence.
+- Reports now also provide a downloadable CSV export for share ledger balances, active share model, unit totals, and share-request counts.
 - Members now also have a detail route that turns the same statement data into an in-dashboard profile view with commitment history, contributions, loans, schedules, and repayments.
 - Members now also have a printable statement route, while reports add deeper exports for charges, repayments, and member-ledger activity plus a separate audit viewer route.
 - Contributions now support active-plan updates, explicit plan closure, and member-level payment allocation presets.
@@ -76,4 +94,5 @@
 - Repayments now persist collections follow-up records with notes and optional next-action dates, and reporting can surface those records directly rather than inferring everything from audit logs alone.
 - Notifications now support filtering the delivery history view and cover more internal workflow events such as repayments, charge corrections, and domain verification changes.
 - Members now also capture richer KYC review context, including document type, uploaded timestamp, and review notes.
+- Food purchase now has a finance workspace route for monthly committee fund releases, member applications, staff review, month-end accounting, and overview action-queue visibility.
 - The next dashboard slice should deepen exports and statements further, then move collections and KYC from richer records into fuller operational case-management behavior.

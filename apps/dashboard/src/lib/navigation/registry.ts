@@ -59,12 +59,25 @@ export const dashboardNavRegistry: NavModule[] = [
       ])
         .title("Member signup links")
         .data,
+      createNavLink("Support", MembersIcon, "/support", [], [
+        role.in(...allStaffRoles, "member"),
+      ])
+        .title("Member support")
+        .data,
     ]),
   ]),
   createNavModule("Finance", FinanceIcon, "Contributions and controls", [
     createNavSection("collections", "Collections", [
       createNavLink("Contributions", FinanceIcon, "/contributions", [], [role.in(...allStaffRoles)])
         .title("Contributions")
+        .data,
+      createNavLink("Payment Receipts", FinanceIcon, "/payment-receipts", [], [
+        role.in(...allStaffRoles, "member"),
+      ])
+        .title("Payment receipts")
+        .data,
+      createNavLink("Shares", FinanceIcon, "/shares", [], [role.in("member")])
+        .title("My shares")
         .data,
       createNavLink("Charges", FinanceIcon, "/charges", [], [role.in(...financeRoles)])
         .title("Charges")
@@ -79,6 +92,20 @@ export const dashboardNavRegistry: NavModule[] = [
       createNavLink("Loans", FinanceIcon, "/loans", [], [role.in(...allStaffRoles)])
         .title("Loans")
         .data,
+      createNavLink("Procurement", FinanceIcon, "/procurement", [], [
+        role.in(...allStaffRoles, "member"),
+      ])
+        .title("Procurement")
+        .data,
+      createNavLink(
+        "Project Financing",
+        FinanceIcon,
+        "/project-financing",
+        [],
+        [role.in(...allStaffRoles, "member")],
+      )
+        .title("Project financing")
+        .data,
       createNavLink("Repayments", FinanceIcon, "/repayments", [], [role.in(...financeRoles)])
         .title("Repayments")
         .data,
@@ -89,6 +116,11 @@ export const dashboardNavRegistry: NavModule[] = [
       ])
         .childPaths("/business")
         .title("Business")
+        .data,
+      createNavLink("Foodstuff Purchase", FinanceIcon, "/food-purchase", [], [
+        role.in(...allStaffRoles, "member"),
+      ])
+        .title("Foodstuff purchase")
         .data,
     ]),
   ]),
@@ -114,6 +146,11 @@ export const dashboardNavRegistry: NavModule[] = [
         .data,
       createNavLink("Roles", SettingsIcon, "/settings/roles", [], [role.in(...adminRoles)])
         .title("Roles")
+        .data,
+      createNavLink("Trust Readiness", SettingsIcon, "/settings/trust", [], [
+        role.in(...adminRoles),
+      ])
+        .title("Trust readiness")
         .data,
       createNavLink("Imports", SettingsIcon, "/settings/imports", [], [
         role.in("super_admin", "tenant_admin", "finance_officer", "operations_officer"),

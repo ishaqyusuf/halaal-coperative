@@ -48,6 +48,10 @@ import {
 } from "@halaalvest/ui/components/input-group"
 import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import {
+  usePreservedClientState,
+  usePreservedFormState,
+} from "@halaalvest/ui/hooks/use-preserved-form-state"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { DatePickerInput } from "@/components/date-picker-input"
@@ -59,6 +63,7 @@ import type {
   LoanProductSettingsRow,
   TenantBusinessProfitPolicySettings,
   TenantFinancingSettingsWorkspace,
+  TenantSharePolicySettings,
 } from "@halaalvest/db"
 import { PlusIcon, Trash2Icon } from "lucide-react"
 import {
@@ -79,6 +84,7 @@ import {
   updateTenantFinanceStartDateAction,
   updateTenantBusinessProfitPolicyAction,
   updateTenantFinancingPolicyAction,
+  updateTenantSharePolicyAction,
 } from "@/lib/dashboard-actions"
 
 const compactInputTableClassName =
@@ -282,14 +288,20 @@ type StartDateValues = z.infer<typeof startDateSchema>
 
 export function FinanceStartDateForm({
   defaultStartDate,
+  preserveDraftKey,
 }: {
   defaultStartDate?: string | null
+  preserveDraftKey?: string
 }) {
   const today = new Date().toISOString().slice(0, 10)
   const form = useZodForm<StartDateValues>(startDateSchema, {
     defaultValues: {
       startDate: defaultStartDate ?? "",
     },
+  })
+  const clearPreservedFormState = usePreservedFormState(form, {
+    enabled: Boolean(preserveDraftKey),
+    storageKey: preserveDraftKey ?? "tenant-finance:start-date",
   })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
@@ -299,6 +311,7 @@ export function FinanceStartDateForm({
       try {
         await updateTenantFinanceStartDateAction(objectToFormData(values))
         showSuccess("Start date updated", "Finance history anchor saved.")
+        clearPreservedFormState()
       } catch (error) {
         showError(
           "Could not update start date",
@@ -491,11 +504,13 @@ const historicalProfitMigrationModeOptions = [
 export function BusinessProfitPolicyForm({
   defaultPolicy,
   formId,
+  preserveDraftKey,
   redirectTo,
   showSubmitButton = true,
 }: {
   defaultPolicy: TenantBusinessProfitPolicySettings
   formId?: string
+  preserveDraftKey?: string
   redirectTo?: string
   showSubmitButton?: boolean
 }) {
@@ -523,6 +538,10 @@ export function BusinessProfitPolicyForm({
       },
     }
   )
+  const clearPreservedFormState = usePreservedFormState(form, {
+    enabled: Boolean(preserveDraftKey),
+    storageKey: preserveDraftKey ?? "tenant-finance:business-profit-policy",
+  })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
 
@@ -531,6 +550,7 @@ export function BusinessProfitPolicyForm({
       try {
         await updateTenantBusinessProfitPolicyAction(objectToFormData(values))
         showSuccess("Policy saved", "Business profit policy updated.")
+        clearPreservedFormState()
         if (redirectTo) {
           router.push(redirectTo)
           return
@@ -707,9 +727,247 @@ export function BusinessProfitPolicyForm({
   )
 }
 
+const sharePolicySchema = z
+  .object({
+    configurationMode: z.enum(["monthly_history", "unit_based"]),
+    compulsoryShareUnits: z.string().optional(),
+    maximumShareUnits: z.string().optional(),
+    unitAmount: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    const unitAmount = Number(values.unitAmount)
+    const compulsoryShareUnits = Number(values.compulsoryShareUnits)
+    const maximumShareUnits = Number(values.maximumShareUnits)
+
+    if (values.configurationMode !== "unit_based") {
+      return
+    }
+
+    if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Share cost must be greater than 0.",
+        path: ["unitAmount"],
+      })
+    }
+
+    if (!Number.isInteger(compulsoryShareUnits) || compulsoryShareUnits < 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Compulsory shares must be a whole number 0 or greater.",
+        path: ["compulsoryShareUnits"],
+      })
+    }
+
+    if (!Number.isInteger(maximumShareUnits) || maximumShareUnits <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Maximum shares must be a positive whole number.",
+        path: ["maximumShareUnits"],
+      })
+    }
+
+    if (
+      Number.isInteger(compulsoryShareUnits) &&
+      Number.isInteger(maximumShareUnits) &&
+      maximumShareUnits < compulsoryShareUnits
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Maximum shares cannot be below compulsory shares.",
+        path: ["maximumShareUnits"],
+      })
+    }
+  })
+
+type SharePolicyValues = z.infer<typeof sharePolicySchema>
+
+const shareConfigurationModeOptions = [
+  { label: "Monthly share history model", value: "monthly_history" },
+  { label: "Unit-based shareholding model", value: "unit_based" },
+]
+
+export function SharePolicyForm({
+  defaultPolicy,
+  formId,
+  onConfigurationModeChange,
+  preserveDraftKey,
+  redirectTo,
+  showSubmitButton = true,
+}: {
+  defaultPolicy: TenantSharePolicySettings
+  formId?: string
+  onConfigurationModeChange?: (
+    mode: TenantSharePolicySettings["configurationMode"]
+  ) => void
+  preserveDraftKey?: string
+  redirectTo?: string
+  showSubmitButton?: boolean
+}) {
+  const router = useTenantRouter()
+  const fallbackFormId = useId()
+  const resolvedFormId = formId ?? fallbackFormId
+  const form = useZodForm<SharePolicyValues>(sharePolicySchema, {
+    defaultValues: {
+      configurationMode: defaultPolicy.configurationMode,
+      compulsoryShareUnits: String(defaultPolicy.compulsoryShareUnits),
+      maximumShareUnits: String(defaultPolicy.maximumShareUnits),
+      unitAmount: String(defaultPolicy.unitAmount),
+    },
+  })
+  const selectedMode = form.watch("configurationMode")
+  const clearPreservedFormState = usePreservedFormState(form, {
+    enabled: Boolean(preserveDraftKey),
+    storageKey: preserveDraftKey ?? "tenant-finance:share-policy",
+  })
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    onConfigurationModeChange?.(selectedMode)
+  }, [onConfigurationModeChange, selectedMode])
+
+  function onSubmit(values: SharePolicyValues) {
+    startTransition(async () => {
+      try {
+        const payload =
+          values.configurationMode === "unit_based"
+            ? values
+            : { configurationMode: values.configurationMode }
+
+        await updateTenantSharePolicyAction(objectToFormData(payload))
+        showSuccess("Policy saved", "Share configuration updated.")
+        clearPreservedFormState()
+        if (redirectTo) {
+          router.push(redirectTo)
+          return
+        }
+        router.refresh()
+      } catch (error) {
+        showError(
+          "Could not save share policy",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form
+        className="space-y-4"
+        id={resolvedFormId}
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <FormField
+          control={form.control}
+          name="configurationMode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Active share model</FormLabel>
+              <FormControl>
+                <SelectFormInput
+                  onChange={(value) => {
+                    field.onChange(value)
+                    onConfigurationModeChange?.(
+                      value as TenantSharePolicySettings["configurationMode"]
+                    )
+                  }}
+                  options={shareConfigurationModeOptions}
+                  value={field.value}
+                />
+              </FormControl>
+              <p className="text-xs leading-5 text-muted-foreground">
+                Select one active share model for this cooperative. The other
+                model is inactive and is not used side by side.
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {selectedMode === "unit_based" ? (
+          <div className="grid gap-3 md:grid-cols-3">
+            <FormField
+              control={form.control}
+              name="unitAmount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Share cost</FormLabel>
+                  <FormControl>
+                    <CurrencyFormInput {...field} placeholder="10000" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="compulsoryShareUnits"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Compulsory shares</FormLabel>
+                  <FormControl>
+                    <Input
+                      inputMode="numeric"
+                      min="0"
+                      step="1"
+                      type="number"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="maximumShareUnits"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Maximum shares</FormLabel>
+                  <FormControl>
+                    <Input
+                      inputMode="numeric"
+                      min="1"
+                      step="1"
+                      type="number"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        ) : null}
+        {showSubmitButton ? (
+          <div className="flex justify-end">
+            <Button disabled={isPending} type="submit">
+              Save policy
+            </Button>
+          </div>
+        ) : null}
+        {redirectTo ? (
+          <GettingStartedFooterPortal>
+            <Button disabled={isPending} form={resolvedFormId} type="submit">
+              Next
+            </Button>
+          </GettingStartedFooterPortal>
+        ) : null}
+      </form>
+    </Form>
+  )
+}
+
 const financingPolicySchema = z
   .object({
+    activeFinancingBlocksEmergency: z.boolean().default(true),
+    activeFinancingBlocksProcurement: z.boolean().default(true),
     disbursementRequiresDeployableFunds: z.boolean().default(true),
+    foodPurchaseAllowsCommitmentReductionDuringPayback: z.boolean().default(false),
+    foodPurchaseMaximumPaybackMonths: z
+      .string()
+      .min(1, "Foodstuff payback cap is required."),
     loanEligibilityMultiple: z
       .string()
       .min(1, "Eligibility multiple is required."),
@@ -719,12 +977,18 @@ const financingPolicySchema = z
     normalLoanTermMonths: z
       .string()
       .min(1, "Normal term is required."),
+    procurementAllowsCommitmentReductionDuringPayback: z.boolean().default(false),
+    procurementMaximumPaybackMonths: z
+      .string()
+      .min(1, "Procurement payback cap is required."),
     quickLoanAllocationPercentage: z
       .string()
       .min(1, "Quick allocation is required."),
     quickLoanTermMonths: z.string().min(1, "Quick term is required."),
     requiresDualLoanApproval: z.boolean().default(false),
     reserveBufferAmount: z.string().min(1, "Reserve buffer is required."),
+    specialSavingsCountsForEligibility: z.boolean().default(true),
+    strictCommitmentDuringFinancing: z.boolean().default(true),
   })
   .superRefine((values, ctx) => {
     const quickAllocation = Number(values.quickLoanAllocationPercentage)
@@ -732,6 +996,8 @@ const financingPolicySchema = z
     const eligibilityMultiple = Number(values.loanEligibilityMultiple)
     const quickTerm = Number(values.quickLoanTermMonths)
     const normalTerm = Number(values.normalLoanTermMonths)
+    const procurementMaxPayback = Number(values.procurementMaximumPaybackMonths)
+    const foodPurchaseMaxPayback = Number(values.foodPurchaseMaximumPaybackMonths)
     const reserveBuffer = Number(values.reserveBufferAmount)
 
     if (
@@ -794,6 +1060,28 @@ const financingPolicySchema = z
       })
     }
 
+    if (
+      !Number.isInteger(procurementMaxPayback) ||
+      procurementMaxPayback <= 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Procurement payback cap must be a positive whole number.",
+        path: ["procurementMaximumPaybackMonths"],
+      })
+    }
+
+    if (
+      !Number.isInteger(foodPurchaseMaxPayback) ||
+      foodPurchaseMaxPayback <= 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Foodstuff payback cap must be a positive whole number.",
+        path: ["foodPurchaseMaximumPaybackMonths"],
+      })
+    }
+
     if (!Number.isFinite(reserveBuffer) || reserveBuffer < 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -812,19 +1100,37 @@ export function FinancingPolicyForm({
 }) {
   const form = useZodForm<FinancingPolicyValues>(financingPolicySchema, {
     defaultValues: {
+      activeFinancingBlocksEmergency:
+        defaultPolicy.activeFinancingBlocksEmergency,
+      activeFinancingBlocksProcurement:
+        defaultPolicy.activeFinancingBlocksProcurement,
       disbursementRequiresDeployableFunds:
         defaultPolicy.disbursementRequiresDeployableFunds,
+      foodPurchaseAllowsCommitmentReductionDuringPayback:
+        defaultPolicy.foodPurchaseAllowsCommitmentReductionDuringPayback,
+      foodPurchaseMaximumPaybackMonths: String(
+        defaultPolicy.foodPurchaseMaximumPaybackMonths
+      ),
       loanEligibilityMultiple: String(defaultPolicy.loanEligibilityMultiple),
       normalLoanAllocationPercentage: String(
         defaultPolicy.normalLoanAllocationPercentage
       ),
       normalLoanTermMonths: String(defaultPolicy.normalLoanTermMonths),
+      procurementAllowsCommitmentReductionDuringPayback:
+        defaultPolicy.procurementAllowsCommitmentReductionDuringPayback,
+      procurementMaximumPaybackMonths: String(
+        defaultPolicy.procurementMaximumPaybackMonths
+      ),
       quickLoanAllocationPercentage: String(
         defaultPolicy.quickLoanAllocationPercentage
       ),
       quickLoanTermMonths: String(defaultPolicy.quickLoanTermMonths),
       requiresDualLoanApproval: defaultPolicy.requiresDualLoanApproval,
       reserveBufferAmount: String(defaultPolicy.reserveBufferAmount),
+      specialSavingsCountsForEligibility:
+        defaultPolicy.specialSavingsCountsForEligibility,
+      strictCommitmentDuringFinancing:
+        defaultPolicy.strictCommitmentDuringFinancing,
     },
   })
   const { showError, showSuccess } = useNotifications()
@@ -916,6 +1222,44 @@ export function FinancingPolicyForm({
           />
           <FormField
             control={form.control}
+            name="procurementMaximumPaybackMonths"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Procurement max payback</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    inputMode="numeric"
+                    min="1"
+                    placeholder="12"
+                    type="number"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="foodPurchaseMaximumPaybackMonths"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Foodstuff max payback</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    inputMode="numeric"
+                    min="1"
+                    placeholder="1"
+                    type="number"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
             name="loanEligibilityMultiple"
             render={({ field }) => (
               <FormItem>
@@ -983,6 +1327,114 @@ export function FinancingPolicyForm({
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="specialSavingsCountsForEligibility"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="text-xs">Count special savings</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="strictCommitmentDuringFinancing"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="text-xs">Strict commitment</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="activeFinancingBlocksEmergency"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="text-xs">Block quick overlap</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="activeFinancingBlocksProcurement"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="text-xs">Block procurement overlap</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="procurementAllowsCommitmentReductionDuringPayback"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="text-xs">Procurement flexible</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="foodPurchaseAllowsCommitmentReductionDuringPayback"
+            render={({ field }) => (
+              <FormItem className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="text-xs">Foodstuff flexible</FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
         <div className="flex justify-end">
           <Button disabled={isPending} type="submit">
@@ -996,6 +1448,7 @@ export function FinancingPolicyForm({
 
 const loanProductSettingsSchema = z
   .object({
+    code: z.string().trim().optional(),
     isActive: z.boolean().default(true),
     loanProductId: z.string().optional(),
     loanType: z.enum(["quick", "normal"]),
@@ -1035,6 +1488,7 @@ export function LoanProductSettingsForm({
     loanProductSettingsSchema,
     {
       defaultValues: {
+        code: product.code ?? "",
         isActive: product.isActive,
         loanProductId: product.id ?? "",
         loanType: product.loanType,
@@ -1077,6 +1531,25 @@ export function LoanProductSettingsForm({
                 <FormLabel>Name</FormLabel>
                 <FormControl>
                   <Input {...field} placeholder="Product name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="code"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Code</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    onChange={(event) =>
+                      field.onChange(event.target.value.toUpperCase())
+                    }
+                    placeholder="EMG"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -1347,18 +1820,22 @@ function buildShareHistoryRows(
 }
 
 export function ShareStructureVersionForm({
+  allowEmptyHistory = false,
   financeStartDate,
   formId,
   initialVersions,
   onSuccess,
+  preserveDraftKey,
   redirectTo,
   showSubmitButton = true,
   stayOnStepHref,
 }: {
+  allowEmptyHistory?: boolean
   financeStartDate?: string | null
   formId?: string
   initialVersions?: ShareStructureVersionInitialVersion[]
   onSuccess?: () => void
+  preserveDraftKey?: string
   redirectTo?: string
   showSubmitButton?: boolean
   stayOnStepHref?: string
@@ -1379,6 +1856,16 @@ export function ShareStructureVersionForm({
   const [shareHistoryRows, setShareHistoryRows] = useState<ShareHistoryRow[]>(
     () => buildShareHistoryRows(initialVersions)
   )
+  const clearPreservedFormState = usePreservedFormState(form, {
+    enabled: Boolean(preserveDraftKey),
+    storageKey: `${preserveDraftKey ?? "tenant-finance:share-structure"}:form`,
+  })
+  const clearPreservedShareHistoryRows = usePreservedClientState({
+    enabled: Boolean(preserveDraftKey),
+    onRestore: setShareHistoryRows,
+    storageKey: `${preserveDraftKey ?? "tenant-finance:share-structure"}:history-rows`,
+    value: shareHistoryRows,
+  })
 
   function onSubmit(values: ShareStructureVersionValues) {
     const startedRows = shareHistoryRows.filter(shareHistoryRowHasValue)
@@ -1387,6 +1874,13 @@ export function ShareStructureVersionForm({
     )
 
     if (startedRows.length === 0) {
+      if (allowEmptyHistory && redirectTo) {
+        clearPreservedFormState()
+        clearPreservedShareHistoryRows()
+        router.push(redirectTo)
+        return
+      }
+
       showError(
         "Share history required",
         "Add at least one share history date, rule, and value."
@@ -1439,6 +1933,8 @@ export function ShareStructureVersionForm({
         form.reset({
           notes: "",
         })
+        clearPreservedFormState()
+        clearPreservedShareHistoryRows()
         if (redirectTo) {
           router.push(redirectTo)
           return
@@ -1847,6 +2343,7 @@ export function ChargeDefinitionForm({
   formId,
   initialDefinitions,
   onSuccess,
+  preserveDraftKey,
   redirectTo,
   showSubmitButton = true,
   stayOnStepHref,
@@ -1855,6 +2352,7 @@ export function ChargeDefinitionForm({
   formId?: string
   initialDefinitions?: ChargeDefinitionInitialDefinition[]
   onSuccess?: () => void
+  preserveDraftKey?: string
   redirectTo?: string
   showSubmitButton?: boolean
   stayOnStepHref?: string
@@ -1867,6 +2365,12 @@ export function ChargeDefinitionForm({
   const [chargeRows, setChargeRows] = useState<ChargeDefinitionInputRow[]>(() =>
     buildChargeDefinitionRows(initialDefinitions)
   )
+  const clearPreservedChargeRows = usePreservedClientState({
+    enabled: Boolean(preserveDraftKey),
+    onRestore: setChargeRows,
+    storageKey: preserveDraftKey ?? "tenant-finance:charge-definitions",
+    value: chargeRows,
+  })
 
   function resetChargeRows() {
     setChargeRows(buildChargeDefinitionRows(initialDefinitions))
@@ -2147,6 +2651,7 @@ export function ChargeDefinitionForm({
           "Charge definitions and history rows were recorded."
         )
         setChargeRows(buildChargeDefinitionRows(initialDefinitions))
+        clearPreservedChargeRows()
         onSuccess?.()
         if (redirectTo) {
           router.push(redirectTo)
@@ -2526,10 +3031,6 @@ export function ChargeDefinitionVersionForm({
       return
     }
 
-    if (stayOnStepHref) {
-      router.replace(stayOnStepHref)
-    }
-
     startTransition(async () => {
       try {
         await createChargeDefinitionVersionAction(objectToFormData(values))
@@ -2549,6 +3050,9 @@ export function ChargeDefinitionVersionForm({
               | undefined) ?? "fixed",
           notes: "",
         })
+        if (stayOnStepHref) {
+          router.replace(stayOnStepHref)
+        }
       } catch (error) {
         showError(
           "Could not save charge update",
@@ -2831,6 +3335,7 @@ type ShareBusinessFormProps = {
   financeStartDate?: string | null
   initialBusinesses?: ShareBusinessInitialBusiness[]
   onSuccess?: () => void
+  preserveDraftKey?: string
   profitHistoryMode?: boolean
   redirectTo?: string
   showSubmitButton?: boolean
@@ -3173,6 +3678,7 @@ function ShareBusinessProfitHistoryTableForm({
   financeStartDate,
   initialBusinesses,
   onSuccess,
+  preserveDraftKey,
   sourceType = "backfill",
   redirectTo,
   showSubmitButton = true,
@@ -3196,6 +3702,10 @@ function ShareBusinessProfitHistoryTableForm({
   )
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const businessRows = form.watch("businessRows") ?? []
+  const clearPreservedFormState = usePreservedFormState(form, {
+    enabled: Boolean(preserveDraftKey),
+    storageKey: `${preserveDraftKey ?? "tenant-finance:business-history"}:form`,
+  })
 
   function setBusinessRows(
     updater: (
@@ -3616,6 +4126,7 @@ function ShareBusinessProfitHistoryTableForm({
         form.reset({
           businessRows: buildBusinessHistoryRows(initialBusinesses),
         })
+        clearPreservedFormState()
         if (redirectTo) {
           router.push(redirectTo)
           return
@@ -4005,6 +4516,7 @@ function ShareBusinessSingleForm({
   dividendPeriods,
   financeStartDate,
   onSuccess,
+  preserveDraftKey,
   profitHistoryMode = false,
   sourceType = "manual",
   stayOnStepHref,
@@ -4029,6 +4541,16 @@ function ShareBusinessSingleForm({
   >(() => [createBusinessProfitHistoryRow("business-profit-history-initial")])
   const watchedStartDate = form.watch("startDate")
   const watchedEndDate = form.watch("endDate")
+  const clearPreservedFormState = usePreservedFormState(form, {
+    enabled: Boolean(preserveDraftKey),
+    storageKey: `${preserveDraftKey ?? "tenant-finance:share-business"}:form`,
+  })
+  const clearPreservedProfitHistoryRows = usePreservedClientState({
+    enabled: Boolean(preserveDraftKey),
+    onRestore: setProfitHistoryRows,
+    storageKey: `${preserveDraftKey ?? "tenant-finance:share-business"}:profit-history-rows`,
+    value: profitHistoryRows,
+  })
 
   function resetProfitHistoryRows() {
     setProfitHistoryRows([
@@ -4171,10 +4693,6 @@ function ShareBusinessSingleForm({
       return
     }
 
-    if (stayOnStepHref) {
-      router.replace(stayOnStepHref)
-    }
-
     startTransition(async () => {
       try {
         await createShareBusinessAction(
@@ -4223,6 +4741,11 @@ function ShareBusinessSingleForm({
         })
         if (profitHistoryMode) {
           resetProfitHistoryRows()
+        }
+        clearPreservedFormState()
+        clearPreservedProfitHistoryRows()
+        if (stayOnStepHref) {
+          router.replace(stayOnStepHref)
         }
         onSuccess?.()
       } catch (error) {
@@ -4592,10 +5115,6 @@ export function ShareBusinessProfitEntryForm({
       return
     }
 
-    if (stayOnStepHref) {
-      router.replace(stayOnStepHref)
-    }
-
     startTransition(async () => {
       try {
         await createShareBusinessProfitEntryAction(objectToFormData(values))
@@ -4615,6 +5134,9 @@ export function ShareBusinessProfitEntryForm({
           sourceType: "manual",
           status: "draft",
         })
+        if (stayOnStepHref) {
+          router.replace(stayOnStepHref)
+        }
       } catch (error) {
         showError(
           "Could not save profit",

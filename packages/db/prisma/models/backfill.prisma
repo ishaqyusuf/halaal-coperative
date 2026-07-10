@@ -131,6 +131,46 @@ model MigrationBackfillAdjustment {
   @@map("migration_backfill_adjustments")
 }
 
+model MemberOpeningBalance {
+  id                            String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                      String                     @map("tenant_id") @db.Uuid
+  memberId                      String                     @map("member_id") @db.Uuid
+  openingDate                   DateTime                   @map("opening_date") @db.Date
+  status                        MemberOpeningBalanceStatus @default(pending_review)
+  commitmentSavingsBalance      Decimal                    @default(0) @map("commitment_savings_balance") @db.Decimal(18, 2)
+  specialSavingsBalance         Decimal                    @default(0) @map("special_savings_balance") @db.Decimal(18, 2)
+  shareCapitalBalance           Decimal                    @default(0) @map("share_capital_balance") @db.Decimal(18, 2)
+  shareUnits                    Int?                       @map("share_units")
+  activeFinancingOutstanding    Decimal                    @default(0) @map("active_financing_outstanding") @db.Decimal(18, 2)
+  procurementOutstanding        Decimal                    @default(0) @map("procurement_outstanding") @db.Decimal(18, 2)
+  appliedLoanId                 String?                    @unique(map: "member_opening_balances_applied_loan_key") @map("applied_loan_id") @db.Uuid
+  appliedProcurementRequestId   String?                    @unique(map: "member_opening_balances_applied_procurement_request_key") @map("applied_procurement_request_id") @db.Uuid
+  sourceDocumentUrl             String?                    @map("source_document_url")
+  sourceDocumentName            String?                    @map("source_document_name")
+  notes                         String?
+  reviewNotes                   String?                    @map("review_notes")
+  createdByUserId               String?                    @map("created_by_user_id") @db.Uuid
+  reviewedByUserId              String?                    @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt                    DateTime?                  @map("reviewed_at") @db.Timestamptz(6)
+  appliedByUserId               String?                    @map("applied_by_user_id") @db.Uuid
+  appliedAt                     DateTime?                  @map("applied_at") @db.Timestamptz(6)
+  reversedByUserId              String?                    @map("reversed_by_user_id") @db.Uuid
+  reversedAt                    DateTime?                  @map("reversed_at") @db.Timestamptz(6)
+  reversalNotes                 String?                    @map("reversal_notes")
+  createdAt                     DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  appliedLoan Loan? @relation("MemberOpeningBalanceAppliedLoan", fields: [appliedLoanId], references: [id], onDelete: SetNull)
+  appliedProcurementRequest ProcurementRequest? @relation("MemberOpeningBalanceAppliedProcurement", fields: [appliedProcurementRequestId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, memberId, openingDate], map: "member_opening_balances_member_date_key")
+  @@index([tenantId, status], map: "member_opening_balances_tenant_status_idx")
+  @@index([tenantId, memberId, status], map: "member_opening_balances_tenant_member_status_idx")
+  @@map("member_opening_balances")
+}
+
 model BackfillBatch {
   id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId        String              @map("tenant_id") @db.Uuid

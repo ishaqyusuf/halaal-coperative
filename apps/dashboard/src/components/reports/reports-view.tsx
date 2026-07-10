@@ -116,7 +116,7 @@ function ExportCatalog({ filters }: { filters: ReportsFilterParams }) {
     <OverviewSection
       actions={
         <OverviewActionLink href={withReportFilters("/reports/audit", filters)}>
-          Open audit viewer
+          Open activity report
         </OverviewActionLink>
       }
       eyebrow="Exports"
@@ -168,7 +168,7 @@ function AuditTrail({ items }: { items: ReportsSummary["auditPreview"] }) {
     <OverviewSection
       actions={<OverviewPill>{items.length} events</OverviewPill>}
       eyebrow="Audit"
-      title="Recent audit trail"
+      title="Recent activity trail"
     >
       <div className="mt-4 divide-y divide-border border border-border">
         {items.length ? (
@@ -257,7 +257,7 @@ export function ReportsView({ filters }: { filters: ReportsFilterParams }) {
     <WorkspacePageShell
       description="Audit evidence, reconciliation exports, collections follow-up, and compliance-sensitive reporting for cooperative admins."
       eyebrow="Reports"
-      title="Audit and reporting"
+      title="Activity and reporting"
     >
       <ReportsHeader filterList={filterList} />
 

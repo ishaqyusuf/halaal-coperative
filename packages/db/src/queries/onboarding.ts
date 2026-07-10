@@ -381,9 +381,9 @@ export async function getTenantFirstRunOnboardingState(
     },
     {
       key: "shares",
-      label: "Shares",
-      description: "Configure the cooperative share structure.",
-      complete: shareVersions > 0,
+      label: "Shares (optional)",
+      description: "Optionally configure share history when it applies.",
+      complete: true,
       href: "/settings/finance/shares",
     },
     {

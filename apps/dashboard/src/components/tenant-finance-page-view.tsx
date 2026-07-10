@@ -1,7 +1,10 @@
 import { Button } from "@halaalvest/ui/components/button"
 import type { MemberLedgerBackfillRow } from "@halaalvest/backfill"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
-import type { TenantFinancingSettingsWorkspace } from "@halaalvest/db"
+import type {
+  TenantFinancingSettingsWorkspace,
+  TenantSharePolicySettings,
+} from "@halaalvest/db"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { formatCurrency } from "@halaalvest/utils"
 import {
@@ -34,8 +37,8 @@ import {
   ShareBusinessForm,
   ShareBusinessProfitEntryForm,
 } from "@/components/forms/tenant-finance-forms"
-import { DataTable as ShareDataTable } from "@/components/tables/shares/data-table"
 import { InitialMigrationPreview } from "@/components/initial-migration-preview"
+import { FinanceShareModelWorkspace } from "@/components/share-model-workspace"
 import {
   createChargeDefinitionVersionAction,
   markBusinessProfitPoolsReviewedAction,
@@ -245,8 +248,8 @@ export function TenantFinancePageView({
   selectedMigrationMemberLabel,
   section = "overview",
   shareBusinesses,
+  sharePolicy,
   shareStructureVersions,
-  tenantName,
   tenantStartDate,
 }: {
   chargeDefinitions: ChargeDefinitionRow[]
@@ -266,8 +269,8 @@ export function TenantFinancePageView({
   selectedMigrationMemberLabel?: string | null
   section?: TenantFinanceSection
   shareBusinesses: ShareBusinessRow[]
+  sharePolicy: TenantSharePolicySettings
   shareStructureVersions: ShareVersionRow[]
-  tenantName: string
   tenantStartDate: string | null
 }) {
   const activeCharges = chargeDefinitions.filter((charge) => charge.isActive)
@@ -275,6 +278,8 @@ export function TenantFinancePageView({
     shareStructureVersions.length > 0
       ? shareStructureVersions[shareStructureVersions.length - 1]
       : null
+  const usesMonthlyShareHistory =
+    sharePolicy.configurationMode === "monthly_history"
   const totalBusinessProfit = shareBusinesses.reduce(
     (sum, business) => sum + business.profitAmount,
     0
@@ -367,9 +372,17 @@ export function TenantFinancePageView({
                   detail="The earliest date used when generating finance backfill."
                 />
                 <DashboardStatCard
-                  label="Share versions"
-                  value={shareStructureVersions.length.toString()}
-                  detail="Dated fixed or percentage-based share capital rules."
+                  label="Active share model"
+                  value={
+                    usesMonthlyShareHistory
+                      ? "Monthly history"
+                      : "Unit shareholding"
+                  }
+                  detail={
+                    usesMonthlyShareHistory
+                      ? `${shareStructureVersions.length} dated share rule${shareStructureVersions.length === 1 ? "" : "s"}`
+                      : `${sharePolicy.compulsoryShareUnits}-${sharePolicy.maximumShareUnits} units at ${formatCurrency(sharePolicy.unitAmount)} each`
+                  }
                   tone="positive"
                 />
                 <DashboardStatCard
@@ -716,43 +729,37 @@ export function TenantFinancePageView({
               <DashboardSectionCard>
                 <DashboardSectionHeader
                   eyebrow="Shares"
-                  title="Default share structure history"
-                  description="Track every cooperative-wide monthly share amount change with an effective date."
+                  title="Share model"
+                  description={
+                    "Choose the cooperative's active share model. Only the " +
+                    "selected model is used for member share setup."
+                  }
                   actions={
                     <TrendPill
-                      tone={historicalSetupLocked ? "warning" : "positive"}
+                      tone={
+                        usesMonthlyShareHistory && historicalSetupLocked
+                          ? "warning"
+                          : "positive"
+                      }
                     >
-                      {historicalSetupLocked
-                        ? "History locked"
-                        : "History enabled"}
+                      {usesMonthlyShareHistory
+                        ? historicalSetupLocked
+                          ? "History locked"
+                          : "Monthly history"
+                        : "Unit shareholding"}
                     </TrendPill>
                   }
                 />
-                {historicalSetupLocked ? (
-                  <DashboardSurfaceCard className="mt-5">
-                    <HistoricalSetupLockedNotice label="Share capital plan is locked" />
-                  </DashboardSurfaceCard>
-                ) : null}
-                <div className="mt-1">
-                  <ShareDataTable
-                    financeStartDate={tenantStartDate}
-                    isLocked={historicalSetupLocked}
-                    rows={shareStructureVersions.map((version, index) => ({
-                      ...version,
-                      isCurrent: index === shareStructureVersions.length - 1,
-                    }))}
-                  />
-                </div>
-                {currentShareAmount ? (
-                  <p className="mt-4 text-sm text-muted-foreground">
-                    Current default monthly share:{" "}
-                    <span className="font-medium text-foreground">
-                      {currentShareAmount.valueType === "percentage"
-                        ? `${currentShareAmount.amount}% after charges`
-                        : formatCurrency(currentShareAmount.amount)}
-                    </span>
-                  </p>
-                ) : null}
+                <FinanceShareModelWorkspace
+                  currentShareAmount={currentShareAmount}
+                  historicalSetupLocked={historicalSetupLocked}
+                  rows={shareStructureVersions.map((version, index) => ({
+                    ...version,
+                    isCurrent: index === shareStructureVersions.length - 1,
+                  }))}
+                  sharePolicy={sharePolicy}
+                  tenantStartDate={tenantStartDate}
+                />
               </DashboardSectionCard>
             </section>
           ) : null}

@@ -9,16 +9,24 @@ import type {
 import { createPrismaClient } from "../prisma"
 
 export type FinancingPolicySnapshot = {
+  activeFinancingBlocksEmergency: boolean
+  activeFinancingBlocksProcurement: boolean
   disbursementRequiresDeployableFunds: boolean
   financingCapacityBasis: FinancingCapacityBasis
+  foodPurchaseAllowsCommitmentReductionDuringPayback: boolean
+  foodPurchaseMaximumPaybackMonths: number
   loanIntakeReservationMode: LoanIntakeReservationMode
   loanEligibilityMultiple: number
   normalLoanAllocationPercentage: number
   normalLoanTermMonths: number
+  procurementAllowsCommitmentReductionDuringPayback: boolean
+  procurementMaximumPaybackMonths: number
   quickLoanAllocationPercentage: number
   quickLoanTermMonths: number
   requiresDualLoanApproval: boolean
   reserveBufferAmount: number
+  specialSavingsCountsForEligibility: boolean
+  strictCommitmentDuringFinancing: boolean
 }
 
 type FinancingCyclePeriod = {
@@ -66,6 +74,7 @@ export type MonthlyFinancingCyclePreview = FinancingCyclePeriod & {
 }
 
 export type LoanProductSettingsRow = {
+  code: string | null
   id: string | null
   isActive: boolean
   loanType: LoanType
@@ -138,21 +147,30 @@ export type MonthlyFinancingCycleStatusInput = {
 
 export type TenantFinancingCyclePolicyInput = {
   actorUserId: string
+  activeFinancingBlocksEmergency?: boolean
+  activeFinancingBlocksProcurement?: boolean
   disbursementRequiresDeployableFunds?: boolean
   financingCapacityBasis?: FinancingCapacityBasis
+  foodPurchaseAllowsCommitmentReductionDuringPayback?: boolean
+  foodPurchaseMaximumPaybackMonths?: number
   loanIntakeReservationMode?: LoanIntakeReservationMode
   loanEligibilityMultiple?: number
   normalLoanAllocationPercentage?: number
   normalLoanTermMonths?: number
+  procurementAllowsCommitmentReductionDuringPayback?: boolean
+  procurementMaximumPaybackMonths?: number
   quickLoanAllocationPercentage?: number
   quickLoanTermMonths?: number
   requiresDualLoanApproval?: boolean
   reserveBufferAmount?: number
+  specialSavingsCountsForEligibility?: boolean
+  strictCommitmentDuringFinancing?: boolean
   tenantId: string
 }
 
 export type LoanProductSettingsInput = {
   actorUserId: string
+  code?: string | null
   isActive: boolean
   loanProductId?: string | null
   loanType: LoanType
@@ -177,16 +195,24 @@ export type DeployableFundsInput = {
 }
 
 const DEFAULT_FINANCING_POLICY: FinancingPolicySnapshot = {
+  activeFinancingBlocksEmergency: true,
+  activeFinancingBlocksProcurement: true,
   disbursementRequiresDeployableFunds: true,
   financingCapacityBasis: "projected_monthly_commitments",
+  foodPurchaseAllowsCommitmentReductionDuringPayback: false,
+  foodPurchaseMaximumPaybackMonths: 1,
   loanIntakeReservationMode: "submitted_request_amount",
   loanEligibilityMultiple: 2,
   normalLoanAllocationPercentage: 70,
   normalLoanTermMonths: 18,
+  procurementAllowsCommitmentReductionDuringPayback: false,
+  procurementMaximumPaybackMonths: 12,
   quickLoanAllocationPercentage: 30,
   quickLoanTermMonths: 3,
   requiresDualLoanApproval: false,
   reserveBufferAmount: 0,
+  specialSavingsCountsForEligibility: true,
+  strictCommitmentDuringFinancing: true,
 }
 
 const REQUEST_RESERVED_STATUSES: LoanRequestStatus[] = [
@@ -242,28 +268,49 @@ function assertNonNegativeAmount(value: number, label: string) {
 
 function normalizePolicy(policy: unknown): FinancingPolicySnapshot {
   const candidate = policy as Partial<{
+    activeFinancingBlocksEmergency: boolean
+    activeFinancingBlocksProcurement: boolean
     disbursementRequiresDeployableFunds: boolean
     financingCapacityBasis: FinancingCapacityBasis
+    foodPurchaseAllowsCommitmentReductionDuringPayback: boolean
+    foodPurchaseMaximumPaybackMonths: unknown
     loanIntakeReservationMode: LoanIntakeReservationMode
     loanEligibilityMultiple: unknown
     normalLoanAllocationPercentage: unknown
     normalLoanTermMonths: unknown
+    procurementAllowsCommitmentReductionDuringPayback: boolean
+    procurementMaximumPaybackMonths: unknown
     quickLoanAllocationPercentage: unknown
     quickLoanTermMonths: unknown
     requiresDualLoanApproval: boolean
     reserveBufferAmount: unknown
+    specialSavingsCountsForEligibility: boolean
+    strictCommitmentDuringFinancing: boolean
   }> | null
 
   const normalized = {
     ...DEFAULT_FINANCING_POLICY,
     ...(candidate
       ? {
+          activeFinancingBlocksEmergency:
+            candidate.activeFinancingBlocksEmergency ??
+            DEFAULT_FINANCING_POLICY.activeFinancingBlocksEmergency,
+          activeFinancingBlocksProcurement:
+            candidate.activeFinancingBlocksProcurement ??
+            DEFAULT_FINANCING_POLICY.activeFinancingBlocksProcurement,
           disbursementRequiresDeployableFunds:
             candidate.disbursementRequiresDeployableFunds ??
             DEFAULT_FINANCING_POLICY.disbursementRequiresDeployableFunds,
           financingCapacityBasis:
             candidate.financingCapacityBasis ??
             DEFAULT_FINANCING_POLICY.financingCapacityBasis,
+          foodPurchaseAllowsCommitmentReductionDuringPayback:
+            candidate.foodPurchaseAllowsCommitmentReductionDuringPayback ??
+            DEFAULT_FINANCING_POLICY.foodPurchaseAllowsCommitmentReductionDuringPayback,
+          foodPurchaseMaximumPaybackMonths: Number(
+            candidate.foodPurchaseMaximumPaybackMonths ??
+              DEFAULT_FINANCING_POLICY.foodPurchaseMaximumPaybackMonths,
+          ),
           loanIntakeReservationMode:
             candidate.loanIntakeReservationMode ??
             DEFAULT_FINANCING_POLICY.loanIntakeReservationMode,
@@ -278,6 +325,13 @@ function normalizePolicy(policy: unknown): FinancingPolicySnapshot {
           normalLoanTermMonths: Number(
             candidate.normalLoanTermMonths ??
               DEFAULT_FINANCING_POLICY.normalLoanTermMonths,
+          ),
+          procurementAllowsCommitmentReductionDuringPayback:
+            candidate.procurementAllowsCommitmentReductionDuringPayback ??
+            DEFAULT_FINANCING_POLICY.procurementAllowsCommitmentReductionDuringPayback,
+          procurementMaximumPaybackMonths: Number(
+            candidate.procurementMaximumPaybackMonths ??
+              DEFAULT_FINANCING_POLICY.procurementMaximumPaybackMonths,
           ),
           quickLoanAllocationPercentage: Number(
             candidate.quickLoanAllocationPercentage ??
@@ -294,6 +348,12 @@ function normalizePolicy(policy: unknown): FinancingPolicySnapshot {
             candidate.reserveBufferAmount ??
               DEFAULT_FINANCING_POLICY.reserveBufferAmount,
           ),
+          specialSavingsCountsForEligibility:
+            candidate.specialSavingsCountsForEligibility ??
+            DEFAULT_FINANCING_POLICY.specialSavingsCountsForEligibility,
+          strictCommitmentDuringFinancing:
+            candidate.strictCommitmentDuringFinancing ??
+            DEFAULT_FINANCING_POLICY.strictCommitmentDuringFinancing,
         }
       : {}),
   }
@@ -313,6 +373,14 @@ function normalizePolicy(policy: unknown): FinancingPolicySnapshot {
   assertPositiveInteger(
     normalized.normalLoanTermMonths,
     "Normal loan term months",
+  )
+  assertPositiveInteger(
+    normalized.procurementMaximumPaybackMonths,
+    "Procurement maximum payback months",
+  )
+  assertPositiveInteger(
+    normalized.foodPurchaseMaximumPaybackMonths,
+    "Foodstuff purchase maximum payback months",
   )
   assertNonNegativeAmount(normalized.reserveBufferAmount, "Reserve buffer")
 
@@ -341,22 +409,12 @@ function getExclusivePeriodEnd(periodEnd: Date) {
   )
 }
 
-function emptyUsage(budgetAmount: number): FinancingCycleUsageByType {
-  return {
-    approvedAmount: 0,
-    budgetAmount,
-    disbursedAmount: 0,
-    heldAmount: 0,
-    remainingAmount: budgetAmount,
-    requestedReservedAmount: 0,
-  }
-}
-
 function defaultLoanProductSettingsRow(
   loanType: LoanType,
   policy: FinancingPolicySnapshot,
 ): LoanProductSettingsRow {
   return {
+    code: null,
     id: null,
     isActive: true,
     loanType,
@@ -371,6 +429,7 @@ function defaultLoanProductSettingsRow(
 
 function toLoanProductSettingsRow(
   product: {
+    code: string | null
     id: string
     isActive: boolean
     loanType: LoanType
@@ -384,6 +443,7 @@ function toLoanProductSettingsRow(
   if (!product) return defaultLoanProductSettingsRow(loanType, policy)
 
   return {
+    code: product.code,
     id: product.id,
     isActive: product.isActive,
     loanType: product.loanType,
@@ -914,6 +974,7 @@ export async function getTenantFinancingSettingsWorkspace(
   const productsByType = byLoanType(
     loanProducts.map((product) => ({
       id: product.id,
+      code: product.code,
       isActive: product.isActive,
       loanType: product.loanType,
       maxSavingsMultiple: product.maxSavingsMultiple,
@@ -1093,6 +1154,12 @@ export async function updateTenantFinancingCyclePolicy(
     input.normalLoanTermMonths ?? current.normalLoanTermMonths
   const reserveBufferAmount =
     input.reserveBufferAmount ?? current.reserveBufferAmount
+  const procurementMaximumPaybackMonths =
+    input.procurementMaximumPaybackMonths ??
+    current.procurementMaximumPaybackMonths
+  const foodPurchaseMaximumPaybackMonths =
+    input.foodPurchaseMaximumPaybackMonths ??
+    current.foodPurchaseMaximumPaybackMonths
 
   assertAllocationPercentages(
     quickLoanAllocationPercentage,
@@ -1101,6 +1168,14 @@ export async function updateTenantFinancingCyclePolicy(
   assertPositiveNumber(loanEligibilityMultiple, "Loan eligibility multiple")
   assertPositiveInteger(quickLoanTermMonths, "Quick loan term months")
   assertPositiveInteger(normalLoanTermMonths, "Normal loan term months")
+  assertPositiveInteger(
+    procurementMaximumPaybackMonths,
+    "Procurement maximum payback months",
+  )
+  assertPositiveInteger(
+    foodPurchaseMaximumPaybackMonths,
+    "Foodstuff purchase maximum payback months",
+  )
   assertNonNegativeAmount(reserveBufferAmount, "Reserve buffer")
 
   return prisma.$transaction(async (tx) => {
@@ -1120,6 +1195,26 @@ export async function updateTenantFinancingCyclePolicy(
         disbursementRequiresDeployableFunds:
           input.disbursementRequiresDeployableFunds ??
           current.disbursementRequiresDeployableFunds,
+        specialSavingsCountsForEligibility:
+          input.specialSavingsCountsForEligibility ??
+          current.specialSavingsCountsForEligibility,
+        strictCommitmentDuringFinancing:
+          input.strictCommitmentDuringFinancing ??
+          current.strictCommitmentDuringFinancing,
+        activeFinancingBlocksEmergency:
+          input.activeFinancingBlocksEmergency ??
+          current.activeFinancingBlocksEmergency,
+        activeFinancingBlocksProcurement:
+          input.activeFinancingBlocksProcurement ??
+          current.activeFinancingBlocksProcurement,
+        procurementMaximumPaybackMonths,
+        procurementAllowsCommitmentReductionDuringPayback:
+          input.procurementAllowsCommitmentReductionDuringPayback ??
+          current.procurementAllowsCommitmentReductionDuringPayback,
+        foodPurchaseMaximumPaybackMonths,
+        foodPurchaseAllowsCommitmentReductionDuringPayback:
+          input.foodPurchaseAllowsCommitmentReductionDuringPayback ??
+          current.foodPurchaseAllowsCommitmentReductionDuringPayback,
         requiresDualLoanApproval:
           input.requiresDualLoanApproval ?? current.requiresDualLoanApproval,
       },
@@ -1142,6 +1237,44 @@ export async function updateTenantFinancingCyclePolicy(
                 input.disbursementRequiresDeployableFunds,
             }
           : {}),
+        ...(input.specialSavingsCountsForEligibility !== undefined
+          ? {
+              specialSavingsCountsForEligibility:
+                input.specialSavingsCountsForEligibility,
+            }
+          : {}),
+        ...(input.strictCommitmentDuringFinancing !== undefined
+          ? {
+              strictCommitmentDuringFinancing:
+                input.strictCommitmentDuringFinancing,
+            }
+          : {}),
+        ...(input.activeFinancingBlocksEmergency !== undefined
+          ? {
+              activeFinancingBlocksEmergency:
+                input.activeFinancingBlocksEmergency,
+            }
+          : {}),
+        ...(input.activeFinancingBlocksProcurement !== undefined
+          ? {
+              activeFinancingBlocksProcurement:
+                input.activeFinancingBlocksProcurement,
+            }
+          : {}),
+        procurementMaximumPaybackMonths,
+        ...(input.procurementAllowsCommitmentReductionDuringPayback !== undefined
+          ? {
+              procurementAllowsCommitmentReductionDuringPayback:
+                input.procurementAllowsCommitmentReductionDuringPayback,
+            }
+          : {}),
+        foodPurchaseMaximumPaybackMonths,
+        ...(input.foodPurchaseAllowsCommitmentReductionDuringPayback !== undefined
+          ? {
+              foodPurchaseAllowsCommitmentReductionDuringPayback:
+                input.foodPurchaseAllowsCommitmentReductionDuringPayback,
+            }
+          : {}),
         ...(input.requiresDualLoanApproval !== undefined
           ? { requiresDualLoanApproval: input.requiresDualLoanApproval }
           : {}),
@@ -1160,6 +1293,18 @@ export async function updateTenantFinancingCyclePolicy(
         entityType: "TenantPolicy",
         entityId: policy.id,
         metadata: {
+          activeFinancingBlocksEmergency:
+            policy.activeFinancingBlocksEmergency,
+          activeFinancingBlocksProcurement:
+            policy.activeFinancingBlocksProcurement,
+          procurementMaximumPaybackMonths:
+            policy.procurementMaximumPaybackMonths,
+          procurementAllowsCommitmentReductionDuringPayback:
+            policy.procurementAllowsCommitmentReductionDuringPayback,
+          foodPurchaseMaximumPaybackMonths:
+            policy.foodPurchaseMaximumPaybackMonths,
+          foodPurchaseAllowsCommitmentReductionDuringPayback:
+            policy.foodPurchaseAllowsCommitmentReductionDuringPayback,
           disbursementRequiresDeployableFunds:
             policy.disbursementRequiresDeployableFunds,
           financingCapacityBasis: policy.financingCapacityBasis,
@@ -1175,6 +1320,10 @@ export async function updateTenantFinancingCyclePolicy(
           quickLoanTermMonths: policy.quickLoanTermMonths,
           requiresDualLoanApproval: policy.requiresDualLoanApproval,
           reserveBufferAmount: Number(policy.reserveBufferAmount),
+          specialSavingsCountsForEligibility:
+            policy.specialSavingsCountsForEligibility,
+          strictCommitmentDuringFinancing:
+            policy.strictCommitmentDuringFinancing,
         },
         occurredAt: new Date(),
       },
@@ -1189,6 +1338,7 @@ export async function updateLoanProductSettings(
   prismaOverride?: PrismaClient,
 ) {
   const prisma = getPrisma(prismaOverride)
+  const code = input.code?.trim().toUpperCase() || null
   const name = input.name.trim()
 
   if (!name) {
@@ -1224,6 +1374,7 @@ export async function updateLoanProductSettings(
     const product = existingProduct
       ? await tx.loanProduct.update({
           data: {
+            code,
             isActive: input.isActive,
             loanType: input.loanType,
             maxSavingsMultiple: input.maxSavingsMultiple,
@@ -1236,6 +1387,7 @@ export async function updateLoanProductSettings(
         })
       : await tx.loanProduct.create({
           data: {
+            code,
             isActive: input.isActive,
             loanType: input.loanType,
             maxSavingsMultiple: input.maxSavingsMultiple,
@@ -1256,6 +1408,7 @@ export async function updateLoanProductSettings(
         entityType: "LoanProduct",
         entityId: product.id,
         metadata: {
+          code: product.code,
           isActive: product.isActive,
           loanType: product.loanType,
           maxSavingsMultiple: Number(product.maxSavingsMultiple),

@@ -447,7 +447,13 @@ export async function getImportReferenceData(
       }),
       prisma.loanProduct.findMany({
         where: { tenantId },
-        select: { id: true, name: true, loanType: true, termMonths: true },
+        select: {
+          code: true,
+          id: true,
+          loanType: true,
+          name: true,
+          termMonths: true,
+        },
         orderBy: { createdAt: "desc" },
         take: 200,
       }),
@@ -462,6 +468,10 @@ export async function getImportReferenceData(
   return {
     chargeDefinitionCodes: chargeDefinitions.map((item) => item.code),
     deductionSourceNames: deductionSources.map((item) => item.name),
+    loanProductCodes: loanProducts
+      .map((item) => item.code)
+      .filter((code): code is string => Boolean(code))
+      .map((code) => code.toUpperCase()),
     loanProductNames: loanProducts.map((item) => item.name),
     memberNumbers: members.map((item) => item.memberNumber),
     counts: {
@@ -560,6 +570,7 @@ export async function importLoanProducts(
   input: {
     actorUserId: string
     rows: Array<{
+      code?: string
       loanType: "normal" | "quick"
       maxSavingsMultiple: number
       name: string
@@ -576,6 +587,8 @@ export async function importLoanProducts(
   let processed = 0
 
   for (const row of input.rows) {
+    const code = row.code?.trim().toUpperCase() || null
+
     await prisma.loanProduct.upsert({
       where: {
         tenantId_name: {
@@ -584,12 +597,14 @@ export async function importLoanProducts(
         },
       },
       update: {
+        code,
         isActive: true,
         loanType: row.loanType,
         maxSavingsMultiple: row.maxSavingsMultiple,
         termMonths: row.termMonths,
       },
       create: {
+        code,
         isActive: true,
         loanType: row.loanType,
         maxSavingsMultiple: row.maxSavingsMultiple,

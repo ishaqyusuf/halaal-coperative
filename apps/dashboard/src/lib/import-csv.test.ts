@@ -64,6 +64,28 @@ describe("dashboard CSV imports", () => {
     expect(header).not.toContain("savingsDuringLoan")
   })
 
+  test("parses loan product codes and exposes them in the template", () => {
+    const [header] = dashboardImportConfigs.loan_products.sampleCsv.split("\n")
+    const parsed = parseDashboardImportCsv("loan_products", [
+      "code,name,loan_type,term_months,max_savings_multiple",
+      "EMG,Emergency Support,quick,6,1",
+    ].join("\n"))
+
+    expect(header).toContain("code")
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) {
+      return
+    }
+
+    expect(parsed.rows[0]).toMatchObject({
+      code: "EMG",
+      loanType: "quick",
+      maxSavingsMultiple: 1,
+      name: "Emergency Support",
+      termMonths: 6,
+    })
+  })
+
   test("parses editable member import grid with canonical template columns", () => {
     const grid = parseDashboardImportGrid(
       "members",

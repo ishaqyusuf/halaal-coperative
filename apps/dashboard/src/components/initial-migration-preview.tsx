@@ -920,7 +920,6 @@ export function InitialMigrationPreview({
         stepKey === "charge_schedules" ||
         stepKey === "business_profit_pools" ||
         stepKey === "business_profit_seasons" ||
-        stepKey === "share_capital_plan" ||
         stepKey === "legacy_loans" ||
         stepKey === "member_profiles"
     ) ?? []
@@ -934,8 +933,7 @@ export function InitialMigrationPreview({
     migrationSnapshot?.missingStepKeys.filter(
       (stepKey) =>
         stepKey === "finance_start_date" ||
-        stepKey === "charge_schedules" ||
-        stepKey === "share_capital_plan"
+        stepKey === "charge_schedules"
     ) ?? []
   const memberProfileBlockingLabels =
     migrationSnapshot?.steps

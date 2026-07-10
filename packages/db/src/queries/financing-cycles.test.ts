@@ -18,6 +18,7 @@ type PreviewStubInput = {
     status: "approved" | "cancelled" | "draft" | "expired" | "rejected" | "submitted" | "under_review"
   }>
   loanProducts?: Array<{
+    code: string | null
     id: string
     isActive: boolean
     loanType: "normal" | "quick"
@@ -167,6 +168,7 @@ describe("monthly financing cycle previews", () => {
     const prisma = createPreviewPrismaStub({
       loanProducts: [
         {
+          code: "EMG",
           id: "quick-1",
           isActive: true,
           loanType: "quick",
@@ -175,6 +177,7 @@ describe("monthly financing cycle previews", () => {
           termMonths: 3,
         },
         {
+          code: "NOR",
           id: "normal-1",
           isActive: true,
           loanType: "normal",
@@ -215,11 +218,13 @@ describe("monthly financing cycle previews", () => {
       reserveBufferAmount: 5000,
     })
     expect(workspace.products.quick).toMatchObject({
+      code: "EMG",
       id: "quick-1",
       name: "Express financing",
       termMonths: 3,
     })
     expect(workspace.products.normal).toMatchObject({
+      code: "NOR",
       id: "normal-1",
       name: "Standard financing",
       termMonths: 18,
@@ -370,11 +375,20 @@ describe("monthly financing cycle writes", () => {
             upsert: async (args: any) => {
               upserts.push(args)
               return {
+                activeFinancingBlocksEmergency:
+                  args.update.activeFinancingBlocksEmergency ?? true,
+                activeFinancingBlocksProcurement:
+                  args.update.activeFinancingBlocksProcurement ?? true,
                 disbursementRequiresDeployableFunds:
                   args.update.disbursementRequiresDeployableFunds ?? true,
                 financingCapacityBasis:
                   args.update.financingCapacityBasis ??
                   "projected_monthly_commitments",
+                foodPurchaseAllowsCommitmentReductionDuringPayback:
+                  args.update.foodPurchaseAllowsCommitmentReductionDuringPayback ??
+                  false,
+                foodPurchaseMaximumPaybackMonths:
+                  args.update.foodPurchaseMaximumPaybackMonths ?? 1,
                 id: "policy-1",
                 loanEligibilityMultiple: args.update.loanEligibilityMultiple,
                 loanIntakeReservationMode:
@@ -383,41 +397,66 @@ describe("monthly financing cycle writes", () => {
                 normalLoanAllocationPercentage:
                   args.update.normalLoanAllocationPercentage,
                 normalLoanTermMonths: args.update.normalLoanTermMonths,
+                procurementAllowsCommitmentReductionDuringPayback:
+                  args.update.procurementAllowsCommitmentReductionDuringPayback ??
+                  false,
+                procurementMaximumPaybackMonths:
+                  args.update.procurementMaximumPaybackMonths ?? 12,
                 quickLoanAllocationPercentage:
                   args.update.quickLoanAllocationPercentage,
                 quickLoanTermMonths: args.update.quickLoanTermMonths,
                 requiresDualLoanApproval: args.update.requiresDualLoanApproval,
                 reserveBufferAmount: args.update.reserveBufferAmount,
+                specialSavingsCountsForEligibility:
+                  args.update.specialSavingsCountsForEligibility ?? true,
+                strictCommitmentDuringFinancing:
+                  args.update.strictCommitmentDuringFinancing ?? true,
               }
             },
           },
         }),
       tenantPolicy: {
         findUnique: async () => ({
+          activeFinancingBlocksEmergency: true,
+          activeFinancingBlocksProcurement: true,
           disbursementRequiresDeployableFunds: true,
           financingCapacityBasis: "projected_monthly_commitments",
+          foodPurchaseAllowsCommitmentReductionDuringPayback: false,
+          foodPurchaseMaximumPaybackMonths: 1,
           loanEligibilityMultiple: 2,
           loanIntakeReservationMode: "submitted_request_amount",
           normalLoanAllocationPercentage: 70,
           normalLoanTermMonths: 18,
+          procurementAllowsCommitmentReductionDuringPayback: false,
+          procurementMaximumPaybackMonths: 12,
           quickLoanAllocationPercentage: 30,
           quickLoanTermMonths: 3,
           requiresDualLoanApproval: false,
           reserveBufferAmount: 0,
+          specialSavingsCountsForEligibility: true,
+          strictCommitmentDuringFinancing: true,
         }),
       },
     }
 
     const policy = await updateTenantFinancingCyclePolicy(
       {
+        activeFinancingBlocksEmergency: false,
+        activeFinancingBlocksProcurement: false,
         actorUserId: "user-1",
+        foodPurchaseAllowsCommitmentReductionDuringPayback: true,
+        foodPurchaseMaximumPaybackMonths: 2,
         loanEligibilityMultiple: 2.5,
         normalLoanAllocationPercentage: 65,
         normalLoanTermMonths: 20,
+        procurementAllowsCommitmentReductionDuringPayback: true,
+        procurementMaximumPaybackMonths: 10,
         quickLoanAllocationPercentage: 35,
         quickLoanTermMonths: 4,
         requiresDualLoanApproval: true,
         reserveBufferAmount: 5000,
+        specialSavingsCountsForEligibility: false,
+        strictCommitmentDuringFinancing: false,
         tenantId: "tenant-1",
       },
       prisma as never,
@@ -425,13 +464,21 @@ describe("monthly financing cycle writes", () => {
 
     expect(policy.id).toBe("policy-1")
     expect(upserts[0].update).toMatchObject({
+      activeFinancingBlocksEmergency: false,
+      activeFinancingBlocksProcurement: false,
+      foodPurchaseAllowsCommitmentReductionDuringPayback: true,
+      foodPurchaseMaximumPaybackMonths: 2,
       loanEligibilityMultiple: 2.5,
       normalLoanAllocationPercentage: 65,
       normalLoanTermMonths: 20,
+      procurementAllowsCommitmentReductionDuringPayback: true,
+      procurementMaximumPaybackMonths: 10,
       quickLoanAllocationPercentage: 35,
       quickLoanTermMonths: 4,
       requiresDualLoanApproval: true,
       reserveBufferAmount: 5000,
+      specialSavingsCountsForEligibility: false,
+      strictCommitmentDuringFinancing: false,
     })
     expect(auditCreates[0]).toMatchObject({
       data: {
@@ -461,6 +508,7 @@ describe("monthly financing cycle writes", () => {
             update: async (args: any) => {
               updates.push(args)
               return {
+                code: args.data.code,
                 id: "product-1",
                 isActive: args.data.isActive,
                 loanType: args.data.loanType,
@@ -488,6 +536,7 @@ describe("monthly financing cycle writes", () => {
         isActive: true,
         loanProductId: "product-1",
         loanType: "quick",
+        code: "emg",
         maxSavingsMultiple: 1.5,
         name: "Express financing",
         tenantId: "tenant-1",
@@ -497,6 +546,7 @@ describe("monthly financing cycle writes", () => {
     )
 
     expect(product).toMatchObject({
+      code: "EMG",
       id: "product-1",
       loanType: "quick",
       name: "Express financing",
@@ -507,6 +557,7 @@ describe("monthly financing cycle writes", () => {
       tenantId: "tenant-1",
     })
     expect(updates[0].data).toMatchObject({
+      code: "EMG",
       isActive: true,
       loanType: "quick",
       maxSavingsMultiple: 1.5,

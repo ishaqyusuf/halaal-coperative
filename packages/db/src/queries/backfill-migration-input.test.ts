@@ -258,4 +258,28 @@ describe("member backfill input builder", () => {
       },
     ])
   })
+
+  test("does not include monthly share history when unit share model is selected", async () => {
+    const input = await buildBackfillDraftInputForMember(
+      {
+        endMonth: new Date("2026-02-01T00:00:00.000Z"),
+        memberId: "member-1",
+        tenantId: "tenant-1",
+      },
+      {
+        ...createBackfillInputPrismaStub(),
+        tenantPolicy: {
+          findUnique: async () => ({
+            compulsoryShareUnits: 1,
+            maximumShareUnits: 20,
+            shareConfigurationMode: "unit_based",
+            shareUnitAmount: 10000,
+          }),
+        },
+      } as never
+    )
+
+    expect(input.defaultShareVersions).toEqual([])
+    expect(input.shareOverrideVersions).toEqual([])
+  })
 })

@@ -207,7 +207,6 @@ export async function ImportsSettingsRoute({
   const historicalSetupStepKeys = [
     "finance_start_date",
     "charge_schedules",
-    "share_capital_plan",
   ]
   const stepLabels = new Map(
     migrationState.snapshot.steps.map((step) => [step.key, step.label])

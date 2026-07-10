@@ -24,6 +24,8 @@ bun install
 bun run dev
 bun run dev --remote-dev
 bun run dev --prod
+bun run db:push --local
+bun run db:push --prod
 bun run dev -f web dashboard api
 bun run lint
 bun run typecheck
@@ -51,6 +53,11 @@ bun run dev --prod
 ```
 
 The production profile does not run migrations, and it refuses to run if `DATABASE_URL` still points at localhost.
+
+Database push commands use the same profile flags:
+
+- `bun run db:push --local` loads local development env files.
+- `bun run db:push --prod` loads production env files and refuses a localhost `DATABASE_URL`.
 
 ## Portless
 

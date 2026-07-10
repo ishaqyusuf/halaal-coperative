@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-10: Cleaned up client-fit dashboard route standards drift by moving workspace page loaders, member portal data loading, and CSV export row builders out of route files into feature-owned dashboard `lib` modules while preserving a passing dashboard typecheck.
 - 2026-07-10: Fixed receipt review audit and loan payoff settlement gaps so allocation changes keep before/after snapshots and receipt-approved loan payoffs waive remaining unpaid schedule rows with early-settlement audit evidence.
 - 2026-07-10: Cleaned up dashboard verification blockers for the client-fit work by completing the API action handler map, refreshing finance demo policy defaults, serializing opening-balance reversal notes, declaring dashboard's direct form/date type dependencies, narrowing shared React wrapper props, and restoring a passing dashboard typecheck.
 - 2026-07-10: Added member-facing published dividend visibility to statement data, member text statement downloads, printable staff statements, member dashboard cards, and member statements CSV export.

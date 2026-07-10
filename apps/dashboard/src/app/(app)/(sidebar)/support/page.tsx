@@ -1,14 +1,4 @@
 import {
-  createDbRuntime,
-  getMemberByUserId,
-  getMemberSupportCaseSummary,
-  getSupportCaseSummary,
-  listMembers,
-  listSupportCases,
-  listTenantUsersWithMemberships,
-  type SupportCaseCategory,
-} from "@halaalvest/db"
-import {
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
@@ -16,69 +6,17 @@ import {
   MemberSupportCasesView,
   SupportCasesView,
 } from "@/components/support-cases-view"
-import { getDashboardServerContext } from "@/lib/server-context"
-import {
-  allStaffRoles,
-  financeManagementRoles,
-  hasAnyRole,
-} from "@/lib/workspace-access"
-
-const supportCaseCategories = new Set<SupportCaseCategory>([
-  "payment_issue",
-  "account_update",
-  "shares",
-  "financing",
-  "procurement",
-  "feature_request",
-  "technical",
-  "other",
-])
-
-function firstParam(value: string | string[] | undefined) {
-  if (Array.isArray(value)) {
-    return value[0] ?? ""
-  }
-
-  return value ?? ""
-}
-
-function loadMemberSupportCaseInitialValues(
-  searchParams: Record<string, string | string[] | undefined>
-) {
-  const category = firstParam(searchParams.category)
-  const moneyImpactRequested = firstParam(searchParams.moneyImpactRequested)
-
-  return {
-    attachmentUrl: firstParam(searchParams.attachmentUrl),
-    category: supportCaseCategories.has(category as SupportCaseCategory)
-      ? (category as SupportCaseCategory)
-      : undefined,
-    description: firstParam(searchParams.description),
-    moneyImpactRequested:
-      moneyImpactRequested === "true" || moneyImpactRequested === "on",
-    subject: firstParam(searchParams.subject),
-  }
-}
+import { loadSupportPageData } from "@/lib/support/load-support-page"
 
 export default async function SupportPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const context = await getDashboardServerContext()
-  const runtime = createDbRuntime()
   const resolvedSearchParams = searchParams ? await searchParams : {}
-  const canManageSupport = hasAnyRole(
-    context.auth.membership?.role,
-    allStaffRoles
-  )
-  const canReviewFinancialAdjustments = hasAnyRole(
-    context.auth.membership?.role,
-    financeManagementRoles
-  )
-  const canUseMemberSupport = context.auth.membership?.role === "member"
+  const data = await loadSupportPageData(resolvedSearchParams)
 
-  if (!canManageSupport && !canUseMemberSupport) {
+  if (data.state === "restricted") {
     return (
       <WorkspacePageShell
         eyebrow="Support"
@@ -96,7 +34,7 @@ export default async function SupportPage({
     )
   }
 
-  if (!context.tenant || runtime.status !== "database-configured") {
+  if (data.state === "unavailable") {
     return (
       <WorkspacePageShell
         eyebrow="Support"
@@ -114,59 +52,43 @@ export default async function SupportPage({
     )
   }
 
-  if (canUseMemberSupport) {
-    if (!context.auth.user) {
-      return (
-        <WorkspacePageShell
-          eyebrow="Support"
-          title="Member support"
-          description={
-            "Open support or feature requests and track replies from " +
-            "cooperative staff."
-          }
-        >
-          <WorkspaceEmptyState
-            body="Sign in with your member account to open and track support cases."
-            title="Member sign-in required."
-          />
-        </WorkspacePageShell>
-      )
-    }
+  if (data.state === "member-sign-in-required") {
+    return (
+      <WorkspacePageShell
+        eyebrow="Support"
+        title="Member support"
+        description={
+          "Open support or feature requests and track replies from " +
+          "cooperative staff."
+        }
+      >
+        <WorkspaceEmptyState
+          body="Sign in with your member account to open and track support cases."
+          title="Member sign-in required."
+        />
+      </WorkspacePageShell>
+    )
+  }
 
-    const member = await getMemberByUserId({
-      tenantId: context.tenant.id,
-      userId: context.auth.user.id,
-    })
+  if (data.state === "member-profile-missing") {
+    return (
+      <WorkspacePageShell
+        eyebrow="Support"
+        title="Member support"
+        description={
+          "Open support or feature requests and track replies from " +
+          "staff."
+        }
+      >
+        <WorkspaceEmptyState
+          body="Your user account is not linked to a member profile in this cooperative."
+          title="Member profile not linked."
+        />
+      </WorkspacePageShell>
+    )
+  }
 
-    if (!member) {
-      return (
-        <WorkspacePageShell
-          eyebrow="Support"
-          title="Member support"
-          description={
-            "Open support or feature requests and track replies from " +
-            "cooperative staff."
-          }
-        >
-          <WorkspaceEmptyState
-            body="Your user account is not linked to a member profile in this cooperative."
-            title="Member profile not linked."
-          />
-        </WorkspacePageShell>
-      )
-    }
-
-    const [cases, summary] = await Promise.all([
-      listSupportCases({
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
-      getMemberSupportCaseSummary({
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
-    ])
-
+  if (data.state === "member-ready") {
     return (
       <WorkspacePageShell
         eyebrow="Support"
@@ -177,37 +99,14 @@ export default async function SupportPage({
         }
       >
         <MemberSupportCasesView
-          cases={cases}
-          initialCase={loadMemberSupportCaseInitialValues(
-            resolvedSearchParams
-          )}
-          member={member}
-          summary={summary}
+          cases={data.cases}
+          initialCase={data.initialCase}
+          member={data.member}
+          summary={data.summary}
         />
       </WorkspacePageShell>
     )
   }
-
-  const [cases, summary, members, users] = await Promise.all([
-    listSupportCases({ tenantId: context.tenant.id }),
-    getSupportCaseSummary(context.tenant.id),
-    listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
-    listTenantUsersWithMemberships(context.tenant.id),
-  ])
-  const memberOptions = members.items.map((member) => ({
-    id: member.id,
-    label: `${member.fullName} (${member.memberNumber})`,
-  }))
-  const assignees = users
-    .filter((user) =>
-      user.memberships.some((membership) =>
-        allStaffRoles.includes(membership.role)
-      )
-    )
-    .map((user) => ({
-      id: user.id,
-      label: `${user.fullName} (${user.email})`,
-    }))
 
   return (
     <WorkspacePageShell
@@ -219,11 +118,11 @@ export default async function SupportPage({
       }
     >
       <SupportCasesView
-        assignees={assignees}
-        canReviewFinancialAdjustments={canReviewFinancialAdjustments}
-        cases={cases}
-        memberOptions={memberOptions}
-        summary={summary}
+        assignees={data.assignees}
+        canReviewFinancialAdjustments={data.canReviewFinancialAdjustments}
+        cases={data.cases}
+        memberOptions={data.memberOptions}
+        summary={data.summary}
       />
     </WorkspacePageShell>
   )

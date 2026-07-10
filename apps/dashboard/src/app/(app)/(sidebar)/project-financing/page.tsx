@@ -1,11 +1,4 @@
 import {
-  createDbRuntime,
-  getMemberByUserId,
-  getProjectFinancingSummary,
-  listMembers,
-  listProjectFinancingRequests,
-} from "@halaalvest/db"
-import {
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
@@ -13,24 +6,12 @@ import {
   MemberProjectFinancingRequestsView,
   ProjectFinancingRequestsView,
 } from "@/components/project-financing-requests-view"
-import { getDashboardServerContext } from "@/lib/server-context"
-import {
-  allStaffRoles,
-  financeManagementRoles,
-  hasAnyRole,
-} from "@/lib/workspace-access"
+import { loadProjectFinancingPageData } from "@/lib/project-financing/load-project-financing-page"
 
 export default async function ProjectFinancingPage() {
-  const context = await getDashboardServerContext()
-  const runtime = createDbRuntime()
-  const canSubmit = hasAnyRole(context.auth.membership?.role, allStaffRoles)
-  const canUseMemberProjectFinancing = context.auth.membership?.role === "member"
-  const canReview = hasAnyRole(
-    context.auth.membership?.role,
-    financeManagementRoles,
-  )
+  const data = await loadProjectFinancingPageData()
 
-  if (!canSubmit && !canUseMemberProjectFinancing) {
+  if (data.state === "restricted") {
     return (
       <WorkspacePageShell
         eyebrow="Project financing"
@@ -45,7 +26,7 @@ export default async function ProjectFinancingPage() {
     )
   }
 
-  if (!context.tenant || runtime.status !== "database-configured") {
+  if (data.state === "unavailable") {
     return (
       <WorkspacePageShell
         eyebrow="Project financing"
@@ -60,47 +41,37 @@ export default async function ProjectFinancingPage() {
     )
   }
 
-  if (canUseMemberProjectFinancing) {
-    if (!context.auth.user) {
-      return (
-        <WorkspacePageShell
-          eyebrow="Project financing"
-          title="My project financing"
-          description="Request cooperative business funding and track finance review."
-        >
-          <WorkspaceEmptyState
-            body="Sign in with your member account to request project financing."
-            title="Member sign-in required."
-          />
-        </WorkspacePageShell>
-      )
-    }
+  if (data.state === "member-sign-in-required") {
+    return (
+      <WorkspacePageShell
+        eyebrow="Project financing"
+        title="My project financing"
+        description="Request cooperative business funding and track finance review."
+      >
+        <WorkspaceEmptyState
+          body="Sign in with your member account to request project financing."
+          title="Member sign-in required."
+        />
+      </WorkspacePageShell>
+    )
+  }
 
-    const member = await getMemberByUserId({
-      tenantId: context.tenant.id,
-      userId: context.auth.user.id,
-    })
+  if (data.state === "member-profile-missing") {
+    return (
+      <WorkspacePageShell
+        eyebrow="Project financing"
+        title="My project financing"
+        description="Request cooperative business funding and track finance review."
+      >
+        <WorkspaceEmptyState
+          body="Your user account is not linked to a member profile in this cooperative."
+          title="Member profile not linked."
+        />
+      </WorkspacePageShell>
+    )
+  }
 
-    if (!member) {
-      return (
-        <WorkspacePageShell
-          eyebrow="Project financing"
-          title="My project financing"
-          description="Request cooperative business funding and track finance review."
-        >
-          <WorkspaceEmptyState
-            body="Your user account is not linked to a member profile in this cooperative."
-            title="Member profile not linked."
-          />
-        </WorkspacePageShell>
-      )
-    }
-
-    const requests = await listProjectFinancingRequests({
-      memberId: member.id,
-      tenantId: context.tenant.id,
-    })
-
+  if (data.state === "member-ready") {
     return (
       <WorkspacePageShell
         eyebrow="Project financing"
@@ -108,18 +79,12 @@ export default async function ProjectFinancingPage() {
         description="Request cooperative business funding and track finance review."
       >
         <MemberProjectFinancingRequestsView
-          member={member}
-          requests={requests}
+          member={data.member}
+          requests={data.requests}
         />
       </WorkspacePageShell>
     )
   }
-
-  const [requests, summary, members] = await Promise.all([
-    listProjectFinancingRequests({ tenantId: context.tenant.id }),
-    getProjectFinancingSummary(context.tenant.id),
-    listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
-  ])
 
   return (
     <WorkspacePageShell
@@ -128,13 +93,10 @@ export default async function ProjectFinancingPage() {
       description="Stage and review member business funding requests without posting disbursements or profit allocations."
     >
       <ProjectFinancingRequestsView
-        canReview={canReview}
-        memberOptions={members.items.map((member) => ({
-          id: member.id,
-          label: `${member.fullName} (${member.memberNumber})`,
-        }))}
-        requests={requests}
-        summary={summary}
+        canReview={data.canReview}
+        memberOptions={data.memberOptions}
+        requests={data.requests}
+        summary={data.summary}
       />
     </WorkspacePageShell>
   )

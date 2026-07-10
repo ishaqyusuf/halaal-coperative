@@ -1,18 +1,11 @@
-import {
-  createDbRuntime,
-  getMemberByUserId,
-  listMemberLoanGuarantorApprovals,
-} from "@halaalvest/db"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { MemberGuarantorApprovalsView } from "@/components/member-guarantor-approvals-view"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { loadGuarantorApprovalsPageData } from "@/lib/guarantor-approvals/load-guarantor-approvals-page"
 
 export default async function GuarantorApprovalsPage() {
-  const context = await getDashboardServerContext()
-  const runtime = createDbRuntime()
-  const canUseMemberGuarantors = context.auth.membership?.role === "member"
+  const data = await loadGuarantorApprovalsPageData()
 
-  if (!canUseMemberGuarantors) {
+  if (data.state === "restricted") {
     return (
       <WorkspacePageShell
         description="Review guarantor requests linked to your member profile."
@@ -27,7 +20,7 @@ export default async function GuarantorApprovalsPage() {
     )
   }
 
-  if (!context.tenant || runtime.status !== "database-configured") {
+  if (data.state === "unavailable") {
     return (
       <WorkspacePageShell
         description="Review guarantor requests linked to your member profile."
@@ -42,7 +35,7 @@ export default async function GuarantorApprovalsPage() {
     )
   }
 
-  if (!context.auth.user) {
+  if (data.state === "member-sign-in-required") {
     return (
       <WorkspacePageShell
         description="Review guarantor requests linked to your member profile."
@@ -57,12 +50,7 @@ export default async function GuarantorApprovalsPage() {
     )
   }
 
-  const member = await getMemberByUserId({
-    tenantId: context.tenant.id,
-    userId: context.auth.user.id,
-  })
-
-  if (!member) {
+  if (data.state === "member-profile-missing") {
     return (
       <WorkspacePageShell
         description="Review guarantor requests linked to your member profile."
@@ -77,18 +65,13 @@ export default async function GuarantorApprovalsPage() {
     )
   }
 
-  const approvals = await listMemberLoanGuarantorApprovals({
-    guarantorMemberId: member.id,
-    tenantId: context.tenant.id,
-  })
-
   return (
     <WorkspacePageShell
       description="Review guarantor requests linked to your member profile."
       eyebrow="Guarantor"
       title="Guarantor approvals"
     >
-      <MemberGuarantorApprovalsView approvals={approvals} />
+      <MemberGuarantorApprovalsView approvals={data.approvals} />
     </WorkspacePageShell>
   )
 }

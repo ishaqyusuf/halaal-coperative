@@ -1,20 +1,8 @@
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
+export { toCsv } from "@/lib/reports/csv"
 
 type ReportsExportContext = Awaited<ReturnType<typeof getDashboardServerContext>>
-
-function escapeCsvCell(value: string | number | boolean | null | undefined) {
-  const stringValue = value == null ? "" : String(value)
-  if (/[",\n]/.test(stringValue)) {
-    return `"${stringValue.replace(/"/g, "\"\"")}"`
-  }
-
-  return stringValue
-}
-
-export function toCsv(headers: string[], rows: Array<Array<string | number | boolean | null | undefined>>) {
-  return [headers.map(escapeCsvCell).join(","), ...rows.map((row) => row.map(escapeCsvCell).join(","))].join("\n")
-}
 
 export async function requireReportsExportContext(): Promise<ReportsExportContext | null> {
   const context = await getDashboardServerContext()

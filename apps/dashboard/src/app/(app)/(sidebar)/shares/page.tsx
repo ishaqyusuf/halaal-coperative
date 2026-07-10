@@ -1,21 +1,11 @@
-import {
-  createDbRuntime,
-  getMemberByUserId,
-  getMemberUnitSharePosition,
-  getTenantSharePolicy,
-  listMemberShareApplications,
-} from "@halaalvest/db"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { MemberSharesView } from "@/components/member-shares-view"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { loadMemberSharesPageData } from "@/lib/shares/load-member-shares-page"
 
 export default async function MemberSharesPage() {
-  const context = await getDashboardServerContext()
-  const runtime = createDbRuntime()
-  const tenantId = context.tenant?.id
-  const canUseMemberShares = context.auth.membership?.role === "member"
+  const data = await loadMemberSharesPageData()
 
-  if (!canUseMemberShares) {
+  if (data.state === "restricted") {
     return (
       <WorkspacePageShell
         description="Members can track their own unit-based share requests."
@@ -30,7 +20,7 @@ export default async function MemberSharesPage() {
     )
   }
 
-  if (!tenantId || runtime.status !== "database-configured") {
+  if (data.state === "unavailable") {
     return (
       <WorkspacePageShell
         description="Track share units, optional requests, and finance review status."
@@ -45,7 +35,7 @@ export default async function MemberSharesPage() {
     )
   }
 
-  if (!context.auth.user) {
+  if (data.state === "member-sign-in-required") {
     return (
       <WorkspacePageShell
         description="Track share units, optional requests, and finance review status."
@@ -60,12 +50,7 @@ export default async function MemberSharesPage() {
     )
   }
 
-  const member = await getMemberByUserId({
-    tenantId,
-    userId: context.auth.user.id,
-  })
-
-  if (!member) {
+  if (data.state === "member-profile-missing") {
     return (
       <WorkspacePageShell
         description="Track share units, optional requests, and finance review status."
@@ -80,9 +65,7 @@ export default async function MemberSharesPage() {
     )
   }
 
-  const policy = await getTenantSharePolicy(tenantId)
-
-  if (policy.configurationMode !== "unit_based") {
+  if (data.state === "unit-model-inactive") {
     return (
       <WorkspacePageShell
         description="This cooperative has selected the monthly share history model."
@@ -97,17 +80,6 @@ export default async function MemberSharesPage() {
     )
   }
 
-  const [applications, position] = await Promise.all([
-    listMemberShareApplications({
-      memberId: member.id,
-      tenantId,
-    }),
-    getMemberUnitSharePosition({
-      memberId: member.id,
-      tenantId,
-    }),
-  ])
-
   return (
     <WorkspacePageShell
       description="Track compulsory units, optional share requests, and finance review status."
@@ -115,10 +87,10 @@ export default async function MemberSharesPage() {
       title="My shares"
     >
       <MemberSharesView
-        applications={applications}
-        member={member}
-        policy={policy}
-        position={position}
+        applications={data.applications}
+        member={data.member}
+        policy={data.policy}
+        position={data.position}
       />
     </WorkspacePageShell>
   )

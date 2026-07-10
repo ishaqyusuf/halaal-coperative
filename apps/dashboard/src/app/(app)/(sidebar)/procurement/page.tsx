@@ -1,11 +1,4 @@
 import {
-  createDbRuntime,
-  getMemberByUserId,
-  getProcurementSummary,
-  listMembers,
-  listProcurementRequests,
-} from "@halaalvest/db"
-import {
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
@@ -13,24 +6,12 @@ import {
   MemberProcurementRequestsView,
   ProcurementRequestsView,
 } from "@/components/procurement-requests-view"
-import { getDashboardServerContext } from "@/lib/server-context"
-import {
-  allStaffRoles,
-  financeManagementRoles,
-  hasAnyRole,
-} from "@/lib/workspace-access"
+import { loadProcurementPageData } from "@/lib/procurement/load-procurement-page"
 
 export default async function ProcurementPage() {
-  const context = await getDashboardServerContext()
-  const runtime = createDbRuntime()
-  const canSubmit = hasAnyRole(context.auth.membership?.role, allStaffRoles)
-  const canUseMemberProcurement = context.auth.membership?.role === "member"
-  const canReview = hasAnyRole(
-    context.auth.membership?.role,
-    financeManagementRoles,
-  )
+  const data = await loadProcurementPageData()
 
-  if (!canSubmit && !canUseMemberProcurement) {
+  if (data.state === "restricted") {
     return (
       <WorkspacePageShell
         eyebrow="Procurement"
@@ -45,7 +26,7 @@ export default async function ProcurementPage() {
     )
   }
 
-  if (!context.tenant || runtime.status !== "database-configured") {
+  if (data.state === "unavailable") {
     return (
       <WorkspacePageShell
         eyebrow="Procurement"
@@ -60,63 +41,50 @@ export default async function ProcurementPage() {
     )
   }
 
-  if (canUseMemberProcurement) {
-    if (!context.auth.user) {
-      return (
-        <WorkspacePageShell
-          eyebrow="Procurement"
-          title="My procurement"
-          description="Request a cooperative-purchased item and track finance review."
-        >
-          <WorkspaceEmptyState
-            body="Sign in with your member account to request procurement."
-            title="Member sign-in required."
-          />
-        </WorkspacePageShell>
-      )
-    }
-
-    const member = await getMemberByUserId({
-      tenantId: context.tenant.id,
-      userId: context.auth.user.id,
-    })
-
-    if (!member) {
-      return (
-        <WorkspacePageShell
-          eyebrow="Procurement"
-          title="My procurement"
-          description="Request a cooperative-purchased item and track finance review."
-        >
-          <WorkspaceEmptyState
-            body="Your user account is not linked to a member profile in this cooperative."
-            title="Member profile not linked."
-          />
-        </WorkspacePageShell>
-      )
-    }
-
-    const requests = await listProcurementRequests({
-      memberId: member.id,
-      tenantId: context.tenant.id,
-    })
-
+  if (data.state === "member-sign-in-required") {
     return (
       <WorkspacePageShell
         eyebrow="Procurement"
         title="My procurement"
         description="Request a cooperative-purchased item and track finance review."
       >
-        <MemberProcurementRequestsView member={member} requests={requests} />
+        <WorkspaceEmptyState
+          body="Sign in with your member account to request procurement."
+          title="Member sign-in required."
+        />
       </WorkspacePageShell>
     )
   }
 
-  const [requests, summary, members] = await Promise.all([
-    listProcurementRequests({ tenantId: context.tenant.id }),
-    getProcurementSummary(context.tenant.id),
-    listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
-  ])
+  if (data.state === "member-profile-missing") {
+    return (
+      <WorkspacePageShell
+        eyebrow="Procurement"
+        title="My procurement"
+        description="Request a cooperative-purchased item and track finance review."
+      >
+        <WorkspaceEmptyState
+          body="Your user account is not linked to a member profile in this cooperative."
+          title="Member profile not linked."
+        />
+      </WorkspacePageShell>
+    )
+  }
+
+  if (data.state === "member-ready") {
+    return (
+      <WorkspacePageShell
+        eyebrow="Procurement"
+        title="My procurement"
+        description="Request a cooperative-purchased item and track finance review."
+      >
+        <MemberProcurementRequestsView
+          member={data.member}
+          requests={data.requests}
+        />
+      </WorkspacePageShell>
+    )
+  }
 
   return (
     <WorkspacePageShell
@@ -125,13 +93,10 @@ export default async function ProcurementPage() {
       description="Stage and review member item-purchase requests before the cooperative commits funds."
     >
       <ProcurementRequestsView
-        canReview={canReview}
-        memberOptions={members.items.map((member) => ({
-          id: member.id,
-          label: `${member.fullName} (${member.memberNumber})`,
-        }))}
-        requests={requests}
-        summary={summary}
+        canReview={data.canReview}
+        memberOptions={data.memberOptions}
+        requests={data.requests}
+        summary={data.summary}
       />
     </WorkspacePageShell>
   )

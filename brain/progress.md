@@ -2,6 +2,17 @@
 
 ## 2026-07-10
 
+### Dashboard Route Loader Standards Cleanup
+
+- Source mode: Goal continuation from the client-fit cooperative operations expansion spec after code-review standards findings.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/4`.
+- Changed source files: `apps/dashboard/src/app/page.tsx`, client-fit dashboard workspace pages, client-fit report export routes, `apps/dashboard/src/lib/dashboard/load-tenant-home-page.ts`, `apps/dashboard/src/lib/food-purchase/load-food-purchase-page.ts`, `apps/dashboard/src/lib/procurement/load-procurement-page.ts`, `apps/dashboard/src/lib/project-financing/load-project-financing-page.ts`, `apps/dashboard/src/lib/payment-receipts/load-payment-receipts-page.ts`, `apps/dashboard/src/lib/support/load-support-page.ts`, `apps/dashboard/src/lib/shares/load-member-shares-page.ts`, `apps/dashboard/src/lib/guarantor-approvals/load-guarantor-approvals-page.ts`, `apps/dashboard/src/lib/settings/load-trust-readiness-page.ts`, `apps/dashboard/src/lib/reports/csv.ts`, and `apps/dashboard/src/lib/reports/client-fit-export-builders.ts`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Moved client-fit dashboard page data loading and shaping out of route files into feature-owned `lib/<domain>/load-*-page.ts` modules. The tenant home/member portal loader now owns member dashboard data loading, and the client-fit CSV exports now delegate row building/query loading to `lib/reports` builders while route handlers keep only auth, URL filter parsing, and response creation.
+- Scope note: This cleanup targets the hard route-thinning standards finding from code review. It does not change end-user workflow behavior or resolve the separate future file-storage/upload enhancement.
+- Checks run: `bun --cwd apps/dashboard typecheck`; `git diff --check` scoped to the edited dashboard app and lib files; targeted `rg` scans confirming the refactored client-fit page routes no longer import DB query helpers directly.
+- Skipped checks: Full monorepo build, full test suite, browser QA, and dev server were skipped under fast Bun monorepo command discipline.
+
 ### Receipt Audit And Settlement Cleanup
 
 - Source mode: Goal continuation from the client-fit cooperative operations expansion spec after code review.

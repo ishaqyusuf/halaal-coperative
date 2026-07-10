@@ -1,8 +1,4 @@
 import {
-  getTenantTrustProfile,
-  type TenantTrustProfile,
-} from "@halaalvest/db"
-import {
   DashboardActionLink,
   DashboardSectionCard,
   DashboardSectionHeader,
@@ -13,183 +9,12 @@ import {
   WorkspacePageShell,
 } from "@/components/dashboard"
 import { TenantTrustProfileForm } from "@/components/forms/settings-forms"
-import { getDashboardServerContext } from "@/lib/server-context"
-import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
-
-type TrustReadinessItem = {
-  actionHref?: string
-  actionLabel?: string
-  detail: string
-  evidence: string
-  label: string
-  owner: string
-  status: string
-  tone?: "neutral" | "positive" | "warning"
-}
-
-function isMonitoringConfigured() {
-  return Boolean(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN)
-}
-
-const emptyTrustProfile: TenantTrustProfile = {
-  backupRetentionNote: null,
-  dataProcessingUrl: null,
-  incidentContactEmail: null,
-  incidentContactName: null,
-  legalTermsUrl: null,
-  privacyPolicyUrl: null,
-  recoveryPointObjective: null,
-  recoveryTimeObjective: null,
-  reviewedAt: null,
-  reviewedByUserId: null,
-}
-
-function buildTrustReadinessItems(
-  trustProfile: TenantTrustProfile
-): TrustReadinessItem[] {
-  const monitoringConfigured = isMonitoringConfigured()
-  const hasLegalEvidence = Boolean(
-    trustProfile.legalTermsUrl ||
-      trustProfile.privacyPolicyUrl ||
-      trustProfile.dataProcessingUrl
-  )
-  const hasRestoreEvidence = Boolean(
-    trustProfile.backupRetentionNote ||
-      trustProfile.recoveryPointObjective ||
-      trustProfile.recoveryTimeObjective ||
-      trustProfile.incidentContactEmail
-  )
-
-  return [
-    {
-      actionHref: "/reports",
-      actionLabel: "Open reports",
-      detail:
-        "Tenant-scoped exports are available for audit activity, support cases, " +
-        "members, contributions, financing, repayments, charges, and statements.",
-      evidence: "Reports workspace and CSV export routes",
-      label: "Backup and offline confidence",
-      owner: "Tenant admin and platform operator",
-      status: "Export-ready",
-      tone: "positive",
-    },
-    {
-      detail:
-        hasRestoreEvidence
-          ? "Restore evidence has been recorded for pilot discussions. " +
-            "Infrastructure and database-provider procedures still need to " +
-            "match the documented retention and recovery objectives."
-          : "Restore remains an infrastructure and database-operation " +
-            "responsibility. Pilot terms should name recovery responsibilities, " +
-            "retention windows, and escalation contacts before launch.",
-      evidence: hasRestoreEvidence
-        ? "Saved trust profile"
-        : "Operational policy item",
-      label: "Restore posture",
-      owner: "Platform operator",
-      status: hasRestoreEvidence ? "Evidence saved" : "Document before pilot",
-      tone: hasRestoreEvidence ? "positive" : "warning",
-    },
-    {
-      detail:
-        hasLegalEvidence
-          ? "Legal document references have been recorded. Counsel still owns " +
-            "the final approved terms, privacy language, and data-processing " +
-            "scope before the pilot is contract-ready."
-          : "Final legal terms, privacy language, data-processing scope, and " +
-            "support responsibilities must be supplied by the legal team before " +
-            "the pilot is treated as contract-ready.",
-      evidence: hasLegalEvidence ? "Saved legal links" : "Legal readiness item",
-      label: "Terms and conditions",
-      owner: "Legal and founder",
-      status: hasLegalEvidence ? "Evidence saved" : "Legal review required",
-      tone: hasLegalEvidence ? "positive" : "warning",
-    },
-    {
-      detail: monitoringConfigured
-        ? "A Sentry-compatible DSN is present in this runtime, so application " +
-          "errors can be routed to monitoring."
-        : "No Sentry-compatible DSN was detected in this runtime. Configure " +
-          "monitoring before pilot traffic is invited.",
-      evidence: "SENTRY_DSN or NEXT_PUBLIC_SENTRY_DSN",
-      label: "Error monitoring",
-      owner: "Platform operator",
-      status: monitoringConfigured ? "Configured" : "Needs setup",
-      tone: monitoringConfigured ? "positive" : "warning",
-    },
-    {
-      actionHref: "/reports/audit-export",
-      actionLabel: "Open activity report",
-      detail:
-        "The dashboard error boundary sends sanitized crash reports to the " +
-        "tenant audit log when database-backed tenant context is available. " +
-        "This gives admins internal evidence even before external alerting is " +
-        "configured.",
-      evidence: "Audit action: application.error_captured",
-      label: "Internal crash evidence",
-      owner: "Engineering and support",
-      status: "Available",
-      tone: "positive",
-    },
-    {
-      actionHref: "/support",
-      actionLabel: "Open support",
-      detail:
-        "Feature requests are captured through the audited support workflow with " +
-        "assignment, replies, status updates, notifications, and CSV export.",
-      evidence: "Support category: feature_request",
-      label: "Feature request triage",
-      owner: "Product and support",
-      status: "Live",
-      tone: "positive",
-    },
-    {
-      detail:
-        "Pilot messaging should describe beta availability, support response " +
-        "expectations, and planned maintenance honestly instead of promising a " +
-        "formal uptime SLA too early.",
-      evidence: "Reliability messaging item",
-      label: "Reliability expectations",
-      owner: "Founder and platform operator",
-      status: "Beta posture",
-      tone: "warning",
-    },
-    {
-      detail:
-        "The app-level error boundary gives users a safe recovery message for " +
-        "unexpected crashes without exposing stack traces, database details, or " +
-        "infrastructure internals.",
-      evidence: "Dashboard error boundary",
-      label: "Sensitive error disclosure",
-      owner: "Engineering",
-      status: "Guarded",
-      tone: "positive",
-    },
-  ]
-}
+import { loadTrustReadinessPageData } from "@/lib/settings/load-trust-readiness-page"
 
 export default async function TrustReadinessPage() {
-  const context = await getDashboardServerContext()
-  const canViewTrustReadiness = hasAnyRole(
-    context.auth.membership?.role,
-    workspaceAdminRoles
-  )
-  const trustProfile = context.tenant
-    ? await getTenantTrustProfile(context.tenant.id)
-    : emptyTrustProfile
-  const items = buildTrustReadinessItems(trustProfile)
-  const readyItems = items.filter((item) => item.tone === "positive")
-  const warningItems = items.filter((item) => item.tone === "warning")
-  const savedLegalLinks = [
-    trustProfile.legalTermsUrl,
-    trustProfile.privacyPolicyUrl,
-    trustProfile.dataProcessingUrl,
-  ].filter(Boolean).length
-  const lastReviewedAt = trustProfile.reviewedAt
-    ? trustProfile.reviewedAt.toISOString()
-    : null
+  const data = await loadTrustReadinessPageData()
 
-  if (!canViewTrustReadiness) {
+  if (!data.canViewTrustReadiness) {
     return (
       <WorkspacePageShell
         description="Operational trust posture for pilot readiness."
@@ -215,29 +40,29 @@ export default async function TrustReadinessPage() {
           detail="Items with an implemented or available operating path."
           label="Ready"
           tone="positive"
-          value={readyItems.length.toString()}
+          value={data.readyItems.length.toString()}
         />
         <DashboardStatCard
           detail="Items that need operational, legal, or infrastructure follow-up."
           label="Needs follow-up"
-          tone={warningItems.length > 0 ? "warning" : "positive"}
-          value={warningItems.length.toString()}
+          tone={data.warningItems.length > 0 ? "warning" : "positive"}
+          value={data.warningItems.length.toString()}
         />
         <DashboardStatCard
           detail="Error monitoring variable detected in the current runtime."
           label="Monitoring"
-          tone={isMonitoringConfigured() ? "positive" : "warning"}
-          value={isMonitoringConfigured() ? "Configured" : "Needs setup"}
+          tone={data.monitoringConfigured ? "positive" : "warning"}
+          value={data.monitoringConfigured ? "Configured" : "Needs setup"}
         />
         <DashboardStatCard
           detail={
-            lastReviewedAt
-              ? `Last updated ${new Date(lastReviewedAt).toLocaleDateString()}`
+            data.lastReviewedAt
+              ? `Last updated ${new Date(data.lastReviewedAt).toLocaleDateString()}`
               : "No saved trust profile yet."
           }
           label="Trust profile"
-          tone={lastReviewedAt ? "positive" : "warning"}
-          value={lastReviewedAt ? `${savedLegalLinks} docs` : "Draft"}
+          tone={data.lastReviewedAt ? "positive" : "warning"}
+          value={data.lastReviewedAt ? `${data.savedLegalLinks} docs` : "Draft"}
         />
       </section>
 
@@ -248,7 +73,7 @@ export default async function TrustReadinessPage() {
           description="Use this page to explain what is ready, what needs legal or infrastructure confirmation, and where staff should go for evidence."
         />
         <div className="mt-5 space-y-3">
-          {items.map((item) => (
+          {data.items.map((item) => (
             <DashboardSurfaceCard key={item.label}>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -290,15 +115,19 @@ export default async function TrustReadinessPage() {
         <div className="mt-5">
           <TenantTrustProfileForm
             defaultValues={{
-              backupRetentionNote: trustProfile.backupRetentionNote ?? "",
-              dataProcessingUrl: trustProfile.dataProcessingUrl ?? "",
-              incidentContactEmail: trustProfile.incidentContactEmail ?? "",
-              incidentContactName: trustProfile.incidentContactName ?? "",
-              legalTermsUrl: trustProfile.legalTermsUrl ?? "",
-              privacyPolicyUrl: trustProfile.privacyPolicyUrl ?? "",
+              backupRetentionNote:
+                data.trustProfile.backupRetentionNote ?? "",
+              dataProcessingUrl: data.trustProfile.dataProcessingUrl ?? "",
+              incidentContactEmail:
+                data.trustProfile.incidentContactEmail ?? "",
+              incidentContactName:
+                data.trustProfile.incidentContactName ?? "",
+              legalTermsUrl: data.trustProfile.legalTermsUrl ?? "",
+              privacyPolicyUrl: data.trustProfile.privacyPolicyUrl ?? "",
               recoveryPointObjective:
-                trustProfile.recoveryPointObjective ?? "",
-              recoveryTimeObjective: trustProfile.recoveryTimeObjective ?? "",
+                data.trustProfile.recoveryPointObjective ?? "",
+              recoveryTimeObjective:
+                data.trustProfile.recoveryTimeObjective ?? "",
             }}
           />
         </div>

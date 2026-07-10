@@ -1,4 +1,4 @@
-import { getAuditFilterMetadata, listAuditLogs } from "@halaalvest/db"
+import { getAuditFilterMetadata, listActivityReportEvents } from "@halaalvest/db"
 import { AuditHeader } from "@/components/audit-header"
 import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { loadAuditFilterParams } from "@/hooks/use-audit-filter-params"
@@ -16,8 +16,8 @@ export default async function AuditViewerPage({
 
   if (!context.tenant || !hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)) {
     return (
-      <WorkspacePageShell eyebrow="Reports" title="Audit viewer" description="Detailed audit activity is available to workspace admin roles.">
-        <WorkspaceEmptyState title="Audit viewer unavailable." body="This route is limited to admin roles in a configured cooperative workspace." />
+      <WorkspacePageShell eyebrow="Reports" title="Activity report" description="Detailed activity evidence is available to workspace admin roles.">
+        <WorkspaceEmptyState title="Activity report unavailable." body="This route is limited to admin roles in a configured cooperative workspace." />
       </WorkspacePageShell>
     )
   }
@@ -30,7 +30,7 @@ export default async function AuditViewerPage({
   const action = params.action ?? ""
   const [filterList, logs] = await Promise.all([
     getAuditFilterMetadata(context.tenant.id),
-    listAuditLogs(context.tenant.id, {
+    listActivityReportEvents(context.tenant.id, {
       action: action || undefined,
       fromDate: filters.fromDate,
       limit: 200,
@@ -40,7 +40,7 @@ export default async function AuditViewerPage({
   ])
 
   return (
-    <WorkspacePageShell eyebrow="Reports" title="Audit viewer" description="Search actor activity, entity changes, and operational events with a wider time window than the reports overview card.">
+    <WorkspacePageShell eyebrow="Reports" title="Activity report" description="Search actor activity, authorizer evidence, entity changes, and operational events with a wider time window than the reports overview card.">
       <AuditHeader filterList={filterList} />
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -56,11 +56,30 @@ export default async function AuditViewerPage({
             <DashboardSurfaceCard key={log.id}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-medium text-foreground">{log.action}</p>
-                  <p className="text-sm text-muted-foreground">{log.actorUser?.fullName ?? log.actorType} · {log.entityType} · {log.entityId ?? "n/a"}</p>
+                  <p className="font-medium text-foreground">{log.actionLabel}</p>
+                  <p className="text-sm text-muted-foreground">{log.actorLabel} · {log.entityType} · {log.entityId ?? "n/a"}</p>
                 </div>
                 <p className="text-sm text-muted-foreground">{log.occurredAt.toISOString()}</p>
               </div>
+              <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">Performed by</p>
+                  <p className="mt-1 text-foreground">{log.actorLabel}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{log.authorizationRole}</p>
+                  <p className="mt-1 text-foreground">{log.authorizerLabel}</p>
+                </div>
+              </div>
+              {log.metadataSummary.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {log.metadataSummary.map((item) => (
+                    <span className="border border-border bg-background px-2 py-1 text-xs text-muted-foreground" key={item}>
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </DashboardSurfaceCard>
           ))}
         </div>

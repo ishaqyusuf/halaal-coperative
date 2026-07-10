@@ -1,16 +1,18 @@
 "use client"
 
-import type { ComponentProps, ReactNode } from "react"
+import type { HTMLAttributes, ReactNode } from "react"
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
 
 import { cn } from "@halaalvest/ui/lib/utils"
+
+type PublicComponentProps<TProps> = Omit<TProps, "key" | "ref">
 
 function Progress({
   className,
   children,
   value,
   ...props
-}: Omit<ProgressPrimitive.Root.Props, "children"> & {
+}: PublicComponentProps<Omit<ProgressPrimitive.Root.Props, "children">> & {
   children?: ReactNode
 }) {
   return (
@@ -28,7 +30,10 @@ function Progress({
   )
 }
 
-function ProgressTrack({ className, ...props }: ProgressPrimitive.Track.Props) {
+function ProgressTrack({
+  className,
+  ...props
+}: PublicComponentProps<ProgressPrimitive.Track.Props>) {
   return (
     <ProgressPrimitive.Track
       className={cn(
@@ -44,7 +49,7 @@ function ProgressTrack({ className, ...props }: ProgressPrimitive.Track.Props) {
 function ProgressIndicator({
   className,
   ...props
-}: ProgressPrimitive.Indicator.Props) {
+}: PublicComponentProps<ProgressPrimitive.Indicator.Props>) {
   return (
     <ProgressPrimitive.Indicator
       data-slot="progress-indicator"
@@ -54,7 +59,10 @@ function ProgressIndicator({
   )
 }
 
-function ProgressLabel({ className, ...props }: ProgressPrimitive.Label.Props) {
+function ProgressLabel({
+  className,
+  ...props
+}: PublicComponentProps<ProgressPrimitive.Label.Props>) {
   return (
     <ProgressPrimitive.Label
       className={cn("text-xs", className)}
@@ -67,7 +75,7 @@ function ProgressLabel({ className, ...props }: ProgressPrimitive.Label.Props) {
 function ProgressValue({
   className,
   ...props
-}: ComponentProps<"span">) {
+}: HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       className={cn(

@@ -26,6 +26,7 @@ import {
   postRepaymentAction,
   recordMemberPaymentAction,
   recordCollectionFollowUpAction,
+  reviewLoanGuarantorApprovalAction,
   reviewLoanRequestAction,
   setMemberContributionPlanAction,
   submitLoanRequestAction,
@@ -893,6 +894,8 @@ export function ChargeApplicationForm({
 
 const loanRequestSchema = z.object({
   extraMonthlySavingsAmount: z.string().optional(),
+  guarantorOneMemberId: z.string().optional(),
+  guarantorTwoMemberId: z.string().optional(),
   loanProductId: z.string().min(1, "Loan product is required."),
   memberId: z.string().min(1, "Member is required."),
   purpose: z.string().optional(),
@@ -916,6 +919,8 @@ export function LoanRequestForm({
   const form = useZodForm<LoanRequestValues>(loanRequestSchema, {
     defaultValues: {
       extraMonthlySavingsAmount: "",
+      guarantorOneMemberId: "",
+      guarantorTwoMemberId: "",
       loanProductId: "",
       memberId: "",
       purpose: "",
@@ -933,6 +938,8 @@ export function LoanRequestForm({
         showSuccess("Loan request saved", "Loan request submitted.")
         form.reset({
           extraMonthlySavingsAmount: "",
+          guarantorOneMemberId: "",
+          guarantorTwoMemberId: "",
           loanProductId: "",
           memberId: "",
           purpose: "",
@@ -1018,6 +1025,46 @@ export function LoanRequestForm({
                   {loanProducts.map((product) => (
                     <option key={product.id} value={product.id}>
                       {product.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="guarantorOneMemberId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Guarantor 1</FormLabel>
+              <FormControl>
+                <NativeSelect {...field} value={field.value ?? ""}>
+                  <option value="">No guarantor</option>
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="guarantorTwoMemberId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Guarantor 2</FormLabel>
+              <FormControl>
+                <NativeSelect {...field} value={field.value ?? ""}>
+                  <option value="">No guarantor</option>
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.label}
                     </option>
                   ))}
                 </NativeSelect>
@@ -1516,6 +1563,77 @@ export function LoanReviewForm({
                   {...field}
                   value={field.value ?? ""}
                   placeholder={`${label} note`}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button disabled={isPending} size="xs" type="submit" variant={variant}>
+          {label}
+        </Button>
+      </form>
+    </Form>
+  )
+}
+
+const loanGuarantorReviewSchema = z.object({
+  guarantorApprovalId: z.string().min(1),
+  notes: z.string().optional(),
+  status: z.enum(["approved", "rejected"]),
+})
+
+type LoanGuarantorReviewValues = z.infer<typeof loanGuarantorReviewSchema>
+
+export function LoanGuarantorReviewForm({
+  defaultValues,
+  label,
+  variant = "default",
+}: {
+  defaultValues: LoanGuarantorReviewValues
+  label: string
+  variant?: "default" | "outline"
+}) {
+  const form = useZodForm<LoanGuarantorReviewValues>(
+    loanGuarantorReviewSchema,
+    { defaultValues },
+  )
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+
+  function onSubmit(values: LoanGuarantorReviewValues) {
+    startTransition(async () => {
+      try {
+        await reviewLoanGuarantorApprovalAction(objectToFormData(values))
+        showSuccess(
+          "Guarantor response saved",
+          `Guarantor marked ${values.status}.`,
+        )
+      } catch (error) {
+        showError(
+          "Could not save guarantor response",
+          error instanceof Error ? error.message : "Something went wrong.",
+        )
+      }
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form
+        className="flex flex-wrap gap-2"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder={`${label} evidence note`}
                 />
               </FormControl>
               <FormMessage />

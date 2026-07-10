@@ -305,6 +305,14 @@ export async function getOverviewSummary(
     pendingDocumentReviews,
     financingApprovalCount,
     pendingDisbursementCount,
+    pendingShareApplications,
+    pendingOpeningBalances,
+    pendingProcurementRequests,
+    pendingProjectFinancingRequests,
+    pendingFoodPurchaseApplications,
+    submittedFoodPurchaseAccounting,
+    pendingPaymentReceipts,
+    openSupportCases,
     failedImportCount,
     overdueScheduleItems,
     approvedCommitments,
@@ -339,6 +347,41 @@ export async function getOverviewSummary(
       },
     }),
     prisma.loan.count({ where: { status: "approved", tenantId } }),
+    prisma.memberShareApplication.count({
+      where: { status: "pending", tenantId },
+    }),
+    typeof (prisma as any).memberOpeningBalance?.count === "function"
+      ? (prisma as any).memberOpeningBalance.count({
+          where: { status: "pending_review", tenantId },
+        })
+      : 0,
+    prisma.procurementRequest.count({
+      where: { status: { in: ["submitted", "under_review"] }, tenantId },
+    }),
+    typeof (prisma as any).projectFinancingRequest?.count === "function"
+      ? (prisma as any).projectFinancingRequest.count({
+          where: { status: { in: ["submitted", "under_review"] }, tenantId },
+        })
+      : 0,
+    typeof (prisma as any).foodPurchaseApplication?.count === "function"
+      ? (prisma as any).foodPurchaseApplication.count({
+          where: { status: { in: ["submitted", "under_review"] }, tenantId },
+        })
+      : 0,
+    typeof (prisma as any).foodPurchaseCycle?.count === "function"
+      ? (prisma as any).foodPurchaseCycle.count({
+          where: { status: "accounting_submitted", tenantId },
+        })
+      : 0,
+    prisma.memberPaymentReceipt.count({
+      where: { status: { in: ["submitted", "under_review"] }, tenantId },
+    }),
+    prisma.supportCase.count({
+      where: {
+        status: { in: ["open", "in_progress", "waiting_on_member"] },
+        tenantId,
+      },
+    }),
     prisma.importBatch.count({ where: { status: "failed", tenantId } }),
     prisma.repaymentScheduleItem.findMany({
       select: {
@@ -520,6 +563,62 @@ export async function getOverviewSummary(
       key: "disbursement-holds",
       label: "Disbursement holds",
       severity: "critical" as const,
+    },
+    {
+      count: pendingShareApplications,
+      href: "/settings/finance/shares",
+      key: "share-applications",
+      label: "Share applications",
+      severity: "warning" as const,
+    },
+    {
+      count: pendingOpeningBalances,
+      href: "/members",
+      key: "opening-balances",
+      label: "Opening balance reviews",
+      severity: "warning" as const,
+    },
+    {
+      count: pendingProcurementRequests,
+      href: "/procurement",
+      key: "procurement-requests",
+      label: "Procurement requests",
+      severity: "warning" as const,
+    },
+    {
+      count: pendingProjectFinancingRequests,
+      href: "/project-financing",
+      key: "project-financing-requests",
+      label: "Project financing requests",
+      severity: "warning" as const,
+    },
+    {
+      count: pendingFoodPurchaseApplications,
+      href: "/food-purchase",
+      key: "food-purchase-applications",
+      label: "Foodstuff Purchase applications",
+      severity: "warning" as const,
+    },
+    {
+      count: submittedFoodPurchaseAccounting,
+      href: "/food-purchase",
+      key: "food-purchase-accounting",
+      label: "Foodstuff Purchase accounting",
+      severity: "warning" as const,
+    },
+    {
+      count: pendingPaymentReceipts,
+      href: "/payment-receipts",
+      key: "payment-receipts",
+      label: "Payment receipts",
+      severity: "warning" as const,
+    },
+    {
+      count: openSupportCases,
+      href: "/support",
+      key: "support-cases",
+      label: "Support cases",
+      severity: "warning" as const,
     },
     {
       count: financingCycleHealth.warnings.length,

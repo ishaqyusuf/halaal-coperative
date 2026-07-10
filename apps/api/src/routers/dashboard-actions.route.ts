@@ -4,20 +4,31 @@ import type { TRPCContext } from "../context"
 import { authenticatedProcedure, createTRPCRouter } from "../lib.trpc"
 import { buildBackfillDraft } from "@halaalvest/backfill"
 import {
+  addMemberSupportCaseMessage,
+  applyMemberOpeningBalance,
   buildBackfillDraftInputForMember,
+  addSupportCaseMessage,
   approveMemberOnboardingRequest,
   applyCharge,
   applyImportBatch,
   closeContributionPlan,
+  createSupportCase,
   createTenantCustomDomain,
   createChargeDefinition,
   createChargeDefinitionVersion,
   createImportBatch,
   createLegacyLoanMigrationDraft,
+  createMemberOpeningBalance,
+  createMemberPaymentReceipt,
+  createProjectFinancingRequest,
   deleteMemberActivityEvent,
   createMember,
   createMemberDocument,
   createMemberSignupLink,
+  createMemberShareApplication,
+  createMemberSupportCase,
+  createFoodPurchaseCycle,
+  createProcurementRequest,
   createShareBusiness,
   createShareBusinessProfitEntry,
   finalizeTenantInitialMigration,
@@ -27,6 +38,8 @@ import {
   getImportBatchKind,
   getImportReferenceData,
   getTenantInitialMigrationState,
+  getMemberByUserId,
+  getSupportCase,
   importCharges,
   importContributions,
   importDeductionSources,
@@ -45,23 +58,39 @@ import {
   provisionTenantUserRole,
   rotateMemberSignupLinkToken,
   refreshCollectionsStatuses,
+  recordFoodPurchaseAccounting,
   recordMemberPayment,
+  recordProjectFinancingDisbursement,
+  recordProcurementPurchase,
   saveBusinessProfitMigrationWorksheet,
   saveBusinessProfitSeasonReviews,
   saveMigrationProfitSeasonAdjustments,
   upsertMigrationProfitAdjustment,
   recordContribution,
+  reviewMemberPaymentReceipt,
+  reviewMemberOpeningBalance,
+  reverseMemberOpeningBalance,
+  reviewFoodPurchaseAccounting,
+  reviewSupportCaseFinancialAdjustment,
+  reviewProjectFinancingRequest,
   reverseChargeApplication,
+  reviewLoanGuarantorApproval,
+  respondMemberLoanGuarantorApproval,
+  reviewMemberShareApplication,
   reviewLoanRequest,
+  reviewFoodPurchaseApplication,
+  reviewProcurementRequest,
   runTenantDomainVerificationCheck,
   setTenantInitialMigrationEmergencyUnlock,
   setTenantDomainPrimary,
   updateTenantDomainVerificationStatus,
   updateTenantShareStructureVersion,
+  updateTenantSharePolicy,
   updateTenantBusinessProfitPolicy,
   updateShareBusinessProfitEntry,
   setMemberContributionPlan,
   setMemberSignupLinkEnabled,
+  submitFoodPurchaseApplication,
   submitLoanRequest,
   postRepayment,
   publishShareProfitAllocations,
@@ -71,9 +100,11 @@ import {
   updateContributionPlan,
   updateMemberPaymentAllocationPreference,
   updateTenantProfile,
+  updateTenantTrustProfile,
   updateChargeDefinition,
   updateChargeDefinitionVersion,
   updateShareBusiness,
+  updateSupportCaseStatus,
   updateMemberKyc,
   updateMember,
   updateMemberDocumentReview,
@@ -89,7 +120,15 @@ import {
   updateMemberStatus,
   waiveChargeApplication,
   upsertMemberAmountLog,
+  type FoodPurchaseApplicationRow,
+  type FoodPurchaseCycleRow,
   type MembershipRole,
+  type MemberPaymentReceiptRow,
+  type MemberShareApplicationRow,
+  type ProcurementRequestRow,
+  type ProjectFinancingRequestRow,
+  type SupportCaseMessageAuthorType,
+  type SupportCaseRow,
 } from "@halaalvest/db"
 import { createEmailDraftFromType } from "@halaalvest/notifications"
 import {
@@ -184,6 +223,8 @@ export const allStaffRoles: MembershipRole[] = [
   "operations_officer",
 ]
 
+export const memberSelfServiceRoles: MembershipRole[] = ["member"]
+
 export const workspaceConfigurationRoles: MembershipRole[] = [
   "super_admin",
   "tenant_admin",
@@ -214,6 +255,26 @@ type DashboardMemberStatus =
   | "suspended"
   | "exited"
 type DashboardContributionChannel = "payroll" | "transfer" | "cash" | "manual"
+type DashboardPaymentReceiptAllocationCategory =
+  | "commitment"
+  | "special_savings"
+  | "loan_servicing"
+  | "loan_extra_payment"
+  | "shares"
+  | "procurement"
+  | "project_financing"
+  | "food_purchase"
+  | "other"
+type DashboardPaymentReceiptPeriodIntent =
+  | "current_period"
+  | "future_period"
+  | "back_period"
+  | "unspecified"
+type DashboardPaymentReceiptStatus =
+  | "under_review"
+  | "correction_requested"
+  | "approved"
+  | "rejected"
 type DashboardChargeFrequency =
   | "recurring_monthly"
   | "per_contribution"
@@ -277,6 +338,21 @@ async function requireDashboardActor(allowedRoles: MembershipRole[]) {
     tenant,
     user,
   }
+}
+
+async function requireActorMember(
+  actor: Awaited<ReturnType<typeof requireDashboardActor>>
+) {
+  const member = await getMemberByUserId({
+    tenantId: actor.tenant.id,
+    userId: actor.user.id,
+  })
+
+  if (!member) {
+    throw new Error("Your user account is not linked to a member profile.")
+  }
+
+  return member
 }
 
 async function requireInitialMigrationToolsOpen(
@@ -423,7 +499,6 @@ async function requireMemberDataImportPrerequisitesComplete(
     "finance_start_date",
     "charge_schedules",
     "business_profit_pools",
-    "share_capital_plan",
   ])
 
   if (importKind !== "members") {
@@ -479,7 +554,6 @@ async function requireMemberProfileWritesOpen(
     "finance_start_date",
     "charge_schedules",
     "business_profit_pools",
-    "share_capital_plan",
   ])
   const blockingSteps = migrationState.snapshot.missingStepKeys.filter(
     (stepKey) => setupStepKeys.has(stepKey)
@@ -570,7 +644,6 @@ async function requireMemberBackfillPrerequisitesComplete(
       stepKey === "charge_schedules" ||
       stepKey === "business_profit_pools" ||
       stepKey === "business_profit_seasons" ||
-      stepKey === "share_capital_plan" ||
       stepKey === "legacy_loans" ||
       stepKey === "member_profiles"
   )
@@ -811,6 +884,47 @@ function getRowOptionalNumber(row: Record<string, unknown>, key: string) {
   }
 
   return numberValue
+}
+
+function parsePaymentReceiptAllocations(
+  formData: FormData,
+  key = "allocationsJson"
+) {
+  return parseOptionalJsonArray(formData, key).map((row, index) => {
+    const targetPeriodStartValue = getRowString(row, "targetPeriodStart")
+    const targetPeriodStart = targetPeriodStartValue
+      ? new Date(`${targetPeriodStartValue}T00:00:00.000Z`)
+      : null
+
+    if (
+      targetPeriodStartValue &&
+      Number.isNaN(targetPeriodStart?.getTime() ?? Number.NaN)
+    ) {
+      throw new Error(`Allocation row ${index + 1} target period is invalid.`)
+    }
+
+    return {
+      amount: getRowRequiredNumber(
+        row,
+        "amount",
+        `Allocation row ${index + 1} amount`
+      ),
+      category: (getRowString(row, "category") ??
+        "commitment") as DashboardPaymentReceiptAllocationCategory,
+      contributionPlanId: getRowString(row, "contributionPlanId") ?? null,
+      foodPurchaseApplicationId:
+        getRowString(row, "foodPurchaseApplicationId") ?? null,
+      loanId: getRowString(row, "loanId") ?? null,
+      notes: getRowString(row, "notes") ?? null,
+      periodIntent: (getRowString(row, "periodIntent") ??
+        "unspecified") as DashboardPaymentReceiptPeriodIntent,
+      projectFinancingRequestId:
+        getRowString(row, "projectFinancingRequestId") ?? null,
+      procurementRepaymentScheduleItemId:
+        getRowString(row, "procurementRepaymentScheduleItemId") ?? null,
+      targetPeriodStart,
+    }
+  })
 }
 
 function requireDateOnOrAfterJoinedAt(
@@ -1225,6 +1339,25 @@ export async function createMemberDocumentAction(formData: FormData) {
   revalidatePath("/reports")
 }
 
+export async function createOwnMemberDocumentAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  const member = await requireActorMember(actor)
+
+  const document = await createMemberDocument({
+    actorUserId: actor.user.id,
+    documentType: getRequiredString(formData, "documentType"),
+    documentUrl: getRequiredString(formData, "documentUrl"),
+    memberId: member.id,
+    reviewNotes: getOptionalTrimmedString(formData, "reviewNotes"),
+    reviewStatus: "pending",
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/support")
+  revalidatePath(`/members/${document.memberId}`)
+}
+
 export async function updateMemberDocumentReviewAction(formData: FormData) {
   const actor = await requireDashboardActor(memberManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
@@ -1384,6 +1517,7 @@ export async function recordMemberPaymentAction(formData: FormData) {
   revalidatePath("/contributions")
   revalidatePath("/repayments")
   revalidatePath("/loans")
+  revalidatePath("/project-financing")
 }
 
 export async function createMonthlyRecordAction(formData: FormData) {
@@ -1895,14 +2029,118 @@ export async function updateTenantBusinessProfitPolicyAction(
   revalidatePath("/getting-started")
 }
 
+export async function updateTenantSharePolicyAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const configurationMode = getRequiredString(formData, "configurationMode") as
+    | "monthly_history"
+    | "unit_based"
+  const unitAmount = (formData.get("unitAmount") as string | null)?.trim()
+  const compulsoryShareUnits = (
+    formData.get("compulsoryShareUnits") as string | null
+  )?.trim()
+  const maximumShareUnits = (
+    formData.get("maximumShareUnits") as string | null
+  )?.trim()
+
+  await updateTenantSharePolicy({
+    actorUserId: actor.user.id,
+    configurationMode,
+    compulsoryShareUnits:
+      configurationMode === "unit_based" && compulsoryShareUnits
+        ? Number(compulsoryShareUnits)
+        : undefined,
+    maximumShareUnits:
+      configurationMode === "unit_based" && maximumShareUnits
+        ? Number(maximumShareUnits)
+        : undefined,
+    tenantId: actor.tenant.id,
+    unitAmount:
+      configurationMode === "unit_based" && unitAmount
+        ? Number(unitAmount)
+        : undefined,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/shares")
+  revalidatePath("/getting-started")
+}
+
+export async function createMemberShareApplicationAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await createMemberShareApplication({
+    memberId: getRequiredString(formData, "memberId"),
+    notes: getOptionalTrimmedString(formData, "notes"),
+    requestedByUserId: actor.user.id,
+    requestedUnits: Number(getRequiredString(formData, "requestedUnits")),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/shares")
+}
+
+export async function createOwnMemberShareApplicationAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  const member = await requireActorMember(actor)
+
+  await createMemberShareApplication({
+    memberId: member.id,
+    notes: getOptionalTrimmedString(formData, "notes"),
+    requestedByUserId: actor.user.id,
+    requestedUnits: Number(getRequiredString(formData, "requestedUnits")),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/shares")
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/shares")
+}
+
+export async function reviewMemberShareApplicationAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  const application = await reviewMemberShareApplication({
+    actorUserId: actor.user.id,
+    applicationId: getRequiredString(formData, "applicationId"),
+    approvedUnits: getOptionalNumber(formData, "approvedUnits"),
+    decision: getRequiredString(formData, "decision") as
+      | "approved"
+      | "rejected",
+    reviewNotes: getOptionalTrimmedString(formData, "reviewNotes"),
+    tenantId: actor.tenant.id,
+  })
+
+  await sendMemberShareApplicationStatusEmail(actor, application)
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/shares")
+}
+
 export async function updateTenantFinancingPolicyAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
 
   await updateTenantFinancingCyclePolicy({
+    activeFinancingBlocksEmergency: getOptionalBoolean(
+      formData,
+      "activeFinancingBlocksEmergency"
+    ),
+    activeFinancingBlocksProcurement: getOptionalBoolean(
+      formData,
+      "activeFinancingBlocksProcurement"
+    ),
     actorUserId: actor.user.id,
     disbursementRequiresDeployableFunds: getOptionalBoolean(
       formData,
       "disbursementRequiresDeployableFunds"
+    ),
+    foodPurchaseAllowsCommitmentReductionDuringPayback: getOptionalBoolean(
+      formData,
+      "foodPurchaseAllowsCommitmentReductionDuringPayback"
+    ),
+    foodPurchaseMaximumPaybackMonths: Number(
+      getRequiredString(formData, "foodPurchaseMaximumPaybackMonths")
     ),
     loanEligibilityMultiple: Number(
       getRequiredString(formData, "loanEligibilityMultiple")
@@ -1912,6 +2150,13 @@ export async function updateTenantFinancingPolicyAction(formData: FormData) {
     ),
     normalLoanTermMonths: Number(
       getRequiredString(formData, "normalLoanTermMonths")
+    ),
+    procurementAllowsCommitmentReductionDuringPayback: getOptionalBoolean(
+      formData,
+      "procurementAllowsCommitmentReductionDuringPayback"
+    ),
+    procurementMaximumPaybackMonths: Number(
+      getRequiredString(formData, "procurementMaximumPaybackMonths")
     ),
     quickLoanAllocationPercentage: Number(
       getRequiredString(formData, "quickLoanAllocationPercentage")
@@ -1926,6 +2171,14 @@ export async function updateTenantFinancingPolicyAction(formData: FormData) {
     reserveBufferAmount: Number(
       getRequiredString(formData, "reserveBufferAmount")
     ),
+    specialSavingsCountsForEligibility: getOptionalBoolean(
+      formData,
+      "specialSavingsCountsForEligibility"
+    ),
+    strictCommitmentDuringFinancing: getOptionalBoolean(
+      formData,
+      "strictCommitmentDuringFinancing"
+    ),
     tenantId: actor.tenant.id,
   })
 
@@ -1939,6 +2192,7 @@ export async function updateLoanProductSettingsAction(formData: FormData) {
 
   await updateLoanProductSettings({
     actorUserId: actor.user.id,
+    code: getOptionalTrimmedString(formData, "code"),
     isActive: getOptionalBoolean(formData, "isActive"),
     loanProductId: getOptionalTrimmedString(formData, "loanProductId"),
     loanType: getRequiredString(formData, "loanType") as "normal" | "quick",
@@ -2580,24 +2834,119 @@ export async function reverseChargeApplicationAction(formData: FormData) {
 export async function submitLoanRequestAction(formData: FormData) {
   const actor = await requireDashboardActor(allStaffRoles)
   await requireLiveFinancialWritesOpen(actor)
+  const requestedAmount = Number(getRequiredString(formData, "requestedAmount"))
+  const requestedTermMonths = Number(
+    getRequiredString(formData, "requestedTermMonths")
+  )
 
-  await submitLoanRequest({
+  const request = await submitLoanRequest({
     actorUserId: actor.user.id,
     extraMonthlySavingsAmount: getOptionalNumber(
       formData,
       "extraMonthlySavingsAmount"
     ),
+    guarantorMemberIds: [
+      (formData.get("guarantorOneMemberId") as string | null)?.trim() ?? "",
+      (formData.get("guarantorTwoMemberId") as string | null)?.trim() ?? "",
+    ],
     loanProductId: getRequiredString(formData, "loanProductId"),
     memberId: getRequiredString(formData, "memberId"),
     purpose: (formData.get("purpose") as string | null)?.trim() || undefined,
-    requestedAmount: Number(getRequiredString(formData, "requestedAmount")),
-    requestedTermMonths: Number(
-      getRequiredString(formData, "requestedTermMonths")
-    ),
+    requestedAmount,
+    requestedTermMonths,
+    tenantId: actor.tenant.id,
+  })
+
+  for (const approval of request.guarantorApprovals ?? []) {
+    if (!approval.guarantorMember.email) {
+      continue
+    }
+
+    const draft = createEmailDraftFromType(
+      "loan.guarantor_approval_requested",
+      {
+        actionLabel: "Review request",
+        actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+          pathname: "/guarantor-approvals",
+        }),
+        amount: requestedAmount,
+        guarantorApprovalId: approval.id,
+        loanRequestId: request.id,
+        memberName: request.borrowerMember.fullName,
+        recipientEmail: approval.guarantorMember.email,
+        recipientName: approval.guarantorMember.fullName,
+        tenantName: actor.tenant.name,
+      },
+    )
+
+    await sendEmailDraftWithAudit({
+      draft,
+      source: "dashboard.loans",
+      tenantId: actor.tenant.id,
+    })
+  }
+
+  revalidatePath("/loans")
+}
+
+export async function reviewLoanGuarantorApprovalAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  const approval = await reviewLoanGuarantorApproval({
+    actorUserId: actor.user.id,
+    guarantorApprovalId: getRequiredString(formData, "guarantorApprovalId"),
+    notes: (formData.get("notes") as string | null)?.trim() || undefined,
+    status: getRequiredString(formData, "status") as "approved" | "rejected",
+    tenantId: actor.tenant.id,
+  })
+
+  await sendTenantRoleNotificationEmails({
+    actionLabel: "Open loans",
+    actionUrl: "/loans",
+    bodyText: `Guarantor ${approval.guarantorMember.fullName} ${approval.status} loan request ${approval.loanRequestId}.`,
+    metadata: {
+      guarantorApprovalId: approval.id,
+      loanRequestId: approval.loanRequestId,
+      status: approval.status,
+    },
+    notificationType: "loan.guarantor_approval_recorded",
+    roles: ["tenant_admin", "finance_officer"],
+    source: "dashboard.loans",
+    subject: `${actor.tenant.name}: guarantor ${approval.status}`,
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/loans")
+}
+
+export async function respondMemberLoanGuarantorApprovalAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  const member = await getMemberByUserId({
+    tenantId: actor.tenant.id,
+    userId: actor.user.id,
+  })
+
+  if (!member) {
+    throw new Error("Your user account is not linked to a member profile.")
+  }
+
+  await respondMemberLoanGuarantorApproval({
+    actorUserId: actor.user.id,
+    guarantorApprovalId: getRequiredString(formData, "guarantorApprovalId"),
+    guarantorMemberId: member.id,
+    notes: getOptionalTrimmedString(formData, "notes") ?? undefined,
+    status: getRequiredString(formData, "status") as "approved" | "rejected",
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/guarantor-approvals")
+  revalidatePath("/loans")
+  revalidatePath("/")
 }
 
 export async function reviewLoanRequestAction(formData: FormData) {
@@ -2735,6 +3084,40 @@ export async function updateCooperativeProfileAction(formData: FormData) {
   revalidatePath("/")
 }
 
+export async function updateTenantTrustProfileAction(formData: FormData) {
+  const actor = await requireDashboardActor(workspaceAdminRoles)
+
+  await updateTenantTrustProfile({
+    actorUserId: actor.user.id,
+    backupRetentionNote: getOptionalTrimmedString(
+      formData,
+      "backupRetentionNote"
+    ),
+    dataProcessingUrl: getOptionalTrimmedString(formData, "dataProcessingUrl"),
+    incidentContactEmail: getOptionalTrimmedString(
+      formData,
+      "incidentContactEmail"
+    ),
+    incidentContactName: getOptionalTrimmedString(
+      formData,
+      "incidentContactName"
+    ),
+    legalTermsUrl: getOptionalTrimmedString(formData, "legalTermsUrl"),
+    privacyPolicyUrl: getOptionalTrimmedString(formData, "privacyPolicyUrl"),
+    recoveryPointObjective: getOptionalTrimmedString(
+      formData,
+      "recoveryPointObjective"
+    ),
+    recoveryTimeObjective: getOptionalTrimmedString(
+      formData,
+      "recoveryTimeObjective"
+    ),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/trust")
+}
+
 export async function updateTenantFinanceStartDateAction(formData: FormData) {
   const actor = await requireDashboardActor(workspaceConfigurationRoles)
   await requireHistoricalFinanceSetupMutable(actor)
@@ -2806,8 +3189,478 @@ export async function unlockInitialMigrationAction(formData: FormData) {
   revalidatePath("/")
 }
 
+export async function createMemberOpeningBalanceAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+
+  await requireMemberMigrationDraftMutable(actor, memberId)
+
+  await createMemberOpeningBalance({
+    actorUserId: actor.user.id,
+    activeFinancingOutstanding:
+      getOptionalNumber(formData, "activeFinancingOutstanding") ?? 0,
+    commitmentSavingsBalance:
+      getOptionalNumber(formData, "commitmentSavingsBalance") ?? 0,
+    memberId,
+    notes: getOptionalTrimmedString(formData, "notes"),
+    openingDate: new Date(
+      `${getRequiredString(formData, "openingDate")}T00:00:00.000Z`
+    ),
+    procurementOutstanding:
+      getOptionalNumber(formData, "procurementOutstanding") ?? 0,
+    shareCapitalBalance: getOptionalNumber(formData, "shareCapitalBalance") ?? 0,
+    shareUnits: getOptionalNumber(formData, "shareUnits") ?? null,
+    sourceDocumentName: getOptionalTrimmedString(
+      formData,
+      "sourceDocumentName"
+    ),
+    sourceDocumentUrl: getOptionalTrimmedString(formData, "sourceDocumentUrl"),
+    specialSavingsBalance:
+      getOptionalNumber(formData, "specialSavingsBalance") ?? 0,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateMemberBackfillPaths(memberId)
+  revalidatePath("/getting-started")
+  revalidatePath("/")
+}
+
+export async function reviewMemberOpeningBalanceAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+
+  await requireMemberMigrationDraftMutable(actor, memberId)
+
+  await reviewMemberOpeningBalance({
+    actorUserId: actor.user.id,
+    decision: getRequiredString(formData, "decision") as
+      | "approved"
+      | "rejected",
+    openingBalanceId: getRequiredString(formData, "openingBalanceId"),
+    reviewNotes: getOptionalTrimmedString(formData, "reviewNotes"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateMemberBackfillPaths(memberId)
+  revalidatePath("/getting-started")
+  revalidatePath("/")
+}
+
+export async function applyMemberOpeningBalanceAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+
+  await requireMemberMigrationDraftMutable(actor, memberId)
+
+  await applyMemberOpeningBalance({
+    actorUserId: actor.user.id,
+    openingBalanceId: getRequiredString(formData, "openingBalanceId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateMemberBackfillPaths(memberId)
+  revalidatePath("/getting-started")
+  revalidatePath("/")
+}
+
+export async function reverseMemberOpeningBalanceAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+
+  await requireMemberMigrationDraftMutable(actor, memberId)
+
+  await reverseMemberOpeningBalance({
+    actorUserId: actor.user.id,
+    openingBalanceId: getRequiredString(formData, "openingBalanceId"),
+    reversalNotes: getRequiredString(formData, "reversalNotes"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateMemberBackfillPaths(memberId)
+  revalidatePath("/getting-started")
+  revalidatePath("/")
+}
+
 type DashboardActor = Awaited<ReturnType<typeof requireDashboardActor>>
+type LoanRequestReviewResult = Awaited<ReturnType<typeof reviewLoanRequest>>
 type MigrationGuarantorPrefix = "guarantorOne" | "guarantorTwo"
+
+type SupportNotificationType =
+  | "support.case_created"
+  | "support.case_status_updated"
+  | "support.message_added"
+
+function supportCaseDisplayName(supportCase: SupportCaseRow) {
+  const memberText = supportCase.member
+    ? ` for ${supportCase.member.fullName}`
+    : ""
+
+  return `support case "${supportCase.subject}"${memberText}`
+}
+
+function supportCaseMetadata(supportCase: SupportCaseRow) {
+  return {
+    linkedRecordId: supportCase.linkedRecordId,
+    linkedRecordType: supportCase.linkedRecordType,
+    memberId: supportCase.memberId,
+    priority: supportCase.priority,
+    status: supportCase.status,
+    supportCaseId: supportCase.id,
+  }
+}
+
+function supportMemberEmailPayload(
+  actor: DashboardActor,
+  supportCase: SupportCaseRow
+) {
+  if (!supportCase.member?.email) {
+    return null
+  }
+
+  return {
+    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+      pathname: "/support",
+    }),
+    linkedRecordType: supportCase.linkedRecordType,
+    memberName: supportCase.member.fullName,
+    priority: supportCase.priority,
+    recipientEmail: supportCase.member.email,
+    recipientName: supportCase.member.fullName,
+    status: supportCase.status,
+    subject: supportCase.subject,
+    supportCaseId: supportCase.id,
+    tenantName: actor.tenant.name,
+  }
+}
+
+async function sendSupportStaffNotification(
+  actor: DashboardActor,
+  supportCase: SupportCaseRow,
+  input: {
+    bodyText: string
+    notificationType: SupportNotificationType
+    subject: string
+  }
+) {
+  await sendTenantRoleNotificationEmails({
+    actionLabel: "Open support",
+    actionUrl: "/support",
+    bodyText: input.bodyText,
+    metadata: supportCaseMetadata(supportCase),
+    notificationType: input.notificationType,
+    roles: allStaffRoles,
+    source: "dashboard.support",
+    subject: input.subject,
+    tenantId: actor.tenant.id,
+  })
+}
+
+async function sendSupportCaseCreatedMemberEmail(
+  actor: DashboardActor,
+  supportCase: SupportCaseRow
+) {
+  const payload = supportMemberEmailPayload(actor, supportCase)
+
+  if (!payload) {
+    return
+  }
+
+  const draft = createEmailDraftFromType("support.case_created", payload)
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.support",
+    tenantId: actor.tenant.id,
+  })
+}
+
+async function sendSupportMessageMemberEmail(
+  actor: DashboardActor,
+  supportCase: SupportCaseRow,
+  authorType: SupportCaseMessageAuthorType
+) {
+  const payload = supportMemberEmailPayload(actor, supportCase)
+
+  if (!payload) {
+    return
+  }
+
+  const draft = createEmailDraftFromType("support.message_added", {
+    ...payload,
+    authorType,
+  })
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.support",
+    tenantId: actor.tenant.id,
+  })
+}
+
+async function sendSupportStatusMemberEmail(
+  actor: DashboardActor,
+  supportCase: SupportCaseRow
+) {
+  const payload = supportMemberEmailPayload(actor, supportCase)
+
+  if (!payload) {
+    return
+  }
+
+  const draft = createEmailDraftFromType("support.case_status_updated", payload)
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.support",
+    tenantId: actor.tenant.id,
+  })
+}
+
+async function sendPaymentReceiptStatusMemberEmail(
+  actor: DashboardActor,
+  receipt: MemberPaymentReceiptRow
+) {
+  if (!receipt.member.email) {
+    return
+  }
+
+  const draft = createEmailDraftFromType(
+    "member_payment_receipt.status_changed",
+    {
+      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+        pathname: "/payment-receipts",
+      }),
+      amount: receipt.totalAmount,
+      memberName: receipt.member.fullName,
+      paymentReference: receipt.paymentReference,
+      receiptId: receipt.id,
+      recipientEmail: receipt.member.email,
+      recipientName: receipt.member.fullName,
+      reviewNotes: receipt.reviewNotes,
+      status: receipt.status,
+      tenantName: actor.tenant.name,
+    }
+  )
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.payment_receipts",
+    tenantId: actor.tenant.id,
+  })
+}
+
+async function sendMemberShareApplicationStatusEmail(
+  actor: DashboardActor,
+  application: MemberShareApplicationRow
+) {
+  if (!application.memberEmail) {
+    return
+  }
+
+  const draft = createEmailDraftFromType(
+    "member_share_application.status_changed",
+    {
+      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+        pathname: "/shares",
+      }),
+      approvedUnits: application.approvedUnits,
+      memberName: application.memberName,
+      recipientEmail: application.memberEmail,
+      recipientName: application.memberName,
+      requestedUnits: application.requestedUnits,
+      reviewNotes: application.reviewNotes,
+      shareApplicationId: application.id,
+      shareValue:
+        application.approvedUnits === null
+          ? application.shareValueSnapshot
+          : application.approvedUnits * application.unitAmountSnapshot,
+      status: application.status,
+      tenantName: actor.tenant.name,
+    }
+  )
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.shares",
+    tenantId: actor.tenant.id,
+  })
+}
+
+async function sendLoanRequestStatusMemberEmail(
+  actor: DashboardActor,
+  request: LoanRequestReviewResult
+) {
+  if (!request.member?.email) {
+    return
+  }
+
+  const draft = createEmailDraftFromType("loan.request_status_changed", {
+    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+      pathname: "/loans",
+    }),
+    amount: Number(request.requestedAmount),
+    loanRequestId: request.id,
+    memberName: request.member.fullName,
+    recipientEmail: request.member.email,
+    recipientName: request.member.fullName,
+    reviewNotes: request.reviewNotes,
+    status: request.status,
+    tenantName: actor.tenant.name,
+  })
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.loans",
+    tenantId: actor.tenant.id,
+  })
+}
+
+async function sendProjectFinancingRequestStatusMemberEmail(
+  actor: DashboardActor,
+  request: ProjectFinancingRequestRow
+) {
+  if (!request.member.email) {
+    return
+  }
+
+  const draft = createEmailDraftFromType(
+    "project_financing.request_status_changed",
+    {
+      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+        pathname: "/project-financing",
+      }),
+      amount: request.approvedAmount ?? request.requestedAmount,
+      approvedStructure: request.approvedStructure,
+      businessName: request.businessName,
+      memberName: request.member.fullName,
+      projectFinancingRequestId: request.id,
+      recipientEmail: request.member.email,
+      recipientName: request.member.fullName,
+      reviewNotes: request.reviewNotes,
+      status: request.status,
+      tenantName: actor.tenant.name,
+    }
+  )
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.project_financing",
+    tenantId: actor.tenant.id,
+  })
+}
+
+async function sendProcurementRequestStatusMemberEmail(
+  actor: DashboardActor,
+  request: ProcurementRequestRow
+) {
+  if (!request.member.email) {
+    return
+  }
+
+  const draft = createEmailDraftFromType("procurement.request_status_changed", {
+    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+      pathname: "/procurement",
+    }),
+    amount: request.approvedCost ?? request.requestedCost,
+    itemName: request.itemName,
+    memberName: request.member.fullName,
+    procurementRequestId: request.id,
+    recipientEmail: request.member.email,
+    recipientName: request.member.fullName,
+    repaymentMonths:
+      request.approvedRepaymentMonths ?? request.requestedRepaymentMonths,
+    reviewNotes: request.reviewNotes,
+    status: request.status,
+    tenantName: actor.tenant.name,
+    vendorName: request.vendorName,
+  })
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.procurement",
+    tenantId: actor.tenant.id,
+  })
+}
+
+async function sendFoodPurchaseApplicationStatusMemberEmail(
+  actor: DashboardActor,
+  application: FoodPurchaseApplicationRow
+) {
+  if (!application.member.email) {
+    return
+  }
+
+  const periodLabel = formatFoodPurchasePeriodLabel(
+    application.cycle.periodMonth
+  )
+  const draft = createEmailDraftFromType(
+    "food_purchase.application_status_changed",
+    {
+      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+        pathname: "/food-purchase",
+      }),
+      amount: application.approvedAmount ?? application.requestedAmount,
+      applicationId: application.id,
+      itemDescription: application.itemDescription,
+      memberName: application.member.fullName,
+      periodLabel,
+      recipientEmail: application.member.email,
+      recipientName: application.member.fullName,
+      reviewNotes: application.reviewNotes,
+      status: application.status,
+      tenantName: actor.tenant.name,
+    }
+  )
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.food_purchase",
+    tenantId: actor.tenant.id,
+  })
+}
+
+function formatFoodPurchasePeriodLabel(periodMonth: Date) {
+  return new Intl.DateTimeFormat("en-NG", {
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(periodMonth)
+}
+
+async function sendFoodPurchaseAccountingStatusCommitteeEmail(
+  actor: DashboardActor,
+  cycle: FoodPurchaseCycleRow,
+  reviewNotes?: string | null
+) {
+  const recipient = cycle.accountingSubmittedByUser
+
+  if (!recipient?.email) {
+    return
+  }
+
+  const draft = createEmailDraftFromType(
+    "food_purchase.accounting_status_changed",
+    {
+      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+        pathname: "/food-purchase",
+      }),
+      cycleId: cycle.id,
+      periodLabel: formatFoodPurchasePeriodLabel(cycle.periodMonth),
+      profitAmount: cycle.profitAmount,
+      recipientEmail: recipient.email,
+      recipientName: recipient.fullName,
+      reviewNotes,
+      status: cycle.status as "accounting_approved" | "accounting_rejected",
+      tenantName: actor.tenant.name,
+    }
+  )
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.food_purchase.accounting",
+    tenantId: actor.tenant.id,
+  })
+}
 
 function maxFieldLength(...fieldValues: string[][]) {
   return Math.max(0, ...fieldValues.map((values) => values.length))
@@ -3811,6 +4664,655 @@ export async function recordCollectionFollowUpAction(formData: FormData) {
   revalidatePath("/repayments")
 }
 
+export async function createSupportCaseAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+
+  const supportCase = await createSupportCase({
+    assignedToUserId: getOptionalTrimmedString(formData, "assignedToUserId"),
+    attachmentUrl: getOptionalTrimmedString(formData, "attachmentUrl"),
+    category: getRequiredString(formData, "category") as
+      | "payment_issue"
+      | "account_update"
+      | "shares"
+      | "financing"
+      | "procurement"
+      | "feature_request"
+      | "technical"
+      | "other",
+    description: getRequiredString(formData, "description"),
+    linkedRecordId: getOptionalTrimmedString(formData, "linkedRecordId"),
+    linkedRecordType: getOptionalTrimmedString(
+      formData,
+      "linkedRecordType"
+    ) as
+      | "member"
+      | "contribution"
+      | "repayment"
+      | "loan_request"
+      | "loan"
+      | "share_application"
+      | "procurement"
+      | "receipt"
+      | "other"
+      | null,
+    memberId: getOptionalTrimmedString(formData, "memberId"),
+    moneyImpactRequested: getOptionalBoolean(
+      formData,
+      "moneyImpactRequested"
+    ),
+    openedByUserId: actor.user.id,
+    priority: getRequiredString(formData, "priority") as
+      | "low"
+      | "normal"
+      | "high"
+      | "urgent",
+    subject: getRequiredString(formData, "subject"),
+    tenantId: actor.tenant.id,
+  })
+
+  await sendSupportCaseCreatedMemberEmail(actor, supportCase)
+
+  revalidatePath("/")
+  revalidatePath("/support")
+  revalidatePath("/payment-receipts")
+}
+
+export async function addSupportCaseMessageAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  const supportCaseId = getRequiredString(formData, "supportCaseId")
+
+  await addSupportCaseMessage({
+    attachmentUrl: getOptionalTrimmedString(formData, "attachmentUrl"),
+    authorType: "staff",
+    authorUserId: actor.user.id,
+    message: getRequiredString(formData, "message"),
+    supportCaseId,
+    tenantId: actor.tenant.id,
+  })
+
+  const supportCase = await getSupportCase({
+    supportCaseId,
+    tenantId: actor.tenant.id,
+  })
+
+  await sendSupportMessageMemberEmail(actor, supportCase, "staff")
+
+  revalidatePath("/support")
+}
+
+export async function createMemberSupportCaseAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  const member = await requireActorMember(actor)
+
+  const supportCase = await createMemberSupportCase({
+    attachmentUrl: getOptionalTrimmedString(formData, "attachmentUrl"),
+    category: getRequiredString(formData, "category") as
+      | "payment_issue"
+      | "account_update"
+      | "shares"
+      | "financing"
+      | "procurement"
+      | "feature_request"
+      | "technical"
+      | "other",
+    description: getRequiredString(formData, "description"),
+    linkedRecordId: getOptionalTrimmedString(formData, "linkedRecordId"),
+    linkedRecordType: getOptionalTrimmedString(
+      formData,
+      "linkedRecordType"
+    ) as
+      | "member"
+      | "contribution"
+      | "repayment"
+      | "loan_request"
+      | "loan"
+      | "share_application"
+      | "procurement"
+      | "receipt"
+      | "other"
+      | null,
+    memberId: member.id,
+    moneyImpactRequested: getOptionalBoolean(
+      formData,
+      "moneyImpactRequested"
+    ),
+    openedByUserId: actor.user.id,
+    subject: getRequiredString(formData, "subject"),
+    tenantId: actor.tenant.id,
+  })
+
+  await sendSupportStaffNotification(actor, supportCase, {
+    bodyText: `${supportCaseDisplayName(supportCase)} was opened by a member. Review the case and document resolution activity inside the support workspace.`,
+    notificationType: "support.case_created",
+    subject: `${actor.tenant.name}: support case opened`,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/support")
+  revalidatePath("/payment-receipts")
+}
+
+export async function addMemberSupportCaseMessageAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  const member = await requireActorMember(actor)
+  const supportCaseId = getRequiredString(formData, "supportCaseId")
+
+  await addMemberSupportCaseMessage({
+    attachmentUrl: getOptionalTrimmedString(formData, "attachmentUrl"),
+    authorUserId: actor.user.id,
+    memberId: member.id,
+    message: getRequiredString(formData, "message"),
+    supportCaseId,
+    tenantId: actor.tenant.id,
+  })
+
+  const supportCase = await getSupportCase({
+    memberId: member.id,
+    supportCaseId,
+    tenantId: actor.tenant.id,
+  })
+
+  await sendSupportStaffNotification(actor, supportCase, {
+    bodyText: `A member reply was added to ${supportCaseDisplayName(supportCase)}. Review the message before taking any money-impact action.`,
+    notificationType: "support.message_added",
+    subject: `${actor.tenant.name}: support case reply added`,
+  })
+
+  revalidatePath("/support")
+}
+
+export async function updateSupportCaseStatusAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+
+  const supportCase = await updateSupportCaseStatus({
+    actorUserId: actor.user.id,
+    assignedToUserId: getOptionalTrimmedString(formData, "assignedToUserId"),
+    priority: getRequiredString(formData, "priority") as
+      | "low"
+      | "normal"
+      | "high"
+      | "urgent",
+    requiresFinancialAdjustment: getOptionalBoolean(
+      formData,
+      "requiresFinancialAdjustment"
+    ),
+    resolutionSummary: getOptionalTrimmedString(
+      formData,
+      "resolutionSummary"
+    ),
+    status: getRequiredString(formData, "status") as
+      | "open"
+      | "in_progress"
+      | "waiting_on_member"
+      | "resolved"
+      | "closed",
+    supportCaseId: getRequiredString(formData, "supportCaseId"),
+    tenantId: actor.tenant.id,
+  })
+
+  await sendSupportStatusMemberEmail(actor, supportCase)
+
+  revalidatePath("/")
+  revalidatePath("/support")
+}
+
+export async function reviewSupportCaseFinancialAdjustmentAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  const supportCase = await reviewSupportCaseFinancialAdjustment({
+    actorUserId: actor.user.id,
+    approvalNotes: getOptionalTrimmedString(formData, "approvalNotes"),
+    approvalStatus: getRequiredString(formData, "approvalStatus") as
+      | "approved"
+      | "rejected",
+    supportCaseId: getRequiredString(formData, "supportCaseId"),
+    tenantId: actor.tenant.id,
+  })
+
+  await sendSupportStatusMemberEmail(actor, supportCase)
+
+  revalidatePath("/")
+  revalidatePath("/support")
+}
+
+export async function createFoodPurchaseCycleAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+  const periodMonth = getRequiredString(formData, "periodMonth")
+  const releasedAt = getRequiredString(formData, "releasedAt")
+
+  requireDateOnOrAfterTenantStartDate(actor, `${periodMonth}-01`, "Period")
+  requireDateOnOrAfterTenantStartDate(actor, releasedAt, "Release date")
+
+  await createFoodPurchaseCycle({
+    actorUserId: actor.user.id,
+    periodMonth: new Date(`${periodMonth}-01T00:00:00.000Z`),
+    releasedAmount: Number(getRequiredString(formData, "releasedAmount")),
+    releasedAt: new Date(`${releasedAt}T00:00:00.000Z`),
+    releaseNotes: getOptionalTrimmedString(formData, "releaseNotes"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/food-purchase")
+}
+
+export async function submitFoodPurchaseApplicationAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  await submitFoodPurchaseApplication({
+    actorUserId: actor.user.id,
+    cycleId: getRequiredString(formData, "cycleId"),
+    itemDescription: getOptionalTrimmedString(formData, "itemDescription"),
+    memberId: getRequiredString(formData, "memberId"),
+    requestedAmount: Number(getRequiredString(formData, "requestedAmount")),
+    requestedPaybackMonths: Number(
+      getRequiredString(formData, "requestedPaybackMonths")
+    ),
+    requestNotes: getOptionalTrimmedString(formData, "requestNotes"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/food-purchase")
+}
+
+export async function submitOwnFoodPurchaseApplicationAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  await requireLiveFinancialWritesOpen(actor)
+  const member = await requireActorMember(actor)
+
+  await submitFoodPurchaseApplication({
+    actorUserId: actor.user.id,
+    cycleId: getRequiredString(formData, "cycleId"),
+    itemDescription: getOptionalTrimmedString(formData, "itemDescription"),
+    memberId: member.id,
+    requestedAmount: Number(getRequiredString(formData, "requestedAmount")),
+    requestedPaybackMonths: Number(
+      getRequiredString(formData, "requestedPaybackMonths")
+    ),
+    requestNotes: getOptionalTrimmedString(formData, "requestNotes"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/food-purchase")
+}
+
+export async function reviewFoodPurchaseApplicationAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  const application = await reviewFoodPurchaseApplication({
+    actorUserId: actor.user.id,
+    applicationId: getRequiredString(formData, "applicationId"),
+    approvedAmount: getOptionalNumber(formData, "approvedAmount"),
+    approvedPaybackMonths: getOptionalNumber(formData, "approvedPaybackMonths"),
+    notes: getOptionalTrimmedString(formData, "notes"),
+    status: getRequiredString(formData, "status") as
+      | "approved"
+      | "rejected"
+      | "under_review",
+    tenantId: actor.tenant.id,
+  })
+
+  await sendFoodPurchaseApplicationStatusMemberEmail(actor, application)
+
+  revalidatePath("/")
+  revalidatePath("/food-purchase")
+}
+
+export async function recordFoodPurchaseAccountingAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  await recordFoodPurchaseAccounting({
+    actorUserId: actor.user.id,
+    cycleId: getRequiredString(formData, "cycleId"),
+    notes: getOptionalTrimmedString(formData, "notes"),
+    operatingExpenseAmount:
+      getOptionalNumber(formData, "operatingExpenseAmount") ?? 0,
+    purchaseCostAmount: Number(
+      getRequiredString(formData, "purchaseCostAmount")
+    ),
+    salesAmount: Number(getRequiredString(formData, "salesAmount")),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/food-purchase")
+}
+
+export async function reviewFoodPurchaseAccountingAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+  const notes = getOptionalTrimmedString(formData, "notes")
+
+  const cycle = await reviewFoodPurchaseAccounting({
+    actorUserId: actor.user.id,
+    cycleId: getRequiredString(formData, "cycleId"),
+    decision: getRequiredString(formData, "decision") as
+      | "approved"
+      | "rejected",
+    notes,
+    tenantId: actor.tenant.id,
+  })
+  await sendFoodPurchaseAccountingStatusCommitteeEmail(actor, cycle, notes)
+
+  revalidatePath("/")
+  revalidatePath("/food-purchase")
+}
+
+export async function createProcurementRequestAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  await createProcurementRequest({
+    actorUserId: actor.user.id,
+    itemDescription: getOptionalTrimmedString(formData, "itemDescription"),
+    itemName: getRequiredString(formData, "itemName"),
+    memberId: getRequiredString(formData, "memberId"),
+    requestedCost: Number(getRequiredString(formData, "requestedCost")),
+    requestedRepaymentMonths: Number(
+      getRequiredString(formData, "requestedRepaymentMonths")
+    ),
+    tenantId: actor.tenant.id,
+    vendorName: getOptionalTrimmedString(formData, "vendorName"),
+  })
+
+  revalidatePath("/")
+  revalidatePath("/procurement")
+}
+
+export async function createOwnProcurementRequestAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  await requireLiveFinancialWritesOpen(actor)
+  const member = await requireActorMember(actor)
+
+  await createProcurementRequest({
+    actorUserId: actor.user.id,
+    itemDescription: getOptionalTrimmedString(formData, "itemDescription"),
+    itemName: getRequiredString(formData, "itemName"),
+    memberId: member.id,
+    requestedCost: Number(getRequiredString(formData, "requestedCost")),
+    requestedRepaymentMonths: Number(
+      getRequiredString(formData, "requestedRepaymentMonths")
+    ),
+    tenantId: actor.tenant.id,
+    vendorName: getOptionalTrimmedString(formData, "vendorName"),
+  })
+
+  revalidatePath("/")
+  revalidatePath("/procurement")
+}
+
+export async function reviewProcurementRequestAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  const request = await reviewProcurementRequest({
+    actorUserId: actor.user.id,
+    approvedCost: getOptionalNumber(formData, "approvedCost"),
+    approvedRepaymentMonths: getOptionalNumber(
+      formData,
+      "approvedRepaymentMonths"
+    ),
+    notes: getOptionalTrimmedString(formData, "notes"),
+    procurementRequestId: getRequiredString(formData, "procurementRequestId"),
+    status: getRequiredString(formData, "status") as
+      | "approved"
+      | "rejected"
+      | "under_review",
+    tenantId: actor.tenant.id,
+  })
+
+  await sendProcurementRequestStatusMemberEmail(actor, request)
+
+  revalidatePath("/")
+  revalidatePath("/procurement")
+}
+
+export async function recordProcurementPurchaseAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  await recordProcurementPurchase({
+    actorUserId: actor.user.id,
+    firstDueDate: new Date(
+      `${getRequiredString(formData, "firstDueDate")}T00:00:00.000Z`
+    ),
+    procurementRequestId: getRequiredString(formData, "procurementRequestId"),
+    purchaseDate: new Date(
+      `${getRequiredString(formData, "purchaseDate")}T00:00:00.000Z`
+    ),
+    purchaseNotes: getOptionalTrimmedString(formData, "purchaseNotes"),
+    purchaseReference: getOptionalTrimmedString(formData, "purchaseReference"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/procurement")
+}
+
+export async function createProjectFinancingRequestAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  await createProjectFinancingRequest({
+    actorUserId: actor.user.id,
+    businessDescription: getOptionalTrimmedString(
+      formData,
+      "businessDescription"
+    ),
+    businessName: getRequiredString(formData, "businessName"),
+    memberId: getRequiredString(formData, "memberId"),
+    projectPurpose: getOptionalTrimmedString(formData, "projectPurpose"),
+    proposedStructure: getOptionalTrimmedString(
+      formData,
+      "proposedStructure"
+    ) as
+      | "investment_partnership"
+      | "profit_sharing"
+      | "repayable_facility"
+      | "undecided"
+      | null,
+    requestedAmount: Number(getRequiredString(formData, "requestedAmount")),
+    requestedPaybackMonths: getOptionalNumber(
+      formData,
+      "requestedPaybackMonths"
+    ),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/project-financing")
+}
+
+export async function createOwnProjectFinancingRequestAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  await requireLiveFinancialWritesOpen(actor)
+  const member = await requireActorMember(actor)
+
+  await createProjectFinancingRequest({
+    actorUserId: actor.user.id,
+    businessDescription: getOptionalTrimmedString(
+      formData,
+      "businessDescription"
+    ),
+    businessName: getRequiredString(formData, "businessName"),
+    memberId: member.id,
+    projectPurpose: getOptionalTrimmedString(formData, "projectPurpose"),
+    proposedStructure: getOptionalTrimmedString(
+      formData,
+      "proposedStructure"
+    ) as
+      | "investment_partnership"
+      | "profit_sharing"
+      | "repayable_facility"
+      | "undecided"
+      | null,
+    requestedAmount: Number(getRequiredString(formData, "requestedAmount")),
+    requestedPaybackMonths: getOptionalNumber(
+      formData,
+      "requestedPaybackMonths"
+    ),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/project-financing")
+}
+
+export async function reviewProjectFinancingRequestAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  const request = await reviewProjectFinancingRequest({
+    actorUserId: actor.user.id,
+    approvedAmount: getOptionalNumber(formData, "approvedAmount"),
+    approvedPaybackMonths: getOptionalNumber(
+      formData,
+      "approvedPaybackMonths"
+    ),
+    approvedStructure: getOptionalTrimmedString(
+      formData,
+      "approvedStructure"
+    ) as
+      | "investment_partnership"
+      | "profit_sharing"
+      | "repayable_facility"
+      | "undecided"
+      | null,
+    notes: getOptionalTrimmedString(formData, "notes"),
+    projectFinancingRequestId: getRequiredString(
+      formData,
+      "projectFinancingRequestId"
+    ),
+    status: getRequiredString(formData, "status") as
+      | "approved"
+      | "rejected"
+      | "under_review",
+    tenantId: actor.tenant.id,
+  })
+
+  await sendProjectFinancingRequestStatusMemberEmail(actor, request)
+
+  revalidatePath("/")
+  revalidatePath("/project-financing")
+}
+
+export async function recordProjectFinancingDisbursementAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  await recordProjectFinancingDisbursement({
+    actorUserId: actor.user.id,
+    disbursedAt: new Date(
+      `${getRequiredString(formData, "disbursedAt")}T00:00:00.000Z`
+    ),
+    notes: getOptionalTrimmedString(formData, "notes"),
+    projectFinancingRequestId: getRequiredString(
+      formData,
+      "projectFinancingRequestId"
+    ),
+    reference: getOptionalTrimmedString(formData, "reference"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/project-financing")
+  revalidatePath("/payment-receipts")
+}
+
+export async function createMemberPaymentReceiptAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+
+  await createMemberPaymentReceipt({
+    allocations: parsePaymentReceiptAllocations(formData),
+    channel: getRequiredString(
+      formData,
+      "channel"
+    ) as DashboardContributionChannel,
+    memberId: getRequiredString(formData, "memberId"),
+    memberNotes: getOptionalTrimmedString(formData, "memberNotes"),
+    paidAt: new Date(`${getRequiredString(formData, "paidAt")}T00:00:00.000Z`),
+    paymentReference: getOptionalTrimmedString(formData, "paymentReference"),
+    proofDocumentName: getOptionalTrimmedString(formData, "proofDocumentName"),
+    proofDocumentUrl: getOptionalTrimmedString(formData, "proofDocumentUrl"),
+    submittedByUserId: actor.user.id,
+    tenantId: actor.tenant.id,
+    totalAmount: Number(getRequiredString(formData, "totalAmount")),
+  })
+
+  revalidatePath("/")
+  revalidatePath("/payment-receipts")
+}
+
+export async function createOwnMemberPaymentReceiptAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberSelfServiceRoles)
+  const member = await requireActorMember(actor)
+
+  await createMemberPaymentReceipt({
+    allocations: parsePaymentReceiptAllocations(formData),
+    channel: getRequiredString(
+      formData,
+      "channel"
+    ) as DashboardContributionChannel,
+    memberId: member.id,
+    memberNotes: getOptionalTrimmedString(formData, "memberNotes"),
+    paidAt: new Date(`${getRequiredString(formData, "paidAt")}T00:00:00.000Z`),
+    paymentReference: getOptionalTrimmedString(formData, "paymentReference"),
+    proofDocumentName: getOptionalTrimmedString(formData, "proofDocumentName"),
+    proofDocumentUrl: getOptionalTrimmedString(formData, "proofDocumentUrl"),
+    submittedByUserId: actor.user.id,
+    tenantId: actor.tenant.id,
+    totalAmount: Number(getRequiredString(formData, "totalAmount")),
+  })
+
+  revalidatePath("/")
+  revalidatePath("/payment-receipts")
+}
+
+export async function reviewMemberPaymentReceiptAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const adjustedAllocations = parsePaymentReceiptAllocations(
+    formData,
+    "adjustedAllocationsJson"
+  )
+
+  const receipt = await reviewMemberPaymentReceipt({
+    actorUserId: actor.user.id,
+    adjustedAllocations: adjustedAllocations.length
+      ? adjustedAllocations
+      : undefined,
+    adjustmentReason: getOptionalTrimmedString(formData, "adjustmentReason"),
+    decision: getRequiredString(
+      formData,
+      "decision"
+    ) as DashboardPaymentReceiptStatus,
+    receiptId: getRequiredString(formData, "receiptId"),
+    reviewNotes: getOptionalTrimmedString(formData, "reviewNotes"),
+    tenantId: actor.tenant.id,
+  })
+
+  await sendPaymentReceiptStatusMemberEmail(actor, receipt)
+
+  revalidatePath("/")
+  revalidatePath("/payment-receipts")
+  revalidatePath("/contributions")
+  revalidatePath("/repayments")
+  revalidatePath("/loans")
+}
+
 const importSettingsPaths = [
   "/settings/imports",
   "/settings/imports/members",
@@ -4247,6 +5749,7 @@ const dashboardActionHandlers = {
   rejectMemberOnboardingAction,
   updateMemberKycAction,
   createMemberDocumentAction,
+  createOwnMemberDocumentAction,
   updateMemberDocumentReviewAction,
   recordContributionAction,
   setMemberContributionPlanAction,
@@ -4264,6 +5767,10 @@ const dashboardActionHandlers = {
   updateTenantShareStructureVersionAction,
   createChargeDefinitionVersionAction,
   updateChargeDefinitionVersionAction,
+  updateTenantSharePolicyAction,
+  createMemberShareApplicationAction,
+  createOwnMemberShareApplicationAction,
+  reviewMemberShareApplicationAction,
   updateTenantBusinessProfitPolicyAction,
   updateTenantFinancingPolicyAction,
   updateLoanProductSettingsAction,
@@ -4282,13 +5789,20 @@ const dashboardActionHandlers = {
   waiveChargeApplicationAction,
   reverseChargeApplicationAction,
   submitLoanRequestAction,
+  reviewLoanGuarantorApprovalAction,
+  respondMemberLoanGuarantorApprovalAction,
   reviewLoanRequestAction,
   disburseLoanAction,
   postRepaymentAction,
   updateCooperativeProfileAction,
+  updateTenantTrustProfileAction,
   updateTenantFinanceStartDateAction,
   finalizeInitialMigrationAction,
   unlockInitialMigrationAction,
+  createMemberOpeningBalanceAction,
+  reviewMemberOpeningBalanceAction,
+  applyMemberOpeningBalanceAction,
+  reverseMemberOpeningBalanceAction,
   createLegacyLoanMigrationDraftAction,
   updateLegacyLoanMigrationDraftAction,
   upsertMemberAmountLogAction,
@@ -4313,6 +5827,29 @@ const dashboardActionHandlers = {
   saveNotificationPreferenceAction,
   refreshCollectionsStatusesAction,
   recordCollectionFollowUpAction,
+  createSupportCaseAction,
+  addSupportCaseMessageAction,
+  createMemberSupportCaseAction,
+  addMemberSupportCaseMessageAction,
+  updateSupportCaseStatusAction,
+  reviewSupportCaseFinancialAdjustmentAction,
+  createFoodPurchaseCycleAction,
+  submitFoodPurchaseApplicationAction,
+  submitOwnFoodPurchaseApplicationAction,
+  reviewFoodPurchaseApplicationAction,
+  recordFoodPurchaseAccountingAction,
+  reviewFoodPurchaseAccountingAction,
+  createProcurementRequestAction,
+  createOwnProcurementRequestAction,
+  reviewProcurementRequestAction,
+  recordProcurementPurchaseAction,
+  createProjectFinancingRequestAction,
+  createOwnProjectFinancingRequestAction,
+  reviewProjectFinancingRequestAction,
+  recordProjectFinancingDisbursementAction,
+  createMemberPaymentReceiptAction,
+  createOwnMemberPaymentReceiptAction,
+  reviewMemberPaymentReceiptAction,
   importMembersCsvAction,
   importDeductionSourcesCsvAction,
   importLoanProductsCsvAction,
@@ -4358,6 +5895,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   createMemberDocumentAction: formAction(
     dashboardActionHandlers.createMemberDocumentAction
+  ),
+  createOwnMemberDocumentAction: formAction(
+    dashboardActionHandlers.createOwnMemberDocumentAction
   ),
   updateMemberDocumentReviewAction: formAction(
     dashboardActionHandlers.updateMemberDocumentReviewAction
@@ -4409,6 +5949,18 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   updateChargeDefinitionVersionAction: formAction(
     dashboardActionHandlers.updateChargeDefinitionVersionAction
+  ),
+  updateTenantSharePolicyAction: formAction(
+    dashboardActionHandlers.updateTenantSharePolicyAction
+  ),
+  createMemberShareApplicationAction: formAction(
+    dashboardActionHandlers.createMemberShareApplicationAction
+  ),
+  createOwnMemberShareApplicationAction: formAction(
+    dashboardActionHandlers.createOwnMemberShareApplicationAction
+  ),
+  reviewMemberShareApplicationAction: formAction(
+    dashboardActionHandlers.reviewMemberShareApplicationAction
   ),
   updateTenantBusinessProfitPolicyAction: formAction(
     dashboardActionHandlers.updateTenantBusinessProfitPolicyAction
@@ -4465,10 +6017,19 @@ export const dashboardActionsRouter = createTRPCRouter({
   reviewLoanRequestAction: formAction(
     dashboardActionHandlers.reviewLoanRequestAction
   ),
+  reviewLoanGuarantorApprovalAction: formAction(
+    dashboardActionHandlers.reviewLoanGuarantorApprovalAction
+  ),
+  respondMemberLoanGuarantorApprovalAction: formAction(
+    dashboardActionHandlers.respondMemberLoanGuarantorApprovalAction
+  ),
   disburseLoanAction: formAction(dashboardActionHandlers.disburseLoanAction),
   postRepaymentAction: formAction(dashboardActionHandlers.postRepaymentAction),
   updateCooperativeProfileAction: formAction(
     dashboardActionHandlers.updateCooperativeProfileAction
+  ),
+  updateTenantTrustProfileAction: formAction(
+    dashboardActionHandlers.updateTenantTrustProfileAction
   ),
   updateTenantFinanceStartDateAction: formAction(
     dashboardActionHandlers.updateTenantFinanceStartDateAction
@@ -4478,6 +6039,18 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   unlockInitialMigrationAction: formAction(
     dashboardActionHandlers.unlockInitialMigrationAction
+  ),
+  createMemberOpeningBalanceAction: formAction(
+    dashboardActionHandlers.createMemberOpeningBalanceAction
+  ),
+  reviewMemberOpeningBalanceAction: formAction(
+    dashboardActionHandlers.reviewMemberOpeningBalanceAction
+  ),
+  applyMemberOpeningBalanceAction: formAction(
+    dashboardActionHandlers.applyMemberOpeningBalanceAction
+  ),
+  reverseMemberOpeningBalanceAction: formAction(
+    dashboardActionHandlers.reverseMemberOpeningBalanceAction
   ),
   createLegacyLoanMigrationDraftAction: formAction(
     dashboardActionHandlers.createLegacyLoanMigrationDraftAction
@@ -4550,6 +6123,75 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   recordCollectionFollowUpAction: formAction(
     dashboardActionHandlers.recordCollectionFollowUpAction
+  ),
+  createSupportCaseAction: formAction(
+    dashboardActionHandlers.createSupportCaseAction
+  ),
+  addSupportCaseMessageAction: formAction(
+    dashboardActionHandlers.addSupportCaseMessageAction
+  ),
+  createMemberSupportCaseAction: formAction(
+    dashboardActionHandlers.createMemberSupportCaseAction
+  ),
+  addMemberSupportCaseMessageAction: formAction(
+    dashboardActionHandlers.addMemberSupportCaseMessageAction
+  ),
+  updateSupportCaseStatusAction: formAction(
+    dashboardActionHandlers.updateSupportCaseStatusAction
+  ),
+  reviewSupportCaseFinancialAdjustmentAction: formAction(
+    dashboardActionHandlers.reviewSupportCaseFinancialAdjustmentAction
+  ),
+  createFoodPurchaseCycleAction: formAction(
+    dashboardActionHandlers.createFoodPurchaseCycleAction
+  ),
+  submitFoodPurchaseApplicationAction: formAction(
+    dashboardActionHandlers.submitFoodPurchaseApplicationAction
+  ),
+  submitOwnFoodPurchaseApplicationAction: formAction(
+    dashboardActionHandlers.submitOwnFoodPurchaseApplicationAction
+  ),
+  reviewFoodPurchaseApplicationAction: formAction(
+    dashboardActionHandlers.reviewFoodPurchaseApplicationAction
+  ),
+  recordFoodPurchaseAccountingAction: formAction(
+    dashboardActionHandlers.recordFoodPurchaseAccountingAction
+  ),
+  reviewFoodPurchaseAccountingAction: formAction(
+    dashboardActionHandlers.reviewFoodPurchaseAccountingAction
+  ),
+  createProcurementRequestAction: formAction(
+    dashboardActionHandlers.createProcurementRequestAction
+  ),
+  createOwnProcurementRequestAction: formAction(
+    dashboardActionHandlers.createOwnProcurementRequestAction
+  ),
+  reviewProcurementRequestAction: formAction(
+    dashboardActionHandlers.reviewProcurementRequestAction
+  ),
+  recordProcurementPurchaseAction: formAction(
+    dashboardActionHandlers.recordProcurementPurchaseAction
+  ),
+  createProjectFinancingRequestAction: formAction(
+    dashboardActionHandlers.createProjectFinancingRequestAction
+  ),
+  createOwnProjectFinancingRequestAction: formAction(
+    dashboardActionHandlers.createOwnProjectFinancingRequestAction
+  ),
+  reviewProjectFinancingRequestAction: formAction(
+    dashboardActionHandlers.reviewProjectFinancingRequestAction
+  ),
+  recordProjectFinancingDisbursementAction: formAction(
+    dashboardActionHandlers.recordProjectFinancingDisbursementAction
+  ),
+  createMemberPaymentReceiptAction: formAction(
+    dashboardActionHandlers.createMemberPaymentReceiptAction
+  ),
+  createOwnMemberPaymentReceiptAction: formAction(
+    dashboardActionHandlers.createOwnMemberPaymentReceiptAction
+  ),
+  reviewMemberPaymentReceiptAction: formAction(
+    dashboardActionHandlers.reviewMemberPaymentReceiptAction
   ),
   importMembersCsvAction: formAction(
     dashboardActionHandlers.importMembersCsvAction

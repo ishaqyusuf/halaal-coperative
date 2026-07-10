@@ -2,6 +2,7 @@ model LoanProduct {
   id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId              String      @map("tenant_id") @db.Uuid
   name                  String
+  code                  String?
   loanType              LoanType    @map("loan_type")
   termMonths            Int         @map("term_months")
   maxSavingsMultiple    Decimal     @map("max_savings_multiple") @db.Decimal(10, 2)
@@ -14,6 +15,7 @@ model LoanProduct {
   loans                 Loan[]
 
   @@unique([tenantId, name], map: "loan_products_tenant_name_key")
+  @@unique([tenantId, code], map: "loan_products_tenant_code_key")
   @@index([tenantId, loanType], map: "loan_products_tenant_type_idx")
   @@map("loan_products")
 }
@@ -73,6 +75,7 @@ model LoanRequest {
   loanProduct           LoanProduct        @relation(fields: [loanProductId], references: [id], onDelete: Restrict)
   createdByUser         User               @relation("LoanRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   approvals             LoanApproval[]
+  guarantorApprovals    LoanGuarantorApproval[]
   charges               ChargeApplication[]
   loan                  Loan?
 
@@ -97,6 +100,32 @@ model LoanApproval {
 
   @@index([tenantId, loanRequestId, actedAt], map: "loan_approvals_tenant_request_acted_at_idx")
   @@map("loan_approvals")
+}
+
+model LoanGuarantorApproval {
+  id                String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                       @map("tenant_id") @db.Uuid
+  loanRequestId     String                       @map("loan_request_id") @db.Uuid
+  guarantorMemberId String                       @map("guarantor_member_id") @db.Uuid
+  requestedByUserId String                       @map("requested_by_user_id") @db.Uuid
+  respondedByUserId String?                      @map("responded_by_user_id") @db.Uuid
+  status            LoanGuarantorApprovalStatus @default(pending)
+  requestedAt       DateTime                     @map("requested_at") @db.Timestamptz(6)
+  respondedAt       DateTime?                    @map("responded_at") @db.Timestamptz(6)
+  responseNotes     String?                      @map("response_notes")
+  createdAt         DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant            Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanRequest       LoanRequest                  @relation(fields: [loanRequestId], references: [id], onDelete: Cascade)
+  guarantorMember   Member                       @relation("LoanGuarantorApprovalGuarantor", fields: [guarantorMemberId], references: [id], onDelete: Restrict)
+  requestedByUser   User                         @relation("LoanGuarantorApprovalRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  respondedByUser   User?                        @relation("LoanGuarantorApprovalRespondedBy", fields: [respondedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([loanRequestId, guarantorMemberId], map: "loan_guarantor_approvals_request_guarantor_key")
+  @@index([tenantId, status], map: "loan_guarantor_approvals_tenant_status_idx")
+  @@index([tenantId, guarantorMemberId, status], map: "loan_guarantor_approvals_tenant_guarantor_status_idx")
+  @@map("loan_guarantor_approvals")
 }
 
 model Loan {
@@ -124,8 +153,10 @@ model Loan {
   charges               ChargeApplication[]
   repaymentScheduleItems RepaymentScheduleItem[]
   repayments            Repayment[]
+  paymentReceiptAllocations MemberPaymentReceiptAllocation[]
   collectionFollowUps   CollectionFollowUp[]
   ledgerTransactions    LedgerTransaction[]
+  openingBalanceSource  MemberOpeningBalance?    @relation("MemberOpeningBalanceAppliedLoan")
 
   @@index([tenantId, memberId, status], map: "loans_tenant_member_status_idx")
   @@index([tenantId, disbursedAt], map: "loans_tenant_disbursed_at_idx")
@@ -208,6 +239,7 @@ model Repayment {
   repaymentScheduleItem RepaymentScheduleItem? @relation(fields: [repaymentScheduleItemId], references: [id], onDelete: SetNull)
   receivedByUser        User               @relation("RepaymentReceivedBy", fields: [receivedByUserId], references: [id], onDelete: Restrict)
   ledgerTransaction     LedgerTransaction?
+  paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
   @@index([tenantId, loanId, paidAt], map: "repayments_tenant_loan_paid_at_idx")
   @@map("repayments")

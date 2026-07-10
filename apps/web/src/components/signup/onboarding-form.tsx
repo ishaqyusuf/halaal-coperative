@@ -18,6 +18,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@halaalvest/ui/components/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@halaalvest/ui/components/dropdown-menu"
 import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
@@ -50,6 +59,7 @@ import {
   cooperativeCountryOptions,
   cooperativeSizeRanges,
 } from "@halaalvest/domain"
+import { ChevronDownIcon, ExternalLinkIcon } from "lucide-react"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
@@ -61,6 +71,11 @@ import {
 
 type OnboardingResult = {
   dashboardUrl: string
+  devDashboardUrlVariants?: {
+    description: string
+    label: string
+    url: string
+  }[]
   primaryDashboardHostname: string
   primarySiteHostname: string
   siteUrl: string
@@ -143,6 +158,7 @@ export function OnboardingForm({
       result.vercelDomainProvisioning &&
       result.vercelDomainProvisioning.status !== "verified" &&
       result.vercelDomainProvisioning.status !== "skipped"
+    const devDashboardUrlVariants = result.devDashboardUrlVariants ?? []
 
     return (
       <Card>
@@ -154,8 +170,9 @@ export function OnboardingForm({
             {result.tenantName} is ready for guided setup.
           </CardTitle>
           <CardDescription>
-            The cooperative workspace is provisioned. Open it now to finish charges,
-            shares, member import, migration, loans, and monthly commitments.
+            The cooperative workspace is provisioned. Open it now to finish
+            charges, shares, member import, migration, loans, and monthly
+            commitments.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
@@ -210,15 +227,56 @@ export function OnboardingForm({
               </AlertDescription>
             </Alert>
           ) : null}
-
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2">
-          <Link
-            className={buttonVariants({ size: "lg" })}
-            href={result.dashboardUrl}
-          >
-            Get Started
-          </Link>
+          {devMode && devDashboardUrlVariants.length ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button size="lg" type="button" />}>
+                Get Started
+                <ChevronDownIcon data-icon="inline-end" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="w-[min(26rem,calc(100vw-2rem))] p-1"
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="px-3 py-2">
+                    Tenant URL variants
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  {devDashboardUrlVariants.map((variant) => (
+                    <DropdownMenuItem
+                      className="items-start justify-between gap-3 px-3 py-3"
+                      key={variant.url}
+                      render={<a href={variant.url} />}
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-foreground">
+                          {variant.label}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-muted-foreground">
+                          {variant.url}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {variant.description}
+                        </span>
+                      </span>
+                      <ExternalLinkIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link
+              className={buttonVariants({ size: "lg" })}
+              href={result.dashboardUrl}
+            >
+              Get Started
+            </Link>
+          )}
         </CardFooter>
       </Card>
     )
@@ -238,8 +296,7 @@ export function OnboardingForm({
                   void applyDevFormFill(form, "onboarding", {
                     cooperativeName: verification.cooperativeName,
                     primaryContactEmail: verification.primaryContactEmail,
-                    primaryContactFullName:
-                      verification.primaryContactFullName,
+                    primaryContactFullName: verification.primaryContactFullName,
                     memberNumberPrefix: verification.memberNumberPrefix,
                     primaryContactMemberNumber:
                       verification.primaryContactMemberNumber,
@@ -357,10 +414,7 @@ export function OnboardingForm({
                   <FormItem className="md:col-span-2">
                     <FormLabel>Office address</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Enter office address"
-                        {...field}
-                      />
+                      <Textarea placeholder="Enter office address" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

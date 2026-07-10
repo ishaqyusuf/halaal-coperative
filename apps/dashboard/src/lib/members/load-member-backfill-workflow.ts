@@ -14,6 +14,7 @@ import {
   listLegacyLoanMigrationDrafts,
   listMemberActivityEvents,
   listMemberAmountLogs,
+  listMemberOpeningBalances,
   listMembers,
   listMigrationProfitAdjustmentOptions,
 } from "@halaalvest/db"
@@ -28,6 +29,9 @@ type MemberActivityEvent = Awaited<
   ReturnType<typeof listMemberActivityEvents>
 >[number]
 type MemberAmountLog = Awaited<ReturnType<typeof listMemberAmountLogs>>[number]
+type MemberOpeningBalance = Awaited<
+  ReturnType<typeof listMemberOpeningBalances>
+>[number]
 type ProfitAdjustmentOption = Awaited<
   ReturnType<typeof listMigrationProfitAdjustmentOptions>
 >[number]
@@ -76,6 +80,35 @@ function serializeMemberAmountLog(row: MemberAmountLog) {
     effectiveFrom: toDateString(row.effectiveFrom) ?? "",
     id: row.id,
     notes: row.notes,
+  }
+}
+
+function serializeMemberOpeningBalance(row: MemberOpeningBalance) {
+  return {
+    activeFinancingOutstanding: row.activeFinancingOutstanding,
+    appliedAt: row.appliedAt?.toISOString() ?? null,
+    appliedByUserId: row.appliedByUserId,
+    appliedLoanId: row.appliedLoanId,
+    appliedProcurementRequestId: row.appliedProcurementRequestId,
+    commitmentSavingsBalance: row.commitmentSavingsBalance,
+    createdAt: row.createdAt.toISOString(),
+    createdByUserId: row.createdByUserId,
+    id: row.id,
+    memberId: row.memberId,
+    notes: row.notes,
+    openingDate: toDateString(row.openingDate) ?? "",
+    procurementOutstanding: row.procurementOutstanding,
+    reviewedAt: row.reviewedAt?.toISOString() ?? null,
+    reviewedByUserId: row.reviewedByUserId,
+    reviewNotes: row.reviewNotes,
+    reversalNotes: row.reversalNotes,
+    shareCapitalBalance: row.shareCapitalBalance,
+    shareUnits: row.shareUnits,
+    sourceDocumentName: row.sourceDocumentName,
+    sourceDocumentUrl: row.sourceDocumentUrl,
+    specialSavingsBalance: row.specialSavingsBalance,
+    status: row.status,
+    updatedAt: row.updatedAt.toISOString(),
   }
 }
 
@@ -130,6 +163,7 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     amountLogs,
     activityEvents,
     allLegacyLoanDrafts,
+    openingBalances,
     profitOptions,
     memberOptions,
   ] = await Promise.all([
@@ -139,6 +173,7 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     listMemberAmountLogs({ memberId, tenantId }),
     listMemberActivityEvents({ memberId, tenantId }),
     listLegacyLoanMigrationDrafts(tenantId),
+    listMemberOpeningBalances({ memberId, tenantId }),
     listMigrationProfitAdjustmentOptions(tenantId, undefined, memberId),
     listMembers(tenantId, { page: 1, pageSize: 200 }),
   ])
@@ -186,6 +221,7 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     member: serializeMember(member),
     memberActivityEvents: activityEvents.map(serializeMemberActivityEvent),
     memberAmountLogs: amountLogs.map(serializeMemberAmountLog),
+    memberOpeningBalances: openingBalances.map(serializeMemberOpeningBalance),
     memberNumberPrefix: context.tenant.memberNumberPrefix,
     memberOptions: memberOptions.items.map((option) => ({
       id: option.id,

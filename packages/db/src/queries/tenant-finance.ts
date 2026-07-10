@@ -127,6 +127,63 @@ export const defaultTenantBusinessProfitPolicy: TenantBusinessProfitPolicySettin
     reserveRetentionPercentage: 0,
   }
 
+export type TenantSharePolicySettings = {
+  configurationMode: ShareConfigurationMode
+  compulsoryShareUnits: number
+  id: string | null
+  maximumShareUnits: number
+  unitAmount: number
+}
+
+export type ShareConfigurationMode = "monthly_history" | "unit_based"
+
+export type MemberShareApplicationStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cancelled"
+
+export type MemberShareApplicationRow = {
+  approvedUnits: number | null
+  createdAt: Date
+  id: string
+  memberEmail: string | null
+  memberId: string
+  memberName: string
+  memberNumber: string
+  notes: string | null
+  requestedByUserId: string | null
+  requestedUnits: number
+  reviewedAt: Date | null
+  reviewedByUserId: string | null
+  reviewNotes: string | null
+  shareValueSnapshot: number
+  status: MemberShareApplicationStatus
+  unitAmountSnapshot: number
+}
+
+export type MemberUnitSharePosition = {
+  approvedOptionalUnits: number
+  compulsoryUnits: number
+  maximumUnits: number
+  pendingOptionalUnits: number
+  totalApprovedUnits: number
+  totalApprovedValue: number
+  totalPendingUnits: number
+  totalPendingValue: number
+  unitAmount: number
+}
+
+export const defaultTenantSharePolicy: TenantSharePolicySettings = {
+  configurationMode: "monthly_history",
+  compulsoryShareUnits: 1,
+  id: null,
+  maximumShareUnits: 20,
+  unitAmount: 10000,
+}
+
+const shareConfigurationModes = new Set(["monthly_history", "unit_based"])
+
 async function listDividendPeriodsForBusinessProfitReview(
   prisma: any,
   input: {
@@ -186,6 +243,74 @@ function normalizeTenantBusinessProfitPolicy(
   }
 }
 
+function normalizeTenantSharePolicy(policy: any): TenantSharePolicySettings {
+  const configurationMode: ShareConfigurationMode =
+    (policy?.shareConfigurationMode ??
+      defaultTenantSharePolicy.configurationMode) as ShareConfigurationMode
+
+  if (configurationMode === "monthly_history") {
+    return {
+      ...defaultTenantSharePolicy,
+      configurationMode,
+      id: policy?.id ?? defaultTenantSharePolicy.id,
+    }
+  }
+
+  return {
+    ...defaultTenantSharePolicy,
+    ...(policy
+      ? {
+          configurationMode,
+          compulsoryShareUnits: Number(
+            policy.compulsoryShareUnits ??
+              defaultTenantSharePolicy.compulsoryShareUnits
+          ),
+          id: policy.id,
+          maximumShareUnits: Number(
+            policy.maximumShareUnits ??
+              defaultTenantSharePolicy.maximumShareUnits
+          ),
+          unitAmount: Number(
+            policy.shareUnitAmount ?? defaultTenantSharePolicy.unitAmount
+          ),
+        }
+      : {}),
+  }
+}
+
+function normalizeMemberShareApplication(
+  application: any
+): MemberShareApplicationRow {
+  return {
+    approvedUnits:
+      application.approvedUnits === null ||
+      application.approvedUnits === undefined
+        ? null
+        : Number(application.approvedUnits),
+    createdAt: application.createdAt,
+    id: application.id,
+    memberEmail: application.member?.email ?? null,
+    memberId: application.memberId,
+    memberName: application.member?.fullName ?? "Member",
+    memberNumber: application.member?.memberNumber ?? "",
+    notes: application.notes ?? null,
+    requestedByUserId: application.requestedByUserId ?? null,
+    requestedUnits: Number(application.requestedUnits),
+    reviewedAt: application.reviewedAt ?? null,
+    reviewedByUserId: application.reviewedByUserId ?? null,
+    reviewNotes: application.reviewNotes ?? null,
+    shareValueSnapshot: Number(application.shareValueSnapshot),
+    status: application.status,
+    unitAmountSnapshot: Number(application.unitAmountSnapshot),
+  }
+}
+
+function assertShareConfigurationMode(value: string) {
+  if (!shareConfigurationModes.has(value)) {
+    throw new Error("Share configuration mode is not supported.")
+  }
+}
+
 function assertBusinessPolicyChoice(
   value: string,
   validValues: Set<string>,
@@ -199,6 +324,123 @@ function assertBusinessPolicyChoice(
 function assertPercentage(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0 || value > 100) {
     throw new Error(`${label} must be between 0 and 100.`)
+  }
+}
+
+function assertPositiveAmount(value: number, label: string) {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${label} must be greater than 0.`)
+  }
+}
+
+function assertNonNegativeInteger(value: number, label: string) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} must be a whole number 0 or greater.`)
+  }
+}
+
+function assertPositiveInteger(value: number, label: string) {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${label} must be a positive whole number.`)
+  }
+}
+
+function resolveShareUnitSettingsForMode(
+  configurationMode: ShareConfigurationMode,
+  input: {
+    compulsoryShareUnits?: number
+    maximumShareUnits?: number
+    unitAmount?: number
+  },
+  currentPolicy: TenantSharePolicySettings
+) {
+  if (configurationMode === "monthly_history") {
+    return {
+      compulsoryShareUnits: defaultTenantSharePolicy.compulsoryShareUnits,
+      maximumShareUnits: defaultTenantSharePolicy.maximumShareUnits,
+      unitAmount: defaultTenantSharePolicy.unitAmount,
+    }
+  }
+
+  const unitAmount = input.unitAmount ?? currentPolicy.unitAmount
+  const compulsoryShareUnits =
+    input.compulsoryShareUnits ?? currentPolicy.compulsoryShareUnits
+  const maximumShareUnits =
+    input.maximumShareUnits ?? currentPolicy.maximumShareUnits
+
+  assertPositiveAmount(unitAmount, "Share unit amount")
+  assertNonNegativeInteger(compulsoryShareUnits, "Compulsory share units")
+  assertPositiveInteger(maximumShareUnits, "Maximum share units")
+
+  if (maximumShareUnits < compulsoryShareUnits) {
+    throw new Error(
+      "Maximum share units cannot be below compulsory share units."
+    )
+  }
+
+  return {
+    compulsoryShareUnits,
+    maximumShareUnits,
+    unitAmount,
+  }
+}
+
+async function readOptionalTenantPolicy<T>(
+  prisma:
+    | {
+        tenantPolicy?: {
+          findUnique?: (input: unknown) => Promise<T>
+        }
+      }
+    | null
+    | undefined,
+  read: (delegate: { findUnique: (input: unknown) => Promise<T> }) => Promise<T>
+): Promise<T | null> {
+  const delegate = prisma?.tenantPolicy
+
+  if (!delegate || typeof delegate.findUnique !== "function") {
+    return null
+  }
+
+  try {
+    return await read(
+      delegate as { findUnique: (input: unknown) => Promise<T> }
+    )
+  } catch (error) {
+    if (isPrismaMissingColumnError(error)) {
+      return null
+    }
+
+    throw error
+  }
+}
+
+async function getTenantShareConfigurationMode(
+  tenantId: string,
+  prisma: PrismaClient
+): Promise<ShareConfigurationMode> {
+  const policy = await readOptionalTenantPolicy(prisma as any, (tenantPolicy) =>
+    tenantPolicy.findUnique({
+      where: { tenantId },
+    })
+  )
+
+  return normalizeTenantSharePolicy(policy).configurationMode
+}
+
+async function assertMonthlyShareHistoryModelSelected(
+  tenantId: string,
+  prisma: PrismaClient
+) {
+  const configurationMode = await getTenantShareConfigurationMode(
+    tenantId,
+    prisma
+  )
+
+  if (configurationMode !== "monthly_history") {
+    throw new Error(
+      "Dated share history can only be edited when the monthly share history model is selected."
+    )
   }
 }
 
@@ -538,6 +780,7 @@ export async function getTenantFinanceSetup(
       businessProfitSeasons: [],
       chargeDefinitions: [],
       dividendPeriods: [],
+      sharePolicy: defaultTenantSharePolicy,
       shareBusinesses: [],
       shareStructureVersions: [],
       tenant,
@@ -546,6 +789,7 @@ export async function getTenantFinanceSetup(
 
   const [
     tenant,
+    sharePolicy,
     businessPolicy,
     shareStructureVersions,
     chargeDefinitions,
@@ -562,6 +806,11 @@ export async function getTenantFinanceSetup(
         currencyCode: true,
       },
     }),
+    readOptionalTenantPolicy(prisma, (tenantPolicy) =>
+      tenantPolicy.findUnique({
+        where: { tenantId },
+      })
+    ),
     readOptionalTenantBusinessPolicy(prisma, (tenantBusinessPolicy) =>
       tenantBusinessPolicy.findUnique({
         where: { tenantId },
@@ -631,10 +880,30 @@ export async function getTenantFinanceSetup(
     businessProfitSeasons,
     chargeDefinitions,
     dividendPeriods,
+    sharePolicy: normalizeTenantSharePolicy(sharePolicy),
     shareBusinesses,
     shareStructureVersions,
     tenant,
   }
+}
+
+export async function getTenantSharePolicy(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+
+  if (!prisma) {
+    return defaultTenantSharePolicy
+  }
+
+  const policy = await readOptionalTenantPolicy(prisma, (tenantPolicy) =>
+    tenantPolicy.findUnique({
+      where: { tenantId },
+    })
+  )
+
+  return normalizeTenantSharePolicy(policy)
 }
 
 export async function getTenantBusinessProfitPolicy(
@@ -1001,6 +1270,490 @@ export async function updateTenantBusinessProfitPolicy(
   return normalizeTenantBusinessProfitPolicy(policy)
 }
 
+export async function updateTenantSharePolicy(
+  input: {
+    actorUserId?: string | null
+    configurationMode?: ShareConfigurationMode
+    compulsoryShareUnits?: number
+    maximumShareUnits?: number
+    tenantId: string
+    unitAmount?: number
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const previousPolicy = await readOptionalTenantPolicy(
+    prisma,
+    (tenantPolicy) =>
+      tenantPolicy.findUnique({
+        where: { tenantId: input.tenantId },
+      })
+  )
+  const currentPolicy = normalizeTenantSharePolicy(previousPolicy)
+  const configurationMode =
+    input.configurationMode ?? currentPolicy.configurationMode
+  assertShareConfigurationMode(configurationMode)
+  const { compulsoryShareUnits, maximumShareUnits, unitAmount } =
+    resolveShareUnitSettingsForMode(configurationMode, input, currentPolicy)
+
+  const policy = await prisma.tenantPolicy.upsert({
+    create: {
+      tenantId: input.tenantId,
+      compulsoryShareUnits,
+      maximumShareUnits,
+      shareConfigurationMode: configurationMode,
+      shareUnitAmount: unitAmount,
+    },
+    update: {
+      compulsoryShareUnits,
+      maximumShareUnits,
+      shareConfigurationMode: configurationMode,
+      shareUnitAmount: unitAmount,
+    },
+    where: { tenantId: input.tenantId },
+  })
+
+  await createAuditLogEntry(
+    {
+      action: "tenant_policy.share_policy_updated",
+      actorType: "user",
+      actorUserId: input.actorUserId ?? null,
+      entityId: policy.id,
+      entityType: "TenantPolicy",
+      metadata: {
+        next: normalizeTenantSharePolicy(policy),
+        previous: previousPolicy
+          ? normalizeTenantSharePolicy(previousPolicy)
+          : null,
+      },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return normalizeTenantSharePolicy(policy)
+}
+
+async function assertUnitShareApplicationModelSelected(
+  tenantId: string,
+  prisma: PrismaClient
+) {
+  const policy = await getTenantSharePolicy(tenantId, prisma)
+
+  if (policy.configurationMode !== "unit_based") {
+    throw new Error(
+      "Share applications are only available when the unit-based shareholding model is selected."
+    )
+  }
+
+  return policy
+}
+
+async function assertMemberInTenant(
+  input: {
+    memberId: string
+    tenantId: string
+  },
+  prisma: any
+) {
+  const member = await prisma.member.findFirst({
+    select: {
+      fullName: true,
+      id: true,
+      memberNumber: true,
+    },
+    where: {
+      id: input.memberId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!member) {
+    throw new Error("Member does not belong to this cooperative.")
+  }
+
+  return member
+}
+
+async function getMemberShareApplicationUnitTotals(
+  input: {
+    excludeApplicationId?: string
+    memberId: string
+    tenantId: string
+  },
+  prisma: any
+) {
+  const applications = await prisma.memberShareApplication.findMany({
+    select: {
+      approvedUnits: true,
+      id: true,
+      requestedUnits: true,
+      status: true,
+    },
+    where: {
+      memberId: input.memberId,
+      tenantId: input.tenantId,
+      status: {
+        in: ["approved", "pending"],
+      },
+      ...(input.excludeApplicationId
+        ? {
+            id: {
+              not: input.excludeApplicationId,
+            },
+          }
+        : {}),
+    },
+  })
+
+  return applications.reduce(
+    (
+      totals: {
+        approvedOptionalUnits: number
+        pendingOptionalUnits: number
+      },
+      application: any
+    ) => {
+      if (application.status === "approved") {
+        totals.approvedOptionalUnits += Number(
+          application.approvedUnits ?? application.requestedUnits
+        )
+      }
+
+      if (application.status === "pending") {
+        totals.pendingOptionalUnits += Number(application.requestedUnits)
+      }
+
+      return totals
+    },
+    {
+      approvedOptionalUnits: 0,
+      pendingOptionalUnits: 0,
+    }
+  )
+}
+
+export async function getMemberUnitSharePosition(
+  input: {
+    memberId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MemberUnitSharePosition> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const policy = await assertUnitShareApplicationModelSelected(
+    input.tenantId,
+    prisma
+  )
+  await assertMemberInTenant(input, prisma)
+  const totals = await getMemberShareApplicationUnitTotals(input, prisma)
+  const totalApprovedUnits =
+    policy.compulsoryShareUnits + totals.approvedOptionalUnits
+  const totalPendingUnits = totalApprovedUnits + totals.pendingOptionalUnits
+
+  return {
+    approvedOptionalUnits: totals.approvedOptionalUnits,
+    compulsoryUnits: policy.compulsoryShareUnits,
+    maximumUnits: policy.maximumShareUnits,
+    pendingOptionalUnits: totals.pendingOptionalUnits,
+    totalApprovedUnits,
+    totalApprovedValue: roundCurrency(totalApprovedUnits * policy.unitAmount),
+    totalPendingUnits,
+    totalPendingValue: roundCurrency(totalPendingUnits * policy.unitAmount),
+    unitAmount: policy.unitAmount,
+  }
+}
+
+export async function listMemberShareApplications(
+  input: {
+    memberId?: string
+    status?: MemberShareApplicationStatus
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MemberShareApplicationRow[]> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) return []
+
+  const applications = await prisma.memberShareApplication.findMany({
+    include: {
+      member: {
+        select: {
+          email: true,
+          fullName: true,
+          memberNumber: true,
+        },
+      },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    where: {
+      tenantId: input.tenantId,
+      ...(input.memberId ? { memberId: input.memberId } : {}),
+      ...(input.status ? { status: input.status } : {}),
+    },
+  })
+
+  return applications.map(normalizeMemberShareApplication)
+}
+
+export async function createMemberShareApplication(
+  input: {
+    memberId: string
+    notes?: string | null
+    requestedByUserId?: string | null
+    requestedUnits: number
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MemberShareApplicationRow> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  assertPositiveInteger(input.requestedUnits, "Requested share units")
+  const policy = await assertUnitShareApplicationModelSelected(
+    input.tenantId,
+    prisma
+  )
+  await assertMemberInTenant(input, prisma)
+  const totals = await getMemberShareApplicationUnitTotals(input, prisma)
+  const availableUnits =
+    policy.maximumShareUnits -
+    policy.compulsoryShareUnits -
+    totals.approvedOptionalUnits -
+    totals.pendingOptionalUnits
+
+  if (input.requestedUnits > availableUnits) {
+    throw new Error(
+      "Requested shares exceed the member's available optional share units."
+    )
+  }
+
+  const shareValueSnapshot = roundCurrency(
+    input.requestedUnits * policy.unitAmount
+  )
+  const application = await prisma.memberShareApplication.create({
+    data: {
+      memberId: input.memberId,
+      notes: input.notes?.trim() || null,
+      requestedByUserId: input.requestedByUserId ?? null,
+      requestedUnits: input.requestedUnits,
+      shareValueSnapshot,
+      tenantId: input.tenantId,
+      unitAmountSnapshot: policy.unitAmount,
+    },
+    include: {
+      member: {
+        select: {
+          email: true,
+          fullName: true,
+          memberNumber: true,
+        },
+      },
+    },
+  })
+
+  await createOptionalAuditLogEntry(
+    {
+      action: "member_share_application.created",
+      actorType: input.requestedByUserId ? "user" : "system",
+      actorUserId: input.requestedByUserId ?? null,
+      entityId: application.id,
+      entityType: "MemberShareApplication",
+      metadata: {
+        memberId: input.memberId,
+        requestedUnits: input.requestedUnits,
+        shareValueSnapshot,
+        unitAmountSnapshot: policy.unitAmount,
+      },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return normalizeMemberShareApplication(application)
+}
+
+export async function reviewMemberShareApplication(
+  input: {
+    actorUserId?: string | null
+    applicationId: string
+    approvedUnits?: number
+    decision: "approved" | "rejected"
+    effectiveDate?: Date
+    reviewNotes?: string | null
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MemberShareApplicationRow> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  if (input.decision !== "approved" && input.decision !== "rejected") {
+    throw new Error("Share application review decision is not supported.")
+  }
+
+  const application = await prisma.memberShareApplication.findFirst({
+    include: {
+      member: {
+        select: {
+          email: true,
+          fullName: true,
+          memberNumber: true,
+        },
+      },
+    },
+    where: {
+      id: input.applicationId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!application) {
+    throw new Error("Share application was not found.")
+  }
+
+  if (application.status !== "pending") {
+    throw new Error("Only pending share applications can be reviewed.")
+  }
+
+  const reviewedAt = new Date()
+  const reviewNotes = input.reviewNotes?.trim() || null
+
+  if (input.decision === "rejected") {
+    const rejectedApplication = await prisma.memberShareApplication.update({
+      data: {
+        approvedUnits: null,
+        reviewedAt,
+        reviewedByUserId: input.actorUserId ?? null,
+        reviewNotes,
+        status: "rejected",
+      },
+      include: {
+        member: {
+          select: {
+            email: true,
+            fullName: true,
+            memberNumber: true,
+          },
+        },
+      },
+      where: { id: application.id },
+    })
+
+    await createOptionalAuditLogEntry(
+      {
+        action: "member_share_application.rejected",
+        actorType: "user",
+        actorUserId: input.actorUserId ?? null,
+        entityId: application.id,
+        entityType: "MemberShareApplication",
+        metadata: {
+          memberId: application.memberId,
+          requestedUnits: Number(application.requestedUnits),
+          reviewNotes,
+        },
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+
+    return normalizeMemberShareApplication(rejectedApplication)
+  }
+
+  const policy = await assertUnitShareApplicationModelSelected(
+    input.tenantId,
+    prisma
+  )
+  const approvedUnits =
+    input.approvedUnits ?? Number(application.requestedUnits)
+  assertPositiveInteger(approvedUnits, "Approved share units")
+
+  if (approvedUnits > Number(application.requestedUnits)) {
+    throw new Error("Approved share units cannot exceed requested units.")
+  }
+
+  const totals = await getMemberShareApplicationUnitTotals(
+    {
+      excludeApplicationId: application.id,
+      memberId: application.memberId,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  if (
+    policy.compulsoryShareUnits + totals.approvedOptionalUnits + approvedUnits >
+    policy.maximumShareUnits
+  ) {
+    throw new Error("Approved shares would exceed the member share cap.")
+  }
+
+  const approvedAmount = roundCurrency(
+    approvedUnits * Number(application.unitAmountSnapshot)
+  )
+
+  return prisma.$transaction(async (tx: any) => {
+    const approvedApplication = await tx.memberShareApplication.update({
+      data: {
+        approvedUnits,
+        reviewedAt,
+        reviewedByUserId: input.actorUserId ?? null,
+        reviewNotes,
+        status: "approved",
+      },
+      include: {
+        member: {
+          select: {
+            email: true,
+            fullName: true,
+            memberNumber: true,
+          },
+        },
+      },
+      where: { id: application.id },
+    })
+
+    await createMemberShareLedgerEntry(
+      {
+        amount: approvedAmount,
+        createdByUserId: input.actorUserId ?? undefined,
+        effectiveDate: input.effectiveDate ?? reviewedAt,
+        memberId: application.memberId,
+        notes: reviewNotes ?? "Approved optional share application",
+        sourceId: application.id,
+        sourceType: "share_application",
+        tenantId: input.tenantId,
+      },
+      tx
+    )
+
+    await createOptionalAuditLogEntry(
+      {
+        action: "member_share_application.approved",
+        actorType: "user",
+        actorUserId: input.actorUserId ?? null,
+        entityId: application.id,
+        entityType: "MemberShareApplication",
+        metadata: {
+          approvedAmount,
+          approvedUnits,
+          memberId: application.memberId,
+          requestedUnits: Number(application.requestedUnits),
+          unitAmountSnapshot: Number(application.unitAmountSnapshot),
+        },
+        tenantId: input.tenantId,
+      },
+      tx
+    )
+
+    return normalizeMemberShareApplication(approvedApplication)
+  })
+}
+
 export async function listTenantShareStructureVersions(
   tenantId: string,
   prismaOverride?: PrismaClient
@@ -1029,6 +1782,7 @@ export async function createTenantShareStructureVersion(
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
   await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+  await assertMonthlyShareHistoryModelSelected(input.tenantId, prisma)
 
   return prisma.tenantShareStructureVersion.create({
     data: {
@@ -1058,6 +1812,7 @@ export async function upsertTenantShareStructureVersion(
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
   await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+  await assertMonthlyShareHistoryModelSelected(input.tenantId, prisma)
 
   const updateData: Record<string, unknown> = {
     amount: input.amount,
@@ -1104,6 +1859,7 @@ export async function updateTenantShareStructureVersion(
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
   await assertHistoricalFinanceSetupMutationOpen(input.tenantId, prisma)
+  await assertMonthlyShareHistoryModelSelected(input.tenantId, prisma)
 
   const existing = await prisma.tenantShareStructureVersion.findFirst({
     where: {
@@ -1552,6 +2308,8 @@ export async function createMemberShareLedgerEntry(
     memberId: string
     sourceType:
       | "monthly_share_charge"
+      | "share_application"
+      | "payment_receipt"
       | "backfill"
       | "manual_adjustment"
       | "import"
@@ -2113,6 +2871,109 @@ export async function generateShareProfitAllocations(
   })
 }
 
+async function rebuildDividendPeriodAllocationsFromPublishedProfit(
+  input: {
+    dividendPeriodId: string
+    tenantId: string
+  },
+  tx: any
+) {
+  const linkedProfitEntries = await tx.shareBusinessProfitEntry.findMany({
+    where: {
+      linkedDividendPeriodId: input.dividendPeriodId,
+      tenantId: input.tenantId,
+      status: {
+        not: "archived",
+      },
+    },
+    include: {
+      allocations: true,
+    },
+  })
+  const memberAllocations = new Map<
+    string,
+    {
+      allocationAmount: number
+      savingsBasisAmount: number
+    }
+  >()
+
+  for (const profitEntry of linkedProfitEntries) {
+    for (const allocation of profitEntry.allocations ?? []) {
+      if (allocation.status !== "published") continue
+
+      const current = memberAllocations.get(allocation.memberId) ?? {
+        allocationAmount: 0,
+        savingsBasisAmount: 0,
+      }
+      current.allocationAmount = roundCurrency(
+        current.allocationAmount + Number(allocation.allocatedProfitAmount)
+      )
+      current.savingsBasisAmount = roundCurrency(
+        current.savingsBasisAmount + Number(allocation.memberShareBalance)
+      )
+      memberAllocations.set(allocation.memberId, current)
+    }
+  }
+
+  await tx.dividendAllocation.deleteMany({
+    where: {
+      dividendPeriodId: input.dividendPeriodId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  const periodAllocations = Array.from(memberAllocations.entries()).map(
+    ([memberId, allocation]) => ({
+      allocationAmount: allocation.allocationAmount,
+      dividendPeriodId: input.dividendPeriodId,
+      memberId,
+      savingsBasisAmount: allocation.savingsBasisAmount,
+      tenantId: input.tenantId,
+    })
+  )
+
+  if (periodAllocations.length > 0) {
+    await tx.dividendAllocation.createMany({
+      data: periodAllocations,
+    })
+  }
+
+  const allLinkedEntriesPublished =
+    linkedProfitEntries.length > 0 &&
+    linkedProfitEntries.every(
+      (profitEntry: { allocations?: Array<{ status: string }> }) =>
+        (profitEntry.allocations ?? []).length > 0 &&
+        (profitEntry.allocations ?? []).every(
+          (allocation) => allocation.status === "published"
+        )
+    )
+
+  if (allLinkedEntriesPublished) {
+    await tx.dividendPeriod.update({
+      data: {
+        publishedAt: new Date(),
+        status: "published",
+      },
+      where: {
+        id: input.dividendPeriodId,
+        tenantId: input.tenantId,
+      },
+    })
+  }
+
+  return {
+    allLinkedEntriesPublished,
+    periodAllocationCount: periodAllocations.length,
+    periodAllocationTotal: roundCurrency(
+      periodAllocations.reduce(
+        (total, allocation) => total + allocation.allocationAmount,
+        0
+      )
+    ),
+  }
+}
+
 export async function publishShareProfitAllocations(
   input: {
     actorUserId?: string | null
@@ -2160,27 +3021,14 @@ export async function publishShareProfitAllocations(
       },
     })
 
-    for (const allocation of profitEntry.allocations) {
-      await tx.dividendAllocation.upsert({
-        where: {
-          dividendPeriodId_memberId: {
-            dividendPeriodId: profitEntry.linkedDividendPeriodId,
-            memberId: allocation.memberId,
-          },
-        },
-        update: {
-          savingsBasisAmount: allocation.memberShareBalance,
-          allocationAmount: allocation.allocatedProfitAmount,
-        },
-        create: {
-          tenantId: input.tenantId,
+    const periodAllocationSummary =
+      await rebuildDividendPeriodAllocationsFromPublishedProfit(
+        {
           dividendPeriodId: profitEntry.linkedDividendPeriodId,
-          memberId: allocation.memberId,
-          savingsBasisAmount: allocation.memberShareBalance,
-          allocationAmount: allocation.allocatedProfitAmount,
+          tenantId: input.tenantId,
         },
-      })
-    }
+        tx
+      )
 
     await createOptionalAuditLogEntry(
       {
@@ -2192,6 +3040,10 @@ export async function publishShareProfitAllocations(
         metadata: {
           allocationCount: profitEntry.allocations.length,
           dividendPeriodId: profitEntry.linkedDividendPeriodId,
+          dividendPeriodPublished:
+            periodAllocationSummary.allLinkedEntriesPublished,
+          periodAllocationCount: periodAllocationSummary.periodAllocationCount,
+          periodAllocationTotal: periodAllocationSummary.periodAllocationTotal,
         },
         tenantId: input.tenantId,
       },
@@ -2582,6 +3434,15 @@ export async function getResolvedShareAmountForMonth(
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return 0
+
+  const configurationMode = await getTenantShareConfigurationMode(
+    input.tenantId,
+    prisma
+  )
+
+  if (configurationMode !== "monthly_history") {
+    return 0
+  }
 
   const memberOverride = await prisma.memberShareOverride.findFirst({
     where: {

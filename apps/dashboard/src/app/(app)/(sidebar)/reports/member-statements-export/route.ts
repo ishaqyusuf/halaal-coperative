@@ -1,5 +1,10 @@
 import { listMemberStatementSummaries } from "@halaalvest/db"
-import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
+import {
+  createCsvResponse,
+  getReportsDateFilters,
+  requireReportsExportContext,
+  toCsv,
+} from "../export-utils"
 
 export async function GET(request: Request) {
   const context = await requireReportsExportContext()
@@ -9,8 +14,12 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const filters = getReportsDateFilters(Object.fromEntries(searchParams.entries()))
-  const statements = (await listMemberStatementSummaries(context.tenant.id)).filter((statement) => {
+  const filters = getReportsDateFilters(
+    Object.fromEntries(searchParams.entries())
+  )
+  const statements = (
+    await listMemberStatementSummaries(context.tenant.id)
+  ).filter((statement) => {
     if (filters.fromDate && statement.joinedAt < filters.fromDate) return false
     if (filters.toDate && statement.joinedAt > filters.toDate) return false
     return true
@@ -40,6 +49,9 @@ export async function GET(request: Request) {
       "Loan Extra Savings Amount",
       "Total Repayments Posted",
       "Last Repayment At",
+      "Published Dividend Total",
+      "Published Dividend Allocation Count",
+      "Last Dividend Allocated At",
     ],
     statements.map((statement) => [
       statement.fullName,
@@ -65,7 +77,10 @@ export async function GET(request: Request) {
       statement.totalLoanExtraSavingsAmount,
       statement.totalRepaymentsPosted,
       statement.lastRepaymentAt?.toISOString() ?? "",
-    ]),
+      statement.totalDividendAllocations,
+      statement.dividendAllocationCount,
+      statement.lastDividendAllocatedAt?.toISOString() ?? "",
+    ])
   )
 
   return createCsvResponse(`${context.tenant.slug}-member-statements.csv`, csv)

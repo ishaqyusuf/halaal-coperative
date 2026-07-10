@@ -36,6 +36,7 @@ import { objectToFormData } from "@/lib/form-submit"
 import {
   provisionTenantUserRoleAction,
   updateCooperativeProfileAction,
+  updateTenantTrustProfileAction,
 } from "@/lib/dashboard-actions"
 
 const profileSchema = z.object({
@@ -280,6 +281,198 @@ export function CooperativeProfileForm({
         <div className="md:col-span-2">
           <Button disabled={isPending} type="submit">
             Save cooperative profile
+          </Button>
+        </div>
+      </form>
+    </Form>
+  )
+}
+
+function isOptionalUrl(value: string | undefined) {
+  if (!value?.trim()) {
+    return true
+  }
+
+  try {
+    const url = new URL(value.trim())
+    return url.protocol === "https:" || url.protocol === "http:"
+  } catch {
+    return false
+  }
+}
+
+const trustProfileSchema = z.object({
+  backupRetentionNote: z.string().optional(),
+  dataProcessingUrl: z
+    .string()
+    .optional()
+    .refine(isOptionalUrl, "Enter a valid http or https URL."),
+  incidentContactEmail: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (value) => !value || z.string().email().safeParse(value).success,
+      "Enter a valid email address.",
+    ),
+  incidentContactName: z.string().optional(),
+  legalTermsUrl: z
+    .string()
+    .optional()
+    .refine(isOptionalUrl, "Enter a valid http or https URL."),
+  privacyPolicyUrl: z
+    .string()
+    .optional()
+    .refine(isOptionalUrl, "Enter a valid http or https URL."),
+  recoveryPointObjective: z.string().optional(),
+  recoveryTimeObjective: z.string().optional(),
+})
+
+type TrustProfileValues = z.infer<typeof trustProfileSchema>
+
+export function TenantTrustProfileForm({
+  defaultValues,
+}: {
+  defaultValues: TrustProfileValues
+}) {
+  const form = useZodForm<TrustProfileValues>(trustProfileSchema, {
+    defaultValues,
+  })
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+
+  function onSubmit(values: TrustProfileValues) {
+    startTransition(async () => {
+      try {
+        await updateTenantTrustProfileAction(objectToFormData(values))
+        showSuccess("Trust profile saved", "Pilot readiness evidence updated.")
+      } catch (error) {
+        showError(
+          "Could not save trust profile",
+          error instanceof Error ? error.message : "Something went wrong.",
+        )
+      }
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form
+        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <FormField
+          control={form.control}
+          name="legalTermsUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Terms URL</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com/terms" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="privacyPolicyUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Privacy URL</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com/privacy" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="dataProcessingUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Data-processing URL</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com/dpa" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="incidentContactEmail"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Incident email</FormLabel>
+              <FormControl>
+                <Input placeholder="support@example.com" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="incidentContactName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Incident contact</FormLabel>
+              <FormControl>
+                <Input placeholder="Support desk" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="recoveryPointObjective"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Recovery point objective</FormLabel>
+              <FormControl>
+                <Input placeholder="24 hours" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="recoveryTimeObjective"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Recovery time objective</FormLabel>
+              <FormControl>
+                <Input placeholder="2 business days" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="md:col-span-2">
+          <FormField
+            control={form.control}
+            name="backupRetentionNote"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Backup retention note</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Daily database backups retained by the hosting provider."
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <Button disabled={isPending} type="submit">
+            Save trust profile
           </Button>
         </div>
       </form>

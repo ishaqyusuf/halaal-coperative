@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test"
 import {
   createMember,
   createMemberDocument,
+  getMemberStatementDetail,
+  listMemberStatementSummaries,
   listMembersTable,
   updateMember,
   updateMemberDocumentReview,
@@ -178,7 +180,7 @@ describe("member profile migration guards", () => {
     })
 
     await expect(createMember(memberInput, prisma as never)).rejects.toThrow(
-      "Member profiles cannot be created",
+      "Member profiles cannot be created"
     )
     expect(prisma.memberCreates).toHaveLength(0)
   })
@@ -189,13 +191,23 @@ describe("member profile migration guards", () => {
     })
 
     await expect(createMember(memberInput, prisma as never)).rejects.toThrow(
-      "Member profiles are locked because member ledger backfill",
+      "Member profiles are locked because member ledger backfill"
     )
     expect(prisma.memberCreates).toHaveLength(0)
   })
 
   test("allows member creation during migration after setup is ready", async () => {
     const prisma = createMemberPrismaStub()
+
+    await createMember(memberInput, prisma as never)
+
+    expect(prisma.memberCreates).toHaveLength(1)
+  })
+
+  test("allows member creation during migration without share history", async () => {
+    const prisma = createMemberPrismaStub({
+      shareStructureVersions: 0,
+    })
 
     await createMember(memberInput, prisma as never)
 
@@ -231,7 +243,7 @@ describe("member profile migration guards", () => {
         ],
         monthlyCommitment: 10000,
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.contributionPlanCreateMany).toHaveLength(1)
@@ -275,9 +287,11 @@ describe("member profile migration guards", () => {
           actorUserId: "user-1",
           fullName: "Updated Member",
         },
-        prisma as never,
-      ),
-    ).rejects.toThrow("Member profiles are locked because member ledger backfill")
+        prisma as never
+      )
+    ).rejects.toThrow(
+      "Member profiles are locked because member ledger backfill"
+    )
     expect(prisma.memberUpdates).toHaveLength(0)
   })
 
@@ -296,7 +310,7 @@ describe("member profile migration guards", () => {
         occupation: "Trader",
         phoneNumber: "+234 800 000 0000",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.memberUpdates).toEqual([
@@ -323,8 +337,8 @@ describe("member profile migration guards", () => {
         "member-1",
         "active",
         "user-1",
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.memberUpdates).toHaveLength(0)
@@ -341,8 +355,8 @@ describe("member profile migration guards", () => {
           memberId: "member-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.memberUpdates).toHaveLength(0)
@@ -360,8 +374,8 @@ describe("member profile migration guards", () => {
           memberId: "member-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.memberDocumentCreates).toHaveLength(0)
@@ -378,8 +392,8 @@ describe("member profile migration guards", () => {
           reviewStatus: "approved",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.memberDocumentLookups).toHaveLength(0)
@@ -457,6 +471,156 @@ describe("members table backfill status", () => {
       appliedMonthCount: 2,
       draftBatchId: null,
       state: "applied",
+    })
+  })
+})
+
+const dividendStatementMemberRow = {
+  address: null,
+  contributionPlans: [
+    {
+      amount: 5000,
+      isActive: true,
+      startsAt: new Date("2026-01-01T00:00:00.000Z"),
+    },
+  ],
+  createdAt: new Date("2026-01-01T00:00:00.000Z"),
+  deductionSource: { name: "Payroll" },
+  documents: [],
+  email: "aisha@example.com",
+  exitedAt: null,
+  fullName: "Aisha Bello",
+  id: "member-1",
+  joinedAt: new Date("2025-01-01T00:00:00.000Z"),
+  kycStatus: "verified",
+  memberNumber: "M-001",
+  memberType: "civil_servant",
+  occupation: null,
+  phoneNumber: null,
+  status: "active",
+  totalSavingsSnapshot: 40000,
+  user: {
+    email: "aisha.user@example.com",
+    fullName: "Aisha Bello",
+  },
+}
+
+function createMemberStatementPrismaStub() {
+  return {
+    contribution: {
+      findMany: async () => [],
+      groupBy: async () => [
+        {
+          _count: { _all: 2 },
+          _max: { postedAt: new Date("2026-03-31T00:00:00.000Z") },
+          _sum: {
+            amount: 30000,
+            committedAmount: 25000,
+            extraSavingsAmount: 5000,
+          },
+          memberId: "member-1",
+        },
+      ],
+    },
+    dividendAllocation: {
+      findMany: async () => [
+        {
+          allocationAmount: 7500,
+          createdAt: new Date("2026-04-10T00:00:00.000Z"),
+          dividendPeriod: {
+            deductionAmount: 1000,
+            deductionReason: "Reserve",
+            distributableAmount: 50000,
+            id: "dividend-period-1",
+            name: "Yearly dividend 2025",
+            periodEnd: new Date("2025-12-31T00:00:00.000Z"),
+            periodStart: new Date("2025-01-01T00:00:00.000Z"),
+            publishedAt: new Date("2026-04-10T00:00:00.000Z"),
+            status: "published",
+            totalProfitAmount: 51000,
+          },
+          id: "dividend-allocation-1",
+          savingsBasisAmount: 40000,
+        },
+      ],
+      groupBy: async () => [
+        {
+          _count: { _all: 1 },
+          _max: { createdAt: new Date("2026-04-10T00:00:00.000Z") },
+          _sum: { allocationAmount: 7500 },
+          memberId: "member-1",
+        },
+      ],
+    },
+    ledgerTransaction: {
+      findMany: async () => [],
+    },
+    loan: {
+      findMany: async () => [],
+      groupBy: async () => [
+        {
+          _count: { _all: 1 },
+          _sum: {
+            estimatedMonthlyServicing: 5000,
+            extraMonthlySavingsAmount: 1000,
+            outstandingPrincipal: 15000,
+            principalAmount: 30000,
+          },
+          memberId: "member-1",
+        },
+      ],
+    },
+    member: {
+      findFirst: async () => dividendStatementMemberRow,
+      findMany: async () => [dividendStatementMemberRow],
+    },
+    repayment: {
+      findMany: async () => [],
+      groupBy: async () => [
+        {
+          _max: { paidAt: new Date("2026-03-15T00:00:00.000Z") },
+          _sum: { amount: 15000 },
+          memberId: "member-1",
+        },
+      ],
+    },
+  }
+}
+
+describe("member statement dividend allocations", () => {
+  test("summarizes published dividend allocations", async () => {
+    const summaries = await listMemberStatementSummaries(
+      "tenant-1",
+      createMemberStatementPrismaStub() as never
+    )
+
+    expect(summaries[0]).toMatchObject({
+      dividendAllocationCount: 1,
+      lastDividendAllocatedAt: new Date("2026-04-10T00:00:00.000Z"),
+      memberId: "member-1",
+      totalDividendAllocations: 7500,
+    })
+  })
+
+  test("loads published dividend allocation evidence into member statement detail", async () => {
+    const detail = await getMemberStatementDetail(
+      "tenant-1",
+      "member-1",
+      createMemberStatementPrismaStub() as never
+    )
+
+    expect(detail?.dividendAllocations).toEqual([
+      expect.objectContaining({
+        allocationAmount: 7500,
+        dividendPeriod: expect.objectContaining({
+          name: "Yearly dividend 2025",
+          status: "published",
+        }),
+        savingsBasisAmount: 40000,
+      }),
+    ])
+    expect(detail?.summary).toMatchObject({
+      totalDividendAllocations: 7500,
     })
   })
 })

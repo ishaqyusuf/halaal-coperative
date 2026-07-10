@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useEffect, useMemo, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@halaalvest/ui/components/popover"
+import { usePreservedClientState } from "@halaalvest/ui/hooks/use-preserved-form-state"
 import { formatCurrency } from "@halaalvest/utils"
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 
@@ -58,12 +59,14 @@ export function BusinessProfitSeasonDeductionPopover({
   initialReason,
   maxAmount,
   onTotalAmountChange,
+  preserveDraftKey,
   seasonKey,
 }: {
   initialAmount: number
   initialReason?: string | null
   maxAmount: number
   onTotalAmountChange?: (amount: number) => void
+  preserveDraftKey?: string
   seasonKey: string
 }) {
   const initialLines = useMemo(() => {
@@ -81,6 +84,27 @@ export function BusinessProfitSeasonDeductionPopover({
     ]
   }, [initialAmount, initialReason])
   const [lines, setLines] = useState<DeductionLine[]>(initialLines)
+  const restoreLines = useCallback((storedLines: DeductionLine[]) => {
+    if (!Array.isArray(storedLines)) {
+      return
+    }
+
+    const validLines = storedLines.filter(
+      (line) =>
+        line &&
+        typeof line.amount === "string" &&
+        typeof line.id === "string" &&
+        typeof line.reason === "string"
+    )
+
+    setLines(validLines.length > 0 ? validLines : [createDeductionLine()])
+  }, [])
+  usePreservedClientState({
+    enabled: Boolean(preserveDraftKey),
+    onRestore: restoreLines,
+    storageKey: preserveDraftKey ?? "business-profit-season-deduction",
+    value: lines,
+  })
   const totalAmount = lines.reduce(
     (total, line) => total + parseAmount(line.amount),
     0
@@ -258,11 +282,13 @@ export function BusinessProfitSeasonDeductionCells({
   initialAmount,
   initialReason,
   maxAmount,
+  preserveDraftKey,
   seasonKey,
 }: {
   initialAmount: number
   initialReason?: string | null
   maxAmount: number
+  preserveDraftKey?: string
   seasonKey: string
 }) {
   const [deductionAmount, setDeductionAmount] = useState(initialAmount)
@@ -276,6 +302,7 @@ export function BusinessProfitSeasonDeductionCells({
           initialReason={initialReason}
           maxAmount={maxAmount}
           onTotalAmountChange={setDeductionAmount}
+          preserveDraftKey={preserveDraftKey}
           seasonKey={seasonKey}
         />
       </td>

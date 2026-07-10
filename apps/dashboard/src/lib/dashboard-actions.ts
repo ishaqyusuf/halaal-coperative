@@ -131,6 +131,10 @@ export async function createMemberDocumentAction(formData: FormData) {
   return callDashboardFormAction("createMemberDocumentAction", formData)
 }
 
+export async function createOwnMemberDocumentAction(formData: FormData) {
+  return callDashboardFormAction("createOwnMemberDocumentAction", formData)
+}
+
 export async function updateMemberDocumentReviewAction(formData: FormData) {
   return callDashboardFormAction("updateMemberDocumentReviewAction", formData)
 }
@@ -209,6 +213,27 @@ export async function updateTenantShareStructureVersionAction(
     "updateTenantShareStructureVersionAction",
     formData
   )
+}
+
+export async function updateTenantSharePolicyAction(formData: FormData) {
+  return callDashboardFormAction("updateTenantSharePolicyAction", formData)
+}
+
+export async function createMemberShareApplicationAction(formData: FormData) {
+  return callDashboardFormAction("createMemberShareApplicationAction", formData)
+}
+
+export async function createOwnMemberShareApplicationAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "createOwnMemberShareApplicationAction",
+    formData
+  )
+}
+
+export async function reviewMemberShareApplicationAction(formData: FormData) {
+  return callDashboardFormAction("reviewMemberShareApplicationAction", formData)
 }
 
 export async function createChargeDefinitionVersionAction(formData: FormData) {
@@ -341,6 +366,19 @@ export async function reviewLoanRequestAction(formData: FormData) {
   return callDashboardFormAction("reviewLoanRequestAction", formData)
 }
 
+export async function reviewLoanGuarantorApprovalAction(formData: FormData) {
+  return callDashboardFormAction("reviewLoanGuarantorApprovalAction", formData)
+}
+
+export async function respondMemberLoanGuarantorApprovalAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "respondMemberLoanGuarantorApprovalAction",
+    formData
+  )
+}
+
 export async function disburseLoanAction(formData: FormData) {
   return callDashboardFormAction("disburseLoanAction", formData)
 }
@@ -353,6 +391,10 @@ export async function updateCooperativeProfileAction(formData: FormData) {
   return callDashboardFormAction("updateCooperativeProfileAction", formData)
 }
 
+export async function updateTenantTrustProfileAction(formData: FormData) {
+  return callDashboardFormAction("updateTenantTrustProfileAction", formData)
+}
+
 export async function updateTenantFinanceStartDateAction(formData: FormData) {
   return callDashboardFormAction("updateTenantFinanceStartDateAction", formData)
 }
@@ -363,6 +405,22 @@ export async function finalizeInitialMigrationAction(formData: FormData) {
 
 export async function unlockInitialMigrationAction(formData: FormData) {
   return callDashboardFormAction("unlockInitialMigrationAction", formData)
+}
+
+export async function createMemberOpeningBalanceAction(formData: FormData) {
+  return callDashboardFormAction("createMemberOpeningBalanceAction", formData)
+}
+
+export async function reviewMemberOpeningBalanceAction(formData: FormData) {
+  return callDashboardFormAction("reviewMemberOpeningBalanceAction", formData)
+}
+
+export async function applyMemberOpeningBalanceAction(formData: FormData) {
+  return callDashboardFormAction("applyMemberOpeningBalanceAction", formData)
+}
+
+export async function reverseMemberOpeningBalanceAction(formData: FormData) {
+  return callDashboardFormAction("reverseMemberOpeningBalanceAction", formData)
 }
 
 export async function createLegacyLoanMigrationDraftAction(
@@ -514,6 +572,130 @@ export async function refreshCollectionsStatusesAction() {
 
 export async function recordCollectionFollowUpAction(formData: FormData) {
   return callDashboardFormAction("recordCollectionFollowUpAction", formData)
+}
+
+export async function createSupportCaseAction(formData: FormData) {
+  return callDashboardFormAction("createSupportCaseAction", formData)
+}
+
+export async function addSupportCaseMessageAction(formData: FormData) {
+  return callDashboardFormAction("addSupportCaseMessageAction", formData)
+}
+
+export async function createMemberSupportCaseAction(formData: FormData) {
+  return callDashboardFormAction("createMemberSupportCaseAction", formData)
+}
+
+export async function addMemberSupportCaseMessageAction(formData: FormData) {
+  return callDashboardFormAction("addMemberSupportCaseMessageAction", formData)
+}
+
+export async function updateSupportCaseStatusAction(formData: FormData) {
+  return callDashboardFormAction("updateSupportCaseStatusAction", formData)
+}
+
+export async function reviewSupportCaseFinancialAdjustmentAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "reviewSupportCaseFinancialAdjustmentAction",
+    formData
+  )
+}
+
+export async function createFoodPurchaseCycleAction(formData: FormData) {
+  return callDashboardFormAction("createFoodPurchaseCycleAction", formData)
+}
+
+export async function submitFoodPurchaseApplicationAction(formData: FormData) {
+  return callDashboardFormAction(
+    "submitFoodPurchaseApplicationAction",
+    formData
+  )
+}
+
+export async function submitOwnFoodPurchaseApplicationAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "submitOwnFoodPurchaseApplicationAction",
+    formData
+  )
+}
+
+export async function reviewFoodPurchaseApplicationAction(formData: FormData) {
+  return callDashboardFormAction("reviewFoodPurchaseApplicationAction", formData)
+}
+
+export async function recordFoodPurchaseAccountingAction(formData: FormData) {
+  return callDashboardFormAction("recordFoodPurchaseAccountingAction", formData)
+}
+
+export async function reviewFoodPurchaseAccountingAction(formData: FormData) {
+  return callDashboardFormAction("reviewFoodPurchaseAccountingAction", formData)
+}
+
+export async function createProcurementRequestAction(formData: FormData) {
+  return callDashboardFormAction("createProcurementRequestAction", formData)
+}
+
+export async function createOwnProcurementRequestAction(formData: FormData) {
+  return callDashboardFormAction("createOwnProcurementRequestAction", formData)
+}
+
+export async function reviewProcurementRequestAction(formData: FormData) {
+  return callDashboardFormAction("reviewProcurementRequestAction", formData)
+}
+
+export async function recordProcurementPurchaseAction(formData: FormData) {
+  return callDashboardFormAction("recordProcurementPurchaseAction", formData)
+}
+
+export async function createProjectFinancingRequestAction(formData: FormData) {
+  return callDashboardFormAction(
+    "createProjectFinancingRequestAction",
+    formData
+  )
+}
+
+export async function createOwnProjectFinancingRequestAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "createOwnProjectFinancingRequestAction",
+    formData
+  )
+}
+
+export async function reviewProjectFinancingRequestAction(formData: FormData) {
+  return callDashboardFormAction(
+    "reviewProjectFinancingRequestAction",
+    formData
+  )
+}
+
+export async function recordProjectFinancingDisbursementAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "recordProjectFinancingDisbursementAction",
+    formData
+  )
+}
+
+export async function createMemberPaymentReceiptAction(formData: FormData) {
+  return callDashboardFormAction("createMemberPaymentReceiptAction", formData)
+}
+
+export async function createOwnMemberPaymentReceiptAction(formData: FormData) {
+  return callDashboardFormAction(
+    "createOwnMemberPaymentReceiptAction",
+    formData
+  )
+}
+
+export async function reviewMemberPaymentReceiptAction(formData: FormData) {
+  return callDashboardFormAction("reviewMemberPaymentReceiptAction", formData)
 }
 
 export async function importMembersCsvAction(formData: FormData) {

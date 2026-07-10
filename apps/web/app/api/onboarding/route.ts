@@ -38,7 +38,10 @@ export async function POST(request: Request) {
       workspaceSlug: verification.workspaceSlug,
     })
 
-    if (!availability.cooperativeName.available || !availability.workspaceSlug.available) {
+    if (
+      !availability.cooperativeName.available ||
+      !availability.workspaceSlug.available
+    ) {
       return NextResponse.json(
         {
           availability,
@@ -46,7 +49,7 @@ export async function POST(request: Request) {
             ? "That cooperative name is already in use."
             : "That workspace subdomain is not available.",
         },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
@@ -69,11 +72,14 @@ export async function POST(request: Request) {
       startDate: input.startDate,
     })
 
-    const { dashboardUrl, siteUrl } = buildOnboardingWorkspaceUrls({
-      currentOrigin: request.url,
-      tenantSlug: result.tenant.slug,
-    })
-    const vercelDomainProvisioning = await provisionTenantDomainOnVercel(result.primarySiteHostname)
+    const { dashboardUrl, devDashboardUrlVariants, siteUrl } =
+      buildOnboardingWorkspaceUrls({
+        currentOrigin: request.url,
+        tenantSlug: result.tenant.slug,
+      })
+    const vercelDomainProvisioning = await provisionTenantDomainOnVercel(
+      result.primarySiteHostname
+    )
 
     if (vercelDomainProvisioning.status !== "skipped") {
       await syncTenantDomainVerificationByHostname({
@@ -98,7 +104,8 @@ export async function POST(request: Request) {
       siteUrl,
       tenantName: result.tenant.name,
     })
-    const workspaceReadyDelivery = await notificationService.tryEmail(workspaceReadyEmail)
+    const workspaceReadyDelivery =
+      await notificationService.tryEmail(workspaceReadyEmail)
 
     await recordNotificationDeliveryAudit({
       attempts: workspaceReadyDelivery.attempts,
@@ -113,6 +120,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       dashboardUrl,
+      devDashboardUrlVariants,
       primaryDashboardHostname: siteHostname,
       primarySiteHostname: siteHostname,
       siteUrl,
@@ -131,7 +139,7 @@ export async function POST(request: Request) {
       {
         error: formatOnboardingError(error),
       },
-      { status: 400 },
+      { status: 400 }
     )
   }
 }

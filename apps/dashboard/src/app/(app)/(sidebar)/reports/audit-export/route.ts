@@ -1,4 +1,4 @@
-import { listAuditLogs } from "@halaalvest/db"
+import { listActivityReportEvents } from "@halaalvest/db"
 import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
 
 export async function GET(request: Request) {
@@ -10,20 +10,33 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const filters = getReportsDateFilters(Object.fromEntries(searchParams.entries()))
-  const logs = await listAuditLogs(context.tenant.id, {
+  const logs = await listActivityReportEvents(context.tenant.id, {
     fromDate: filters.fromDate,
     limit: 500,
     toDate: filters.toDate,
   })
   const csv = toCsv(
-    ["Occurred At", "Action", "Actor Type", "Actor Name", "Entity Type", "Entity Id"],
+    [
+      "Occurred At",
+      "Action",
+      "Actor Type",
+      "Performed By",
+      "Authorizer Role",
+      "Authorizer",
+      "Entity Type",
+      "Entity Id",
+      "Details",
+    ],
     logs.map((log) => [
       log.occurredAt.toISOString(),
-      log.action,
+      log.actionLabel,
       log.actorType,
-      log.actorUser?.fullName ?? "",
+      log.actorLabel,
+      log.authorizationRole,
+      log.authorizerLabel,
       log.entityType,
       log.entityId ?? "",
+      log.metadataSummary.join("; "),
     ]),
   )
 

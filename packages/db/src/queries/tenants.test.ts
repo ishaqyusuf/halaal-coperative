@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { resolveTenantState, updateTenantProfile } from "./tenants"
+import {
+  resolveTenantState,
+  updateTenantProfile,
+  updateTenantTrustProfile,
+} from "./tenants"
 
 function createTenantProfilePrismaStub({
   initialMigrationStatus = "live_operations",
@@ -100,6 +104,32 @@ const profileInput = {
   timezone: "Africa/Lagos",
 }
 
+function createTenantTrustPrismaStub() {
+  const auditLogCreates: unknown[] = []
+  const tenantUpdates: unknown[] = []
+
+  return {
+    auditLog: {
+      create: async (input: unknown) => {
+        auditLogCreates.push(input)
+
+        return input
+      },
+    },
+    tenant: {
+      update: async (input: {
+        data: Record<string, unknown>
+      }) => {
+        tenantUpdates.push(input)
+
+        return input.data
+      },
+    },
+    auditLogCreates,
+    tenantUpdates,
+  }
+}
+
 describe("tenant profile migration guards", () => {
   test("blocks finance start date changes after migration finalization", async () => {
     const prisma = createTenantProfilePrismaStub()
@@ -196,5 +226,79 @@ describe("tenant profile migration guards", () => {
       region: "Kaduna",
       state: "Kaduna",
     })
+  })
+})
+
+describe("tenant trust profile", () => {
+  test("normalizes legal, incident, and recovery evidence with audit metadata", async () => {
+    const prisma = createTenantTrustPrismaStub()
+
+    const profile = await updateTenantTrustProfile(
+      {
+        actorUserId: "user-1",
+        backupRetentionNote: " Daily managed backups ",
+        dataProcessingUrl: "https://example.com/dpa",
+        incidentContactEmail: "TRUST@EXAMPLE.COM",
+        incidentContactName: " Risk Desk ",
+        legalTermsUrl: "https://example.com/terms",
+        privacyPolicyUrl: "https://example.com/privacy",
+        recoveryPointObjective: "24 hours",
+        recoveryTimeObjective: "2 business days",
+        tenantId: "tenant-1",
+      },
+      prisma as never,
+    )
+
+    expect(profile).toMatchObject({
+      backupRetentionNote: "Daily managed backups",
+      dataProcessingUrl: "https://example.com/dpa",
+      incidentContactEmail: "trust@example.com",
+      incidentContactName: "Risk Desk",
+      legalTermsUrl: "https://example.com/terms",
+      privacyPolicyUrl: "https://example.com/privacy",
+      recoveryPointObjective: "24 hours",
+      recoveryTimeObjective: "2 business days",
+      reviewedByUserId: "user-1",
+    })
+    expect(profile.reviewedAt).toBeInstanceOf(Date)
+    expect(prisma.tenantUpdates).toHaveLength(1)
+    expect(prisma.auditLogCreates[0]).toMatchObject({
+      data: {
+        action: "tenant.trust_profile_updated",
+        actorUserId: "user-1",
+        entityId: "tenant-1",
+        entityType: "Tenant",
+        tenantId: "tenant-1",
+      },
+    })
+  })
+
+  test("rejects invalid trust profile URLs and email addresses", async () => {
+    const prisma = createTenantTrustPrismaStub()
+
+    await expect(
+      updateTenantTrustProfile(
+        {
+          actorUserId: "user-1",
+          incidentContactEmail: "trust@example.com",
+          legalTermsUrl: "ftp://example.com/terms",
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("must use http or https")
+
+    await expect(
+      updateTenantTrustProfile(
+        {
+          actorUserId: "user-1",
+          incidentContactEmail: "not-an-email",
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("valid email")
+    expect(prisma.tenantUpdates).toHaveLength(0)
+    expect(prisma.auditLogCreates).toHaveLength(0)
   })
 })

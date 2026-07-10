@@ -5,8 +5,12 @@ import {
   defaultActionLabel,
   defaultActionUrl,
   defineHalaalNotification,
+  directEmailSchema,
+  eventEmailDraft,
   financeBody,
   financeEventSchema,
+  formatAmount,
+  createDirectRecipient,
   sentenceCase,
 } from "./shared"
 
@@ -166,16 +170,68 @@ export const loanRequestStatusChanged = defineHalaalNotification({
   buildAction: (payload) => financeAction(payload, "/loans", "Open loans"),
   buildBody: (payload) =>
     `Loan request ${payload.loanRequestId} is now ${sentenceCase(payload.status)}.`,
-  buildEmailDraft: noEmailDraft,
+  buildEmailDraft: (payload) =>
+    eventEmailDraft({
+      actionLabel: defaultActionLabel(payload, "Open loans"),
+      actionUrl: defaultActionUrl(payload, "/loans"),
+      bodyText: `Your financing request${payload.amount ? ` for ${formatAmount(payload.amount)}` : ""} is now ${sentenceCase(payload.status)}.${payload.reviewNotes ? ` Review note: ${payload.reviewNotes}` : ""}`,
+      recipient:
+        payload.recipientEmail && payload.recipientName
+          ? createDirectRecipient({
+              recipientEmail: payload.recipientEmail,
+              recipientName: payload.recipientName,
+              tenantName: payload.tenantName,
+            })
+          : undefined,
+      subject: `${payload.tenantName}: financing request ${sentenceCase(payload.status)}`,
+    }),
   buildLink: (payload) => defaultActionUrl(payload, "/loans"),
   channels: channelHelpers.inAppAndEmail(),
   roles: ["tenant_admin", "finance_officer", "operations_officer"],
   schema: financeEventSchema.extend({
     loanRequestId: z.string().min(1),
+    recipientEmail: z.email().optional(),
+    recipientName: z.string().min(1).optional(),
+    reviewNotes: z.string().optional().nullable(),
     status: z.string().min(1),
   }),
   title: (payload) => `Loan request ${sentenceCase(payload.status)}`,
   variant: "info",
+})
+
+export const loanGuarantorApprovalRequested = defineHalaalNotification({
+  buildAction: (payload) =>
+    financeAction(
+      payload,
+      payload.actionUrl ?? "/guarantor-approvals",
+      "Review request",
+    ),
+  buildBody: (payload) => {
+    const amount = formatAmount(payload.amount)
+    const amountText = amount ? ` for ${amount}` : ""
+
+    return `${payload.tenantName} requested your guarantor approval for ${payload.memberName}'s financing request${amountText}.`
+  },
+  buildEmailDraft: (payload) => ({
+    actionLabel: defaultActionLabel(payload, "Review request"),
+    actionUrl: defaultActionUrl(payload, "/guarantor-approvals"),
+    bodyText: `${payload.tenantName} requested your guarantor approval for ${payload.memberName}'s financing request. Please review the request and respond from your guarantor approvals page.`,
+    previewText: `Guarantor approval requested for ${payload.memberName}.`,
+    recipient: createDirectRecipient(payload),
+    subject: `${payload.tenantName}: guarantor approval requested`,
+  }),
+  buildLink: (payload) => defaultActionUrl(payload, "/guarantor-approvals"),
+  channels: channelHelpers.email(),
+  roles: [],
+  schema: financeEventSchema
+    .merge(directEmailSchema)
+    .extend({
+      guarantorApprovalId: z.string().min(1),
+      loanRequestId: z.string().min(1),
+      memberName: z.string().min(1),
+    }),
+  title: () => "Guarantor approval requested",
+  variant: "warning",
 })
 
 export const loanDisbursed = defineHalaalNotification({

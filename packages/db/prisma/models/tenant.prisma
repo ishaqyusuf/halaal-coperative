@@ -20,6 +20,16 @@ model Tenant {
   migrationEmergencyUnlockedByUserId String?                @map("migration_emergency_unlocked_by_user_id") @db.Uuid
   migrationEmergencyUnlockReason     String?                @map("migration_emergency_unlock_reason")
   isDirectDeductionEnabled           Boolean                @default(false) @map("is_direct_deduction_enabled")
+  trustLegalTermsUrl                  String?                @map("trust_legal_terms_url")
+  trustPrivacyPolicyUrl               String?                @map("trust_privacy_policy_url")
+  trustDataProcessingUrl              String?                @map("trust_data_processing_url")
+  trustIncidentContactName            String?                @map("trust_incident_contact_name")
+  trustIncidentContactEmail           String?                @map("trust_incident_contact_email")
+  trustBackupRetentionNote            String?                @map("trust_backup_retention_note")
+  trustRecoveryPointObjective         String?                @map("trust_recovery_point_objective")
+  trustRecoveryTimeObjective          String?                @map("trust_recovery_time_objective")
+  trustReviewedAt                     DateTime?              @map("trust_reviewed_at") @db.Timestamptz(6)
+  trustReviewedByUserId               String?                @map("trust_reviewed_by_user_id") @db.Uuid
   createdAt                          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -35,6 +45,8 @@ model Tenant {
   deductionSources                DeductionSource[]
   contributionPlans               ContributionPlan[]
   contributions                   Contribution[]
+  memberPaymentReceipts           MemberPaymentReceipt[]
+  memberPaymentReceiptAllocations MemberPaymentReceiptAllocation[]
   tenantShareStructureVersions    TenantShareStructureVersion[]
   chargeDefinitions               ChargeDefinition[]
   chargeDefinitionVersions        ChargeDefinitionVersion[]
@@ -43,9 +55,17 @@ model Tenant {
   financingCycles                 FinancingCycle[]
   loanRequests                    LoanRequest[]
   loanApprovals                   LoanApproval[]
+  loanGuarantorApprovals          LoanGuarantorApproval[]
   loans                           Loan[]
+  procurementRequests             ProcurementRequest[]
+  procurementRepaymentSchedules   ProcurementRepaymentScheduleItem[]
+  foodPurchaseCycles              FoodPurchaseCycle[]
+  foodPurchaseApplications        FoodPurchaseApplication[]
+  projectFinancingRequests        ProjectFinancingRequest[]
   repaymentSchedules              RepaymentScheduleItem[]
   collectionFollowUps             CollectionFollowUp[]
+  supportCases                    SupportCase[]
+  supportCaseMessages             SupportCaseMessage[]
   repayments                      Repayment[]
   ledgerAccounts                  LedgerAccount[]
   ledgerTransactions              LedgerTransaction[]
@@ -56,6 +76,7 @@ model Tenant {
   shareBusinessProfitEntries      ShareBusinessProfitEntry[]
   shareBusinessProfitExpenseLines ShareBusinessProfitExpenseLine[]
   shareLedgerEntries              MemberShareLedgerEntry[]
+  memberShareApplications         MemberShareApplication[]
   shareProfitAllocations          ShareProfitAllocation[]
   offlineSyncEvents               OfflineSyncEvent[]
   auditLogs                       AuditLog[]
@@ -70,6 +91,7 @@ model Tenant {
   memberActivityEvents            MemberActivityEvent[]
   legacyLoanMigrationDrafts       LegacyLoanMigrationDraft[]
   migrationBackfillAdjustments    MigrationBackfillAdjustment[]
+  memberOpeningBalances           MemberOpeningBalance[]
   migrationProfitAdjustments      MigrationProfitAdjustment[]
   backfillBatches                 BackfillBatch[]
   appliedBackfillMonths           AppliedBackfillMonth[]
@@ -91,7 +113,19 @@ model TenantPolicy {
   normalLoanAllocationPercentage Decimal               @default(70) @map("normal_loan_allocation_percentage") @db.Decimal(5, 2)
   loanIntakeReservationMode    LoanIntakeReservationMode @default(submitted_request_amount) @map("loan_intake_reservation_mode")
   disbursementRequiresDeployableFunds Boolean          @default(true) @map("disbursement_requires_deployable_funds")
+  specialSavingsCountsForEligibility Boolean           @default(true) @map("special_savings_counts_for_eligibility")
+  strictCommitmentDuringFinancing Boolean              @default(true) @map("strict_commitment_during_financing")
+  activeFinancingBlocksEmergency Boolean               @default(true) @map("active_financing_blocks_emergency")
+  activeFinancingBlocksProcurement Boolean             @default(true) @map("active_financing_blocks_procurement")
+  procurementMaximumPaybackMonths Int                  @default(12) @map("procurement_maximum_payback_months")
+  procurementAllowsCommitmentReductionDuringPayback Boolean @default(false) @map("procurement_allows_commitment_reduction_during_payback")
+  foodPurchaseMaximumPaybackMonths Int                 @default(1) @map("food_purchase_maximum_payback_months")
+  foodPurchaseAllowsCommitmentReductionDuringPayback Boolean @default(false) @map("food_purchase_allows_commitment_reduction_during_payback")
   monthlyLevyAmount            Decimal?               @map("monthly_levy_amount") @db.Decimal(18, 2)
+  shareUnitAmount              Decimal                @default(10000) @map("share_unit_amount") @db.Decimal(18, 2)
+  compulsoryShareUnits         Int                    @default(1) @map("compulsory_share_units")
+  maximumShareUnits            Int                    @default(20) @map("maximum_share_units")
+  shareConfigurationMode       ShareConfigurationMode @default(monthly_history) @map("share_configuration_mode")
   requiresDualLoanApproval     Boolean                @default(false) @map("requires_dual_loan_approval")
   allowOfflineFinancialCapture Boolean                @default(true) @map("allow_offline_financial_capture")
   memberSignupAccessMode       MemberSignupAccessMode @default(in_office) @map("member_signup_access_mode")

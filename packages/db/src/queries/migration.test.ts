@@ -219,6 +219,33 @@ describe("tenant initial migration state query", () => {
     expect(state.snapshot.missingStepKeys).toEqual(["finalization"])
   })
 
+  test("treats share history as optional during initial onboarding", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 12,
+        appliedBackfillMembers: 12,
+        businessProfitPools: 1,
+        chargeScheduleVersions: 2,
+        initialMigrationStatus: null,
+        legacyLoans: 1,
+        memberProfiles: 12,
+        shareCapitalPlans: 0,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+      }) as never
+    )
+
+    expect(state.counts.shareCapitalPlans).toBe(0)
+    expect(state.snapshot.status).toBe("migration_review")
+    expect(state.snapshot.missingStepKeys).toEqual(["finalization"])
+    expect(
+      state.snapshot.steps.find((step) => step.key === "share_capital_plan")
+    ).toMatchObject({
+      complete: true,
+      label: "Share capital plan (optional)",
+    })
+  })
+
   test("keeps legacy loan review missing until loans are drafted or explicitly reviewed", async () => {
     const missingReview = await getTenantInitialMigrationState(
       "tenant-1",

@@ -30,7 +30,6 @@ function resolveDefaultStep(
 ): GettingStartedStepKey {
   if (missingStepKeys.includes("finance_start_date")) return "start-date"
   if (missingStepKeys.includes("charge_schedules")) return "charges"
-  if (missingStepKeys.includes("share_capital_plan")) return "shares"
   if (needsProfitPolicy) return "profit-policy"
   if (missingStepKeys.includes("business_profit_pools")) return "business"
   if (missingStepKeys.includes("business_profit_seasons")) {
@@ -145,7 +144,6 @@ export default async function GettingStartedPage({
         "charge_schedules",
         "business_profit_pools",
         "business_profit_seasons",
-        "share_capital_plan",
         "member_profiles",
       ].includes(stepKey)
     )
@@ -334,6 +332,7 @@ export default async function GettingStartedPage({
           ? `${selectedMember.fullName} (${selectedMember.memberNumber})`
           : null
       }
+      sharePolicy={data.sharePolicy}
       shareBusinesses={data.shareBusinesses.map((business: any) => ({
         capitalAmount: Number(business.capitalAmount),
         endDate: toDateString(business.endDate),

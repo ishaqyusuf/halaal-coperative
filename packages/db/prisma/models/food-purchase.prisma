@@ -1,0 +1,64 @@
+model FoodPurchaseCycle {
+  id                          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                    String                  @map("tenant_id") @db.Uuid
+  releasedByUserId            String                  @map("released_by_user_id") @db.Uuid
+  accountingSubmittedByUserId String?                 @map("accounting_submitted_by_user_id") @db.Uuid
+  periodMonth                 DateTime                @map("period_month") @db.Date
+  releasedAmount              Decimal                 @map("released_amount") @db.Decimal(18, 2)
+  releasedAt                  DateTime                @map("released_at") @db.Timestamptz(6)
+  releaseNotes                String?                 @map("release_notes")
+  salesAmount                 Decimal?                @map("sales_amount") @db.Decimal(18, 2)
+  purchaseCostAmount          Decimal?                @map("purchase_cost_amount") @db.Decimal(18, 2)
+  operatingExpenseAmount      Decimal?                @map("operating_expense_amount") @db.Decimal(18, 2)
+  profitAmount                Decimal?                @map("profit_amount") @db.Decimal(18, 2)
+  accountingNotes             String?                 @map("accounting_notes")
+  accountingSubmittedAt       DateTime?               @map("accounting_submitted_at") @db.Timestamptz(6)
+  status                      FoodPurchaseCycleStatus @default(open)
+  createdAt                   DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                    Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  releasedByUser            User                      @relation("FoodPurchaseCycleReleasedBy", fields: [releasedByUserId], references: [id], onDelete: Restrict)
+  accountingSubmittedByUser User?                     @relation("FoodPurchaseCycleAccountingSubmittedBy", fields: [accountingSubmittedByUserId], references: [id], onDelete: SetNull)
+  applications              FoodPurchaseApplication[]
+
+  @@unique([tenantId, periodMonth], map: "food_purchase_cycles_tenant_period_key")
+  @@index([tenantId, status, periodMonth], map: "food_purchase_cycles_tenant_status_period_idx")
+  @@map("food_purchase_cycles")
+}
+
+model FoodPurchaseApplication {
+  id                String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                        @map("tenant_id") @db.Uuid
+  cycleId           String                        @map("cycle_id") @db.Uuid
+  memberId          String                        @map("member_id") @db.Uuid
+  submittedByUserId String                        @map("submitted_by_user_id") @db.Uuid
+  reviewedByUserId  String?                       @map("reviewed_by_user_id") @db.Uuid
+  itemDescription   String?                       @map("item_description")
+  requestNotes      String?                       @map("request_notes")
+  requestedAmount   Decimal                       @map("requested_amount") @db.Decimal(18, 2)
+  approvedAmount    Decimal?                      @map("approved_amount") @db.Decimal(18, 2)
+  requestedPaybackMonths Int                       @default(1) @map("requested_payback_months")
+  approvedPaybackMonths  Int?                      @map("approved_payback_months")
+  policyMaximumPaybackMonths Int                   @default(1) @map("policy_maximum_payback_months")
+  allowsCommitmentReductionDuringPayback Boolean   @default(false) @map("allows_commitment_reduction_during_payback")
+  paidAmount        Decimal                       @default(0) @map("paid_amount") @db.Decimal(18, 2)
+  paidAt            DateTime?                     @map("paid_at") @db.Timestamptz(6)
+  status            FoodPurchaseApplicationStatus @default(submitted)
+  requestedAt       DateTime                      @map("requested_at") @db.Timestamptz(6)
+  reviewedAt        DateTime?                     @map("reviewed_at") @db.Timestamptz(6)
+  reviewNotes       String?                       @map("review_notes")
+  createdAt         DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cycle           FoodPurchaseCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  member          Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  submittedByUser User              @relation("FoodPurchaseApplicationSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: Restrict)
+  reviewedByUser  User?             @relation("FoodPurchaseApplicationReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  paymentReceiptAllocations MemberPaymentReceiptAllocation[]
+
+  @@index([tenantId, cycleId, status], map: "food_purchase_applications_tenant_cycle_status_idx")
+  @@index([tenantId, memberId, status], map: "food_purchase_applications_tenant_member_status_idx")
+  @@map("food_purchase_applications")
+}

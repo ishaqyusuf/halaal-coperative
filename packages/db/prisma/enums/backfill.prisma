@@ -6,6 +6,15 @@ enum BackfillBatchStatus {
   cancelled
 }
 
+enum MemberOpeningBalanceStatus {
+  pending_review
+  approved
+  applied
+  reversed
+  rejected
+  cancelled
+}
+
 enum BackfillActivityType {
   loan_taken
   profit_dividend

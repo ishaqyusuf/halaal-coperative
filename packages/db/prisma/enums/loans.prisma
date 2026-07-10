@@ -44,6 +44,12 @@ enum LoanApprovalAction {
   disbursed
 }
 
+enum LoanGuarantorApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
 enum RepaymentScheduleStatus {
   pending
   due

@@ -12,6 +12,7 @@ export type DashboardImportKind =
 export type DashboardImportReferenceData = {
   chargeDefinitionCodes: string[]
   deductionSourceNames: string[]
+  loanProductCodes: string[]
   loanProductNames: string[]
   memberNumbers: string[]
 }
@@ -353,6 +354,11 @@ const deductionSourcesRowSchema = z.object({
 })
 
 const loanProductsRowSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value?.toUpperCase()),
   loanType: z.enum(["normal", "quick"]),
   maxSavingsMultiple: z
     .string()
@@ -507,9 +513,9 @@ export const dashboardImportConfigs: Record<
       "Import or refresh supported loan products before loan migration work.",
     schema: loanProductsRowSchema,
     sampleCsv: [
-      "name,loanType,termMonths,maxSavingsMultiple",
-      "Standard Loan,normal,12,2",
-      "Emergency Support,quick,6,1",
+      "code,name,loanType,termMonths,maxSavingsMultiple",
+      "NOR,Standard Loan,normal,12,2",
+      "EMG,Emergency Support,quick,6,1",
     ].join("\n"),
   },
   contributions: {
@@ -725,8 +731,13 @@ export function getDashboardImportExistingMatches(
       )
     case "loan_products":
       return (
-        typeof row.name === "string" &&
-        referenceData.loanProductNames.includes(row.name)
+        (typeof row.name === "string" &&
+          referenceData.loanProductNames.includes(row.name)) ||
+        (typeof row.code === "string" &&
+          row.code.trim().length > 0 &&
+          referenceData.loanProductCodes.includes(
+            row.code.trim().toUpperCase()
+          ))
       )
     case "charges":
       return (

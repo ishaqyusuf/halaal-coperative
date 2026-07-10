@@ -58,10 +58,17 @@ export function LoansPageView({
             <LoanRequestForm
               devMode={quickFillEnabled}
               disabledReason={intakeDisabledReason}
-              loanProducts={loanProducts.map((product) => ({
-                id: product.id,
-                label: `${product.name} (up to ${product.termMonths} months, ${formatCurrency(productUsageByType[product.loanType].remainingAmount)} remaining)`,
-              }))}
+              loanProducts={loanProducts.map((product) => {
+                const codePrefix = product.code ? `${product.code} - ` : ""
+                const remainingAmount = formatCurrency(
+                  productUsageByType[product.loanType].remainingAmount
+                )
+
+                return {
+                  id: product.id,
+                  label: `${codePrefix}${product.name} (up to ${product.termMonths} months, ${remainingAmount} remaining)`,
+                }
+              })}
               members={members.items.map((member) => ({
                 id: member.id,
                 label: `${member.fullName} (${member.memberNumber})`,

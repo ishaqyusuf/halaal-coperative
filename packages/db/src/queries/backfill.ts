@@ -14,6 +14,7 @@ import { getTenantInitialMigrationState } from "./migration"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import {
   createMemberShareLedgerEntry,
+  getTenantSharePolicy,
   getResolvedShareAmountForMonth,
 } from "./tenant-finance"
 
@@ -1474,6 +1475,9 @@ export async function buildBackfillDraftInputForMember(
       member.joinedAt
   )
   const endMonth = startOfMonth(input.endMonth ?? new Date())
+  const sharePolicy = await getTenantSharePolicy(input.tenantId, prisma)
+  const usesMonthlyShareHistory =
+    sharePolicy.configurationMode === "monthly_history"
 
   const [
     shareOverrides,
@@ -1486,14 +1490,18 @@ export async function buildBackfillDraftInputForMember(
     rowAdjustments,
     memberActivityEvents,
   ] = await Promise.all([
-    prisma.memberShareOverride.findMany({
-      where: { tenantId: input.tenantId, memberId: input.memberId },
-      orderBy: { effectiveFrom: "asc" },
-    }),
-    prisma.tenantShareStructureVersion.findMany({
-      where: { tenantId: input.tenantId },
-      orderBy: { effectiveFrom: "asc" },
-    }),
+    usesMonthlyShareHistory
+      ? prisma.memberShareOverride.findMany({
+          where: { tenantId: input.tenantId, memberId: input.memberId },
+          orderBy: { effectiveFrom: "asc" },
+        })
+      : [],
+    usesMonthlyShareHistory
+      ? prisma.tenantShareStructureVersion.findMany({
+          where: { tenantId: input.tenantId },
+          orderBy: { effectiveFrom: "asc" },
+        })
+      : [],
     prisma.chargeDefinition.findMany({
       where: {
         tenantId: input.tenantId,

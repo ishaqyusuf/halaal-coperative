@@ -34,6 +34,8 @@ const TRUNCATE_ORDER = [
   "dividend_allocations",
   "dividend_periods",
   "offline_sync_events",
+  "member_payment_receipt_allocations",
+  "member_payment_receipts",
   "repayments",
   "repayment_schedule_items",
   "loans",

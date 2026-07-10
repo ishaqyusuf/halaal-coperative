@@ -1,7 +1,12 @@
 import type { ReactNode, SVGProps } from "react"
 
+type DashboardIconProps = Omit<
+  SVGProps<SVGSVGElement>,
+  "children" | "key" | "ref"
+>
+
 function createIcon(path: ReactNode) {
-  return function DashboardIcon(props: SVGProps<SVGSVGElement>) {
+  return function DashboardIcon(props: DashboardIconProps) {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
         {path}

@@ -47,8 +47,59 @@ export async function listLoanRequests(tenantId: string, prismaOverride?: Prisma
           actorUser: { select: { id: true, fullName: true, email: true } },
         },
       },
+      guarantorApprovals: {
+        orderBy: { requestedAt: "asc" },
+        include: {
+          guarantorMember: {
+            select: {
+              email: true,
+              fullName: true,
+              id: true,
+              memberNumber: true,
+            },
+          },
+          respondedByUser: { select: { id: true, fullName: true, email: true } },
+        },
+      },
     },
     orderBy: { requestedAt: "desc" },
+  })
+}
+
+export async function listMemberLoanGuarantorApprovals(
+  input: {
+    guarantorMemberId: string
+    status?: "approved" | "pending" | "rejected"
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.loanGuarantorApproval.findMany({
+    where: {
+      guarantorMemberId: input.guarantorMemberId,
+      tenantId: input.tenantId,
+      ...(input.status ? { status: input.status } : {}),
+    },
+    include: {
+      loanRequest: {
+        include: {
+          loanProduct: true,
+          member: {
+            select: {
+              fullName: true,
+              id: true,
+              memberNumber: true,
+            },
+          },
+        },
+      },
+      requestedByUser: { select: { id: true, fullName: true, email: true } },
+      respondedByUser: { select: { id: true, fullName: true, email: true } },
+    },
+    orderBy: [{ status: "asc" }, { requestedAt: "desc" }],
   })
 }
 
@@ -68,6 +119,34 @@ export async function listLoans(tenantId: string, prismaOverride?: PrismaClient)
       },
     },
     orderBy: { createdAt: "desc" },
+  })
+}
+
+export async function listMemberLoans(
+  input: {
+    memberId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.loan.findMany({
+    include: {
+      loanProduct: true,
+      loanRequest: true,
+      member: { select: { fullName: true, id: true, memberNumber: true } },
+      repaymentScheduleItems: {
+        orderBy: { installmentNumber: "asc" },
+        take: 3,
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    where: {
+      memberId: input.memberId,
+      tenantId: input.tenantId,
+    },
   })
 }
 
@@ -331,15 +410,70 @@ function calculateEstimatedMonthlyServicing(requestedAmount: number, requestedTe
   return Number((requestedAmount / requestedTermMonths).toFixed(2))
 }
 
+async function getMemberFinancingEligibilitySavingsBase(input: {
+  memberId: string
+  prisma: PrismaClient
+  specialSavingsCountsForEligibility: boolean
+  tenantId: string
+  totalSavingsSnapshot: number
+}) {
+  if (input.specialSavingsCountsForEligibility) {
+    return input.totalSavingsSnapshot
+  }
+
+  const contributions = await input.prisma.contribution.findMany({
+    select: {
+      amount: true,
+      committedAmount: true,
+      extraSavingsAmount: true,
+    },
+    where: {
+      memberId: input.memberId,
+      status: "posted",
+      tenantId: input.tenantId,
+    },
+  })
+
+  return contributions.reduce((total, contribution) => {
+    const amount = Number(contribution.amount)
+    const committedAmount =
+      contribution.committedAmount !== null &&
+      contribution.committedAmount !== undefined
+        ? Number(contribution.committedAmount)
+        : Math.max(0, amount - Number(contribution.extraSavingsAmount ?? 0))
+
+    return total + committedAmount
+  }, 0)
+}
+
 export type SubmitLoanRequestInput = {
   actorUserId: string
   extraMonthlySavingsAmount?: number
+  guarantorMemberIds?: string[]
   loanProductId: string
   memberId: string
   purpose?: string
   requestedAmount: number
   requestedTermMonths: number
   tenantId: string
+}
+
+function normalizeLoanGuarantorMemberIds(ids?: string[]) {
+  const normalized: string[] = []
+  const seen = new Set<string>()
+
+  for (const id of ids ?? []) {
+    const value = id.trim()
+
+    if (!value || seen.has(value)) {
+      continue
+    }
+
+    seen.add(value)
+    normalized.push(value)
+  }
+
+  return normalized
 }
 
 export async function submitLoanRequest(
@@ -369,12 +503,69 @@ export async function submitLoanRequest(
     throw new Error(`Requested term exceeds the product limit of ${loanProduct.termMonths} months.`)
   }
 
+  const guarantorMemberIds = normalizeLoanGuarantorMemberIds(
+    input.guarantorMemberIds,
+  )
+
+  if (guarantorMemberIds.includes(input.memberId)) {
+    throw new Error("A member cannot guarantee their own financing request.")
+  }
+
+  const guarantorMembers = guarantorMemberIds.length
+    ? await prisma.member.findMany({
+        where: {
+          id: { in: guarantorMemberIds },
+          status: "active",
+          tenantId: input.tenantId,
+        },
+        select: {
+          email: true,
+          fullName: true,
+          id: true,
+          memberNumber: true,
+        },
+      })
+    : []
+
+  if (guarantorMembers.length !== guarantorMemberIds.length) {
+    throw new Error("One or more guarantor members could not be found.")
+  }
+
+  const specialSavingsCountsForEligibility =
+    policy?.specialSavingsCountsForEligibility ?? true
+  const eligibilitySavingsBase = await getMemberFinancingEligibilitySavingsBase({
+    memberId: input.memberId,
+    prisma,
+    specialSavingsCountsForEligibility,
+    tenantId: input.tenantId,
+    totalSavingsSnapshot: Number(member.totalSavingsSnapshot),
+  })
   const policyMultiple = Number(policy?.loanEligibilityMultiple ?? 2)
   const productMultiple = Number(loanProduct.maxSavingsMultiple)
-  const eligibleAmount = Number(member.totalSavingsSnapshot) * Math.min(policyMultiple, productMultiple)
+  const eligibleAmount =
+    eligibilitySavingsBase * Math.min(policyMultiple, productMultiple)
 
   if (input.requestedAmount > eligibleAmount) {
     throw new Error("Requested amount exceeds the member eligibility snapshot.")
+  }
+
+  if (
+    loanProduct.loanType === "quick" &&
+    (policy?.activeFinancingBlocksEmergency ?? true)
+  ) {
+    const activeFinancingCount = await prisma.loan.count({
+      where: {
+        memberId: input.memberId,
+        status: { in: ["approved", "disbursed", "active"] },
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (activeFinancingCount > 0) {
+      throw new Error(
+        "This cooperative blocks emergency financing while the member has active financing."
+      )
+    }
   }
 
   const estimatedMonthlyServicing = calculateEstimatedMonthlyServicing(
@@ -422,6 +613,26 @@ export async function submitLoanRequest(
       },
     })
 
+    const guarantorApprovals = []
+
+    for (const guarantor of guarantorMembers) {
+      const approval = await tx.loanGuarantorApproval.create({
+        data: {
+          tenantId: input.tenantId,
+          loanRequestId: request.id,
+          guarantorMemberId: guarantor.id,
+          requestedByUserId: input.actorUserId,
+          requestedAt: request.requestedAt,
+          status: "pending",
+        },
+      })
+
+      guarantorApprovals.push({
+        ...approval,
+        guarantorMember: guarantor,
+      })
+    }
+
     await applyLoanRequestChargesInTransaction(
       {
         actorUserId: input.actorUserId,
@@ -446,17 +657,216 @@ export async function submitLoanRequest(
           availablePool: metrics.availablePool,
           capacity: capacityCheck,
           eligibleAmount,
+          eligibilitySavingsBase,
           estimatedMonthlyServicing,
           extraMonthlySavingsAmount: input.extraMonthlySavingsAmount ?? 0,
+          guarantorMemberIds,
           memberId: input.memberId,
           requestedAmount: input.requestedAmount,
           requestedTermMonths: input.requestedTermMonths,
+          specialSavingsCountsForEligibility,
         },
         occurredAt: new Date(),
       },
     })
 
-    return request
+    return {
+      ...request,
+      borrowerMember: {
+        fullName: member.fullName,
+        id: member.id,
+        memberNumber: member.memberNumber,
+      },
+      guarantorApprovals,
+    }
+  })
+}
+
+export async function reviewLoanGuarantorApproval(
+  input: {
+    actorUserId: string
+    guarantorApprovalId: string
+    notes?: string
+    status: "approved" | "rejected"
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
+  return prisma.$transaction(async (tx) => {
+    const existingApproval = await tx.loanGuarantorApproval.findFirst({
+      where: {
+        id: input.guarantorApprovalId,
+        tenantId: input.tenantId,
+      },
+      include: {
+        guarantorMember: {
+          select: {
+            email: true,
+            fullName: true,
+            id: true,
+            memberNumber: true,
+          },
+        },
+        loanRequest: true,
+      },
+    })
+
+    if (!existingApproval) {
+      throw new Error("Loan guarantor approval not found.")
+    }
+
+    if (existingApproval.loanRequest.status === "approved") {
+      throw new Error("Approved loan requests cannot change guarantor evidence.")
+    }
+
+    const approval = await tx.loanGuarantorApproval.update({
+      where: { id: existingApproval.id },
+      data: {
+        respondedAt: new Date(),
+        respondedByUserId: input.actorUserId,
+        responseNotes: input.notes ?? null,
+        status: input.status,
+      },
+      include: {
+        guarantorMember: {
+          select: {
+            email: true,
+            fullName: true,
+            id: true,
+            memberNumber: true,
+          },
+        },
+        respondedByUser: { select: { id: true, fullName: true, email: true } },
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        tenantId: input.tenantId,
+        actorUserId: input.actorUserId,
+        actorType: "user",
+        action: `loan_guarantor_approval.${input.status}`,
+        entityType: "LoanGuarantorApproval",
+        entityId: approval.id,
+        metadata: {
+          guarantorMemberId: approval.guarantorMemberId,
+          loanRequestId: approval.loanRequestId,
+          notes: input.notes ?? null,
+          status: input.status,
+        },
+        occurredAt: new Date(),
+      },
+    })
+
+    return approval
+  })
+}
+
+export async function respondMemberLoanGuarantorApproval(
+  input: {
+    actorUserId: string
+    guarantorApprovalId: string
+    guarantorMemberId: string
+    notes?: string
+    status: "approved" | "rejected"
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
+  return prisma.$transaction(async (tx) => {
+    const existingApproval = await tx.loanGuarantorApproval.findFirst({
+      where: {
+        guarantorMemberId: input.guarantorMemberId,
+        id: input.guarantorApprovalId,
+        tenantId: input.tenantId,
+      },
+      include: {
+        guarantorMember: {
+          select: {
+            email: true,
+            fullName: true,
+            id: true,
+            memberNumber: true,
+          },
+        },
+        loanRequest: true,
+      },
+    })
+
+    if (!existingApproval) {
+      throw new Error("Loan guarantor approval not found.")
+    }
+
+    if (existingApproval.loanRequest.status === "approved") {
+      throw new Error("Approved loan requests cannot change guarantor evidence.")
+    }
+
+    if (existingApproval.status !== "pending") {
+      throw new Error(
+        "Only pending guarantor approvals can be answered by the guarantor."
+      )
+    }
+
+    const approval = await tx.loanGuarantorApproval.update({
+      where: { id: existingApproval.id },
+      data: {
+        respondedAt: new Date(),
+        respondedByUserId: input.actorUserId,
+        responseNotes: input.notes ?? null,
+        status: input.status,
+      },
+      include: {
+        guarantorMember: {
+          select: {
+            email: true,
+            fullName: true,
+            id: true,
+            memberNumber: true,
+          },
+        },
+        loanRequest: {
+          include: {
+            member: {
+              select: {
+                fullName: true,
+                id: true,
+                memberNumber: true,
+              },
+            },
+          },
+        },
+        respondedByUser: { select: { id: true, fullName: true, email: true } },
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        tenantId: input.tenantId,
+        actorUserId: input.actorUserId,
+        actorType: "user",
+        action: `loan_guarantor_approval.${input.status}`,
+        entityType: "LoanGuarantorApproval",
+        entityId: approval.id,
+        metadata: {
+          guarantorMemberId: approval.guarantorMemberId,
+          loanRequestId: approval.loanRequestId,
+          notes: input.notes ?? null,
+          responseSource: "member_self_service",
+          status: input.status,
+        },
+        occurredAt: new Date(),
+      },
+    })
+
+    return approval
   })
 }
 
@@ -494,6 +904,36 @@ export async function reviewLoanRequest(
       orderBy: { actedAt: "asc" },
     })
 
+    const guarantorApprovals = await tx.loanGuarantorApproval.findMany({
+      where: {
+        tenantId: input.tenantId,
+        loanRequestId: existingRequest.id,
+      },
+      orderBy: { requestedAt: "asc" },
+    })
+
+    if (input.status === "approved") {
+      const rejectedGuarantor = guarantorApprovals.find(
+        (approval) => approval.status === "rejected",
+      )
+
+      if (rejectedGuarantor) {
+        throw new Error(
+          "Loan request cannot be approved because a guarantor rejected it."
+        )
+      }
+
+      const pendingGuarantor = guarantorApprovals.find(
+        (approval) => approval.status !== "approved",
+      )
+
+      if (pendingGuarantor) {
+        throw new Error(
+          "Loan request cannot be approved until all guarantors approve."
+        )
+      }
+    }
+
     let nextStatus = input.status
     let shouldMaterializeLoan = input.status === "approved"
 
@@ -515,6 +955,14 @@ export async function reviewLoanRequest(
       },
       include: {
         loanProduct: true,
+        member: {
+          select: {
+            email: true,
+            fullName: true,
+            id: true,
+            memberNumber: true,
+          },
+        },
       },
     })
 
@@ -568,6 +1016,12 @@ export async function reviewLoanRequest(
         metadata: {
           approvalCountAfterAction:
             input.status === "approved" ? existingApprovals.length + 1 : existingApprovals.length,
+          guarantorApprovalCount: guarantorApprovals.length,
+          guarantorGateSatisfied:
+            guarantorApprovals.length === 0 ||
+            guarantorApprovals.every(
+              (approval) => approval.status === "approved",
+            ),
           requiresDualApproval,
           notes: input.notes ?? null,
         },
@@ -732,6 +1186,57 @@ async function allocateRepaymentAcrossScheduleItems(input: {
     })
 
     remaining -= allocated
+  }
+}
+
+export async function stopRemainingScheduleForClearedLoan(input: {
+  loanId: string
+  tenantId: string
+  tx: PrismaClient
+}) {
+  const scheduleItems = await input.tx.repaymentScheduleItem.findMany({
+    where: {
+      tenantId: input.tenantId,
+      loanId: input.loanId,
+      status: {
+        in: ["pending", "due", "overdue", "partially_paid"],
+      },
+    },
+    orderBy: [{ installmentNumber: "asc" }],
+  })
+  const itemsToWaive = scheduleItems.filter(
+    (item) => Number(item.totalDue) - Number(item.amountPaid) > 0,
+  )
+
+  if (itemsToWaive.length === 0) {
+    return {
+      waivedOutstandingAmount: 0,
+      waivedScheduleItemCount: 0,
+      waivedScheduleItemIds: [] as string[],
+    }
+  }
+
+  await input.tx.repaymentScheduleItem.updateMany({
+    where: {
+      tenantId: input.tenantId,
+      loanId: input.loanId,
+      id: {
+        in: itemsToWaive.map((item) => item.id),
+      },
+    },
+    data: {
+      status: "waived",
+    },
+  })
+
+  return {
+    waivedOutstandingAmount: itemsToWaive.reduce(
+      (sum, item) =>
+        sum + Math.max(0, Number(item.totalDue) - Number(item.amountPaid)),
+      0,
+    ),
+    waivedScheduleItemCount: itemsToWaive.length,
+    waivedScheduleItemIds: itemsToWaive.map((item) => item.id),
   }
 }
 
@@ -903,7 +1408,12 @@ export async function postRepayment(
       where: { id: input.loanId, tenantId: input.tenantId },
     })
     if (!loan) throw new Error("Loan not found")
-    if (input.amount > Number(loan.outstandingPrincipal)) {
+    const previousOutstandingPrincipal = Number(loan.outstandingPrincipal)
+    const nextOutstandingPrincipal = previousOutstandingPrincipal - input.amount
+    const repaymentClearsLoan = nextOutstandingPrincipal <= 0
+    const postedAt = new Date()
+
+    if (input.amount > previousOutstandingPrincipal) {
       throw new Error("Repayment amount exceeds the outstanding loan balance.")
     }
 
@@ -914,7 +1424,7 @@ export async function postRepayment(
         loanId: loan.id,
         repaymentScheduleItemId: input.repaymentScheduleItemId,
         receivedByUserId: input.actorUserId,
-        paidAt: new Date(),
+        paidAt: postedAt,
         amount: input.amount,
         status: "posted",
         reference: input.reference,
@@ -927,8 +1437,8 @@ export async function postRepayment(
         outstandingPrincipal: {
           decrement: input.amount,
         },
-        status: Number(loan.outstandingPrincipal) - input.amount <= 0 ? "completed" : "active",
-        ...(Number(loan.outstandingPrincipal) - input.amount <= 0 ? { closedAt: new Date() } : {}),
+        status: repaymentClearsLoan ? "completed" : "active",
+        ...(repaymentClearsLoan ? { closedAt: postedAt } : {}),
       },
     })
 
@@ -938,6 +1448,14 @@ export async function postRepayment(
       tenantId: input.tenantId,
       tx: tx as unknown as PrismaClient,
     })
+
+    const settlement = repaymentClearsLoan
+      ? await stopRemainingScheduleForClearedLoan({
+          loanId: loan.id,
+          tenantId: input.tenantId,
+          tx: tx as unknown as PrismaClient,
+        })
+      : null
 
     await postLedgerTransaction(
       {
@@ -974,6 +1492,32 @@ export async function postRepayment(
         occurredAt: new Date(),
       },
     })
+
+    if (repaymentClearsLoan) {
+      await tx.auditLog.create({
+        data: {
+          tenantId: input.tenantId,
+          actorUserId: input.actorUserId,
+          actorType: "user",
+          action: "loan.early_settled",
+          entityType: "Loan",
+          entityId: loan.id,
+          metadata: {
+            loanId: loan.id,
+            repaymentId: repayment.id,
+            repaymentAmount: input.amount,
+            previousOutstandingPrincipal,
+            closedAt: postedAt.toISOString(),
+            waivedScheduleItemCount:
+              settlement?.waivedScheduleItemCount ?? 0,
+            waivedScheduleItemIds: settlement?.waivedScheduleItemIds ?? [],
+            waivedScheduleOutstandingAmount:
+              settlement?.waivedOutstandingAmount ?? 0,
+          },
+          occurredAt: postedAt,
+        },
+      })
+    }
 
     return repayment
   })

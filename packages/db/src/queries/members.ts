@@ -122,6 +122,32 @@ export async function listMembers(
   return { items, total, page, pageSize }
 }
 
+export async function getMemberByUserId(
+  input: {
+    tenantId: string
+    userId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.member.findFirst({
+    select: {
+      email: true,
+      fullName: true,
+      id: true,
+      memberNumber: true,
+      memberType: true,
+      status: true,
+    },
+    where: {
+      tenantId: input.tenantId,
+      userId: input.userId,
+    },
+  })
+}
+
 export async function listMembersTable(
   tenantId: string,
   filters?: ListMembersTableFilters,
@@ -303,11 +329,7 @@ async function assertMemberProfileMutationOpen(
     )
   }
 
-  const setupStepKeys = new Set([
-    "finance_start_date",
-    "charge_schedules",
-    "share_capital_plan",
-  ])
+  const setupStepKeys = new Set(["finance_start_date", "charge_schedules"])
   const blockingSteps = migrationState.snapshot.missingStepKeys.filter(
     (stepKey) => setupStepKeys.has(stepKey)
   )
@@ -956,6 +978,9 @@ export type MemberStatementSummary = {
   totalLoanExtraSavingsAmount: number
   totalRepaymentsPosted: number
   lastRepaymentAt: Date | null
+  totalDividendAllocations: number
+  dividendAllocationCount: number
+  lastDividendAllocatedAt: Date | null
 }
 
 export async function listMemberStatementSummaries(
@@ -965,61 +990,80 @@ export async function listMemberStatementSummaries(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const [members, contributionTotals, repaymentTotals, loanTotals] =
-    await Promise.all([
-      prisma.member.findMany({
-        where: { tenantId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          deductionSource: { select: { name: true } },
-          user: { select: { email: true } },
-          contributionPlans: {
-            where: { isActive: true },
-            orderBy: { startsAt: "desc" },
-            take: 1,
-          },
+  const [
+    members,
+    contributionTotals,
+    repaymentTotals,
+    loanTotals,
+    dividendTotals,
+  ] = await Promise.all([
+    prisma.member.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        deductionSource: { select: { name: true } },
+        user: { select: { email: true } },
+        contributionPlans: {
+          where: { isActive: true },
+          orderBy: { startsAt: "desc" },
+          take: 1,
         },
-      }),
-      prisma.contribution.groupBy({
-        by: ["memberId"],
-        where: {
-          tenantId,
-          status: "posted",
+      },
+    }),
+    prisma.contribution.groupBy({
+      by: ["memberId"],
+      where: {
+        tenantId,
+        status: "posted",
+      },
+      _count: { _all: true },
+      _sum: {
+        amount: true,
+        committedAmount: true,
+        extraSavingsAmount: true,
+      },
+      _max: { postedAt: true },
+    }),
+    prisma.repayment.groupBy({
+      by: ["memberId"],
+      where: {
+        tenantId,
+        status: "posted",
+      },
+      _sum: { amount: true },
+      _max: { paidAt: true },
+    }),
+    prisma.loan.groupBy({
+      by: ["memberId"],
+      where: {
+        tenantId,
+        status: {
+          in: ["approved", "disbursed", "active", "defaulted"],
         },
-        _count: { _all: true },
-        _sum: {
-          amount: true,
-          committedAmount: true,
-          extraSavingsAmount: true,
+      },
+      _count: { _all: true },
+      _sum: {
+        principalAmount: true,
+        outstandingPrincipal: true,
+        estimatedMonthlyServicing: true,
+        extraMonthlySavingsAmount: true,
+      },
+    }),
+    prisma.dividendAllocation.groupBy({
+      by: ["memberId"],
+      where: {
+        tenantId,
+        dividendPeriod: {
+          status: "published",
         },
-        _max: { postedAt: true },
-      }),
-      prisma.repayment.groupBy({
-        by: ["memberId"],
-        where: {
-          tenantId,
-          status: "posted",
-        },
-        _sum: { amount: true },
-        _max: { paidAt: true },
-      }),
-      prisma.loan.groupBy({
-        by: ["memberId"],
-        where: {
-          tenantId,
-          status: {
-            in: ["approved", "disbursed", "active", "defaulted"],
-          },
-        },
-        _count: { _all: true },
-        _sum: {
-          principalAmount: true,
-          outstandingPrincipal: true,
-          estimatedMonthlyServicing: true,
-          extraMonthlySavingsAmount: true,
-        },
-      }),
-    ])
+      },
+      _count: { _all: true },
+      _sum: {
+        allocationAmount: true,
+      },
+      _max: { createdAt: true },
+    }),
+  ])
 
   const contributionMap = new Map(
     contributionTotals.map((item) => [item.memberId, item])
@@ -1028,12 +1072,16 @@ export async function listMemberStatementSummaries(
     repaymentTotals.map((item) => [item.memberId, item])
   )
   const loanMap = new Map(loanTotals.map((item) => [item.memberId, item]))
+  const dividendMap = new Map(
+    dividendTotals.map((item) => [item.memberId, item])
+  )
 
   return members.map((member) => {
     const activePlan = member.contributionPlans[0] ?? null
     const contributionTotal = contributionMap.get(member.id)
     const repaymentTotal = repaymentMap.get(member.id)
     const loanTotal = loanMap.get(member.id)
+    const dividendTotal = dividendMap.get(member.id)
 
     return {
       memberId: member.id,
@@ -1070,6 +1118,11 @@ export async function listMemberStatementSummaries(
       ),
       totalRepaymentsPosted: Number(repaymentTotal?._sum.amount ?? 0),
       lastRepaymentAt: repaymentTotal?._max.paidAt ?? null,
+      totalDividendAllocations: Number(
+        dividendTotal?._sum.allocationAmount ?? 0
+      ),
+      dividendAllocationCount: dividendTotal?._count._all ?? 0,
+      lastDividendAllocatedAt: dividendTotal?._max.createdAt ?? null,
     }
   })
 }
@@ -1102,48 +1155,82 @@ export async function getMemberStatementDetail(
     return null
   }
 
-  const [contributions, loans, repayments, ledgerTransactions, summary] =
-    await Promise.all([
-      prisma.contribution.findMany({
-        where: { tenantId, memberId },
-        include: {
-          contributionPlan: true,
+  const [
+    contributions,
+    loans,
+    repayments,
+    dividendAllocations,
+    ledgerTransactions,
+    summary,
+  ] = await Promise.all([
+    prisma.contribution.findMany({
+      where: { tenantId, memberId },
+      include: {
+        contributionPlan: true,
+      },
+      orderBy: { postedAt: "desc" },
+      take: 25,
+    }),
+    prisma.loan.findMany({
+      where: { tenantId, memberId },
+      include: {
+        loanProduct: true,
+        repaymentScheduleItems: {
+          orderBy: { installmentNumber: "asc" },
+          take: 6,
         },
-        orderBy: { postedAt: "desc" },
-        take: 25,
-      }),
-      prisma.loan.findMany({
-        where: { tenantId, memberId },
-        include: {
-          loanProduct: true,
-          repaymentScheduleItems: {
-            orderBy: { installmentNumber: "asc" },
-            take: 6,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
+    prisma.repayment.findMany({
+      where: { tenantId, memberId },
+      include: {
+        loan: {
+          include: {
+            loanProduct: true,
           },
         },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      }),
-      prisma.repayment.findMany({
-        where: { tenantId, memberId },
-        include: {
-          loan: {
-            include: {
-              loanProduct: true,
-            },
-          },
-          repaymentScheduleItem: true,
+        repaymentScheduleItem: true,
+      },
+      orderBy: { paidAt: "desc" },
+      take: 25,
+    }),
+    prisma.dividendAllocation.findMany({
+      where: {
+        tenantId,
+        memberId,
+        dividendPeriod: {
+          status: "published",
         },
-        orderBy: { paidAt: "desc" },
-        take: 25,
-      }),
-      getMemberTransactions(tenantId, memberId, prisma),
-      listMemberStatementSummaries(tenantId, prisma),
-    ])
+      },
+      include: {
+        dividendPeriod: {
+          select: {
+            deductionAmount: true,
+            deductionReason: true,
+            distributableAmount: true,
+            id: true,
+            name: true,
+            periodEnd: true,
+            periodStart: true,
+            publishedAt: true,
+            status: true,
+            totalProfitAmount: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 25,
+    }),
+    getMemberTransactions(tenantId, memberId, prisma),
+    listMemberStatementSummaries(tenantId, prisma),
+  ])
 
   return {
     member,
     contributions,
+    dividendAllocations,
     ledgerTransactions,
     loans,
     repayments,

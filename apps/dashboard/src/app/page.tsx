@@ -1,12 +1,11 @@
 import { headers } from "next/headers"
-import { normalizeRole } from "@halaalvest/auth/roles"
-import { createDbRuntime } from "@halaalvest/db"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { TenantUrlProvider } from "@halaalvest/tenant-url/react"
+import { DashboardPageFrame, WorkspaceEmptyState } from "@/components/dashboard"
 import { DashboardShellClient } from "@/components/dashboard-shell"
+import { MemberPortalOverview } from "@/components/member-portal-overview"
 import { OverviewView } from "@/components/widgets"
-import { getDashboardServerContext } from "@/lib/server-context"
-import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
+import { loadTenantHomePageData } from "@/lib/dashboard/load-tenant-home-page"
 import { HydrateClient, prefetch, trpc } from "@/trpc/server"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
@@ -18,48 +17,79 @@ export default async function TenantHomePage() {
     config: tenantUrlConfig,
     headers: headerStore,
   })
-  const context = await getDashboardServerContext()
+  const data = await loadTenantHomePageData()
 
-  if (context.auth.sessionToken && context.auth.membership) {
-    const role = normalizeRole(context.auth.membership.role)
-    const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
-    const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
-    const runtime = createDbRuntime()
+  if (data.state === "redirect") {
+    return tenantRedirect(data.href)
+  }
 
-    if (
-      context.tenant &&
-      runtime.status === "database-configured"
-    ) {
-      const setupGate = await resolveInitialMigrationSetupGate({
-        role: context.auth.membership.role,
-        tenantId: context.tenant.id,
-      })
+  if (
+    data.state === "member-unavailable" ||
+    data.state === "member-profile-missing" ||
+    data.state === "member-ready"
+  ) {
+    let memberPortalContent = (
+      <DashboardPageFrame>
+        <WorkspaceEmptyState
+          body="Member dashboard data is available once the database-backed workspace is active."
+          title="Member dashboard needs the database runtime."
+        />
+      </DashboardPageFrame>
+    )
 
-      if (setupGate.shouldRedirectAdminToSetup) {
-        return tenantRedirect("/getting-started")
-      }
+    if (data.state === "member-profile-missing") {
+      memberPortalContent = (
+        <DashboardPageFrame>
+          <WorkspaceEmptyState
+            body="Your user account is not linked to a member profile in this cooperative."
+            title="Member profile not linked."
+          />
+        </DashboardPageFrame>
+      )
     }
 
-    await prefetch(trpc.overview.summary.queryOptions())
+    if (data.state === "member-ready") {
+      memberPortalContent = (
+        <MemberPortalOverview
+          detail={data.detail}
+          foodPurchaseApplications={data.foodPurchaseApplications}
+          procurementRequests={data.procurementRequests}
+          projectFinancingRequests={data.projectFinancingRequests}
+          receipts={data.receipts}
+          shareApplications={data.shareApplications}
+          sharePolicy={data.sharePolicy}
+          sharePosition={data.sharePosition}
+          supportCases={data.supportCases}
+        />
+      )
+    }
 
     return (
       <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
         <DashboardShellClient
-          role={role}
-          tenantName={tenantName}
-          userName={userName}
+          role={data.role}
+          tenantName={data.tenantName}
+          userName={data.userName}
         >
-          <HydrateClient>
-            <OverviewView />
-          </HydrateClient>
+          {memberPortalContent}
         </DashboardShellClient>
       </TenantUrlProvider>
     )
   }
 
-  if (context.auth.sessionToken && context.auth.pendingMemberOnboarding) {
-    return tenantRedirect("/awaiting-approval")
-  }
+  await prefetch(trpc.overview.summary.queryOptions())
 
-  return tenantRedirect("/login")
+  return (
+    <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
+      <DashboardShellClient
+        role={data.role}
+        tenantName={data.tenantName}
+        userName={data.userName}
+      >
+        <HydrateClient>
+          <OverviewView />
+        </HydrateClient>
+      </DashboardShellClient>
+    </TenantUrlProvider>
+  )
 }

@@ -45,8 +45,11 @@ export function buildInitialMigrationSnapshot(input: {
   hasMemberLedgerBackfill: boolean
   hasMemberProfiles: boolean
   hasShareCapitalPlan: boolean
+  requiresShareCapitalPlan?: boolean
   status: InitialMigrationStatus
 }): InitialMigrationSnapshot {
+  const shareCapitalPlanComplete =
+    input.requiresShareCapitalPlan === false || input.hasShareCapitalPlan
   const steps: InitialMigrationStep[] = [
     {
       complete: input.hasFinanceStartDate,
@@ -69,9 +72,12 @@ export function buildInitialMigrationSnapshot(input: {
       label: "Business profit sharing seasons",
     },
     {
-      complete: input.hasShareCapitalPlan,
+      complete: shareCapitalPlanComplete,
       key: "share_capital_plan",
-      label: "Share capital plan",
+      label:
+        input.requiresShareCapitalPlan === false
+          ? "Share capital plan (optional)"
+          : "Share capital plan",
     },
     {
       complete: input.hasMemberProfiles,

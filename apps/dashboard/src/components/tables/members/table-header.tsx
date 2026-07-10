@@ -185,12 +185,22 @@ function renderHeaderContent<TData>(
   const sortField = SORT_FIELD_MAPS.members[columnId]
 
   if (columnId === "select") {
+    const allPageRowsSelected = table.getIsAllPageRowsSelected()
+    const somePageRowsSelected = table.getIsSomePageRowsSelected()
+
     return (
       <Checkbox
         aria-label="Select all visible members"
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate")
+        aria-checked={
+          allPageRowsSelected
+            ? true
+            : somePageRowsSelected
+              ? "mixed"
+              : false
+        }
+        checked={allPageRowsSelected}
+        data-indeterminate={
+          !allPageRowsSelected && somePageRowsSelected ? "" : undefined
         }
         onCheckedChange={(checked) => {
           table.toggleAllPageRowsSelected(checked === true)

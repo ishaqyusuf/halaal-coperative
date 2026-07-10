@@ -67,6 +67,19 @@ export type TenantSignupAvailability = {
   }
 }
 
+export type TenantTrustProfile = {
+  backupRetentionNote: string | null
+  dataProcessingUrl: string | null
+  incidentContactEmail: string | null
+  incidentContactName: string | null
+  legalTermsUrl: string | null
+  privacyPolicyUrl: string | null
+  recoveryPointObjective: string | null
+  recoveryTimeObjective: string | null
+  reviewedAt: Date | null
+  reviewedByUserId: string | null
+}
+
 const seedTenants: TenantRecord[] = [
   {
     id: "tenant-amanah-demo",
@@ -629,6 +642,188 @@ export async function listTenantDomainsByTenantId(tenantId: string) {
   })
 
   return domains.map(mapTenantDomainRecord)
+}
+
+function normalizeTrustOptionalString(value: string | null | undefined) {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+function normalizeTrustUrl(value: string | null | undefined, label: string) {
+  const normalized = normalizeTrustOptionalString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  let url: URL
+  try {
+    url = new URL(normalized)
+  } catch {
+    throw new Error(`${label} must be a valid URL.`)
+  }
+
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error(`${label} must use http or https.`)
+  }
+
+  return url.toString()
+}
+
+function normalizeTrustEmail(value: string | null | undefined) {
+  const normalized = normalizeTrustOptionalString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    throw new Error("Incident contact email must be a valid email address.")
+  }
+
+  return normalized.toLowerCase()
+}
+
+function mapTenantTrustProfile(tenant: {
+  trustBackupRetentionNote: string | null
+  trustDataProcessingUrl: string | null
+  trustIncidentContactEmail: string | null
+  trustIncidentContactName: string | null
+  trustLegalTermsUrl: string | null
+  trustPrivacyPolicyUrl: string | null
+  trustRecoveryPointObjective: string | null
+  trustRecoveryTimeObjective: string | null
+  trustReviewedAt: Date | null
+  trustReviewedByUserId: string | null
+}): TenantTrustProfile {
+  return {
+    backupRetentionNote: tenant.trustBackupRetentionNote,
+    dataProcessingUrl: tenant.trustDataProcessingUrl,
+    incidentContactEmail: tenant.trustIncidentContactEmail,
+    incidentContactName: tenant.trustIncidentContactName,
+    legalTermsUrl: tenant.trustLegalTermsUrl,
+    privacyPolicyUrl: tenant.trustPrivacyPolicyUrl,
+    recoveryPointObjective: tenant.trustRecoveryPointObjective,
+    recoveryTimeObjective: tenant.trustRecoveryTimeObjective,
+    reviewedAt: tenant.trustReviewedAt,
+    reviewedByUserId: tenant.trustReviewedByUserId,
+  }
+}
+
+const tenantTrustProfileSelect = {
+  trustBackupRetentionNote: true,
+  trustDataProcessingUrl: true,
+  trustIncidentContactEmail: true,
+  trustIncidentContactName: true,
+  trustLegalTermsUrl: true,
+  trustPrivacyPolicyUrl: true,
+  trustRecoveryPointObjective: true,
+  trustRecoveryTimeObjective: true,
+  trustReviewedAt: true,
+  trustReviewedByUserId: true,
+} satisfies Prisma.TenantSelect
+
+export async function getTenantTrustProfile(
+  tenantId: string,
+  prismaOverride?: PrismaClient,
+): Promise<TenantTrustProfile> {
+  const prisma = prismaOverride ?? createPrismaClient()
+
+  if (!prisma) {
+    return {
+      backupRetentionNote: null,
+      dataProcessingUrl: null,
+      incidentContactEmail: null,
+      incidentContactName: null,
+      legalTermsUrl: null,
+      privacyPolicyUrl: null,
+      recoveryPointObjective: null,
+      recoveryTimeObjective: null,
+      reviewedAt: null,
+      reviewedByUserId: null,
+    }
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    select: tenantTrustProfileSelect,
+    where: { id: tenantId },
+  })
+
+  if (!tenant) {
+    throw new Error("Tenant not found.")
+  }
+
+  return mapTenantTrustProfile(tenant)
+}
+
+export async function updateTenantTrustProfile(
+  input: {
+    actorUserId: string
+    backupRetentionNote?: string | null
+    dataProcessingUrl?: string | null
+    incidentContactEmail?: string | null
+    incidentContactName?: string | null
+    legalTermsUrl?: string | null
+    privacyPolicyUrl?: string | null
+    recoveryPointObjective?: string | null
+    recoveryTimeObjective?: string | null
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+): Promise<TenantTrustProfile> {
+  const prisma = prismaOverride ?? createPrismaClient()
+
+  if (!prisma) {
+    throw new Error("Database not configured")
+  }
+
+  const trustProfileData = {
+    trustBackupRetentionNote: normalizeTrustOptionalString(
+      input.backupRetentionNote,
+    ),
+    trustDataProcessingUrl: normalizeTrustUrl(
+      input.dataProcessingUrl,
+      "Data-processing URL",
+    ),
+    trustIncidentContactEmail: normalizeTrustEmail(input.incidentContactEmail),
+    trustIncidentContactName: normalizeTrustOptionalString(
+      input.incidentContactName,
+    ),
+    trustLegalTermsUrl: normalizeTrustUrl(input.legalTermsUrl, "Terms URL"),
+    trustPrivacyPolicyUrl: normalizeTrustUrl(
+      input.privacyPolicyUrl,
+      "Privacy policy URL",
+    ),
+    trustRecoveryPointObjective: normalizeTrustOptionalString(
+      input.recoveryPointObjective,
+    ),
+    trustRecoveryTimeObjective: normalizeTrustOptionalString(
+      input.recoveryTimeObjective,
+    ),
+    trustReviewedAt: new Date(),
+    trustReviewedByUserId: input.actorUserId,
+  }
+
+  const tenant = await prisma.tenant.update({
+    data: trustProfileData,
+    select: tenantTrustProfileSelect,
+    where: { id: input.tenantId },
+  })
+
+  await createAuditLogEntry(
+    {
+      action: "tenant.trust_profile_updated",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityId: input.tenantId,
+      entityType: "Tenant",
+      metadata: trustProfileData,
+      tenantId: input.tenantId,
+    },
+    prisma,
+  )
+
+  return mapTenantTrustProfile(tenant)
 }
 
 export async function updateTenantProfile(

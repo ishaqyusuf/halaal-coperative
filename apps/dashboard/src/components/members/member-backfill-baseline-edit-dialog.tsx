@@ -189,7 +189,8 @@ export function MemberBackfillBaselineEditDialog({
             <DialogTitle>Edit basic information</DialogTitle>
             <DialogDescription>
               Update profile details only. Member No., joined date, and
-              commitment history stay on the backfill steps.
+              brought-forward balances or commitment history stay on the
+              migration steps.
             </DialogDescription>
           </DialogHeader>
 

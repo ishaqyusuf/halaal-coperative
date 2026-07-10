@@ -9,6 +9,7 @@ import {
   contributionPlanChanged,
   contributionRecorded,
   loanDisbursed,
+  loanGuarantorApprovalRequested,
   loanRequestStatusChanged,
   loanRequestSubmitted,
   monthlyRecordGenerated,
@@ -17,6 +18,10 @@ import {
   repaymentPosted,
   shareProfitPublished,
 } from "./finance"
+import {
+  foodPurchaseAccountingStatusChanged,
+  foodPurchaseApplicationStatusChanged,
+} from "./food-purchase"
 import {
   memberKycUpdated,
   memberOnboardingApproved,
@@ -29,6 +34,10 @@ import {
   workspaceInvitation,
   workspaceReady,
 } from "./onboarding"
+import { memberPaymentReceiptStatusChanged } from "./payment-receipts"
+import { projectFinancingRequestStatusChanged } from "./project-financing"
+import { procurementRequestStatusChanged } from "./procurement"
+import { memberShareApplicationStatusChanged } from "./share-applications"
 import {
   domainVerificationChanged,
   domainVerificationChecked,
@@ -37,6 +46,11 @@ import {
   migrationBackfillApplied,
   migrationBackfillInitialized,
 } from "./operations"
+import {
+  supportCaseCreated,
+  supportCaseStatusUpdated,
+  supportMessageAdded,
+} from "./support"
 import {
   createNotificationEmailDraft,
   type HalaalVestNotificationDefinition,
@@ -51,9 +65,14 @@ export const halaalVestNotificationTypes = {
   "contribution.recorded": contributionRecorded,
   "domain.verification_changed": domainVerificationChanged,
   "domain.verification_checked": domainVerificationChecked,
+  "food_purchase.application_status_changed":
+    foodPurchaseApplicationStatusChanged,
+  "food_purchase.accounting_status_changed":
+    foodPurchaseAccountingStatusChanged,
   "import.completed": importCompleted,
   "import.failed": importFailed,
   "loan.disbursed": loanDisbursed,
+  "loan.guarantor_approval_requested": loanGuarantorApprovalRequested,
   "loan.request_status_changed": loanRequestStatusChanged,
   "loan.request_submitted": loanRequestSubmitted,
   "member.kyc_updated": memberKycUpdated,
@@ -61,13 +80,21 @@ export const halaalVestNotificationTypes = {
   "member.onboarding_rejected": memberOnboardingRejected,
   "member.onboarding_verification_requested": memberOnboardingVerificationRequested,
   "member.status_changed": memberStatusChanged,
+  "member_share_application.status_changed": memberShareApplicationStatusChanged,
+  "member_payment_receipt.status_changed": memberPaymentReceiptStatusChanged,
   "migration.backfill_applied": migrationBackfillApplied,
   "migration.backfill_initialized": migrationBackfillInitialized,
   "monthly_record.generated": monthlyRecordGenerated,
   "monthly_record.member_applied": monthlyRecordMemberApplied,
   "monthly_record.member_cancelled": monthlyRecordMemberCancelled,
+  "project_financing.request_status_changed":
+    projectFinancingRequestStatusChanged,
+  "procurement.request_status_changed": procurementRequestStatusChanged,
   "repayment.posted": repaymentPosted,
   "share.profit_published": shareProfitPublished,
+  "support.case_created": supportCaseCreated,
+  "support.case_status_updated": supportCaseStatusUpdated,
+  "support.message_added": supportMessageAdded,
   signup_email_verification: signupEmailVerification,
   workspace_invitation: workspaceInvitation,
   workspace_ready: workspaceReady,
@@ -133,7 +160,13 @@ export function getDefaultNotificationRoles(type: HalaalVestNotificationType) {
 }
 
 export * from "./finance"
+export * from "./food-purchase"
 export * from "./member"
 export * from "./onboarding"
 export * from "./operations"
+export * from "./payment-receipts"
+export * from "./project-financing"
+export * from "./procurement"
+export * from "./share-applications"
+export * from "./support"
 export * from "./shared"

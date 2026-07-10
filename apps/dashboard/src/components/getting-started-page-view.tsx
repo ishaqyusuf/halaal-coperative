@@ -48,7 +48,10 @@ import {
 } from "@halaalvest/ui/components/tooltip"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
-import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
+import type {
+  TenantBusinessProfitPolicySettings,
+  TenantSharePolicySettings,
+} from "@halaalvest/db"
 import { BusinessProfitSeasonDeductionCells } from "@/components/business-profit-season-deduction-popover"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import {
@@ -56,12 +59,12 @@ import {
   ChargeDefinitionForm,
   FinanceStartDateForm,
   ShareBusinessForm,
-  ShareStructureVersionForm,
 } from "@/components/forms/tenant-finance-forms"
 import {
   GettingStartedFooterActionsSlot,
   GettingStartedFooterPortal,
 } from "@/components/getting-started-footer-slot"
+import { GettingStartedShareModelPanel } from "@/components/share-model-workspace"
 import { type GettingStartedStepKey } from "@/hooks/use-getting-started-params"
 import {
   finalizeInitialMigrationAction,
@@ -262,6 +265,7 @@ type GettingStartedPageViewProps = {
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   shareBusinesses: ShareBusinessRow[]
+  sharePolicy: TenantSharePolicySettings
   shareStructureVersions: ShareStructureVersionRow[]
   tenantName: string
   tenantStartDate: string | null
@@ -300,7 +304,7 @@ function isStepComplete(
 
   if (key === "start-date") return !missing.has("finance_start_date")
   if (key === "charges") return !missing.has("charge_schedules")
-  if (key === "shares") return !missing.has("share_capital_plan")
+  if (key === "shares") return true
   if (key === "profit-policy") return true
   if (key === "business") return !missing.has("business_profit_pools")
   if (key === "profit-seasons") {
@@ -321,7 +325,7 @@ function getStepMeta(key: GettingStartedStepKey) {
   const meta = {
     "admin-member": {
       description:
-        "Start member backfill onboarding with the registered admin, then repeat it for every member.",
+        "Choose full historical backfill or a brought-forward opening position for the registered admin, then repeat it for every member.",
       label: "Member onboarding",
     },
     business: {
@@ -346,8 +350,8 @@ function getStepMeta(key: GettingStartedStepKey) {
     },
     shares: {
       description:
-        "Define the share capital system and every effective-date change that affects member ledgers.",
-      label: "Shares and history",
+        "Optionally define share capital history when it should affect member ledgers.",
+      label: "Shares and history (optional)",
     },
     "profit-policy": {
       description:
@@ -623,7 +627,10 @@ function StartDateStep({
         description="This date becomes the lower bound for historical finance setup and member migration rows."
       />
       <CardContent className="grid gap-5">
-        <FinanceStartDateForm defaultStartDate={tenantStartDate} />
+        <FinanceStartDateForm
+          defaultStartDate={tenantStartDate}
+          preserveDraftKey="getting-started:start-date"
+        />
       </CardContent>
     </Card>
   )
@@ -644,6 +651,7 @@ function ChargesStep({
         <ChargeDefinitionForm
           financeStartDate={tenantStartDate}
           initialDefinitions={chargeDefinitions}
+          preserveDraftKey="getting-started:charges"
           redirectTo={stepHref("shares")}
           showSubmitButton={false}
         />
@@ -653,25 +661,26 @@ function ChargesStep({
 }
 
 function SharesStep({
+  sharePolicy,
   shareStructureVersions,
   tenantStartDate,
 }: Pick<
   GettingStartedPageViewProps,
-  "shareStructureVersions" | "tenantStartDate"
+  "sharePolicy" | "shareStructureVersions" | "tenantStartDate"
 >) {
   return (
     <Card>
       <SetupCardHeader
         eyebrow="Step 3"
-        title="Shares system and history"
-        description="Define how share capital is calculated and preserve every historical effective-date change."
+        title="Shares system"
+        description="Choose the cooperative share model before member balances are brought forward."
       />
       <CardContent className="grid gap-5">
-        <ShareStructureVersionForm
-          financeStartDate={tenantStartDate}
-          initialVersions={shareStructureVersions}
-          redirectTo={stepHref("profit-policy")}
-          showSubmitButton={false}
+        <GettingStartedShareModelPanel
+          profitPolicyHref={stepHref("profit-policy")}
+          sharePolicy={sharePolicy}
+          shareStructureVersions={shareStructureVersions}
+          tenantStartDate={tenantStartDate}
         />
       </CardContent>
     </Card>
@@ -691,6 +700,7 @@ function ProfitPolicyStep({
       <CardContent className="grid gap-5">
         <BusinessProfitPolicyForm
           defaultPolicy={businessPolicy}
+          preserveDraftKey="getting-started:profit-policy"
           redirectTo={stepHref("business")}
           showSubmitButton={false}
         />
@@ -719,6 +729,7 @@ function BusinessStep({
           dividendPeriods={dividendPeriods}
           financeStartDate={tenantStartDate}
           initialBusinesses={shareBusinesses}
+          preserveDraftKey="getting-started:business-history"
           profitHistoryMode
           redirectTo={stepHref("profit-seasons")}
           showSubmitButton={false}
@@ -948,6 +959,7 @@ function ProfitSeasonsStep({
                             initialAmount={season.deductionAmount}
                             initialReason={season.deductionReason}
                             maxAmount={maxSeasonDeduction}
+                            preserveDraftKey={`getting-started:profit-seasons:${season.key}`}
                             seasonKey={season.key}
                           />
                           <td>
@@ -988,21 +1000,24 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
   const backfillHref = adminMember
     ? `/members/${adminMember.id}/backfill?step=baseline`
     : "/settings/imports/members"
+  const broughtForwardHref = adminMember
+    ? `/members/${adminMember.id}/backfill?step=baseline`
+    : "/settings/imports/members"
   const onboardingSteps = [
     {
-      body: "Confirm identity, joined date, member number, and the member's opening position.",
+      body: "Confirm identity, joined date, member number, and whether the member starts from full history or a brought-forward position.",
       icon: ClipboardListIcon,
       label: "Confirm profile",
     },
     {
-      body: "Capture savings commitments, legacy loans, activity windows, repayments, and profit adjustments.",
+      body: "Capture detailed savings commitments, legacy loans, activity windows, repayments, and profit adjustments only when history is needed.",
       icon: HistoryIcon,
-      label: "Capture history",
+      label: "Capture history or current state",
     },
     {
-      body: "Review generated monthly ledger rows, then apply the approved member backfill.",
+      body: "Review generated ledger rows after the chosen migration details are entered, then apply the approved member migration record.",
       icon: CheckCircle2Icon,
-      label: "Apply backfill",
+      label: "Apply migration",
     },
   ]
 
@@ -1023,13 +1038,14 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
               </CardTitle>
               <CardDescription className="mt-2 max-w-2xl text-sm">
                 {`${tenantName}'s setup is finalized.`} The next workflow is to
-                onboard each member through historical backfill, starting with
-                the registered admin.
+                onboard each member through full historical backfill or a
+                brought-forward opening position, starting with the registered
+                admin.
               </CardDescription>
             </div>
           </div>
           <Link className={buttonVariants({})} href={backfillHref}>
-            {adminMember ? "Start admin backfill" : "Add members"}
+            {adminMember ? "Start admin migration" : "Add members"}
             <ArrowRightIcon className="size-4" />
           </Link>
         </div>
@@ -1083,12 +1099,49 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
           </div>
         </div>
 
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="border border-border/70 bg-background p-4">
+            <Badge variant="outline">Faster start</Badge>
+            <h3 className="mt-3 text-sm font-semibold">
+              Brought-forward opening position
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Use current book balances for savings, shares, active financing,
+              procurement, and special savings when reconstructing every month
+              would slow adoption.
+            </p>
+            <Link
+              className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
+              href={broughtForwardHref}
+            >
+              {adminMember ? "Start brought-forward" : "Add members first"}
+            </Link>
+          </div>
+          <div className="border border-border/70 bg-background p-4">
+            <Badge variant="outline">Detailed audit</Badge>
+            <h3 className="mt-3 text-sm font-semibold">
+              Full historical backfill
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Recreate dated commitments, charges, legacy loans, repayments,
+              activity windows, and profit adjustments when the cooperative
+              needs month-by-month history.
+            </p>
+            <Link
+              className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
+              href={backfillHref}
+            >
+              {adminMember ? "Start full backfill" : "Add members first"}
+            </Link>
+          </div>
+        </div>
+
         <div className="border border-border/70">
           <div className="border-b border-border/70 px-4 py-3">
             <p className="text-sm font-semibold">Onboard every member</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Continue this workflow for each member while normal live
-              operations stay available.
+              Continue either migration path for each member while normal live
+              operations stay available after setup finalization.
             </p>
           </div>
           <div className="grid divide-y divide-border/70 md:grid-cols-3 md:divide-x md:divide-y-0">
@@ -1210,8 +1263,7 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
         ? "admin-member"
         : orderedStepKeys[activeIndex + 1]
   const requireHistoryConfirmation =
-    (props.activeStep === "charges" && props.chargeDefinitions.length === 0) ||
-    (props.activeStep === "shares" && props.shareStructureVersions.length === 0)
+    props.activeStep === "charges" && props.chargeDefinitions.length === 0
   const hasStepNextAction =
     ["charges", "shares", "profit-policy", "business"].includes(
       props.activeStep
@@ -1230,6 +1282,7 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
         />
       ) : props.activeStep === "shares" ? (
         <SharesStep
+          sharePolicy={props.sharePolicy}
           shareStructureVersions={props.shareStructureVersions}
           tenantStartDate={props.tenantStartDate}
         />

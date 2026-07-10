@@ -101,13 +101,39 @@ model MemberShareLedgerEntry {
   createdByUserId String?               @map("created_by_user_id") @db.Uuid
   createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  tenant                    Tenant                             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                    Member                             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
   @@index([tenantId, memberId, effectiveDate], map: "member_share_ledger_entries_tenant_member_effective_idx")
   @@index([tenantId, effectiveDate], map: "member_share_ledger_entries_tenant_effective_idx")
   @@index([tenantId, sourceType, sourceId], map: "member_share_ledger_entries_tenant_source_idx")
   @@map("member_share_ledger_entries")
+}
+
+model MemberShareApplication {
+  id                  String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String                       @map("tenant_id") @db.Uuid
+  memberId            String                       @map("member_id") @db.Uuid
+  requestedUnits      Int                          @map("requested_units")
+  approvedUnits       Int?                         @map("approved_units")
+  unitAmountSnapshot  Decimal                      @map("unit_amount_snapshot") @db.Decimal(18, 2)
+  shareValueSnapshot  Decimal                      @map("share_value_snapshot") @db.Decimal(18, 2)
+  status              MemberShareApplicationStatus @default(pending)
+  notes               String?
+  reviewNotes         String?                      @map("review_notes")
+  requestedByUserId   String?                      @map("requested_by_user_id") @db.Uuid
+  reviewedByUserId    String?                      @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt          DateTime?                    @map("reviewed_at") @db.Timestamptz(6)
+  createdAt           DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt], map: "member_share_applications_tenant_status_created_idx")
+  @@index([tenantId, memberId, status], map: "member_share_applications_tenant_member_status_idx")
+  @@map("member_share_applications")
 }
 
 model ShareProfitAllocation {

@@ -4,6 +4,8 @@ import {
   stripPort,
 } from "@halaalvest/tenant-url"
 
+const defaultDashboardPortlessHost = "halaalvest-dash.localhost"
+
 export type OnboardingWorkspaceUrlVariant = {
   description: string
   label: string
@@ -40,7 +42,7 @@ function getDashboardAppOrigin(currentOrigin?: string | null) {
     return `${current?.protocol ?? "http:"}//${hostname}:${port}`
   }
 
-  return currentOrigin ?? "http://app.halaalvest.localhost:1441"
+  return currentOrigin ?? `http://${defaultDashboardPortlessHost}:1441`
 }
 
 function getTenantSiteOrigin(currentOrigin?: string | null) {

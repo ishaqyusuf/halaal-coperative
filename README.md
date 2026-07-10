@@ -22,8 +22,8 @@ Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant interest-free c
 ```bash
 bun install
 bun run dev
-bun run dev:portless
-bun run dev:prod
+bun run dev --prod
+bun run dev -f web dashboard jobs
 bun run lint
 bun run typecheck
 ```
@@ -39,21 +39,23 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST/amanah_cooperative?sslmode=require
 To run local dev against the production database, put the production `DATABASE_URL` in ignored file `.env.production.local`, then run:
 
 ```bash
-bun run dev:prod
+bun run dev --prod
 ```
 
-`dev:prod` does not run migrations, and it refuses to run if `DATABASE_URL` still points at localhost.
+`bun run dev --prod` does not run migrations, and it refuses to run if `DATABASE_URL` still points at localhost.
 
 ## Portless
 
 This repo includes `plot-keys`-style `portless` scripts for stable named `.localhost` URLs.
 
 ```bash
-bun run dev:portless
-bun run dev:dashboard:portless
-bun run dev:web:portless
-bun run dev:api:portless
+bun run dev
+bun run dev -f dashboard
+bun run dev -f web
+bun run dev -f api
 ```
+
+The dashboard Portless route is `http://halaalvest-dash.localhost`.
 
 Install the CLI once if needed:
 

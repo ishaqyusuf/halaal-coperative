@@ -4,6 +4,29 @@ import { OnboardingForm } from "@/components/signup/onboarding-form"
 import { SignupShell } from "@/components/signup/signup-shell"
 import { verifySignedSignupToken } from "@/lib/signup-token"
 
+function canShowOnboardingDevFill(email: string) {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    email.toLowerCase().includes("@test.com")
+  )
+}
+
+function getVerificationErrorMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "The verification link is no longer valid."
+}
+
+type SignupTokenVerificationResult =
+  | {
+      status: "valid"
+      value: ReturnType<typeof verifySignedSignupToken>
+    }
+  | {
+      errorMessage: string
+      status: "invalid"
+    }
+
 export default async function OnboardingPage({
   searchParams,
 }: {
@@ -11,7 +34,6 @@ export default async function OnboardingPage({
 }) {
   const params = await searchParams
   const token = typeof params.token === "string" ? params.token : ""
-  const devMode = process.env.NODE_ENV !== "production"
 
   if (!token) {
     return (
@@ -27,32 +49,26 @@ export default async function OnboardingPage({
     )
   }
 
-  try {
-    const verification = verifySignedSignupToken(token)
+  const verificationResult = ((): SignupTokenVerificationResult => {
+    try {
+      return {
+        status: "valid",
+        value: verifySignedSignupToken(token),
+      }
+    } catch (error) {
+      return {
+        errorMessage: getVerificationErrorMessage(error),
+        status: "invalid",
+      }
+    }
+  })()
 
-    return (
-      <SignupShell
-        eyebrow="Verified setup"
-        title="Finish the cooperative workspace profile."
-        description="The verified admin is confirmed. Save the operating profile and first password, then move into guided dashboard setup."
-      >
-        <OnboardingForm
-          devMode={devMode}
-          token={token}
-          verification={verification}
-        />
-      </SignupShell>
-    )
-  } catch (error) {
+  if (verificationResult.status === "invalid") {
     return (
       <SignupShell
         eyebrow="Verified setup"
         title="This verification link can’t be used."
-        description={
-          error instanceof Error
-            ? error.message
-            : "The verification link is no longer valid."
-        }
+        description={verificationResult.errorMessage}
       >
         <Link className={buttonVariants({ size: "lg" })} href="/signup">
           Restart signup
@@ -60,4 +76,21 @@ export default async function OnboardingPage({
       </SignupShell>
     )
   }
+
+  const verification = verificationResult.value
+  const devMode = canShowOnboardingDevFill(verification.primaryContactEmail)
+
+  return (
+    <SignupShell
+      eyebrow="Verified setup"
+      title="Finish the cooperative workspace profile."
+      description="The verified admin is confirmed. Save the operating profile and first password, then move into guided dashboard setup."
+    >
+      <OnboardingForm
+        devMode={devMode}
+        token={token}
+        verification={verification}
+      />
+    </SignupShell>
+  )
 }

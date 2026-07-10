@@ -4,7 +4,7 @@ services:
     container_name: halaalvest-postgres
     restart: unless-stopped
     ports:
-      - "${HALAALVEST_DB_HOST_PORT:-55434}:5432"
+      - "${DB_HOST_PORT:-55434}:5432"
     environment:
       POSTGRES_DB: amanah_cooperative
       POSTGRES_USER: postgres

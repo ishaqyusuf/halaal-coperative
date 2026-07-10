@@ -15,7 +15,7 @@ function parseDomainLike(value: string | undefined) {
 
 function getWorkspaceUrlSuffix() {
   const configuredDomain =
-    parseDomainLike(process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN) ??
+    parseDomainLike(process.env.PLATFORM_ROOT_DOMAIN) ??
     "halaalvest.localhost"
 
   return `.${configuredDomain.replace(/^\./, "")}`

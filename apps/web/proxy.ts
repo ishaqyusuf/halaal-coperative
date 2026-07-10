@@ -1,10 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 
 const localRootDomain =
-  process.env.HALAAL_VEST_LOCAL_ROOT_DOMAIN?.trim() || "halaalvest.localhost"
+  process.env.LOCAL_ROOT_DOMAIN?.trim() || "halaalvest.localhost"
+const dashboardRootDomain =
+  process.env.DASHBOARD_ROOT_DOMAIN?.trim() || localRootDomain
 const dashboardProxyTarget =
-  process.env.HALAAL_VEST_LOCAL_DASHBOARD_PROXY_TARGET?.trim() ||
-  `http://127.0.0.1:${process.env.HALAAL_VEST_DASHBOARD_APP_PORT?.trim() || "1441"}`
+  process.env.LOCAL_DASHBOARD_PROXY_TARGET?.trim() ||
+  `http://127.0.0.1:${process.env.DASHBOARD_APP_PORT?.trim() || "1441"}`
 
 function stripPort(host: string) {
   return host.trim().toLowerCase().replace(/:\d+$/, "")
@@ -15,8 +17,8 @@ function isDashboardTenantHost(host: string) {
 
   return Boolean(
     hostname &&
-    hostname !== localRootDomain &&
-    hostname.endsWith(`.${localRootDomain}`)
+    hostname !== dashboardRootDomain &&
+    hostname.endsWith(`.${dashboardRootDomain}`)
   )
 }
 

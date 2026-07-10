@@ -8,7 +8,7 @@ describe("database profile resolver", () => {
   test("defaults to local and ignores a non-local DATABASE_URL", () => {
     const env = applyDatabaseProfile({
       DATABASE_URL: "postgresql://user:pass@remote.example.com/app",
-      HALAALVEST_DB_HOST_PORT: "55434",
+      DB_HOST_PORT: "55434",
     })
 
     expect(databaseProfileForEnv(env)).toBe("local")
@@ -30,7 +30,7 @@ describe("database profile resolver", () => {
 
   test("uses remote-dev URL aliases for remote-dev profile", () => {
     const env = applyDatabaseProfile({
-      HALAALVEST_ENV: "remote-dev",
+      APP_ENV: "remote-dev",
       REMOTE_DEV_DATABASE_URL:
         "postgresql://remote:secret@db.example.com/remote_dev",
       DATABASE_URL: "postgresql://postgres:postgres@localhost:55434/local",
@@ -44,7 +44,7 @@ describe("database profile resolver", () => {
 
   test("uses production database aliases for production profile", () => {
     const env = applyDatabaseProfile({
-      HALAALVEST_ENV: "production",
+      APP_ENV: "production",
       PROD_DATABASE_URL: "postgresql://prod:secret@db.example.com/prod",
       DATABASE_URL: "postgresql://postgres:postgres@localhost:55434/local",
     })

@@ -27,7 +27,7 @@
 - `member_onboarding_requests.signup_link_id` optionally links an onboarding request back to the signup link that created it for analytics and auditing.
 
 ## Security Rules
-- Signup links are signed with `HALAAL_VEST_SIGNUP_TOKEN_SECRET`.
+- Signup links are signed with `SIGNUP_TOKEN_SECRET`.
 - Tokens embed `linkId`, `tenantId`, and `tokenVersion`; the database remains the source of truth for enable/disable state, expiry, and max-signup enforcement.
 - Rotating a link increments `tokenVersion`, which invalidates previously shared URLs immediately.
 - Disabling a link or letting it expire blocks new signups without removing historical analytics.

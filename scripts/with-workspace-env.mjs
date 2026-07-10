@@ -25,10 +25,10 @@ function mergeEnvFile(filePath, targetEnv) {
 function buildEnv(envSeed = {}) {
   const env = { ...process.env, ...envSeed }
   const isProduction =
-    env.NODE_ENV === "production" || env.HALAALVEST_ENV === "production"
+    env.NODE_ENV === "production" || env.APP_ENV === "production"
   const isRemoteDev =
-    env.HALAALVEST_ENV === "remote-dev" ||
-    env.HALAALVEST_DEV_PROFILE === "remote-dev"
+    env.APP_ENV === "remote-dev" ||
+    env.DEV_PROFILE === "remote-dev"
   const rootEnvFiles = [
     path.join(repoRoot, ".env"),
     path.join(repoRoot, ".env.development"),
@@ -88,7 +88,7 @@ function buildEnv(envSeed = {}) {
 }
 
 function assertProdDatabaseUrl(env) {
-  if (env.HALAALVEST_REQUIRE_PROD_DATABASE_URL !== "1") {
+  if (env.REQUIRE_PROD_DATABASE_URL !== "1") {
     return
   }
 

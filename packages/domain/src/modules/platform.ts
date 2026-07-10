@@ -9,13 +9,13 @@ export interface PlatformIdentity {
 }
 
 const platformRootDomain =
-  process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() || "halaalvest.com"
+  process.env.PLATFORM_ROOT_DOMAIN?.trim() || "halaalvest.com"
 const localRootDomain =
-  process.env.HALAAL_VEST_LOCAL_ROOT_DOMAIN?.trim() || "halaalvest.localhost"
+  process.env.LOCAL_ROOT_DOMAIN?.trim() || "halaalvest.localhost"
 const tenantRootDomain =
-  process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() ||
-  "halaalvest.localhost"
-const dashboardRootDomain = tenantRootDomain
+  process.env.TENANT_ROOT_DOMAIN?.trim() || localRootDomain
+const dashboardRootDomain =
+  process.env.DASHBOARD_ROOT_DOMAIN?.trim() || tenantRootDomain
 
 export const platformIdentity: PlatformIdentity = {
   appName: "halaalvest",

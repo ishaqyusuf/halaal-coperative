@@ -52,9 +52,9 @@ export function buildTenantOnboardingSnapshot(input: {
     },
     {
       key: "workspace_access",
-      label: "Workspace app route",
+      label: "Workspace access",
       description:
-        "The cooperative hostname also serves the authenticated workspace under /app.",
+        "The cooperative hostname also serves the authenticated workspace.",
       complete: input.hasWorkspaceAccess,
     },
     {

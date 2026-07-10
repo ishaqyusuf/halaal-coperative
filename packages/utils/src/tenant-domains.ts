@@ -1,17 +1,18 @@
 import { buildTenantAppUrl, normalizeHost } from "@halaalvest/tenant-url"
 
 export const platformRootDomain =
-  process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() || "halaalvest.com"
+  process.env.PLATFORM_ROOT_DOMAIN?.trim() || "halaalvest.com"
 export const localPlatformRootDomain =
-  process.env.HALAAL_VEST_LOCAL_ROOT_DOMAIN?.trim() || "halaalvest.localhost"
+  process.env.LOCAL_ROOT_DOMAIN?.trim() || "halaalvest.localhost"
 export const localTenantRootDomain =
-  process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() ||
-  localPlatformRootDomain
+  process.env.TENANT_ROOT_DOMAIN?.trim() || localPlatformRootDomain
 export const dashboardSubdomainLabel = "dashboard"
-export const localDashboardRootDomain = localTenantRootDomain
+export const dashboardRootDomain =
+  process.env.DASHBOARD_ROOT_DOMAIN?.trim() || platformRootDomain
+export const localDashboardRootDomain =
+  process.env.DASHBOARD_ROOT_DOMAIN?.trim() || localTenantRootDomain
 export const platformAppHostname =
-  process.env.HALAAL_VEST_PLATFORM_APP_HOSTNAME?.trim() ||
-  `app.${platformRootDomain}`
+  process.env.PLATFORM_APP_HOSTNAME?.trim() || `app.${platformRootDomain}`
 
 const reservedTenantLabels = new Set([
   "api",
@@ -106,11 +107,15 @@ export function buildLocalTenantSiteHostname(subdomain: string) {
 }
 
 export function buildDashboardHostname(subdomain: string) {
-  return buildTenantSiteHostname(subdomain)
+  const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
+  return normalizedSubdomain ? `${normalizedSubdomain}.${dashboardRootDomain}` : ""
 }
 
 export function buildLocalDashboardHostname(subdomain: string) {
-  return buildLocalTenantSiteHostname(subdomain)
+  const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
+  return normalizedSubdomain
+    ? `${normalizedSubdomain}.${localDashboardRootDomain}`
+    : ""
 }
 
 export function buildDashboardCustomHostname(hostname: string) {
@@ -226,25 +231,31 @@ export function buildTenantDashboardUrl(
     currentHost.startsWith("127.0.0.1") ||
     currentHost.startsWith("0.0.0.0")
 
-  if (!isLocalPathStyleHost) {
-    return buildTenantSiteUrl(normalizedSubdomain, {
-      currentOrigin: options?.currentOrigin,
-      pathname: options?.pathname ?? "/app",
-      protocol: options?.protocol,
-      targetPort: options?.targetPort,
-      tenantHostname,
-    })
+  if (tenantHostname && !isLocalPathStyleHost) {
+    const protocol =
+      options?.protocol ?? parsedOrigin?.protocol.replace(":", "") ?? "https"
+    const pathname = options?.pathname ?? ""
+    const normalizedPathname = pathname
+      ? pathname.startsWith("/")
+        ? pathname
+        : `/${pathname}`
+      : ""
+
+    return `${protocol}://${tenantHostname}${normalizedPathname}`
   }
 
   return buildTenantAppUrl({
     tenantSlug: normalizedSubdomain,
-    path: options?.pathname ?? "/app",
+    path: options?.pathname ?? "/",
     currentHost,
     currentProtocol: options?.protocol ?? parsedOrigin?.protocol,
-    targetRootDomain: localDashboardRootDomain,
+    targetRootDomain:
+      process.env.NODE_ENV === "production"
+        ? dashboardRootDomain
+        : localDashboardRootDomain,
     targetPort: options?.targetPort ?? parsedOrigin?.port,
     pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
-    enablePathStyleHosts: process.env.NODE_ENV !== "production",
+    enablePathStyleHosts: false,
     defaultProtocol: process.env.NODE_ENV === "production" ? "https" : "http",
   })
 }

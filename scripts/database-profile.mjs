@@ -7,13 +7,13 @@ const localDatabaseHosts = new Set([
 ])
 
 export function databaseProfileForEnv(env) {
-  if (env.NODE_ENV === "production" || env.HALAALVEST_ENV === "production") {
+  if (env.NODE_ENV === "production" || env.APP_ENV === "production") {
     return "prod"
   }
 
   if (
-    env.HALAALVEST_ENV === "remote-dev" ||
-    env.HALAALVEST_DEV_PROFILE === "remote-dev"
+    env.APP_ENV === "remote-dev" ||
+    env.DEV_PROFILE === "remote-dev"
   ) {
     return "remote-dev"
   }
@@ -45,8 +45,7 @@ export function applyDatabaseProfile(env) {
     }
   }
 
-  env.HALAALVEST_DEV_PROFILE =
-    profile === "prod" ? (env.HALAALVEST_DEV_PROFILE ?? "prod") : profile
+  env.DEV_PROFILE = profile === "prod" ? (env.DEV_PROFILE ?? "prod") : profile
 
   return env
 }
@@ -81,11 +80,11 @@ function resolveDatabaseUrl(env, profile) {
 }
 
 function defaultLocalDatabaseUrl(env) {
-  const host = env.HALAALVEST_DB_HOST ?? "localhost"
-  const port = env.HALAALVEST_DB_HOST_PORT ?? "55434"
-  const database = env.HALAALVEST_DB_NAME ?? "amanah_cooperative"
-  const user = env.HALAALVEST_DB_USER ?? "postgres"
-  const password = env.HALAALVEST_DB_PASSWORD ?? "postgres"
+  const host = env.DB_HOST ?? "localhost"
+  const port = env.DB_HOST_PORT ?? "55434"
+  const database = env.DB_NAME ?? "amanah_cooperative"
+  const user = env.DB_USER ?? "postgres"
+  const password = env.DB_PASSWORD ?? "postgres"
 
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(
     password

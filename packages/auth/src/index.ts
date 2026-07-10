@@ -60,14 +60,14 @@ export function parseCookieHeader(cookieHeader: string | null | undefined) {
 }
 
 function getSessionSecret() {
-  const secret = process.env.HALAAL_VEST_AUTH_SECRET
+  const secret = process.env.AUTH_SECRET
 
   if (secret?.trim()) {
     return secret.trim()
   }
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error("HALAAL_VEST_AUTH_SECRET is required in production.")
+    throw new Error("AUTH_SECRET is required in production.")
   }
 
   return "halaalvest-dev-session-secret"

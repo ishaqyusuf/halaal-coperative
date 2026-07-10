@@ -10,7 +10,7 @@ const memberSignupLinkTokenSchema = z.object({
 export type MemberSignupLinkTokenPayload = z.infer<typeof memberSignupLinkTokenSchema>
 
 function getTokenSecret() {
-  const configuredSecret = process.env.HALAAL_VEST_SIGNUP_TOKEN_SECRET?.trim()
+  const configuredSecret = process.env.SIGNUP_TOKEN_SECRET?.trim()
 
   if (configuredSecret) {
     return configuredSecret
@@ -20,7 +20,7 @@ function getTokenSecret() {
     return "halaalvest-dev-signup-secret"
   }
 
-  throw new Error("HALAAL_VEST_SIGNUP_TOKEN_SECRET must be configured in production.")
+  throw new Error("SIGNUP_TOKEN_SECRET must be configured in production.")
 }
 
 function sign(body: string) {

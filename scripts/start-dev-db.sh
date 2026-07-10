@@ -2,12 +2,12 @@
 
 set -eu
 
-if [ "${HALAALVEST_ENV:-}" = "remote-dev" ] || [ "${HALAALVEST_DEV_PROFILE:-}" = "remote-dev" ]; then
+if [ "${APP_ENV:-}" = "remote-dev" ] || [ "${DEV_PROFILE:-}" = "remote-dev" ]; then
   echo "Skipping local PostgreSQL; remote-dev profile is active."
   exit 0
 fi
 
-if [ "${HALAALVEST_ENV:-}" = "production" ] || [ "${HALAALVEST_DEV_PROFILE:-}" = "prod" ]; then
+if [ "${APP_ENV:-}" = "production" ] || [ "${DEV_PROFILE:-}" = "prod" ]; then
   echo "Skipping local PostgreSQL; production profile is active."
   exit 0
 fi
@@ -15,15 +15,15 @@ fi
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 
-COMPOSE_FILE="${HALAALVEST_COMPOSE_FILE:-$ROOT_DIR/docker-compose.yml}"
-SERVICE_NAME="${HALAALVEST_DB_SERVICE:-postgres}"
-DB_HOST_PORT="${HALAALVEST_DB_HOST_PORT:-55434}"
-DB_USER="${HALAALVEST_DB_USER:-postgres}"
-DB_NAME="${HALAALVEST_DB_NAME:-amanah_cooperative}"
-MAX_ATTEMPTS="${HALAALVEST_DB_WAIT_ATTEMPTS:-30}"
-SLEEP_SECONDS="${HALAALVEST_DB_WAIT_SECONDS:-1}"
-DOCKER_MAX_ATTEMPTS="${HALAALVEST_DOCKER_WAIT_ATTEMPTS:-60}"
-DOCKER_SLEEP_SECONDS="${HALAALVEST_DOCKER_WAIT_SECONDS:-2}"
+COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/docker-compose.yml}"
+SERVICE_NAME="${DB_SERVICE:-postgres}"
+DB_HOST_PORT="${DB_HOST_PORT:-55434}"
+DB_USER="${DB_USER:-postgres}"
+DB_NAME="${DB_NAME:-amanah_cooperative}"
+MAX_ATTEMPTS="${DB_WAIT_ATTEMPTS:-30}"
+SLEEP_SECONDS="${DB_WAIT_SECONDS:-1}"
+DOCKER_MAX_ATTEMPTS="${DOCKER_WAIT_ATTEMPTS:-60}"
+DOCKER_SLEEP_SECONDS="${DOCKER_WAIT_SECONDS:-2}"
 
 print_port_diagnostics() {
   if command -v lsof >/dev/null 2>&1; then

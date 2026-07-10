@@ -12,8 +12,8 @@ describe("dev script profile router", () => {
     expect(commandForProfile("remote-dev")).toEqual([
       "node",
       "./scripts/with-workspace-env.mjs",
-      "HALAALVEST_ENV=remote-dev",
-      "HALAALVEST_DEV_PROFILE=remote-dev",
+      "APP_ENV=remote-dev",
+      "DEV_PROFILE=remote-dev",
       "bun",
       "scripts/dev-run.ts",
     ])
@@ -26,8 +26,8 @@ describe("dev script profile router", () => {
     expect(commandForProfile(options.profile, options.filters)).toEqual([
       "node",
       "./scripts/with-workspace-env.mjs",
-      "HALAALVEST_ENV=production",
-      "HALAALVEST_REQUIRE_PROD_DATABASE_URL=1",
+      "APP_ENV=production",
+      "REQUIRE_PROD_DATABASE_URL=1",
       "turbo",
       "dev",
       "--parallel",
@@ -57,7 +57,7 @@ describe("dev script profile router", () => {
     expect(commandForProfile(options.profile, options.filters)).toEqual([
       "node",
       "./scripts/with-workspace-env.mjs",
-      "HALAALVEST_DEV_PROFILE=local",
+      "DEV_PROFILE=local",
       "bun",
       "scripts/dev-run.ts",
       "--filter",
@@ -103,7 +103,7 @@ describe("dev script profile router", () => {
     expect(commandForProfile(options.profile, options.filters)).toEqual([
       "node",
       "./scripts/with-workspace-env.mjs",
-      "HALAALVEST_DEV_PROFILE=local",
+      "DEV_PROFILE=local",
       "bun",
       "scripts/dev-run.ts",
       "--filter",
@@ -165,7 +165,7 @@ describe("dev script profile router", () => {
     expect(() =>
       parseArgs(["--filter", "marketing", "@halaalvest/unknown"])
     ).toThrow(
-      /Unknown dev filter packages: marketing, @halaalvest\/unknown\nValid packages: .*@halaalvest\/api.*@halaalvest\/web/s
+      /Unknown dev filter packages: marketing, @halaalvest\/unknown\nAvailable packages:\napps\/:\n  @halaalvest\/api[\s\S]*  @halaalvest\/web\npackages\/:\n  @halaalvest\/auth[\s\S]*  @halaalvest\/utils/
     )
   })
 })

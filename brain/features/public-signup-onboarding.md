@@ -36,11 +36,11 @@
 - `apps/web/app/api/onboarding/route.ts` verifies the token, derives the workspace slug from the cooperative name, and calls `createTenantWorkspaceBootstrap`.
 - `packages/notifications/src/index.ts` now owns the email-delivery path through `NotificationService.email(...)`, plus shared email-draft builders for signup verification and workspace-ready follow-up.
 - `apps/web/src/lib/server-notifications.ts` creates the server-side notification service used by the web signup and onboarding routes.
-- When `RESEND_API_KEY` and `HALAAL_VEST_EMAIL_FROM` are configured, notification emails are delivered through Resend; otherwise the system falls back to console delivery for local development.
+- When `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` are configured, notification emails are delivered through Resend; otherwise the system falls back to console delivery for local development.
 - Notification email delivery now retries provider-backed sends and returns structured failure metadata. Verification email failure blocks signup continuation, while workspace-ready email failure is surfaced as a non-blocking warning after tenant creation.
 - Signup verification and onboarding workspace emails are now persisted in `notification_outbox`, which supports nullable `tenantId` so pre-tenant verification delivery can be tracked durably.
 - Tenant-scoped workspace-ready email outcomes are still mirrored into `audit_logs` using `notification.email_sent|queued|failed` actions for operational history inside the tenant workspace.
-- `apps/web/.env.example` documents `HALAAL_VEST_SIGNUP_TOKEN_SECRET` for production-safe signing.
+- `apps/web/.env.example` documents `SIGNUP_TOKEN_SECRET` for production-safe signing.
 - Cooperative profile details beyond tenant name and primary contact are persisted on the tenant record as `currentSize`, `officeAddress`, `city`, `state`, `country`, and `startDate`; `currentSize` is selected from shared range options and stored as the existing representative integer, while `region` is mirrored from `state` for older readers.
 - The onboarding API hashes the submitted admin password and stores it on the owner user created during `createTenantWorkspaceBootstrap`.
 

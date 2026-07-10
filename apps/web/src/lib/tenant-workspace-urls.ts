@@ -36,7 +36,7 @@ function getDashboardAppOrigin(currentOrigin?: string | null) {
     hostname === "127.0.0.1" ||
     hostname === "0.0.0.0"
   ) {
-    const port = process.env.HALAAL_VEST_DASHBOARD_APP_PORT ?? "1441"
+    const port = process.env.DASHBOARD_APP_PORT ?? "1441"
     return `${current?.protocol ?? "http:"}//${hostname}:${port}`
   }
 
@@ -66,18 +66,29 @@ function getTenantUrlDefaults(origin: string) {
   } as const
 }
 
+function getDashboardRootDomain() {
+  return process.env.NODE_ENV === "production"
+    ? process.env.DASHBOARD_ROOT_DOMAIN?.trim() ||
+        process.env.PLATFORM_ROOT_DOMAIN?.trim() ||
+        "halaalvest.com"
+    : process.env.DASHBOARD_ROOT_DOMAIN?.trim() ||
+        process.env.LOCAL_ROOT_DOMAIN?.trim() ||
+        "halaalvest.localhost"
+}
+
 function getTenantRootDomain() {
   return process.env.NODE_ENV === "production"
-    ? process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() || "halaalvest.com"
-    : process.env.HALAAL_VEST_TENANT_LOCAL_ROOT_DOMAIN?.trim() ||
-        process.env.HALAAL_VEST_DASHBOARD_ROOT_DOMAIN?.trim() ||
-        process.env.HALAAL_VEST_PLATFORM_ROOT_DOMAIN?.trim() ||
+    ? process.env.TENANT_ROOT_DOMAIN?.trim() ||
+        process.env.PLATFORM_ROOT_DOMAIN?.trim() ||
+        "halaalvest.com"
+    : process.env.TENANT_ROOT_DOMAIN?.trim() ||
+        process.env.LOCAL_ROOT_DOMAIN?.trim() ||
         "halaalvest.localhost"
 }
 
 function getDashboardAppPort(dashboardOrigin: string) {
   return (
-    process.env.HALAAL_VEST_DASHBOARD_APP_PORT?.trim() ||
+    process.env.DASHBOARD_APP_PORT?.trim() ||
     parseOriginLike(dashboardOrigin)?.port ||
     "1441"
   )
@@ -138,7 +149,7 @@ function buildDevDashboardUrlVariants(input: {
   const protocol =
     dashboardOriginUrl?.protocol.replace(":", "") === "https" ? "https" : "http"
   const dashboardAppPort = getDashboardAppPort(input.dashboardOrigin)
-  const productPath = isLocalOrigin(input.dashboardOrigin) ? "/" : "/app"
+  const productPath = "/"
   const configuredDashboardRoot = stripPort(dashboardDefaults.currentHost)
 
   return dedupeUrlVariants([
@@ -210,6 +221,7 @@ export function buildOnboardingWorkspaceUrls(input: {
   const siteOrigin = getTenantSiteOrigin(input.currentOrigin)
   const dashboardDefaults = getTenantUrlDefaults(dashboardOrigin)
   const siteDefaults = getTenantUrlDefaults(siteOrigin)
+  const dashboardRootDomain = getDashboardRootDomain()
   const tenantRootDomain = getTenantRootDomain()
   const pathStyleHosts = ["localhost", "127.0.0.1", "0.0.0.0"]
   const commonOptions = {
@@ -222,9 +234,10 @@ export function buildOnboardingWorkspaceUrls(input: {
     ...commonOptions,
     currentHost: dashboardDefaults.currentHost,
     currentProtocol: dashboardDefaults.currentProtocol,
-    path: isLocalOrigin(dashboardOrigin) ? "/" : "/app",
+    enablePathStyleHosts: false,
+    path: "/",
     targetPort: dashboardDefaults.targetPort,
-    targetRootDomain: tenantRootDomain,
+    targetRootDomain: dashboardRootDomain,
   })
   const siteUrl = buildTenantAppUrl({
     ...commonOptions,
@@ -240,7 +253,7 @@ export function buildOnboardingWorkspaceUrls(input: {
     devDashboardUrlVariants: buildDevDashboardUrlVariants({
       dashboardOrigin,
       dashboardUrl,
-      tenantRootDomain,
+      tenantRootDomain: dashboardRootDomain,
       tenantSlug: input.tenantSlug,
     }),
     siteUrl,

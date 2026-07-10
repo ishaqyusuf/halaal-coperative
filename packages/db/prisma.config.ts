@@ -27,10 +27,10 @@ function loadEnv() {
   const loadedEnv = { ...process.env }
   const isProduction =
     process.env.NODE_ENV === "production" ||
-    process.env.HALAALVEST_ENV === "production"
+    process.env.APP_ENV === "production"
   const isRemoteDev =
-    process.env.HALAALVEST_ENV === "remote-dev" ||
-    process.env.HALAALVEST_DEV_PROFILE === "remote-dev"
+    process.env.APP_ENV === "remote-dev" ||
+    process.env.DEV_PROFILE === "remote-dev"
   const envFiles = [
     path.join(repoRoot, ".env"),
     path.join(repoRoot, ".env.development"),

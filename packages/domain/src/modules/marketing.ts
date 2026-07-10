@@ -38,7 +38,7 @@ function normalizeBoolean(
 }
 
 export function getMarketingConfig(): MarketingConfig {
-  const stage = normalizeStage(process.env.HALAAL_VEST_MARKETING_STAGE)
+  const stage = normalizeStage(process.env.MARKETING_STAGE)
   const showHomePage = normalizeBoolean(process.env.SHOW_HOME_PAGE, true)
 
   return {

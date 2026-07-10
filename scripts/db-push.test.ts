@@ -14,7 +14,7 @@ describe("db:push script profile router", () => {
     expect(commandForProfile(options.profile)).toEqual([
       "node",
       "./scripts/with-workspace-env.mjs",
-      "HALAALVEST_DEV_PROFILE=local",
+      "DEV_PROFILE=local",
       "bun",
       "run",
       "--cwd",
@@ -30,8 +30,8 @@ describe("db:push script profile router", () => {
     expect(commandForProfile(options.profile)).toEqual([
       "node",
       "./scripts/with-workspace-env.mjs",
-      "HALAALVEST_ENV=production",
-      "HALAALVEST_REQUIRE_PROD_DATABASE_URL=1",
+      "APP_ENV=production",
+      "REQUIRE_PROD_DATABASE_URL=1",
       "bun",
       "run",
       "--cwd",
@@ -47,8 +47,8 @@ describe("db:push script profile router", () => {
     expect(commandForProfile(options.profile)).toEqual([
       "node",
       "./scripts/with-workspace-env.mjs",
-      "HALAALVEST_ENV=remote-dev",
-      "HALAALVEST_DEV_PROFILE=remote-dev",
+      "APP_ENV=remote-dev",
+      "DEV_PROFILE=remote-dev",
       "bun",
       "run",
       "--cwd",

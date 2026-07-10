@@ -9,9 +9,9 @@
     "./render": "./src/render.ts"
   },
   "scripts": {
-    "dev": "portless email email dev",
-    "--build": "email build",
-    "start": "email start",
+    "dev": "portless email email dev --dir src/emails",
+    "--build": "email build --dir src/emails",
+    "start": "email start --dir src/emails",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit"

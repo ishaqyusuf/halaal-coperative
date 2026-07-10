@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { buildTenantSiteUrl } from "@halaalvest/utils"
+import { buildTenantDashboardUrl } from "@halaalvest/utils"
 
 export type DevTenantFabTenant = {
   id: string
@@ -92,7 +92,7 @@ export function DevTenantFab({
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             {tenants.map((tenant) => {
-              const siteUrl = buildTenantSiteUrl(tenant.slug, {
+              const dashboardUrl = buildTenantDashboardUrl(tenant.slug, {
                 currentOrigin,
                 pathname: "/",
               })
@@ -101,7 +101,7 @@ export function DevTenantFab({
                 <DropdownMenuItem
                   className="items-start justify-between gap-3 px-3 py-3"
                   key={tenant.id}
-                  render={<a href={siteUrl} />}
+                  render={<a href={dashboardUrl} />}
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-foreground">

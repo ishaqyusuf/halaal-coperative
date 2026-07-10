@@ -43,14 +43,11 @@ function getEmailTestCopyRecipient() {
 export function getServerEmailDeliveryConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim()
   const from = formatServerEmailFrom(
-    process.env.HALAAL_VEST_EMAIL_FROM?.trim() ||
-      process.env.EMAIL_FROM_ADDRESS?.trim(),
+    process.env.EMAIL_FROM_ADDRESS?.trim(),
   )
-  const replyTo =
-    process.env.HALAAL_VEST_EMAIL_REPLY_TO?.trim() ||
-    process.env.EMAIL_REPLY_TO?.trim()
+  const replyTo = process.env.EMAIL_REPLY_TO?.trim()
   const copyRecipient = getEmailTestCopyRecipient()
-  const testRecipient = process.env.HALAAL_VEST_EMAIL_TEST_RECIPIENT?.trim()
+  const testRecipient = process.env.EMAIL_TEST_RECIPIENT?.trim()
 
   return {
     apiKey,

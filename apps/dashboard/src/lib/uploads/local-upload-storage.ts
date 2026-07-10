@@ -45,7 +45,7 @@ type UploadMetadata = {
 
 function getUploadRoot() {
   return (
-    process.env.HALAALVEST_UPLOAD_DIR ??
+    process.env.UPLOAD_DIR ??
     path.join(process.cwd(), ".local", "uploads")
   )
 }

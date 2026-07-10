@@ -2,7 +2,7 @@
 
 set -eu
 
-default_ports="${HALAALVEST_KILL_PORTS:-1440 1441 1442 5555}"
+default_ports="${KILL_PORTS:-1440 1441 1442 5555}"
 
 ports=$(
   {

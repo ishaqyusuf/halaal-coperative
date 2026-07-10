@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { existsSync, readdirSync, readFileSync } from "node:fs"
-import { dirname, resolve } from "node:path"
+import { dirname, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 type DevProfile = "local" | "remote-dev" | "prod"
@@ -15,6 +15,11 @@ type DevCliOptions = {
   filters?: DevFilterOptions
 }
 
+type WorkspacePackage = {
+  name: string
+  relativeDir: string
+}
+
 const WORKSPACE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const PROFILE_FLAGS = new Map<string, DevProfile>([
   ["--local", "local"],
@@ -23,7 +28,7 @@ const PROFILE_FLAGS = new Map<string, DevProfile>([
 ])
 const FILTER_FLAGS = new Set(["--filter", "--f", "-f", "-filter"])
 
-let cachedWorkspacePackages: string[] | undefined
+let cachedWorkspacePackageEntries: WorkspacePackage[] | undefined
 
 export function parseArgs(argv: string[]): DevCliOptions {
   let profile: DevProfile = "local"
@@ -101,7 +106,7 @@ export function commandForProfile(
       return [
         "node",
         "./scripts/with-workspace-env.mjs",
-        "HALAALVEST_DEV_PROFILE=local",
+        "DEV_PROFILE=local",
         "bun",
         "scripts/dev-run.ts",
         ...turboFilterArgs,
@@ -110,8 +115,8 @@ export function commandForProfile(
       return [
         "node",
         "./scripts/with-workspace-env.mjs",
-        "HALAALVEST_ENV=remote-dev",
-        "HALAALVEST_DEV_PROFILE=remote-dev",
+        "APP_ENV=remote-dev",
+        "DEV_PROFILE=remote-dev",
         "bun",
         "scripts/dev-run.ts",
         ...turboFilterArgs,
@@ -120,8 +125,8 @@ export function commandForProfile(
       return [
         "node",
         "./scripts/with-workspace-env.mjs",
-        "HALAALVEST_ENV=production",
-        "HALAALVEST_REQUIRE_PROD_DATABASE_URL=1",
+        "APP_ENV=production",
+        "REQUIRE_PROD_DATABASE_URL=1",
         "turbo",
         "dev",
         "--parallel",
@@ -178,7 +183,7 @@ function validateFilterTargets(targets: string[]) {
   throw new Error(
     [
       `Unknown dev filter package${missingPackages.length === 1 ? "" : "s"}: ${missingPackages.join(", ")}`,
-      `Valid packages: ${validPackages.join(", ")}`,
+      formatAvailablePackagesByWorkspace(),
     ].join("\n")
   )
 }
@@ -225,11 +230,17 @@ function isExactPackageFilter(target: string): boolean {
 }
 
 function workspacePackages(): string[] {
-  cachedWorkspacePackages ??= readWorkspacePackages()
-  return cachedWorkspacePackages
+  return workspacePackageEntries().map(
+    (workspacePackage) => workspacePackage.name
+  )
 }
 
-function readWorkspacePackages(): string[] {
+function workspacePackageEntries(): WorkspacePackage[] {
+  cachedWorkspacePackageEntries ??= readWorkspacePackageEntries()
+  return cachedWorkspacePackageEntries
+}
+
+function readWorkspacePackageEntries(): WorkspacePackage[] {
   const packageJson = JSON.parse(
     readFileSync(resolve(WORKSPACE_ROOT, "package.json"), "utf8")
   ) as { workspaces?: unknown }
@@ -239,7 +250,7 @@ function readWorkspacePackages(): string[] {
       )
     : []
 
-  const packageNames = new Set<string>()
+  const workspacePackages = new Map<string, WorkspacePackage>()
 
   for (const workspace of workspaces) {
     if (workspace.startsWith("!")) {
@@ -260,12 +271,47 @@ function readWorkspacePackages(): string[] {
       }
 
       if (typeof workspacePackage.name === "string") {
-        packageNames.add(workspacePackage.name)
+        workspacePackages.set(workspacePackage.name, {
+          name: workspacePackage.name,
+          relativeDir: relative(WORKSPACE_ROOT, packageDir),
+        })
       }
     }
   }
 
-  return [...packageNames].sort()
+  return [...workspacePackages.values()].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  )
+}
+
+function formatAvailablePackagesByWorkspace() {
+  const entries = workspacePackageEntries()
+  const apps = entries.filter((entry) => entry.relativeDir.startsWith("apps/"))
+  const packages = entries.filter((entry) =>
+    entry.relativeDir.startsWith("packages/")
+  )
+  const other = entries.filter(
+    (entry) =>
+      !entry.relativeDir.startsWith("apps/") &&
+      !entry.relativeDir.startsWith("packages/")
+  )
+  const sections = [
+    formatPackageGroup("apps/", apps),
+    formatPackageGroup("packages/", packages),
+    other.length > 0 ? formatPackageGroup("other/", other) : null,
+  ].filter((section): section is string => Boolean(section))
+
+  return ["Available packages:", ...sections].join("\n")
+}
+
+function formatPackageGroup(label: string, entries: WorkspacePackage[]) {
+  if (entries.length === 0) {
+    return `${label}:\n  (none)`
+  }
+
+  return `${label}:\n${entries
+    .map((entry) => `  ${entry.name}`)
+    .join("\n")}`
 }
 
 function expandWorkspace(workspace: string): string[] {

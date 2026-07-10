@@ -17,5 +17,5 @@ async function run(command: string[], env = process.env) {
 await run(["bun", "run", "dev:prepare"])
 await run(["turbo", "dev", "--parallel", ...Bun.argv.slice(2)], {
   ...process.env,
-  HALAALVEST_DEV_ROUTER_STARTED: "1",
+  DEV_ROUTER_STARTED: "1",
 })

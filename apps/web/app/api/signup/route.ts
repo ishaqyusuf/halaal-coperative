@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Email delivery is not configured. Set RESEND_API_KEY and HALAAL_VEST_EMAIL_FROM before enabling public signup.",
+            "Email delivery is not configured. Set RESEND_API_KEY and EMAIL_FROM_ADDRESS before enabling public signup.",
         },
         { status: 503 }
       )

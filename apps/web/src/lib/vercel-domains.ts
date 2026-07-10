@@ -37,10 +37,10 @@ export type VercelTenantDomainProvisioningResult = {
 }
 
 function getVercelProvisioningConfig() {
-  const token = process.env.HALAAL_VEST_VERCEL_API_TOKEN?.trim() || null
-  const projectIdOrName = process.env.HALAAL_VEST_VERCEL_PROJECT_ID?.trim() || null
-  const teamId = process.env.HALAAL_VEST_VERCEL_TEAM_ID?.trim() || null
-  const teamSlug = process.env.HALAAL_VEST_VERCEL_TEAM_SLUG?.trim() || null
+  const token = process.env.VERCEL_API_TOKEN?.trim() || null
+  const projectIdOrName = process.env.VERCEL_PROJECT_ID?.trim() || null
+  const teamId = process.env.VERCEL_TEAM_ID?.trim() || null
+  const teamSlug = process.env.VERCEL_TEAM_SLUG?.trim() || null
 
   return {
     isConfigured: Boolean(token && projectIdOrName),
@@ -76,7 +76,7 @@ async function requestVercel<T>(
   const config = getVercelProvisioningConfig()
 
   if (!config.token) {
-    throw new Error("Missing HALAAL_VEST_VERCEL_API_TOKEN")
+    throw new Error("Missing VERCEL_API_TOKEN")
   }
 
   const response = await fetch(`https://api.vercel.com${path}`, {

@@ -18,7 +18,7 @@ export default async function DomainsPage() {
 
       <DashboardSectionCard>
         <DashboardSectionHeader eyebrow="Platform" title="Single cooperative domain" />
-        <p className="mt-5 text-sm leading-6 text-muted-foreground">The cooperative host is the only canonical domain. The public site lives at the host root, and the authenticated workspace lives under /app on the same host.</p>
+        <p className="mt-5 text-sm leading-6 text-muted-foreground">The cooperative host is the only canonical domain for the public site, login, and authenticated workspace.</p>
       </DashboardSectionCard>
 
       <DashboardSectionCard>

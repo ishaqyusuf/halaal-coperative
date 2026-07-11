@@ -284,6 +284,7 @@ export type MobileAdminFinanceRecentItem = {
     | "projectFinancing"
     | "foodPurchase"
     | "receipts"
+    | "shares"
   requestedAt: string
   status: string
   subtitle: string
@@ -1676,6 +1677,7 @@ function summarizeMobileNotifications(
 const mobileFinanceQueueKeys = new Set([
   "financing-approvals",
   "disbursement-holds",
+  "share-applications",
   "payment-receipts",
   "procurement-requests",
   "project-financing-requests",
@@ -1924,6 +1926,22 @@ function receiptToFinanceItem(
           row.allocations.length === 1 ? "" : "s"
         }`,
     title: `${row.member.fullName} (${row.member.memberNumber})`,
+  }
+}
+
+function shareApplicationToFinanceItem(
+  row: MemberShareApplicationRow
+): MobileAdminFinanceRecentItem {
+  return {
+    amount: row.shareValueSnapshot,
+    id: row.id,
+    queueKey: "shares",
+    requestedAt: row.createdAt.toISOString(),
+    status: row.status,
+    subtitle: `${row.requestedUnits} optional unit${
+      row.requestedUnits === 1 ? "" : "s"
+    } requested`,
+    title: `${row.memberName} (${row.memberNumber})`,
   }
 }
 
@@ -4652,6 +4670,7 @@ export async function getMobileAdminFinance(
     projectRequests,
     foodApplications,
     receipts,
+    shareApplications,
     collectionFollowUps,
   ] = await Promise.all([
     getOverviewSummary(tenantId),
@@ -4681,6 +4700,13 @@ export async function getMobileAdminFinance(
       tenantId,
       {
         limit: 8,
+      },
+      prisma
+    ),
+    listMemberShareApplications(
+      {
+        status: "pending",
+        tenantId,
       },
       prisma
     ),
@@ -4714,6 +4740,7 @@ export async function getMobileAdminFinance(
     ...receipts
       .filter((receipt) => pendingStatuses.includes(receipt.status))
       .map(receiptToFinanceItem),
+    ...shareApplications.slice(0, 8).map(shareApplicationToFinanceItem),
   ]
     .sort((left, right) => right.requestedAt.localeCompare(left.requestedAt))
     .slice(0, 12)

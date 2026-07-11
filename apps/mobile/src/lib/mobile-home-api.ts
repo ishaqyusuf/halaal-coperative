@@ -151,6 +151,7 @@ export type MobileAdminFinanceRecentItem = {
     | "projectFinancing"
     | "foodPurchase"
     | "receipts"
+    | "shares"
   requestedAt: string
   status: string
   subtitle: string

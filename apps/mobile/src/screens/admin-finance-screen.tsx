@@ -18,6 +18,7 @@ import {
   reviewMobileAdminProcurementRequest,
   reviewMobileAdminProjectFinancingRequest,
   reviewMobileAdminReceipt,
+  reviewMobileAdminShareApplication,
   type MobileAdminCollectionFollowUp,
   type MobileAdminCollectionFollowUpInput,
   type MobileAdminFinance,
@@ -35,6 +36,7 @@ type ReceiptReviewDecision =
   | "correction_requested"
   | "approved"
   | "rejected"
+type ShareReviewDecision = "approved" | "rejected"
 type CollectionFollowUpStatus = MobileAdminCollectionFollowUpInput["status"]
 type CollectionFollowUpPriority = NonNullable<
   MobileAdminCollectionFollowUpInput["priority"]
@@ -113,11 +115,13 @@ function FinanceRecentItemCard({
   onOpenProjectFinancingReview,
   onOpenProcurementReview,
   onOpenReceiptReview,
+  onOpenShareReview,
   onReviewFoodPurchase,
   onReviewFinancing,
   onReviewProjectFinancing,
   onReviewProcurement,
   onReviewReceipt,
+  onReviewShare,
   foodPurchaseReviewItemId,
   foodPurchaseReviewNotes,
   financingReviewItemId,
@@ -133,6 +137,8 @@ function FinanceRecentItemCard({
   procurementReviewNotes,
   receiptReviewItemId,
   receiptReviewNotes,
+  shareReviewItemId,
+  shareReviewNotes,
   setFoodPurchaseReviewNotes,
   setFinancingReviewNotes,
   setProjectFinancingApprovedAmount,
@@ -143,6 +149,7 @@ function FinanceRecentItemCard({
   setProcurementApprovedRepaymentMonths,
   setProcurementReviewNotes,
   setReceiptReviewNotes,
+  setShareReviewNotes,
 }: {
   actionState: "idle" | "pending"
   currencyCode: string
@@ -158,6 +165,7 @@ function FinanceRecentItemCard({
   ) => void
   onOpenProcurementReview: (item: MobileAdminFinanceRecentItem | null) => void
   onOpenReceiptReview: (item: MobileAdminFinanceRecentItem | null) => void
+  onOpenShareReview: (item: MobileAdminFinanceRecentItem | null) => void
   onReviewFoodPurchase: (
     item: MobileAdminFinanceRecentItem,
     status: MobileAdminReviewStatus
@@ -178,6 +186,10 @@ function FinanceRecentItemCard({
     item: MobileAdminFinanceRecentItem,
     decision: ReceiptReviewDecision
   ) => void
+  onReviewShare: (
+    item: MobileAdminFinanceRecentItem,
+    decision: ShareReviewDecision
+  ) => void
   foodPurchaseReviewItemId: string | null
   foodPurchaseReviewNotes: string
   projectFinancingApprovedAmount: string
@@ -191,6 +203,8 @@ function FinanceRecentItemCard({
   procurementReviewNotes: string
   receiptReviewItemId: string | null
   receiptReviewNotes: string
+  shareReviewItemId: string | null
+  shareReviewNotes: string
   setFoodPurchaseReviewNotes: (value: string) => void
   setFinancingReviewNotes: (value: string) => void
   setProjectFinancingApprovedAmount: (value: string) => void
@@ -203,6 +217,7 @@ function FinanceRecentItemCard({
   setProcurementApprovedRepaymentMonths: (value: string) => void
   setProcurementReviewNotes: (value: string) => void
   setReceiptReviewNotes: (value: string) => void
+  setShareReviewNotes: (value: string) => void
 }) {
   const canMarkReviewing =
     item.status !== "under_review" &&
@@ -222,6 +237,8 @@ function FinanceRecentItemCard({
     projectFinancingReviewItemId === item.id
   const isReceiptReviewing =
     item.queueKey === "receipts" && receiptReviewItemId === item.id
+  const isShareReviewing =
+    item.queueKey === "shares" && shareReviewItemId === item.id
   const projectFinancingApprovedAmountValue = Number(
     projectFinancingApprovedAmount
   )
@@ -249,6 +266,7 @@ function FinanceRecentItemCard({
     !Number.isInteger(procurementRepaymentMonthsValue) ||
     procurementRepaymentMonthsValue <= 0
   const receiptNotesRequired = receiptReviewNotes.trim().length < 2
+  const shareNotesRequired = shareReviewNotes.trim().length < 2
 
   return (
     <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
@@ -574,6 +592,41 @@ function FinanceRecentItemCard({
                 </Button>
               </View>
             </View>
+          ) : isShareReviewing ? (
+            <View className="gap-2 pt-2">
+              <Textarea
+                editable={actionState !== "pending"}
+                onChangeText={setShareReviewNotes}
+                placeholder="Review notes"
+                value={shareReviewNotes}
+              />
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending" || shareNotesRequired}
+                  onPress={() => onReviewShare(item, "approved")}
+                  variant="outline"
+                >
+                  <Text>Approve</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending" || shareNotesRequired}
+                  onPress={() => onReviewShare(item, "rejected")}
+                  variant="outline"
+                >
+                  <Text>Reject</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onOpenShareReview(null)}
+                  variant="ghost"
+                >
+                  <Text>Cancel</Text>
+                </Button>
+              </View>
+            </View>
           ) : item.queueKey === "receipts" ? (
             <Button
               className="mt-2 self-start"
@@ -628,6 +681,17 @@ function FinanceRecentItemCard({
             >
               <Icon name="BriefcaseBusiness" className="size-sm" />
               <Text>Review project</Text>
+            </Button>
+          ) : item.queueKey === "shares" ? (
+            <Button
+              className="mt-2 self-start"
+              disabled={actionState === "pending"}
+              onPress={() => onOpenShareReview(item)}
+              size="sm"
+              variant="outline"
+            >
+              <Icon name="PieChart" className="size-sm" />
+              <Text>Review shares</Text>
             </Button>
           ) : canMarkReviewing ? (
             <Button
@@ -855,6 +919,10 @@ export function AdminFinanceScreen() {
     null
   )
   const [receiptReviewNotes, setReceiptReviewNotes] = useState("")
+  const [shareReviewItemId, setShareReviewItemId] = useState<string | null>(
+    null
+  )
+  const [shareReviewNotes, setShareReviewNotes] = useState("")
   const [collectionFollowUpItemId, setCollectionFollowUpItemId] = useState<
     string | null
   >(null)
@@ -1200,6 +1268,42 @@ export function AdminFinanceScreen() {
     }
   }
 
+  async function reviewShareDecision(
+    item: MobileAdminFinanceRecentItem,
+    decision: ShareReviewDecision
+  ) {
+    const reviewNotes = shareReviewNotes.trim()
+
+    if (reviewNotes.length < 2) {
+      setError("Share review notes are required.")
+      return
+    }
+
+    const nextActionKey = `${item.queueKey}-${item.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      await reviewMobileAdminShareApplication({
+        applicationId: item.id,
+        decision,
+        reviewNotes,
+      })
+      setShareReviewItemId(null)
+      setShareReviewNotes("")
+      await refreshFinance()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "The share review action could not be completed."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
   async function recordFollowUp(followUp: MobileAdminCollectionFollowUp) {
     const note = collectionFollowUpNote.trim()
     const nextActionAt = collectionFollowUpNextActionAt.trim()
@@ -1356,6 +1460,8 @@ export function AdminFinanceScreen() {
                         setProjectFinancingApprovedStructure("undecided")
                         setReceiptReviewItemId(null)
                         setReceiptReviewNotes("")
+                        setShareReviewItemId(null)
+                        setShareReviewNotes("")
                         setError(null)
                       }}
                       onOpenFinancingReview={(selectedItem) => {
@@ -1374,6 +1480,8 @@ export function AdminFinanceScreen() {
                         setProjectFinancingApprovedStructure("undecided")
                         setReceiptReviewItemId(null)
                         setReceiptReviewNotes("")
+                        setShareReviewItemId(null)
+                        setShareReviewNotes("")
                         setError(null)
                       }}
                       onOpenProcurementReview={(selectedItem) => {
@@ -1392,6 +1500,8 @@ export function AdminFinanceScreen() {
                         setProjectFinancingApprovedStructure("undecided")
                         setReceiptReviewItemId(null)
                         setReceiptReviewNotes("")
+                        setShareReviewItemId(null)
+                        setShareReviewNotes("")
                         setError(null)
                       }}
                       onOpenProjectFinancingReview={(selectedItem) => {
@@ -1412,6 +1522,8 @@ export function AdminFinanceScreen() {
                         setProjectFinancingApprovedStructure("undecided")
                         setReceiptReviewItemId(null)
                         setReceiptReviewNotes("")
+                        setShareReviewItemId(null)
+                        setShareReviewNotes("")
                         setError(null)
                       }}
                       onOpenReceiptReview={(selectedItem) => {
@@ -1430,6 +1542,28 @@ export function AdminFinanceScreen() {
                         setProjectFinancingApprovedStructure("undecided")
                         setReceiptReviewItemId(selectedItem?.id ?? null)
                         setReceiptReviewNotes("")
+                        setShareReviewItemId(null)
+                        setShareReviewNotes("")
+                        setError(null)
+                      }}
+                      onOpenShareReview={(selectedItem) => {
+                        setFoodPurchaseReviewItemId(null)
+                        setFoodPurchaseReviewNotes("")
+                        setFinancingReviewItemId(null)
+                        setFinancingReviewNotes("")
+                        setProcurementReviewItemId(null)
+                        setProcurementReviewNotes("")
+                        setProcurementApprovedCost("")
+                        setProcurementApprovedRepaymentMonths("")
+                        setProjectFinancingReviewItemId(null)
+                        setProjectFinancingReviewNotes("")
+                        setProjectFinancingApprovedAmount("")
+                        setProjectFinancingApprovedPaybackMonths("")
+                        setProjectFinancingApprovedStructure("undecided")
+                        setReceiptReviewItemId(null)
+                        setReceiptReviewNotes("")
+                        setShareReviewItemId(selectedItem?.id ?? null)
+                        setShareReviewNotes("")
                         setError(null)
                       }}
                       onReviewFoodPurchase={reviewFoodPurchaseDecision}
@@ -1437,6 +1571,7 @@ export function AdminFinanceScreen() {
                       onReviewProjectFinancing={reviewProjectFinancingDecision}
                       onReviewProcurement={reviewProcurementDecision}
                       onReviewReceipt={reviewReceiptDecision}
+                      onReviewShare={reviewShareDecision}
                       foodPurchaseReviewItemId={foodPurchaseReviewItemId}
                       foodPurchaseReviewNotes={foodPurchaseReviewNotes}
                       projectFinancingApprovedAmount={
@@ -1460,6 +1595,8 @@ export function AdminFinanceScreen() {
                       procurementReviewNotes={procurementReviewNotes}
                       receiptReviewItemId={receiptReviewItemId}
                       receiptReviewNotes={receiptReviewNotes}
+                      shareReviewItemId={shareReviewItemId}
+                      shareReviewNotes={shareReviewNotes}
                       setFoodPurchaseReviewNotes={setFoodPurchaseReviewNotes}
                       setFinancingReviewNotes={setFinancingReviewNotes}
                       setProjectFinancingApprovedAmount={
@@ -1480,6 +1617,7 @@ export function AdminFinanceScreen() {
                       }
                       setProcurementReviewNotes={setProcurementReviewNotes}
                       setReceiptReviewNotes={setReceiptReviewNotes}
+                      setShareReviewNotes={setShareReviewNotes}
                     />
                   ))}
                 </View>

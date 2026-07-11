@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Admin Support Triage Actions.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A permitted finance user can approve or reject an optional share application from mobile with review notes.
-- [ ] Mobile optional share approval follows the tenant unit-share policy, posts through the existing server behavior, and records audit evidence.
+- [x] A permitted finance user can approve or reject an optional share application from mobile with review notes.
+- [x] Mobile optional share approval follows the tenant unit-share policy, posts through the existing server behavior, and records audit evidence.

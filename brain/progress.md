@@ -2,6 +2,17 @@
 
 ## 2026-07-11
 
+### Halaalvest Mobile MVP Release Audit
+
+- Source mode: `$to-tickets` local implementation completion for `.scratch/halaalvest-mobile-app-mvp/issues/18-mobile-mvp-release-audit-and-brain-update.md`.
+- Source spec: `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md`.
+- Release audit: `brain/audits/2026-07-11-mobile-mvp-release-audit.md`.
+- Architecture decision: `brain/decisions/ADR-009-adopt-ewatrade-aligned-mobile-mvp-architecture.md`.
+- Current status: Recorded the mobile MVP as pilot-ready for local validation, with evidence across signed mobile auth, server-owned DTO/action contracts, member self-service, safe admin operations, offline read-cache/draft behavior, safe notification/device registration foundation, virtualized long lists, and smoke/visual QA coverage.
+- Residual risks: Native simulator/device walkthroughs, EAS/app-store builds, push provider integration, full monorepo regression, and formal accessibility/load testing remain pre-pilot or later-release tasks.
+- Checks run: `bun --cwd apps/mobile check:smoke`; `bun --cwd apps/mobile typecheck`; `bun --cwd apps/mobile check:native-imports`; `bun test apps/api/src/routers/mobile.route.test.ts`; `bun --cwd packages/db node_modules/.bin/tsc --noEmit --pretty false`; scoped `eslint`; scoped `prettier --check`; scoped `git diff --check`.
+- Skipped checks: Native device/simulator visual walkthrough, EAS builds, app-store release signing, full monorepo test suite, push delivery, and production canary were not run in this local release-audit slice.
+
 ### Mobile Admin Report Preview Reads
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

@@ -4,7 +4,7 @@
 
 **Blocked by:** 17 — Mobile Visual QA And Smoke Coverage.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The mobile MVP release audit maps the spec requirements to current evidence, completed tickets, skipped checks, and residual risks.
-- [ ] Brain docs record the durable mobile auth, DTO, offline, admin action, release, and EwaTrade-alignment decisions for future work.
+- [x] The mobile MVP release audit maps the spec requirements to current evidence, completed tickets, skipped checks, and residual risks.
+- [x] Brain docs record the durable mobile auth, DTO, offline, admin action, release, and EwaTrade-alignment decisions for future work.

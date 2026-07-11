@@ -32,6 +32,12 @@ import {
   type ProcurementRequestRow,
 } from "./procurement"
 import {
+  createProjectFinancingRequest,
+  listProjectFinancingRequests,
+  type ProjectFinancingRequestRow,
+  type ProjectFinancingStructure,
+} from "./project-financing"
+import {
   createMemberSupportCase,
   getMemberSupportCaseSummary,
   listSupportCases,
@@ -107,6 +113,16 @@ export const mobileReceiptPeriodIntentKeys = [
 
 export type MobileReceiptPeriodIntent =
   (typeof mobileReceiptPeriodIntentKeys)[number]
+
+export const mobileProjectFinancingStructureKeys = [
+  "investment_partnership",
+  "profit_sharing",
+  "repayable_facility",
+  "undecided",
+] as const satisfies readonly ProjectFinancingStructure[]
+
+export type MobileProjectFinancingStructure =
+  (typeof mobileProjectFinancingStructureKeys)[number]
 
 export type MobileOverviewMetric = {
   detail: string
@@ -190,6 +206,7 @@ export type MobileMemberMoreSection = {
     | "statement"
     | "receipts"
     | "procurement"
+    | "projectFinancing"
     | "foodPurchase"
     | "guarantors"
     | "support"
@@ -463,6 +480,58 @@ export type MobileProcurementRequestCreateInput = {
   vendorName?: string | null
 }
 
+export type MobileProjectFinancingRequest = {
+  approvedAmount: number | null
+  approvedMonthlyPayback: number | null
+  approvedPaybackMonths: number | null
+  approvedStructure: MobileProjectFinancingStructure | null
+  businessDescription: string | null
+  businessName: string
+  disbursedAt: string | null
+  disbursementNotes: string | null
+  disbursementReference: string | null
+  estimatedMonthlyPayback: number | null
+  id: string
+  paidAmount: number
+  paidAt: string | null
+  projectPurpose: string | null
+  proposedStructure: MobileProjectFinancingStructure
+  requestedAmount: number
+  requestedAt: string
+  requestedPaybackMonths: number | null
+  reviewedAt: string | null
+  reviewNotes: string | null
+  status: string
+}
+
+export type MobileMemberProjectFinancing = {
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  requests: MobileProjectFinancingRequest[]
+  summary: {
+    activeRequests: number
+    approvedRequests: number
+    outstandingAmount: number
+    pendingRequests: number
+    totalApprovedAmount: number
+    totalRequestedAmount: number
+    totalRequests: number
+  }
+}
+
+export type MobileProjectFinancingRequestCreateInput = {
+  businessDescription?: string | null
+  businessName: string
+  projectPurpose?: string | null
+  proposedStructure?: MobileProjectFinancingStructure | null
+  requestedAmount: number
+  requestedPaybackMonths?: number | null
+}
+
 export type MobileFoodPurchaseCycle = {
   id: string
   periodMonth: string
@@ -722,6 +791,23 @@ function emptyMemberProcurement(): MobileMemberProcurement {
       outstandingAmount: 0,
       overdueScheduleItems: 0,
       pendingRequests: 0,
+      totalRequests: 0,
+    },
+  }
+}
+
+function emptyMemberProjectFinancing(): MobileMemberProjectFinancing {
+  return {
+    generatedAt: new Date().toISOString(),
+    member: null,
+    requests: [],
+    summary: {
+      activeRequests: 0,
+      approvedRequests: 0,
+      outstandingAmount: 0,
+      pendingRequests: 0,
+      totalApprovedAmount: 0,
+      totalRequestedAmount: 0,
       totalRequests: 0,
     },
   }
@@ -1199,6 +1285,67 @@ function summarizeMobileProcurementRequests(
   }
 }
 
+function toMobileProjectFinancingRequest(
+  row: ProjectFinancingRequestRow
+): MobileProjectFinancingRequest {
+  return {
+    approvedAmount: row.approvedAmount,
+    approvedMonthlyPayback: row.approvedMonthlyPayback,
+    approvedPaybackMonths: row.approvedPaybackMonths,
+    approvedStructure: row.approvedStructure,
+    businessDescription: row.businessDescription,
+    businessName: row.businessName,
+    disbursedAt: row.disbursedAt ? row.disbursedAt.toISOString() : null,
+    disbursementNotes: row.disbursementNotes,
+    disbursementReference: row.disbursementReference,
+    estimatedMonthlyPayback: row.estimatedMonthlyPayback,
+    id: row.id,
+    paidAmount: row.paidAmount,
+    paidAt: row.paidAt ? row.paidAt.toISOString() : null,
+    projectPurpose: row.projectPurpose,
+    proposedStructure: row.proposedStructure,
+    requestedAmount: row.requestedAmount,
+    requestedAt: row.requestedAt.toISOString(),
+    requestedPaybackMonths: row.requestedPaybackMonths,
+    reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
+    reviewNotes: row.reviewNotes,
+    status: row.status,
+  }
+}
+
+function summarizeMobileProjectFinancingRequests(
+  requests: MobileProjectFinancingRequest[]
+): MobileMemberProjectFinancing["summary"] {
+  return {
+    activeRequests: requests.filter((request) => request.status === "active")
+      .length,
+    approvedRequests: requests.filter((request) =>
+      ["approved", "active", "completed"].includes(request.status)
+    ).length,
+    outstandingAmount: requests.reduce((total, request) => {
+      if (!["approved", "active", "completed"].includes(request.status)) {
+        return total
+      }
+
+      return (
+        total + Math.max((request.approvedAmount ?? 0) - request.paidAmount, 0)
+      )
+    }, 0),
+    pendingRequests: requests.filter((request) =>
+      ["submitted", "under_review"].includes(request.status)
+    ).length,
+    totalApprovedAmount: requests.reduce(
+      (total, request) => total + (request.approvedAmount ?? 0),
+      0
+    ),
+    totalRequestedAmount: requests.reduce(
+      (total, request) => total + request.requestedAmount,
+      0
+    ),
+    totalRequests: requests.length,
+  }
+}
+
 function toMobileFoodPurchaseCycle(
   row: FoodPurchaseCycleRow
 ): MobileFoodPurchaseCycle {
@@ -1308,6 +1455,7 @@ async function buildMemberMore(input: {
     receiptSummary,
     receipts,
     procurementRequests,
+    projectFinancingRequests,
     foodPurchaseCycles,
     foodPurchaseApplications,
     guarantorApprovals,
@@ -1330,6 +1478,14 @@ async function buildMemberMore(input: {
       input.prisma
     ),
     listProcurementRequests(
+      {
+        limit: 3,
+        memberId: input.member.id,
+        tenantId: input.tenantId,
+      },
+      input.prisma
+    ),
+    listProjectFinancingRequests(
       {
         limit: 3,
         memberId: input.member.id,
@@ -1385,6 +1541,10 @@ async function buildMemberMore(input: {
     ["submitted", "under_review"].includes(request.status)
   ).length
   const latestProcurementRequest = procurementRequests[0] ?? null
+  const pendingProjectFinancingCount = projectFinancingRequests.filter(
+    (request) => ["submitted", "under_review"].includes(request.status)
+  ).length
+  const latestProjectFinancingRequest = projectFinancingRequests[0] ?? null
   const latestFoodPurchaseApplication = foodPurchaseApplications[0] ?? null
   const pendingFoodPurchaseCount = foodPurchaseApplications.filter(
     (application) => ["submitted", "under_review"].includes(application.status)
@@ -1551,6 +1711,41 @@ async function buildMemberMore(input: {
             : []),
         ],
         title: "Procurement",
+      },
+      {
+        icon: "BriefcaseBusiness",
+        key: "projectFinancing",
+        rows: [
+          moreRow({
+            detail:
+              pendingProjectFinancingCount > 0
+                ? "Waiting for finance review"
+                : "No project financing requests waiting on review",
+            format: "count",
+            key: "pending-project-financing",
+            label: "Pending project requests",
+            status: pendingProjectFinancingCount > 0 ? "Open" : "Clear",
+            value: pendingProjectFinancingCount,
+          }),
+          ...(latestProjectFinancingRequest
+            ? [
+                moreRow({
+                  detail:
+                    latestProjectFinancingRequest.projectPurpose ??
+                    humanizeStatus(
+                      latestProjectFinancingRequest.proposedStructure
+                    ) ??
+                    "Project financing request",
+                  format: "currency" as const,
+                  key: `project-financing-${latestProjectFinancingRequest.id}`,
+                  label: latestProjectFinancingRequest.businessName,
+                  status: humanizeStatus(latestProjectFinancingRequest.status),
+                  value: latestProjectFinancingRequest.requestedAmount,
+                }),
+              ]
+            : []),
+        ],
+        title: "Project financing",
       },
       {
         icon: "ShoppingBasket",
@@ -1804,6 +1999,87 @@ export async function createMobileMemberProcurementRequest(input: {
   )
 
   return toMobileProcurementRequest(request)
+}
+
+export async function getMobileMemberProjectFinancing(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberProjectFinancing> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberProjectFinancing()
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberProjectFinancing()
+  }
+
+  const requests = await listProjectFinancingRequests(
+    {
+      memberId: member.id,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+  const mobileRequests = requests.map(toMobileProjectFinancingRequest)
+
+  return {
+    generatedAt: new Date().toISOString(),
+    member: {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      name: member.fullName,
+    },
+    requests: mobileRequests,
+    summary: summarizeMobileProjectFinancingRequests(mobileRequests),
+  }
+}
+
+export async function createMobileMemberProjectFinancingRequest(input: {
+  businessDescription?: string | null
+  businessName: string
+  projectPurpose?: string | null
+  proposedStructure?: MobileProjectFinancingStructure | null
+  requestedAmount: number
+  requestedPaybackMonths?: number | null
+  tenantId: string
+  userId: string
+}): Promise<MobileProjectFinancingRequest> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error(
+      "Project financing requests are unavailable without database configuration."
+    )
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    throw new Error(
+      "Member profile needs linking before submitting project financing requests."
+    )
+  }
+
+  const request = await createProjectFinancingRequest(
+    {
+      actorUserId: input.userId,
+      businessDescription: input.businessDescription ?? undefined,
+      businessName: input.businessName,
+      memberId: member.id,
+      projectPurpose: input.projectPurpose ?? undefined,
+      proposedStructure: input.proposedStructure ?? undefined,
+      requestedAmount: input.requestedAmount,
+      requestedPaybackMonths: input.requestedPaybackMonths ?? undefined,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileProjectFinancingRequest(request)
 }
 
 export async function getMobileMemberFoodPurchase(input: {

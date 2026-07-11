@@ -2,6 +2,7 @@ import {
   createMobileMemberFinancingRequest,
   createMobileMemberFoodPurchaseApplication,
   createMobileMemberProcurementRequest,
+  createMobileMemberProjectFinancingRequest,
   createMobileMemberShareApplication,
   createMobileMemberReceipt,
   createMobileMemberSupportCase,
@@ -12,6 +13,7 @@ import {
   getMobileMemberHome,
   getMobileMemberMore,
   getMobileMemberProcurement,
+  getMobileMemberProjectFinancing,
   getMobileMemberReceipts,
   getMobileMemberShares,
   getMobileMemberStatement,
@@ -21,6 +23,7 @@ import {
   mobileReceiptAllocationCategoryKeys,
   mobileReceiptChannelKeys,
   mobileReceiptPeriodIntentKeys,
+  mobileProjectFinancingStructureKeys,
   mobileSupportCategoryKeys,
   respondMobileMemberGuarantorApproval,
 } from "@halaalvest/db"
@@ -98,6 +101,15 @@ const mobileProcurementRequestCreateInput = z.object({
   requestedCost: z.number().positive(),
   requestedRepaymentMonths: z.number().int().positive(),
   vendorName: z.string().trim().max(160).optional(),
+})
+
+const mobileProjectFinancingRequestCreateInput = z.object({
+  businessDescription: z.string().trim().max(2000).optional(),
+  businessName: z.string().trim().min(2).max(160),
+  projectPurpose: z.string().trim().max(1000).optional(),
+  proposedStructure: z.enum(mobileProjectFinancingStructureKeys).optional(),
+  requestedAmount: z.number().positive(),
+  requestedPaybackMonths: z.number().int().positive().optional(),
 })
 
 const mobileFoodPurchaseApplicationCreateInput = z.object({
@@ -255,6 +267,32 @@ export const mobileRouter = createTRPCRouter({
         assertMemberWorkspace(ctx.auth.activeMembership.role)
 
         return getMobileMemberProcurement({
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+    }),
+    projectFinancing: createTRPCRouter({
+      createRequest: tenantProcedure
+        .input(mobileProjectFinancingRequestCreateInput)
+        .mutation(({ ctx, input }) => {
+          assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+          return createMobileMemberProjectFinancingRequest({
+            businessDescription: input.businessDescription,
+            businessName: input.businessName,
+            projectPurpose: input.projectPurpose,
+            proposedStructure: input.proposedStructure,
+            requestedAmount: input.requestedAmount,
+            requestedPaybackMonths: input.requestedPaybackMonths,
+            tenantId: ctx.tenant.current.id,
+            userId: ctx.auth.session.user.id,
+          })
+        }),
+      list: tenantProcedure.query(({ ctx }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+        return getMobileMemberProjectFinancing({
           tenantId: ctx.tenant.current.id,
           userId: ctx.auth.session.user.id,
         })

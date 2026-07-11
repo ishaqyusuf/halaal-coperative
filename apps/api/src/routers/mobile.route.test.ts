@@ -298,6 +298,82 @@ describe("mobileRouter", () => {
     ).rejects.toThrow("Procurement requests are unavailable")
   })
 
+  test("returns member project financing for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const projectFinancing = await caller.mobile.member.projectFinancing.list()
+
+    expect(projectFinancing.member).toBeNull()
+    expect(projectFinancing.requests).toEqual([])
+    expect(projectFinancing.summary.pendingRequests).toBe(0)
+    expect(projectFinancing.summary.outstandingAmount).toBe(0)
+  })
+
+  test("rejects member project financing when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(caller.mobile.member.projectFinancing.list()).rejects.toThrow(
+      "Switch to the member workspace"
+    )
+  })
+
+  test("validates member project financing request create input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.projectFinancing.createRequest({
+        businessName: "",
+        requestedAmount: 1000,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.projectFinancing.createRequest({
+        businessName: "Market kiosk",
+        requestedAmount: 0,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.projectFinancing.createRequest({
+        businessName: "Market kiosk",
+        proposedStructure: "unsupported" as never,
+        requestedAmount: 1000,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.projectFinancing.createRequest({
+        businessName: "Market kiosk",
+        requestedAmount: 1000,
+        requestedPaybackMonths: 0,
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member project financing request create without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.projectFinancing.createRequest({
+        businessDescription: "Community food supply expansion.",
+        businessName: "Market kiosk",
+        projectPurpose: "Restock inventory",
+        proposedStructure: "repayable_facility",
+        requestedAmount: 1000,
+        requestedPaybackMonths: 3,
+      })
+    ).rejects.toThrow("Project financing requests are unavailable")
+  })
+
   test("returns member food purchase for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

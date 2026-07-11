@@ -80,6 +80,12 @@ export type MobileReceiptPeriodIntent =
   | "back_period"
   | "unspecified"
 
+export type MobileProjectFinancingStructure =
+  | "investment_partnership"
+  | "profit_sharing"
+  | "repayable_facility"
+  | "undecided"
+
 export type MobileMemberSectionRow = {
   detail: string
   format: MobileMetricFormat | null
@@ -265,6 +271,58 @@ export type MobileProcurementRequestCreateInput = {
   vendorName?: string
 }
 
+export type MobileProjectFinancingRequest = {
+  approvedAmount: number | null
+  approvedMonthlyPayback: number | null
+  approvedPaybackMonths: number | null
+  approvedStructure: MobileProjectFinancingStructure | null
+  businessDescription: string | null
+  businessName: string
+  disbursedAt: string | null
+  disbursementNotes: string | null
+  disbursementReference: string | null
+  estimatedMonthlyPayback: number | null
+  id: string
+  paidAmount: number
+  paidAt: string | null
+  projectPurpose: string | null
+  proposedStructure: MobileProjectFinancingStructure
+  requestedAmount: number
+  requestedAt: string
+  requestedPaybackMonths: number | null
+  reviewedAt: string | null
+  reviewNotes: string | null
+  status: string
+}
+
+export type MobileMemberProjectFinancing = {
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  requests: MobileProjectFinancingRequest[]
+  summary: {
+    activeRequests: number
+    approvedRequests: number
+    outstandingAmount: number
+    pendingRequests: number
+    totalApprovedAmount: number
+    totalRequestedAmount: number
+    totalRequests: number
+  }
+}
+
+export type MobileProjectFinancingRequestCreateInput = {
+  businessDescription?: string
+  businessName: string
+  projectPurpose?: string
+  proposedStructure?: MobileProjectFinancingStructure
+  requestedAmount: number
+  requestedPaybackMonths?: number
+}
+
 export type MobileFoodPurchaseCycle = {
   id: string
   periodMonth: string
@@ -387,6 +445,7 @@ export type MobileMemberMoreSection = {
     | "statement"
     | "receipts"
     | "procurement"
+    | "projectFinancing"
     | "foodPurchase"
     | "guarantors"
     | "support"
@@ -598,6 +657,22 @@ export async function createMobileMemberProcurementRequest(
   return client.mobile.member.procurement.createRequest.mutate(
     input
   ) as Promise<MobileMemberProcurementRequest>
+}
+
+export async function getMobileMemberProjectFinancing() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.projectFinancing.list.query() as Promise<MobileMemberProjectFinancing>
+}
+
+export async function createMobileMemberProjectFinancingRequest(
+  input: MobileProjectFinancingRequestCreateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.projectFinancing.createRequest.mutate(
+    input
+  ) as Promise<MobileProjectFinancingRequest>
 }
 
 export async function getMobileMemberFoodPurchase() {

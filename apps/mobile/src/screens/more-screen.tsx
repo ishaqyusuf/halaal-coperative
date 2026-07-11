@@ -55,6 +55,9 @@ export function MoreScreen() {
   >[0]
   const foodPurchaseHref = "/food-purchase" as Parameters<typeof router.push>[0]
   const procurementHref = "/procurement" as Parameters<typeof router.push>[0]
+  const projectFinancingHref = "/project-financing" as Parameters<
+    typeof router.push
+  >[0]
   const receiptsHref = "/receipts" as Parameters<typeof router.push>[0]
   const statementHref = "/statement" as Parameters<typeof router.push>[0]
   const supportHref = "/support" as Parameters<typeof router.push>[0]
@@ -277,6 +280,18 @@ export function MoreScreen() {
                           className="size-base text-primary-foreground"
                         />
                         <Text>Open procurement</Text>
+                      </Button>
+                    ) : null}
+                    {section.key === "projectFinancing" ? (
+                      <Button
+                        className="h-11"
+                        onPress={() => router.push(projectFinancingHref)}
+                      >
+                        <Icon
+                          name="BriefcaseBusiness"
+                          className="size-base text-primary-foreground"
+                        />
+                        <Text>Open projects</Text>
                       </Button>
                     ) : null}
                     {section.key === "foodPurchase" ? (

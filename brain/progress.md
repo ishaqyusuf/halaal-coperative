@@ -2,6 +2,17 @@
 
 ## 2026-07-11
 
+### Mobile Member Project Financing Requests
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/screens/more-screen.tsx`, `apps/mobile/src/screens/project-financing-screen.tsx`, `apps/mobile/src/app/(member)/project-financing.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added mobile member project financing request self-service. `mobile.member.projectFinancing.list` returns signed-member scoped project requests and summary counts, while `mobile.member.projectFinancing.createRequest` validates mobile input, derives the member from the signed session, and delegates to the existing audited project financing helper so live-write, tenant ownership, supported-structure, amount, and payback checks stay server-owned. The mobile More hub now exposes Project financing, and `/project-financing` renders structure selection, project request inputs, summary stats, and request history for production member sessions.
+- Scope note: This stages project financing requests only. It does not add staff mobile review, disbursement evidence entry, project receipt repayment posting, offline drafts, device smoke testing, or native visual QA.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; `../../node_modules/.bin/tsc --noEmit` from `packages/db`; `bun --cwd apps/mobile eslint src/screens/project-financing-screen.tsx src/screens/more-screen.tsx src/app/\(member\)/project-financing.tsx src/lib/mobile-home-api.ts` with existing array-type warnings only; touched-file `prettier --check`; scoped `git diff --check`.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Member Foodstuff Purchase Applications
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

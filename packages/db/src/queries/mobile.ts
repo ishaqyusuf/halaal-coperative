@@ -383,9 +383,13 @@ export type MobileNotificationDelivery = {
   notificationType: string
   occurredAt: string
   recipient: string
+  safeSummary: string
+  safeTitle: string
   source: string | null
   status: "failed" | "queued" | "sent" | "unknown"
 }
+
+export type MobileDeviceRegistrationState = "active" | "revoked"
 
 export type MobileNotificationPreference = {
   channel: string
@@ -1547,6 +1551,80 @@ function getMobileDeliveryStatus(
   return "unknown"
 }
 
+function getMobileNotificationSafeCopy(
+  notificationType: string,
+  status: MobileNotificationDelivery["status"]
+) {
+  const normalized = notificationType.toLowerCase()
+  const state =
+    status === "failed"
+      ? "Delivery needs attention."
+      : status === "sent"
+        ? "Delivery was completed."
+        : "Delivery is being prepared."
+
+  if (normalized.includes("receipt") || normalized.includes("payment")) {
+    return {
+      safeSummary: `Receipt activity is available inside the app. ${state}`,
+      safeTitle: "Receipt update",
+    }
+  }
+
+  if (normalized.includes("financing") || normalized.includes("loan")) {
+    return {
+      safeSummary: `Financing activity is available inside the app. ${state}`,
+      safeTitle: "Financing update",
+    }
+  }
+
+  if (normalized.includes("procurement")) {
+    return {
+      safeSummary: `Procurement activity is available inside the app. ${state}`,
+      safeTitle: "Procurement update",
+    }
+  }
+
+  if (normalized.includes("food")) {
+    return {
+      safeSummary: `Foodstuff Purchase activity is available inside the app. ${state}`,
+      safeTitle: "Foodstuff Purchase update",
+    }
+  }
+
+  if (normalized.includes("project")) {
+    return {
+      safeSummary: `Project financing activity is available inside the app. ${state}`,
+      safeTitle: "Project financing update",
+    }
+  }
+
+  if (normalized.includes("share")) {
+    return {
+      safeSummary: `Share activity is available inside the app. ${state}`,
+      safeTitle: "Share update",
+    }
+  }
+
+  if (normalized.includes("guarantor")) {
+    return {
+      safeSummary: `Guarantor activity is available inside the app. ${state}`,
+      safeTitle: "Guarantor update",
+    }
+  }
+
+  if (normalized.includes("support")) {
+    return {
+      safeSummary: `Support activity is available inside the app. ${state}`,
+      safeTitle: "Support update",
+    }
+  }
+
+  return {
+    safeSummary: `Cooperative activity is available inside the app. ${state}`,
+    safeTitle: "Cooperative update",
+  }
+}
+
 const mobileAdminAccessRoles: MembershipRole[] = [
   "super_admin",
   "tenant_admin",
@@ -1737,18 +1815,24 @@ type MobileNotificationAuditLog = Awaited<
 function toMobileNotificationDelivery(
   log: MobileNotificationAuditLog
 ): MobileNotificationDelivery {
+  const notificationType =
+    getMobileMetadataString(log.metadata, "notificationType") ??
+    "notification.email"
+  const status = getMobileDeliveryStatus(log.action)
+  const safeCopy = getMobileNotificationSafeCopy(notificationType, status)
+
   return {
     action: log.action,
-    errorMessage: getMobileMetadataString(log.metadata, "errorMessage"),
+    errorMessage:
+      status === "failed" ? "Delivery could not be completed." : null,
     id: log.id,
-    notificationType:
-      getMobileMetadataString(log.metadata, "notificationType") ??
-      "notification.email",
+    notificationType,
     occurredAt: log.occurredAt.toISOString(),
-    recipient:
-      getMobileMetadataString(log.metadata, "recipient") ?? "Unknown recipient",
+    recipient: "This account",
+    safeSummary: safeCopy.safeSummary,
+    safeTitle: safeCopy.safeTitle,
     source: getMobileMetadataString(log.metadata, "source"),
-    status: getMobileDeliveryStatus(log.action),
+    status,
   }
 }
 
@@ -3695,6 +3779,56 @@ export async function inviteMobileAdminAccessUser(input: {
   }
 }
 
+export async function registerMobileDeviceSession(input: {
+  actorUserId: string
+  appVersion: string
+  buildVariant: string
+  deviceId: string
+  deviceName?: string | null
+  platform: string
+  revocationState: MobileDeviceRegistrationState
+  tenantId: string
+}) {
+  const prisma = requireMobileAdminPrisma("Mobile device registration")
+  const normalizedDeviceId = input.deviceId.trim()
+  const normalizedPlatform = input.platform.trim()
+  const normalizedAppVersion = input.appVersion.trim()
+  const normalizedBuildVariant = input.buildVariant.trim()
+
+  if (!normalizedDeviceId || !normalizedPlatform) {
+    throw new Error("Device id and platform are required.")
+  }
+
+  const log = await prisma.auditLog.create({
+    data: {
+      action:
+        input.revocationState === "revoked"
+          ? "mobile.device_revoked"
+          : "mobile.device_registered",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityId: normalizedDeviceId,
+      entityType: "MobileDeviceSession",
+      metadata: {
+        appVersion: normalizedAppVersion || "unknown",
+        buildVariant: normalizedBuildVariant || "unknown",
+        deviceId: normalizedDeviceId,
+        deviceName: input.deviceName?.trim() || null,
+        platform: normalizedPlatform,
+        revocationState: input.revocationState,
+        userId: input.actorUserId,
+      },
+      occurredAt: new Date(),
+      tenantId: input.tenantId,
+    },
+  })
+
+  return {
+    id: log.id,
+    status: input.revocationState,
+  }
+}
+
 export async function updateMobileAdminMemberStatus(input: {
   actorUserId: string
   memberId: string
@@ -5568,10 +5702,13 @@ export async function getMobileNotifications(input: {
     listNotificationPreferences(input.tenantId),
   ])
   const deliveries = deliveryLogs
-    .map(toMobileNotificationDelivery)
     .filter(
-      (delivery) => delivery.recipient.trim().toLowerCase() === normalizedEmail
+      (log) =>
+        getMobileMetadataString(log.metadata, "recipient")
+          ?.trim()
+          .toLowerCase() === normalizedEmail
     )
+    .map(toMobileNotificationDelivery)
     .slice(0, 25)
   const visiblePreferences = preferences
     .filter(

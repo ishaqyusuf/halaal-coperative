@@ -30,6 +30,44 @@ function formatDate(value: string) {
   })
 }
 
+function formatNotificationType(value: string) {
+  const normalized = value.toLowerCase()
+
+  if (normalized.includes("receipt") || normalized.includes("payment")) {
+    return "Receipt updates"
+  }
+
+  if (normalized.includes("financing") || normalized.includes("loan")) {
+    return "Financing updates"
+  }
+
+  if (normalized.includes("procurement")) {
+    return "Procurement updates"
+  }
+
+  if (normalized.includes("food")) {
+    return "Foodstuff Purchase updates"
+  }
+
+  if (normalized.includes("project")) {
+    return "Project financing updates"
+  }
+
+  if (normalized.includes("share")) {
+    return "Share updates"
+  }
+
+  if (normalized.includes("guarantor")) {
+    return "Guarantor updates"
+  }
+
+  if (normalized.includes("support")) {
+    return "Support updates"
+  }
+
+  return "Cooperative updates"
+}
+
 function DeliveryRow({ delivery }: { delivery: MobileNotificationDelivery }) {
   const tone =
     delivery.status === "failed"
@@ -47,14 +85,17 @@ function DeliveryRow({ delivery }: { delivery: MobileNotificationDelivery }) {
         <View className="flex-1 gap-1">
           <View className="flex-row items-start justify-between gap-3">
             <Text className="flex-1 text-sm font-semibold text-foreground">
-              {delivery.notificationType}
+              {delivery.safeTitle}
             </Text>
             <Text className={`text-xs font-medium ${tone}`}>
               {delivery.status}
             </Text>
           </View>
           <Text className="text-sm leading-5 text-muted-foreground">
-            {delivery.recipient} - {formatDate(delivery.occurredAt)}
+            {delivery.safeSummary}
+          </Text>
+          <Text className="text-xs leading-4 text-muted-foreground">
+            {formatDate(delivery.occurredAt)}
           </Text>
           {delivery.errorMessage ? (
             <Text className="text-xs leading-4 text-destructive">
@@ -76,7 +117,7 @@ function PreferenceRow({
     <View className="flex-row items-start justify-between gap-3 border-b border-border pb-3 last:border-b-0 last:pb-0">
       <View className="flex-1 gap-1">
         <Text className="text-sm font-semibold text-foreground">
-          {preference.notificationType}
+          {formatNotificationType(preference.notificationType)}
         </Text>
         <Text className="text-xs text-muted-foreground">
           {preference.role} - {preference.channel}

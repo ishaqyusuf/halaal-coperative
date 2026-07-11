@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A signed-in mobile session can register device metadata with tenant, user, platform, app version, build variant, and revocation state.
-- [ ] Notification surfaces use safe summary copy and avoid exposing sensitive financial details outside the authenticated app.
+- [x] A signed-in mobile session can register device metadata with tenant, user, platform, app version, build variant, and revocation state.
+- [x] Notification surfaces use safe summary copy and avoid exposing sensitive financial details outside the authenticated app.

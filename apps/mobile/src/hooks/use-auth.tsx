@@ -1,6 +1,7 @@
 import {
   clearSession,
   createMockProfile,
+  getOrCreateMobileDeviceId,
   getSessionProfile,
   getToken,
   isMockSessionToken,
@@ -16,7 +17,9 @@ import {
   switchMobileRole,
   type MobileSignInCredentials,
 } from "@/lib/mobile-auth-api"
+import { registerMobileDeviceSession } from "@/lib/mobile-home-api"
 import { clearMobileReadCache } from "@/lib/read-cache"
+import Constants from "expo-constants"
 import {
   createContext,
   useCallback,
@@ -25,6 +28,7 @@ import {
   useMemo,
   useState,
 } from "react"
+import { Platform } from "react-native"
 
 type AuthContextValue = {
   initializing: boolean
@@ -38,6 +42,30 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 const canUseDevelopmentMockSession = process.env.NODE_ENV !== "production"
+
+function getMobileBuildVariant() {
+  const appVariant = Constants.expoConfig?.extra?.appVariant
+
+  if (typeof appVariant === "string" && appVariant.trim()) {
+    return appVariant
+  }
+
+  return process.env.EXPO_PUBLIC_APP_VARIANT ?? "unknown"
+}
+
+function getMobileDeviceRegistrationInput(
+  revocationState: "active" | "revoked"
+) {
+  return {
+    appVersion:
+      Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "unknown",
+    buildVariant: getMobileBuildVariant(),
+    deviceId: getOrCreateMobileDeviceId(),
+    deviceName: Constants.deviceName ?? undefined,
+    platform: Platform.OS,
+    revocationState,
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initializing, setInitializing] = useState(true)
@@ -102,6 +130,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!profile?.token || isMockSessionToken(profile.token)) return
+
+    void registerMobileDeviceSession(
+      getMobileDeviceRegistrationInput("active")
+    ).catch(() => {
+      // Device registration should not block an already-authenticated session.
+    })
+  }, [profile?.activeMembershipId, profile?.token])
+
   const signInAs = useCallback(async (role: MobileRole) => {
     await clearMobileReadCache()
     const nextProfile = createMockProfile(role)
@@ -122,6 +160,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
+    if (profile?.token && !isMockSessionToken(profile.token)) {
+      await registerMobileDeviceSession(
+        getMobileDeviceRegistrationInput("revoked")
+      ).catch(() => {
+        // Local sign-out should continue even when registration revocation fails.
+      })
+    }
+
     try {
       await signOutMobileAuth()
     } catch {
@@ -131,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await clearSession()
     await clearMobileReadCache()
     setProfile(null)
-  }, [])
+  }, [profile?.token])
 
   const switchRole = useCallback(async (membershipId: string) => {
     await clearMobileReadCache()

@@ -339,8 +339,19 @@ export type MobileNotificationDelivery = {
   notificationType: string
   occurredAt: string
   recipient: string
+  safeSummary: string
+  safeTitle: string
   source: string | null
   status: "failed" | "queued" | "sent" | "unknown"
+}
+
+export type MobileDeviceRegistrationInput = {
+  appVersion: string
+  buildVariant: string
+  deviceId: string
+  deviceName?: string
+  platform: string
+  revocationState: "active" | "revoked"
 }
 
 export type MobileNotificationPreference = {
@@ -1371,6 +1382,16 @@ export async function getMobileNotifications() {
     () =>
       client.mobile.notifications.overview.query() as Promise<MobileNotifications>
   )
+}
+
+export async function registerMobileDeviceSession(
+  input: MobileDeviceRegistrationInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.notifications.registerDevice.mutate(
+    input
+  ) as Promise<MobileAdminActionResult>
 }
 
 export async function getMobileAdminAccess() {

@@ -44,6 +44,7 @@ import {
   reviewMobileAdminReceipt,
   reviewMobileAdminShareApplication,
   reviewMobileAdminMemberOnboarding,
+  registerMobileDeviceSession,
   respondMobileMemberGuarantorApproval,
   replyMobileMemberSupportCase,
   updateMobileAdminMemberKyc,
@@ -295,6 +296,15 @@ const mobileAdminSupportStatusUpdateInput = z.object({
     "closed",
   ]),
   supportCaseId: z.string().trim().min(1),
+})
+
+const mobileDeviceRegistrationInput = z.object({
+  appVersion: z.string().trim().min(1).max(80),
+  buildVariant: z.string().trim().min(1).max(80),
+  deviceId: z.string().trim().min(6).max(160),
+  deviceName: z.string().trim().max(160).optional(),
+  platform: z.string().trim().min(2).max(40),
+  revocationState: z.enum(["active", "revoked"]),
 })
 
 const mobileAdminCollectionFollowUpInput = z.object({
@@ -554,6 +564,20 @@ export const mobileRouter = createTRPCRouter({
         userEmail: ctx.auth.session.user.email,
       })
     }),
+    registerDevice: tenantProcedure
+      .input(mobileDeviceRegistrationInput)
+      .mutation(({ ctx, input }) => {
+        return registerMobileDeviceSession({
+          actorUserId: ctx.auth.session.user.id,
+          appVersion: input.appVersion,
+          buildVariant: input.buildVariant,
+          deviceId: input.deviceId,
+          deviceName: input.deviceName,
+          platform: input.platform,
+          revocationState: input.revocationState,
+          tenantId: ctx.tenant.current.id,
+        })
+      }),
   }),
   member: createTRPCRouter({
     home: tenantProcedure.query(({ ctx }) => {

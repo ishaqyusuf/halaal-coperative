@@ -1154,6 +1154,38 @@ describe("mobileRouter", () => {
     expect(notifications.summary.totalDeliveries).toBe(0)
   })
 
+  test("routes mobile device registration through the database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.notifications.registerDevice({
+        appVersion: "0.1.0",
+        buildVariant: "development",
+        deviceId: "mobile-test-device",
+        platform: "ios",
+        revocationState: "active",
+      })
+    ).rejects.toThrow("Mobile device registration is unavailable")
+  })
+
+  test("validates mobile device registration input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.notifications.registerDevice({
+        appVersion: "0.1.0",
+        buildVariant: "development",
+        deviceId: "x",
+        platform: "ios",
+        revocationState: "active",
+      })
+    ).rejects.toThrow()
+  })
+
   test("returns admin overview for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

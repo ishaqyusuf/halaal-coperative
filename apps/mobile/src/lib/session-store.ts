@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store"
 
 export const SESSION_KEY = "halaalvest_mobile_session"
 const PROFILE_KEY = "halaalvest_mobile_profile"
+const DEVICE_ID_KEY = "halaalvest_mobile_device_id"
 
 export type MobileRole = "member" | "admin"
 export type CooperativeRole =
@@ -16,12 +17,12 @@ export interface MobileProfile {
   token: string
   role: MobileRole
   cooperativeRole?: CooperativeRole
-  availableRoles?: Array<{
+  availableRoles?: {
     id: string
     isDefault: boolean
     role: CooperativeRole
     workspaceRole: MobileRole
-  }>
+  }[]
   tenant: {
     branding: {
       accentColor: string | null
@@ -73,6 +74,26 @@ export const setSessionProfile = (profile: MobileProfile) =>
 
 export const deleteSessionProfile = () =>
   SecureStore.deleteItemAsync(PROFILE_KEY)
+
+function createMobileDeviceId() {
+  const randomUuid = globalThis.crypto?.randomUUID?.()
+  const randomId =
+    randomUuid ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+
+  return `mobile-${randomId}`
+}
+
+export const getOrCreateMobileDeviceId = () => {
+  const existing = SecureStore.getItem(DEVICE_ID_KEY)
+
+  if (existing) return existing
+
+  const deviceId = createMobileDeviceId()
+  SecureStore.setItem(DEVICE_ID_KEY, deviceId)
+
+  return deviceId
+}
 
 export const clearSession = async () => {
   await Promise.all([deleteToken(), deleteSessionProfile()])

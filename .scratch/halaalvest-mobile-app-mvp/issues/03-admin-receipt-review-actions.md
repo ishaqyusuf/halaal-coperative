@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Admin Support Triage Actions.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A permitted finance user can review a staged receipt from mobile and submit notes for the decision.
-- [ ] Mobile receipt review uses the same server-side validation, posting, duplicate detection, and audit behavior as the web workflow.
+- [x] A permitted finance user can review a staged receipt from mobile and submit notes for the decision.
+- [x] Mobile receipt review uses the same server-side validation, posting, duplicate detection, and audit behavior as the web workflow.

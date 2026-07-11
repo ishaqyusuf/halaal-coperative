@@ -5,6 +5,7 @@ import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
+import { Textarea } from "@/components/ui/textarea"
 import { adminExceptions, adminStats } from "@/data/mobile-template"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
@@ -24,6 +25,12 @@ import { formatMobileMetricValue } from "@/lib/mobile-metrics"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
+
+type ReceiptReviewDecision =
+  | "under_review"
+  | "correction_requested"
+  | "approved"
+  | "rejected"
 
 function formatCurrency(value: number, currencyCode: string) {
   return new Intl.NumberFormat("en", {
@@ -63,15 +70,31 @@ function FinanceRecentItemCard({
   isFirst,
   item,
   onMarkReviewing,
+  onOpenReceiptReview,
+  onReviewReceipt,
+  receiptReviewItemId,
+  receiptReviewNotes,
+  setReceiptReviewNotes,
 }: {
   actionState: "idle" | "pending"
   currencyCode: string
   isFirst: boolean
   item: MobileAdminFinanceRecentItem
   onMarkReviewing: (item: MobileAdminFinanceRecentItem) => void
+  onOpenReceiptReview: (item: MobileAdminFinanceRecentItem | null) => void
+  onReviewReceipt: (
+    item: MobileAdminFinanceRecentItem,
+    decision: ReceiptReviewDecision
+  ) => void
+  receiptReviewItemId: string | null
+  receiptReviewNotes: string
+  setReceiptReviewNotes: (value: string) => void
 }) {
   const canMarkReviewing =
     item.status !== "under_review" && item.queueKey !== "shares"
+  const isReceiptReviewing =
+    item.queueKey === "receipts" && receiptReviewItemId === item.id
+  const receiptNotesRequired = receiptReviewNotes.trim().length < 2
 
   return (
     <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
@@ -97,7 +120,69 @@ function FinanceRecentItemCard({
           <Text className="text-xs font-medium text-muted-foreground">
             {formatStatus(item.status)} - {formatDate(item.requestedAt)}
           </Text>
-          {canMarkReviewing ? (
+          {isReceiptReviewing ? (
+            <View className="gap-2 pt-2">
+              <Textarea
+                editable={actionState !== "pending"}
+                onChangeText={setReceiptReviewNotes}
+                placeholder="Review notes"
+                value={receiptReviewNotes}
+              />
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onReviewReceipt(item, "under_review")}
+                  variant="outline"
+                >
+                  <Text>Under review</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending" || receiptNotesRequired}
+                  onPress={() => onReviewReceipt(item, "correction_requested")}
+                  variant="outline"
+                >
+                  <Text>Correction</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onReviewReceipt(item, "approved")}
+                  variant="outline"
+                >
+                  <Text>Approve</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending" || receiptNotesRequired}
+                  onPress={() => onReviewReceipt(item, "rejected")}
+                  variant="outline"
+                >
+                  <Text>Reject</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onOpenReceiptReview(null)}
+                  variant="ghost"
+                >
+                  <Text>Cancel</Text>
+                </Button>
+              </View>
+            </View>
+          ) : item.queueKey === "receipts" ? (
+            <Button
+              className="mt-2 self-start"
+              disabled={actionState === "pending"}
+              onPress={() => onOpenReceiptReview(item)}
+              size="sm"
+              variant="outline"
+            >
+              <Icon name="ClipboardCheck" className="size-sm" />
+              <Text>Review receipt</Text>
+            </Button>
+          ) : canMarkReviewing ? (
             <Button
               className="mt-2 self-start"
               disabled={actionState === "pending"}
@@ -174,6 +259,10 @@ export function AdminFinanceScreen() {
   const [finance, setFinance] = useState<MobileAdminFinance | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [actionKey, setActionKey] = useState<string | null>(null)
+  const [receiptReviewItemId, setReceiptReviewItemId] = useState<string | null>(
+    null
+  )
+  const [receiptReviewNotes, setReceiptReviewNotes] = useState("")
   const [error, setError] = useState<string | null>(null)
   const canUseServerFinance = Boolean(
     profile?.role === "admin" &&
@@ -280,6 +369,45 @@ export function AdminFinanceScreen() {
         actionError instanceof Error
           ? actionError.message
           : "The review action could not be completed."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
+  async function reviewReceiptDecision(
+    item: MobileAdminFinanceRecentItem,
+    decision: ReceiptReviewDecision
+  ) {
+    const notes = receiptReviewNotes.trim()
+
+    if (
+      (decision === "correction_requested" || decision === "rejected") &&
+      notes.length < 2
+    ) {
+      setError("Review notes are required for correction or rejection.")
+      return
+    }
+
+    const nextActionKey = `${item.queueKey}-${item.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      await reviewMobileAdminReceipt({
+        decision,
+        receiptId: item.id,
+        reviewNotes: notes || undefined,
+      })
+      setReceiptReviewItemId(null)
+      setReceiptReviewNotes("")
+      await refreshFinance()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "The receipt review action could not be completed."
       )
     } finally {
       setActionKey(null)
@@ -401,6 +529,15 @@ export function AdminFinanceScreen() {
                       item={item}
                       key={`${item.queueKey}-${item.id}`}
                       onMarkReviewing={markReviewing}
+                      onOpenReceiptReview={(selectedItem) => {
+                        setReceiptReviewItemId(selectedItem?.id ?? null)
+                        setReceiptReviewNotes("")
+                        setError(null)
+                      }}
+                      onReviewReceipt={reviewReceiptDecision}
+                      receiptReviewItemId={receiptReviewItemId}
+                      receiptReviewNotes={receiptReviewNotes}
+                      setReceiptReviewNotes={setReceiptReviewNotes}
                     />
                   ))}
                 </View>

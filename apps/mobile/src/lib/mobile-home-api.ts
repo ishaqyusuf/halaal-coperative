@@ -677,7 +677,9 @@ export type MobileMemberStatementSectionKey =
   | "profile"
   | MobileMemberSectionKey
   | "documents"
+  | "receipts"
   | "ledger"
+  | "support"
 
 export type MobileMemberStatementSection = {
   emptyState: string

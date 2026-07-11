@@ -26,7 +26,9 @@ const sectionIcons: Record<MobileMemberStatementSectionKey, string> = {
   financing: "HandCoins",
   ledger: "ListChecks",
   profile: "UserRound",
+  receipts: "ReceiptText",
   shares: "PieChart",
+  support: "MessagesSquare",
 }
 
 function formatStatus(value: string) {

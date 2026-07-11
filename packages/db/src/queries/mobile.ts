@@ -441,7 +441,9 @@ export type MobileMemberStatementSectionKey =
   | "profile"
   | MobileMemberSectionKey
   | "documents"
+  | "receipts"
   | "ledger"
+  | "support"
 
 export type MobileMemberStatementSection = {
   emptyState: string
@@ -3914,6 +3916,141 @@ function buildLedgerStatementSection(
   }
 }
 
+function buildReceiptStatementSection(input: {
+  receipts: MemberPaymentReceiptRow[]
+  summary: Awaited<ReturnType<typeof getMemberScopedPaymentReceiptSummary>>
+}): MobileMemberStatementSection {
+  const rows: MobileMemberSectionRow[] = [
+    {
+      detail: `${input.summary.submittedReceipts} submitted - ${input.summary.underReviewReceipts} under review`,
+      format: "count",
+      key: "receipt-pending-review",
+      label: "Pending review",
+      status:
+        input.summary.pendingReviewReceipts > 0
+          ? "Needs finance review"
+          : "Clear",
+      value: input.summary.pendingReviewReceipts,
+    },
+    {
+      detail:
+        input.summary.correctionRequestedReceipts > 0
+          ? "Member needs clarification"
+          : "No correction requested receipts",
+      format: "count",
+      key: "receipt-corrections",
+      label: "Correction requested",
+      status:
+        input.summary.correctionRequestedReceipts > 0
+          ? "Needs member response"
+          : "Clear",
+      value: input.summary.correctionRequestedReceipts,
+    },
+  ]
+
+  for (const receipt of input.receipts.slice(0, 3)) {
+    rows.push({
+      detail: [
+        receipt.paidAt ? `Paid ${formatDateLabel(receipt.paidAt)}` : null,
+        receipt.submittedAt
+          ? `Submitted ${formatDateLabel(receipt.submittedAt)}`
+          : null,
+        `${receipt.allocations.length} allocation${
+          receipt.allocations.length === 1 ? "" : "s"
+        }`,
+      ]
+        .filter(Boolean)
+        .join(" - "),
+      format: "currency",
+      key: `receipt-${receipt.id}`,
+      label: receipt.paymentReference
+        ? `Receipt ${receipt.paymentReference}`
+        : "Payment receipt",
+      status: humanizeStatus(receipt.status),
+      value: receipt.totalAmount,
+    })
+  }
+
+  return {
+    emptyState: "No payment receipt context is available.",
+    key: "receipts",
+    rows,
+    subtitle:
+      "Recent member-submitted proof of payment and finance review state.",
+    title: "Receipts",
+  }
+}
+
+function buildSupportStatementSection(input: {
+  cases: SupportCaseRow[]
+  summary: Awaited<ReturnType<typeof getMemberSupportCaseSummary>>
+}): MobileMemberStatementSection {
+  const rows: MobileMemberSectionRow[] = [
+    {
+      detail:
+        input.summary.openCases > 0
+          ? "Open member support cases need follow-up"
+          : "No open support cases",
+      format: "count",
+      key: "support-open",
+      label: "Open support",
+      status: input.summary.openCases > 0 ? "Open" : "Clear",
+      value: input.summary.openCases,
+    },
+    {
+      detail:
+        input.summary.highPriorityOpenCases > 0
+          ? "High-priority support case active"
+          : "No high-priority support cases",
+      format: "count",
+      key: "support-priority",
+      label: "Priority support",
+      status:
+        input.summary.highPriorityOpenCases > 0 ? "Needs attention" : "Clear",
+      value: input.summary.highPriorityOpenCases,
+    },
+  ]
+
+  for (const supportCase of input.cases.slice(0, 3)) {
+    const latestMessage = supportCase.messages.at(-1)?.message
+
+    rows.push({
+      detail: [
+        latestMessage ?? supportCase.description,
+        supportCase.updatedAt
+          ? `Updated ${formatDateLabel(supportCase.updatedAt)}`
+          : null,
+        supportCase.requiresFinancialAdjustment
+          ? `Finance adjustment ${humanizeStatus(
+              supportCase.financialAdjustmentApprovalStatus
+            )}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" - "),
+      format: null,
+      key: `support-${supportCase.id}`,
+      label: supportCase.subject,
+      status: [
+        humanizeStatus(supportCase.status),
+        humanizeStatus(supportCase.priority),
+      ]
+        .filter(Boolean)
+        .join(" - "),
+      value: null,
+    })
+  }
+
+  return {
+    emptyState: "No support context is available.",
+    key: "support",
+    rows,
+    subtitle:
+      "Open account questions, payment issues, and money-impact review state.",
+    title: "Support",
+  }
+}
+
 async function buildMemberStatement(input: {
   detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
   member: NonNullable<Awaited<ReturnType<typeof getMemberByUserId>>>
@@ -4286,14 +4423,52 @@ export async function getMobileAdminMemberDetail(input: {
 
   const commitmentSection = buildCommitmentSection(detail)
   const financingSection = buildFinancingSection(detail)
-  const sharesSection = await buildSharesSection(
-    {
-      detail,
-      memberId: detail.member.id,
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
+  const [
+    sharesSection,
+    receiptSummary,
+    receipts,
+    supportSummary,
+    supportCases,
+  ] = await Promise.all([
+    buildSharesSection(
+      {
+        detail,
+        memberId: detail.member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    getMemberScopedPaymentReceiptSummary(
+      {
+        memberId: detail.member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    listMemberPaymentReceipts(
+      input.tenantId,
+      {
+        limit: 3,
+        memberId: detail.member.id,
+      },
+      prisma
+    ),
+    getMemberSupportCaseSummary(
+      {
+        memberId: detail.member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    listSupportCases(
+      {
+        limit: 3,
+        memberId: detail.member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+  ])
 
   return {
     generatedAt: new Date().toISOString(),
@@ -4319,6 +4494,14 @@ export async function getMobileAdminMemberDetail(input: {
       toStatementSection(commitmentSection),
       toStatementSection(financingSection),
       toStatementSection(sharesSection),
+      buildReceiptStatementSection({
+        receipts,
+        summary: receiptSummary,
+      }),
+      buildSupportStatementSection({
+        cases: supportCases,
+        summary: supportSummary,
+      }),
       buildDocumentStatementSection(detail),
       buildLedgerStatementSection(detail),
     ],

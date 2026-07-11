@@ -2,6 +2,18 @@
 
 ## 2026-07-11
 
+### Mobile Member Receipt Submission
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/screens/more-screen.tsx`, `apps/mobile/src/screens/receipts-screen.tsx`, `apps/mobile/src/app/(member)/receipts.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added a Phase 3 member receipt self-service workflow. `mobile.member.receipts.list` returns member-scoped receipt summary and recent staged receipts, while `mobile.member.receipts.create` validates mobile receipt input, derives the member from the signed session, and delegates to the existing staged receipt helper so submissions remain pending finance review. The member app now has a guarded `/receipts` screen with total amount, paid date, payment reference, proof link, notes, multi-allocation splits, and recent receipt status, linked from the More receipt section.
+- Scope note: This supports staged receipt submission for reference-free allocation categories from mobile today. It does not yet add file upload, loan/procurement/Foodstuff/project reference selectors, receipt detail threads, receipt-linked support shortcuts, offline drafts, or device smoke testing.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; `bun --cwd packages/db test src/queries/payment-receipts.test.ts`; `../../node_modules/.bin/tsc --noEmit` from `packages/db`; touched-file `prettier --check`.
+- Attempted checks: `bun --cwd apps/api typecheck` still fails on existing `bun:test` type declarations and nullable `ctx.auth.session` warnings in `apps/api/src/routers/mobile-auth.route.ts`. `bun --cwd apps/mobile typecheck` still fails on existing React ref type duplication in `src/components/ui/label.tsx`, `src/components/ui/switch.tsx`, and `src/components/ui/tabs.tsx`; no new receipts screen error was reported before those existing mobile blockers.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Member Support Self-Service
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

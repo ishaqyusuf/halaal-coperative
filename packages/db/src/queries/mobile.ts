@@ -6,8 +6,11 @@ import {
   listMemberStatementSummaries,
 } from "./members"
 import {
+  createMemberPaymentReceipt,
   getMemberScopedPaymentReceiptSummary,
   listMemberPaymentReceipts,
+  type MemberPaymentReceiptRow,
+  type PaymentReceiptAllocationInput,
 } from "./payment-receipts"
 import {
   createMemberSupportCase,
@@ -46,6 +49,40 @@ export const mobileSupportCategoryKeys = [
 ] as const satisfies readonly SupportCaseCategory[]
 
 export type MobileSupportCategory = (typeof mobileSupportCategoryKeys)[number]
+
+export const mobileReceiptAllocationCategoryKeys = [
+  "commitment",
+  "special_savings",
+  "loan_servicing",
+  "loan_extra_payment",
+  "shares",
+  "procurement",
+  "project_financing",
+  "food_purchase",
+  "other",
+] as const satisfies readonly PaymentReceiptAllocationInput["category"][]
+
+export type MobileReceiptAllocationCategory =
+  (typeof mobileReceiptAllocationCategoryKeys)[number]
+
+export const mobileReceiptChannelKeys = [
+  "transfer",
+  "cash",
+  "manual",
+  "payroll",
+] as const
+
+export type MobileReceiptChannel = (typeof mobileReceiptChannelKeys)[number]
+
+export const mobileReceiptPeriodIntentKeys = [
+  "current_period",
+  "future_period",
+  "back_period",
+  "unspecified",
+] as const satisfies readonly PaymentReceiptAllocationInput["periodIntent"][]
+
+export type MobileReceiptPeriodIntent =
+  (typeof mobileReceiptPeriodIntentKeys)[number]
 
 export type MobileOverviewMetric = {
   detail: string
@@ -169,6 +206,54 @@ export type MobileMemberSupport = {
   }
 }
 
+export type MobileReceiptAllocation = {
+  amount: number
+  category: MobileReceiptAllocationCategory
+  id: string
+  notes: string | null
+  periodIntent: MobileReceiptPeriodIntent
+  targetPeriodStart: string | null
+}
+
+export type MobilePaymentReceipt = {
+  allocations: MobileReceiptAllocation[]
+  channel: MobileReceiptChannel
+  id: string
+  memberNotes: string | null
+  paidAt: string
+  paymentReference: string | null
+  proofDocumentName: string | null
+  proofDocumentUrl: string | null
+  reviewNotes: string | null
+  status: string
+  submittedAt: string
+  totalAmount: number
+}
+
+export type MobileMemberReceipts = {
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  receipts: MobilePaymentReceipt[]
+  summary: {
+    approvedReceipts: number
+    correctionRequestedReceipts: number
+    pendingReviewReceipts: number
+    rejectedReceipts: number
+  }
+}
+
+export type MobileReceiptCreateAllocation = {
+  amount: number
+  category: MobileReceiptAllocationCategory
+  notes?: string | null
+  periodIntent?: MobileReceiptPeriodIntent | null
+  targetPeriodStart?: Date | null
+}
+
 const memberSectionCopy: Record<
   MobileMemberSectionKey,
   {
@@ -248,6 +333,20 @@ function emptyMemberSupport(): MobileMemberSupport {
       highPriorityOpenCases: 0,
       openCases: 0,
       totalCases: 0,
+    },
+  }
+}
+
+function emptyMemberReceipts(): MobileMemberReceipts {
+  return {
+    generatedAt: new Date().toISOString(),
+    member: null,
+    receipts: [],
+    summary: {
+      approvedReceipts: 0,
+      correctionRequestedReceipts: 0,
+      pendingReviewReceipts: 0,
+      rejectedReceipts: 0,
     },
   }
 }
@@ -475,6 +574,32 @@ function toMobileSupportCase(row: SupportCaseRow): MobileSupportCase {
   }
 }
 
+function toMobileReceipt(row: MemberPaymentReceiptRow): MobilePaymentReceipt {
+  return {
+    allocations: row.allocations.map((allocation) => ({
+      amount: allocation.amount,
+      category: allocation.category as MobileReceiptAllocationCategory,
+      id: allocation.id,
+      notes: allocation.notes,
+      periodIntent: allocation.periodIntent as MobileReceiptPeriodIntent,
+      targetPeriodStart: allocation.targetPeriodStart
+        ? allocation.targetPeriodStart.toISOString()
+        : null,
+    })),
+    channel: row.channel as MobileReceiptChannel,
+    id: row.id,
+    memberNotes: row.memberNotes,
+    paidAt: row.paidAt.toISOString(),
+    paymentReference: row.paymentReference,
+    proofDocumentName: row.proofDocumentName,
+    proofDocumentUrl: row.proofDocumentUrl,
+    reviewNotes: row.reviewNotes,
+    status: row.status,
+    submittedAt: row.submittedAt.toISOString(),
+    totalAmount: row.totalAmount,
+  }
+}
+
 async function buildMemberMore(input: {
   detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
   member: NonNullable<Awaited<ReturnType<typeof getMemberByUserId>>>
@@ -692,6 +817,107 @@ async function buildMemberMore(input: {
       },
     ],
   }
+}
+
+export async function getMobileMemberReceipts(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberReceipts> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberReceipts()
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberReceipts()
+  }
+
+  const [summary, receipts] = await Promise.all([
+    getMemberScopedPaymentReceiptSummary(
+      {
+        memberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    listMemberPaymentReceipts(
+      input.tenantId,
+      {
+        limit: 20,
+        memberId: member.id,
+      },
+      prisma
+    ),
+  ])
+
+  return {
+    generatedAt: new Date().toISOString(),
+    member: {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      name: member.fullName,
+    },
+    receipts: receipts.map(toMobileReceipt),
+    summary: {
+      approvedReceipts: summary.approvedReceipts,
+      correctionRequestedReceipts: summary.correctionRequestedReceipts,
+      pendingReviewReceipts: summary.pendingReviewReceipts,
+      rejectedReceipts: summary.rejectedReceipts,
+    },
+  }
+}
+
+export async function createMobileMemberReceipt(input: {
+  allocations: MobileReceiptCreateAllocation[]
+  channel?: MobileReceiptChannel
+  memberNotes?: string | null
+  paidAt: Date
+  paymentReference?: string | null
+  proofDocumentName?: string | null
+  proofDocumentUrl?: string | null
+  tenantId: string
+  totalAmount: number
+  userId: string
+}): Promise<MobilePaymentReceipt> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error("Receipts are unavailable without database configuration.")
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    throw new Error("Member profile needs linking before submitting receipts.")
+  }
+
+  const receipt = await createMemberPaymentReceipt(
+    {
+      allocations: input.allocations.map((allocation) => ({
+        amount: allocation.amount,
+        category: allocation.category,
+        notes: allocation.notes,
+        periodIntent: allocation.periodIntent,
+        targetPeriodStart: allocation.targetPeriodStart,
+      })),
+      channel: input.channel,
+      memberId: member.id,
+      memberNotes: input.memberNotes,
+      paidAt: input.paidAt,
+      paymentReference: input.paymentReference,
+      proofDocumentName: input.proofDocumentName,
+      proofDocumentUrl: input.proofDocumentUrl,
+      submittedByUserId: input.userId,
+      tenantId: input.tenantId,
+      totalAmount: input.totalAmount,
+    },
+    prisma
+  )
+
+  return toMobileReceipt(receipt)
 }
 
 export async function getMobileMemberSupport(input: {

@@ -61,6 +61,25 @@ export type MobileSupportCategory =
   | "technical"
   | "other"
 
+export type MobileReceiptAllocationCategory =
+  | "commitment"
+  | "special_savings"
+  | "loan_servicing"
+  | "loan_extra_payment"
+  | "shares"
+  | "procurement"
+  | "project_financing"
+  | "food_purchase"
+  | "other"
+
+export type MobileReceiptChannel = "transfer" | "cash" | "manual" | "payroll"
+
+export type MobileReceiptPeriodIntent =
+  | "current_period"
+  | "future_period"
+  | "back_period"
+  | "unspecified"
+
 export type MobileMemberSectionRow = {
   detail: string
   format: MobileMetricFormat | null
@@ -136,6 +155,65 @@ export type MobileMemberSupport = {
   }
 }
 
+export type MobileReceiptAllocation = {
+  amount: number
+  category: MobileReceiptAllocationCategory
+  id: string
+  notes: string | null
+  periodIntent: MobileReceiptPeriodIntent
+  targetPeriodStart: string | null
+}
+
+export type MobilePaymentReceipt = {
+  allocations: MobileReceiptAllocation[]
+  channel: MobileReceiptChannel
+  id: string
+  memberNotes: string | null
+  paidAt: string
+  paymentReference: string | null
+  proofDocumentName: string | null
+  proofDocumentUrl: string | null
+  reviewNotes: string | null
+  status: string
+  submittedAt: string
+  totalAmount: number
+}
+
+export type MobileMemberReceipts = {
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  receipts: MobilePaymentReceipt[]
+  summary: {
+    approvedReceipts: number
+    correctionRequestedReceipts: number
+    pendingReviewReceipts: number
+    rejectedReceipts: number
+  }
+}
+
+export type MobileReceiptCreateAllocation = {
+  amount: number
+  category: MobileReceiptAllocationCategory
+  notes?: string
+  periodIntent?: MobileReceiptPeriodIntent
+  targetPeriodStart?: string
+}
+
+export type MobileReceiptCreateInput = {
+  allocations: MobileReceiptCreateAllocation[]
+  channel?: MobileReceiptChannel
+  memberNotes?: string
+  paidAt: string
+  paymentReference?: string
+  proofDocumentName?: string
+  proofDocumentUrl?: string
+  totalAmount: number
+}
+
 export type MobileSupportCreateInput = {
   category: MobileSupportCategory
   description: string
@@ -159,6 +237,22 @@ export async function getMobileMemberSupport() {
   const client = createMobileTrpcClient()
 
   return client.mobile.member.support.list.query() as Promise<MobileMemberSupport>
+}
+
+export async function getMobileMemberReceipts() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.receipts.list.query() as Promise<MobileMemberReceipts>
+}
+
+export async function createMobileMemberReceipt(
+  input: MobileReceiptCreateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.receipts.create.mutate(
+    input
+  ) as Promise<MobilePaymentReceipt>
 }
 
 export async function createMobileMemberSupportCase(

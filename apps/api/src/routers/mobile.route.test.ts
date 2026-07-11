@@ -128,6 +128,68 @@ describe("mobileRouter", () => {
     ).rejects.toThrow()
   })
 
+  test("returns member receipts for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const receipts = await caller.mobile.member.receipts.list()
+
+    expect(receipts.member).toBeNull()
+    expect(receipts.receipts).toEqual([])
+    expect(receipts.summary.pendingReviewReceipts).toBe(0)
+  })
+
+  test("rejects member receipts when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(caller.mobile.member.receipts.list()).rejects.toThrow(
+      "Switch to the member workspace"
+    )
+  })
+
+  test("validates member receipt create input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.receipts.create({
+        allocations: [
+          {
+            amount: 1000,
+            category: "unsupported" as never,
+          },
+        ],
+        paidAt: new Date().toISOString(),
+        totalAmount: 1000,
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member receipt create without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.receipts.create({
+        allocations: [
+          {
+            amount: 1000,
+            category: "commitment",
+            periodIntent: "current_period",
+          },
+        ],
+        paidAt: new Date().toISOString(),
+        paymentReference: "MOBILE-TEST-1",
+        totalAmount: 1000,
+      })
+    ).rejects.toThrow("Receipts are unavailable")
+  })
+
   test("returns member support list for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

@@ -1,5 +1,5 @@
-import { DetailListScreen } from "@/screens/detail-list-screen";
+import { AdminFinanceScreen } from "@/screens/admin-finance-screen"
 
 export default function AdminFinanceRoute() {
-  return <DetailListScreen detailKey="finance" />;
+  return <AdminFinanceScreen />
 }

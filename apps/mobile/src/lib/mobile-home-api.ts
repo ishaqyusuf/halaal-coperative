@@ -99,6 +99,31 @@ export type MobileAdminMembersListInput = {
   status?: MobileAdminMemberStatus
 }
 
+export type MobileAdminFinanceQueue = {
+  count: number
+  detail: string
+  key: string
+  label: string
+  severity: "neutral" | "warning" | "critical"
+}
+
+export type MobileAdminFinanceRecentItem = {
+  amount: number
+  id: string
+  queueKey: "financing" | "procurement" | "projectFinancing" | "foodPurchase"
+  requestedAt: string
+  status: string
+  subtitle: string
+  title: string
+}
+
+export type MobileAdminFinance = {
+  generatedAt: string
+  queues: MobileAdminFinanceQueue[]
+  recentItems: MobileAdminFinanceRecentItem[]
+  stats: MobileOverviewMetric[]
+}
+
 export type MobileMemberSectionKey = "commitments" | "financing" | "shares"
 
 export type MobileSupportCategory =
@@ -809,4 +834,10 @@ export async function getMobileAdminMembers(
   return client.mobile.admin.members.list.query(
     input
   ) as Promise<MobileAdminMembers>
+}
+
+export async function getMobileAdminFinance() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.finance.overview.query() as Promise<MobileAdminFinance>
 }

@@ -6,6 +6,7 @@ import {
   createMobileMemberShareApplication,
   createMobileMemberReceipt,
   createMobileMemberSupportCase,
+  getMobileAdminFinance,
   getMobileAdminMembers,
   getMobileAdminOverview,
   getMobileMemberFinancing,
@@ -144,6 +145,11 @@ function assertMemberWorkspace(role: string) {
 
 export const mobileRouter = createTRPCRouter({
   admin: createTRPCRouter({
+    finance: createTRPCRouter({
+      overview: minRoleProcedure("operations_officer").query(({ ctx }) => {
+        return getMobileAdminFinance(ctx.tenant.current.id)
+      }),
+    }),
     members: createTRPCRouter({
       list: minRoleProcedure("operations_officer")
         .input(mobileAdminMembersListInput)

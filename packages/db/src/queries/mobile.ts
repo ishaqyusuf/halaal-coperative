@@ -223,6 +223,31 @@ export type MobileAdminMembers = {
   total: number
 }
 
+export type MobileAdminFinanceQueue = {
+  count: number
+  detail: string
+  key: string
+  label: string
+  severity: "neutral" | "warning" | "critical"
+}
+
+export type MobileAdminFinanceRecentItem = {
+  amount: number
+  id: string
+  queueKey: "financing" | "procurement" | "projectFinancing" | "foodPurchase"
+  requestedAt: string
+  status: string
+  subtitle: string
+  title: string
+}
+
+export type MobileAdminFinance = {
+  generatedAt: string
+  queues: MobileAdminFinanceQueue[]
+  recentItems: MobileAdminFinanceRecentItem[]
+  stats: MobileOverviewMetric[]
+}
+
 export type MobileMemberSectionRow = {
   detail: string
   format: MobileMetricFormat | null
@@ -781,6 +806,23 @@ function emptyAdminMembers(input?: {
   }
 }
 
+function emptyAdminFinance(): MobileAdminFinance {
+  return {
+    generatedAt: new Date().toISOString(),
+    queues: [],
+    recentItems: [],
+    stats: [
+      {
+        detail: "No configured database runtime",
+        format: "count",
+        key: "finance-queues",
+        label: "Finance queues",
+        value: 0,
+      },
+    ],
+  }
+}
+
 function emptyMemberSupport(): MobileMemberSupport {
   return {
     cases: [],
@@ -1202,6 +1244,92 @@ function summarizeMobileAdminMembers(input: {
       .length,
     pageCount: input.members.length,
     totalCount: input.total,
+  }
+}
+
+const mobileFinanceQueueKeys = new Set([
+  "financing-approvals",
+  "disbursement-holds",
+  "payment-receipts",
+  "procurement-requests",
+  "project-financing-requests",
+  "food-purchase-applications",
+  "food-purchase-accounting",
+])
+
+function toMobileAdminFinanceQueue(
+  row: Awaited<ReturnType<typeof getOverviewSummary>>["actionQueue"][number]
+): MobileAdminFinanceQueue | null {
+  if (!mobileFinanceQueueKeys.has(row.key)) {
+    return null
+  }
+
+  return {
+    count: row.count,
+    detail:
+      row.severity === "critical"
+        ? "Needs urgent finance review"
+        : "Waiting for review",
+    key: row.key,
+    label: row.label,
+    severity: row.severity,
+  }
+}
+
+function loanRequestToFinanceItem(
+  row: MobileLoanRequestRow
+): MobileAdminFinanceRecentItem {
+  return {
+    amount: Number(row.requestedAmount ?? 0),
+    id: row.id,
+    queueKey: "financing",
+    requestedAt: row.requestedAt.toISOString(),
+    status: row.status,
+    subtitle: row.loanProduct.name,
+    title: `${row.member.fullName} (${row.member.memberNumber})`,
+  }
+}
+
+function procurementToFinanceItem(
+  row: ProcurementRequestRow
+): MobileAdminFinanceRecentItem {
+  return {
+    amount: row.requestedCost,
+    id: row.id,
+    queueKey: "procurement",
+    requestedAt: row.requestedAt.toISOString(),
+    status: row.status,
+    subtitle: row.vendorName ?? "No vendor recorded",
+    title: `${row.member.fullName} - ${row.itemName}`,
+  }
+}
+
+function projectFinancingToFinanceItem(
+  row: ProjectFinancingRequestRow
+): MobileAdminFinanceRecentItem {
+  return {
+    amount: row.requestedAmount,
+    id: row.id,
+    queueKey: "projectFinancing",
+    requestedAt: row.requestedAt.toISOString(),
+    status: row.status,
+    subtitle: row.projectPurpose ?? row.proposedStructure,
+    title: `${row.member.fullName} - ${row.businessName}`,
+  }
+}
+
+function foodPurchaseToFinanceItem(
+  row: FoodPurchaseApplicationRow
+): MobileAdminFinanceRecentItem {
+  return {
+    amount: row.requestedAmount,
+    id: row.id,
+    queueKey: "foodPurchase",
+    requestedAt: row.requestedAt.toISOString(),
+    status: row.status,
+    subtitle:
+      row.itemDescription ?? `Cycle ${formatDateLabel(row.cycle.periodMonth)}`,
+    title: `${row.member.fullName} (${row.member.memberNumber})`,
   }
 }
 
@@ -3631,5 +3759,97 @@ export async function getMobileAdminMembers(input: {
       total: result.total,
     }),
     total: result.total,
+  }
+}
+
+export async function getMobileAdminFinance(
+  tenantId: string
+): Promise<MobileAdminFinance> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyAdminFinance()
+  }
+
+  const [
+    overview,
+    loanRequests,
+    procurementRequests,
+    projectRequests,
+    foodApplications,
+  ] = await Promise.all([
+    getOverviewSummary(tenantId),
+    listLoanRequests(tenantId, prisma),
+    listProcurementRequests(
+      {
+        limit: 8,
+        tenantId,
+      },
+      prisma
+    ),
+    listProjectFinancingRequests(
+      {
+        limit: 8,
+        tenantId,
+      },
+      prisma
+    ),
+    listFoodPurchaseApplications(
+      {
+        limit: 8,
+        tenantId,
+      },
+      prisma
+    ),
+  ])
+  const queues = overview.actionQueue
+    .map(toMobileAdminFinanceQueue)
+    .filter((item): item is MobileAdminFinanceQueue => Boolean(item))
+  const pendingStatuses = ["submitted", "under_review"]
+  const recentItems = [
+    ...loanRequests
+      .filter((request) => pendingStatuses.includes(request.status))
+      .slice(0, 4)
+      .map(loanRequestToFinanceItem),
+    ...procurementRequests
+      .filter((request) => pendingStatuses.includes(request.status))
+      .map(procurementToFinanceItem),
+    ...projectRequests
+      .filter((request) => pendingStatuses.includes(request.status))
+      .map(projectFinancingToFinanceItem),
+    ...foodApplications
+      .filter((application) => pendingStatuses.includes(application.status))
+      .map(foodPurchaseToFinanceItem),
+  ]
+    .sort((left, right) => right.requestedAt.localeCompare(left.requestedAt))
+    .slice(0, 12)
+
+  return {
+    generatedAt: overview.workspace.generatedAt,
+    queues,
+    recentItems,
+    stats: [
+      {
+        detail: "Finance review queues",
+        format: "count",
+        key: "finance-queues",
+        label: "Open queues",
+        value: queues.reduce((total, queue) => total + queue.count, 0),
+      },
+      {
+        detail: "After reserve and commitments",
+        format: "currency",
+        key: "deployable-funds",
+        label: "Deployable funds",
+        value: overview.primaryMetrics.deployableFunds,
+      },
+      {
+        detail: overview.contributionHealth.periodLabel,
+        format: "percent",
+        key: "collection-coverage",
+        label: "Collections",
+        value: overview.primaryMetrics.collectionCoverage,
+      },
+    ],
   }
 }

@@ -710,6 +710,28 @@ describe("mobileRouter", () => {
     ).rejects.toThrow()
   })
 
+  test("returns admin finance overview for staff workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    const finance = await caller.mobile.admin.finance.overview()
+
+    expect(finance.generatedAt).toEqual(expect.any(String))
+    expect(finance.recentItems).toEqual([])
+    expect(finance.stats.map((stat) => stat.key)).toEqual(["finance-queues"])
+  })
+
+  test("rejects admin finance overview from the member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(caller.mobile.admin.finance.overview()).rejects.toThrow(
+      "This action requires operations_officer role or above."
+    )
+  })
+
   test("returns admin overview for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

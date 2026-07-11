@@ -134,7 +134,22 @@ export type MobileAdminReportCard = {
   title: string
 }
 
+export type MobileAdminActivityEvent = {
+  action: string
+  actionLabel: string
+  actorLabel: string
+  actorType: string
+  authorizationRole: string
+  authorizerLabel: string
+  entityId: string | null
+  entityType: string
+  id: string
+  metadataSummary: string[]
+  occurredAt: string
+}
+
 export type MobileAdminReports = {
+  activityEvents: MobileAdminActivityEvent[]
   generatedAt: string
   reports: MobileAdminReportCard[]
   stats: MobileOverviewMetric[]

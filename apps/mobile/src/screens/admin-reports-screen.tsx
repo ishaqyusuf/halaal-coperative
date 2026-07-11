@@ -8,6 +8,7 @@ import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminReports,
+  type MobileAdminActivityEvent,
   type MobileAdminReportCard,
   type MobileAdminReports,
 } from "@/lib/mobile-home-api"
@@ -75,6 +76,67 @@ function reportIcon(key: string) {
   return "FileText"
 }
 
+function formatActivityDate(value: string) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return "Time not available"
+  }
+
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+function ActivityEventRow({
+  event,
+  isFirst,
+}: {
+  event: MobileAdminActivityEvent
+  isFirst: boolean
+}) {
+  return (
+    <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
+      <View className="flex-row items-start gap-3">
+        <View className="h-9 w-9 items-center justify-center rounded-md bg-secondary">
+          <Icon name="History" className="size-sm text-accent" />
+        </View>
+        <View className="flex-1 gap-2">
+          <View className="flex-row items-start justify-between gap-3">
+            <Text className="flex-1 text-sm font-semibold text-foreground">
+              {event.actionLabel}
+            </Text>
+            <Text className="text-xs font-medium text-muted-foreground">
+              {formatActivityDate(event.occurredAt)}
+            </Text>
+          </View>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            {event.actorLabel} - {event.entityType}
+            {event.entityId ? ` - ${event.entityId}` : ""}
+          </Text>
+          <Text className="text-xs leading-4 text-muted-foreground">
+            {event.authorizationRole}: {event.authorizerLabel}
+          </Text>
+          {event.metadataSummary.length ? (
+            <View className="flex-row flex-wrap gap-2">
+              {event.metadataSummary.map((item, index) => (
+                <View
+                  className="rounded-md bg-secondary px-2 py-1"
+                  key={`${event.id}-${index}`}
+                >
+                  <Text className="text-xs text-muted-foreground">{item}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  )
+}
+
 function ReportCard({
   currencyCode,
   isFirst,
@@ -139,6 +201,7 @@ export function AdminReportsScreen() {
     [currencyCode, reports?.stats]
   )
   const reportCards = reports?.reports ?? fallbackReports
+  const activityEvents = reports?.activityEvents ?? []
 
   useEffect(() => {
     let mounted = true
@@ -225,6 +288,26 @@ export function AdminReportsScreen() {
               ) : (
                 <Text className="text-sm leading-5 text-muted-foreground">
                   No report previews are available for this workspace.
+                </Text>
+              )}
+            </SectionCard>
+
+            <SectionCard icon="History" title="Recent activity evidence">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : activityEvents.length ? (
+                <View className="gap-3">
+                  {activityEvents.map((event, index) => (
+                    <ActivityEventRow
+                      event={event}
+                      isFirst={index === 0}
+                      key={event.id}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  No recent audit events are available for this workspace.
                 </Text>
               )}
             </SectionCard>

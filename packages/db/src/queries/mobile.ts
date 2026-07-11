@@ -1,4 +1,5 @@
 import { createPrismaClient } from "../prisma"
+import { listActivityReportEvents, type ActivityReportEvent } from "./audit"
 import { listTenantUsersWithMemberships, type MembershipRole } from "./auth"
 import { getDashboardMetrics, getOverviewSummary } from "./dashboard"
 import {
@@ -259,7 +260,22 @@ export type MobileAdminReportCard = {
   title: string
 }
 
+export type MobileAdminActivityEvent = {
+  action: string
+  actionLabel: string
+  actorLabel: string
+  actorType: string
+  authorizationRole: string
+  authorizerLabel: string
+  entityId: string | null
+  entityType: string
+  id: string
+  metadataSummary: string[]
+  occurredAt: string
+}
+
 export type MobileAdminReports = {
+  activityEvents: MobileAdminActivityEvent[]
   generatedAt: string
   reports: MobileAdminReportCard[]
   stats: MobileOverviewMetric[]
@@ -879,6 +895,7 @@ function emptyAdminFinance(): MobileAdminFinance {
 
 function emptyAdminReports(): MobileAdminReports {
   return {
+    activityEvents: [],
     generatedAt: new Date().toISOString(),
     reports: buildMobileAdminReportCards({
       activeMemberCount: 0,
@@ -1566,6 +1583,24 @@ function buildMobileAdminReportCards(
       title: "Activity evidence",
     },
   ]
+}
+
+function toMobileAdminActivityEvent(
+  event: ActivityReportEvent
+): MobileAdminActivityEvent {
+  return {
+    action: event.action,
+    actionLabel: event.actionLabel,
+    actorLabel: event.actorLabel,
+    actorType: event.actorType,
+    authorizationRole: event.authorizationRole,
+    authorizerLabel: event.authorizerLabel,
+    entityId: event.entityId,
+    entityType: event.entityType,
+    id: event.id,
+    metadataSummary: event.metadataSummary.slice(0, 3),
+    occurredAt: event.occurredAt.toISOString(),
+  }
 }
 
 function loanRequestToFinanceItem(
@@ -4155,13 +4190,21 @@ export async function getMobileAdminReports(
     return emptyAdminReports()
   }
 
-  const [overview, metrics] = await Promise.all([
+  const [overview, metrics, activityEvents] = await Promise.all([
     getOverviewSummary(tenantId, prisma),
     getDashboardMetrics(tenantId, prisma),
+    listActivityReportEvents(
+      tenantId,
+      {
+        limit: 8,
+      },
+      prisma
+    ),
   ])
   const reports = buildMobileAdminReportCards(metrics, overview)
 
   return {
+    activityEvents: activityEvents.map(toMobileAdminActivityEvent),
     generatedAt: overview.workspace.generatedAt,
     reports,
     stats: [

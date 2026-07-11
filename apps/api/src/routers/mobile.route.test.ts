@@ -739,6 +739,7 @@ describe("mobileRouter", () => {
 
     const reports = await caller.mobile.admin.reports.overview()
 
+    expect(reports.activityEvents).toEqual([])
     expect(reports.generatedAt).toEqual(expect.any(String))
     expect(reports.reports.map((report) => report.key)).toContain("members")
     expect(reports.reports.map((report) => report.exportHref)).toContain(

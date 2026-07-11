@@ -235,6 +235,38 @@ export type MobileMemberMore = {
   sections: MobileMemberMoreSection[]
 }
 
+export type MobileMemberStatementSectionKey =
+  | "profile"
+  | MobileMemberSectionKey
+  | "documents"
+  | "ledger"
+
+export type MobileMemberStatementSection = {
+  emptyState: string
+  key: MobileMemberStatementSectionKey
+  rows: MobileMemberSectionRow[]
+  subtitle: string
+  title: string
+}
+
+export type MobileMemberStatement = {
+  generatedAt: string
+  member: {
+    deductionSourceName: string | null
+    email: string | null
+    exitedAt: string | null
+    id: string
+    joinedAt: string
+    kycStatus: string
+    memberNumber: string
+    memberType: string
+    name: string
+    status: string
+  } | null
+  sections: MobileMemberStatementSection[]
+  stats: MobileOverviewMetric[]
+}
+
 export type MobileSupportCase = {
   category: MobileSupportCategory
   detail: string
@@ -339,6 +371,12 @@ export async function getMobileMemberMore() {
   const client = createMobileTrpcClient()
 
   return client.mobile.member.more.query() as Promise<MobileMemberMore>
+}
+
+export async function getMobileMemberStatement() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.statement.query() as Promise<MobileMemberStatement>
 }
 
 export async function getMobileMemberSupport() {

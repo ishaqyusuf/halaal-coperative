@@ -2,6 +2,17 @@
 
 ## 2026-07-11
 
+### Mobile Member Statement View
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/screens/more-screen.tsx`, `apps/mobile/src/screens/statement-screen.tsx`, `apps/mobile/src/app/(member)/statement.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added a guarded mobile member statement view. `mobile.member.statement` now derives the signed member profile, reuses the existing member statement detail query, and returns profile, commitment, financing, share/dividend, document, and ledger sections with the same mobile row contract as the existing section screens. The More tab now opens `/statement`, where production member sessions can review statement stats and read-only statement sections while mock/admin sessions keep the existing fallback behavior.
+- Scope note: This is read-only statement visibility. It does not add PDF/text export from mobile, file downloads, offline cached statement snapshots, mobile share certificates, or device smoke testing.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; `../../node_modules/.bin/tsc --noEmit` from `packages/db`; `bun --cwd apps/mobile eslint src/screens/statement-screen.tsx src/screens/more-screen.tsx src/lib/mobile-home-api.ts` with existing array-type warnings only; touched-file `prettier --check`; scoped `git diff --check`.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Member Guarantor Approvals
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

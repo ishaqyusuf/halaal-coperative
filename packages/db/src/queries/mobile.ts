@@ -187,6 +187,38 @@ export type MobileMemberMore = {
   sections: MobileMemberMoreSection[]
 }
 
+export type MobileMemberStatementSectionKey =
+  | "profile"
+  | MobileMemberSectionKey
+  | "documents"
+  | "ledger"
+
+export type MobileMemberStatementSection = {
+  emptyState: string
+  key: MobileMemberStatementSectionKey
+  rows: MobileMemberSectionRow[]
+  subtitle: string
+  title: string
+}
+
+export type MobileMemberStatement = {
+  generatedAt: string
+  member: {
+    deductionSourceName: string | null
+    email: string | null
+    exitedAt: string | null
+    id: string
+    joinedAt: string
+    kycStatus: string
+    memberNumber: string
+    memberType: string
+    name: string
+    status: string
+  } | null
+  sections: MobileMemberStatementSection[]
+  stats: MobileOverviewMetric[]
+}
+
 export type MobileSupportCase = {
   category: MobileSupportCategory
   detail: string
@@ -498,6 +530,67 @@ function emptyMemberMore(): MobileMemberMore {
         title: "Profile",
       },
     ],
+  }
+}
+
+function getEmptyStatementStats(): MobileOverviewMetric[] {
+  return [
+    {
+      detail: "No active commitment available",
+      format: "currency",
+      key: "active-commitment",
+      label: "Active commitment",
+      value: 0,
+    },
+    {
+      detail: "No posted savings available",
+      format: "currency",
+      key: "savings",
+      label: "Savings",
+      value: 0,
+    },
+    {
+      detail: "No active financing available",
+      format: "currency",
+      key: "financing",
+      label: "Financing",
+      value: 0,
+    },
+    {
+      detail: "No published dividends",
+      format: "currency",
+      key: "dividends",
+      label: "Dividends",
+      value: 0,
+    },
+  ]
+}
+
+function emptyMemberStatement(
+  detail = "No linked member profile was found for this mobile session."
+): MobileMemberStatement {
+  return {
+    generatedAt: new Date().toISOString(),
+    member: null,
+    sections: [
+      {
+        emptyState: detail,
+        key: "profile",
+        rows: [
+          {
+            detail,
+            format: null,
+            key: "member-profile",
+            label: "Member profile needs linking",
+            status: "Needs setup",
+            value: null,
+          },
+        ],
+        subtitle: "Membership identity and statement readiness.",
+        title: "Profile",
+      },
+    ],
+    stats: getEmptyStatementStats(),
   }
 }
 
@@ -1812,6 +1905,267 @@ async function buildSharesSection(
   }
 }
 
+function toStatementSection(
+  section: MobileMemberSection
+): MobileMemberStatementSection {
+  return {
+    emptyState: section.emptyState,
+    key: section.key,
+    rows: section.rows,
+    subtitle: section.subtitle,
+    title: section.title,
+  }
+}
+
+function buildStatementStats(
+  detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
+): MobileOverviewMetric[] {
+  const summary = detail.summary
+  const activePlan =
+    detail.member.contributionPlans.find((plan) => plan.isActive) ??
+    detail.member.contributionPlans[0] ??
+    null
+
+  return [
+    {
+      detail: activePlan?.startsAt
+        ? `Active since ${formatDateLabel(activePlan.startsAt)}`
+        : "No active commitment available",
+      format: "currency",
+      key: "active-commitment",
+      label: "Active commitment",
+      value: Number(activePlan?.amount ?? 0),
+    },
+    {
+      detail:
+        (summary?.contributionsCount ?? 0) > 0
+          ? `${summary?.contributionsCount ?? 0} posted contribution entries`
+          : "No posted contribution entries",
+      format: "currency",
+      key: "savings",
+      label: "Savings",
+      value: summary?.totalSavingsSnapshot ?? 0,
+    },
+    {
+      detail:
+        (summary?.activeLoanCount ?? 0) > 0
+          ? `${summary?.activeLoanCount ?? 0} active financing record(s)`
+          : "No active financing",
+      format: "currency",
+      key: "financing",
+      label: "Financing",
+      value: summary?.totalOutstandingPrincipal ?? 0,
+    },
+    {
+      detail:
+        (summary?.dividendAllocationCount ?? 0) > 0
+          ? `${summary?.dividendAllocationCount ?? 0} published allocation(s)`
+          : "No published dividends",
+      format: "currency",
+      key: "dividends",
+      label: "Dividends",
+      value: summary?.totalDividendAllocations ?? 0,
+    },
+  ]
+}
+
+function buildProfileStatementSection(
+  detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
+): MobileMemberStatementSection {
+  const member = detail.member
+  const email = member.user?.email ?? member.email
+
+  return {
+    emptyState: "No member profile detail is available.",
+    key: "profile",
+    rows: [
+      {
+        detail: `${humanizeStatus(member.memberType) ?? "Member"} profile`,
+        format: null,
+        key: "member-number",
+        label: member.memberNumber,
+        status: humanizeStatus(member.status),
+        value: null,
+      },
+      {
+        detail: email ?? "No email on profile",
+        format: null,
+        key: "email",
+        label: "Email",
+        status: member.user?.email ? "Account email" : "Member email",
+        value: null,
+      },
+      {
+        detail: member.deductionSource?.name ?? "No deduction source assigned",
+        format: null,
+        key: "deduction-source",
+        label: "Deduction source",
+        status: member.deductionSource ? "Linked" : "Not linked",
+        value: null,
+      },
+      {
+        detail: `Joined ${formatDateLabel(member.joinedAt) ?? "Not recorded"}`,
+        format: null,
+        key: "membership-dates",
+        label: member.exitedAt
+          ? `Exited ${formatDateLabel(member.exitedAt) ?? "Not recorded"}`
+          : "Active membership period",
+        status: humanizeStatus(member.kycStatus),
+        value: null,
+      },
+    ],
+    subtitle: "Membership identity, KYC status, and deduction source.",
+    title: "Profile",
+  }
+}
+
+function buildDocumentStatementSection(
+  detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
+): MobileMemberStatementSection {
+  const rows: MobileMemberSectionRow[] = detail.member.documents
+    .slice(0, 6)
+    .map((document) => ({
+      detail: [
+        document.uploadedAt
+          ? `Uploaded ${formatDateLabel(document.uploadedAt)}`
+          : null,
+        document.reviewNotes,
+      ]
+        .filter(Boolean)
+        .join(" - "),
+      format: null,
+      key: `document-${document.id}`,
+      label: humanizeStatus(document.documentType) ?? "Member document",
+      status: humanizeStatus(document.reviewStatus),
+      value: null,
+    }))
+
+  return {
+    emptyState: "No uploaded member documents are available.",
+    key: "documents",
+    rows:
+      rows.length > 0
+        ? rows
+        : [
+            {
+              detail: "No uploaded member documents are available.",
+              format: null,
+              key: "empty-documents",
+              label: "Documents",
+              status: "Not started",
+              value: null,
+            },
+          ],
+    subtitle: "KYC and member records currently visible to operations.",
+    title: "Documents",
+  }
+}
+
+function buildLedgerStatementSection(
+  detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
+): MobileMemberStatementSection {
+  const rows: MobileMemberSectionRow[] = detail.ledgerTransactions
+    .slice(0, 8)
+    .map((transaction) => {
+      const debitEntries = transaction.entries.filter(
+        (entry) => entry.direction === "debit"
+      )
+      const amountEntries =
+        debitEntries.length > 0 ? debitEntries : transaction.entries
+      const transactionAmount = amountEntries.reduce(
+        (sum, entry) => sum + Number(entry.amount ?? 0),
+        0
+      )
+
+      return {
+        detail: [
+          transaction.postedAt
+            ? `Posted ${formatDateLabel(transaction.postedAt)}`
+            : null,
+          transaction.reference ? `Ref ${transaction.reference}` : null,
+          `${transaction.entries.length} ledger entr${
+            transaction.entries.length === 1 ? "y" : "ies"
+          }`,
+        ]
+          .filter(Boolean)
+          .join(" - "),
+        format: transactionAmount > 0 ? "currency" : null,
+        key: `ledger-${transaction.id}`,
+        label:
+          transaction.narration ??
+          humanizeStatus(transaction.transactionType) ??
+          "Ledger transaction",
+        status: humanizeStatus(transaction.transactionType),
+        value: transactionAmount > 0 ? transactionAmount : null,
+      }
+    })
+
+  return {
+    emptyState: "No posted ledger transactions are available.",
+    key: "ledger",
+    rows:
+      rows.length > 0
+        ? rows
+        : [
+            {
+              detail: "No posted ledger transactions are available.",
+              format: null,
+              key: "empty-ledger",
+              label: "Ledger timeline",
+              status: "No activity",
+              value: null,
+            },
+          ],
+    subtitle: "Recent accounting activity posted to your member ledger.",
+    title: "Ledger",
+  }
+}
+
+async function buildMemberStatement(input: {
+  detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
+  member: NonNullable<Awaited<ReturnType<typeof getMemberByUserId>>>
+  prisma: NonNullable<ReturnType<typeof createPrismaClient>>
+  tenantId: string
+}): Promise<MobileMemberStatement> {
+  const commitmentSection = buildCommitmentSection(input.detail)
+  const financingSection = buildFinancingSection(input.detail)
+  const sharesSection = await buildSharesSection(
+    {
+      detail: input.detail,
+      memberId: input.member.id,
+      tenantId: input.tenantId,
+    },
+    input.prisma
+  )
+
+  return {
+    generatedAt: new Date().toISOString(),
+    member: {
+      deductionSourceName: input.detail.member.deductionSource?.name ?? null,
+      email: input.detail.member.user?.email ?? input.detail.member.email,
+      exitedAt: input.detail.member.exitedAt
+        ? input.detail.member.exitedAt.toISOString()
+        : null,
+      id: input.member.id,
+      joinedAt: input.detail.member.joinedAt.toISOString(),
+      kycStatus: input.detail.member.kycStatus,
+      memberNumber: input.member.memberNumber,
+      memberType: input.detail.member.memberType,
+      name: input.member.fullName,
+      status: input.detail.member.status,
+    },
+    sections: [
+      buildProfileStatementSection(input.detail),
+      toStatementSection(commitmentSection),
+      toStatementSection(financingSection),
+      toStatementSection(sharesSection),
+      buildDocumentStatementSection(input.detail),
+      buildLedgerStatementSection(input.detail),
+    ],
+    stats: buildStatementStats(input.detail),
+  }
+}
+
 export async function getMobileMemberHome(input: {
   tenantId: string
   userId: string
@@ -1954,6 +2308,42 @@ export async function getMobileMemberSection(input: {
     },
     prisma
   )
+}
+
+export async function getMobileMemberStatement(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberStatement> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberStatement()
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberStatement()
+  }
+
+  const detail = await getMemberStatementDetail(
+    input.tenantId,
+    member.id,
+    prisma
+  )
+
+  if (!detail) {
+    return emptyMemberStatement(
+      "No statement detail was found for this member profile."
+    )
+  }
+
+  return buildMemberStatement({
+    detail,
+    member,
+    prisma,
+    tenantId: input.tenantId,
+  })
 }
 
 export async function getMobileMemberMore(input: {

@@ -8,6 +8,7 @@ import {
   getMobileMemberMore,
   getMobileMemberReceipts,
   getMobileMemberShares,
+  getMobileMemberStatement,
   getMobileMemberSupport,
   getMobileMemberSection,
   mobileMemberSectionKeys,
@@ -120,6 +121,14 @@ export const mobileRouter = createTRPCRouter({
           userId: ctx.auth.session.user.id,
         })
       }),
+    statement: tenantProcedure.query(({ ctx }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+      return getMobileMemberStatement({
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
     receipts: createTRPCRouter({
       create: tenantProcedure
         .input(mobileReceiptCreateInput)

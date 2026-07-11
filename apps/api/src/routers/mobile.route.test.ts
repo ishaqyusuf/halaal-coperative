@@ -92,6 +92,37 @@ describe("mobileRouter", () => {
     )
   })
 
+  test("returns member statement for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const statement = await caller.mobile.member.statement()
+
+    expect(statement.member).toBeNull()
+    expect(statement.generatedAt).toEqual(expect.any(String))
+    expect(statement.stats.map((stat) => stat.key)).toEqual([
+      "active-commitment",
+      "savings",
+      "financing",
+      "dividends",
+    ])
+    expect(statement.sections.map((section) => section.key)).toEqual([
+      "profile",
+    ])
+    expect(statement.sections[0]?.rows[0]?.key).toBe("member-profile")
+  })
+
+  test("rejects member statement when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(caller.mobile.member.statement()).rejects.toThrow(
+      "Switch to the member workspace"
+    )
+  })
+
   test("returns member sections for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

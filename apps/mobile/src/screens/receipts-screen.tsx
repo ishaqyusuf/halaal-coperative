@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
+  createMobileMemberSupportCase,
   createMobileMemberReceipt,
   getMobileMemberReceipts,
   type MobileMemberReceipts,
@@ -29,20 +30,20 @@ type DraftAllocation = {
   periodIntent: MobileReceiptPeriodIntent
 }
 
-const receiptCategories: Array<{
+const receiptCategories: {
   label: string
   value: MobileReceiptAllocationCategory
-}> = [
+}[] = [
   { label: "Commitment", value: "commitment" },
   { label: "Special savings", value: "special_savings" },
   { label: "Shares", value: "shares" },
   { label: "Other", value: "other" },
 ]
 
-const periodIntents: Array<{
+const periodIntents: {
   label: string
   value: MobileReceiptPeriodIntent
-}> = [
+}[] = [
   { label: "Current", value: "current_period" },
   { label: "Future", value: "future_period" },
   { label: "Back", value: "back_period" },
@@ -116,6 +117,9 @@ export function ReceiptsScreen() {
   const [paymentReference, setPaymentReference] = useState("")
   const [proofDocumentUrl, setProofDocumentUrl] = useState("")
   const [memberNotes, setMemberNotes] = useState("")
+  const [supportReceiptId, setSupportReceiptId] = useState<string | null>(null)
+  const [supportDescription, setSupportDescription] = useState("")
+  const [isCreatingSupport, setIsCreatingSupport] = useState(false)
   const [allocations, setAllocations] = useState<DraftAllocation[]>(() => [
     createDraftAllocation(),
   ])
@@ -214,6 +218,32 @@ export function ReceiptsScreen() {
         allocation.id === id ? { ...allocation, ...patch } : allocation
       )
     )
+  }
+
+  async function handleCreateReceiptSupport(receiptId: string) {
+    if (supportDescription.trim().length < 5 || isCreatingSupport) return
+
+    setError(null)
+    setSuccess(null)
+    setIsCreatingSupport(true)
+
+    try {
+      await createMobileMemberSupportCase({
+        category: "payment_issue",
+        description: supportDescription.trim(),
+        linkedRecordId: receiptId,
+        linkedRecordType: "receipt",
+        moneyImpactRequested: true,
+        subject: "Receipt support request",
+      })
+      setSupportReceiptId(null)
+      setSupportDescription("")
+      setSuccess("Receipt support case opened.")
+    } catch {
+      setError("Receipt support case could not be opened.")
+    } finally {
+      setIsCreatingSupport(false)
+    }
   }
 
   async function handleSubmit() {
@@ -496,6 +526,65 @@ export function ReceiptsScreen() {
                       <Text className="text-xs text-muted-foreground">
                         Submitted {formatDate(receipt.submittedAt)}
                       </Text>
+                      {supportReceiptId === receipt.id ? (
+                        <View className="gap-2 pt-2">
+                          <Textarea
+                            editable={!isCreatingSupport}
+                            onChangeText={setSupportDescription}
+                            placeholder="Describe the payment issue"
+                            value={supportDescription}
+                          />
+                          <View className="flex-row gap-2">
+                            <Button
+                              className="h-10 flex-1"
+                              disabled={
+                                supportDescription.trim().length < 5 ||
+                                isCreatingSupport
+                              }
+                              onPress={() =>
+                                handleCreateReceiptSupport(receipt.id)
+                              }
+                            >
+                              <Icon
+                                name="Send"
+                                className="size-base text-primary-foreground"
+                              />
+                              <Text>
+                                {isCreatingSupport ? "Opening" : "Open case"}
+                              </Text>
+                            </Button>
+                            <Button
+                              className="h-10 flex-1"
+                              disabled={isCreatingSupport}
+                              onPress={() => {
+                                setSupportReceiptId(null)
+                                setSupportDescription("")
+                              }}
+                              variant="outline"
+                            >
+                              <Text>Cancel</Text>
+                            </Button>
+                          </View>
+                        </View>
+                      ) : (
+                        <Button
+                          className="h-10 self-start"
+                          disabled={isCreatingSupport}
+                          onPress={() => {
+                            setSupportReceiptId(receipt.id)
+                            setSupportDescription("")
+                            setError(null)
+                            setSuccess(null)
+                          }}
+                          variant="outline"
+                        >
+                          <Icon
+                            name="MessageCirclePlus"
+                            className="size-base"
+                          />
+                          <Text>Open support case</Text>
+                        </Button>
+                      )}
                     </View>
                   ))}
                 </View>

@@ -646,6 +646,21 @@ describe("mobileRouter", () => {
     ).rejects.toThrow()
   })
 
+  test("validates member support create linked receipt input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.support.create({
+        category: "payment_issue",
+        description: "Need help with this receipt allocation.",
+        linkedRecordId: "receipt-1",
+        subject: "Receipt help",
+      })
+    ).rejects.toThrow()
+  })
+
   test("rejects member support create without a database runtime", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

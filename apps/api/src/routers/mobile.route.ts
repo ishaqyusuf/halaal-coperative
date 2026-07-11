@@ -75,12 +75,20 @@ const mobileAdminMemberDetailInput = z.object({
   memberId: z.string().trim().min(1),
 })
 
-const mobileSupportCreateInput = z.object({
-  category: z.enum(mobileSupportCategoryKeys),
-  description: z.string().trim().min(5).max(2000),
-  moneyImpactRequested: z.boolean().optional(),
-  subject: z.string().trim().min(3).max(120),
-})
+const mobileSupportCreateInput = z
+  .object({
+    category: z.enum(mobileSupportCategoryKeys),
+    description: z.string().trim().min(5).max(2000),
+    linkedRecordId: z.string().trim().min(1).optional(),
+    linkedRecordType: z.literal("receipt").optional(),
+    moneyImpactRequested: z.boolean().optional(),
+    subject: z.string().trim().min(3).max(120),
+  })
+  .refine(
+    (input) =>
+      Boolean(input.linkedRecordId) === Boolean(input.linkedRecordType),
+    "Linked record id and type are required together."
+  )
 
 const mobileSupportReplyInput = z.object({
   attachmentUrl: z.string().trim().url().max(1000).optional(),
@@ -721,6 +729,8 @@ export const mobileRouter = createTRPCRouter({
           return createMobileMemberSupportCase({
             category: input.category,
             description: input.description,
+            linkedRecordId: input.linkedRecordId,
+            linkedRecordType: input.linkedRecordType,
             moneyImpactRequested: input.moneyImpactRequested,
             subject: input.subject,
             tenantId: ctx.tenant.current.id,

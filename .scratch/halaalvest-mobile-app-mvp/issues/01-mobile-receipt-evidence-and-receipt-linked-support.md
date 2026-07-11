@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A member can submit or update receipt proof evidence from mobile without the app owning posting or balance logic.
-- [ ] A member can start a support case from a receipt, and staff can see that the support case is linked to the receipt review context.
+- [x] A member can submit or update receipt proof evidence from mobile without the app owning posting or balance logic.
+- [x] A member can start a support case from a receipt, and staff can see that the support case is linked to the receipt review context.

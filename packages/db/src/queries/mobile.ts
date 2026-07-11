@@ -71,6 +71,7 @@ import {
   listSupportCases,
   updateSupportCaseStatus,
   type SupportCaseCategory,
+  type SupportCaseLinkedRecordType,
   type SupportCasePriority,
   type SupportCaseRow,
   type SupportCaseStatus,
@@ -3565,6 +3566,8 @@ export async function getMobileMemberSupport(input: {
 export async function createMobileMemberSupportCase(input: {
   category: MobileSupportCategory
   description: string
+  linkedRecordId?: string | null
+  linkedRecordType?: SupportCaseLinkedRecordType | null
   moneyImpactRequested?: boolean
   subject: string
   tenantId: string
@@ -3588,6 +3591,8 @@ export async function createMobileMemberSupportCase(input: {
     {
       category: input.category,
       description: input.description,
+      linkedRecordId: input.linkedRecordId,
+      linkedRecordType: input.linkedRecordType,
       memberId: member.id,
       moneyImpactRequested: input.moneyImpactRequested,
       openedByUserId: input.userId,

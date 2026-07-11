@@ -12,6 +12,7 @@ export type CooperativeRole =
   | "member"
 
 export interface MobileProfile {
+  activeMembershipId: string
   token: string
   role: MobileRole
   cooperativeRole?: CooperativeRole
@@ -78,6 +79,7 @@ export const clearSession = async () => {
 }
 
 export const createMockProfile = (role: MobileRole): MobileProfile => ({
+  activeMembershipId: `mock-${role}-membership`,
   token: `mock-${role}-session`,
   role,
   cooperativeRole: role === "admin" ? "tenant_admin" : "member",

@@ -75,6 +75,13 @@ const seedMemberships: MembershipRecord[] = [
     isDefault: true,
   },
   {
+    id: "membership-amanah-admin-member",
+    tenantId: "tenant-amanah-demo",
+    userId: "user-tenant-admin-amanah",
+    role: "member",
+    isDefault: false,
+  },
+  {
     id: "membership-barakah-finance",
     tenantId: "tenant-barakah-demo",
     userId: "user-finance-barakah",
@@ -118,10 +125,18 @@ export function findActiveMembership(input: {
   }
 
   if (input.tenantId) {
-    return memberships.find((membership) => membership.tenantId === input.tenantId) ?? null
+    return (
+      memberships.find(
+        (membership) => membership.tenantId === input.tenantId
+      ) ?? null
+    )
   }
 
-  return memberships.find((membership) => membership.isDefault) ?? memberships[0] ?? null
+  return (
+    memberships.find((membership) => membership.isDefault) ??
+    memberships[0] ??
+    null
+  )
 }
 
 export async function findUserByIdAsync(userId: string | null | undefined) {
@@ -174,7 +189,7 @@ export async function findUserByEmailAsync(input: {
     const user = seedUsers.find(
       (candidate) =>
         candidate.email.toLowerCase() === normalizedEmail &&
-        (!input.tenantId || candidate.tenantId === input.tenantId),
+        (!input.tenantId || candidate.tenantId === input.tenantId)
     )
 
     if (!user) {
@@ -211,7 +226,9 @@ export async function findUserByEmailAsync(input: {
   } satisfies UserCredentialRecord
 }
 
-export async function findMembershipsForUserAsync(userId: string | null | undefined) {
+export async function findMembershipsForUserAsync(
+  userId: string | null | undefined
+) {
   if (!userId) {
     return []
   }
@@ -240,7 +257,7 @@ export async function findMembershipsForUserAsync(userId: string | null | undefi
         userId: membership.userId,
         role: membership.role,
         isDefault: membership.isDefault,
-      }) satisfies MembershipRecord,
+      }) satisfies MembershipRecord
   )
 }
 
@@ -255,10 +272,18 @@ export async function findActiveMembershipAsync(input: {
   }
 
   if (input.tenantId) {
-    return memberships.find((membership) => membership.tenantId === input.tenantId) ?? null
+    return (
+      memberships.find(
+        (membership) => membership.tenantId === input.tenantId
+      ) ?? null
+    )
   }
 
-  return memberships.find((membership) => membership.isDefault) ?? memberships[0] ?? null
+  return (
+    memberships.find((membership) => membership.isDefault) ??
+    memberships[0] ??
+    null
+  )
 }
 
 export async function listTenantUsersWithMemberships(tenantId: string) {
@@ -269,7 +294,9 @@ export async function listTenantUsersWithMemberships(tenantId: string) {
       .filter((user) => user.tenantId === tenantId)
       .map((user) => ({
         ...user,
-        memberships: seedMemberships.filter((membership) => membership.userId === user.id),
+        memberships: seedMemberships.filter(
+          (membership) => membership.userId === user.id
+        ),
       }))
   }
 

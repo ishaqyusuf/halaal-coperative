@@ -13,6 +13,7 @@ export type AuthSession = {
 
 export type SignedSessionPayload = {
   expiresAt: number
+  membershipId?: string
   nonce: string
   scope: SessionScope
   tenantId?: string
@@ -101,12 +102,14 @@ async function signValue(value: string) {
 }
 
 export async function createSignedSessionToken(input: {
+  membershipId?: string | null
   scope: SessionScope
   tenantId?: string | null
   userId: string
 }) {
   const payload = {
     expiresAt: Date.now() + sessionTtlMs,
+    ...(input.membershipId ? { membershipId: input.membershipId } : {}),
     nonce: crypto.randomUUID(),
     scope: input.scope,
     ...(input.tenantId ? { tenantId: input.tenantId } : {}),

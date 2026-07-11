@@ -2,6 +2,17 @@
 
 ## 2026-07-11
 
+### Mobile Role Resolver And Workspace Switcher
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/auth/src/index.ts`, `packages/db/src/queries/auth.ts`, `apps/api/src/context.ts`, `apps/api/src/context.test.ts`, `apps/api/src/routers/mobile-auth.route.ts`, `apps/api/src/routers/mobile-auth.route.test.ts`, `apps/mobile/src/lib/mobile-auth-api.ts`, `apps/mobile/src/lib/session-store.ts`, `apps/mobile/src/hooks/use-auth.tsx`, `apps/mobile/src/screens/more-screen.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added selected-membership mobile sessions and a server-owned role switcher. Signed tokens can now carry `membershipId`, API context resolves that selected membership without falling back to another role when it is invalid, `auth.mobile.switchRole` issues a new resumable token for memberships owned by the signed-in user, and the mobile More screen now exposes a compact workspace switcher for multi-role accounts.
+- Scope note: This completes the first production role resolver/switcher seam for Phase 1. Member/admin production DTO reads, role-specific dashboard content, and mobile UI smoke testing remain separate MVP slices.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts`; touched-file `prettier --check`; scoped `git diff --check`.
+- Skipped checks: Broad typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Session Resume And Tenant Bootstrap
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

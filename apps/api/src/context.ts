@@ -8,7 +8,7 @@ import {
 import { normalizeRole } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
-  findActiveMembershipAsync,
+  findMembershipsForUserAsync,
   findUserByIdAsync,
   resolveTenantAsync,
   type MembershipRecord,
@@ -49,14 +49,30 @@ export async function buildRequestContext(headers: Headers) {
     slug: bearerSession ? null : forwardedTenantSlug,
     hostname: bearerSession ? null : (forwardedTenantHostname ?? requestHost),
   })
+  const userMemberships = await findMembershipsForUserAsync(user?.id)
+  const signedMembership = bearerSession?.membershipId
+    ? (userMemberships.find(
+        (membership) =>
+          membership.id === bearerSession.membershipId &&
+          (!tenantResolution.tenant ||
+            membership.tenantId === tenantResolution.tenant.id)
+      ) ?? null)
+    : undefined
+  const fallbackMembership = tenantResolution.tenant
+    ? (userMemberships.find(
+        (membership) => membership.tenantId === tenantResolution.tenant?.id
+      ) ?? null)
+    : (userMemberships.find((membership) => membership.isDefault) ??
+      userMemberships[0] ??
+      null)
   const resolvedMembership =
-    (await findActiveMembershipAsync({
-      tenantId: tenantResolution.tenant?.id ?? user?.tenantId ?? null,
-      userId: user?.id ?? null,
-    })) ?? null
+    signedMembership ??
+    (bearerSession?.membershipId ? null : fallbackMembership)
   const membership =
     resolvedMembership ??
-    (user?.isPlatformOwner && tenantResolution.tenant
+    (user?.isPlatformOwner &&
+    tenantResolution.tenant &&
+    !bearerSession?.membershipId
       ? ({
           id: "platform-owner-context-membership",
           isDefault: true,

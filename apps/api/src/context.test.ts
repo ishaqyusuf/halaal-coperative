@@ -21,6 +21,7 @@ describe("buildRequestContext mobile bearer sessions", () => {
 
   test("derives the user, membership, and tenant from a signed bearer token", async () => {
     const token = await createSignedSessionToken({
+      membershipId: "membership-amanah-admin",
       scope: platformSessionScope,
       tenantId: "tenant-amanah-demo",
       userId: "user-tenant-admin-amanah",
@@ -37,6 +38,47 @@ describe("buildRequestContext mobile bearer sessions", () => {
     expect(context.auth.activeMembership?.role).toBe("tenant_admin")
     expect(context.tenant.current?.slug).toBe("amanah")
     expect(context.request.tenantResolution.resolvedBy).toBe("fallback")
+  })
+
+  test("uses the signed membership when a multi-role account resumes", async () => {
+    const token = await createSignedSessionToken({
+      membershipId: "membership-amanah-admin-member",
+      scope: platformSessionScope,
+      tenantId: "tenant-amanah-demo",
+      userId: "user-tenant-admin-amanah",
+    })
+    const context = await buildRequestContext(
+      new Headers({
+        authorization: `Bearer ${token}`,
+        host: "api.halaalvest.localhost",
+      })
+    )
+
+    expect(context.auth.session?.user.id).toBe("user-tenant-admin-amanah")
+    expect(context.auth.activeMembership?.id).toBe(
+      "membership-amanah-admin-member"
+    )
+    expect(context.auth.activeMembership?.role).toBe("member")
+    expect(context.tenant.current?.slug).toBe("amanah")
+  })
+
+  test("does not fall back to another role when a signed membership is invalid", async () => {
+    const token = await createSignedSessionToken({
+      membershipId: "membership-does-not-exist",
+      scope: platformSessionScope,
+      tenantId: "tenant-amanah-demo",
+      userId: "user-tenant-admin-amanah",
+    })
+    const context = await buildRequestContext(
+      new Headers({
+        authorization: `Bearer ${token}`,
+        host: "api.halaalvest.localhost",
+      })
+    )
+
+    expect(context.auth.session?.user.id).toBe("user-tenant-admin-amanah")
+    expect(context.auth.activeMembership).toBeNull()
+    expect(context.tenant.current?.slug).toBe("amanah")
   })
 
   test("does not let client headers override a signed bearer session", async () => {

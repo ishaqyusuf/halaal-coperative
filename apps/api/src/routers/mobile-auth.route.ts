@@ -28,6 +28,10 @@ const mobileSignInInput = z.object({
   tenantSlug: z.string().min(1),
 })
 
+const mobileSwitchRoleInput = z.object({
+  membershipId: z.string().min(1),
+})
+
 function toMobileRole(role: MembershipRecord["role"]) {
   return role === "member" ? "member" : "admin"
 }
@@ -75,6 +79,7 @@ function buildMobileProfile(input: {
     tenantMemberships.length > 0 ? tenantMemberships : [input.membership]
 
   return {
+    activeMembershipId: input.membership.id,
     token: input.token,
     role: toMobileRole(input.membership.role),
     cooperativeRole: input.membership.role,
@@ -161,6 +166,7 @@ export const mobileAuthRouter = createTRPCRouter({
         } satisfies MembershipRecord)
       const memberships = await findMembershipsForUserAsync(user.id)
       const token = await createSignedSessionToken({
+        membershipId: resolvedMembership.id,
         scope: platformSessionScope,
         tenantId: tenantResolution.tenant.id,
         userId: user.id,
@@ -213,6 +219,58 @@ export const mobileAuthRouter = createTRPCRouter({
       }),
     }
   }),
+
+  switchRole: authenticatedProcedure
+    .input(mobileSwitchRoleInput)
+    .mutation(async ({ ctx, input }) => {
+      const memberships = await findMembershipsForUserAsync(
+        ctx.auth.session.user.id
+      )
+      const membership =
+        memberships.find((candidate) => candidate.id === input.membershipId) ??
+        null
+
+      if (!membership) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "That mobile workspace is not available for this account.",
+        })
+      }
+
+      const tenantResolution = await resolveTenantAsync({
+        fallbackTenantId: membership.tenantId,
+      })
+
+      if (!tenantResolution.tenant) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "The selected cooperative workspace was not found.",
+        })
+      }
+
+      const token = await createSignedSessionToken({
+        membershipId: membership.id,
+        scope: platformSessionScope,
+        tenantId: membership.tenantId,
+        userId: ctx.auth.session.user.id,
+      })
+      const member = await getLinkedMember({
+        runtimeStatus: ctx.runtime.status,
+        tenantId: tenantResolution.tenant.id,
+        userId: ctx.auth.session.user.id,
+      })
+
+      return {
+        profile: buildMobileProfile({
+          membership,
+          memberships,
+          member,
+          tenant: tenantResolution.tenant,
+          token,
+          user: ctx.auth.session.user,
+        }),
+      }
+    }),
 
   signOut: authenticatedProcedure.mutation(() => {
     return { ok: true as const }

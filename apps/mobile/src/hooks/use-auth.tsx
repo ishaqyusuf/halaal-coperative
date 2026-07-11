@@ -13,6 +13,7 @@ import {
   getCurrentMobileProfile,
   signInWithMobileAuth,
   signOutMobileAuth,
+  switchMobileRole,
   type MobileSignInCredentials,
 } from "@/lib/mobile-auth-api"
 import {
@@ -31,6 +32,7 @@ type AuthContextValue = {
   role: MobileRole | null
   signInAs: (role: MobileRole) => Promise<void>
   signOut: () => Promise<void>
+  switchRole: (membershipId: string) => Promise<MobileProfile>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -127,6 +129,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null)
   }, [])
 
+  const switchRole = useCallback(async (membershipId: string) => {
+    const response = await switchMobileRole({ membershipId })
+    await setToken(response.profile.token)
+    await setSessionProfile(response.profile)
+    setProfile(response.profile)
+
+    return response.profile
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       initializing,
@@ -135,8 +146,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithPassword,
       signInAs,
       signOut,
+      switchRole,
     }),
-    [initializing, profile, signInAs, signInWithPassword, signOut]
+    [initializing, profile, signInAs, signInWithPassword, signOut, switchRole]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

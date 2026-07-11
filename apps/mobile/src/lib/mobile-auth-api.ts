@@ -10,6 +10,10 @@ export type MobileSignInCredentials = {
   tenantSlug: string
 }
 
+export type MobileSwitchRoleInput = {
+  membershipId: string
+}
+
 type MobileSignInResponse = {
   profile: MobileProfile
 }
@@ -53,6 +57,14 @@ export async function getCurrentMobileProfile() {
   const client = createMobileAuthClient()
 
   return client.auth.mobile.me.query() as Promise<MobileSessionResponse>
+}
+
+export async function switchMobileRole(input: MobileSwitchRoleInput) {
+  const client = createMobileAuthClient()
+
+  return client.auth.mobile.switchRole.mutate(
+    input
+  ) as Promise<MobileSessionResponse>
 }
 
 export async function signOutMobileAuth() {

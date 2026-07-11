@@ -76,11 +76,33 @@ export type MobileAdminMemberRow = {
   status: string
 }
 
+export type MobileAdminMemberReviewQueue = {
+  count: number
+  detail: string
+  key: "membership-approvals" | "kyc-documents"
+  label: string
+  severity: "neutral" | "warning" | "critical"
+}
+
+export type MobileAdminMemberOnboardingRequest = {
+  createdAt: string
+  email: string
+  emailVerifiedAt: string | null
+  fullName: string
+  id: string
+  linkedUserEmail: string | null
+  memberNumber: string
+  phoneNumber: string | null
+  status: string
+}
+
 export type MobileAdminMembers = {
   generatedAt: string
   members: MobileAdminMemberRow[]
+  onboardingRequests: MobileAdminMemberOnboardingRequest[]
   page: number
   pageSize: number
+  reviewQueues: MobileAdminMemberReviewQueue[]
   summary: {
     activeCount: number
     kycPendingCount: number

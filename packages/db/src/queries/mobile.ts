@@ -28,6 +28,7 @@ import {
   listMemberStatementSummaries,
   type ListMembersFilters,
 } from "./members"
+import { listMemberOnboardingRequests } from "./member-onboarding"
 import { listNotificationPreferences } from "./notifications"
 import {
   createMemberPaymentReceipt,
@@ -216,11 +217,33 @@ export type MobileAdminMemberRow = {
   status: string
 }
 
+export type MobileAdminMemberReviewQueue = {
+  count: number
+  detail: string
+  key: "membership-approvals" | "kyc-documents"
+  label: string
+  severity: "neutral" | "warning" | "critical"
+}
+
+export type MobileAdminMemberOnboardingRequest = {
+  createdAt: string
+  email: string
+  emailVerifiedAt: string | null
+  fullName: string
+  id: string
+  linkedUserEmail: string | null
+  memberNumber: string
+  phoneNumber: string | null
+  status: string
+}
+
 export type MobileAdminMembers = {
   generatedAt: string
   members: MobileAdminMemberRow[]
+  onboardingRequests: MobileAdminMemberOnboardingRequest[]
   page: number
   pageSize: number
+  reviewQueues: MobileAdminMemberReviewQueue[]
   summary: {
     activeCount: number
     kycPendingCount: number
@@ -935,8 +958,10 @@ function emptyAdminMembers(input?: {
   return {
     generatedAt: new Date().toISOString(),
     members: [],
+    onboardingRequests: [],
     page: input?.page ?? 1,
     pageSize: input?.pageSize ?? 25,
+    reviewQueues: [],
     summary: {
       activeCount: 0,
       kycPendingCount: 0,
@@ -1468,6 +1493,10 @@ type MobileAdminMemberListRow = Awaited<
   ReturnType<typeof listMembers>
 >["items"][number]
 
+type MobileAdminMemberOnboardingRow = Awaited<
+  ReturnType<typeof listMemberOnboardingRequests>
+>["items"][number]
+
 function toMobileAdminMemberRow(
   row: MobileAdminMemberListRow
 ): MobileAdminMemberRow {
@@ -1481,6 +1510,24 @@ function toMobileAdminMemberRow(
     linkedUserEmail: row.user?.email ?? null,
     memberNumber: row.memberNumber,
     memberType: row.memberType,
+    phoneNumber: row.phoneNumber ?? null,
+    status: row.status,
+  }
+}
+
+function toMobileAdminMemberOnboardingRequest(
+  row: MobileAdminMemberOnboardingRow
+): MobileAdminMemberOnboardingRequest {
+  return {
+    createdAt: row.createdAt.toISOString(),
+    email: row.email,
+    emailVerifiedAt: row.emailVerifiedAt
+      ? row.emailVerifiedAt.toISOString()
+      : null,
+    fullName: row.fullName,
+    id: row.id,
+    linkedUserEmail: row.user?.email ?? null,
+    memberNumber: row.memberNumber,
     phoneNumber: row.phoneNumber ?? null,
     status: row.status,
   }
@@ -1500,6 +1547,25 @@ function summarizeMobileAdminMembers(input: {
       .length,
     pageCount: input.members.length,
     totalCount: input.total,
+  }
+}
+
+function toMobileAdminMemberReviewQueue(
+  row: Awaited<ReturnType<typeof getOverviewSummary>>["actionQueue"][number]
+): MobileAdminMemberReviewQueue | null {
+  if (row.key !== "membership-approvals" && row.key !== "kyc-documents") {
+    return null
+  }
+
+  return {
+    count: row.count,
+    detail:
+      row.key === "membership-approvals"
+        ? "Pending signup approvals"
+        : "Members or documents waiting for KYC review",
+    key: row.key,
+    label: row.label,
+    severity: row.severity,
   }
 }
 
@@ -4398,24 +4464,41 @@ export async function getMobileAdminMembers(input: {
 
   const page = input.page ?? 1
   const pageSize = input.pageSize ?? 25
-  const result = await listMembers(
-    input.tenantId,
-    {
-      kycStatus: input.kycStatus,
-      page,
-      pageSize,
-      search: input.search,
-      status: input.status,
-    },
-    prisma
-  )
+  const [result, overview, onboardingRequests] = await Promise.all([
+    listMembers(
+      input.tenantId,
+      {
+        kycStatus: input.kycStatus,
+        page,
+        pageSize,
+        search: input.search,
+        status: input.status,
+      },
+      prisma
+    ),
+    getOverviewSummary(input.tenantId, prisma),
+    listMemberOnboardingRequests(
+      input.tenantId,
+      {
+        pageSize: 3,
+        status: "pending_approval",
+      },
+      prisma
+    ),
+  ])
   const members = result.items.map(toMobileAdminMemberRow)
 
   return {
     generatedAt: new Date().toISOString(),
     members,
+    onboardingRequests: onboardingRequests.items.map(
+      toMobileAdminMemberOnboardingRequest
+    ),
     page: result.page,
     pageSize: result.pageSize,
+    reviewQueues: overview.actionQueue
+      .map(toMobileAdminMemberReviewQueue)
+      .filter((item): item is MobileAdminMemberReviewQueue => Boolean(item)),
     summary: summarizeMobileAdminMembers({
       members,
       total: result.total,

@@ -10,8 +10,10 @@ import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminMembers,
+  type MobileAdminMemberOnboardingRequest,
   type MobileAdminMemberKycStatus,
   type MobileAdminMemberRow,
+  type MobileAdminMemberReviewQueue,
   type MobileAdminMemberStatus,
   type MobileAdminMembers,
 } from "@/lib/mobile-home-api"
@@ -153,6 +155,67 @@ function MemberCard({
   )
 }
 
+function reviewQueueIcon(queueKey: MobileAdminMemberReviewQueue["key"]) {
+  if (queueKey === "membership-approvals") return "UserPlus"
+  return "FolderCheck"
+}
+
+function ReviewQueueCard({ queue }: { queue: MobileAdminMemberReviewQueue }) {
+  return (
+    <View className="flex-row gap-3 rounded-md bg-secondary p-3">
+      <Icon
+        name={reviewQueueIcon(queue.key)}
+        className="size-base text-accent"
+      />
+      <View className="flex-1 gap-1">
+        <View className="flex-row items-start justify-between gap-3">
+          <Text className="flex-1 font-semibold text-foreground">
+            {queue.label}
+          </Text>
+          <Text className="text-sm font-semibold text-foreground">
+            {queue.count}
+          </Text>
+        </View>
+        <Text className="text-xs leading-5 text-muted-foreground">
+          {queue.detail}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+function OnboardingRequestCard({
+  isFirst,
+  request,
+}: {
+  isFirst: boolean
+  request: MobileAdminMemberOnboardingRequest
+}) {
+  return (
+    <View className={isFirst ? "gap-2" : "gap-2 border-t border-border pt-3"}>
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <Text className="text-sm font-semibold text-foreground">
+            {request.fullName}
+          </Text>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            {request.memberNumber} - {request.email}
+          </Text>
+        </View>
+        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
+          {formatStatus(request.status)}
+        </Text>
+      </View>
+      <Text className="text-xs font-medium text-muted-foreground">
+        {request.emailVerifiedAt
+          ? `Email verified ${formatDate(request.emailVerifiedAt)}`
+          : "Email verification pending"}{" "}
+        - Requested {formatDate(request.createdAt)}
+      </Text>
+    </View>
+  )
+}
+
 export function AdminMembersScreen() {
   const { profile } = useAuthContext()
   const colors = useColors()
@@ -290,6 +353,42 @@ export function AdminMembersScreen() {
                 <StatCard key={item.label} {...item} />
               ))}
             </View>
+
+            <SectionCard icon="UserCheck" title="Review queues">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : members?.reviewQueues.length ? (
+                <View className="gap-3">
+                  {members.reviewQueues.map((queue) => (
+                    <ReviewQueueCard key={queue.key} queue={queue} />
+                  ))}
+                </View>
+              ) : (
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  No onboarding or KYC review queues need attention right now.
+                </Text>
+              )}
+            </SectionCard>
+
+            <SectionCard icon="UserPlus" title="Pending onboarding">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : members?.onboardingRequests.length ? (
+                <View className="gap-3">
+                  {members.onboardingRequests.map((request, index) => (
+                    <OnboardingRequestCard
+                      isFirst={index === 0}
+                      key={request.id}
+                      request={request}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  No pending member onboarding requests are visible in mobile.
+                </Text>
+              )}
+            </SectionCard>
 
             <SectionCard icon="Search" title="Find members">
               <View className="gap-3">

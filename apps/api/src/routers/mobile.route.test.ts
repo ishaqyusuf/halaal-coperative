@@ -671,8 +671,10 @@ describe("mobileRouter", () => {
     })
 
     expect(members.members).toEqual([])
+    expect(members.onboardingRequests).toEqual([])
     expect(members.page).toBe(1)
     expect(members.pageSize).toBe(10)
+    expect(members.reviewQueues).toEqual([])
     expect(members.summary.totalCount).toBe(0)
   })
 

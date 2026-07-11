@@ -33,6 +33,15 @@ function formatStatus(value: string) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+function formatMessageAuthor(input: {
+  authorName: string | null
+  authorType: string
+}) {
+  if (input.authorName) return input.authorName
+
+  return formatStatus(input.authorType)
+}
+
 function SupportCaseCard({
   isFirst,
   supportCase,
@@ -60,6 +69,31 @@ function SupportCaseCard({
         {formatStatus(supportCase.category)} -{" "}
         {formatDate(supportCase.lastActivityAt)}
       </Text>
+      {supportCase.recentMessages.length ? (
+        <View className="gap-2 border-l-2 border-border pl-3">
+          {supportCase.recentMessages.map((message) => (
+            <View className="gap-1" key={message.id}>
+              <Text className="text-xs font-medium text-muted-foreground">
+                {formatMessageAuthor(message)} - {formatDate(message.createdAt)}
+              </Text>
+              <Text className="text-sm leading-5 text-foreground">
+                {message.message}
+              </Text>
+              {message.attachmentUrl ? (
+                <Text className="text-xs text-muted-foreground">
+                  Attachment available
+                </Text>
+              ) : null}
+            </View>
+          ))}
+          {supportCase.messageCount > supportCase.recentMessages.length ? (
+            <Text className="text-xs text-muted-foreground">
+              Showing latest {supportCase.recentMessages.length} of{" "}
+              {supportCase.messageCount} messages
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   )
 }

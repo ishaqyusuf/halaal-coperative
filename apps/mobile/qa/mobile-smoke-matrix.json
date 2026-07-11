@@ -1,0 +1,60 @@
+{
+  "viewports": [
+    {
+      "id": "compact-ios",
+      "platform": "ios",
+      "width": 320,
+      "height": 568,
+      "checks": ["safe-area", "bottom-tabs", "sheet-fit", "long-label-fit"]
+    },
+    {
+      "id": "typical-ios",
+      "platform": "ios",
+      "width": 390,
+      "height": 844,
+      "checks": ["safe-area", "bottom-tabs", "form-states", "status-badges"]
+    },
+    {
+      "id": "compact-android",
+      "platform": "android",
+      "width": 360,
+      "height": 640,
+      "checks": ["safe-area", "bottom-tabs", "sheet-fit", "long-label-fit"]
+    },
+    {
+      "id": "typical-android",
+      "platform": "android",
+      "width": 412,
+      "height": 915,
+      "checks": ["safe-area", "bottom-tabs", "form-states", "status-badges"]
+    },
+    {
+      "id": "wide-layout",
+      "platform": "android",
+      "width": 600,
+      "height": 960,
+      "checks": [
+        "safe-area",
+        "bottom-tabs",
+        "virtualized-lists",
+        "long-label-fit"
+      ]
+    }
+  ],
+  "flows": [
+    "startup-routing",
+    "login-password",
+    "login-development-member",
+    "login-development-admin",
+    "logout",
+    "role-switch",
+    "member-tabs",
+    "admin-tabs",
+    "receipt-form-state",
+    "support-form-state",
+    "financing-request-state",
+    "admin-review-state",
+    "stale-cache-banner",
+    "virtualized-long-lists"
+  ]
+}

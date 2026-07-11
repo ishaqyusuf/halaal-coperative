@@ -137,6 +137,7 @@ export async function getMemberByUserId(
       email: true,
       fullName: true,
       id: true,
+      kycStatus: true,
       memberNumber: true,
       memberType: true,
       status: true,

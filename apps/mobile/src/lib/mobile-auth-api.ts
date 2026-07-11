@@ -1,8 +1,5 @@
-import { getBaseUrl } from "@/lib/base-url"
-import { getToken, type MobileProfile } from "@/lib/session-store"
-import type { AppRouter } from "@halaalvest/api/trpc/routers/_app"
-import { createTRPCClient, httpLink } from "@trpc/client"
-import superjson from "superjson"
+import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
+import { type MobileProfile } from "@/lib/session-store"
 
 export type MobileSignInCredentials = {
   email: string
@@ -22,31 +19,8 @@ type MobileSessionResponse = {
   profile: MobileProfile
 }
 
-function getTrpcUrl() {
-  return `${getBaseUrl()}/api/trpc`
-}
-
-function createMobileAuthClient() {
-  return createTRPCClient<AppRouter>({
-    links: [
-      httpLink({
-        headers: () => {
-          const token = getToken()
-
-          return {
-            ...(token ? { authorization: `Bearer ${token}` } : {}),
-            "x-trpc-source": "mobile",
-          }
-        },
-        transformer: superjson,
-        url: getTrpcUrl(),
-      }),
-    ],
-  })
-}
-
 export async function signInWithMobileAuth(input: MobileSignInCredentials) {
-  const client = createMobileAuthClient()
+  const client = createMobileTrpcClient()
 
   return client.auth.mobile.signIn.mutate(
     input
@@ -54,13 +28,13 @@ export async function signInWithMobileAuth(input: MobileSignInCredentials) {
 }
 
 export async function getCurrentMobileProfile() {
-  const client = createMobileAuthClient()
+  const client = createMobileTrpcClient()
 
   return client.auth.mobile.me.query() as Promise<MobileSessionResponse>
 }
 
 export async function switchMobileRole(input: MobileSwitchRoleInput) {
-  const client = createMobileAuthClient()
+  const client = createMobileTrpcClient()
 
   return client.auth.mobile.switchRole.mutate(
     input
@@ -68,7 +42,7 @@ export async function switchMobileRole(input: MobileSwitchRoleInput) {
 }
 
 export async function signOutMobileAuth() {
-  const client = createMobileAuthClient()
+  const client = createMobileTrpcClient()
 
   return client.auth.mobile.signOut.mutate()
 }

@@ -2,6 +2,18 @@
 
 ## 2026-07-11
 
+### Mobile Home Server DTO Reads
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `packages/db/src/queries/members.ts`, `packages/db/src/index.ts`, `apps/api/src/routers/_app.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-trpc-client.ts`, `apps/mobile/src/lib/mobile-auth-api.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/lib/mobile-metrics.ts`, `apps/mobile/src/screens/member-home-screen.tsx`, `apps/mobile/src/screens/admin-home-screen.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added the first Phase 2 mobile read DTOs. The API now exposes `mobile.member.home` and `mobile.admin.overview`; member home derives the member from the signed session and active member workspace, while admin overview reuses the server dashboard overview query behind staff-role gating. The mobile member/admin home screens now fetch signed-session server DTOs and keep the existing static cards only for development mock sessions.
+- Scope note: This is read-only home/overview wiring. It does not yet add receipt submission, financing request forms, list virtualization, offline stale timestamps, or device-level smoke tests.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; touched-file `prettier --check`; scoped `git diff --check`.
+- Attempted checks: `bun --cwd apps/mobile typecheck` still fails on existing React ref type duplication in `src/components/ui/label.tsx`, `src/components/ui/switch.tsx`, and `src/components/ui/tabs.tsx`. The new direct mobile tRPC client property errors were fixed before rerunning.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Role Resolver And Workspace Switcher
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

@@ -43,6 +43,7 @@ export type MobileAdminOverview = {
   }>
   generatedAt: string
   stats: MobileOverviewMetric[]
+  supportCases: MobileSupportCase[]
   warnings: Array<{
     key: string
     label: string

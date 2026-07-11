@@ -884,6 +884,7 @@ describe("mobileRouter", () => {
       "action-queue",
     ])
     expect(overview.generatedAt).toEqual(expect.any(String))
+    expect(overview.supportCases).toEqual([])
   })
 
   test("rejects admin overview from the member workspace", async () => {

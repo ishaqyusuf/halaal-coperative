@@ -11,11 +11,58 @@ import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminOverview,
   type MobileAdminOverview,
+  type MobileSupportCase,
 } from "@/lib/mobile-home-api"
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date(value))
+}
+
+function formatStatus(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function SupportCaseCard({
+  isFirst,
+  supportCase,
+}: {
+  isFirst: boolean
+  supportCase: MobileSupportCase
+}) {
+  return (
+    <View className={isFirst ? "gap-2" : "gap-2 border-t border-border pt-3"}>
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <Text className="text-sm font-semibold text-foreground">
+            {supportCase.subject}
+          </Text>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            {supportCase.detail}
+          </Text>
+        </View>
+        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
+          {formatStatus(supportCase.priority)}
+        </Text>
+      </View>
+      <Text className="text-xs font-medium text-muted-foreground">
+        {formatStatus(supportCase.status)} -{" "}
+        {formatStatus(supportCase.category)} -{" "}
+        {formatDate(supportCase.lastActivityAt)}
+      </Text>
+    </View>
+  )
+}
 
 export function AdminHomeScreen() {
   const { profile } = useAuthContext()
@@ -126,6 +173,26 @@ export function AdminHomeScreen() {
                 </View>
               ))}
             </View>
+          )}
+        </SectionCard>
+
+        <SectionCard icon="MessagesSquare" title="Support cases">
+          {isLoadingOverview ? (
+            <LoadingSpinner />
+          ) : overview?.supportCases.length ? (
+            <View className="gap-3">
+              {overview.supportCases.map((supportCase, index) => (
+                <SupportCaseCard
+                  isFirst={index === 0}
+                  key={supportCase.id}
+                  supportCase={supportCase}
+                />
+              ))}
+            </View>
+          ) : (
+            <Text className="text-sm leading-5 text-muted-foreground">
+              No open support cases are visible in the mobile overview.
+            </Text>
           )}
         </SectionCard>
       </ScrollView>

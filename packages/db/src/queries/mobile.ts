@@ -197,6 +197,7 @@ export type MobileAdminOverview = {
   }>
   generatedAt: string
   stats: MobileOverviewMetric[]
+  supportCases: MobileSupportCase[]
   warnings: Array<{
     key: string
     label: string
@@ -4404,10 +4405,27 @@ export async function getMobileMemberMore(input: {
 export async function getMobileAdminOverview(
   tenantId: string
 ): Promise<MobileAdminOverview> {
-  const summary = await getOverviewSummary(tenantId)
+  const prisma = createPrismaClient()
+  const [summary, supportCases] = await Promise.all([
+    getOverviewSummary(tenantId, prisma ?? undefined),
+    prisma
+      ? listSupportCases(
+          {
+            limit: 8,
+            tenantId,
+          },
+          prisma
+        )
+      : [],
+  ])
   const topQueue = summary.actionQueue
     .filter((item) => item.count > 0)
     .slice(0, 5)
+  const openSupportCases = supportCases
+    .filter((supportCase) =>
+      ["open", "in_progress", "waiting_on_member"].includes(supportCase.status)
+    )
+    .slice(0, 3)
 
   return {
     actionQueue: topQueue.map((item) => ({
@@ -4441,6 +4459,7 @@ export async function getMobileAdminOverview(
         value: summary.primaryMetrics.actionQueueTotal,
       },
     ],
+    supportCases: openSupportCases.map(toMobileSupportCase),
     warnings: summary.setupWarnings.map((item) => ({
       key: item.key,
       label: item.label,

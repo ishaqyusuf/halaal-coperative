@@ -20,6 +20,7 @@ import {
   type MobileAdminCollectionFollowUp,
   type MobileAdminFinance,
   type MobileAdminFinanceRecentItem,
+  type MobileAdminReviewStatus,
 } from "@/lib/mobile-home-api"
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
 import { isMockSessionToken } from "@/lib/session-store"
@@ -70,28 +71,45 @@ function FinanceRecentItemCard({
   isFirst,
   item,
   onMarkReviewing,
+  onOpenFinancingReview,
   onOpenReceiptReview,
+  onReviewFinancing,
   onReviewReceipt,
+  financingReviewItemId,
+  financingReviewNotes,
   receiptReviewItemId,
   receiptReviewNotes,
+  setFinancingReviewNotes,
   setReceiptReviewNotes,
 }: {
   actionState: "idle" | "pending"
   currencyCode: string
+  financingReviewItemId: string | null
+  financingReviewNotes: string
   isFirst: boolean
   item: MobileAdminFinanceRecentItem
   onMarkReviewing: (item: MobileAdminFinanceRecentItem) => void
+  onOpenFinancingReview: (item: MobileAdminFinanceRecentItem | null) => void
   onOpenReceiptReview: (item: MobileAdminFinanceRecentItem | null) => void
+  onReviewFinancing: (
+    item: MobileAdminFinanceRecentItem,
+    status: MobileAdminReviewStatus
+  ) => void
   onReviewReceipt: (
     item: MobileAdminFinanceRecentItem,
     decision: ReceiptReviewDecision
   ) => void
   receiptReviewItemId: string | null
   receiptReviewNotes: string
+  setFinancingReviewNotes: (value: string) => void
   setReceiptReviewNotes: (value: string) => void
 }) {
   const canMarkReviewing =
-    item.status !== "under_review" && item.queueKey !== "shares"
+    item.status !== "under_review" &&
+    item.queueKey !== "financing" &&
+    item.queueKey !== "shares"
+  const isFinancingReviewing =
+    item.queueKey === "financing" && financingReviewItemId === item.id
   const isReceiptReviewing =
     item.queueKey === "receipts" && receiptReviewItemId === item.id
   const receiptNotesRequired = receiptReviewNotes.trim().length < 2
@@ -120,7 +138,50 @@ function FinanceRecentItemCard({
           <Text className="text-xs font-medium text-muted-foreground">
             {formatStatus(item.status)} - {formatDate(item.requestedAt)}
           </Text>
-          {isReceiptReviewing ? (
+          {isFinancingReviewing ? (
+            <View className="gap-2 pt-2">
+              <Textarea
+                editable={actionState !== "pending"}
+                onChangeText={setFinancingReviewNotes}
+                placeholder="Decision notes"
+                value={financingReviewNotes}
+              />
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onReviewFinancing(item, "under_review")}
+                  variant="outline"
+                >
+                  <Text>Under review</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onReviewFinancing(item, "approved")}
+                  variant="outline"
+                >
+                  <Text>Approve</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onReviewFinancing(item, "rejected")}
+                  variant="outline"
+                >
+                  <Text>Reject</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onOpenFinancingReview(null)}
+                  variant="ghost"
+                >
+                  <Text>Cancel</Text>
+                </Button>
+              </View>
+            </View>
+          ) : isReceiptReviewing ? (
             <View className="gap-2 pt-2">
               <Textarea
                 editable={actionState !== "pending"}
@@ -181,6 +242,17 @@ function FinanceRecentItemCard({
             >
               <Icon name="ClipboardCheck" className="size-sm" />
               <Text>Review receipt</Text>
+            </Button>
+          ) : item.queueKey === "financing" ? (
+            <Button
+              className="mt-2 self-start"
+              disabled={actionState === "pending"}
+              onPress={() => onOpenFinancingReview(item)}
+              size="sm"
+              variant="outline"
+            >
+              <Icon name="HandCoins" className="size-sm" />
+              <Text>Review financing</Text>
             </Button>
           ) : canMarkReviewing ? (
             <Button
@@ -259,6 +331,10 @@ export function AdminFinanceScreen() {
   const [finance, setFinance] = useState<MobileAdminFinance | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [actionKey, setActionKey] = useState<string | null>(null)
+  const [financingReviewItemId, setFinancingReviewItemId] = useState<
+    string | null
+  >(null)
+  const [financingReviewNotes, setFinancingReviewNotes] = useState("")
   const [receiptReviewItemId, setReceiptReviewItemId] = useState<string | null>(
     null
   )
@@ -414,6 +490,36 @@ export function AdminFinanceScreen() {
     }
   }
 
+  async function reviewFinancingDecision(
+    item: MobileAdminFinanceRecentItem,
+    status: MobileAdminReviewStatus
+  ) {
+    const notes = financingReviewNotes.trim()
+    const nextActionKey = `${item.queueKey}-${item.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      await reviewMobileAdminFinancingRequest({
+        loanRequestId: item.id,
+        notes: notes || undefined,
+        status,
+      })
+      setFinancingReviewItemId(null)
+      setFinancingReviewNotes("")
+      await refreshFinance()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "The financing review action could not be completed."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
   async function recordReminder(followUp: MobileAdminCollectionFollowUp) {
     const nextActionKey = `follow-up-${followUp.id}`
 
@@ -525,18 +631,31 @@ export function AdminFinanceScreen() {
                           : "idle"
                       }
                       currencyCode={currencyCode}
+                      financingReviewItemId={financingReviewItemId}
+                      financingReviewNotes={financingReviewNotes}
                       isFirst={index === 0}
                       item={item}
                       key={`${item.queueKey}-${item.id}`}
                       onMarkReviewing={markReviewing}
+                      onOpenFinancingReview={(selectedItem) => {
+                        setFinancingReviewItemId(selectedItem?.id ?? null)
+                        setFinancingReviewNotes("")
+                        setReceiptReviewItemId(null)
+                        setReceiptReviewNotes("")
+                        setError(null)
+                      }}
                       onOpenReceiptReview={(selectedItem) => {
+                        setFinancingReviewItemId(null)
+                        setFinancingReviewNotes("")
                         setReceiptReviewItemId(selectedItem?.id ?? null)
                         setReceiptReviewNotes("")
                         setError(null)
                       }}
+                      onReviewFinancing={reviewFinancingDecision}
                       onReviewReceipt={reviewReceiptDecision}
                       receiptReviewItemId={receiptReviewItemId}
                       receiptReviewNotes={receiptReviewNotes}
+                      setFinancingReviewNotes={setFinancingReviewNotes}
                       setReceiptReviewNotes={setReceiptReviewNotes}
                     />
                   ))}

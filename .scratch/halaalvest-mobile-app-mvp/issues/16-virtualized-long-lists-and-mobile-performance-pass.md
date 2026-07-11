@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Long mobile lists render through virtualized list primitives with stable item layouts and empty/loading/error states.
-- [ ] Member, receipt, notification, request, report, and activity screens remain responsive with realistic cooperative-sized result sets.
+- [x] Long mobile lists render through virtualized list primitives with stable item layouts and empty/loading/error states.
+- [x] Member, receipt, notification, request, report, and activity screens remain responsive with realistic cooperative-sized result sets.

@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -374,64 +375,70 @@ export function AdminReportsScreen() {
             <SectionCard icon="FileText" title="Report previews">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : reportCards.length ? (
-                <View className="gap-3">
-                  {reportCards.map((report, index) => (
+              ) : (
+                <VirtualizedCardList
+                  data={reportCards}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No report previews are available for this workspace.
+                    </Text>
+                  }
+                  estimatedItemSize={148}
+                  keyExtractor={(report) => report.key}
+                  renderItem={({ index, item: report }) => (
                     <ReportCard
                       currencyCode={currencyCode}
                       isFirst={index === 0}
-                      key={report.key}
                       onOpen={openReportExport}
                       onShare={shareReportExport}
                       report={report}
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No report previews are available for this workspace.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
 
             <SectionCard icon="History" title="Recent activity evidence">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : activityEvents.length ? (
-                <View className="gap-3">
-                  {activityEvents.map((event, index) => (
-                    <ActivityEventRow
-                      event={event}
-                      isFirst={index === 0}
-                      key={event.id}
-                    />
-                  ))}
-                </View>
               ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No recent audit events are available for this workspace.
-                </Text>
+                <VirtualizedCardList
+                  data={activityEvents}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No recent audit events are available for this workspace.
+                    </Text>
+                  }
+                  estimatedItemSize={120}
+                  keyExtractor={(event) => event.id}
+                  renderItem={({ index, item: event }) => (
+                    <ActivityEventRow event={event} isFirst={index === 0} />
+                  )}
+                />
               )}
             </SectionCard>
 
             <SectionCard icon="CalendarClock" title="Collections evidence">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : collectionFollowUps.length ? (
-                <View className="gap-3">
-                  {collectionFollowUps.map((followUp, index) => (
+              ) : (
+                <VirtualizedCardList
+                  data={collectionFollowUps}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No collections follow-up activity is available for this
+                      workspace.
+                    </Text>
+                  }
+                  estimatedItemSize={108}
+                  keyExtractor={(followUp) => followUp.id}
+                  renderItem={({ index, item: followUp }) => (
                     <CollectionFollowUpRow
                       followUp={followUp}
                       isFirst={index === 0}
-                      key={followUp.id}
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No collections follow-up activity is available for this
-                  workspace.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
           </>

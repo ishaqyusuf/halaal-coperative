@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -1568,9 +1569,19 @@ export function AdminFinanceScreen() {
             <SectionCard icon="ClipboardList" title="Recent requests">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : finance?.recentItems.length ? (
-                <View className="gap-3">
-                  {finance.recentItems.map((item, index) => (
+              ) : (
+                <VirtualizedCardList
+                  data={finance?.recentItems ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No pending finance requests are visible in the mobile
+                      queue.
+                    </Text>
+                  }
+                  estimatedItemSize={320}
+                  keyExtractor={(item) => `${item.queueKey}-${item.id}`}
+                  maxHeight={680}
+                  renderItem={({ index, item }) => (
                     <FinanceRecentItemCard
                       actionState={
                         hasStaleFinance ||
@@ -1583,7 +1594,6 @@ export function AdminFinanceScreen() {
                       financingReviewNotes={financingReviewNotes}
                       isFirst={index === 0}
                       item={item}
-                      key={`${item.queueKey}-${item.id}`}
                       onMarkReviewing={markReviewing}
                       onOpenFoodPurchaseReview={(selectedItem) => {
                         setFoodPurchaseReviewItemId(selectedItem?.id ?? null)
@@ -1760,21 +1770,27 @@ export function AdminFinanceScreen() {
                       setReceiptReviewNotes={setReceiptReviewNotes}
                       setShareReviewNotes={setShareReviewNotes}
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No pending finance requests are visible in the mobile queue.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
 
             <SectionCard icon="MessageSquareText" title="Collection follow-ups">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : finance?.collectionFollowUps.length ? (
-                <View className="gap-3">
-                  {finance.collectionFollowUps.map((followUp, index) => (
+              ) : (
+                <VirtualizedCardList
+                  data={finance?.collectionFollowUps ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No open collection follow-ups are visible in the mobile
+                      queue.
+                    </Text>
+                  }
+                  estimatedItemSize={260}
+                  keyExtractor={(followUp) => followUp.id}
+                  maxHeight={640}
+                  renderItem={({ index, item: followUp }) => (
                     <CollectionFollowUpCard
                       actionState={
                         hasStaleFinance ||
@@ -1791,7 +1807,6 @@ export function AdminFinanceScreen() {
                       collectionFollowUpStatus={collectionFollowUpStatus}
                       followUp={followUp}
                       isFirst={index === 0}
-                      key={followUp.id}
                       onOpenCollectionFollowUp={(selectedFollowUp) => {
                         setCollectionFollowUpItemId(
                           selectedFollowUp?.id ?? null
@@ -1818,12 +1833,8 @@ export function AdminFinanceScreen() {
                       }
                       setCollectionFollowUpStatus={setCollectionFollowUpStatus}
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No open collection follow-ups are visible in the mobile queue.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
           </>

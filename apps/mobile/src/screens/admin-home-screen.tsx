@@ -2,6 +2,7 @@ import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { ProfileHeader } from "@/components/app/profile-header"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -385,9 +386,18 @@ export function AdminHomeScreen() {
         <SectionCard icon="MessagesSquare" title="Support cases">
           {isLoadingOverview ? (
             <LoadingSpinner />
-          ) : overview?.supportCases.length ? (
-            <View className="gap-3">
-              {overview.supportCases.map((supportCase, index) => (
+          ) : (
+            <VirtualizedCardList
+              data={overview?.supportCases ?? []}
+              empty={
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  No open support cases are visible in the mobile overview.
+                </Text>
+              }
+              estimatedItemSize={220}
+              keyExtractor={(supportCase) => supportCase.id}
+              maxHeight={620}
+              renderItem={({ index, item: supportCase }) => (
                 <SupportCaseCard
                   actionState={
                     actionKey?.startsWith(`${supportCase.id}:`)
@@ -413,12 +423,8 @@ export function AdminHomeScreen() {
                   setReplyMessage={setReplyMessage}
                   supportCase={supportCase}
                 />
-              ))}
-            </View>
-          ) : (
-            <Text className="text-sm leading-5 text-muted-foreground">
-              No open support cases are visible in the mobile overview.
-            </Text>
+              )}
+            />
           )}
         </SectionCard>
 

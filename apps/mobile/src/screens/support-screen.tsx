@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -358,9 +359,18 @@ export function SupportScreen() {
             <SectionCard icon="Headphones" title="Recent cases">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : support?.cases.length ? (
-                <View className="gap-3">
-                  {support.cases.map((supportCase) => (
+              ) : (
+                <VirtualizedCardList
+                  data={support?.cases ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No support cases yet.
+                    </Text>
+                  }
+                  estimatedItemSize={240}
+                  keyExtractor={(supportCase) => supportCase.id}
+                  maxHeight={640}
+                  renderItem={({ item: supportCase }) => (
                     <View
                       className="gap-3 rounded-md bg-secondary p-3"
                       key={supportCase.id}
@@ -463,12 +473,8 @@ export function SupportScreen() {
                         </Button>
                       )}
                     </View>
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No support cases yet.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
           </>

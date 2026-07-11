@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -404,22 +405,23 @@ export function SharesScreen() {
         ) : null}
 
         <SectionCard icon="ClipboardList" title="Request history">
-          {shares?.applications.length ? (
-            <View className="gap-3">
-              {shares.applications.map((application) => (
-                <ApplicationRow
-                  application={application}
-                  currencyCode={currencyCode}
-                  key={application.id}
-                />
-              ))}
-            </View>
-          ) : (
-            <Text className="text-sm leading-5 text-muted-foreground">
-              No optional share requests have been submitted from this member
-              profile.
-            </Text>
-          )}
+          <VirtualizedCardList
+            data={shares?.applications ?? []}
+            empty={
+              <Text className="text-sm leading-5 text-muted-foreground">
+                No optional share requests have been submitted from this member
+                profile.
+              </Text>
+            }
+            estimatedItemSize={124}
+            keyExtractor={(application) => application.id}
+            renderItem={({ item: application }) => (
+              <ApplicationRow
+                application={application}
+                currencyCode={currencyCode}
+              />
+            )}
+          />
         </SectionCard>
       </ScrollView>
     </SafeArea>

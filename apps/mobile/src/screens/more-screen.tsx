@@ -1,5 +1,6 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -671,24 +672,31 @@ export function MoreScreen() {
                   </SectionCard>
 
                   <SectionCard icon="Users" title="Users and roles">
-                    <View className="gap-3">
-                      {adminAccess.users.slice(0, 8).map((user) => (
-                        <AdminUserRow key={user.id} user={user} />
-                      ))}
-                      {adminAccess.users.length === 0 ? (
+                    <VirtualizedCardList
+                      data={adminAccess.users}
+                      empty={
                         <Text className="text-sm text-muted-foreground">
                           No workspace users are available.
                         </Text>
-                      ) : null}
-                    </View>
+                      }
+                      estimatedItemSize={112}
+                      keyExtractor={(user) => user.id}
+                      renderItem={({ item }) => <AdminUserRow user={item} />}
+                    />
                   </SectionCard>
 
                   <SectionCard icon="KeyRound" title="Role coverage">
-                    <View className="gap-3">
-                      {adminAccess.roles.map((role) => (
-                        <AdminRoleRow key={role.role} role={role} />
-                      ))}
-                    </View>
+                    <VirtualizedCardList
+                      data={adminAccess.roles}
+                      empty={
+                        <Text className="text-sm text-muted-foreground">
+                          No workspace roles are available.
+                        </Text>
+                      }
+                      estimatedItemSize={88}
+                      keyExtractor={(role) => role.role}
+                      renderItem={({ item }) => <AdminRoleRow role={item} />}
+                    />
                   </SectionCard>
                 </>
               ) : null}

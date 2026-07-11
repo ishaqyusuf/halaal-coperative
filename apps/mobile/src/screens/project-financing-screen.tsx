@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -582,22 +583,25 @@ export function ProjectFinancingScreen() {
             <SectionCard icon="ClipboardList" title="Request history">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : projectFinancing?.requests.length ? (
-                <View className="gap-3">
-                  {projectFinancing.requests.map((request, index) => (
+              ) : (
+                <VirtualizedCardList
+                  data={projectFinancing?.requests ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No project financing requests have been submitted from
+                      this member profile.
+                    </Text>
+                  }
+                  estimatedItemSize={200}
+                  keyExtractor={(request) => request.id}
+                  renderItem={({ index, item: request }) => (
                     <ProjectFinancingRequestCard
                       currencyCode={currencyCode}
                       isFirst={index === 0}
-                      key={request.id}
                       request={request}
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No project financing requests have been submitted from this
-                  member profile.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
           </>

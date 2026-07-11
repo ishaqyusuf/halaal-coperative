@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -364,15 +365,22 @@ export function GuarantorApprovalsScreen() {
             <SectionCard icon="ShieldCheck" title="Requests">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : approvals?.approvals.length ? (
-                <View className="gap-3">
-                  {approvals.approvals.map((approval) => (
+              ) : (
+                <VirtualizedCardList
+                  data={approvals?.approvals ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No financing request currently lists you as guarantor.
+                    </Text>
+                  }
+                  estimatedItemSize={240}
+                  keyExtractor={(approval) => approval.id}
+                  renderItem={({ item: approval }) => (
                     <ApprovalCard
                       approval={approval}
                       currencyCode={currencyCode}
                       isActionBlocked={hasStaleApprovals}
                       isSubmitting={submittingApprovalId === approval.id}
-                      key={approval.id}
                       notes={notesByApprovalId[approval.id] ?? ""}
                       onChangeNotes={(value) =>
                         setNotesByApprovalId((current) => ({
@@ -384,12 +392,8 @@ export function GuarantorApprovalsScreen() {
                         handleRespond(approval.id, decision)
                       }
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No financing request currently lists you as guarantor.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
           </>

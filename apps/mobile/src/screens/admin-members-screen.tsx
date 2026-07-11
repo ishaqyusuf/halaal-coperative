@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -777,9 +778,18 @@ export function AdminMembersScreen() {
             <SectionCard icon="UserPlus" title="Pending onboarding">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : members?.onboardingRequests.length ? (
-                <View className="gap-3">
-                  {members.onboardingRequests.map((request, index) => (
+              ) : (
+                <VirtualizedCardList
+                  data={members?.onboardingRequests ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No pending member onboarding requests are visible in
+                      mobile.
+                    </Text>
+                  }
+                  estimatedItemSize={188}
+                  keyExtractor={(request) => request.id}
+                  renderItem={({ index, item: request }) => (
                     <OnboardingRequestCard
                       actionState={
                         hasStaleMembers ||
@@ -788,7 +798,6 @@ export function AdminMembersScreen() {
                           : "idle"
                       }
                       isFirst={index === 0}
-                      key={request.id}
                       onOpenReview={(selectedRequest) => {
                         setOnboardingReviewRequestId(
                           selectedRequest?.id ?? null
@@ -804,12 +813,8 @@ export function AdminMembersScreen() {
                       request={request}
                       setOnboardingReviewNotes={setOnboardingReviewNotes}
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No pending member onboarding requests are visible in mobile.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
 
@@ -946,9 +951,17 @@ export function AdminMembersScreen() {
             <SectionCard icon="UsersRound" title="Member records">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : members?.members.length ? (
-                <View className="gap-3">
-                  {members.members.map((member, index) => (
+              ) : (
+                <VirtualizedCardList
+                  data={members?.members ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No members match the current directory filters.
+                    </Text>
+                  }
+                  estimatedItemSize={176}
+                  keyExtractor={(member) => member.id}
+                  renderItem={({ index, item: member }) => (
                     <MemberCard
                       actionState={
                         hasStaleMembers || actionKey === `kyc-${member.id}`
@@ -956,7 +969,6 @@ export function AdminMembersScreen() {
                           : "idle"
                       }
                       isFirst={index === 0}
-                      key={member.id}
                       kycReviewMemberId={kycReviewMemberId}
                       kycReviewNotes={kycReviewNotes}
                       kycReviewStatus={kycReviewStatus}
@@ -978,12 +990,8 @@ export function AdminMembersScreen() {
                       setKycReviewNotes={setKycReviewNotes}
                       setKycReviewStatus={setKycReviewStatus}
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No members match the current directory filters.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
 

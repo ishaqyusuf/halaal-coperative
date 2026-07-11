@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -555,9 +556,17 @@ export function ReceiptsScreen() {
             <SectionCard icon="ClipboardList" title="Recent receipts">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : receipts?.receipts.length ? (
-                <View className="gap-3">
-                  {receipts.receipts.map((receipt) => (
+              ) : (
+                <VirtualizedCardList
+                  data={receipts?.receipts ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No payment receipts yet.
+                    </Text>
+                  }
+                  estimatedItemSize={196}
+                  keyExtractor={(receipt) => receipt.id}
+                  renderItem={({ item: receipt }) => (
                     <View
                       className="gap-1 rounded-md bg-secondary p-3"
                       key={receipt.id}
@@ -644,12 +653,8 @@ export function ReceiptsScreen() {
                         </Button>
                       )}
                     </View>
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No payment receipts yet.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
           </>

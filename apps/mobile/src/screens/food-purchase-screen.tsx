@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -546,22 +547,25 @@ export function FoodPurchaseScreen() {
             <SectionCard icon="ClipboardList" title="Application history">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : foodPurchase?.applications.length ? (
-                <View className="gap-3">
-                  {foodPurchase.applications.map((application, index) => (
+              ) : (
+                <VirtualizedCardList
+                  data={foodPurchase?.applications ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No Foodstuff Purchase applications have been submitted
+                      from this member profile.
+                    </Text>
+                  }
+                  estimatedItemSize={176}
+                  keyExtractor={(application) => application.id}
+                  renderItem={({ index, item: application }) => (
                     <FoodPurchaseApplicationCard
                       application={application}
                       currencyCode={currencyCode}
                       isFirst={index === 0}
-                      key={application.id}
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No Foodstuff Purchase applications have been submitted from
-                  this member profile.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
           </>

@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -481,22 +482,25 @@ export function ProcurementScreen() {
             <SectionCard icon="ClipboardList" title="Request history">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : procurement?.requests.length ? (
-                <View className="gap-3">
-                  {procurement.requests.map((request, index) => (
+              ) : (
+                <VirtualizedCardList
+                  data={procurement?.requests ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No procurement requests have been submitted from this
+                      member profile.
+                    </Text>
+                  }
+                  estimatedItemSize={190}
+                  keyExtractor={(request) => request.id}
+                  renderItem={({ index, item: request }) => (
                     <ProcurementRequestCard
                       currencyCode={currencyCode}
                       isFirst={index === 0}
-                      key={request.id}
                       request={request}
                     />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No procurement requests have been submitted from this member
-                  profile.
-                </Text>
+                  )}
+                />
               )}
             </SectionCard>
           </>

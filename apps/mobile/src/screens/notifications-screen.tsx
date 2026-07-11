@@ -1,6 +1,7 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Icon } from "@/components/ui/icon"
@@ -245,35 +246,41 @@ export function NotificationsScreen() {
             <SectionCard icon="Bell" title="Delivery history">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : notifications?.deliveries.length ? (
-                <View className="gap-3">
-                  {notifications.deliveries.map((delivery) => (
-                    <DeliveryRow delivery={delivery} key={delivery.id} />
-                  ))}
-                </View>
               ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No notification deliveries are recorded for this account yet.
-                </Text>
+                <VirtualizedCardList
+                  data={notifications?.deliveries ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No notification deliveries are recorded for this account
+                      yet.
+                    </Text>
+                  }
+                  estimatedItemSize={112}
+                  keyExtractor={(delivery) => delivery.id}
+                  renderItem={({ item }) => <DeliveryRow delivery={item} />}
+                />
               )}
             </SectionCard>
 
             <SectionCard icon="SlidersHorizontal" title="Preference coverage">
               {isLoading ? (
                 <LoadingSpinner />
-              ) : notifications?.preferences.length ? (
-                <View className="gap-3">
-                  {notifications.preferences.slice(0, 12).map((preference) => (
-                    <PreferenceRow
-                      key={`${preference.role}-${preference.notificationType}-${preference.channel}`}
-                      preference={preference}
-                    />
-                  ))}
-                </View>
               ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  Default cooperative notification routing is active.
-                </Text>
+                <VirtualizedCardList
+                  data={notifications?.preferences ?? []}
+                  empty={
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      Default cooperative notification routing is active.
+                    </Text>
+                  }
+                  estimatedItemSize={72}
+                  keyExtractor={(preference) =>
+                    `${preference.role}-${preference.notificationType}-${preference.channel}`
+                  }
+                  renderItem={({ item: preference }) => (
+                    <PreferenceRow preference={preference} />
+                  )}
+                />
               )}
             </SectionCard>
           </>

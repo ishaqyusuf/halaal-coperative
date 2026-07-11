@@ -14,6 +14,10 @@ type MobileSignInResponse = {
   profile: MobileProfile
 }
 
+type MobileSessionResponse = {
+  profile: MobileProfile
+}
+
 function getTrpcUrl() {
   return `${getBaseUrl()}/api/trpc`
 }
@@ -43,6 +47,12 @@ export async function signInWithMobileAuth(input: MobileSignInCredentials) {
   return client.auth.mobile.signIn.mutate(
     input
   ) as Promise<MobileSignInResponse>
+}
+
+export async function getCurrentMobileProfile() {
+  const client = createMobileAuthClient()
+
+  return client.auth.mobile.me.query() as Promise<MobileSessionResponse>
 }
 
 export async function signOutMobileAuth() {

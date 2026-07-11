@@ -22,6 +22,7 @@ describe("buildRequestContext mobile bearer sessions", () => {
   test("derives the user, membership, and tenant from a signed bearer token", async () => {
     const token = await createSignedSessionToken({
       scope: platformSessionScope,
+      tenantId: "tenant-amanah-demo",
       userId: "user-tenant-admin-amanah",
     })
     const context = await buildRequestContext(
@@ -36,6 +37,45 @@ describe("buildRequestContext mobile bearer sessions", () => {
     expect(context.auth.activeMembership?.role).toBe("tenant_admin")
     expect(context.tenant.current?.slug).toBe("amanah")
     expect(context.request.tenantResolution.resolvedBy).toBe("fallback")
+  })
+
+  test("does not let client headers override a signed bearer session", async () => {
+    const token = await createSignedSessionToken({
+      scope: platformSessionScope,
+      tenantId: "tenant-barakah-demo",
+      userId: "user-finance-barakah",
+    })
+    const context = await buildRequestContext(
+      new Headers({
+        authorization: `Bearer ${token}`,
+        host: "api.halaalvest.localhost",
+        "x-tenant-subdomain": "amanah",
+        "x-user-id": "user-tenant-admin-amanah",
+        "x-user-role": "super_admin",
+      })
+    )
+
+    expect(context.auth.session?.user.id).toBe("user-finance-barakah")
+    expect(context.auth.activeMembership?.role).toBe("finance_officer")
+    expect(context.tenant.current?.slug).toBe("barakah")
+  })
+
+  test("uses the signed tenant for platform-owner mobile sessions", async () => {
+    const token = await createSignedSessionToken({
+      scope: platformSessionScope,
+      tenantId: "tenant-barakah-demo",
+      userId: "user-platform-owner",
+    })
+    const context = await buildRequestContext(
+      new Headers({
+        authorization: `Bearer ${token}`,
+        host: "api.halaalvest.localhost",
+      })
+    )
+
+    expect(context.auth.session?.user.id).toBe("user-platform-owner")
+    expect(context.auth.activeMembership?.role).toBe("super_admin")
+    expect(context.tenant.current?.slug).toBe("barakah")
   })
 
   test("ignores an invalid bearer token", async () => {

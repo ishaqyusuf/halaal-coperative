@@ -2,12 +2,15 @@ import {
   clearSession,
   createMockProfile,
   getSessionProfile,
+  getToken,
+  isMockSessionToken,
   setSessionProfile,
   setToken,
   type MobileProfile,
   type MobileRole,
 } from "@/lib/session-store"
 import {
+  getCurrentMobileProfile,
   signInWithMobileAuth,
   signOutMobileAuth,
   type MobileSignInCredentials,
@@ -31,14 +34,69 @@ type AuthContextValue = {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+const canUseDevelopmentMockSession = process.env.NODE_ENV !== "production"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initializing, setInitializing] = useState(true)
   const [profile, setProfile] = useState<MobileProfile | null>(null)
 
   useEffect(() => {
-    setProfile(getSessionProfile())
-    setInitializing(false)
+    let mounted = true
+
+    async function bootstrapSession() {
+      const token = getToken()
+      const cachedProfile = getSessionProfile()
+
+      if (!token) {
+        if (cachedProfile) {
+          await clearSession()
+        }
+
+        if (mounted) {
+          setProfile(null)
+          setInitializing(false)
+        }
+        return
+      }
+
+      if (canUseDevelopmentMockSession && isMockSessionToken(token)) {
+        if (!cachedProfile) {
+          await clearSession()
+        }
+
+        if (mounted) {
+          setProfile(cachedProfile)
+          setInitializing(false)
+        }
+        return
+      }
+
+      try {
+        const response = await getCurrentMobileProfile()
+        await setToken(response.profile.token)
+        await setSessionProfile(response.profile)
+
+        if (mounted) {
+          setProfile(response.profile)
+        }
+      } catch {
+        await clearSession()
+
+        if (mounted) {
+          setProfile(null)
+        }
+      } finally {
+        if (mounted) {
+          setInitializing(false)
+        }
+      }
+    }
+
+    void bootstrapSession()
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
   const signInAs = useCallback(async (role: MobileRole) => {
@@ -61,10 +119,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       await signOutMobileAuth()
-    } finally {
-      await clearSession()
-      setProfile(null)
+    } catch {
+      // Local session cleanup still wins when the server session is already gone.
     }
+
+    await clearSession()
+    setProfile(null)
   }, [])
 
   const value = useMemo<AuthContextValue>(

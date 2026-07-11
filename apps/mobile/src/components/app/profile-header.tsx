@@ -1,9 +1,12 @@
-import { Icon } from "@/components/ui/icon";
-import { Text } from "@/components/ui/text";
-import { type MobileProfile } from "@/lib/session-store";
-import { View } from "react-native";
+import { Text } from "@/components/ui/text"
+import { type MobileProfile } from "@/lib/session-store"
+import { View } from "react-native"
 
 export function ProfileHeader({ profile }: { profile: MobileProfile }) {
+  const fallbackTenantMark =
+    profile.tenant.name.trim().slice(0, 2).toUpperCase() || "HC"
+  const tenantMark = profile.tenant.branding?.mark || fallbackTenantMark
+
   return (
     <View className="flex-row items-center justify-between gap-4">
       <View className="flex-1">
@@ -15,8 +18,10 @@ export function ProfileHeader({ profile }: { profile: MobileProfile }) {
         </Text>
       </View>
       <View className="h-12 w-12 items-center justify-center rounded-md bg-primary">
-        <Icon name="User" className="size-md text-primary-foreground" />
+        <Text className="text-sm font-black text-primary-foreground">
+          {tenantMark}
+        </Text>
       </View>
     </View>
-  );
+  )
 }

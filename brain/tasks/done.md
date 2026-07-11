@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-11: Hardened mobile session resume and tenant bootstrap: startup now verifies `auth.mobile.me`, clears stale native sessions, keeps mock sessions development-only, adds selected-tenant signed-session context, ignores client override headers for bearer sessions, and exposes server-shaped tenant branding fields to the mobile profile.
 - 2026-07-11: Added the first production mobile auth seam for the Halaalvest mobile MVP: signed bearer session handling in API context, `auth.mobile` tRPC sign-in/me/sign-out procedures, standalone API `/api/trpc` support, and a real mobile sign-in form with development-only mock role shortcuts.
 - 2026-07-10: Added a GND-style root dev router on `main` so `bun run dev` supports local, remote-dev, production, and Turbo filter aliases while documenting the remote-dev env-file flow.
 - 2026-07-10: Completed the client-fit cooperative operations completion audit, covering all 93 spec stories and recording the 13/13 non-deferred roadmap result with deferred/out-of-scope boundaries.

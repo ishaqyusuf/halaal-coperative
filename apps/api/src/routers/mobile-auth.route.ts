@@ -32,6 +32,19 @@ function toMobileRole(role: MembershipRecord["role"]) {
   return role === "member" ? "member" : "admin"
 }
 
+function buildTenantMark(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+
+  if (words.length <= 1) {
+    return name.trim().slice(0, 2).toUpperCase() || "HC"
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join("")
+}
+
 async function getLinkedMember(input: {
   runtimeStatus: string
   tenantId: string
@@ -58,21 +71,31 @@ function buildMobileProfile(input: {
   const tenantMemberships = input.memberships.filter(
     (membership) => membership.tenantId === input.tenant.id
   )
+  const availableMemberships =
+    tenantMemberships.length > 0 ? tenantMemberships : [input.membership]
 
   return {
     token: input.token,
     role: toMobileRole(input.membership.role),
     cooperativeRole: input.membership.role,
-    availableRoles: tenantMemberships.map((membership) => ({
+    availableRoles: availableMemberships.map((membership) => ({
       id: membership.id,
       isDefault: membership.isDefault,
       role: membership.role,
       workspaceRole: toMobileRole(membership.role),
     })),
     tenant: {
+      branding: {
+        accentColor: null,
+        logoUrl: null,
+        mark: buildTenantMark(input.tenant.name),
+        primaryColor: null,
+      },
+      currencyCode: input.tenant.currencyCode,
       id: input.tenant.id,
       name: input.tenant.name,
       slug: input.tenant.slug,
+      timezone: input.tenant.timezone,
     },
     user: {
       id: input.user.id,
@@ -139,6 +162,7 @@ export const mobileAuthRouter = createTRPCRouter({
       const memberships = await findMembershipsForUserAsync(user.id)
       const token = await createSignedSessionToken({
         scope: platformSessionScope,
+        tenantId: tenantResolution.tenant.id,
         userId: user.id,
       })
       const member = await getLinkedMember({
@@ -180,7 +204,8 @@ export const mobileAuthRouter = createTRPCRouter({
     return {
       profile: buildMobileProfile({
         membership: ctx.auth.activeMembership,
-        memberships,
+        memberships:
+          memberships.length > 0 ? memberships : [ctx.auth.activeMembership],
         member,
         tenant: ctx.tenant.current,
         token: ctx.auth.session.token,

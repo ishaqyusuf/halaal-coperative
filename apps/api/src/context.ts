@@ -11,6 +11,7 @@ import {
   findActiveMembershipAsync,
   findUserByIdAsync,
   resolveTenantAsync,
+  type MembershipRecord,
 } from "@halaalvest/db"
 
 function getBearerToken(headers: Headers) {
@@ -37,18 +38,33 @@ export async function buildRequestContext(headers: Headers) {
       host: requestHost,
       explicitScope: sessionScope ?? platformSessionScope,
     })
-  const userRoleOverride = normalizeRole(headers.get("x-user-role"))
+  const userRoleOverride = bearerSession
+    ? null
+    : normalizeRole(headers.get("x-user-role"))
   const user = await findUserByIdAsync(requestedUserId)
   const tenantResolution = await resolveTenantAsync({
-    fallbackTenantId: user && !user.isPlatformOwner ? user.tenantId : null,
-    slug: forwardedTenantSlug,
-    hostname: forwardedTenantHostname ?? requestHost,
+    fallbackTenantId:
+      bearerSession?.tenantId ??
+      (user && !user.isPlatformOwner ? user.tenantId : null),
+    slug: bearerSession ? null : forwardedTenantSlug,
+    hostname: bearerSession ? null : (forwardedTenantHostname ?? requestHost),
   })
-  const membership =
+  const resolvedMembership =
     (await findActiveMembershipAsync({
       tenantId: tenantResolution.tenant?.id ?? user?.tenantId ?? null,
       userId: user?.id ?? null,
     })) ?? null
+  const membership =
+    resolvedMembership ??
+    (user?.isPlatformOwner && tenantResolution.tenant
+      ? ({
+          id: "platform-owner-context-membership",
+          isDefault: true,
+          role: "super_admin",
+          tenantId: tenantResolution.tenant.id,
+          userId: user.id,
+        } satisfies MembershipRecord)
+      : null)
   const sessionToken =
     bearerSession && bearerToken
       ? bearerToken

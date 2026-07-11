@@ -15,6 +15,7 @@ export type SignedSessionPayload = {
   expiresAt: number
   nonce: string
   scope: SessionScope
+  tenantId?: string
   userId: string
 }
 
@@ -101,12 +102,14 @@ async function signValue(value: string) {
 
 export async function createSignedSessionToken(input: {
   scope: SessionScope
+  tenantId?: string | null
   userId: string
 }) {
   const payload = {
     expiresAt: Date.now() + sessionTtlMs,
     nonce: crypto.randomUUID(),
     scope: input.scope,
+    ...(input.tenantId ? { tenantId: input.tenantId } : {}),
     userId: input.userId,
   } satisfies SignedSessionPayload
   const encodedPayload = encodeBase64Url(JSON.stringify(payload))

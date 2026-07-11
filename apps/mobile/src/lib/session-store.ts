@@ -22,9 +22,17 @@ export interface MobileProfile {
     workspaceRole: MobileRole
   }>
   tenant: {
+    branding: {
+      accentColor: string | null
+      logoUrl: string | null
+      mark: string
+      primaryColor: string | null
+    }
+    currencyCode: string
     id: string
     name: string
     slug: string
+    timezone: string
   }
   user: {
     id: string
@@ -38,6 +46,9 @@ export interface MobileProfile {
 }
 
 export const getToken = () => SecureStore.getItem(SESSION_KEY)
+
+export const isMockSessionToken = (value: string | null | undefined) =>
+  Boolean(value?.startsWith("mock-"))
 
 export const setToken = (value: string) =>
   SecureStore.setItem(SESSION_KEY, value)
@@ -79,9 +90,17 @@ export const createMockProfile = (role: MobileRole): MobileProfile => ({
     },
   ],
   tenant: {
+    branding: {
+      accentColor: null,
+      logoUrl: null,
+      mark: "HC",
+      primaryColor: null,
+    },
+    currencyCode: "NGN",
     id: "tenant_halaalvest",
     name: "Halaalvest Cooperative",
     slug: "halaalvest",
+    timezone: "Africa/Lagos",
   },
   user: {
     id: role === "admin" ? "admin_demo" : "member_demo",

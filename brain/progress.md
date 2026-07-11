@@ -2,6 +2,17 @@
 
 ## 2026-07-11
 
+### Mobile Session Resume And Tenant Bootstrap
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/auth/src/index.ts`, `apps/api/src/context.ts`, `apps/api/src/context.test.ts`, `apps/api/src/routers/mobile-auth.route.ts`, `apps/api/src/routers/mobile-auth.route.test.ts`, `apps/mobile/src/lib/mobile-auth-api.ts`, `apps/mobile/src/lib/session-store.ts`, `apps/mobile/src/hooks/use-auth.tsx`, `apps/mobile/src/components/app/profile-header.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Mobile startup now verifies signed bearer sessions through `auth.mobile.me` before routing, clears stale or forged native sessions, preserves mock sessions only in non-production development mode, and carries server-shaped tenant bootstrap fields into the mobile profile. Signed session tokens can now include selected tenant context, bearer sessions ignore client user/role/tenant override headers, and platform-owner selected-tenant sessions resume with a server-derived super-admin role.
+- Scope note: This completes more of Phase 1 session/bootstrap hardening. Role switching UI, production member/admin DTO reads, offline stale markers, and device/update release hardening remain separate MVP slices.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts`; touched-file `prettier --check`.
+- Skipped checks: Broad typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Auth Session Foundation
 
 - Source mode: `$implement` from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

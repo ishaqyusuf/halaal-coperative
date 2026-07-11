@@ -122,7 +122,12 @@ export type MobileAdminFinanceQueue = {
 export type MobileAdminFinanceRecentItem = {
   amount: number
   id: string
-  queueKey: "financing" | "procurement" | "projectFinancing" | "foodPurchase"
+  queueKey:
+    | "financing"
+    | "procurement"
+    | "projectFinancing"
+    | "foodPurchase"
+    | "receipts"
   requestedAt: string
   status: string
   subtitle: string

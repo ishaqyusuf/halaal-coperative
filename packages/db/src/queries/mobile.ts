@@ -254,7 +254,12 @@ export type MobileAdminFinanceQueue = {
 export type MobileAdminFinanceRecentItem = {
   amount: number
   id: string
-  queueKey: "financing" | "procurement" | "projectFinancing" | "foodPurchase"
+  queueKey:
+    | "financing"
+    | "procurement"
+    | "projectFinancing"
+    | "foodPurchase"
+    | "receipts"
   requestedAt: string
   status: string
   subtitle: string
@@ -1831,6 +1836,24 @@ function foodPurchaseToFinanceItem(
     status: row.status,
     subtitle:
       row.itemDescription ?? `Cycle ${formatDateLabel(row.cycle.periodMonth)}`,
+    title: `${row.member.fullName} (${row.member.memberNumber})`,
+  }
+}
+
+function receiptToFinanceItem(
+  row: MemberPaymentReceiptRow
+): MobileAdminFinanceRecentItem {
+  return {
+    amount: row.totalAmount,
+    id: row.id,
+    queueKey: "receipts",
+    requestedAt: row.submittedAt.toISOString(),
+    status: row.status,
+    subtitle: row.paymentReference
+      ? `Reference ${row.paymentReference}`
+      : `${row.allocations.length} allocation${
+          row.allocations.length === 1 ? "" : "s"
+        }`,
     title: `${row.member.fullName} (${row.member.memberNumber})`,
   }
 }
@@ -4524,6 +4547,7 @@ export async function getMobileAdminFinance(
     procurementRequests,
     projectRequests,
     foodApplications,
+    receipts,
   ] = await Promise.all([
     getOverviewSummary(tenantId),
     listLoanRequests(tenantId, prisma),
@@ -4548,6 +4572,13 @@ export async function getMobileAdminFinance(
       },
       prisma
     ),
+    listMemberPaymentReceipts(
+      tenantId,
+      {
+        limit: 8,
+      },
+      prisma
+    ),
   ])
   const queues = overview.actionQueue
     .map(toMobileAdminFinanceQueue)
@@ -4567,6 +4598,9 @@ export async function getMobileAdminFinance(
     ...foodApplications
       .filter((application) => pendingStatuses.includes(application.status))
       .map(foodPurchaseToFinanceItem),
+    ...receipts
+      .filter((receipt) => pendingStatuses.includes(receipt.status))
+      .map(receiptToFinanceItem),
   ]
     .sort((left, right) => right.requestedAt.localeCompare(left.requestedAt))
     .slice(0, 12)

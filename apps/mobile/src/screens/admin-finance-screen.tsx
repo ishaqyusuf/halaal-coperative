@@ -44,6 +44,7 @@ function queueIcon(queueKey: MobileAdminFinanceRecentItem["queueKey"]) {
   if (queueKey === "financing") return "HandCoins"
   if (queueKey === "procurement") return "PackageSearch"
   if (queueKey === "projectFinancing") return "BriefcaseBusiness"
+  if (queueKey === "receipts") return "ReceiptText"
   return "ShoppingBasket"
 }
 

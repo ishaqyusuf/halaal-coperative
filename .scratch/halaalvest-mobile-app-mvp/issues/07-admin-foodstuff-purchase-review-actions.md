@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Admin Support Triage Actions.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A permitted committee or finance user can review a member Foodstuff Purchase application from mobile with decision notes.
-- [ ] Mobile review keeps member application approval separate from cycle release, accounting review, and profit evidence.
+- [x] A permitted committee or finance user can review a member Foodstuff Purchase application from mobile with decision notes.
+- [x] Mobile review keeps member application approval separate from cycle release, accounting review, and profit evidence.

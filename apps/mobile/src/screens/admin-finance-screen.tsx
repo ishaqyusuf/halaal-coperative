@@ -97,12 +97,16 @@ function FinanceRecentItemCard({
   isFirst,
   item,
   onMarkReviewing,
+  onOpenFoodPurchaseReview,
   onOpenFinancingReview,
   onOpenProcurementReview,
   onOpenReceiptReview,
+  onReviewFoodPurchase,
   onReviewFinancing,
   onReviewProcurement,
   onReviewReceipt,
+  foodPurchaseReviewItemId,
+  foodPurchaseReviewNotes,
   financingReviewItemId,
   financingReviewNotes,
   procurementApprovedCost,
@@ -111,6 +115,7 @@ function FinanceRecentItemCard({
   procurementReviewNotes,
   receiptReviewItemId,
   receiptReviewNotes,
+  setFoodPurchaseReviewNotes,
   setFinancingReviewNotes,
   setProcurementApprovedCost,
   setProcurementApprovedRepaymentMonths,
@@ -124,9 +129,14 @@ function FinanceRecentItemCard({
   isFirst: boolean
   item: MobileAdminFinanceRecentItem
   onMarkReviewing: (item: MobileAdminFinanceRecentItem) => void
+  onOpenFoodPurchaseReview: (item: MobileAdminFinanceRecentItem | null) => void
   onOpenFinancingReview: (item: MobileAdminFinanceRecentItem | null) => void
   onOpenProcurementReview: (item: MobileAdminFinanceRecentItem | null) => void
   onOpenReceiptReview: (item: MobileAdminFinanceRecentItem | null) => void
+  onReviewFoodPurchase: (
+    item: MobileAdminFinanceRecentItem,
+    status: MobileAdminReviewStatus
+  ) => void
   onReviewFinancing: (
     item: MobileAdminFinanceRecentItem,
     status: MobileAdminReviewStatus
@@ -139,12 +149,15 @@ function FinanceRecentItemCard({
     item: MobileAdminFinanceRecentItem,
     decision: ReceiptReviewDecision
   ) => void
+  foodPurchaseReviewItemId: string | null
+  foodPurchaseReviewNotes: string
   procurementApprovedCost: string
   procurementApprovedRepaymentMonths: string
   procurementReviewItemId: string | null
   procurementReviewNotes: string
   receiptReviewItemId: string | null
   receiptReviewNotes: string
+  setFoodPurchaseReviewNotes: (value: string) => void
   setFinancingReviewNotes: (value: string) => void
   setProcurementApprovedCost: (value: string) => void
   setProcurementApprovedRepaymentMonths: (value: string) => void
@@ -153,9 +166,12 @@ function FinanceRecentItemCard({
 }) {
   const canMarkReviewing =
     item.status !== "under_review" &&
+    item.queueKey !== "foodPurchase" &&
     item.queueKey !== "financing" &&
     item.queueKey !== "procurement" &&
     item.queueKey !== "shares"
+  const isFoodPurchaseReviewing =
+    item.queueKey === "foodPurchase" && foodPurchaseReviewItemId === item.id
   const isFinancingReviewing =
     item.queueKey === "financing" && financingReviewItemId === item.id
   const isProcurementReviewing =
@@ -167,6 +183,7 @@ function FinanceRecentItemCard({
     procurementApprovedRepaymentMonths
   )
   const procurementNotesRequired = procurementReviewNotes.trim().length < 2
+  const foodPurchaseNotesRequired = foodPurchaseReviewNotes.trim().length < 2
   const procurementApprovalValuesMissing =
     !Number.isFinite(procurementCostValue) ||
     procurementCostValue <= 0 ||
@@ -198,7 +215,56 @@ function FinanceRecentItemCard({
           <Text className="text-xs font-medium text-muted-foreground">
             {formatStatus(item.status)} - {formatDate(item.requestedAt)}
           </Text>
-          {isFinancingReviewing ? (
+          {isFoodPurchaseReviewing ? (
+            <View className="gap-2 pt-2">
+              <Textarea
+                editable={actionState !== "pending"}
+                onChangeText={setFoodPurchaseReviewNotes}
+                placeholder="Decision notes"
+                value={foodPurchaseReviewNotes}
+              />
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  className="h-9"
+                  disabled={
+                    actionState === "pending" || foodPurchaseNotesRequired
+                  }
+                  onPress={() => onReviewFoodPurchase(item, "under_review")}
+                  variant="outline"
+                >
+                  <Text>Under review</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={
+                    actionState === "pending" || foodPurchaseNotesRequired
+                  }
+                  onPress={() => onReviewFoodPurchase(item, "approved")}
+                  variant="outline"
+                >
+                  <Text>Approve</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={
+                    actionState === "pending" || foodPurchaseNotesRequired
+                  }
+                  onPress={() => onReviewFoodPurchase(item, "rejected")}
+                  variant="outline"
+                >
+                  <Text>Reject</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onOpenFoodPurchaseReview(null)}
+                  variant="ghost"
+                >
+                  <Text>Cancel</Text>
+                </Button>
+              </View>
+            </View>
+          ) : isFinancingReviewing ? (
             <View className="gap-2 pt-2">
               <Textarea
                 editable={actionState !== "pending"}
@@ -394,6 +460,17 @@ function FinanceRecentItemCard({
               <Icon name="PackageSearch" className="size-sm" />
               <Text>Review procurement</Text>
             </Button>
+          ) : item.queueKey === "foodPurchase" ? (
+            <Button
+              className="mt-2 self-start"
+              disabled={actionState === "pending"}
+              onPress={() => onOpenFoodPurchaseReview(item)}
+              size="sm"
+              variant="outline"
+            >
+              <Icon name="ShoppingBasket" className="size-sm" />
+              <Text>Review food purchase</Text>
+            </Button>
           ) : canMarkReviewing ? (
             <Button
               className="mt-2 self-start"
@@ -585,6 +662,10 @@ export function AdminFinanceScreen() {
   const [finance, setFinance] = useState<MobileAdminFinance | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [actionKey, setActionKey] = useState<string | null>(null)
+  const [foodPurchaseReviewItemId, setFoodPurchaseReviewItemId] = useState<
+    string | null
+  >(null)
+  const [foodPurchaseReviewNotes, setFoodPurchaseReviewNotes] = useState("")
   const [financingReviewItemId, setFinancingReviewItemId] = useState<
     string | null
   >(null)
@@ -847,6 +928,42 @@ export function AdminFinanceScreen() {
     }
   }
 
+  async function reviewFoodPurchaseDecision(
+    item: MobileAdminFinanceRecentItem,
+    status: MobileAdminReviewStatus
+  ) {
+    const notes = foodPurchaseReviewNotes.trim()
+
+    if (notes.length < 2) {
+      setError("Food purchase review notes are required.")
+      return
+    }
+
+    const nextActionKey = `${item.queueKey}-${item.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      await reviewMobileAdminFoodPurchaseApplication({
+        applicationId: item.id,
+        notes,
+        status,
+      })
+      setFoodPurchaseReviewItemId(null)
+      setFoodPurchaseReviewNotes("")
+      await refreshFinance()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "The food purchase review action could not be completed."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
   async function recordFollowUp(followUp: MobileAdminCollectionFollowUp) {
     const note = collectionFollowUpNote.trim()
     const nextActionAt = collectionFollowUpNextActionAt.trim()
@@ -987,7 +1104,22 @@ export function AdminFinanceScreen() {
                       item={item}
                       key={`${item.queueKey}-${item.id}`}
                       onMarkReviewing={markReviewing}
+                      onOpenFoodPurchaseReview={(selectedItem) => {
+                        setFoodPurchaseReviewItemId(selectedItem?.id ?? null)
+                        setFoodPurchaseReviewNotes("")
+                        setFinancingReviewItemId(null)
+                        setFinancingReviewNotes("")
+                        setProcurementReviewItemId(null)
+                        setProcurementReviewNotes("")
+                        setProcurementApprovedCost("")
+                        setProcurementApprovedRepaymentMonths("")
+                        setReceiptReviewItemId(null)
+                        setReceiptReviewNotes("")
+                        setError(null)
+                      }}
                       onOpenFinancingReview={(selectedItem) => {
+                        setFoodPurchaseReviewItemId(null)
+                        setFoodPurchaseReviewNotes("")
                         setFinancingReviewItemId(selectedItem?.id ?? null)
                         setFinancingReviewNotes("")
                         setProcurementReviewItemId(null)
@@ -999,6 +1131,8 @@ export function AdminFinanceScreen() {
                         setError(null)
                       }}
                       onOpenProcurementReview={(selectedItem) => {
+                        setFoodPurchaseReviewItemId(null)
+                        setFoodPurchaseReviewNotes("")
                         setFinancingReviewItemId(null)
                         setFinancingReviewNotes("")
                         setProcurementReviewItemId(selectedItem?.id ?? null)
@@ -1010,6 +1144,8 @@ export function AdminFinanceScreen() {
                         setError(null)
                       }}
                       onOpenReceiptReview={(selectedItem) => {
+                        setFoodPurchaseReviewItemId(null)
+                        setFoodPurchaseReviewNotes("")
                         setFinancingReviewItemId(null)
                         setFinancingReviewNotes("")
                         setProcurementReviewItemId(null)
@@ -1020,9 +1156,12 @@ export function AdminFinanceScreen() {
                         setReceiptReviewNotes("")
                         setError(null)
                       }}
+                      onReviewFoodPurchase={reviewFoodPurchaseDecision}
                       onReviewFinancing={reviewFinancingDecision}
                       onReviewProcurement={reviewProcurementDecision}
                       onReviewReceipt={reviewReceiptDecision}
+                      foodPurchaseReviewItemId={foodPurchaseReviewItemId}
+                      foodPurchaseReviewNotes={foodPurchaseReviewNotes}
                       procurementApprovedCost={procurementApprovedCost}
                       procurementApprovedRepaymentMonths={
                         procurementApprovedRepaymentMonths
@@ -1031,6 +1170,7 @@ export function AdminFinanceScreen() {
                       procurementReviewNotes={procurementReviewNotes}
                       receiptReviewItemId={receiptReviewItemId}
                       receiptReviewNotes={receiptReviewNotes}
+                      setFoodPurchaseReviewNotes={setFoodPurchaseReviewNotes}
                       setFinancingReviewNotes={setFinancingReviewNotes}
                       setProcurementApprovedCost={setProcurementApprovedCost}
                       setProcurementApprovedRepaymentMonths={

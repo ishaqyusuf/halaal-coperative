@@ -23,6 +23,7 @@ import {
   type MobileAdminFinance,
   type MobileAdminFinanceRecentItem,
   type MobileAdminReviewStatus,
+  type MobileProjectFinancingStructure,
 } from "@/lib/mobile-home-api"
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
 import { isMockSessionToken } from "@/lib/session-store"
@@ -57,6 +58,16 @@ const collectionFollowUpPriorities: {
   { label: "High", value: "high" },
   { label: "Urgent", value: "urgent" },
   { label: "Low", value: "low" },
+]
+
+const projectFinancingStructures: {
+  label: string
+  value: MobileProjectFinancingStructure
+}[] = [
+  { label: "Undecided", value: "undecided" },
+  { label: "Repayable", value: "repayable_facility" },
+  { label: "Investment", value: "investment_partnership" },
+  { label: "Profit share", value: "profit_sharing" },
 ]
 
 function formatCurrency(value: number, currencyCode: string) {
@@ -99,16 +110,23 @@ function FinanceRecentItemCard({
   onMarkReviewing,
   onOpenFoodPurchaseReview,
   onOpenFinancingReview,
+  onOpenProjectFinancingReview,
   onOpenProcurementReview,
   onOpenReceiptReview,
   onReviewFoodPurchase,
   onReviewFinancing,
+  onReviewProjectFinancing,
   onReviewProcurement,
   onReviewReceipt,
   foodPurchaseReviewItemId,
   foodPurchaseReviewNotes,
   financingReviewItemId,
   financingReviewNotes,
+  projectFinancingApprovedAmount,
+  projectFinancingApprovedPaybackMonths,
+  projectFinancingApprovedStructure,
+  projectFinancingReviewItemId,
+  projectFinancingReviewNotes,
   procurementApprovedCost,
   procurementApprovedRepaymentMonths,
   procurementReviewItemId,
@@ -117,6 +135,10 @@ function FinanceRecentItemCard({
   receiptReviewNotes,
   setFoodPurchaseReviewNotes,
   setFinancingReviewNotes,
+  setProjectFinancingApprovedAmount,
+  setProjectFinancingApprovedPaybackMonths,
+  setProjectFinancingApprovedStructure,
+  setProjectFinancingReviewNotes,
   setProcurementApprovedCost,
   setProcurementApprovedRepaymentMonths,
   setProcurementReviewNotes,
@@ -131,6 +153,9 @@ function FinanceRecentItemCard({
   onMarkReviewing: (item: MobileAdminFinanceRecentItem) => void
   onOpenFoodPurchaseReview: (item: MobileAdminFinanceRecentItem | null) => void
   onOpenFinancingReview: (item: MobileAdminFinanceRecentItem | null) => void
+  onOpenProjectFinancingReview: (
+    item: MobileAdminFinanceRecentItem | null
+  ) => void
   onOpenProcurementReview: (item: MobileAdminFinanceRecentItem | null) => void
   onOpenReceiptReview: (item: MobileAdminFinanceRecentItem | null) => void
   onReviewFoodPurchase: (
@@ -138,6 +163,10 @@ function FinanceRecentItemCard({
     status: MobileAdminReviewStatus
   ) => void
   onReviewFinancing: (
+    item: MobileAdminFinanceRecentItem,
+    status: MobileAdminReviewStatus
+  ) => void
+  onReviewProjectFinancing: (
     item: MobileAdminFinanceRecentItem,
     status: MobileAdminReviewStatus
   ) => void
@@ -151,6 +180,11 @@ function FinanceRecentItemCard({
   ) => void
   foodPurchaseReviewItemId: string | null
   foodPurchaseReviewNotes: string
+  projectFinancingApprovedAmount: string
+  projectFinancingApprovedPaybackMonths: string
+  projectFinancingApprovedStructure: MobileProjectFinancingStructure
+  projectFinancingReviewItemId: string | null
+  projectFinancingReviewNotes: string
   procurementApprovedCost: string
   procurementApprovedRepaymentMonths: string
   procurementReviewItemId: string | null
@@ -159,6 +193,12 @@ function FinanceRecentItemCard({
   receiptReviewNotes: string
   setFoodPurchaseReviewNotes: (value: string) => void
   setFinancingReviewNotes: (value: string) => void
+  setProjectFinancingApprovedAmount: (value: string) => void
+  setProjectFinancingApprovedPaybackMonths: (value: string) => void
+  setProjectFinancingApprovedStructure: (
+    value: MobileProjectFinancingStructure
+  ) => void
+  setProjectFinancingReviewNotes: (value: string) => void
   setProcurementApprovedCost: (value: string) => void
   setProcurementApprovedRepaymentMonths: (value: string) => void
   setProcurementReviewNotes: (value: string) => void
@@ -168,6 +208,7 @@ function FinanceRecentItemCard({
     item.status !== "under_review" &&
     item.queueKey !== "foodPurchase" &&
     item.queueKey !== "financing" &&
+    item.queueKey !== "projectFinancing" &&
     item.queueKey !== "procurement" &&
     item.queueKey !== "shares"
   const isFoodPurchaseReviewing =
@@ -176,14 +217,32 @@ function FinanceRecentItemCard({
     item.queueKey === "financing" && financingReviewItemId === item.id
   const isProcurementReviewing =
     item.queueKey === "procurement" && procurementReviewItemId === item.id
+  const isProjectFinancingReviewing =
+    item.queueKey === "projectFinancing" &&
+    projectFinancingReviewItemId === item.id
   const isReceiptReviewing =
     item.queueKey === "receipts" && receiptReviewItemId === item.id
+  const projectFinancingApprovedAmountValue = Number(
+    projectFinancingApprovedAmount
+  )
+  const projectFinancingApprovedPaybackMonthsValue = Number(
+    projectFinancingApprovedPaybackMonths
+  )
   const procurementCostValue = Number(procurementApprovedCost)
   const procurementRepaymentMonthsValue = Number(
     procurementApprovedRepaymentMonths
   )
   const procurementNotesRequired = procurementReviewNotes.trim().length < 2
   const foodPurchaseNotesRequired = foodPurchaseReviewNotes.trim().length < 2
+  const projectFinancingNotesRequired =
+    projectFinancingReviewNotes.trim().length < 2
+  const projectFinancingApprovalValuesMissing =
+    !Number.isFinite(projectFinancingApprovedAmountValue) ||
+    projectFinancingApprovedAmountValue <= 0 ||
+    projectFinancingApprovedStructure === "undecided" ||
+    (projectFinancingApprovedStructure === "repayable_facility" &&
+      (!Number.isInteger(projectFinancingApprovedPaybackMonthsValue) ||
+        projectFinancingApprovedPaybackMonthsValue <= 0))
   const procurementApprovalValuesMissing =
     !Number.isFinite(procurementCostValue) ||
     procurementCostValue <= 0 ||
@@ -376,6 +435,94 @@ function FinanceRecentItemCard({
                 </Button>
               </View>
             </View>
+          ) : isProjectFinancingReviewing ? (
+            <View className="gap-2 pt-2">
+              <View className="flex-row gap-2">
+                <Input
+                  className="flex-1"
+                  editable={actionState !== "pending"}
+                  keyboardType="numeric"
+                  onChangeText={setProjectFinancingApprovedAmount}
+                  placeholder="Approved amount"
+                  value={projectFinancingApprovedAmount}
+                />
+                <Input
+                  className="w-28"
+                  editable={actionState !== "pending"}
+                  keyboardType="numeric"
+                  onChangeText={setProjectFinancingApprovedPaybackMonths}
+                  placeholder="Months"
+                  value={projectFinancingApprovedPaybackMonths}
+                />
+              </View>
+              <View className="flex-row flex-wrap gap-2">
+                {projectFinancingStructures.map((structure) => (
+                  <Button
+                    className="h-9"
+                    disabled={actionState === "pending"}
+                    key={structure.value}
+                    onPress={() =>
+                      setProjectFinancingApprovedStructure(structure.value)
+                    }
+                    variant={
+                      projectFinancingApprovedStructure === structure.value
+                        ? "secondary"
+                        : "outline"
+                    }
+                  >
+                    <Text>{structure.label}</Text>
+                  </Button>
+                ))}
+              </View>
+              <Textarea
+                editable={actionState !== "pending"}
+                onChangeText={setProjectFinancingReviewNotes}
+                placeholder="Review notes"
+                value={projectFinancingReviewNotes}
+              />
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  className="h-9"
+                  disabled={
+                    actionState === "pending" || projectFinancingNotesRequired
+                  }
+                  onPress={() => onReviewProjectFinancing(item, "under_review")}
+                  variant="outline"
+                >
+                  <Text>Under review</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={
+                    actionState === "pending" ||
+                    projectFinancingNotesRequired ||
+                    projectFinancingApprovalValuesMissing
+                  }
+                  onPress={() => onReviewProjectFinancing(item, "approved")}
+                  variant="outline"
+                >
+                  <Text>Approve</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={
+                    actionState === "pending" || projectFinancingNotesRequired
+                  }
+                  onPress={() => onReviewProjectFinancing(item, "rejected")}
+                  variant="outline"
+                >
+                  <Text>Reject</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onOpenProjectFinancingReview(null)}
+                  variant="ghost"
+                >
+                  <Text>Cancel</Text>
+                </Button>
+              </View>
+            </View>
           ) : isReceiptReviewing ? (
             <View className="gap-2 pt-2">
               <Textarea
@@ -470,6 +617,17 @@ function FinanceRecentItemCard({
             >
               <Icon name="ShoppingBasket" className="size-sm" />
               <Text>Review food purchase</Text>
+            </Button>
+          ) : item.queueKey === "projectFinancing" ? (
+            <Button
+              className="mt-2 self-start"
+              disabled={actionState === "pending"}
+              onPress={() => onOpenProjectFinancingReview(item)}
+              size="sm"
+              variant="outline"
+            >
+              <Icon name="BriefcaseBusiness" className="size-sm" />
+              <Text>Review project</Text>
             </Button>
           ) : canMarkReviewing ? (
             <Button
@@ -679,6 +837,20 @@ export function AdminFinanceScreen() {
     procurementApprovedRepaymentMonths,
     setProcurementApprovedRepaymentMonths,
   ] = useState("")
+  const [projectFinancingReviewItemId, setProjectFinancingReviewItemId] =
+    useState<string | null>(null)
+  const [projectFinancingReviewNotes, setProjectFinancingReviewNotes] =
+    useState("")
+  const [projectFinancingApprovedAmount, setProjectFinancingApprovedAmount] =
+    useState("")
+  const [
+    projectFinancingApprovedPaybackMonths,
+    setProjectFinancingApprovedPaybackMonths,
+  ] = useState("")
+  const [
+    projectFinancingApprovedStructure,
+    setProjectFinancingApprovedStructure,
+  ] = useState<MobileProjectFinancingStructure>("undecided")
   const [receiptReviewItemId, setReceiptReviewItemId] = useState<string | null>(
     null
   )
@@ -964,6 +1136,70 @@ export function AdminFinanceScreen() {
     }
   }
 
+  async function reviewProjectFinancingDecision(
+    item: MobileAdminFinanceRecentItem,
+    status: MobileAdminReviewStatus
+  ) {
+    const notes = projectFinancingReviewNotes.trim()
+    const approvedAmount = Number(projectFinancingApprovedAmount)
+    const approvedPaybackMonths = Number(projectFinancingApprovedPaybackMonths)
+
+    if (notes.length < 2) {
+      setError("Project financing review notes are required.")
+      return
+    }
+
+    if (
+      status === "approved" &&
+      (!Number.isFinite(approvedAmount) ||
+        approvedAmount <= 0 ||
+        projectFinancingApprovedStructure === "undecided" ||
+        (projectFinancingApprovedStructure === "repayable_facility" &&
+          (!Number.isInteger(approvedPaybackMonths) ||
+            approvedPaybackMonths <= 0)))
+    ) {
+      setError(
+        "Approved amount, structure, and applicable payback are required."
+      )
+      return
+    }
+
+    const nextActionKey = `${item.queueKey}-${item.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      await reviewMobileAdminProjectFinancingRequest({
+        approvedAmount: status === "approved" ? approvedAmount : undefined,
+        approvedPaybackMonths:
+          status === "approved" &&
+          projectFinancingApprovedStructure === "repayable_facility"
+            ? approvedPaybackMonths
+            : undefined,
+        approvedStructure:
+          status === "approved" ? projectFinancingApprovedStructure : undefined,
+        notes,
+        projectFinancingRequestId: item.id,
+        status,
+      })
+      setProjectFinancingReviewItemId(null)
+      setProjectFinancingReviewNotes("")
+      setProjectFinancingApprovedAmount("")
+      setProjectFinancingApprovedPaybackMonths("")
+      setProjectFinancingApprovedStructure("undecided")
+      await refreshFinance()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "The project financing review action could not be completed."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
   async function recordFollowUp(followUp: MobileAdminCollectionFollowUp) {
     const note = collectionFollowUpNote.trim()
     const nextActionAt = collectionFollowUpNextActionAt.trim()
@@ -1113,6 +1349,11 @@ export function AdminFinanceScreen() {
                         setProcurementReviewNotes("")
                         setProcurementApprovedCost("")
                         setProcurementApprovedRepaymentMonths("")
+                        setProjectFinancingReviewItemId(null)
+                        setProjectFinancingReviewNotes("")
+                        setProjectFinancingApprovedAmount("")
+                        setProjectFinancingApprovedPaybackMonths("")
+                        setProjectFinancingApprovedStructure("undecided")
                         setReceiptReviewItemId(null)
                         setReceiptReviewNotes("")
                         setError(null)
@@ -1126,6 +1367,11 @@ export function AdminFinanceScreen() {
                         setProcurementReviewNotes("")
                         setProcurementApprovedCost("")
                         setProcurementApprovedRepaymentMonths("")
+                        setProjectFinancingReviewItemId(null)
+                        setProjectFinancingReviewNotes("")
+                        setProjectFinancingApprovedAmount("")
+                        setProjectFinancingApprovedPaybackMonths("")
+                        setProjectFinancingApprovedStructure("undecided")
                         setReceiptReviewItemId(null)
                         setReceiptReviewNotes("")
                         setError(null)
@@ -1139,6 +1385,31 @@ export function AdminFinanceScreen() {
                         setProcurementReviewNotes("")
                         setProcurementApprovedCost("")
                         setProcurementApprovedRepaymentMonths("")
+                        setProjectFinancingReviewItemId(null)
+                        setProjectFinancingReviewNotes("")
+                        setProjectFinancingApprovedAmount("")
+                        setProjectFinancingApprovedPaybackMonths("")
+                        setProjectFinancingApprovedStructure("undecided")
+                        setReceiptReviewItemId(null)
+                        setReceiptReviewNotes("")
+                        setError(null)
+                      }}
+                      onOpenProjectFinancingReview={(selectedItem) => {
+                        setFoodPurchaseReviewItemId(null)
+                        setFoodPurchaseReviewNotes("")
+                        setFinancingReviewItemId(null)
+                        setFinancingReviewNotes("")
+                        setProcurementReviewItemId(null)
+                        setProcurementReviewNotes("")
+                        setProcurementApprovedCost("")
+                        setProcurementApprovedRepaymentMonths("")
+                        setProjectFinancingReviewItemId(
+                          selectedItem?.id ?? null
+                        )
+                        setProjectFinancingReviewNotes("")
+                        setProjectFinancingApprovedAmount("")
+                        setProjectFinancingApprovedPaybackMonths("")
+                        setProjectFinancingApprovedStructure("undecided")
                         setReceiptReviewItemId(null)
                         setReceiptReviewNotes("")
                         setError(null)
@@ -1152,16 +1423,35 @@ export function AdminFinanceScreen() {
                         setProcurementReviewNotes("")
                         setProcurementApprovedCost("")
                         setProcurementApprovedRepaymentMonths("")
+                        setProjectFinancingReviewItemId(null)
+                        setProjectFinancingReviewNotes("")
+                        setProjectFinancingApprovedAmount("")
+                        setProjectFinancingApprovedPaybackMonths("")
+                        setProjectFinancingApprovedStructure("undecided")
                         setReceiptReviewItemId(selectedItem?.id ?? null)
                         setReceiptReviewNotes("")
                         setError(null)
                       }}
                       onReviewFoodPurchase={reviewFoodPurchaseDecision}
                       onReviewFinancing={reviewFinancingDecision}
+                      onReviewProjectFinancing={reviewProjectFinancingDecision}
                       onReviewProcurement={reviewProcurementDecision}
                       onReviewReceipt={reviewReceiptDecision}
                       foodPurchaseReviewItemId={foodPurchaseReviewItemId}
                       foodPurchaseReviewNotes={foodPurchaseReviewNotes}
+                      projectFinancingApprovedAmount={
+                        projectFinancingApprovedAmount
+                      }
+                      projectFinancingApprovedPaybackMonths={
+                        projectFinancingApprovedPaybackMonths
+                      }
+                      projectFinancingApprovedStructure={
+                        projectFinancingApprovedStructure
+                      }
+                      projectFinancingReviewItemId={
+                        projectFinancingReviewItemId
+                      }
+                      projectFinancingReviewNotes={projectFinancingReviewNotes}
                       procurementApprovedCost={procurementApprovedCost}
                       procurementApprovedRepaymentMonths={
                         procurementApprovedRepaymentMonths
@@ -1172,6 +1462,18 @@ export function AdminFinanceScreen() {
                       receiptReviewNotes={receiptReviewNotes}
                       setFoodPurchaseReviewNotes={setFoodPurchaseReviewNotes}
                       setFinancingReviewNotes={setFinancingReviewNotes}
+                      setProjectFinancingApprovedAmount={
+                        setProjectFinancingApprovedAmount
+                      }
+                      setProjectFinancingApprovedPaybackMonths={
+                        setProjectFinancingApprovedPaybackMonths
+                      }
+                      setProjectFinancingApprovedStructure={
+                        setProjectFinancingApprovedStructure
+                      }
+                      setProjectFinancingReviewNotes={
+                        setProjectFinancingReviewNotes
+                      }
                       setProcurementApprovedCost={setProcurementApprovedCost}
                       setProcurementApprovedRepaymentMonths={
                         setProcurementApprovedRepaymentMonths

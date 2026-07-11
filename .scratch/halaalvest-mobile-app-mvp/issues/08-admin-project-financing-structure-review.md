@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Admin Support Triage Actions.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A permitted finance user can review a project financing request from mobile with amount, structure, payback, and notes where applicable.
-- [ ] Mobile project financing review keeps structure and accounting treatment explicit and does not treat every business request as an ordinary loan.
+- [x] A permitted finance user can review a project financing request from mobile with amount, structure, payback, and notes where applicable.
+- [x] Mobile project financing review keeps structure and accounting treatment explicit and does not treat every business request as an ordinary loan.

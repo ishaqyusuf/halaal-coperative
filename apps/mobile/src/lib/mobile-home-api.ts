@@ -744,6 +744,14 @@ export type MobileSupportCase = {
   id: string
   lastActivityAt: string
   messageCount: number
+  recentMessages: {
+    attachmentUrl: string | null
+    authorName: string | null
+    authorType: string
+    createdAt: string
+    id: string
+    message: string
+  }[]
   priority: string
   requiresFinancialAdjustment: boolean
   status: string

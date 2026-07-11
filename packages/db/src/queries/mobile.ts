@@ -511,6 +511,14 @@ export type MobileSupportCase = {
   id: string
   lastActivityAt: string
   messageCount: number
+  recentMessages: {
+    attachmentUrl: string | null
+    authorName: string | null
+    authorType: string
+    createdAt: string
+    id: string
+    message: string
+  }[]
   priority: string
   requiresFinancialAdjustment: boolean
   status: string
@@ -1950,6 +1958,8 @@ function shareApplicationToFinanceItem(
 }
 
 function toMobileSupportCase(row: SupportCaseRow): MobileSupportCase {
+  const recentMessages = row.messages.slice(-5)
+
   return {
     category: row.category as MobileSupportCategory,
     detail:
@@ -1960,6 +1970,14 @@ function toMobileSupportCase(row: SupportCaseRow): MobileSupportCase {
     id: row.id,
     lastActivityAt: row.updatedAt.toISOString(),
     messageCount: row.messages.length,
+    recentMessages: recentMessages.map((message) => ({
+      attachmentUrl: message.attachmentUrl,
+      authorName: message.authorUser?.fullName ?? null,
+      authorType: message.authorType,
+      createdAt: message.createdAt.toISOString(),
+      id: message.id,
+      message: message.message,
+    })),
     priority: row.priority,
     requiresFinancialAdjustment: row.requiresFinancialAdjustment,
     status: row.status,

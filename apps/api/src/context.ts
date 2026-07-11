@@ -3,6 +3,7 @@ import {
   getUserIdFromCookieHeader,
   platformSessionScope,
   resolveRequestSessionScope,
+  verifySignedSessionToken,
 } from "@halaalvest/auth"
 import { normalizeRole } from "@halaalvest/auth/roles"
 import {
@@ -12,12 +13,24 @@ import {
   resolveTenantAsync,
 } from "@halaalvest/db"
 
+function getBearerToken(headers: Headers) {
+  const authorization = headers.get("authorization")
+  const [scheme, token] = authorization?.split(" ") ?? []
+
+  return scheme?.toLowerCase() === "bearer" && token ? token : null
+}
+
 export async function buildRequestContext(headers: Headers) {
   const requestHost = headers.get("host")
   const forwardedTenantSlug = headers.get("x-tenant-subdomain")
   const forwardedTenantHostname = headers.get("x-tenant-hostname")
   const sessionScope = resolveRequestSessionScope(requestHost)
+  const bearerToken = getBearerToken(headers)
+  const bearerSession = await verifySignedSessionToken({
+    token: bearerToken,
+  })
   const requestedUserId =
+    bearerSession?.userId ??
     headers.get("x-user-id") ??
     getUserIdFromCookieHeader({
       cookieHeader: headers.get("cookie"),
@@ -37,12 +50,14 @@ export async function buildRequestContext(headers: Headers) {
       userId: user?.id ?? null,
     })) ?? null
   const sessionToken =
-    headers.get("x-session-token") ??
-    getSessionTokenFromCookieHeader({
-      cookieHeader: headers.get("cookie"),
-      host: requestHost,
-      explicitScope: sessionScope ?? platformSessionScope,
-    })
+    bearerSession && bearerToken
+      ? bearerToken
+      : (headers.get("x-session-token") ??
+        getSessionTokenFromCookieHeader({
+          cookieHeader: headers.get("cookie"),
+          host: requestHost,
+          explicitScope: sessionScope ?? platformSessionScope,
+        }))
   const runtime = createDbRuntime()
 
   return {
@@ -56,7 +71,8 @@ export async function buildRequestContext(headers: Headers) {
       session:
         user && sessionToken
           ? {
-              scope: sessionScope ?? platformSessionScope,
+              scope:
+                bearerSession?.scope ?? sessionScope ?? platformSessionScope,
               token: sessionToken,
               user,
             }

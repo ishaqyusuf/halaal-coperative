@@ -1,5 +1,29 @@
 # Progress
 
+## 2026-07-11
+
+### Mobile Auth Session Foundation
+
+- Source mode: `$implement` from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/auth/src/index.ts`, `apps/api/src/context.ts`, `apps/api/src/index.ts`, `apps/api/src/routers/_app.ts`, `apps/api/src/routers/mobile-auth.route.ts`, `apps/api/src/context.test.ts`, `apps/mobile/src/lib/mobile-auth-api.ts`, `apps/mobile/src/lib/session-store.ts`, `apps/mobile/src/hooks/use-auth.tsx`, `apps/mobile/src/screens/sign-in-screen.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added the first production mobile auth seam. The API now verifies signed bearer sessions from mobile requests, exposes `auth.mobile.signIn/me/signOut` tRPC procedures, supports `/api/trpc` on the standalone Hono API for the existing mobile client path, and the mobile sign-in screen now submits cooperative code, email, and password while keeping mock member/admin shortcuts development-only.
+- Scope note: This slice establishes Phase 1 auth plumbing only. It does not yet replace all startup hydration with server `me`, add role switching UI, or connect member/admin tabs to production DTOs.
+- Checks run: `bun test apps/api/src/context.test.ts`; `git diff --check` scoped to touched files.
+- Skipped checks: Broad typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
+### Halaalvest Mobile App MVP Spec
+
+- Source mode: `$to-spec` synthesis from the current Halaalvest mobile starter, client-fit cooperative operations scope, Halaal cooperative domain docs, and EwaTrade mobile Brain/source patterns.
+- Source spec: `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md`.
+- Published issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- GitHub labels applied: `ready-for-agent`.
+- Brain files updated: `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md`, `brain/progress.md`.
+- Current status: Published a production mobile MVP spec that preserves the existing Halaalvest Expo starter, follows the EwaTrade mobile architecture principle, requires signed mobile sessions before production data, and scopes member self-service plus safe admin operations around server-owned cooperative finance rules.
+- Checks run: `git diff --check -- brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md`; GitHub issue publication.
+- Skipped checks: Runtime tests, typecheck, build, Expo smoke testing, and device QA were not needed for this docs-only spec publication.
+
 ## 2026-07-10
 
 ### GND-Style Root Dev Router

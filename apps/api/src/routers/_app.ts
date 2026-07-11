@@ -12,9 +12,13 @@ import { dashboardActionsRouter } from "./dashboard-actions.route"
 import { overviewRouter } from "./overview.route"
 import { analyticsRouter } from "./analytics.route"
 import { reportsRouter } from "./reports.route"
+import { mobileAuthRouter } from "./mobile-auth.route"
 
 export const appRouter = createTRPCRouter({
   analytics: analyticsRouter,
+  auth: createTRPCRouter({
+    mobile: mobileAuthRouter,
+  }),
   health: healthRouter,
   overview: overviewRouter,
   notifications: notificationsRouter,

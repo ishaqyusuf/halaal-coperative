@@ -11,11 +11,33 @@ const dashboardOrigin = process.env.DASHBOARD_APP_URL ?? "http://localhost:1441"
 app.use(
   "/trpc/*",
   cors({
-    allowHeaders: ["Content-Type", "x-tenant-id", "x-user-role"],
+    allowHeaders: [
+      "Authorization",
+      "Content-Type",
+      "x-tenant-id",
+      "x-trpc-source",
+      "x-user-role",
+    ],
     allowMethods: ["GET", "POST", "OPTIONS"],
     credentials: true,
     origin: dashboardOrigin,
-  }),
+  })
+)
+
+app.use(
+  "/api/trpc/*",
+  cors({
+    allowHeaders: [
+      "Authorization",
+      "Content-Type",
+      "x-tenant-id",
+      "x-trpc-source",
+      "x-user-role",
+    ],
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
+    origin: dashboardOrigin,
+  })
 )
 
 app.get("/", (c) => {
@@ -43,6 +65,10 @@ app.all("/trpc/*", async (c) => {
   return handleTrpcRequest(c.req.raw, "/trpc")
 })
 
+app.all("/api/trpc/*", async (c) => {
+  return handleTrpcRequest(c.req.raw, "/api/trpc")
+})
+
 const port = Number(process.env.PORT ?? 1442)
 
 serve(
@@ -52,5 +78,5 @@ serve(
   },
   () => {
     console.log(`API listening on http://localhost:${port}`)
-  },
+  }
 )

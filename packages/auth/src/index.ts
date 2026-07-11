@@ -1,8 +1,6 @@
-import type {
-  MembershipRecord,
-  UserRecord,
-} from "@halaalvest/db"
+import type { MembershipRecord, UserRecord } from "@halaalvest/db"
 import { resolveDashboardSessionScope } from "@halaalvest/utils"
+import { scryptSync, timingSafeEqual } from "node:crypto"
 export * from "./roles"
 
 export type SessionScope = typeof platformSessionScope | string
@@ -29,6 +27,7 @@ export const authSessionCookieName = "halaalvest_session"
 export const authUserCookieName = "halaalvest_user"
 export const platformSessionScope = "platform"
 const sessionTtlMs = 1000 * 60 * 60 * 24 * 7
+const passwordKeyLength = 64
 
 export function getScopedAuthSessionCookieName(scope: SessionScope) {
   return scope === platformSessionScope
@@ -114,6 +113,28 @@ export async function createSignedSessionToken(input: {
   const { signature } = await signValue(encodedPayload)
 
   return `${encodedPayload}.${signature}`
+}
+
+export function verifyPassword(
+  password: string,
+  storedHash: string | null | undefined
+) {
+  if (!storedHash) {
+    return false
+  }
+
+  const [salt, hash] = storedHash.split(":")
+
+  if (!salt || !hash) {
+    return false
+  }
+
+  const derived = scryptSync(password.trim(), salt, passwordKeyLength)
+  const expected = Buffer.from(hash, "hex")
+
+  return (
+    derived.length === expected.length && timingSafeEqual(derived, expected)
+  )
 }
 
 export async function verifySignedSessionToken(input: {

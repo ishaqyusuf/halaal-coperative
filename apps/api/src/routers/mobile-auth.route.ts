@@ -1,0 +1,195 @@
+import {
+  createSignedSessionToken,
+  platformSessionScope,
+  verifyPassword,
+} from "@halaalvest/auth"
+import {
+  findActiveMembershipAsync,
+  findMembershipsForUserAsync,
+  findUserByEmailAsync,
+  getMemberByUserId,
+  resolveTenantAsync,
+  type MembershipRecord,
+  type TenantRecord,
+  type UserRecord,
+} from "@halaalvest/db"
+import { TRPCError } from "@trpc/server"
+import { z } from "zod"
+
+import {
+  authenticatedProcedure,
+  createTRPCRouter,
+  publicProcedure,
+} from "../lib.trpc"
+
+const mobileSignInInput = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  tenantSlug: z.string().min(1),
+})
+
+function toMobileRole(role: MembershipRecord["role"]) {
+  return role === "member" ? "member" : "admin"
+}
+
+async function getLinkedMember(input: {
+  runtimeStatus: string
+  tenantId: string
+  userId: string
+}) {
+  if (input.runtimeStatus !== "database-configured") {
+    return null
+  }
+
+  return getMemberByUserId({
+    tenantId: input.tenantId,
+    userId: input.userId,
+  })
+}
+
+function buildMobileProfile(input: {
+  membership: MembershipRecord
+  memberships: MembershipRecord[]
+  member: Awaited<ReturnType<typeof getLinkedMember>>
+  tenant: TenantRecord
+  token: string
+  user: UserRecord
+}) {
+  const tenantMemberships = input.memberships.filter(
+    (membership) => membership.tenantId === input.tenant.id
+  )
+
+  return {
+    token: input.token,
+    role: toMobileRole(input.membership.role),
+    cooperativeRole: input.membership.role,
+    availableRoles: tenantMemberships.map((membership) => ({
+      id: membership.id,
+      isDefault: membership.isDefault,
+      role: membership.role,
+      workspaceRole: toMobileRole(membership.role),
+    })),
+    tenant: {
+      id: input.tenant.id,
+      name: input.tenant.name,
+      slug: input.tenant.slug,
+    },
+    user: {
+      id: input.user.id,
+      name: input.user.fullName,
+      email: input.user.email,
+    },
+    member: input.member
+      ? {
+          id: input.member.id,
+          code: input.member.memberNumber,
+        }
+      : undefined,
+  }
+}
+
+export const mobileAuthRouter = createTRPCRouter({
+  signIn: publicProcedure
+    .input(mobileSignInInput)
+    .mutation(async ({ ctx, input }) => {
+      const tenantResolution = await resolveTenantAsync({
+        slug: input.tenantSlug,
+      })
+
+      if (!tenantResolution.tenant) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "The cooperative code or account details were invalid.",
+        })
+      }
+
+      const user = await findUserByEmailAsync({
+        email: input.email,
+        tenantId: tenantResolution.tenant.id,
+      })
+
+      if (!user || !verifyPassword(input.password, user.passwordHash)) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "The cooperative code or account details were invalid.",
+        })
+      }
+
+      const membership = await findActiveMembershipAsync({
+        tenantId: tenantResolution.tenant.id,
+        userId: user.id,
+      })
+
+      if (!membership && !user.isPlatformOwner) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This account is not active for the selected cooperative.",
+        })
+      }
+
+      const resolvedMembership =
+        membership ??
+        ({
+          id: "platform-owner-mobile-membership",
+          isDefault: true,
+          role: "super_admin",
+          tenantId: tenantResolution.tenant.id,
+          userId: user.id,
+        } satisfies MembershipRecord)
+      const memberships = await findMembershipsForUserAsync(user.id)
+      const token = await createSignedSessionToken({
+        scope: platformSessionScope,
+        userId: user.id,
+      })
+      const member = await getLinkedMember({
+        runtimeStatus: ctx.runtime.status,
+        tenantId: tenantResolution.tenant.id,
+        userId: user.id,
+      })
+
+      return {
+        profile: buildMobileProfile({
+          membership: resolvedMembership,
+          memberships:
+            memberships.length > 0 ? memberships : [resolvedMembership],
+          member,
+          tenant: tenantResolution.tenant,
+          token,
+          user,
+        }),
+      }
+    }),
+
+  me: authenticatedProcedure.query(async ({ ctx }) => {
+    if (!ctx.tenant.current || !ctx.auth.activeMembership) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "An active mobile session is required.",
+      })
+    }
+
+    const memberships = await findMembershipsForUserAsync(
+      ctx.auth.session.user.id
+    )
+    const member = await getLinkedMember({
+      runtimeStatus: ctx.runtime.status,
+      tenantId: ctx.tenant.current.id,
+      userId: ctx.auth.session.user.id,
+    })
+
+    return {
+      profile: buildMobileProfile({
+        membership: ctx.auth.activeMembership,
+        memberships,
+        member,
+        tenant: ctx.tenant.current,
+        token: ctx.auth.session.token,
+        user: ctx.auth.session.user,
+      }),
+    }
+  }),
+
+  signOut: authenticatedProcedure.mutation(() => {
+    return { ok: true as const }
+  }),
+})

@@ -2,6 +2,17 @@
 
 ## 2026-07-11
 
+### Mobile Admin Report Preview Reads
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/screens/admin-reports-screen.tsx`, `apps/mobile/src/app/(admin)/(tabs)/reports.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added a read-only mobile admin Reports preview surface. `mobile.admin.reports.overview` now returns operations-officer gated report cards for the real dashboard export/report paths, with compact metrics from the existing overview and dashboard metrics queries. The admin Reports tab now renders production-session guarded stats and report preview cards for member register, collections, receipts, financing, shares, procurement, Foodstuff Purchase, project financing, support, and activity evidence.
+- Scope note: This is report preview visibility and export-path metadata only. It does not stream CSV files through mobile, add native sharing/download handling, expose audit drill-down filters, cache reports offline, run device smoke testing, or perform native visual QA.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; `../../node_modules/.bin/tsc --noEmit` from `packages/db`; `bun --cwd apps/mobile eslint src/screens/admin-reports-screen.tsx src/app/\(admin\)/\(tabs\)/reports.tsx src/lib/mobile-home-api.ts` with existing array-type warnings only; touched-file `prettier --check`; scoped `git diff --check`.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Admin Finance Queue Reads
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

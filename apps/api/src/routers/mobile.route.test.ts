@@ -732,6 +732,31 @@ describe("mobileRouter", () => {
     )
   })
 
+  test("returns admin reports overview for staff workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    const reports = await caller.mobile.admin.reports.overview()
+
+    expect(reports.generatedAt).toEqual(expect.any(String))
+    expect(reports.reports.map((report) => report.key)).toContain("members")
+    expect(reports.reports.map((report) => report.exportHref)).toContain(
+      "/reports/members-export"
+    )
+    expect(reports.stats.map((stat) => stat.key)).toEqual(["report-count"])
+  })
+
+  test("rejects admin reports overview from the member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(caller.mobile.admin.reports.overview()).rejects.toThrow(
+      "This action requires operations_officer role or above."
+    )
+  })
+
   test("returns admin overview for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

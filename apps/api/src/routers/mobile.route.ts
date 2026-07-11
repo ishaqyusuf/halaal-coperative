@@ -9,6 +9,7 @@ import {
   getMobileAdminFinance,
   getMobileAdminMembers,
   getMobileAdminOverview,
+  getMobileAdminReports,
   getMobileMemberFinancing,
   getMobileMemberFoodPurchase,
   getMobileMemberGuarantorApprovals,
@@ -166,6 +167,11 @@ export const mobileRouter = createTRPCRouter({
     }),
     overview: minRoleProcedure("operations_officer").query(({ ctx }) => {
       return getMobileAdminOverview(ctx.tenant.current.id)
+    }),
+    reports: createTRPCRouter({
+      overview: minRoleProcedure("operations_officer").query(({ ctx }) => {
+        return getMobileAdminReports(ctx.tenant.current.id)
+      }),
     }),
   }),
   member: createTRPCRouter({

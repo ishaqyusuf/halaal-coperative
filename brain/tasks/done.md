@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-11: Added mobile admin report preview reads: `mobile.admin.reports.overview` now returns operations-officer gated report cards for real dashboard report/export paths with compact server metrics, and the admin Reports tab renders the guarded API-backed preview list.
 - 2026-07-11: Added mobile admin Finance queue reads: `mobile.admin.finance.overview` now returns operations-officer gated finance queue counts and recent pending financing/procurement/project/Foodstuff request rows, and the admin Finance tab renders the guarded API-backed queue hub.
 - 2026-07-11: Added mobile admin member directory reads: `mobile.admin.members.list` now returns operations-officer gated member rows from the existing server member query with search/status/KYC filters and pagination, and the admin Members tab renders the guarded API-backed directory.
 - 2026-07-11: Added mobile member project financing request self-service: `mobile.member.projectFinancing.list/createRequest` now returns signed-member project request history and submits audited project financing requests through the existing server-side helper, with the More hub opening a guarded `/project-financing` screen.

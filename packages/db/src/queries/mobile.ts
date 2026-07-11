@@ -1,5 +1,5 @@
 import { createPrismaClient } from "../prisma"
-import { getOverviewSummary } from "./dashboard"
+import { getDashboardMetrics, getOverviewSummary } from "./dashboard"
 import {
   listFoodPurchaseApplications,
   listFoodPurchaseCycles,
@@ -245,6 +245,22 @@ export type MobileAdminFinance = {
   generatedAt: string
   queues: MobileAdminFinanceQueue[]
   recentItems: MobileAdminFinanceRecentItem[]
+  stats: MobileOverviewMetric[]
+}
+
+export type MobileAdminReportCard = {
+  detail: string
+  exportHref: string
+  key: string
+  metricFormat: MobileMetricFormat
+  metricLabel: string
+  metricValue: number
+  title: string
+}
+
+export type MobileAdminReports = {
+  generatedAt: string
+  reports: MobileAdminReportCard[]
   stats: MobileOverviewMetric[]
 }
 
@@ -823,6 +839,31 @@ function emptyAdminFinance(): MobileAdminFinance {
   }
 }
 
+function emptyAdminReports(): MobileAdminReports {
+  return {
+    generatedAt: new Date().toISOString(),
+    reports: buildMobileAdminReportCards({
+      activeMemberCount: 0,
+      activeLoanCount: 0,
+      availablePool: 0,
+      delinquencyRate: 0,
+      memberCount: 0,
+      outstandingLoans: 0,
+      reserveBuffer: 0,
+      totalContributions: 0,
+    }),
+    stats: [
+      {
+        detail: "Mobile-safe report previews",
+        format: "count",
+        key: "report-count",
+        label: "Reports",
+        value: 0,
+      },
+    ],
+  }
+}
+
 function emptyMemberSupport(): MobileMemberSupport {
   return {
     cases: [],
@@ -1274,6 +1315,116 @@ function toMobileAdminFinanceQueue(
     label: row.label,
     severity: row.severity,
   }
+}
+
+function getOverviewQueueCount(
+  summary: Awaited<ReturnType<typeof getOverviewSummary>> | null | undefined,
+  key: string
+) {
+  return summary?.actionQueue.find((item) => item.key === key)?.count ?? 0
+}
+
+function buildMobileAdminReportCards(
+  metrics: Awaited<ReturnType<typeof getDashboardMetrics>>,
+  summary?: Awaited<ReturnType<typeof getOverviewSummary>> | null
+): MobileAdminReportCard[] {
+  return [
+    {
+      detail: "Member identity, KYC, status, and linked-login evidence.",
+      exportHref: "/reports/members-export",
+      key: "members",
+      metricFormat: "count",
+      metricLabel: "Members",
+      metricValue: metrics.memberCount,
+      title: "Member register",
+    },
+    {
+      detail: "Contribution collection totals and period coverage.",
+      exportHref: "/reports/collections-export",
+      key: "collections",
+      metricFormat: "currency",
+      metricLabel: "Received this period",
+      metricValue: summary?.contributionHealth.receivedThisMonth ?? 0,
+      title: "Collections",
+    },
+    {
+      detail: "Submitted proofs, allocation intent, and review status.",
+      exportHref: "/reports/payment-receipts-export",
+      key: "paymentReceipts",
+      metricFormat: "count",
+      metricLabel: "Pending review",
+      metricValue: getOverviewQueueCount(summary, "payment-receipts"),
+      title: "Payment receipts",
+    },
+    {
+      detail: "Active cooperative financing, exposure, and repayment state.",
+      exportHref: "/reports/loans-export",
+      key: "financing",
+      metricFormat: "currency",
+      metricLabel: "Outstanding",
+      metricValue: metrics.outstandingLoans,
+      title: "Financing portfolio",
+    },
+    {
+      detail: "Share capital positions and optional share activity.",
+      exportHref: "/reports/shares-export",
+      key: "shares",
+      metricFormat: "currency",
+      metricLabel: "Share capital",
+      metricValue: summary?.shareAndProfitPosition.shareCapitalBalance ?? 0,
+      title: "Shares",
+    },
+    {
+      detail: "Item-purchase requests, review evidence, and repayment risk.",
+      exportHref: "/reports/procurement-export",
+      key: "procurement",
+      metricFormat: "count",
+      metricLabel: "Pending review",
+      metricValue: getOverviewQueueCount(summary, "procurement-requests"),
+      title: "Procurement",
+    },
+    {
+      detail:
+        "Monthly cycle releases, member applications, and accounting evidence.",
+      exportHref: "/reports/food-purchase-export",
+      key: "foodPurchase",
+      metricFormat: "count",
+      metricLabel: "Open queue",
+      metricValue:
+        getOverviewQueueCount(summary, "food-purchase-applications") +
+        getOverviewQueueCount(summary, "food-purchase-accounting"),
+      title: "Foodstuff Purchase",
+    },
+    {
+      detail: "Business funding requests and structure-review evidence.",
+      exportHref: "/reports/project-financing-export",
+      key: "projectFinancing",
+      metricFormat: "count",
+      metricLabel: "Pending review",
+      metricValue: getOverviewQueueCount(summary, "project-financing-requests"),
+      title: "Project financing",
+    },
+    {
+      detail:
+        "Support cases, escalation status, and financial adjustment requests.",
+      exportHref: "/reports/support-export",
+      key: "support",
+      metricFormat: "count",
+      metricLabel: "Open cases",
+      metricValue: getOverviewQueueCount(summary, "support-cases"),
+      title: "Support cases",
+    },
+    {
+      detail:
+        "Recent workspace activity, actor evidence, and operational events.",
+      exportHref: "/reports/audit",
+      key: "audit",
+      metricFormat: "count",
+      metricLabel: "Recent events",
+      metricValue: summary?.recentActivity.length ?? 0,
+      title: "Activity evidence",
+    },
+  ]
 }
 
 function loanRequestToFinanceItem(
@@ -3849,6 +4000,50 @@ export async function getMobileAdminFinance(
         key: "collection-coverage",
         label: "Collections",
         value: overview.primaryMetrics.collectionCoverage,
+      },
+    ],
+  }
+}
+
+export async function getMobileAdminReports(
+  tenantId: string
+): Promise<MobileAdminReports> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyAdminReports()
+  }
+
+  const [overview, metrics] = await Promise.all([
+    getOverviewSummary(tenantId, prisma),
+    getDashboardMetrics(tenantId, prisma),
+  ])
+  const reports = buildMobileAdminReportCards(metrics, overview)
+
+  return {
+    generatedAt: overview.workspace.generatedAt,
+    reports,
+    stats: [
+      {
+        detail: "Mobile-safe report previews",
+        format: "count",
+        key: "report-count",
+        label: "Reports",
+        value: reports.length,
+      },
+      {
+        detail: "Active members in this workspace",
+        format: "count",
+        key: "active-members",
+        label: "Active members",
+        value: metrics.activeMemberCount,
+      },
+      {
+        detail: "Open operational queue items",
+        format: "count",
+        key: "action-queue",
+        label: "Action queue",
+        value: overview.primaryMetrics.actionQueueTotal,
       },
     ],
   }

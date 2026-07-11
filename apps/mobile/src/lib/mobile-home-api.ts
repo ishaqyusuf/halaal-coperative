@@ -124,6 +124,22 @@ export type MobileAdminFinance = {
   stats: MobileOverviewMetric[]
 }
 
+export type MobileAdminReportCard = {
+  detail: string
+  exportHref: string
+  key: string
+  metricFormat: MobileMetricFormat
+  metricLabel: string
+  metricValue: number
+  title: string
+}
+
+export type MobileAdminReports = {
+  generatedAt: string
+  reports: MobileAdminReportCard[]
+  stats: MobileOverviewMetric[]
+}
+
 export type MobileMemberSectionKey = "commitments" | "financing" | "shares"
 
 export type MobileSupportCategory =
@@ -840,4 +856,10 @@ export async function getMobileAdminFinance() {
   const client = createMobileTrpcClient()
 
   return client.mobile.admin.finance.overview.query() as Promise<MobileAdminFinance>
+}
+
+export async function getMobileAdminReports() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.reports.overview.query() as Promise<MobileAdminReports>
 }

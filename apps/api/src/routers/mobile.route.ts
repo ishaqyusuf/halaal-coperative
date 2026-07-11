@@ -26,6 +26,7 @@ import {
   getMobileMemberSupport,
   getMobileMemberSection,
   getMobileNotifications,
+  inviteMobileAdminAccessUser,
   mobileMemberSectionKeys,
   mobileReceiptAllocationCategoryKeys,
   mobileReceiptChannelKeys,
@@ -227,6 +228,18 @@ const mobileAdminShareReviewInput = z.object({
   reviewNotes: z.string().trim().max(1000).optional(),
 })
 
+const mobileAdminAccessInviteInput = z.object({
+  email: z.string().trim().email(),
+  fullName: z.string().trim().min(2).max(160),
+  makeDefault: z.boolean().optional(),
+  role: z.enum([
+    "tenant_admin",
+    "finance_officer",
+    "operations_officer",
+    "member",
+  ]),
+})
+
 const mobileAdminMemberStatusUpdateInput = z.object({
   memberId: z.string().trim().min(1),
   reviewNotes: z.string().trim().max(1000).optional(),
@@ -308,6 +321,18 @@ function assertMemberWorkspace(role: string) {
 export const mobileRouter = createTRPCRouter({
   admin: createTRPCRouter({
     access: createTRPCRouter({
+      invite: minRoleProcedure("tenant_admin")
+        .input(mobileAdminAccessInviteInput)
+        .mutation(({ ctx, input }) => {
+          return inviteMobileAdminAccessUser({
+            actorUserId: ctx.auth.session.user.id,
+            email: input.email,
+            fullName: input.fullName,
+            makeDefault: input.makeDefault,
+            role: input.role,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
       overview: minRoleProcedure("tenant_admin").query(({ ctx }) => {
         return getMobileAdminAccess(ctx.tenant.current.id)
       }),

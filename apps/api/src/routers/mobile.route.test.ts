@@ -1046,6 +1046,50 @@ describe("mobileRouter", () => {
     )
   })
 
+  test("routes admin access invites through the database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.access.invite({
+        email: "new.ops@example.com",
+        fullName: "New Operations Officer",
+        role: "operations_officer",
+      })
+    ).rejects.toThrow("Workspace invitation is unavailable")
+  })
+
+  test("rejects admin access invites from non-admin staff workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-barakah-finance",
+      tenantId: "tenant-barakah-demo",
+      userId: "user-finance-barakah",
+    })
+
+    await expect(
+      caller.mobile.admin.access.invite({
+        email: "new.ops@example.com",
+        fullName: "New Operations Officer",
+        role: "operations_officer",
+      })
+    ).rejects.toThrow("This action requires tenant_admin role or above.")
+  })
+
+  test("rejects super admin mobile invitations", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.access.invite({
+        email: "new.super@example.com",
+        fullName: "New Super Admin",
+        role: "super_admin" as never,
+      })
+    ).rejects.toThrow()
+  })
+
   test("routes admin share review through the database runtime", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

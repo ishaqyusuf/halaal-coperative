@@ -407,6 +407,13 @@ export type MobileAdminAccess = {
   users: MobileAdminAccessUser[]
 }
 
+export type MobileAdminAccessInviteInput = {
+  email: string
+  fullName: string
+  makeDefault?: boolean
+  role: Exclude<MobileAdminAccessRoleKey, "super_admin">
+}
+
 export type MobileMemberSectionKey = "commitments" | "financing" | "shares"
 
 export type MobileSupportCategory =
@@ -1374,6 +1381,16 @@ export async function getMobileAdminAccess() {
     () =>
       client.mobile.admin.access.overview.query() as Promise<MobileAdminAccess>
   )
+}
+
+export async function inviteMobileAdminAccessUser(
+  input: MobileAdminAccessInviteInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.access.invite.mutate(
+    input
+  ) as Promise<MobileAdminActionResult>
 }
 
 export async function reviewMobileAdminShareApplication(

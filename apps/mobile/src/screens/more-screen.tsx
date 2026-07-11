@@ -3,13 +3,16 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
+import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminAccess,
   getMobileMemberMore,
+  inviteMobileAdminAccessUser,
   type MobileAdminAccess,
+  type MobileAdminAccessInviteInput,
   type MobileAdminAccessRole,
   type MobileAdminAccessUser,
   type MobileMemberMore,
@@ -132,6 +135,13 @@ export function MoreScreen() {
   const [adminAccess, setAdminAccess] = useState<MobileAdminAccess | null>(null)
   const [isLoadingAdminAccess, setIsLoadingAdminAccess] = useState(false)
   const [adminAccessError, setAdminAccessError] = useState<string | null>(null)
+  const [inviteFullName, setInviteFullName] = useState("")
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [inviteRole, setInviteRole] =
+    useState<MobileAdminAccessInviteInput["role"]>("member")
+  const [inviteMakeDefault, setInviteMakeDefault] = useState(false)
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null)
+  const [isInviting, setIsInviting] = useState(false)
   const [memberHub, setMemberHub] = useState<MobileMemberMore | null>(null)
   const [isLoadingMemberHub, setIsLoadingMemberHub] = useState(false)
   const [memberHubError, setMemberHubError] = useState<string | null>(null)
@@ -164,6 +174,11 @@ export function MoreScreen() {
     profile?.role === "admin" &&
     profile?.token &&
     !isMockSessionToken(profile.token)
+  )
+  const invitableRoles = useMemo(
+    () =>
+      adminAccess?.roles.filter((role) => role.role !== "super_admin") ?? [],
+    [adminAccess?.roles]
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
 
@@ -238,6 +253,43 @@ export function MoreScreen() {
       mounted = false
     }
   }, [canUseServerAdminAccess, profile?.token])
+
+  async function handleInviteAccessUser() {
+    if (isInviting) return
+
+    const fullName = inviteFullName.trim()
+    const email = inviteEmail.trim()
+
+    if (!fullName || !email) {
+      setInviteMessage("Enter a full name and email address.")
+      return
+    }
+
+    setIsInviting(true)
+    setInviteMessage(null)
+    setAdminAccessError(null)
+
+    try {
+      await inviteMobileAdminAccessUser({
+        email,
+        fullName,
+        makeDefault: inviteMakeDefault,
+        role: inviteRole,
+      })
+      setInviteFullName("")
+      setInviteEmail("")
+      setInviteRole("member")
+      setInviteMakeDefault(false)
+      setInviteMessage("Workspace invitation saved.")
+      setAdminAccess(await getMobileAdminAccess())
+    } catch (error) {
+      setInviteMessage(
+        formatErrorMessage(error, "Workspace invitation could not be saved.")
+      )
+    } finally {
+      setIsInviting(false)
+    }
+  }
 
   return (
     <SafeArea style={{ backgroundColor: colors.background }}>
@@ -497,6 +549,88 @@ export function MoreScreen() {
                         label="Member users"
                         value={adminAccess.summary.memberUsers}
                       />
+                    </View>
+                  </SectionCard>
+
+                  <SectionCard icon="UserPlus" title="Invite user">
+                    <View className="gap-3">
+                      <Text className="text-sm leading-5 text-muted-foreground">
+                        {profile?.tenant.name}
+                      </Text>
+                      <Input
+                        editable={!isInviting}
+                        onChangeText={setInviteFullName}
+                        placeholder="Full name"
+                        value={inviteFullName}
+                      />
+                      <Input
+                        autoCapitalize="none"
+                        editable={!isInviting}
+                        keyboardType="email-address"
+                        onChangeText={setInviteEmail}
+                        placeholder="Email address"
+                        value={inviteEmail}
+                      />
+                      <View className="flex-row flex-wrap gap-2">
+                        {invitableRoles.map((role) => (
+                          <Button
+                            className="h-10"
+                            disabled={isInviting}
+                            key={role.role}
+                            onPress={() =>
+                              setInviteRole(
+                                role.role as MobileAdminAccessInviteInput["role"]
+                              )
+                            }
+                            variant={
+                              inviteRole === role.role ? "secondary" : "outline"
+                            }
+                          >
+                            <Text>{role.label}</Text>
+                          </Button>
+                        ))}
+                      </View>
+                      {invitableRoles.find((role) => role.role === inviteRole)
+                        ?.scope ? (
+                        <Text className="text-xs leading-5 text-muted-foreground">
+                          {
+                            invitableRoles.find(
+                              (role) => role.role === inviteRole
+                            )?.scope
+                          }
+                        </Text>
+                      ) : null}
+                      <Button
+                        className="h-11 justify-start"
+                        disabled={isInviting}
+                        onPress={() =>
+                          setInviteMakeDefault((current) => !current)
+                        }
+                        variant={inviteMakeDefault ? "secondary" : "outline"}
+                      >
+                        <Icon name="Star" className="size-base" />
+                        <Text>
+                          {inviteMakeDefault
+                            ? "Default role"
+                            : "Set as default role"}
+                        </Text>
+                      </Button>
+                      <Button
+                        className="h-11"
+                        disabled={isInviting}
+                        onPress={handleInviteAccessUser}
+                      >
+                        <Icon
+                          name="Send"
+                          className="size-base text-primary-foreground"
+                        />
+                        <Text>{isInviting ? "Saving" : "Send invite"}</Text>
+                      </Button>
+                      {inviteMessage ? (
+                        <Text className="text-sm font-medium text-muted-foreground">
+                          {inviteMessage}
+                        </Text>
+                      ) : null}
                     </View>
                   </SectionCard>
 

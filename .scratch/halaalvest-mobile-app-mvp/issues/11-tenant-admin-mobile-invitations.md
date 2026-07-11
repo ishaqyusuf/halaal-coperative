@@ -4,7 +4,7 @@
 
 **Blocked by:** 10 — Admin Member Onboarding And KYC Review.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A tenant admin can create a permitted staff or member invitation from mobile with clear role and tenant context.
-- [ ] Invitation creation and any related role assignment evidence are server-validated, audited, and denied to users below the required role.
+- [x] A tenant admin can create a permitted staff or member invitation from mobile with clear role and tenant context.
+- [x] Invitation creation and any related role assignment evidence are server-validated, audited, and denied to users below the required role.

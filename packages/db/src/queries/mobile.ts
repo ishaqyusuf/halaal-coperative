@@ -4,7 +4,11 @@ import {
   listAuditLogs,
   type ActivityReportEvent,
 } from "./audit"
-import { listTenantUsersWithMemberships, type MembershipRole } from "./auth"
+import {
+  listTenantUsersWithMemberships,
+  provisionTenantUserRole,
+  type MembershipRole,
+} from "./auth"
 import { getDashboardMetrics, getOverviewSummary } from "./dashboard"
 import {
   listFoodPurchaseApplications,
@@ -3660,6 +3664,35 @@ function requireMobileAdminPrisma(feature: string) {
   }
 
   return prisma
+}
+
+export async function inviteMobileAdminAccessUser(input: {
+  actorUserId: string
+  email: string
+  fullName: string
+  makeDefault?: boolean | null
+  role: MembershipRole
+  tenantId: string
+}) {
+  requireMobileAdminPrisma("Workspace invitation")
+
+  if (input.role === "super_admin") {
+    throw new Error("Super admin access cannot be invited from mobile.")
+  }
+
+  const result = await provisionTenantUserRole({
+    actorUserId: input.actorUserId,
+    email: input.email,
+    fullName: input.fullName,
+    makeDefault: input.makeDefault ?? false,
+    role: input.role,
+    tenantId: input.tenantId,
+  })
+
+  return {
+    id: result.membership.id,
+    status: result.membership.role,
+  }
 }
 
 export async function updateMobileAdminMemberStatus(input: {

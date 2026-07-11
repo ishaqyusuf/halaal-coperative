@@ -1677,6 +1677,8 @@ function summarizeMobileNotifications(
 const mobileFinanceQueueKeys = new Set([
   "financing-approvals",
   "disbursement-holds",
+  "financing-cycle-warnings",
+  "overdue-follow-ups",
   "share-applications",
   "payment-receipts",
   "procurement-requests",

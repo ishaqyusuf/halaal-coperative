@@ -1,4 +1,7 @@
-import type { MemberOnboardingStatus, PrismaClient } from "../../generated/prisma/client"
+import type {
+  MemberOnboardingStatus,
+  PrismaClient,
+} from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createMemberWithState, type CreateMemberInput } from "./members"
 import { getTenantInitialMigrationState } from "./migration"
@@ -12,13 +15,13 @@ export type ListMemberOnboardingFilters = {
 
 async function assertMemberOnboardingWritesOpen(
   tenantId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
     throw new Error(
-      "Member onboarding writes are locked until initial migration is finalized.",
+      "Member onboarding writes are locked until initial migration is finalized."
     )
   }
 }
@@ -34,7 +37,7 @@ export async function createMemberOnboardingRequest(
     signupLinkTokenVersion?: number | null
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -45,7 +48,12 @@ export async function createMemberOnboardingRequest(
   const normalizedFullName = input.fullName.trim()
   const normalizedPhoneNumber = input.phoneNumber?.trim() || null
 
-  if (!normalizedEmail || !normalizedMemberNumber || !normalizedFullName || !input.passwordHash) {
+  if (
+    !normalizedEmail ||
+    !normalizedMemberNumber ||
+    !normalizedFullName ||
+    !input.passwordHash
+  ) {
     throw new Error("Name, email, member number, and password are required.")
   }
 
@@ -70,14 +78,19 @@ export async function createMemberOnboardingRequest(
       }
 
       if (signupLink.tokenVersion !== input.signupLinkTokenVersion) {
-        throw new Error("This member signup link has been replaced. Ask the cooperative for the latest link.")
+        throw new Error(
+          "This member signup link has been replaced. Ask the cooperative for the latest link."
+        )
       }
 
       if (!signupLink.isEnabled) {
         throw new Error("This member signup link is currently disabled.")
       }
 
-      if (signupLink.expiresAt && signupLink.expiresAt.getTime() <= Date.now()) {
+      if (
+        signupLink.expiresAt &&
+        signupLink.expiresAt.getTime() <= Date.now()
+      ) {
         throw new Error("This member signup link has expired.")
       }
 
@@ -90,7 +103,9 @@ export async function createMemberOnboardingRequest(
         })
 
         if (usedCount >= signupLink.maxSignups) {
-          throw new Error("This member signup link has reached its signup limit.")
+          throw new Error(
+            "This member signup link has reached its signup limit."
+          )
         }
       }
     }
@@ -106,13 +121,18 @@ export async function createMemberOnboardingRequest(
     })
 
     if (existingMember) {
-      throw new Error("A member already exists with this cooperative number or email.")
+      throw new Error(
+        "A member already exists with this cooperative number or email."
+      )
     }
 
     const existingOnboarding = await tx.memberOnboardingRequest.findFirst({
       where: {
         tenantId: input.tenantId,
-        OR: [{ email: normalizedEmail }, { memberNumber: normalizedMemberNumber }],
+        OR: [
+          { email: normalizedEmail },
+          { memberNumber: normalizedMemberNumber },
+        ],
         status: {
           in: ["pending_email_verification", "pending_approval", "approved"],
         },
@@ -120,7 +140,9 @@ export async function createMemberOnboardingRequest(
     })
 
     if (existingOnboarding) {
-      throw new Error("An onboarding request already exists for this email or cooperative number.")
+      throw new Error(
+        "An onboarding request already exists for this email or cooperative number."
+      )
     }
 
     const user = await tx.user.create({
@@ -188,7 +210,7 @@ export async function verifyMemberOnboardingRequest(
     requestId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -251,7 +273,7 @@ export async function verifyMemberOnboardingRequest(
 export async function listMemberOnboardingRequests(
   tenantId: string,
   filters?: ListMemberOnboardingFilters,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -265,10 +287,27 @@ export async function listMemberOnboardingRequests(
     ...(filters?.search
       ? {
           OR: [
-            { fullName: { contains: filters.search, mode: "insensitive" as const } },
-            { email: { contains: filters.search, mode: "insensitive" as const } },
-            { memberNumber: { contains: filters.search, mode: "insensitive" as const } },
-            { phoneNumber: { contains: filters.search, mode: "insensitive" as const } },
+            {
+              fullName: {
+                contains: filters.search,
+                mode: "insensitive" as const,
+              },
+            },
+            {
+              email: { contains: filters.search, mode: "insensitive" as const },
+            },
+            {
+              memberNumber: {
+                contains: filters.search,
+                mode: "insensitive" as const,
+              },
+            },
+            {
+              phoneNumber: {
+                contains: filters.search,
+                mode: "insensitive" as const,
+              },
+            },
           ],
         }
       : {}),
@@ -300,7 +339,7 @@ export async function listMemberOnboardingRequests(
 export async function getMemberOnboardingRequestById(
   tenantId: string,
   requestId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -328,7 +367,7 @@ export async function getPendingMemberOnboardingForUser(
     tenantId: string
     userId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) {
@@ -354,9 +393,13 @@ export async function approveMemberOnboardingRequest(
     actorUserId: string
     requestId: string
     tenantId: string
-    memberState?: Pick<CreateMemberInput, "currentSavingsBalance" | "monthlyCommitment" | "servingLoan">
+    reviewNotes?: string | null
+    memberState?: Pick<
+      CreateMemberInput,
+      "currentSavingsBalance" | "monthlyCommitment" | "servingLoan"
+    >
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -364,12 +407,12 @@ export async function approveMemberOnboardingRequest(
   return prisma.$transaction(async (tx) => {
     const migrationState = await getTenantInitialMigrationState(
       input.tenantId,
-      tx as PrismaClient,
+      tx as PrismaClient
     )
 
     if (!migrationState.snapshot.canUseLiveFinancialWrites) {
       throw new Error(
-        "Member onboarding approvals are locked until initial migration is finalized.",
+        "Member onboarding approvals are locked until initial migration is finalized."
       )
     }
 
@@ -402,7 +445,9 @@ export async function approveMemberOnboardingRequest(
     })
 
     if (existingMember) {
-      throw new Error("This onboarding request is already linked to an existing member.")
+      throw new Error(
+        "This onboarding request is already linked to an existing member."
+      )
     }
 
     await tx.membership.updateMany({
@@ -471,6 +516,7 @@ export async function approveMemberOnboardingRequest(
         metadata: {
           approvedByUserId: input.actorUserId,
           memberId: member.id,
+          reviewNotes: input.reviewNotes?.trim() || null,
           status: approvedRequest.status,
           userId: request.userId,
         },
@@ -494,7 +540,7 @@ export async function rejectMemberOnboardingRequest(
     requestId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")

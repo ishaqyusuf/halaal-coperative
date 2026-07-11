@@ -39,7 +39,11 @@ import {
   updateMemberStatus,
   type ListMembersFilters,
 } from "./members"
-import { listMemberOnboardingRequests } from "./member-onboarding"
+import {
+  approveMemberOnboardingRequest,
+  listMemberOnboardingRequests,
+  rejectMemberOnboardingRequest,
+} from "./member-onboarding"
 import { listNotificationPreferences } from "./notifications"
 import {
   createMemberPaymentReceipt,
@@ -3661,6 +3665,7 @@ function requireMobileAdminPrisma(feature: string) {
 export async function updateMobileAdminMemberStatus(input: {
   actorUserId: string
   memberId: string
+  reviewNotes?: string | null
   status: string
   tenantId: string
 }) {
@@ -3671,7 +3676,10 @@ export async function updateMobileAdminMemberStatus(input: {
     input.memberId,
     input.status as never,
     input.actorUserId,
-    prisma
+    {
+      prisma,
+      reviewNotes: input.reviewNotes,
+    }
   )
 
   return {
@@ -3755,6 +3763,48 @@ export async function updateMobileAdminMemberKyc(input: {
   return {
     id: member.id,
     kycStatus: member.kycStatus,
+  }
+}
+
+export async function reviewMobileAdminMemberOnboarding(input: {
+  actorUserId: string
+  decision: "approved" | "rejected"
+  requestId: string
+  reviewNotes?: string | null
+  tenantId: string
+}) {
+  const prisma = requireMobileAdminPrisma("Member onboarding review")
+
+  if (input.decision === "approved") {
+    const result = await approveMemberOnboardingRequest(
+      {
+        actorUserId: input.actorUserId,
+        requestId: input.requestId,
+        reviewNotes: input.reviewNotes,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+
+    return {
+      id: result.request.id,
+      status: result.request.status,
+    }
+  }
+
+  const result = await rejectMemberOnboardingRequest(
+    {
+      actorUserId: input.actorUserId,
+      reason: input.reviewNotes,
+      requestId: input.requestId,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return {
+    id: result.request.id,
+    status: result.request.status,
   }
 }
 

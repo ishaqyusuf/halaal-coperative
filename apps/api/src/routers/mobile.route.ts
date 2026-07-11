@@ -42,6 +42,7 @@ import {
   reviewMobileAdminProjectFinancingRequest,
   reviewMobileAdminReceipt,
   reviewMobileAdminShareApplication,
+  reviewMobileAdminMemberOnboarding,
   respondMobileMemberGuarantorApproval,
   replyMobileMemberSupportCase,
   updateMobileAdminMemberKyc,
@@ -228,6 +229,7 @@ const mobileAdminShareReviewInput = z.object({
 
 const mobileAdminMemberStatusUpdateInput = z.object({
   memberId: z.string().trim().min(1),
+  reviewNotes: z.string().trim().max(1000).optional(),
   status: z.enum(mobileAdminMemberStatusKeys),
 })
 
@@ -238,6 +240,12 @@ const mobileAdminMemberKycUpdateInput = z.object({
   kycReviewNotes: z.string().trim().max(1000).optional(),
   kycStatus: z.enum(mobileAdminMemberKycStatusKeys),
   memberId: z.string().trim().min(1),
+})
+
+const mobileAdminMemberOnboardingReviewInput = z.object({
+  decision: z.enum(["approved", "rejected"]),
+  requestId: z.string().trim().min(1),
+  reviewNotes: z.string().trim().min(2).max(1000),
 })
 
 const mobileAdminMemberCreateInput = z.object({
@@ -454,12 +462,24 @@ export const mobileRouter = createTRPCRouter({
             tenantId: ctx.tenant.current.id,
           })
         }),
+      reviewOnboarding: minRoleProcedure("operations_officer")
+        .input(mobileAdminMemberOnboardingReviewInput)
+        .mutation(({ ctx, input }) => {
+          return reviewMobileAdminMemberOnboarding({
+            actorUserId: ctx.auth.session.user.id,
+            decision: input.decision,
+            requestId: input.requestId,
+            reviewNotes: input.reviewNotes,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
       updateStatus: minRoleProcedure("operations_officer")
         .input(mobileAdminMemberStatusUpdateInput)
         .mutation(({ ctx, input }) => {
           return updateMobileAdminMemberStatus({
             actorUserId: ctx.auth.session.user.id,
             memberId: input.memberId,
+            reviewNotes: input.reviewNotes,
             status: input.status,
             tenantId: ctx.tenant.current.id,
           })

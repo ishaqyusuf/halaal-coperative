@@ -756,9 +756,26 @@ export async function updateMemberStatus(
   memberId: string,
   newStatus: MemberStatus,
   actorUserId: string,
-  prismaOverride?: PrismaClient
+  prismaOrOptions?:
+    | PrismaClient
+    | { prisma?: PrismaClient; reviewNotes?: string | null },
+  maybePrismaOverride?: PrismaClient
 ) {
+  const hasOptions = (
+    value: typeof prismaOrOptions
+  ): value is { prisma?: PrismaClient; reviewNotes?: string | null } =>
+    Boolean(
+      value &&
+      typeof value === "object" &&
+      ("prisma" in value || "reviewNotes" in value)
+    )
+  const options = hasOptions(prismaOrOptions) ? prismaOrOptions : null
+  const prismaOverride: PrismaClient | undefined = options
+    ? options.prisma
+    : (maybePrismaOverride ?? (prismaOrOptions as PrismaClient | undefined))
   const prisma = prismaOverride ?? createPrismaClient()
+  const reviewNotes = options ? options.reviewNotes?.trim() || null : null
+
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.$transaction(async (tx) => {
@@ -780,7 +797,7 @@ export async function updateMemberStatus(
         action: "member.status_changed",
         entityType: "Member",
         entityId: member.id,
-        metadata: { newStatus },
+        metadata: { newStatus, reviewNotes },
         occurredAt: new Date(),
       },
     })
@@ -811,10 +828,16 @@ export async function updateMemberKyc(
     const member = await tx.member.update({
       where: { id: input.memberId, tenantId: input.tenantId },
       data: {
-        governmentIdNumber: input.governmentIdNumber ?? null,
-        kycDocumentType: input.kycDocumentType ?? null,
-        kycDocumentUrl: input.kycDocumentUrl ?? null,
-        kycDocumentUploadedAt: input.kycDocumentUrl ? new Date() : null,
+        ...(input.governmentIdNumber !== undefined && {
+          governmentIdNumber: input.governmentIdNumber ?? null,
+        }),
+        ...(input.kycDocumentType !== undefined && {
+          kycDocumentType: input.kycDocumentType ?? null,
+        }),
+        ...(input.kycDocumentUrl !== undefined && {
+          kycDocumentUploadedAt: input.kycDocumentUrl ? new Date() : null,
+          kycDocumentUrl: input.kycDocumentUrl ?? null,
+        }),
         kycReviewNotes: input.kycReviewNotes ?? null,
         kycStatus: input.kycStatus,
       },

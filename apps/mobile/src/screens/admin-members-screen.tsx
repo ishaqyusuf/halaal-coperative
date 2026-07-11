@@ -6,11 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
+import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
   createMobileAdminMember,
   getMobileAdminMembers,
+  reviewMobileAdminMemberOnboarding,
+  updateMobileAdminMemberKyc,
+  type MobileAdminMemberOnboardingReviewInput,
   type MobileAdminMemberOnboardingRequest,
   type MobileAdminMemberKycStatus,
   type MobileAdminMemberRow,
@@ -26,6 +30,8 @@ import { ScrollView, View } from "react-native"
 type StatusFilter = "all" | MobileAdminMemberStatus
 type KycFilter = "all" | MobileAdminMemberKycStatus
 type MemberTypeDraft = "civil_servant" | "individual" | "business"
+type OnboardingReviewDecision =
+  MobileAdminMemberOnboardingReviewInput["decision"]
 
 const statusFilters: { label: string; value: StatusFilter }[] = [
   { label: "All", value: "all" },
@@ -36,6 +42,15 @@ const statusFilters: { label: string; value: StatusFilter }[] = [
 
 const kycFilters: { label: string; value: KycFilter }[] = [
   { label: "All KYC", value: "all" },
+  { label: "Pending", value: "pending" },
+  { label: "Verified", value: "verified" },
+  { label: "Rejected", value: "rejected" },
+]
+
+const kycReviewStatuses: {
+  label: string
+  value: MobileAdminMemberKycStatus
+}[] = [
   { label: "Pending", value: "pending" },
   { label: "Verified", value: "verified" },
   { label: "Rejected", value: "rejected" },
@@ -96,14 +111,33 @@ function FilterButton({
 }
 
 function MemberCard({
+  actionState,
   isFirst,
+  kycReviewMemberId,
+  kycReviewNotes,
+  kycReviewStatus,
   member,
+  onOpenKycReview,
   onOpen,
+  onReviewKyc,
+  setKycReviewNotes,
+  setKycReviewStatus,
 }: {
+  actionState: "idle" | "pending"
   isFirst: boolean
+  kycReviewMemberId: string | null
+  kycReviewNotes: string
+  kycReviewStatus: MobileAdminMemberKycStatus
   member: MobileAdminMemberRow
+  onOpenKycReview: (member: MobileAdminMemberRow | null) => void
   onOpen: () => void
+  onReviewKyc: (member: MobileAdminMemberRow) => void
+  setKycReviewNotes: (value: string) => void
+  setKycReviewStatus: (value: MobileAdminMemberKycStatus) => void
 }) {
+  const isReviewingKyc = kycReviewMemberId === member.id
+  const notesRequired = kycReviewNotes.trim().length < 2
+
   return (
     <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
       <View className="flex-row items-start justify-between gap-3">
@@ -164,14 +198,72 @@ function MemberCard({
         </Text>
       </View>
 
-      <Button
-        className="h-10 self-start px-3"
-        onPress={onOpen}
-        variant="outline"
-      >
-        <Icon name="FileText" className="size-base text-foreground" />
-        <Text>Open detail</Text>
-      </Button>
+      {isReviewingKyc ? (
+        <View className="gap-3">
+          <Textarea
+            editable={actionState !== "pending"}
+            onChangeText={setKycReviewNotes}
+            placeholder="KYC review notes"
+            value={kycReviewNotes}
+          />
+          <View className="flex-row flex-wrap gap-2">
+            {kycReviewStatuses.map((item) => (
+              <Button
+                className="h-9"
+                disabled={actionState === "pending"}
+                key={item.value}
+                onPress={() => setKycReviewStatus(item.value)}
+                variant={
+                  kycReviewStatus === item.value ? "secondary" : "outline"
+                }
+              >
+                <Text>{item.label}</Text>
+              </Button>
+            ))}
+          </View>
+          <View className="flex-row flex-wrap gap-2">
+            <Button
+              className="h-10"
+              disabled={actionState === "pending" || notesRequired}
+              onPress={() => onReviewKyc(member)}
+            >
+              <Icon
+                name="ShieldCheck"
+                className="size-base text-primary-foreground"
+              />
+              <Text>{actionState === "pending" ? "Saving" : "Save KYC"}</Text>
+            </Button>
+            <Button
+              className="h-10"
+              disabled={actionState === "pending"}
+              onPress={() => onOpenKycReview(null)}
+              variant="outline"
+            >
+              <Text>Cancel</Text>
+            </Button>
+          </View>
+        </View>
+      ) : (
+        <View className="flex-row flex-wrap gap-2">
+          <Button
+            className="h-10 self-start px-3"
+            onPress={onOpen}
+            variant="outline"
+          >
+            <Icon name="FileText" className="size-base text-foreground" />
+            <Text>Open detail</Text>
+          </Button>
+          <Button
+            className="h-10 self-start px-3"
+            disabled={actionState === "pending"}
+            onPress={() => onOpenKycReview(member)}
+            variant="outline"
+          >
+            <Icon name="ShieldCheck" className="size-base text-foreground" />
+            <Text>Review KYC</Text>
+          </Button>
+        </View>
+      )}
     </View>
   )
 }
@@ -206,12 +298,30 @@ function ReviewQueueCard({ queue }: { queue: MobileAdminMemberReviewQueue }) {
 }
 
 function OnboardingRequestCard({
+  actionState,
   isFirst,
+  onOpenReview,
+  onReview,
+  onboardingReviewNotes,
+  onboardingReviewRequestId,
   request,
+  setOnboardingReviewNotes,
 }: {
+  actionState: "idle" | "pending"
   isFirst: boolean
+  onOpenReview: (request: MobileAdminMemberOnboardingRequest | null) => void
+  onReview: (
+    request: MobileAdminMemberOnboardingRequest,
+    decision: OnboardingReviewDecision
+  ) => void
+  onboardingReviewNotes: string
+  onboardingReviewRequestId: string | null
   request: MobileAdminMemberOnboardingRequest
+  setOnboardingReviewNotes: (value: string) => void
 }) {
+  const isReviewing = onboardingReviewRequestId === request.id
+  const notesRequired = onboardingReviewNotes.trim().length < 2
+
   return (
     <View className={isFirst ? "gap-2" : "gap-2 border-t border-border pt-3"}>
       <View className="flex-row items-start justify-between gap-3">
@@ -233,6 +343,55 @@ function OnboardingRequestCard({
           : "Email verification pending"}{" "}
         - Requested {formatDate(request.createdAt)}
       </Text>
+      {isReviewing ? (
+        <View className="gap-3 pt-1">
+          <Textarea
+            editable={actionState !== "pending"}
+            onChangeText={setOnboardingReviewNotes}
+            placeholder="Onboarding review notes"
+            value={onboardingReviewNotes}
+          />
+          <View className="flex-row flex-wrap gap-2">
+            <Button
+              className="h-10"
+              disabled={actionState === "pending" || notesRequired}
+              onPress={() => onReview(request, "approved")}
+            >
+              <Icon
+                name="UserCheck"
+                className="size-base text-primary-foreground"
+              />
+              <Text>{actionState === "pending" ? "Saving" : "Approve"}</Text>
+            </Button>
+            <Button
+              className="h-10"
+              disabled={actionState === "pending" || notesRequired}
+              onPress={() => onReview(request, "rejected")}
+              variant="outline"
+            >
+              <Text>Reject</Text>
+            </Button>
+            <Button
+              className="h-10"
+              disabled={actionState === "pending"}
+              onPress={() => onOpenReview(null)}
+              variant="ghost"
+            >
+              <Text>Cancel</Text>
+            </Button>
+          </View>
+        </View>
+      ) : (
+        <Button
+          className="h-10 self-start px-3"
+          disabled={actionState === "pending"}
+          onPress={() => onOpenReview(request)}
+          variant="outline"
+        >
+          <Icon name="UserCheck" className="size-base text-foreground" />
+          <Text>Review onboarding</Text>
+        </Button>
+      )}
     </View>
   )
 }
@@ -243,9 +402,20 @@ export function AdminMembersScreen() {
   const router = useRouter()
   const [members, setMembers] = useState<MobileAdminMembers | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [actionKey, setActionKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [createMessage, setCreateMessage] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
+  const [onboardingReviewRequestId, setOnboardingReviewRequestId] = useState<
+    string | null
+  >(null)
+  const [onboardingReviewNotes, setOnboardingReviewNotes] = useState("")
+  const [kycReviewMemberId, setKycReviewMemberId] = useState<string | null>(
+    null
+  )
+  const [kycReviewStatus, setKycReviewStatus] =
+    useState<MobileAdminMemberKycStatus>("verified")
+  const [kycReviewNotes, setKycReviewNotes] = useState("")
   const [createFullName, setCreateFullName] = useState("")
   const [createMemberNumber, setCreateMemberNumber] = useState("")
   const [createMemberType, setCreateMemberType] =
@@ -411,6 +581,77 @@ export function AdminMembersScreen() {
     }
   }
 
+  async function handleReviewOnboarding(
+    request: MobileAdminMemberOnboardingRequest,
+    decision: OnboardingReviewDecision
+  ) {
+    const reviewNotes = onboardingReviewNotes.trim()
+
+    if (reviewNotes.length < 2) {
+      setError("Onboarding review notes are required.")
+      return
+    }
+
+    const nextActionKey = `onboarding-${request.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      await reviewMobileAdminMemberOnboarding({
+        decision,
+        requestId: request.id,
+        reviewNotes,
+      })
+      setOnboardingReviewRequestId(null)
+      setOnboardingReviewNotes("")
+      setPage(1)
+      loadMembers()
+    } catch (reviewError) {
+      setError(
+        reviewError instanceof Error
+          ? reviewError.message
+          : "Onboarding review could not be submitted."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
+  async function handleReviewKyc(member: MobileAdminMemberRow) {
+    const kycReviewNotesValue = kycReviewNotes.trim()
+
+    if (kycReviewNotesValue.length < 2) {
+      setError("KYC review notes are required.")
+      return
+    }
+
+    const nextActionKey = `kyc-${member.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      await updateMobileAdminMemberKyc({
+        kycReviewNotes: kycReviewNotesValue,
+        kycStatus: kycReviewStatus,
+        memberId: member.id,
+      })
+      setKycReviewMemberId(null)
+      setKycReviewNotes("")
+      setKycReviewStatus("verified")
+      loadMembers()
+    } catch (reviewError) {
+      setError(
+        reviewError instanceof Error
+          ? reviewError.message
+          : "KYC review could not be submitted."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
   return (
     <SafeArea style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-5">
@@ -462,9 +703,27 @@ export function AdminMembersScreen() {
                 <View className="gap-3">
                   {members.onboardingRequests.map((request, index) => (
                     <OnboardingRequestCard
+                      actionState={
+                        actionKey === `onboarding-${request.id}`
+                          ? "pending"
+                          : "idle"
+                      }
                       isFirst={index === 0}
                       key={request.id}
+                      onOpenReview={(selectedRequest) => {
+                        setOnboardingReviewRequestId(
+                          selectedRequest?.id ?? null
+                        )
+                        setOnboardingReviewNotes("")
+                        setKycReviewMemberId(null)
+                        setKycReviewNotes("")
+                        setError(null)
+                      }}
+                      onReview={handleReviewOnboarding}
+                      onboardingReviewNotes={onboardingReviewNotes}
+                      onboardingReviewRequestId={onboardingReviewRequestId}
                       request={request}
+                      setOnboardingReviewNotes={setOnboardingReviewNotes}
                     />
                   ))}
                 </View>
@@ -612,10 +871,31 @@ export function AdminMembersScreen() {
                 <View className="gap-3">
                   {members.members.map((member, index) => (
                     <MemberCard
+                      actionState={
+                        actionKey === `kyc-${member.id}` ? "pending" : "idle"
+                      }
                       isFirst={index === 0}
                       key={member.id}
+                      kycReviewMemberId={kycReviewMemberId}
+                      kycReviewNotes={kycReviewNotes}
+                      kycReviewStatus={kycReviewStatus}
                       member={member}
+                      onOpenKycReview={(selectedMember) => {
+                        setKycReviewMemberId(selectedMember?.id ?? null)
+                        setKycReviewStatus(
+                          selectedMember
+                            ? (selectedMember.kycStatus as MobileAdminMemberKycStatus)
+                            : "verified"
+                        )
+                        setKycReviewNotes("")
+                        setOnboardingReviewRequestId(null)
+                        setOnboardingReviewNotes("")
+                        setError(null)
+                      }}
                       onOpen={() => openMemberDetail(member.id)}
+                      onReviewKyc={handleReviewKyc}
+                      setKycReviewNotes={setKycReviewNotes}
+                      setKycReviewStatus={setKycReviewStatus}
                     />
                   ))}
                 </View>

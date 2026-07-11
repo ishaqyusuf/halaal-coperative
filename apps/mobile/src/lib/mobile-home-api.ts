@@ -243,6 +243,7 @@ export type MobileAdminCollectionFollowUpInput = {
 
 export type MobileAdminMemberStatusUpdateInput = {
   memberId: string
+  reviewNotes?: string
   status: MobileAdminMemberStatus
 }
 
@@ -253,6 +254,12 @@ export type MobileAdminMemberKycUpdateInput = {
   kycReviewNotes?: string
   kycStatus: MobileAdminMemberKycStatus
   memberId: string
+}
+
+export type MobileAdminMemberOnboardingReviewInput = {
+  decision: "approved" | "rejected"
+  requestId: string
+  reviewNotes: string
 }
 
 export type MobileAdminShareReviewInput = {
@@ -1257,6 +1264,16 @@ export async function updateMobileAdminMemberKyc(
     id: string
     kycStatus: MobileAdminMemberKycStatus
   }>
+}
+
+export async function reviewMobileAdminMemberOnboarding(
+  input: MobileAdminMemberOnboardingReviewInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.members.reviewOnboarding.mutate(
+    input
+  ) as Promise<MobileAdminActionResult>
 }
 
 export async function getMobileAdminFinance() {

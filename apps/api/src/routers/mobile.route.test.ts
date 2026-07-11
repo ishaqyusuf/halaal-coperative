@@ -852,6 +852,7 @@ describe("mobileRouter", () => {
     await expect(
       caller.mobile.admin.members.updateStatus({
         memberId: "member-1",
+        reviewNotes: "Approved from mobile onboarding queue.",
         status: "active",
       })
     ).rejects.toThrow("Member status review is unavailable")
@@ -863,6 +864,14 @@ describe("mobileRouter", () => {
         memberId: "member-1",
       })
     ).rejects.toThrow("Member KYC review is unavailable")
+
+    await expect(
+      caller.mobile.admin.members.reviewOnboarding({
+        decision: "approved",
+        requestId: "onboarding-1",
+        reviewNotes: "Approved from mobile onboarding queue.",
+      })
+    ).rejects.toThrow("Member onboarding review is unavailable")
   })
 
   test("returns admin finance overview for staff workspaces", async () => {

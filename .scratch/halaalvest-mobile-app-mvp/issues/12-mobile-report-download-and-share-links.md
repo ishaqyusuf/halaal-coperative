@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A permitted staff user can open or share report export links from mobile after seeing compact server-provided report summaries.
-- [ ] Report links preserve tenant and role scoping and do not require mobile to duplicate report generation logic.
+- [x] A permitted staff user can open or share report export links from mobile after seeing compact server-provided report summaries.
+- [x] Report links preserve tenant and role scoping and do not require mobile to duplicate report generation logic.

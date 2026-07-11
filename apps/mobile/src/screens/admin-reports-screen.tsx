@@ -2,10 +2,12 @@ import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
+import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { getWebUrl } from "@/lib/base-url"
 import {
   getMobileAdminReports,
   type MobileAdminActivityEvent,
@@ -16,7 +18,7 @@ import {
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useEffect, useMemo, useState } from "react"
-import { ScrollView, View } from "react-native"
+import { Linking, ScrollView, Share, View } from "react-native"
 
 const fallbackReports: MobileAdminReportCard[] = [
   {
@@ -75,6 +77,10 @@ function reportIcon(key: string) {
   if (key === "projectFinancing") return "BriefcaseBusiness"
   if (key === "support") return "MessagesSquare"
   return "FileText"
+}
+
+function buildReportExportUrl(exportHref: string) {
+  return new URL(exportHref, getWebUrl()).toString()
 }
 
 function formatActivityDate(value: string) {
@@ -184,10 +190,14 @@ function CollectionFollowUpRow({
 function ReportCard({
   currencyCode,
   isFirst,
+  onOpen,
+  onShare,
   report,
 }: {
   currencyCode: string
   isFirst: boolean
+  onOpen: (report: MobileAdminReportCard) => void
+  onShare: (report: MobileAdminReportCard) => void
   report: MobileAdminReportCard
 }) {
   return (
@@ -211,6 +221,26 @@ function ReportCard({
           <Text className="text-xs font-medium text-muted-foreground">
             {report.metricLabel} - {report.exportHref}
           </Text>
+          <View className="flex-row flex-wrap gap-2 pt-2">
+            <Button
+              className="h-9"
+              onPress={() => onOpen(report)}
+              size="sm"
+              variant="outline"
+            >
+              <Icon name="ExternalLink" className="size-sm" />
+              <Text>Open export</Text>
+            </Button>
+            <Button
+              className="h-9"
+              onPress={() => onShare(report)}
+              size="sm"
+              variant="outline"
+            >
+              <Icon name="Share2" className="size-sm" />
+              <Text>Share link</Text>
+            </Button>
+          </View>
         </View>
       </View>
     </View>
@@ -283,6 +313,28 @@ export function AdminReportsScreen() {
     }
   }, [canUseServerReports, profile?.token])
 
+  async function openReportExport(report: MobileAdminReportCard) {
+    try {
+      await Linking.openURL(buildReportExportUrl(report.exportHref))
+    } catch {
+      setError("Report export could not be opened.")
+    }
+  }
+
+  async function shareReportExport(report: MobileAdminReportCard) {
+    try {
+      const url = buildReportExportUrl(report.exportHref)
+
+      await Share.share({
+        message: `${report.title}: ${url}`,
+        title: report.title,
+        url,
+      })
+    } catch {
+      setError("Report export link could not be shared.")
+    }
+  }
+
   return (
     <SafeArea style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-5">
@@ -326,6 +378,8 @@ export function AdminReportsScreen() {
                       currencyCode={currencyCode}
                       isFirst={index === 0}
                       key={report.key}
+                      onOpen={openReportExport}
+                      onShare={shareReportExport}
                       report={report}
                     />
                   ))}

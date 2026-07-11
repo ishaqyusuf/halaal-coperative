@@ -195,6 +195,39 @@ export function AdminHomeScreen() {
             </Text>
           )}
         </SectionCard>
+
+        <SectionCard icon="TriangleAlert" title="Setup warnings">
+          {isLoadingOverview ? (
+            <LoadingSpinner />
+          ) : overview?.warnings.length ? (
+            <View className="gap-3">
+              {overview.warnings.map((warning) => (
+                <View
+                  className="flex-row gap-3 rounded-md bg-secondary p-3"
+                  key={warning.key}
+                >
+                  <Icon
+                    name="TriangleAlert"
+                    className="size-base text-accent"
+                  />
+                  <View className="flex-1 gap-1">
+                    <Text className="font-semibold text-foreground">
+                      {warning.label}
+                    </Text>
+                    <Text className="text-xs leading-5 text-muted-foreground">
+                      Complete setup on the dashboard before relying on this
+                      workspace for live operations.
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text className="text-sm leading-5 text-muted-foreground">
+              No setup warnings are visible in the mobile overview.
+            </Text>
+          )}
+        </SectionCard>
       </ScrollView>
     </SafeArea>
   )

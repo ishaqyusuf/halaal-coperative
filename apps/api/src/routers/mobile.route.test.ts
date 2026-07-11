@@ -885,6 +885,7 @@ describe("mobileRouter", () => {
     ])
     expect(overview.generatedAt).toEqual(expect.any(String))
     expect(overview.supportCases).toEqual([])
+    expect(overview.warnings).toEqual([])
   })
 
   test("rejects admin overview from the member workspace", async () => {

@@ -4,6 +4,7 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
+import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { adminExceptions, adminStats } from "@/data/mobile-template"
@@ -18,6 +19,7 @@ import {
   reviewMobileAdminProjectFinancingRequest,
   reviewMobileAdminReceipt,
   type MobileAdminCollectionFollowUp,
+  type MobileAdminCollectionFollowUpInput,
   type MobileAdminFinance,
   type MobileAdminFinanceRecentItem,
   type MobileAdminReviewStatus,
@@ -32,6 +34,30 @@ type ReceiptReviewDecision =
   | "correction_requested"
   | "approved"
   | "rejected"
+type CollectionFollowUpStatus = MobileAdminCollectionFollowUpInput["status"]
+type CollectionFollowUpPriority = NonNullable<
+  MobileAdminCollectionFollowUpInput["priority"]
+>
+
+const collectionFollowUpStatuses: {
+  label: string
+  value: CollectionFollowUpStatus
+}[] = [
+  { label: "Reminded", value: "reminded" },
+  { label: "Promise", value: "promise_to_pay" },
+  { label: "Settled", value: "settled" },
+  { label: "Unreachable", value: "unreachable" },
+]
+
+const collectionFollowUpPriorities: {
+  label: string
+  value: CollectionFollowUpPriority
+}[] = [
+  { label: "Normal", value: "normal" },
+  { label: "High", value: "high" },
+  { label: "Urgent", value: "urgent" },
+  { label: "Low", value: "low" },
+]
 
 function formatCurrency(value: number, currencyCode: string) {
   return new Intl.NumberFormat("en", {
@@ -275,15 +301,46 @@ function FinanceRecentItemCard({
 
 function CollectionFollowUpCard({
   actionState,
+  collectionFollowUpItemId,
+  collectionFollowUpNextActionAt,
+  collectionFollowUpNote,
+  collectionFollowUpPriority,
+  collectionFollowUpStatus,
   followUp,
   isFirst,
-  onRecordReminder,
+  onOpenCollectionFollowUp,
+  onRecordFollowUp,
+  setCollectionFollowUpNextActionAt,
+  setCollectionFollowUpNote,
+  setCollectionFollowUpPriority,
+  setCollectionFollowUpStatus,
 }: {
   actionState: "idle" | "pending"
+  collectionFollowUpItemId: string | null
+  collectionFollowUpNextActionAt: string
+  collectionFollowUpNote: string
+  collectionFollowUpPriority: CollectionFollowUpPriority
+  collectionFollowUpStatus: CollectionFollowUpStatus
   followUp: MobileAdminCollectionFollowUp
   isFirst: boolean
-  onRecordReminder: (followUp: MobileAdminCollectionFollowUp) => void
+  onOpenCollectionFollowUp: (
+    followUp: MobileAdminCollectionFollowUp | null
+  ) => void
+  onRecordFollowUp: (followUp: MobileAdminCollectionFollowUp) => void
+  setCollectionFollowUpNextActionAt: (value: string) => void
+  setCollectionFollowUpNote: (value: string) => void
+  setCollectionFollowUpPriority: (value: CollectionFollowUpPriority) => void
+  setCollectionFollowUpStatus: (value: CollectionFollowUpStatus) => void
 }) {
+  const isRecording = collectionFollowUpItemId === followUp.id
+  const hasValidDate =
+    collectionFollowUpNextActionAt.trim().length === 0 ||
+    /^\d{4}-\d{2}-\d{2}$/.test(collectionFollowUpNextActionAt.trim())
+  const canSubmit =
+    collectionFollowUpNote.trim().length >= 2 &&
+    hasValidDate &&
+    actionState !== "pending"
+
   return (
     <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
       <View className="flex-row items-start gap-3">
@@ -310,17 +367,100 @@ function CollectionFollowUpCard({
           </Text>
         </View>
       </View>
-      <Button
-        className="self-start"
-        disabled={actionState === "pending"}
-        onPress={() => onRecordReminder(followUp)}
-        size="sm"
-        variant="outline"
-      >
-        <Text>
-          {actionState === "pending" ? "Saving..." : "Record reminder"}
-        </Text>
-      </Button>
+      {isRecording ? (
+        <View className="gap-3">
+          <Textarea
+            editable={actionState !== "pending"}
+            onChangeText={setCollectionFollowUpNote}
+            placeholder="Field follow-up note"
+            value={collectionFollowUpNote}
+          />
+          <View className="gap-2">
+            <Text className="text-xs font-medium text-muted-foreground">
+              Status
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {collectionFollowUpStatuses.map((item) => (
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  key={item.value}
+                  onPress={() => setCollectionFollowUpStatus(item.value)}
+                  variant={
+                    collectionFollowUpStatus === item.value
+                      ? "secondary"
+                      : "outline"
+                  }
+                >
+                  <Text>{item.label}</Text>
+                </Button>
+              ))}
+            </View>
+          </View>
+          <View className="gap-2">
+            <Text className="text-xs font-medium text-muted-foreground">
+              Priority
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {collectionFollowUpPriorities.map((item) => (
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  key={item.value}
+                  onPress={() => setCollectionFollowUpPriority(item.value)}
+                  variant={
+                    collectionFollowUpPriority === item.value
+                      ? "secondary"
+                      : "outline"
+                  }
+                >
+                  <Text>{item.label}</Text>
+                </Button>
+              ))}
+            </View>
+          </View>
+          <Input
+            editable={actionState !== "pending"}
+            onChangeText={setCollectionFollowUpNextActionAt}
+            placeholder="Next action date YYYY-MM-DD"
+            value={collectionFollowUpNextActionAt}
+          />
+          {!hasValidDate ? (
+            <Text className="text-xs font-medium text-destructive">
+              Use YYYY-MM-DD for next action date.
+            </Text>
+          ) : null}
+          <View className="flex-row flex-wrap gap-2">
+            <Button
+              className="h-10"
+              disabled={!canSubmit}
+              onPress={() => onRecordFollowUp(followUp)}
+            >
+              <Icon name="Send" className="size-base text-primary-foreground" />
+              <Text>{actionState === "pending" ? "Saving" : "Save note"}</Text>
+            </Button>
+            <Button
+              className="h-10"
+              disabled={actionState === "pending"}
+              onPress={() => onOpenCollectionFollowUp(null)}
+              variant="outline"
+            >
+              <Text>Cancel</Text>
+            </Button>
+          </View>
+        </View>
+      ) : (
+        <Button
+          className="self-start"
+          disabled={actionState === "pending"}
+          onPress={() => onOpenCollectionFollowUp(followUp)}
+          size="sm"
+          variant="outline"
+        >
+          <Icon name="MessageSquarePlus" className="size-sm" />
+          <Text>Record follow-up</Text>
+        </Button>
+      )}
     </View>
   )
 }
@@ -339,6 +479,16 @@ export function AdminFinanceScreen() {
     null
   )
   const [receiptReviewNotes, setReceiptReviewNotes] = useState("")
+  const [collectionFollowUpItemId, setCollectionFollowUpItemId] = useState<
+    string | null
+  >(null)
+  const [collectionFollowUpNote, setCollectionFollowUpNote] = useState("")
+  const [collectionFollowUpStatus, setCollectionFollowUpStatus] =
+    useState<CollectionFollowUpStatus>("reminded")
+  const [collectionFollowUpPriority, setCollectionFollowUpPriority] =
+    useState<CollectionFollowUpPriority>("normal")
+  const [collectionFollowUpNextActionAt, setCollectionFollowUpNextActionAt] =
+    useState("")
   const [error, setError] = useState<string | null>(null)
   const canUseServerFinance = Boolean(
     profile?.role === "admin" &&
@@ -520,7 +670,20 @@ export function AdminFinanceScreen() {
     }
   }
 
-  async function recordReminder(followUp: MobileAdminCollectionFollowUp) {
+  async function recordFollowUp(followUp: MobileAdminCollectionFollowUp) {
+    const note = collectionFollowUpNote.trim()
+    const nextActionAt = collectionFollowUpNextActionAt.trim()
+
+    if (note.length < 2) {
+      setError("A follow-up note is required.")
+      return
+    }
+
+    if (nextActionAt.length > 0 && !/^\d{4}-\d{2}-\d{2}$/.test(nextActionAt)) {
+      setError("Use YYYY-MM-DD for next action date.")
+      return
+    }
+
     const nextActionKey = `follow-up-${followUp.id}`
 
     setActionKey(nextActionKey)
@@ -529,12 +692,22 @@ export function AdminFinanceScreen() {
     try {
       await recordMobileAdminCollectionFollowUp({
         caseStage: followUp.caseStage,
-        note: `Mobile follow-up reminder recorded for ${followUp.memberName}.`,
-        priority: "normal",
+        nextActionAt: nextActionAt || undefined,
+        note,
+        priority: collectionFollowUpPriority,
+        promiseToPayAt:
+          collectionFollowUpStatus === "promise_to_pay" && nextActionAt
+            ? nextActionAt
+            : undefined,
         repaymentScheduleItemId: followUp.repaymentScheduleItemId,
         resolutionStatus: followUp.resolutionStatus,
-        status: "reminded",
+        status: collectionFollowUpStatus,
       })
+      setCollectionFollowUpItemId(null)
+      setCollectionFollowUpNote("")
+      setCollectionFollowUpStatus("reminded")
+      setCollectionFollowUpPriority("normal")
+      setCollectionFollowUpNextActionAt("")
       await refreshFinance()
     } catch (actionError) {
       setError(
@@ -679,10 +852,41 @@ export function AdminFinanceScreen() {
                           ? "pending"
                           : "idle"
                       }
+                      collectionFollowUpItemId={collectionFollowUpItemId}
+                      collectionFollowUpNextActionAt={
+                        collectionFollowUpNextActionAt
+                      }
+                      collectionFollowUpNote={collectionFollowUpNote}
+                      collectionFollowUpPriority={collectionFollowUpPriority}
+                      collectionFollowUpStatus={collectionFollowUpStatus}
                       followUp={followUp}
                       isFirst={index === 0}
                       key={followUp.id}
-                      onRecordReminder={recordReminder}
+                      onOpenCollectionFollowUp={(selectedFollowUp) => {
+                        setCollectionFollowUpItemId(
+                          selectedFollowUp?.id ?? null
+                        )
+                        setCollectionFollowUpNote("")
+                        setCollectionFollowUpStatus("reminded")
+                        setCollectionFollowUpPriority(
+                          (selectedFollowUp?.priority as
+                            | CollectionFollowUpPriority
+                            | undefined) ?? "normal"
+                        )
+                        setCollectionFollowUpNextActionAt(
+                          selectedFollowUp?.nextActionAt?.slice(0, 10) ?? ""
+                        )
+                        setError(null)
+                      }}
+                      onRecordFollowUp={recordFollowUp}
+                      setCollectionFollowUpNextActionAt={
+                        setCollectionFollowUpNextActionAt
+                      }
+                      setCollectionFollowUpNote={setCollectionFollowUpNote}
+                      setCollectionFollowUpPriority={
+                        setCollectionFollowUpPriority
+                      }
+                      setCollectionFollowUpStatus={setCollectionFollowUpStatus}
                     />
                   ))}
                 </View>

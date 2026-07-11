@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Admin Support Triage Actions.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A permitted finance user can add a collection follow-up note from mobile with status, priority, and next-action context.
-- [ ] The follow-up appears in the mobile finance queue and remains scoped to the correct tenant and member obligation.
+- [x] A permitted finance user can add a collection follow-up note from mobile with status, priority, and next-action context.
+- [x] The follow-up appears in the mobile finance queue and remains scoped to the correct tenant and member obligation.

@@ -9,7 +9,13 @@ import {
   getMemberScopedPaymentReceiptSummary,
   listMemberPaymentReceipts,
 } from "./payment-receipts"
-import { getMemberSupportCaseSummary, listSupportCases } from "./support"
+import {
+  createMemberSupportCase,
+  getMemberSupportCaseSummary,
+  listSupportCases,
+  type SupportCaseCategory,
+  type SupportCaseRow,
+} from "./support"
 import {
   getMemberShareBalancesAtDate,
   getMemberUnitSharePosition,
@@ -27,6 +33,19 @@ export const mobileMemberSectionKeys = [
 ] as const
 
 export type MobileMemberSectionKey = (typeof mobileMemberSectionKeys)[number]
+
+export const mobileSupportCategoryKeys = [
+  "payment_issue",
+  "account_update",
+  "shares",
+  "financing",
+  "procurement",
+  "feature_request",
+  "technical",
+  "other",
+] as const satisfies readonly SupportCaseCategory[]
+
+export type MobileSupportCategory = (typeof mobileSupportCategoryKeys)[number]
 
 export type MobileOverviewMetric = {
   detail: string
@@ -122,6 +141,34 @@ export type MobileMemberMore = {
   sections: MobileMemberMoreSection[]
 }
 
+export type MobileSupportCase = {
+  category: MobileSupportCategory
+  detail: string
+  financialAdjustmentApprovalStatus: string
+  id: string
+  lastActivityAt: string
+  messageCount: number
+  priority: string
+  requiresFinancialAdjustment: boolean
+  status: string
+  subject: string
+}
+
+export type MobileMemberSupport = {
+  cases: MobileSupportCase[]
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  summary: {
+    highPriorityOpenCases: number
+    openCases: number
+    totalCases: number
+  }
+}
+
 const memberSectionCopy: Record<
   MobileMemberSectionKey,
   {
@@ -189,6 +236,19 @@ function emptyMemberHome(): MobileMemberHome {
         value: 0,
       },
     ],
+  }
+}
+
+function emptyMemberSupport(): MobileMemberSupport {
+  return {
+    cases: [],
+    generatedAt: new Date().toISOString(),
+    member: null,
+    summary: {
+      highPriorityOpenCases: 0,
+      openCases: 0,
+      totalCases: 0,
+    },
   }
 }
 
@@ -395,6 +455,24 @@ function emptyRows(section: MobileMemberSectionKey): MobileMemberSectionRow[] {
 
 function latestDateLabel(value: Date | null | undefined) {
   return value ? formatDateLabel(value) : "No recent activity"
+}
+
+function toMobileSupportCase(row: SupportCaseRow): MobileSupportCase {
+  return {
+    category: row.category as MobileSupportCategory,
+    detail:
+      row.messages.at(-1)?.message ??
+      row.description ??
+      "No support message available",
+    financialAdjustmentApprovalStatus: row.financialAdjustmentApprovalStatus,
+    id: row.id,
+    lastActivityAt: row.updatedAt.toISOString(),
+    messageCount: row.messages.length,
+    priority: row.priority,
+    requiresFinancialAdjustment: row.requiresFinancialAdjustment,
+    status: row.status,
+    subject: row.subject,
+  }
 }
 
 async function buildMemberMore(input: {
@@ -614,6 +692,94 @@ async function buildMemberMore(input: {
       },
     ],
   }
+}
+
+export async function getMobileMemberSupport(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberSupport> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberSupport()
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberSupport()
+  }
+
+  const [summary, cases] = await Promise.all([
+    getMemberSupportCaseSummary(
+      {
+        memberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    listSupportCases(
+      {
+        limit: 20,
+        memberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+  ])
+
+  return {
+    cases: cases.map(toMobileSupportCase),
+    generatedAt: new Date().toISOString(),
+    member: {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      name: member.fullName,
+    },
+    summary: {
+      highPriorityOpenCases: summary.highPriorityOpenCases,
+      openCases: summary.openCases,
+      totalCases: summary.totalCases,
+    },
+  }
+}
+
+export async function createMobileMemberSupportCase(input: {
+  category: MobileSupportCategory
+  description: string
+  moneyImpactRequested?: boolean
+  subject: string
+  tenantId: string
+  userId: string
+}): Promise<MobileSupportCase> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error("Support is unavailable without database configuration.")
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    throw new Error(
+      "Member profile needs linking before creating support cases."
+    )
+  }
+
+  const supportCase = await createMemberSupportCase(
+    {
+      category: input.category,
+      description: input.description,
+      memberId: member.id,
+      moneyImpactRequested: input.moneyImpactRequested,
+      openedByUserId: input.userId,
+      subject: input.subject,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileSupportCase(supportCase)
 }
 
 function buildCommitmentSection(

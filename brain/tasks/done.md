@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-11: Added mobile member support self-service: `mobile.member.support.list/create` now return member-scoped support cases and create audited member-authored support cases from the signed session, with a guarded mobile `/support` screen for category selection, subject/description submission, optional money-impact review, and recent case tracking.
 - 2026-07-11: Added the server-backed mobile member More hub: `mobile.member.more` now returns signed-session member profile, statement, receipt, and support highlights from existing statement/payment/support query helpers, and the mobile More screen renders those sections for signed member sessions while preserving admin/mock fallback menus.
 - 2026-07-11: Added server-backed mobile member section reads for Commitments, Financing, and Shares: `mobile.member.section` validates the section key, stays member-workspace gated, derives data from signed-session member statement/share queries, and the shared mobile detail screen now renders signed-session DTO metrics and rows while keeping static starter rows for mock/development fallbacks.
 - 2026-07-11: Added the first Phase 2 mobile home read DTOs: `mobile.member.home` derives member self-service state from the signed member workspace, `mobile.admin.overview` reuses the server overview summary behind staff role gating, and mobile member/admin home screens now fetch server DTOs for signed sessions while keeping static fixtures for development mock sessions.

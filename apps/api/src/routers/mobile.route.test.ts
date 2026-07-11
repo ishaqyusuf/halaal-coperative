@@ -128,6 +128,56 @@ describe("mobileRouter", () => {
     ).rejects.toThrow()
   })
 
+  test("returns member support list for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const support = await caller.mobile.member.support.list()
+
+    expect(support.member).toBeNull()
+    expect(support.cases).toEqual([])
+    expect(support.summary.openCases).toBe(0)
+  })
+
+  test("rejects member support list when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(caller.mobile.member.support.list()).rejects.toThrow(
+      "Switch to the member workspace"
+    )
+  })
+
+  test("validates member support create input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.support.create({
+        category: "unknown" as never,
+        description: "Need help with this account issue.",
+        subject: "Help",
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member support create without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.support.create({
+        category: "technical",
+        description: "Need help with this account issue.",
+        subject: "Help needed",
+      })
+    ).rejects.toThrow("Support is unavailable")
+  })
+
   test("returns admin overview for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

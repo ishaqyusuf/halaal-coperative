@@ -1,9 +1,12 @@
 import {
+  createMobileMemberSupportCase,
   getMobileAdminOverview,
   getMobileMemberHome,
   getMobileMemberMore,
+  getMobileMemberSupport,
   getMobileMemberSection,
   mobileMemberSectionKeys,
+  mobileSupportCategoryKeys,
 } from "@halaalvest/db"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
@@ -16,6 +19,13 @@ import {
 
 const mobileMemberSectionInput = z.object({
   section: z.enum(mobileMemberSectionKeys),
+})
+
+const mobileSupportCreateInput = z.object({
+  category: z.enum(mobileSupportCategoryKeys),
+  description: z.string().trim().min(5).max(2000),
+  moneyImpactRequested: z.boolean().optional(),
+  subject: z.string().trim().min(3).max(120),
 })
 
 function assertMemberWorkspace(role: string) {
@@ -61,5 +71,29 @@ export const mobileRouter = createTRPCRouter({
           userId: ctx.auth.session.user.id,
         })
       }),
+    support: createTRPCRouter({
+      create: tenantProcedure
+        .input(mobileSupportCreateInput)
+        .mutation(({ ctx, input }) => {
+          assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+          return createMobileMemberSupportCase({
+            category: input.category,
+            description: input.description,
+            moneyImpactRequested: input.moneyImpactRequested,
+            subject: input.subject,
+            tenantId: ctx.tenant.current.id,
+            userId: ctx.auth.session.user.id,
+          })
+        }),
+      list: tenantProcedure.query(({ ctx }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+        return getMobileMemberSupport({
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+    }),
   }),
 })

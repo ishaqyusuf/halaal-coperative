@@ -50,6 +50,7 @@ export function MoreScreen() {
     string | null
   >(null)
   const [workspaceError, setWorkspaceError] = useState<string | null>(null)
+  const supportHref = "/support" as Parameters<typeof router.push>[0]
   const availableRoles = useMemo(
     () => profile?.availableRoles ?? [],
     [profile?.availableRoles]
@@ -223,6 +224,18 @@ export function MoreScreen() {
                         </View>
                       )
                     })}
+                    {section.key === "support" ? (
+                      <Button
+                        className="h-11"
+                        onPress={() => router.push(supportHref)}
+                      >
+                        <Icon
+                          name="MessageCirclePlus"
+                          className="size-base text-primary-foreground"
+                        />
+                        <Text>Open support</Text>
+                      </Button>
+                    ) : null}
                   </View>
                 </SectionCard>
               ))}

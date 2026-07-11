@@ -2,6 +2,18 @@
 
 ## 2026-07-11
 
+### Mobile Member Support Self-Service
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/screens/more-screen.tsx`, `apps/mobile/src/screens/support-screen.tsx`, `apps/mobile/src/app/(member)/support.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added the first Phase 3 member self-service workflow for mobile. `mobile.member.support.list` returns member-scoped support summary and recent cases, while `mobile.member.support.create` validates mobile input, derives the member from the signed session, and delegates to the existing audited member support case creation helper. The member app now has a guarded `/support` screen with category selection, subject/description inputs, optional money-impact review toggle, recent cases, and a More-tab entry point.
+- Scope note: This adds support case creation and listing only. It does not yet add case detail threads, member replies, support attachments, receipt-linked support creation, push notifications, offline drafts, or device smoke testing.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; `bun --cwd packages/db test src/queries/support.test.ts`; `../../node_modules/.bin/tsc --noEmit` from `packages/db`; touched-file `prettier --check`; scoped `git diff --check`.
+- Attempted checks: `bun --cwd apps/api typecheck` still fails on existing `bun:test` type declarations and nullable `ctx.auth.session` warnings in `apps/api/src/routers/mobile-auth.route.ts`. `bun --cwd apps/mobile typecheck` still fails on existing React ref type duplication in `src/components/ui/label.tsx`, `src/components/ui/switch.tsx`, and `src/components/ui/tabs.tsx`. The new `/support` route link error was fixed before rerunning.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Member More Hub Reads
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

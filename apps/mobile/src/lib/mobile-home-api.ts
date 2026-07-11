@@ -51,6 +51,16 @@ export type MobileAdminOverview = {
 
 export type MobileMemberSectionKey = "commitments" | "financing" | "shares"
 
+export type MobileSupportCategory =
+  | "payment_issue"
+  | "account_update"
+  | "shares"
+  | "financing"
+  | "procurement"
+  | "feature_request"
+  | "technical"
+  | "other"
+
 export type MobileMemberSectionRow = {
   detail: string
   format: MobileMetricFormat | null
@@ -98,6 +108,41 @@ export type MobileMemberMore = {
   sections: MobileMemberMoreSection[]
 }
 
+export type MobileSupportCase = {
+  category: MobileSupportCategory
+  detail: string
+  financialAdjustmentApprovalStatus: string
+  id: string
+  lastActivityAt: string
+  messageCount: number
+  priority: string
+  requiresFinancialAdjustment: boolean
+  status: string
+  subject: string
+}
+
+export type MobileMemberSupport = {
+  cases: MobileSupportCase[]
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  summary: {
+    highPriorityOpenCases: number
+    openCases: number
+    totalCases: number
+  }
+}
+
+export type MobileSupportCreateInput = {
+  category: MobileSupportCategory
+  description: string
+  moneyImpactRequested?: boolean
+  subject: string
+}
+
 export async function getMobileMemberHome() {
   const client = createMobileTrpcClient()
 
@@ -108,6 +153,22 @@ export async function getMobileMemberMore() {
   const client = createMobileTrpcClient()
 
   return client.mobile.member.more.query() as Promise<MobileMemberMore>
+}
+
+export async function getMobileMemberSupport() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.support.list.query() as Promise<MobileMemberSupport>
+}
+
+export async function createMobileMemberSupportCase(
+  input: MobileSupportCreateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.support.create.mutate(
+    input
+  ) as Promise<MobileSupportCase>
 }
 
 export async function getMobileMemberSection(section: MobileMemberSectionKey) {

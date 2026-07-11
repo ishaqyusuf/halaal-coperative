@@ -34,6 +34,7 @@ import {
   mobileProjectFinancingStructureKeys,
   mobileSupportCategoryKeys,
   respondMobileMemberGuarantorApproval,
+  replyMobileMemberSupportCase,
 } from "@halaalvest/db"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
@@ -67,6 +68,12 @@ const mobileSupportCreateInput = z.object({
   description: z.string().trim().min(5).max(2000),
   moneyImpactRequested: z.boolean().optional(),
   subject: z.string().trim().min(3).max(120),
+})
+
+const mobileSupportReplyInput = z.object({
+  attachmentUrl: z.string().trim().url().max(1000).optional(),
+  message: z.string().trim().min(2).max(2000),
+  supportCaseId: z.string().trim().min(1),
 })
 
 const mobileReceiptCreateInput = z.object({
@@ -436,6 +443,19 @@ export const mobileRouter = createTRPCRouter({
           userId: ctx.auth.session.user.id,
         })
       }),
+      reply: tenantProcedure
+        .input(mobileSupportReplyInput)
+        .mutation(({ ctx, input }) => {
+          assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+          return replyMobileMemberSupportCase({
+            attachmentUrl: input.attachmentUrl,
+            message: input.message,
+            supportCaseId: input.supportCaseId,
+            tenantId: ctx.tenant.current.id,
+            userId: ctx.auth.session.user.id,
+          })
+        }),
     }),
   }),
 })

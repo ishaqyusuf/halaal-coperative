@@ -660,6 +660,45 @@ describe("mobileRouter", () => {
     ).rejects.toThrow("Support is unavailable")
   })
 
+  test("validates member support reply input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.support.reply({
+        message: "",
+        supportCaseId: "support-case-1",
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member support reply when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.member.support.reply({
+        message: "Please review this support case.",
+        supportCaseId: "support-case-1",
+      })
+    ).rejects.toThrow("Switch to the member workspace")
+  })
+
+  test("rejects member support reply without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.support.reply({
+        message: "Please review this support case.",
+        supportCaseId: "support-case-1",
+      })
+    ).rejects.toThrow("Support is unavailable")
+  })
+
   test("returns admin member directory for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

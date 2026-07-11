@@ -12,6 +12,7 @@ import { useColors } from "@/hooks/use-color"
 import {
   createMobileMemberSupportCase,
   getMobileMemberSupport,
+  replyMobileMemberSupportCase,
   type MobileMemberSupport,
   type MobileSupportCategory,
 } from "@/lib/mobile-home-api"
@@ -20,10 +21,10 @@ import { useRouter } from "expo-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
 
-const supportCategories: Array<{
+const supportCategories: {
   label: string
   value: MobileSupportCategory
-}> = [
+}[] = [
   { label: "Payment", value: "payment_issue" },
   { label: "Account", value: "account_update" },
   { label: "Shares", value: "shares" },
@@ -57,6 +58,9 @@ export function SupportScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [replyCaseId, setReplyCaseId] = useState<string | null>(null)
+  const [replyMessage, setReplyMessage] = useState("")
+  const [isReplying, setIsReplying] = useState(false)
   const [category, setCategory] =
     useState<MobileSupportCategory>("payment_issue")
   const [subject, setSubject] = useState("")
@@ -94,6 +98,7 @@ export function SupportScreen() {
   const canSubmit = Boolean(
     subject.trim().length >= 3 && description.trim().length >= 5
   )
+  const canReply = Boolean(replyCaseId && replyMessage.trim().length >= 2)
 
   const loadSupport = useCallback(() => {
     let mounted = true
@@ -158,6 +163,29 @@ export function SupportScreen() {
       setError("Support case could not be submitted.")
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  async function handleReply() {
+    if (!canReply || !replyCaseId || isReplying) return
+
+    setError(null)
+    setSuccess(null)
+    setIsReplying(true)
+
+    try {
+      await replyMobileMemberSupportCase({
+        message: replyMessage.trim(),
+        supportCaseId: replyCaseId,
+      })
+      setReplyCaseId(null)
+      setReplyMessage("")
+      setSuccess("Support reply sent.")
+      loadSupport()
+    } catch {
+      setError("Support reply could not be sent.")
+    } finally {
+      setIsReplying(false)
     }
   }
 
@@ -271,25 +299,79 @@ export function SupportScreen() {
                 <View className="gap-3">
                   {support.cases.map((supportCase) => (
                     <View
-                      className="gap-1 rounded-md bg-secondary p-3"
+                      className="gap-3 rounded-md bg-secondary p-3"
                       key={supportCase.id}
                     >
-                      <View className="flex-row items-start justify-between gap-3">
-                        <Text className="flex-1 font-semibold text-foreground">
-                          {supportCase.subject}
+                      <View className="gap-1">
+                        <View className="flex-row items-start justify-between gap-3">
+                          <Text className="flex-1 font-semibold text-foreground">
+                            {supportCase.subject}
+                          </Text>
+                          <Text className="text-xs font-medium text-muted-foreground">
+                            {formatStatus(supportCase.status)}
+                          </Text>
+                        </View>
+                        <Text className="text-sm leading-5 text-muted-foreground">
+                          {supportCase.detail}
                         </Text>
-                        <Text className="text-xs font-medium text-muted-foreground">
-                          {formatStatus(supportCase.status)}
+                        <Text className="text-xs text-muted-foreground">
+                          {formatStatus(supportCase.category)} -{" "}
+                          {supportCase.messageCount} message(s) -{" "}
+                          {formatDate(supportCase.lastActivityAt)}
                         </Text>
                       </View>
-                      <Text className="text-sm leading-5 text-muted-foreground">
-                        {supportCase.detail}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">
-                        {formatStatus(supportCase.category)} -{" "}
-                        {supportCase.messageCount} message(s) -{" "}
-                        {formatDate(supportCase.lastActivityAt)}
-                      </Text>
+                      {replyCaseId === supportCase.id ? (
+                        <View className="gap-2">
+                          <Textarea
+                            editable={!isReplying}
+                            onChangeText={setReplyMessage}
+                            placeholder="Write a reply"
+                            value={replyMessage}
+                          />
+                          <View className="flex-row gap-2">
+                            <Button
+                              className="h-10 flex-1"
+                              disabled={!canReply || isReplying}
+                              onPress={handleReply}
+                            >
+                              <Icon
+                                name="Send"
+                                className="size-base text-primary-foreground"
+                              />
+                              <Text>{isReplying ? "Sending" : "Send"}</Text>
+                            </Button>
+                            <Button
+                              className="h-10 flex-1"
+                              disabled={isReplying}
+                              onPress={() => {
+                                setReplyCaseId(null)
+                                setReplyMessage("")
+                              }}
+                              variant="outline"
+                            >
+                              <Text>Cancel</Text>
+                            </Button>
+                          </View>
+                        </View>
+                      ) : (
+                        <Button
+                          className="h-10 self-start"
+                          disabled={isReplying}
+                          onPress={() => {
+                            setReplyCaseId(supportCase.id)
+                            setReplyMessage("")
+                            setError(null)
+                            setSuccess(null)
+                          }}
+                          variant="outline"
+                        >
+                          <Icon
+                            name="MessageSquareReply"
+                            className="size-base"
+                          />
+                          <Text>Reply</Text>
+                        </Button>
+                      )}
                     </View>
                   ))}
                 </View>

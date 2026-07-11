@@ -11,12 +11,12 @@ export type MobileOverviewMetric = {
 }
 
 export type MobileMemberHome = {
-  actionItems: Array<{
+  actionItems: {
     detail: string
     key: string
     label: string
     severity: "neutral" | "warning" | "critical"
-  }>
+  }[]
   generatedAt: string
   member: {
     id: string
@@ -34,20 +34,20 @@ export type MobileMemberHome = {
 }
 
 export type MobileAdminOverview = {
-  actionQueue: Array<{
+  actionQueue: {
     count: number
     detail: string
     key: string
     label: string
     severity: "neutral" | "warning" | "critical"
-  }>
+  }[]
   generatedAt: string
   stats: MobileOverviewMetric[]
   supportCases: MobileSupportCase[]
-  warnings: Array<{
+  warnings: {
     key: string
     label: string
-  }>
+  }[]
 }
 
 export type MobileAdminMemberStatus =
@@ -831,6 +831,12 @@ export type MobileSupportCreateInput = {
   subject: string
 }
 
+export type MobileSupportReplyInput = {
+  attachmentUrl?: string
+  message: string
+  supportCaseId: string
+}
+
 export async function getMobileMemberHome() {
   const client = createMobileTrpcClient()
 
@@ -973,6 +979,16 @@ export async function createMobileMemberSupportCase(
   const client = createMobileTrpcClient()
 
   return client.mobile.member.support.create.mutate(
+    input
+  ) as Promise<MobileSupportCase>
+}
+
+export async function replyMobileMemberSupportCase(
+  input: MobileSupportReplyInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.support.reply.mutate(
     input
   ) as Promise<MobileSupportCase>
 }

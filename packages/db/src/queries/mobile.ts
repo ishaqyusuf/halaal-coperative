@@ -49,8 +49,10 @@ import {
   type ProjectFinancingStructure,
 } from "./project-financing"
 import {
+  addMemberSupportCaseMessage,
   createMemberSupportCase,
   getMemberSupportCaseSummary,
+  getSupportCase,
   listSupportCases,
   type SupportCaseCategory,
   type SupportCaseRow,
@@ -3465,6 +3467,49 @@ export async function createMobileMemberSupportCase(input: {
       moneyImpactRequested: input.moneyImpactRequested,
       openedByUserId: input.userId,
       subject: input.subject,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileSupportCase(supportCase)
+}
+
+export async function replyMobileMemberSupportCase(input: {
+  attachmentUrl?: string | null
+  message: string
+  supportCaseId: string
+  tenantId: string
+  userId: string
+}): Promise<MobileSupportCase> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error("Support is unavailable without database configuration.")
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    throw new Error("Member profile needs linking before replying to support.")
+  }
+
+  await addMemberSupportCaseMessage(
+    {
+      attachmentUrl: input.attachmentUrl,
+      authorUserId: input.userId,
+      memberId: member.id,
+      message: input.message,
+      supportCaseId: input.supportCaseId,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  const supportCase = await getSupportCase(
+    {
+      memberId: member.id,
+      supportCaseId: input.supportCaseId,
       tenantId: input.tenantId,
     },
     prisma

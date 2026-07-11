@@ -140,6 +140,50 @@ export type MobileAdminReports = {
   stats: MobileOverviewMetric[]
 }
 
+export type MobileAdminAccessRoleKey =
+  | "super_admin"
+  | "tenant_admin"
+  | "finance_officer"
+  | "operations_officer"
+  | "member"
+
+export type MobileAdminAccessMembership = {
+  id: string
+  isDefault: boolean
+  label: string
+  role: MobileAdminAccessRoleKey
+}
+
+export type MobileAdminAccessUser = {
+  defaultRoleLabel: string | null
+  email: string
+  fullName: string
+  id: string
+  isPlatformOwner: boolean
+  memberships: MobileAdminAccessMembership[]
+}
+
+export type MobileAdminAccessRole = {
+  defaultUsersCount: number
+  label: string
+  role: MobileAdminAccessRoleKey
+  scope: string
+  usersCount: number
+}
+
+export type MobileAdminAccess = {
+  generatedAt: string
+  roles: MobileAdminAccessRole[]
+  summary: {
+    defaultRoles: number
+    memberUsers: number
+    roleAssignments: number
+    staffUsers: number
+    workspaceUsers: number
+  }
+  users: MobileAdminAccessUser[]
+}
+
 export type MobileMemberSectionKey = "commitments" | "financing" | "shares"
 
 export type MobileSupportCategory =
@@ -862,4 +906,10 @@ export async function getMobileAdminReports() {
   const client = createMobileTrpcClient()
 
   return client.mobile.admin.reports.overview.query() as Promise<MobileAdminReports>
+}
+
+export async function getMobileAdminAccess() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.access.overview.query() as Promise<MobileAdminAccess>
 }

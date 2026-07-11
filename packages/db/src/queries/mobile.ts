@@ -1,4 +1,5 @@
 import { createPrismaClient } from "../prisma"
+import { listTenantUsersWithMemberships, type MembershipRole } from "./auth"
 import { getDashboardMetrics, getOverviewSummary } from "./dashboard"
 import {
   listFoodPurchaseApplications,
@@ -262,6 +263,43 @@ export type MobileAdminReports = {
   generatedAt: string
   reports: MobileAdminReportCard[]
   stats: MobileOverviewMetric[]
+}
+
+export type MobileAdminAccessMembership = {
+  id: string
+  isDefault: boolean
+  label: string
+  role: MembershipRole
+}
+
+export type MobileAdminAccessUser = {
+  defaultRoleLabel: string | null
+  email: string
+  fullName: string
+  id: string
+  isPlatformOwner: boolean
+  memberships: MobileAdminAccessMembership[]
+}
+
+export type MobileAdminAccessRole = {
+  defaultUsersCount: number
+  label: string
+  role: MembershipRole
+  scope: string
+  usersCount: number
+}
+
+export type MobileAdminAccess = {
+  generatedAt: string
+  roles: MobileAdminAccessRole[]
+  summary: {
+    defaultRoles: number
+    memberUsers: number
+    roleAssignments: number
+    staffUsers: number
+    workspaceUsers: number
+  }
+  users: MobileAdminAccessUser[]
 }
 
 export type MobileMemberSectionRow = {
@@ -1249,6 +1287,44 @@ function latestDateLabel(value: Date | null | undefined) {
   return value ? formatDateLabel(value) : "No recent activity"
 }
 
+const mobileAdminAccessRoles: MembershipRole[] = [
+  "super_admin",
+  "tenant_admin",
+  "finance_officer",
+  "operations_officer",
+  "member",
+]
+
+function getMobileAdminRoleLabel(role: MembershipRole) {
+  switch (role) {
+    case "super_admin":
+      return "Super Admin"
+    case "tenant_admin":
+      return "Cooperative Admin"
+    case "finance_officer":
+      return "Finance Officer"
+    case "operations_officer":
+      return "Operations Officer"
+    case "member":
+      return "Member"
+  }
+}
+
+function getMobileAdminRoleScope(role: MembershipRole) {
+  switch (role) {
+    case "super_admin":
+      return "Platform-level oversight across cooperative workspaces."
+    case "tenant_admin":
+      return "Administrative control over cooperative setup and operations."
+    case "finance_officer":
+      return "Financial operations across collections, charges, and repayments."
+    case "operations_officer":
+      return "Member operations, public site updates, and coordination."
+    case "member":
+      return "Member-facing visibility into cooperative activity."
+  }
+}
+
 type MobileAdminMemberListRow = Awaited<
   ReturnType<typeof listMembers>
 >["items"][number]
@@ -1285,6 +1361,71 @@ function summarizeMobileAdminMembers(input: {
       .length,
     pageCount: input.members.length,
     totalCount: input.total,
+  }
+}
+
+function toMobileAdminAccessUser(
+  tenantId: string,
+  user: Awaited<ReturnType<typeof listTenantUsersWithMemberships>>[number]
+): MobileAdminAccessUser {
+  const memberships = user.memberships
+    .filter((membership) => membership.tenantId === tenantId)
+    .map((membership) => ({
+      id: membership.id,
+      isDefault: membership.isDefault,
+      label: getMobileAdminRoleLabel(membership.role),
+      role: membership.role,
+    }))
+
+  return {
+    defaultRoleLabel:
+      memberships.find((membership) => membership.isDefault)?.label ?? null,
+    email: user.email,
+    fullName: user.fullName,
+    id: user.id,
+    isPlatformOwner: user.isPlatformOwner,
+    memberships,
+  }
+}
+
+function buildMobileAdminAccessRoles(
+  users: MobileAdminAccessUser[]
+): MobileAdminAccessRole[] {
+  return mobileAdminAccessRoles.map((role) => {
+    const usersWithRole = users.filter((user) =>
+      user.memberships.some((membership) => membership.role === role)
+    )
+
+    return {
+      defaultUsersCount: usersWithRole.filter(
+        (user) =>
+          user.memberships.find((membership) => membership.role === role)
+            ?.isDefault
+      ).length,
+      label: getMobileAdminRoleLabel(role),
+      role,
+      scope: getMobileAdminRoleScope(role),
+      usersCount: usersWithRole.length,
+    }
+  })
+}
+
+function summarizeMobileAdminAccess(
+  users: MobileAdminAccessUser[]
+): MobileAdminAccess["summary"] {
+  return {
+    defaultRoles: users.filter((user) => user.defaultRoleLabel).length,
+    memberUsers: users.filter((user) =>
+      user.memberships.some((membership) => membership.role === "member")
+    ).length,
+    roleAssignments: users.reduce(
+      (total, user) => total + user.memberships.length,
+      0
+    ),
+    staffUsers: users.filter((user) =>
+      user.memberships.some((membership) => membership.role !== "member")
+    ).length,
+    workspaceUsers: users.length,
   }
 }
 
@@ -4046,5 +4187,20 @@ export async function getMobileAdminReports(
         value: overview.primaryMetrics.actionQueueTotal,
       },
     ],
+  }
+}
+
+export async function getMobileAdminAccess(
+  tenantId: string
+): Promise<MobileAdminAccess> {
+  const users = (await listTenantUsersWithMemberships(tenantId)).map((user) =>
+    toMobileAdminAccessUser(tenantId, user)
+  )
+
+  return {
+    generatedAt: new Date().toISOString(),
+    roles: buildMobileAdminAccessRoles(users),
+    summary: summarizeMobileAdminAccess(users),
+    users,
   }
 }

@@ -7,7 +7,11 @@ import { Text } from "@/components/ui/text"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
+  getMobileAdminAccess,
   getMobileMemberMore,
+  type MobileAdminAccess,
+  type MobileAdminAccessRole,
+  type MobileAdminAccessUser,
   type MobileMemberMore,
   type MobileMemberMoreRow,
 } from "@/lib/mobile-home-api"
@@ -39,10 +43,95 @@ function formatMoreRowValue(row: MobileMemberMoreRow, currencyCode: string) {
   )
 }
 
+function formatErrorMessage(error: unknown, fallback: string) {
+  if (!(error instanceof Error)) return fallback
+
+  if (error.message.includes("tenant_admin")) {
+    return "Workspace access requires Cooperative Admin."
+  }
+
+  return error.message || fallback
+}
+
+function AdminAccessStat({
+  detail,
+  label,
+  value,
+}: {
+  detail: string
+  label: string
+  value: number
+}) {
+  return (
+    <View className="gap-1 rounded-md bg-secondary p-3">
+      <Text className="text-2xl font-black text-foreground">{value}</Text>
+      <Text className="text-sm font-semibold text-foreground">{label}</Text>
+      <Text className="text-xs leading-4 text-muted-foreground">{detail}</Text>
+    </View>
+  )
+}
+
+function AdminUserRow({ user }: { user: MobileAdminAccessUser }) {
+  return (
+    <View className="gap-3 border-b border-border pb-3 last:border-b-0 last:pb-0">
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <Text className="text-sm font-semibold text-foreground">
+            {user.fullName}
+          </Text>
+          <Text className="text-xs text-muted-foreground">{user.email}</Text>
+        </View>
+        <Text className="text-xs font-medium text-muted-foreground">
+          {user.defaultRoleLabel
+            ? `Default: ${user.defaultRoleLabel}`
+            : "No default"}
+        </Text>
+      </View>
+      <View className="flex-row flex-wrap gap-2">
+        {user.memberships.map((membership) => (
+          <View
+            className="rounded-md bg-secondary px-2 py-1"
+            key={membership.id}
+          >
+            <Text className="text-xs font-medium text-foreground">
+              {membership.label}
+              {membership.isDefault ? " · default" : ""}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function AdminRoleRow({ role }: { role: MobileAdminAccessRole }) {
+  return (
+    <View className="gap-1 border-b border-border pb-3 last:border-b-0 last:pb-0">
+      <View className="flex-row items-start justify-between gap-3">
+        <Text className="flex-1 text-sm font-semibold text-foreground">
+          {role.label}
+        </Text>
+        <Text className="text-xs font-medium text-muted-foreground">
+          {role.usersCount} users
+        </Text>
+      </View>
+      <Text className="text-sm leading-5 text-muted-foreground">
+        {role.scope}
+      </Text>
+      <Text className="text-xs text-muted-foreground">
+        {role.defaultUsersCount} default assignments
+      </Text>
+    </View>
+  )
+}
+
 export function MoreScreen() {
   const { profile, signOut, switchRole } = useAuthContext()
   const colors = useColors()
   const router = useRouter()
+  const [adminAccess, setAdminAccess] = useState<MobileAdminAccess | null>(null)
+  const [isLoadingAdminAccess, setIsLoadingAdminAccess] = useState(false)
+  const [adminAccessError, setAdminAccessError] = useState<string | null>(null)
   const [memberHub, setMemberHub] = useState<MobileMemberMore | null>(null)
   const [isLoadingMemberHub, setIsLoadingMemberHub] = useState(false)
   const [memberHubError, setMemberHubError] = useState<string | null>(null)
@@ -68,6 +157,11 @@ export function MoreScreen() {
   const canSwitchWorkspace = availableRoles.length > 1
   const canUseServerMemberHub = Boolean(
     profile?.role === "member" &&
+    profile?.token &&
+    !isMockSessionToken(profile.token)
+  )
+  const canUseServerAdminAccess = Boolean(
+    profile?.role === "admin" &&
     profile?.token &&
     !isMockSessionToken(profile.token)
   )
@@ -107,6 +201,43 @@ export function MoreScreen() {
       mounted = false
     }
   }, [canUseServerMemberHub, profile?.token])
+
+  useEffect(() => {
+    let mounted = true
+
+    if (!canUseServerAdminAccess) {
+      setAdminAccess(null)
+      setAdminAccessError(null)
+      setIsLoadingAdminAccess(false)
+      return
+    }
+
+    setIsLoadingAdminAccess(true)
+    setAdminAccessError(null)
+
+    void getMobileAdminAccess()
+      .then((response) => {
+        if (mounted) {
+          setAdminAccess(response)
+        }
+      })
+      .catch((error: unknown) => {
+        if (mounted) {
+          setAdminAccessError(
+            formatErrorMessage(error, "Workspace access is unavailable.")
+          )
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setIsLoadingAdminAccess(false)
+        }
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [canUseServerAdminAccess, profile?.token])
 
   return (
     <SafeArea style={{ backgroundColor: colors.background }}>
@@ -325,6 +456,76 @@ export function MoreScreen() {
                 <SectionCard icon="CircleAlert" title="Member details">
                   <Text className="text-sm font-medium text-destructive">
                     {memberHubError}
+                  </Text>
+                </SectionCard>
+              ) : null}
+            </>
+          )
+        ) : canUseServerAdminAccess ? (
+          isLoadingAdminAccess ? (
+            <SectionCard icon="LoaderCircle" title="Workspace access">
+              <LoadingSpinner />
+            </SectionCard>
+          ) : (
+            <>
+              {adminAccess ? (
+                <>
+                  <SectionCard icon="ShieldCheck" title="Workspace access">
+                    <View className="gap-3">
+                      <AdminAccessStat
+                        detail="Users loaded for this cooperative"
+                        label="Workspace users"
+                        value={adminAccess.summary.workspaceUsers}
+                      />
+                      <AdminAccessStat
+                        detail="Staff with non-member workspace access"
+                        label="Staff users"
+                        value={adminAccess.summary.staffUsers}
+                      />
+                      <AdminAccessStat
+                        detail="Role memberships across all users"
+                        label="Assignments"
+                        value={adminAccess.summary.roleAssignments}
+                      />
+                      <AdminAccessStat
+                        detail="Users with a default workspace role"
+                        label="Default roles"
+                        value={adminAccess.summary.defaultRoles}
+                      />
+                      <AdminAccessStat
+                        detail="Users with member self-service access"
+                        label="Member users"
+                        value={adminAccess.summary.memberUsers}
+                      />
+                    </View>
+                  </SectionCard>
+
+                  <SectionCard icon="Users" title="Users and roles">
+                    <View className="gap-3">
+                      {adminAccess.users.slice(0, 8).map((user) => (
+                        <AdminUserRow key={user.id} user={user} />
+                      ))}
+                      {adminAccess.users.length === 0 ? (
+                        <Text className="text-sm text-muted-foreground">
+                          No workspace users are available.
+                        </Text>
+                      ) : null}
+                    </View>
+                  </SectionCard>
+
+                  <SectionCard icon="KeyRound" title="Role coverage">
+                    <View className="gap-3">
+                      {adminAccess.roles.map((role) => (
+                        <AdminRoleRow key={role.role} role={role} />
+                      ))}
+                    </View>
+                  </SectionCard>
+                </>
+              ) : null}
+              {adminAccessError ? (
+                <SectionCard icon="CircleAlert" title="Workspace access">
+                  <Text className="text-sm font-medium text-destructive">
+                    {adminAccessError}
                   </Text>
                 </SectionCard>
               ) : null}

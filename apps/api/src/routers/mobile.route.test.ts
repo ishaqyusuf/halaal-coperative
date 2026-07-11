@@ -757,6 +757,45 @@ describe("mobileRouter", () => {
     )
   })
 
+  test("returns admin access overview for tenant admin workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    const access = await caller.mobile.admin.access.overview()
+
+    expect(access.generatedAt).toEqual(expect.any(String))
+    expect(access.summary.workspaceUsers).toBe(2)
+    expect(access.summary.roleAssignments).toBe(3)
+    expect(access.summary.defaultRoles).toBe(2)
+    expect(access.users.map((user) => user.email)).toContain(
+      "admin@amanah.local"
+    )
+    expect(access.roles.map((role) => role.role)).toContain("tenant_admin")
+  })
+
+  test("rejects admin access overview from non-admin staff workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-barakah-finance",
+      tenantId: "tenant-barakah-demo",
+      userId: "user-finance-barakah",
+    })
+
+    await expect(caller.mobile.admin.access.overview()).rejects.toThrow(
+      "This action requires tenant_admin role or above."
+    )
+  })
+
+  test("rejects admin access overview from the member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(caller.mobile.admin.access.overview()).rejects.toThrow(
+      "This action requires tenant_admin role or above."
+    )
+  })
+
   test("returns admin overview for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

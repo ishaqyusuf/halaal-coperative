@@ -17,7 +17,9 @@ import {
 import {
   getMemberByUserId,
   getMemberStatementDetail,
+  listMembers,
   listMemberStatementSummaries,
+  type ListMembersFilters,
 } from "./members"
 import {
   createMemberPaymentReceipt,
@@ -114,6 +116,27 @@ export const mobileReceiptPeriodIntentKeys = [
 export type MobileReceiptPeriodIntent =
   (typeof mobileReceiptPeriodIntentKeys)[number]
 
+export const mobileAdminMemberStatusKeys = [
+  "pending",
+  "active",
+  "inactive",
+  "suspended",
+  "exited",
+] as const satisfies readonly NonNullable<ListMembersFilters["status"]>[]
+
+export type MobileAdminMemberStatus =
+  (typeof mobileAdminMemberStatusKeys)[number]
+
+export const mobileAdminMemberKycStatusKeys = [
+  "not_started",
+  "pending",
+  "verified",
+  "rejected",
+] as const satisfies readonly NonNullable<ListMembersFilters["kycStatus"]>[]
+
+export type MobileAdminMemberKycStatus =
+  (typeof mobileAdminMemberKycStatusKeys)[number]
+
 export const mobileProjectFinancingStructureKeys = [
   "investment_partnership",
   "profit_sharing",
@@ -169,6 +192,35 @@ export type MobileAdminOverview = {
     key: string
     label: string
   }>
+}
+
+export type MobileAdminMemberRow = {
+  deductionSourceName: string | null
+  email: string | null
+  fullName: string
+  id: string
+  joinedAt: string
+  kycStatus: string
+  linkedUserEmail: string | null
+  memberNumber: string
+  memberType: string
+  phoneNumber: string | null
+  status: string
+}
+
+export type MobileAdminMembers = {
+  generatedAt: string
+  members: MobileAdminMemberRow[]
+  page: number
+  pageSize: number
+  summary: {
+    activeCount: number
+    kycPendingCount: number
+    linkedUsersCount: number
+    pageCount: number
+    totalCount: number
+  }
+  total: number
 }
 
 export type MobileMemberSectionRow = {
@@ -709,6 +761,26 @@ function emptyMemberHome(): MobileMemberHome {
   }
 }
 
+function emptyAdminMembers(input?: {
+  page?: number
+  pageSize?: number
+}): MobileAdminMembers {
+  return {
+    generatedAt: new Date().toISOString(),
+    members: [],
+    page: input?.page ?? 1,
+    pageSize: input?.pageSize ?? 25,
+    summary: {
+      activeCount: 0,
+      kycPendingCount: 0,
+      linkedUsersCount: 0,
+      pageCount: 0,
+      totalCount: 0,
+    },
+    total: 0,
+  }
+}
+
 function emptyMemberSupport(): MobileMemberSupport {
   return {
     cases: [],
@@ -1092,6 +1164,45 @@ function emptyRows(section: MobileMemberSectionKey): MobileMemberSectionRow[] {
 
 function latestDateLabel(value: Date | null | undefined) {
   return value ? formatDateLabel(value) : "No recent activity"
+}
+
+type MobileAdminMemberListRow = Awaited<
+  ReturnType<typeof listMembers>
+>["items"][number]
+
+function toMobileAdminMemberRow(
+  row: MobileAdminMemberListRow
+): MobileAdminMemberRow {
+  return {
+    deductionSourceName: row.deductionSource?.name ?? null,
+    email: row.email ?? null,
+    fullName: row.fullName,
+    id: row.id,
+    joinedAt: row.joinedAt.toISOString(),
+    kycStatus: row.kycStatus,
+    linkedUserEmail: row.user?.email ?? null,
+    memberNumber: row.memberNumber,
+    memberType: row.memberType,
+    phoneNumber: row.phoneNumber ?? null,
+    status: row.status,
+  }
+}
+
+function summarizeMobileAdminMembers(input: {
+  members: MobileAdminMemberRow[]
+  total: number
+}): MobileAdminMembers["summary"] {
+  return {
+    activeCount: input.members.filter((member) => member.status === "active")
+      .length,
+    kycPendingCount: input.members.filter(
+      (member) => member.kycStatus !== "verified"
+    ).length,
+    linkedUsersCount: input.members.filter((member) => member.linkedUserEmail)
+      .length,
+    pageCount: input.members.length,
+    totalCount: input.total,
+  }
 }
 
 function toMobileSupportCase(row: SupportCaseRow): MobileSupportCase {
@@ -3478,5 +3589,47 @@ export async function getMobileAdminOverview(
       key: item.key,
       label: item.label,
     })),
+  }
+}
+
+export async function getMobileAdminMembers(input: {
+  kycStatus?: MobileAdminMemberKycStatus
+  page?: number
+  pageSize?: number
+  search?: string
+  status?: MobileAdminMemberStatus
+  tenantId: string
+}): Promise<MobileAdminMembers> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyAdminMembers(input)
+  }
+
+  const page = input.page ?? 1
+  const pageSize = input.pageSize ?? 25
+  const result = await listMembers(
+    input.tenantId,
+    {
+      kycStatus: input.kycStatus,
+      page,
+      pageSize,
+      search: input.search,
+      status: input.status,
+    },
+    prisma
+  )
+  const members = result.items.map(toMobileAdminMemberRow)
+
+  return {
+    generatedAt: new Date().toISOString(),
+    members,
+    page: result.page,
+    pageSize: result.pageSize,
+    summary: summarizeMobileAdminMembers({
+      members,
+      total: result.total,
+    }),
+    total: result.total,
   }
 }

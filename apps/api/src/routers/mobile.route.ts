@@ -6,6 +6,7 @@ import {
   createMobileMemberShareApplication,
   createMobileMemberReceipt,
   createMobileMemberSupportCase,
+  getMobileAdminMembers,
   getMobileAdminOverview,
   getMobileMemberFinancing,
   getMobileMemberFoodPurchase,
@@ -23,6 +24,8 @@ import {
   mobileReceiptAllocationCategoryKeys,
   mobileReceiptChannelKeys,
   mobileReceiptPeriodIntentKeys,
+  mobileAdminMemberKycStatusKeys,
+  mobileAdminMemberStatusKeys,
   mobileProjectFinancingStructureKeys,
   mobileSupportCategoryKeys,
   respondMobileMemberGuarantorApproval,
@@ -39,6 +42,16 @@ import {
 const mobileMemberSectionInput = z.object({
   section: z.enum(mobileMemberSectionKeys),
 })
+
+const mobileAdminMembersListInput = z
+  .object({
+    kycStatus: z.enum(mobileAdminMemberKycStatusKeys).optional(),
+    page: z.number().int().positive().optional(),
+    pageSize: z.number().int().positive().max(50).optional(),
+    search: z.string().trim().max(120).optional(),
+    status: z.enum(mobileAdminMemberStatusKeys).optional(),
+  })
+  .optional()
 
 const mobileSupportCreateInput = z.object({
   category: z.enum(mobileSupportCategoryKeys),
@@ -131,6 +144,20 @@ function assertMemberWorkspace(role: string) {
 
 export const mobileRouter = createTRPCRouter({
   admin: createTRPCRouter({
+    members: createTRPCRouter({
+      list: minRoleProcedure("operations_officer")
+        .input(mobileAdminMembersListInput)
+        .query(({ ctx, input }) => {
+          return getMobileAdminMembers({
+            kycStatus: input?.kycStatus,
+            page: input?.page,
+            pageSize: input?.pageSize,
+            search: input?.search,
+            status: input?.status,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
+    }),
     overview: minRoleProcedure("operations_officer").query(({ ctx }) => {
       return getMobileAdminOverview(ctx.tenant.current.id)
     }),

@@ -1,5 +1,5 @@
-import { DetailListScreen } from "@/screens/detail-list-screen";
+import { AdminMembersScreen } from "@/screens/admin-members-screen"
 
 export default function AdminMembersRoute() {
-  return <DetailListScreen detailKey="members" />;
+  return <AdminMembersScreen />
 }

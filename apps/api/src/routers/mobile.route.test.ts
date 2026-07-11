@@ -660,6 +660,56 @@ describe("mobileRouter", () => {
     ).rejects.toThrow("Support is unavailable")
   })
 
+  test("returns admin member directory for staff workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    const members = await caller.mobile.admin.members.list({
+      pageSize: 10,
+      status: "active",
+    })
+
+    expect(members.members).toEqual([])
+    expect(members.page).toBe(1)
+    expect(members.pageSize).toBe(10)
+    expect(members.summary.totalCount).toBe(0)
+  })
+
+  test("rejects admin member directory from the member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(caller.mobile.admin.members.list()).rejects.toThrow(
+      "This action requires operations_officer role or above."
+    )
+  })
+
+  test("validates admin member directory filters", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.members.list({
+        page: 0,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.admin.members.list({
+        pageSize: 100,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.admin.members.list({
+        kycStatus: "unknown" as never,
+      })
+    ).rejects.toThrow()
+  })
+
   test("returns admin overview for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

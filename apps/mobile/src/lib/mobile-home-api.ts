@@ -49,6 +49,56 @@ export type MobileAdminOverview = {
   }>
 }
 
+export type MobileAdminMemberStatus =
+  | "pending"
+  | "active"
+  | "inactive"
+  | "suspended"
+  | "exited"
+
+export type MobileAdminMemberKycStatus =
+  | "not_started"
+  | "pending"
+  | "verified"
+  | "rejected"
+
+export type MobileAdminMemberRow = {
+  deductionSourceName: string | null
+  email: string | null
+  fullName: string
+  id: string
+  joinedAt: string
+  kycStatus: string
+  linkedUserEmail: string | null
+  memberNumber: string
+  memberType: string
+  phoneNumber: string | null
+  status: string
+}
+
+export type MobileAdminMembers = {
+  generatedAt: string
+  members: MobileAdminMemberRow[]
+  page: number
+  pageSize: number
+  summary: {
+    activeCount: number
+    kycPendingCount: number
+    linkedUsersCount: number
+    pageCount: number
+    totalCount: number
+  }
+  total: number
+}
+
+export type MobileAdminMembersListInput = {
+  kycStatus?: MobileAdminMemberKycStatus
+  page?: number
+  pageSize?: number
+  search?: string
+  status?: MobileAdminMemberStatus
+}
+
 export type MobileMemberSectionKey = "commitments" | "financing" | "shares"
 
 export type MobileSupportCategory =
@@ -749,4 +799,14 @@ export async function getMobileAdminOverview() {
   const client = createMobileTrpcClient()
 
   return client.mobile.admin.overview.query() as Promise<MobileAdminOverview>
+}
+
+export async function getMobileAdminMembers(
+  input?: MobileAdminMembersListInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.members.list.query(
+    input
+  ) as Promise<MobileAdminMembers>
 }

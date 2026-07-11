@@ -2,6 +2,17 @@
 
 ## 2026-07-11
 
+### Mobile Admin Member Directory Reads
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/screens/admin-members-screen.tsx`, `apps/mobile/src/app/(admin)/(tabs)/members.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added the first Phase 4 admin operations read surface beyond overview. `mobile.admin.members.list` now returns an operations-officer gated mobile member directory from the existing `listMembers` query, with validated search/status/KYC filters, pagination, linked-login evidence, and page summary counts. The admin Members tab now renders a production-session guarded directory with filter chips, search, summary stats, paged member cards, KYC state, status, contact details, deduction source, and linked-login state.
+- Scope note: This is read-only member directory visibility. It does not add member creation/invites, KYC approval, member detail drill-down, role management, offline cached directory state, device smoke testing, or native visual QA.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; `../../node_modules/.bin/tsc --noEmit` from `packages/db`; `bun --cwd apps/mobile eslint src/screens/admin-members-screen.tsx src/app/\(admin\)/\(tabs\)/members.tsx src/lib/mobile-home-api.ts` with existing array-type warnings only; touched-file `prettier --check`.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Member Project Financing Requests
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

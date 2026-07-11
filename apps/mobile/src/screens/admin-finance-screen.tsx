@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -27,6 +28,7 @@ import {
   type MobileProjectFinancingStructure,
 } from "@/lib/mobile-home-api"
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
@@ -940,6 +942,7 @@ export function AdminFinanceScreen() {
     !isMockSessionToken(profile.token)
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
+  const hasStaleFinance = isMobileReadCacheStale(finance?.cache)
   const stats = useMemo(
     () =>
       finance?.stats.map((metric) => ({
@@ -1000,6 +1003,11 @@ export function AdminFinanceScreen() {
   }
 
   async function markReviewing(item: MobileAdminFinanceRecentItem) {
+    if (hasStaleFinance) {
+      setError("Refresh finance data before updating a review queue.")
+      return
+    }
+
     const nextActionKey = `${item.queueKey}-${item.id}`
 
     setActionKey(nextActionKey)
@@ -1049,6 +1057,11 @@ export function AdminFinanceScreen() {
     item: MobileAdminFinanceRecentItem,
     decision: ReceiptReviewDecision
   ) {
+    if (hasStaleFinance) {
+      setError("Refresh finance data before reviewing a receipt.")
+      return
+    }
+
     const notes = receiptReviewNotes.trim()
 
     if (
@@ -1088,6 +1101,11 @@ export function AdminFinanceScreen() {
     item: MobileAdminFinanceRecentItem,
     status: MobileAdminReviewStatus
   ) {
+    if (hasStaleFinance) {
+      setError("Refresh finance data before reviewing a financing request.")
+      return
+    }
+
     const notes = financingReviewNotes.trim()
     const nextActionKey = `${item.queueKey}-${item.id}`
 
@@ -1118,6 +1136,11 @@ export function AdminFinanceScreen() {
     item: MobileAdminFinanceRecentItem,
     status: MobileAdminReviewStatus
   ) {
+    if (hasStaleFinance) {
+      setError("Refresh finance data before reviewing a procurement request.")
+      return
+    }
+
     const notes = procurementReviewNotes.trim()
     const approvedCost = Number(procurementApprovedCost)
     const approvedRepaymentMonths = Number(procurementApprovedRepaymentMonths)
@@ -1172,6 +1195,11 @@ export function AdminFinanceScreen() {
     item: MobileAdminFinanceRecentItem,
     status: MobileAdminReviewStatus
   ) {
+    if (hasStaleFinance) {
+      setError("Refresh finance data before reviewing Foodstuff Purchase.")
+      return
+    }
+
     const notes = foodPurchaseReviewNotes.trim()
 
     if (notes.length < 2) {
@@ -1208,6 +1236,13 @@ export function AdminFinanceScreen() {
     item: MobileAdminFinanceRecentItem,
     status: MobileAdminReviewStatus
   ) {
+    if (hasStaleFinance) {
+      setError(
+        "Refresh finance data before reviewing a project financing request."
+      )
+      return
+    }
+
     const notes = projectFinancingReviewNotes.trim()
     const approvedAmount = Number(projectFinancingApprovedAmount)
     const approvedPaybackMonths = Number(projectFinancingApprovedPaybackMonths)
@@ -1272,6 +1307,11 @@ export function AdminFinanceScreen() {
     item: MobileAdminFinanceRecentItem,
     decision: ShareReviewDecision
   ) {
+    if (hasStaleFinance) {
+      setError("Refresh finance data before reviewing a share request.")
+      return
+    }
+
     const reviewNotes = shareReviewNotes.trim()
 
     if (reviewNotes.length < 2) {
@@ -1305,6 +1345,11 @@ export function AdminFinanceScreen() {
   }
 
   async function recordFollowUp(followUp: MobileAdminCollectionFollowUp) {
+    if (hasStaleFinance) {
+      setError("Refresh finance data before recording a follow-up.")
+      return
+    }
+
     const note = collectionFollowUpNote.trim()
     const nextActionAt = collectionFollowUpNextActionAt.trim()
 
@@ -1376,6 +1421,8 @@ export function AdminFinanceScreen() {
 
         {canUseServerFinance ? (
           <>
+            <CachedReadBanner cache={finance?.cache} label="finance data" />
+
             <View className="flex-row flex-wrap gap-3">
               {stats.map((item) => (
                 <StatCard key={item.label} {...item} />
@@ -1433,6 +1480,7 @@ export function AdminFinanceScreen() {
                   {finance.recentItems.map((item, index) => (
                     <FinanceRecentItemCard
                       actionState={
+                        hasStaleFinance ||
                         actionKey === `${item.queueKey}-${item.id}`
                           ? "pending"
                           : "idle"
@@ -1636,6 +1684,7 @@ export function AdminFinanceScreen() {
                   {finance.collectionFollowUps.map((followUp, index) => (
                     <CollectionFollowUpCard
                       actionState={
+                        hasStaleFinance ||
                         actionKey === `follow-up-${followUp.id}`
                           ? "pending"
                           : "idle"

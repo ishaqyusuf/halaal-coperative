@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { ProfileHeader } from "@/components/app/profile-header"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
@@ -18,6 +19,7 @@ import {
   type MobileSupportCase,
 } from "@/lib/mobile-home-api"
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
@@ -48,6 +50,7 @@ function formatMessageAuthor(input: {
 
 function SupportCaseCard({
   actionState,
+  isActionBlocked,
   isFirst,
   onCancelReply,
   onOpenReply,
@@ -59,6 +62,7 @@ function SupportCaseCard({
   supportCase,
 }: {
   actionState: "idle" | "pending"
+  isActionBlocked: boolean
   isFirst: boolean
   onCancelReply: () => void
   onOpenReply: (supportCase: MobileSupportCase) => void
@@ -129,7 +133,9 @@ function SupportCaseCard({
             <Button
               className="h-10 flex-1"
               disabled={
-                replyMessage.trim().length < 2 || actionState === "pending"
+                replyMessage.trim().length < 2 ||
+                isActionBlocked ||
+                actionState === "pending"
               }
               onPress={() => onReply(supportCase)}
             >
@@ -140,7 +146,7 @@ function SupportCaseCard({
             </Button>
             <Button
               className="h-10 flex-1"
-              disabled={actionState === "pending"}
+              disabled={isActionBlocked || actionState === "pending"}
               onPress={onCancelReply}
               variant="outline"
             >
@@ -152,7 +158,7 @@ function SupportCaseCard({
         <View className="flex-row flex-wrap gap-2">
           <Button
             className="self-start"
-            disabled={actionState === "pending"}
+            disabled={isActionBlocked || actionState === "pending"}
             onPress={() => onOpenReply(supportCase)}
             size="sm"
             variant="outline"
@@ -163,7 +169,7 @@ function SupportCaseCard({
           {canMarkInProgress ? (
             <Button
               className="self-start"
-              disabled={actionState === "pending"}
+              disabled={isActionBlocked || actionState === "pending"}
               onPress={() => onUpdateStatus(supportCase)}
               size="sm"
               variant="outline"
@@ -213,7 +219,7 @@ export function AdminHomeScreen() {
     [overview?.actionQueue]
   )
   const overviewCache = overview?.cache
-  const isStaleOverview = overviewCache?.status === "stale"
+  const hasStaleOverview = isMobileReadCacheStale(overviewCache)
 
   useEffect(() => {
     let mounted = true
@@ -258,6 +264,11 @@ export function AdminHomeScreen() {
   }
 
   async function markSupportInProgress(supportCase: MobileSupportCase) {
+    if (hasStaleOverview) {
+      setOverviewError("Refresh admin data before updating a support case.")
+      return
+    }
+
     setActionKey(`${supportCase.id}:status`)
     setOverviewError(null)
 
@@ -280,6 +291,10 @@ export function AdminHomeScreen() {
 
   async function sendSupportReply(supportCase: MobileSupportCase) {
     if (replyMessage.trim().length < 2) return
+    if (hasStaleOverview) {
+      setOverviewError("Refresh admin data before sending a support reply.")
+      return
+    }
 
     setActionKey(`${supportCase.id}:reply`)
     setOverviewError(null)
@@ -308,23 +323,7 @@ export function AdminHomeScreen() {
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-4">
         <ProfileHeader profile={profile} />
 
-        {overviewCache ? (
-          <SectionCard
-            icon={isStaleOverview ? "WifiOff" : "Clock3"}
-            title={isStaleOverview ? "Offline snapshot" : "Data refreshed"}
-          >
-            <Text className="text-sm leading-5 text-muted-foreground">
-              {isStaleOverview ? "Showing cached admin data from" : "Updated"}{" "}
-              {new Intl.DateTimeFormat("en", {
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                month: "short",
-                timeZone: "UTC",
-              }).format(new Date(overviewCache.cachedAt))}
-            </Text>
-          </SectionCard>
-        ) : null}
+        <CachedReadBanner cache={overviewCache} label="admin data" />
 
         <View className="flex-row flex-wrap gap-3">
           {stats.map((item) => (
@@ -378,6 +377,7 @@ export function AdminHomeScreen() {
                       : "idle"
                   }
                   isFirst={index === 0}
+                  isActionBlocked={hasStaleOverview}
                   key={supportCase.id}
                   onCancelReply={() => {
                     setReplyCaseId(null)

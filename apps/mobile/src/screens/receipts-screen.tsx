@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -17,6 +18,7 @@ import {
   type MobileReceiptAllocationCategory,
   type MobileReceiptPeriodIntent,
 } from "@/lib/mobile-home-api"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useRouter } from "expo-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -129,6 +131,7 @@ export function ReceiptsScreen() {
     !isMockSessionToken(profile.token)
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
+  const hasStaleReceipts = isMobileReadCacheStale(receipts?.cache)
   const allocationTotal = useMemo(
     () =>
       allocations.reduce(
@@ -142,7 +145,8 @@ export function ReceiptsScreen() {
     receiptAmount > 0 &&
     Math.abs(receiptAmount - allocationTotal) < 0.005 &&
     allocations.every((allocation) => parseAmount(allocation.amount) > 0) &&
-    parsePaidAt(paidAt)
+    parsePaidAt(paidAt) &&
+    !hasStaleReceipts
   )
   const stats = useMemo(
     () => [
@@ -222,6 +226,10 @@ export function ReceiptsScreen() {
 
   async function handleCreateReceiptSupport(receiptId: string) {
     if (supportDescription.trim().length < 5 || isCreatingSupport) return
+    if (hasStaleReceipts) {
+      setError("Refresh receipts before opening a money-impact support case.")
+      return
+    }
 
     setError(null)
     setSuccess(null)
@@ -248,6 +256,11 @@ export function ReceiptsScreen() {
 
   async function handleSubmit() {
     const paidDate = parsePaidAt(paidAt)
+
+    if (hasStaleReceipts) {
+      setError("Refresh receipts before submitting payment proof.")
+      return
+    }
 
     if (!canSubmit || !paidDate || isSubmitting) return
 
@@ -313,6 +326,8 @@ export function ReceiptsScreen() {
 
         {canUseServerReceipts ? (
           <>
+            <CachedReadBanner cache={receipts?.cache} label="receipt data" />
+
             <View className="flex-row flex-wrap gap-3">
               {stats.map((item) => (
                 <StatCard key={item.label} {...item} />
@@ -539,6 +554,7 @@ export function ReceiptsScreen() {
                               className="h-10 flex-1"
                               disabled={
                                 supportDescription.trim().length < 5 ||
+                                hasStaleReceipts ||
                                 isCreatingSupport
                               }
                               onPress={() =>
@@ -569,7 +585,7 @@ export function ReceiptsScreen() {
                       ) : (
                         <Button
                           className="h-10 self-start"
-                          disabled={isCreatingSupport}
+                          disabled={hasStaleReceipts || isCreatingSupport}
                           onPress={() => {
                             setSupportReceiptId(receipt.id)
                             setSupportDescription("")

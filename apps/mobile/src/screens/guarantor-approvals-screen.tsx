@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -15,6 +16,7 @@ import {
   type MobileMemberGuarantorApproval,
   type MobileMemberGuarantorApprovals,
 } from "@/lib/mobile-home-api"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useRouter } from "expo-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -48,6 +50,7 @@ function formatStatus(value: string) {
 function ApprovalCard({
   approval,
   currencyCode,
+  isActionBlocked,
   isSubmitting,
   notes,
   onChangeNotes,
@@ -55,6 +58,7 @@ function ApprovalCard({
 }: {
   approval: MobileMemberGuarantorApproval
   currencyCode: string
+  isActionBlocked: boolean
   isSubmitting: boolean
   notes: string
   onChangeNotes: (value: string) => void
@@ -132,7 +136,7 @@ function ApprovalCard({
       {isPending ? (
         <View className="gap-3 border-t border-border pt-3">
           <Textarea
-            editable={!isSubmitting}
+            editable={!isActionBlocked && !isSubmitting}
             onChangeText={onChangeNotes}
             placeholder="Optional response note"
             value={notes}
@@ -140,7 +144,7 @@ function ApprovalCard({
           <View className="flex-row gap-2">
             <Button
               className="h-11 flex-1"
-              disabled={isSubmitting}
+              disabled={isActionBlocked || isSubmitting}
               onPress={() => onRespond("rejected")}
               variant="outline"
             >
@@ -149,7 +153,7 @@ function ApprovalCard({
             </Button>
             <Button
               className="h-11 flex-1"
-              disabled={isSubmitting}
+              disabled={isActionBlocked || isSubmitting}
               onPress={() => onRespond("approved")}
             >
               <Icon
@@ -186,6 +190,7 @@ export function GuarantorApprovalsScreen() {
     !isMockSessionToken(profile.token)
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
+  const hasStaleApprovals = isMobileReadCacheStale(approvals?.cache)
   const stats = useMemo(
     () => [
       {
@@ -255,6 +260,11 @@ export function GuarantorApprovalsScreen() {
     approvalId: string,
     status: MobileGuarantorApprovalDecision
   ) {
+    if (hasStaleApprovals) {
+      setError("Refresh guarantor approval data before responding.")
+      return
+    }
+
     if (submittingApprovalId) return
 
     setError(null)
@@ -313,6 +323,11 @@ export function GuarantorApprovalsScreen() {
 
         {canUseServerApprovals ? (
           <>
+            <CachedReadBanner
+              cache={approvals?.cache}
+              label="guarantor approval data"
+            />
+
             <View className="flex-row flex-wrap gap-3">
               {stats.map((item) => (
                 <StatCard key={item.label} {...item} />
@@ -339,6 +354,7 @@ export function GuarantorApprovalsScreen() {
                     <ApprovalCard
                       approval={approval}
                       currencyCode={currencyCode}
+                      isActionBlocked={hasStaleApprovals}
                       isSubmitting={submittingApprovalId === approval.id}
                       key={approval.id}
                       notes={notesByApprovalId[approval.id] ?? ""}

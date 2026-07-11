@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { ProfileHeader } from "@/components/app/profile-header"
 import { SectionCard } from "@/components/app/section-card"
 import { ServiceTile } from "@/components/app/service-tile"
@@ -39,7 +40,6 @@ export function MemberHomeScreen() {
     [home?.stats, profile?.tenant.currencyCode]
   )
   const homeCache = home?.cache
-  const isStaleHome = homeCache?.status === "stale"
 
   useEffect(() => {
     let mounted = true
@@ -83,23 +83,7 @@ export function MemberHomeScreen() {
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-4">
         <ProfileHeader profile={profile} />
 
-        {homeCache ? (
-          <SectionCard
-            icon={isStaleHome ? "WifiOff" : "Clock3"}
-            title={isStaleHome ? "Offline snapshot" : "Data refreshed"}
-          >
-            <Text className="text-sm leading-5 text-muted-foreground">
-              {isStaleHome ? "Showing cached account data from" : "Updated"}{" "}
-              {new Intl.DateTimeFormat("en", {
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                month: "short",
-                timeZone: "UTC",
-              }).format(new Date(homeCache.cachedAt))}
-            </Text>
-          </SectionCard>
-        ) : null}
+        <CachedReadBanner cache={homeCache} label="account data" />
 
         <SectionCard icon="BadgeCheck" title="Member readiness">
           {isLoadingHome ? (

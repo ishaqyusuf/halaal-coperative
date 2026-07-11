@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -17,6 +18,7 @@ import {
   type MobileMemberFoodPurchase,
   type MobileWorkflowChargeOption,
 } from "@/lib/mobile-home-api"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
@@ -260,6 +262,7 @@ export function FoodPurchaseScreen() {
     !isMockSessionToken(profile.token)
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
+  const hasStaleFoodPurchase = isMobileReadCacheStale(foodPurchase?.cache)
   const openCycles = useMemo(
     () => foodPurchase?.cycles.filter((cycle) => cycle.status === "open") ?? [],
     [foodPurchase?.cycles]
@@ -267,7 +270,11 @@ export function FoodPurchaseScreen() {
   const amount = parseAmount(requestedAmount)
   const paybackMonths = parsePositiveInteger(requestedPaybackMonths)
   const canSubmit = Boolean(
-    cycleId && amount > 0 && paybackMonths > 0 && !isSubmitting
+    cycleId &&
+    amount > 0 &&
+    paybackMonths > 0 &&
+    !hasStaleFoodPurchase &&
+    !isSubmitting
   )
   const stats = useMemo(
     () => [
@@ -355,6 +362,11 @@ export function FoodPurchaseScreen() {
   useEffect(() => loadFoodPurchase(), [loadFoodPurchase])
 
   async function handleSubmit() {
+    if (hasStaleFoodPurchase) {
+      setError("Refresh Foodstuff Purchase data before submitting.")
+      return
+    }
+
     if (!canSubmit) return
 
     setError(null)
@@ -410,6 +422,11 @@ export function FoodPurchaseScreen() {
 
         {canUseServerFoodPurchase ? (
           <>
+            <CachedReadBanner
+              cache={foodPurchase?.cache}
+              label="Foodstuff Purchase data"
+            />
+
             <View className="flex-row flex-wrap gap-3">
               {stats.map((item) => (
                 <StatCard key={item.label} {...item} />

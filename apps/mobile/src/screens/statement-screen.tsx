@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -209,6 +210,8 @@ export function StatementScreen() {
 
         {canUseServerStatement ? (
           <>
+            <CachedReadBanner cache={statement?.cache} label="statement data" />
+
             {statement?.member ? (
               <SectionCard icon="BadgeCheck" title={statement.member.name}>
                 <View className="gap-1">

@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -22,6 +23,7 @@ import {
   type MobileAdminMemberStatus,
   type MobileAdminMembers,
 } from "@/lib/mobile-home-api"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useRouter } from "expo-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -439,6 +441,7 @@ export function AdminMembersScreen() {
   const hasNextPage = Boolean(
     members && members.page * members.pageSize < members.total
   )
+  const hasStaleMembers = isMobileReadCacheStale(members?.cache)
   const stats = useMemo(
     () => [
       {
@@ -530,6 +533,13 @@ export function AdminMembersScreen() {
   }
 
   async function handleCreateMember() {
+    if (hasStaleMembers) {
+      setCreateMessage(
+        "Refresh member directory data before creating a member."
+      )
+      return
+    }
+
     const joinedAt = parseDateInput(createJoinedAt)
     const monthlyCommitment = parseOptionalAmount(createMonthlyCommitment)
 
@@ -585,6 +595,11 @@ export function AdminMembersScreen() {
     request: MobileAdminMemberOnboardingRequest,
     decision: OnboardingReviewDecision
   ) {
+    if (hasStaleMembers) {
+      setError("Refresh member directory data before reviewing onboarding.")
+      return
+    }
+
     const reviewNotes = onboardingReviewNotes.trim()
 
     if (reviewNotes.length < 2) {
@@ -619,6 +634,11 @@ export function AdminMembersScreen() {
   }
 
   async function handleReviewKyc(member: MobileAdminMemberRow) {
+    if (hasStaleMembers) {
+      setError("Refresh member directory data before reviewing KYC.")
+      return
+    }
+
     const kycReviewNotesValue = kycReviewNotes.trim()
 
     if (kycReviewNotesValue.length < 2) {
@@ -674,6 +694,11 @@ export function AdminMembersScreen() {
 
         {canUseServerMembers ? (
           <>
+            <CachedReadBanner
+              cache={members?.cache}
+              label="member directory data"
+            />
+
             <View className="flex-row flex-wrap gap-3">
               {stats.map((item) => (
                 <StatCard key={item.label} {...item} />
@@ -704,6 +729,7 @@ export function AdminMembersScreen() {
                   {members.onboardingRequests.map((request, index) => (
                     <OnboardingRequestCard
                       actionState={
+                        hasStaleMembers ||
                         actionKey === `onboarding-${request.id}`
                           ? "pending"
                           : "idle"
@@ -789,7 +815,7 @@ export function AdminMembersScreen() {
                 />
                 <Button
                   className="h-11"
-                  disabled={isCreating}
+                  disabled={hasStaleMembers || isCreating}
                   onPress={handleCreateMember}
                 >
                   <Icon
@@ -872,7 +898,9 @@ export function AdminMembersScreen() {
                   {members.members.map((member, index) => (
                     <MemberCard
                       actionState={
-                        actionKey === `kyc-${member.id}` ? "pending" : "idle"
+                        hasStaleMembers || actionKey === `kyc-${member.id}`
+                          ? "pending"
+                          : "idle"
                       }
                       isFirst={index === 0}
                       key={member.id}

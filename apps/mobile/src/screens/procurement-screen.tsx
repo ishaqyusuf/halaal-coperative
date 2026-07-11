@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -16,6 +17,7 @@ import {
   type MobileMemberProcurementRequest,
   type MobileWorkflowChargeOption,
 } from "@/lib/mobile-home-api"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
@@ -226,12 +228,14 @@ export function ProcurementScreen() {
     !isMockSessionToken(profile.token)
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
+  const hasStaleProcurement = isMobileReadCacheStale(procurement?.cache)
   const cost = parseAmount(requestedCost)
   const repaymentMonths = parsePositiveInteger(requestedRepaymentMonths)
   const canSubmit = Boolean(
     itemName.trim().length >= 2 &&
     cost > 0 &&
     repaymentMonths > 0 &&
+    !hasStaleProcurement &&
     !isSubmitting
   )
   const stats = useMemo(
@@ -309,6 +313,11 @@ export function ProcurementScreen() {
   useEffect(() => loadProcurement(), [loadProcurement])
 
   async function handleSubmit() {
+    if (hasStaleProcurement) {
+      setError("Refresh procurement data before submitting a request.")
+      return
+    }
+
     if (!canSubmit) return
 
     setError(null)
@@ -364,6 +373,11 @@ export function ProcurementScreen() {
 
         {canUseServerProcurement ? (
           <>
+            <CachedReadBanner
+              cache={procurement?.cache}
+              label="procurement data"
+            />
+
             <View className="flex-row flex-wrap gap-3">
               {stats.map((item) => (
                 <StatCard key={item.label} {...item} />

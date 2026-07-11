@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -19,6 +20,7 @@ import {
   type MobileMemberStatementSectionKey,
 } from "@/lib/mobile-home-api"
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useRouter } from "expo-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -131,6 +133,7 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
     !isMockSessionToken(profile.token)
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
+  const hasStaleDetail = isMobileReadCacheStale(detail?.cache)
   const stats = useMemo(
     () =>
       (detail?.stats ?? []).map((metric) => ({
@@ -182,6 +185,11 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
   useEffect(() => loadDetail(), [loadDetail])
 
   async function updateStatus(status: MobileAdminMemberStatus) {
+    if (hasStaleDetail) {
+      setError("Refresh member detail before updating status.")
+      return
+    }
+
     if (!detail?.member || reviewAction) return
 
     setReviewAction(`status-${status}`)
@@ -205,6 +213,11 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
   }
 
   async function updateKyc(kycStatus: MobileAdminMemberKycStatus) {
+    if (hasStaleDetail) {
+      setError("Refresh member detail before updating KYC.")
+      return
+    }
+
     if (!detail?.member || reviewAction) return
 
     setReviewAction(`kyc-${kycStatus}`)
@@ -263,6 +276,11 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
 
         {canUseServerDetail ? (
           <>
+            <CachedReadBanner
+              cache={detail?.cache}
+              label="member detail data"
+            />
+
             {detail?.member ? (
               <SectionCard icon="BadgeCheck" title={detail.member.fullName}>
                 <View className="gap-3">
@@ -292,7 +310,7 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
                   <View className="flex-row flex-wrap gap-2">
                     <Button
                       className="h-10 px-3"
-                      disabled={Boolean(reviewAction)}
+                      disabled={hasStaleDetail || Boolean(reviewAction)}
                       onPress={() => updateKyc("verified")}
                       variant={
                         detail.member.kycStatus === "verified"
@@ -312,7 +330,7 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
                     </Button>
                     <Button
                       className="h-10 px-3"
-                      disabled={Boolean(reviewAction)}
+                      disabled={hasStaleDetail || Boolean(reviewAction)}
                       onPress={() => updateKyc("rejected")}
                       variant={
                         detail.member.kycStatus === "rejected"
@@ -328,7 +346,7 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
                     </Button>
                     <Button
                       className="h-10 px-3"
-                      disabled={Boolean(reviewAction)}
+                      disabled={hasStaleDetail || Boolean(reviewAction)}
                       onPress={() => updateStatus("active")}
                       variant={
                         detail.member.status === "active"
@@ -344,7 +362,7 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
                     </Button>
                     <Button
                       className="h-10 px-3"
-                      disabled={Boolean(reviewAction)}
+                      disabled={hasStaleDetail || Boolean(reviewAction)}
                       onPress={() => updateStatus("suspended")}
                       variant={
                         detail.member.status === "suspended"

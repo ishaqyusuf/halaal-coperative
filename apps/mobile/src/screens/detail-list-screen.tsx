@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { StatCard } from "@/components/app/stat-card"
 import { SectionCard } from "@/components/app/section-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -130,6 +131,8 @@ export function DetailListScreen({ detailKey }: { detailKey: DetailKey }) {
             {serverSection?.subtitle ?? section.subtitle}
           </Text>
         </View>
+
+        <CachedReadBanner cache={serverSection?.cache} label="section data" />
 
         {stats.length > 0 ? (
           <View className="flex-row flex-wrap gap-3">

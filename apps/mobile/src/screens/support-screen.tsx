@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -16,6 +17,7 @@ import {
   type MobileMemberSupport,
   type MobileSupportCategory,
 } from "@/lib/mobile-home-api"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useRouter } from "expo-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -81,6 +83,7 @@ export function SupportScreen() {
     profile?.token &&
     !isMockSessionToken(profile.token)
   )
+  const hasStaleSupport = isMobileReadCacheStale(support?.cache)
   const stats = useMemo(
     () => [
       {
@@ -106,9 +109,13 @@ export function SupportScreen() {
     ]
   )
   const canSubmit = Boolean(
-    subject.trim().length >= 3 && description.trim().length >= 5
+    subject.trim().length >= 3 &&
+    description.trim().length >= 5 &&
+    !hasStaleSupport
   )
-  const canReply = Boolean(replyCaseId && replyMessage.trim().length >= 2)
+  const canReply = Boolean(
+    replyCaseId && replyMessage.trim().length >= 2 && !hasStaleSupport
+  )
 
   const loadSupport = useCallback(() => {
     let mounted = true
@@ -151,6 +158,11 @@ export function SupportScreen() {
   useEffect(() => loadSupport(), [loadSupport])
 
   async function handleCreateCase() {
+    if (hasStaleSupport) {
+      setError("Refresh support data before submitting a case.")
+      return
+    }
+
     if (!canSubmit || isSubmitting) return
 
     setError(null)
@@ -177,6 +189,11 @@ export function SupportScreen() {
   }
 
   async function handleReply() {
+    if (hasStaleSupport) {
+      setError("Refresh support data before replying.")
+      return
+    }
+
     if (!canReply || !replyCaseId || isReplying) return
 
     setError(null)
@@ -229,6 +246,8 @@ export function SupportScreen() {
 
         {canUseServerSupport ? (
           <>
+            <CachedReadBanner cache={support?.cache} label="support data" />
+
             <View className="flex-row flex-wrap gap-3">
               {stats.map((item) => (
                 <StatCard key={item.label} {...item} />
@@ -360,7 +379,7 @@ export function SupportScreen() {
                       {replyCaseId === supportCase.id ? (
                         <View className="gap-2">
                           <Textarea
-                            editable={!isReplying}
+                            editable={!hasStaleSupport && !isReplying}
                             onChangeText={setReplyMessage}
                             placeholder="Write a reply"
                             value={replyMessage}
@@ -393,7 +412,7 @@ export function SupportScreen() {
                       ) : (
                         <Button
                           className="h-10 self-start"
-                          disabled={isReplying}
+                          disabled={hasStaleSupport || isReplying}
                           onPress={() => {
                             setReplyCaseId(supportCase.id)
                             setReplyMessage("")

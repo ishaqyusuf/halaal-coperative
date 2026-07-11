@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -17,6 +18,7 @@ import {
   type MobileMemberShares,
 } from "@/lib/mobile-home-api"
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
@@ -141,6 +143,7 @@ export function SharesScreen() {
     !isMockSessionToken(profile.token)
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
+  const hasStaleShares = isMobileReadCacheStale(shares?.cache)
   const requestedUnitCount = Number(requestedUnits.trim())
   const remainingOptionalUnits = shares?.position?.remainingOptionalUnits ?? 0
   const canRequestOptionalShares = Boolean(
@@ -153,7 +156,8 @@ export function SharesScreen() {
     canRequestOptionalShares &&
     Number.isInteger(requestedUnitCount) &&
     requestedUnitCount > 0 &&
-    requestedUnitCount <= remainingOptionalUnits
+    requestedUnitCount <= remainingOptionalUnits &&
+    !hasStaleShares
   )
   const requestedValue =
     canSubmit && shares?.policy
@@ -211,6 +215,11 @@ export function SharesScreen() {
   useEffect(() => loadShares(), [loadShares])
 
   async function handleSubmit() {
+    if (hasStaleShares) {
+      setError("Refresh share data before submitting a request.")
+      return
+    }
+
     if (!canSubmit || isSubmitting) return
 
     setError(null)
@@ -246,6 +255,8 @@ export function SharesScreen() {
             Review ownership, dividends, and optional share requests.
           </Text>
         </View>
+
+        <CachedReadBanner cache={shares?.cache} label="share data" />
 
         {isLoading ? (
           <SectionCard icon="LoaderCircle" title="Share self-service">

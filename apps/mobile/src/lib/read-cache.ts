@@ -7,6 +7,12 @@ export type MobileReadCacheState = {
   status: "live" | "stale"
 }
 
+export function isMobileReadCacheStale(
+  cache: MobileReadCacheState | null | undefined
+) {
+  return cache?.status === "stale"
+}
+
 type CachedEnvelope<T> = {
   cachedAt: string
   value: T

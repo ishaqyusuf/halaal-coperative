@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -19,6 +20,7 @@ import {
   type MobileMemberMoreRow,
 } from "@/lib/mobile-home-api"
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useRouter } from "expo-router"
 import { useEffect, useMemo, useState } from "react"
@@ -181,6 +183,7 @@ export function MoreScreen() {
     [adminAccess?.roles]
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
+  const hasStaleAdminAccess = isMobileReadCacheStale(adminAccess?.cache)
 
   useEffect(() => {
     let mounted = true
@@ -256,6 +259,10 @@ export function MoreScreen() {
 
   async function handleInviteAccessUser() {
     if (isInviting) return
+    if (hasStaleAdminAccess) {
+      setInviteMessage("Refresh workspace access data before inviting a user.")
+      return
+    }
 
     const fullName = inviteFullName.trim()
     const email = inviteEmail.trim()
@@ -368,6 +375,8 @@ export function MoreScreen() {
             </SectionCard>
           ) : (
             <>
+              <CachedReadBanner cache={memberHub?.cache} label="member data" />
+
               {memberHub?.sections.map((section) => (
                 <SectionCard
                   icon={section.icon}
@@ -520,6 +529,11 @@ export function MoreScreen() {
             </SectionCard>
           ) : (
             <>
+              <CachedReadBanner
+                cache={adminAccess?.cache}
+                label="workspace access data"
+              />
+
               {adminAccess ? (
                 <>
                   <SectionCard icon="ShieldCheck" title="Workspace access">
@@ -575,7 +589,7 @@ export function MoreScreen() {
                         {invitableRoles.map((role) => (
                           <Button
                             className="h-10"
-                            disabled={isInviting}
+                            disabled={hasStaleAdminAccess || isInviting}
                             key={role.role}
                             onPress={() =>
                               setInviteRole(
@@ -602,7 +616,7 @@ export function MoreScreen() {
                       ) : null}
                       <Button
                         className="h-11 justify-start"
-                        disabled={isInviting}
+                        disabled={hasStaleAdminAccess || isInviting}
                         onPress={() =>
                           setInviteMakeDefault((current) => !current)
                         }
@@ -617,7 +631,7 @@ export function MoreScreen() {
                       </Button>
                       <Button
                         className="h-11"
-                        disabled={isInviting}
+                        disabled={hasStaleAdminAccess || isInviting}
                         onPress={handleInviteAccessUser}
                       >
                         <Icon

@@ -1,3 +1,4 @@
+import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -222,6 +223,11 @@ export function NotificationsScreen() {
 
         {canUseServerNotifications ? (
           <>
+            <CachedReadBanner
+              cache={notifications?.cache}
+              label="notification data"
+            />
+
             {stats.length ? (
               <View className="flex-row flex-wrap gap-3">
                 {stats.map((item) => (

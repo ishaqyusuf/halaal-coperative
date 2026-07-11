@@ -104,6 +104,7 @@ export type MobileAdminMemberOnboardingRequest = {
 }
 
 export type MobileAdminMembers = {
+  cache?: MobileReadCacheState
   generatedAt: string
   members: MobileAdminMemberRow[]
   onboardingRequests: MobileAdminMemberOnboardingRequest[]
@@ -121,6 +122,7 @@ export type MobileAdminMembers = {
 }
 
 export type MobileAdminMemberDetail = {
+  cache?: MobileReadCacheState
   generatedAt: string
   member:
     | (MobileAdminMemberRow & {
@@ -177,6 +179,7 @@ export type MobileAdminFinanceRecentItem = {
 }
 
 export type MobileAdminFinance = {
+  cache?: MobileReadCacheState
   collectionFollowUps: MobileAdminCollectionFollowUp[]
   generatedAt: string
   queues: MobileAdminFinanceQueue[]
@@ -326,6 +329,7 @@ export type MobileAdminCollectionFollowUp = {
 
 export type MobileAdminReports = {
   activityEvents: MobileAdminActivityEvent[]
+  cache?: MobileReadCacheState
   collectionFollowUps: MobileAdminCollectionFollowUp[]
   generatedAt: string
   reports: MobileAdminReportCard[]
@@ -362,6 +366,7 @@ export type MobileNotificationPreference = {
 }
 
 export type MobileNotifications = {
+  cache?: MobileReadCacheState
   deliveries: MobileNotificationDelivery[]
   generatedAt: string
   preferences: MobileNotificationPreference[]
@@ -406,6 +411,7 @@ export type MobileAdminAccessRole = {
 }
 
 export type MobileAdminAccess = {
+  cache?: MobileReadCacheState
   generatedAt: string
   roles: MobileAdminAccessRole[]
   summary: {
@@ -472,6 +478,7 @@ export type MobileMemberSectionRow = {
 }
 
 export type MobileMemberSection = {
+  cache?: MobileReadCacheState
   emptyState: string
   generatedAt: string
   key: MobileMemberSectionKey
@@ -522,6 +529,7 @@ export type MobileMemberSharePosition = {
 
 export type MobileMemberShares = {
   applications: MobileMemberShareApplication[]
+  cache?: MobileReadCacheState
   generatedAt: string
   member: {
     id: string
@@ -590,6 +598,7 @@ export type MobileLoanRequestChargeOption = {
 export type MobileWorkflowChargeOption = MobileLoanRequestChargeOption
 
 export type MobileMemberFinancing = {
+  cache?: MobileReadCacheState
   generatedAt: string
   loanRequestCharges: MobileLoanRequestChargeOption[]
   member: {
@@ -641,6 +650,7 @@ export type MobileMemberProcurementRequest = {
 }
 
 export type MobileMemberProcurement = {
+  cache?: MobileReadCacheState
   chargeOptions: MobileWorkflowChargeOption[]
   generatedAt: string
   member: {
@@ -693,6 +703,7 @@ export type MobileProjectFinancingRequest = {
 }
 
 export type MobileMemberProjectFinancing = {
+  cache?: MobileReadCacheState
   chargeOptions: MobileWorkflowChargeOption[]
   generatedAt: string
   member: {
@@ -753,6 +764,7 @@ export type MobileFoodPurchaseApplication = {
 
 export type MobileMemberFoodPurchase = {
   applications: MobileFoodPurchaseApplication[]
+  cache?: MobileReadCacheState
   chargeOptions: MobileWorkflowChargeOption[]
   cycles: MobileFoodPurchaseCycle[]
   generatedAt: string
@@ -808,6 +820,7 @@ export type MobileMemberGuarantorApproval = {
 
 export type MobileMemberGuarantorApprovals = {
   approvals: MobileMemberGuarantorApproval[]
+  cache?: MobileReadCacheState
   generatedAt: string
   member: {
     id: string
@@ -853,6 +866,7 @@ export type MobileMemberMoreSection = {
 }
 
 export type MobileMemberMore = {
+  cache?: MobileReadCacheState
   generatedAt: string
   member: {
     id: string
@@ -881,6 +895,7 @@ export type MobileMemberStatementSection = {
 }
 
 export type MobileMemberStatement = {
+  cache?: MobileReadCacheState
   generatedAt: string
   member: {
     deductionSourceName: string | null
@@ -920,6 +935,7 @@ export type MobileSupportCase = {
 }
 
 export type MobileMemberSupport = {
+  cache?: MobileReadCacheState
   cases: MobileSupportCase[]
   generatedAt: string
   member: {
@@ -959,6 +975,7 @@ export type MobilePaymentReceipt = {
 }
 
 export type MobileMemberReceipts = {
+  cache?: MobileReadCacheState
   generatedAt: string
   member: {
     id: string

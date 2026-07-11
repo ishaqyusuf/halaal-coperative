@@ -50,6 +50,9 @@ export function MoreScreen() {
     string | null
   >(null)
   const [workspaceError, setWorkspaceError] = useState<string | null>(null)
+  const guarantorApprovalsHref = "/guarantor-approvals" as Parameters<
+    typeof router.push
+  >[0]
   const receiptsHref = "/receipts" as Parameters<typeof router.push>[0]
   const supportHref = "/support" as Parameters<typeof router.push>[0]
   const availableRoles = useMemo(
@@ -247,6 +250,18 @@ export function MoreScreen() {
                           className="size-base text-primary-foreground"
                         />
                         <Text>Submit receipt</Text>
+                      </Button>
+                    ) : null}
+                    {section.key === "guarantors" ? (
+                      <Button
+                        className="h-11"
+                        onPress={() => router.push(guarantorApprovalsHref)}
+                      >
+                        <Icon
+                          name="ShieldCheck"
+                          className="size-base text-primary-foreground"
+                        />
+                        <Text>Review requests</Text>
                       </Button>
                     ) : null}
                   </View>

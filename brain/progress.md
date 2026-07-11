@@ -2,6 +2,17 @@
 
 ## 2026-07-11
 
+### Mobile Member Guarantor Approvals
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/screens/more-screen.tsx`, `apps/mobile/src/screens/guarantor-approvals-screen.tsx`, `apps/mobile/src/app/(member)/guarantor-approvals.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added mobile member guarantor approval self-service. `mobile.member.guarantorApprovals.list/respond` now derives the guarantor member from the signed session, returns member-scoped financing guarantor requests, and delegates responses to the existing audited loan guarantor helper so approval/rejection evidence stays server-owned. The mobile More hub now highlights pending guarantor requests and links to a guarded `/guarantor-approvals` screen with summary stats, request context, optional response notes, approve/reject actions, and response history.
+- Scope note: This supports guarantor responses only. It does not add mobile loan request submission, staff guarantor evidence review, push notifications, offline drafts, or device smoke testing.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; `bun --cwd packages/db test src/queries/loans.test.ts`; touched-file `prettier --check`; scoped `git diff --check`.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Member Share Requests
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

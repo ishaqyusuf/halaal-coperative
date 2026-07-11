@@ -3,6 +3,7 @@ import {
   createMobileMemberReceipt,
   createMobileMemberSupportCase,
   getMobileAdminOverview,
+  getMobileMemberGuarantorApprovals,
   getMobileMemberHome,
   getMobileMemberMore,
   getMobileMemberReceipts,
@@ -14,6 +15,7 @@ import {
   mobileReceiptChannelKeys,
   mobileReceiptPeriodIntentKeys,
   mobileSupportCategoryKeys,
+  respondMobileMemberGuarantorApproval,
 } from "@halaalvest/db"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
@@ -67,6 +69,12 @@ const mobileReceiptCreateInput = z.object({
 const mobileShareApplicationCreateInput = z.object({
   notes: z.string().trim().max(1000).optional(),
   requestedUnits: z.number().int().positive(),
+})
+
+const mobileGuarantorApprovalRespondInput = z.object({
+  guarantorApprovalId: z.string().trim().min(1),
+  notes: z.string().trim().max(1000).optional(),
+  status: z.enum(["approved", "rejected"]),
 })
 
 function assertMemberWorkspace(role: string) {
@@ -139,6 +147,29 @@ export const mobileRouter = createTRPCRouter({
           userId: ctx.auth.session.user.id,
         })
       }),
+    }),
+    guarantorApprovals: createTRPCRouter({
+      list: tenantProcedure.query(({ ctx }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+        return getMobileMemberGuarantorApprovals({
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+      respond: tenantProcedure
+        .input(mobileGuarantorApprovalRespondInput)
+        .mutation(({ ctx, input }) => {
+          assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+          return respondMobileMemberGuarantorApproval({
+            guarantorApprovalId: input.guarantorApprovalId,
+            notes: input.notes,
+            status: input.status,
+            tenantId: ctx.tenant.current.id,
+            userId: ctx.auth.session.user.id,
+          })
+        }),
     }),
     shares: createTRPCRouter({
       createApplication: tenantProcedure

@@ -128,6 +128,62 @@ describe("mobileRouter", () => {
     ).rejects.toThrow()
   })
 
+  test("returns member guarantor approvals for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const approvals = await caller.mobile.member.guarantorApprovals.list()
+
+    expect(approvals.member).toBeNull()
+    expect(approvals.approvals).toEqual([])
+    expect(approvals.summary.pendingApprovals).toBe(0)
+  })
+
+  test("rejects member guarantor approvals when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.member.guarantorApprovals.list()
+    ).rejects.toThrow("Switch to the member workspace")
+  })
+
+  test("validates member guarantor approval response input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.guarantorApprovals.respond({
+        guarantorApprovalId: "",
+        status: "approved",
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.guarantorApprovals.respond({
+        guarantorApprovalId: "approval-1",
+        status: "pending" as never,
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member guarantor approval response without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.guarantorApprovals.respond({
+        guarantorApprovalId: "approval-1",
+        notes: "I consent to this request.",
+        status: "approved",
+      })
+    ).rejects.toThrow("Guarantor approvals are unavailable")
+  })
+
   test("returns member shares for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

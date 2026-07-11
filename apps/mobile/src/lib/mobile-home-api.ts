@@ -161,6 +161,52 @@ export type MobileMemberShareApplicationCreateInput = {
   requestedUnits: number
 }
 
+export type MobileGuarantorApprovalDecision = "approved" | "rejected"
+
+export type MobileMemberGuarantorApproval = {
+  id: string
+  loanRequest: {
+    borrowerMemberNumber: string
+    borrowerName: string
+    estimatedMonthlyServicing: number
+    id: string
+    loanProductName: string
+    purpose: string | null
+    requestedAmount: number
+    requestedAt: string
+    requestedTermMonths: number
+    status: string
+  }
+  requestedAt: string
+  requestedByName: string | null
+  respondedAt: string | null
+  respondedByName: string | null
+  responseNotes: string | null
+  status: string
+}
+
+export type MobileMemberGuarantorApprovals = {
+  approvals: MobileMemberGuarantorApproval[]
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  summary: {
+    approvedApprovals: number
+    pendingApprovals: number
+    rejectedApprovals: number
+    totalApprovals: number
+  }
+}
+
+export type MobileGuarantorApprovalRespondInput = {
+  guarantorApprovalId: string
+  notes?: string
+  status: MobileGuarantorApprovalDecision
+}
+
 export type MobileMemberMoreRow = {
   detail: string
   format: MobileMetricFormat | null
@@ -172,7 +218,7 @@ export type MobileMemberMoreRow = {
 
 export type MobileMemberMoreSection = {
   icon: string
-  key: "profile" | "statement" | "receipts" | "support"
+  key: "profile" | "statement" | "receipts" | "guarantors" | "support"
   rows: MobileMemberMoreRow[]
   title: string
 }
@@ -305,6 +351,22 @@ export async function getMobileMemberReceipts() {
   const client = createMobileTrpcClient()
 
   return client.mobile.member.receipts.list.query() as Promise<MobileMemberReceipts>
+}
+
+export async function getMobileMemberGuarantorApprovals() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.guarantorApprovals.list.query() as Promise<MobileMemberGuarantorApprovals>
+}
+
+export async function respondMobileMemberGuarantorApproval(
+  input: MobileGuarantorApprovalRespondInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.guarantorApprovals.respond.mutate(
+    input
+  ) as Promise<MobileMemberGuarantorApproval>
 }
 
 export async function getMobileMemberShares() {

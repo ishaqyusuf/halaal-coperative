@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-11: Added mobile member guarantor approval self-service: `mobile.member.guarantorApprovals.list/respond` now returns signed-member scoped financing guarantor requests, stages audited approve/reject responses through the existing loan helper, and exposes a guarded mobile `/guarantor-approvals` screen from the More hub.
 - 2026-07-11: Added mobile member optional share self-service: `mobile.member.shares.list/createApplication` now returns member-scoped share policy, optional-unit availability, application history, and stages audited optional share requests from signed member sessions, with the mobile Shares tab rendering the request form and status history.
 - 2026-07-11: Added mobile member receipt self-service: `mobile.member.receipts.list/create` now return member-scoped receipt summaries and submit staged member receipts from signed sessions, with a guarded mobile `/receipts` screen for total amount, paid date, payment reference, proof link, notes, multi-allocation splits, and recent receipt status.
 - 2026-07-11: Added mobile member support self-service: `mobile.member.support.list/create` now return member-scoped support cases and create audited member-authored support cases from the signed session, with a guarded mobile `/support` screen for category selection, subject/description submission, optional money-impact review, and recent case tracking.

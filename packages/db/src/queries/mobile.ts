@@ -1,6 +1,10 @@
 import { createPrismaClient } from "../prisma"
 import { getOverviewSummary } from "./dashboard"
 import {
+  listMemberLoanGuarantorApprovals,
+  respondMemberLoanGuarantorApproval,
+} from "./loans"
+import {
   getMemberByUserId,
   getMemberStatementDetail,
   listMemberStatementSummaries,
@@ -166,7 +170,7 @@ export type MobileMemberMoreRow = {
 
 export type MobileMemberMoreSection = {
   icon: string
-  key: "profile" | "statement" | "receipts" | "support"
+  key: "profile" | "statement" | "receipts" | "guarantors" | "support"
   rows: MobileMemberMoreRow[]
   title: string
 }
@@ -294,6 +298,50 @@ export type MobileMemberShares = {
     | "unit_model_inactive"
 }
 
+type MobileLoanGuarantorApprovalRow = Awaited<
+  ReturnType<typeof listMemberLoanGuarantorApprovals>
+>[number]
+
+export type MobileGuarantorApprovalDecision = "approved" | "rejected"
+
+export type MobileMemberGuarantorApproval = {
+  id: string
+  loanRequest: {
+    borrowerMemberNumber: string
+    borrowerName: string
+    estimatedMonthlyServicing: number
+    id: string
+    loanProductName: string
+    purpose: string | null
+    requestedAmount: number
+    requestedAt: string
+    requestedTermMonths: number
+    status: string
+  }
+  requestedAt: string
+  requestedByName: string | null
+  respondedAt: string | null
+  respondedByName: string | null
+  responseNotes: string | null
+  status: string
+}
+
+export type MobileMemberGuarantorApprovals = {
+  approvals: MobileMemberGuarantorApproval[]
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  summary: {
+    approvedApprovals: number
+    pendingApprovals: number
+    rejectedApprovals: number
+    totalApprovals: number
+  }
+}
+
 export type MobileReceiptCreateAllocation = {
   amount: number
   category: MobileReceiptAllocationCategory
@@ -395,6 +443,20 @@ function emptyMemberReceipts(): MobileMemberReceipts {
       correctionRequestedReceipts: 0,
       pendingReviewReceipts: 0,
       rejectedReceipts: 0,
+    },
+  }
+}
+
+function emptyMemberGuarantorApprovals(): MobileMemberGuarantorApprovals {
+  return {
+    approvals: [],
+    generatedAt: new Date().toISOString(),
+    member: null,
+    summary: {
+      approvedApprovals: 0,
+      pendingApprovals: 0,
+      rejectedApprovals: 0,
+      totalApprovals: 0,
     },
   }
 }
@@ -703,50 +765,111 @@ function toMobileSharePosition(
   }
 }
 
+function toMobileGuarantorApproval(
+  row: MobileLoanGuarantorApprovalRow
+): MobileMemberGuarantorApproval {
+  return {
+    id: row.id,
+    loanRequest: {
+      borrowerMemberNumber: row.loanRequest.member.memberNumber,
+      borrowerName: row.loanRequest.member.fullName,
+      estimatedMonthlyServicing: Number(
+        row.loanRequest.estimatedMonthlyServicing ?? 0
+      ),
+      id: row.loanRequest.id,
+      loanProductName: row.loanRequest.loanProduct.name,
+      purpose: row.loanRequest.purpose,
+      requestedAmount: Number(row.loanRequest.requestedAmount ?? 0),
+      requestedAt: row.loanRequest.requestedAt.toISOString(),
+      requestedTermMonths: row.loanRequest.requestedTermMonths,
+      status: row.loanRequest.status,
+    },
+    requestedAt: row.requestedAt.toISOString(),
+    requestedByName: row.requestedByUser?.fullName ?? null,
+    respondedAt: row.respondedAt ? row.respondedAt.toISOString() : null,
+    respondedByName: row.respondedByUser?.fullName ?? null,
+    responseNotes: row.responseNotes,
+    status: row.status,
+  }
+}
+
+function summarizeGuarantorApprovals(
+  approvals: MobileMemberGuarantorApproval[]
+): MobileMemberGuarantorApprovals["summary"] {
+  return {
+    approvedApprovals: approvals.filter(
+      (approval) => approval.status === "approved"
+    ).length,
+    pendingApprovals: approvals.filter(
+      (approval) => approval.status === "pending"
+    ).length,
+    rejectedApprovals: approvals.filter(
+      (approval) => approval.status === "rejected"
+    ).length,
+    totalApprovals: approvals.length,
+  }
+}
+
 async function buildMemberMore(input: {
   detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
   member: NonNullable<Awaited<ReturnType<typeof getMemberByUserId>>>
   prisma: NonNullable<ReturnType<typeof createPrismaClient>>
   tenantId: string
 }): Promise<MobileMemberMore> {
-  const [receiptSummary, receipts, supportSummary, supportCases] =
-    await Promise.all([
-      getMemberScopedPaymentReceiptSummary(
-        {
-          memberId: input.member.id,
-          tenantId: input.tenantId,
-        },
-        input.prisma
-      ),
-      listMemberPaymentReceipts(
-        input.tenantId,
-        {
-          limit: 3,
-          memberId: input.member.id,
-        },
-        input.prisma
-      ),
-      getMemberSupportCaseSummary(
-        {
-          memberId: input.member.id,
-          tenantId: input.tenantId,
-        },
-        input.prisma
-      ),
-      listSupportCases(
-        {
-          limit: 3,
-          memberId: input.member.id,
-          tenantId: input.tenantId,
-        },
-        input.prisma
-      ),
-    ])
+  const [
+    receiptSummary,
+    receipts,
+    guarantorApprovals,
+    supportSummary,
+    supportCases,
+  ] = await Promise.all([
+    getMemberScopedPaymentReceiptSummary(
+      {
+        memberId: input.member.id,
+        tenantId: input.tenantId,
+      },
+      input.prisma
+    ),
+    listMemberPaymentReceipts(
+      input.tenantId,
+      {
+        limit: 3,
+        memberId: input.member.id,
+      },
+      input.prisma
+    ),
+    listMemberLoanGuarantorApprovals(
+      {
+        guarantorMemberId: input.member.id,
+        tenantId: input.tenantId,
+      },
+      input.prisma
+    ),
+    getMemberSupportCaseSummary(
+      {
+        memberId: input.member.id,
+        tenantId: input.tenantId,
+      },
+      input.prisma
+    ),
+    listSupportCases(
+      {
+        limit: 3,
+        memberId: input.member.id,
+        tenantId: input.tenantId,
+      },
+      input.prisma
+    ),
+  ])
   const summary = input.detail.summary
   const verifiedDocuments = input.detail.member.documents.filter(
     (document) => document.reviewStatus === "verified"
   ).length
   const latestReceipt = receipts[0] ?? null
+  const pendingGuarantorCount = guarantorApprovals.filter(
+    (approval) => approval.status === "pending"
+  ).length
+  const latestGuarantorApproval = guarantorApprovals[0] ?? null
   const latestSupportCase = supportCases[0] ?? null
 
   return {
@@ -875,6 +998,38 @@ async function buildMemberMore(input: {
         title: "Receipts",
       },
       {
+        icon: "ShieldCheck",
+        key: "guarantors",
+        rows: [
+          moreRow({
+            detail:
+              pendingGuarantorCount > 0
+                ? "Waiting for your response"
+                : "No pending guarantor response",
+            format: "count",
+            key: "pending-guarantors",
+            label: "Pending guarantor requests",
+            status: pendingGuarantorCount > 0 ? "Needs action" : "Clear",
+            value: pendingGuarantorCount,
+          }),
+          ...(latestGuarantorApproval
+            ? [
+                moreRow({
+                  detail: `${latestGuarantorApproval.loanRequest.member.fullName} - ${latestGuarantorApproval.loanRequest.loanProduct.name}`,
+                  format: "currency" as const,
+                  key: `guarantor-${latestGuarantorApproval.id}`,
+                  label: "Latest request",
+                  status: humanizeStatus(latestGuarantorApproval.status),
+                  value: Number(
+                    latestGuarantorApproval.loanRequest.requestedAmount ?? 0
+                  ),
+                }),
+              ]
+            : []),
+        ],
+        title: "Guarantor approvals",
+      },
+      {
         icon: "Headphones",
         key: "support",
         rows: [
@@ -971,6 +1126,96 @@ export async function getMobileMemberReceipts(input: {
       rejectedReceipts: summary.rejectedReceipts,
     },
   }
+}
+
+export async function getMobileMemberGuarantorApprovals(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberGuarantorApprovals> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberGuarantorApprovals()
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberGuarantorApprovals()
+  }
+
+  const approvals = (
+    await listMemberLoanGuarantorApprovals(
+      {
+        guarantorMemberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+  ).map(toMobileGuarantorApproval)
+
+  return {
+    approvals,
+    generatedAt: new Date().toISOString(),
+    member: {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      name: member.fullName,
+    },
+    summary: summarizeGuarantorApprovals(approvals),
+  }
+}
+
+export async function respondMobileMemberGuarantorApproval(input: {
+  guarantorApprovalId: string
+  notes?: string | null
+  status: MobileGuarantorApprovalDecision
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberGuarantorApproval> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error(
+      "Guarantor approvals are unavailable without database configuration."
+    )
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    throw new Error(
+      "Member profile needs linking before answering guarantor requests."
+    )
+  }
+
+  await respondMemberLoanGuarantorApproval(
+    {
+      actorUserId: input.userId,
+      guarantorApprovalId: input.guarantorApprovalId,
+      guarantorMemberId: member.id,
+      notes: input.notes ?? undefined,
+      status: input.status,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  const approval = (
+    await listMemberLoanGuarantorApprovals(
+      {
+        guarantorMemberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+  ).find((item) => item.id === input.guarantorApprovalId)
+
+  if (!approval) {
+    throw new Error("Loan guarantor approval not found.")
+  }
+
+  return toMobileGuarantorApproval(approval)
 }
 
 export async function getMobileMemberShares(input: {

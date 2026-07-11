@@ -20,6 +20,11 @@ import {
   type PaymentReceiptAllocationInput,
 } from "./payment-receipts"
 import {
+  createProcurementRequest,
+  listProcurementRequests,
+  type ProcurementRequestRow,
+} from "./procurement"
+import {
   createMemberSupportCase,
   getMemberSupportCaseSummary,
   listSupportCases,
@@ -173,7 +178,13 @@ export type MobileMemberMoreRow = {
 
 export type MobileMemberMoreSection = {
   icon: string
-  key: "profile" | "statement" | "receipts" | "guarantors" | "support"
+  key:
+    | "profile"
+    | "statement"
+    | "receipts"
+    | "procurement"
+    | "guarantors"
+    | "support"
   rows: MobileMemberMoreRow[]
   title: string
 }
@@ -388,6 +399,62 @@ export type MobileFinancingRequestCreateInput = {
   requestedTermMonths: number
 }
 
+export type MobileProcurementScheduleItem = {
+  amount: number
+  dueDate: string
+  id: string
+  installmentNumber: number
+  paidAmount: number
+  status: string
+}
+
+export type MobileMemberProcurementRequest = {
+  approvedCost: number | null
+  approvedMonthlyRepayment: number | null
+  approvedRepaymentMonths: number | null
+  estimatedMonthlyRepayment: number
+  id: string
+  itemDescription: string | null
+  itemName: string
+  outstandingAmount: number
+  purchasedAt: string | null
+  purchaseReference: string | null
+  requestedAt: string
+  requestedCost: number
+  requestedRepaymentMonths: number
+  reviewNotes: string | null
+  scheduleItems: MobileProcurementScheduleItem[]
+  status: string
+  vendorName: string | null
+}
+
+export type MobileMemberProcurement = {
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  requests: MobileMemberProcurementRequest[]
+  summary: {
+    activeRequests: number
+    approvedRequests: number
+    dueScheduleItems: number
+    outstandingAmount: number
+    overdueScheduleItems: number
+    pendingRequests: number
+    totalRequests: number
+  }
+}
+
+export type MobileProcurementRequestCreateInput = {
+  itemDescription?: string | null
+  itemName: string
+  requestedCost: number
+  requestedRepaymentMonths: number
+  vendorName?: string | null
+}
+
 type MobileLoanGuarantorApprovalRow = Awaited<
   ReturnType<typeof listMemberLoanGuarantorApprovals>
 >[number]
@@ -577,6 +644,23 @@ function emptyMemberFinancing(
     requests: [],
     section: emptyMemberSection("financing", detail),
     state,
+  }
+}
+
+function emptyMemberProcurement(): MobileMemberProcurement {
+  return {
+    generatedAt: new Date().toISOString(),
+    member: null,
+    requests: [],
+    summary: {
+      activeRequests: 0,
+      approvedRequests: 0,
+      dueScheduleItems: 0,
+      outstandingAmount: 0,
+      overdueScheduleItems: 0,
+      pendingRequests: 0,
+      totalRequests: 0,
+    },
   }
 }
 
@@ -972,6 +1056,71 @@ function toMobileFinancingRequest(
   }
 }
 
+function toMobileProcurementRequest(
+  row: ProcurementRequestRow
+): MobileMemberProcurementRequest {
+  return {
+    approvedCost: row.approvedCost,
+    approvedMonthlyRepayment: row.approvedMonthlyRepayment,
+    approvedRepaymentMonths: row.approvedRepaymentMonths,
+    estimatedMonthlyRepayment: row.estimatedMonthlyRepayment,
+    id: row.id,
+    itemDescription: row.itemDescription,
+    itemName: row.itemName,
+    outstandingAmount: row.outstandingAmount,
+    purchasedAt: row.purchasedAt ? row.purchasedAt.toISOString() : null,
+    purchaseReference: row.purchaseReference,
+    requestedAt: row.requestedAt.toISOString(),
+    requestedCost: row.requestedCost,
+    requestedRepaymentMonths: row.requestedRepaymentMonths,
+    reviewNotes: row.reviewNotes,
+    scheduleItems: row.repaymentScheduleItems.map((item) => ({
+      amount: item.amount,
+      dueDate: item.dueDate.toISOString(),
+      id: item.id,
+      installmentNumber: item.installmentNumber,
+      paidAmount: item.paidAmount,
+      status: item.status,
+    })),
+    status: row.status,
+    vendorName: row.vendorName,
+  }
+}
+
+function summarizeMobileProcurementRequests(
+  requests: MobileMemberProcurementRequest[]
+): MobileMemberProcurement["summary"] {
+  return {
+    activeRequests: requests.filter((request) =>
+      ["active", "purchased"].includes(request.status)
+    ).length,
+    approvedRequests: requests.filter((request) =>
+      ["approved", "purchased", "active", "completed"].includes(request.status)
+    ).length,
+    dueScheduleItems: requests.reduce(
+      (total, request) =>
+        total +
+        request.scheduleItems.filter((item) => item.status === "due").length,
+      0
+    ),
+    outstandingAmount: requests.reduce(
+      (total, request) => total + request.outstandingAmount,
+      0
+    ),
+    overdueScheduleItems: requests.reduce(
+      (total, request) =>
+        total +
+        request.scheduleItems.filter((item) => item.status === "overdue")
+          .length,
+      0
+    ),
+    pendingRequests: requests.filter((request) =>
+      ["submitted", "under_review"].includes(request.status)
+    ).length,
+    totalRequests: requests.length,
+  }
+}
+
 function toMobileGuarantorApproval(
   row: MobileLoanGuarantorApprovalRow
 ): MobileMemberGuarantorApproval {
@@ -1026,6 +1175,7 @@ async function buildMemberMore(input: {
   const [
     receiptSummary,
     receipts,
+    procurementRequests,
     guarantorApprovals,
     supportSummary,
     supportCases,
@@ -1042,6 +1192,14 @@ async function buildMemberMore(input: {
       {
         limit: 3,
         memberId: input.member.id,
+      },
+      input.prisma
+    ),
+    listProcurementRequests(
+      {
+        limit: 3,
+        memberId: input.member.id,
+        tenantId: input.tenantId,
       },
       input.prisma
     ),
@@ -1073,6 +1231,10 @@ async function buildMemberMore(input: {
     (document) => document.reviewStatus === "verified"
   ).length
   const latestReceipt = receipts[0] ?? null
+  const pendingProcurementCount = procurementRequests.filter((request) =>
+    ["submitted", "under_review"].includes(request.status)
+  ).length
+  const latestProcurementRequest = procurementRequests[0] ?? null
   const pendingGuarantorCount = guarantorApprovals.filter(
     (approval) => approval.status === "pending"
   ).length
@@ -1205,6 +1367,38 @@ async function buildMemberMore(input: {
         title: "Receipts",
       },
       {
+        icon: "PackageSearch",
+        key: "procurement",
+        rows: [
+          moreRow({
+            detail:
+              pendingProcurementCount > 0
+                ? "Waiting for cooperative review"
+                : "No procurement requests waiting on review",
+            format: "count",
+            key: "pending-procurement",
+            label: "Pending procurement",
+            status: pendingProcurementCount > 0 ? "Open" : "Clear",
+            value: pendingProcurementCount,
+          }),
+          ...(latestProcurementRequest
+            ? [
+                moreRow({
+                  detail: latestProcurementRequest.vendorName
+                    ? `${latestProcurementRequest.itemName} - ${latestProcurementRequest.vendorName}`
+                    : latestProcurementRequest.itemName,
+                  format: "currency" as const,
+                  key: `procurement-${latestProcurementRequest.id}`,
+                  label: "Latest request",
+                  status: humanizeStatus(latestProcurementRequest.status),
+                  value: latestProcurementRequest.requestedCost,
+                }),
+              ]
+            : []),
+        ],
+        title: "Procurement",
+      },
+      {
         icon: "ShieldCheck",
         key: "guarantors",
         rows: [
@@ -1333,6 +1527,86 @@ export async function getMobileMemberReceipts(input: {
       rejectedReceipts: summary.rejectedReceipts,
     },
   }
+}
+
+export async function getMobileMemberProcurement(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberProcurement> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberProcurement()
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberProcurement()
+  }
+
+  const requests = (
+    await listProcurementRequests(
+      {
+        memberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+  ).map(toMobileProcurementRequest)
+
+  return {
+    generatedAt: new Date().toISOString(),
+    member: {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      name: member.fullName,
+    },
+    requests,
+    summary: summarizeMobileProcurementRequests(requests),
+  }
+}
+
+export async function createMobileMemberProcurementRequest(input: {
+  itemDescription?: string | null
+  itemName: string
+  requestedCost: number
+  requestedRepaymentMonths: number
+  tenantId: string
+  userId: string
+  vendorName?: string | null
+}): Promise<MobileMemberProcurementRequest> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error(
+      "Procurement requests are unavailable without database configuration."
+    )
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    throw new Error(
+      "Member profile needs linking before submitting procurement requests."
+    )
+  }
+
+  const request = await createProcurementRequest(
+    {
+      actorUserId: input.userId,
+      itemDescription: input.itemDescription ?? undefined,
+      itemName: input.itemName,
+      memberId: member.id,
+      requestedCost: input.requestedCost,
+      requestedRepaymentMonths: input.requestedRepaymentMonths,
+      tenantId: input.tenantId,
+      vendorName: input.vendorName ?? undefined,
+    },
+    prisma
+  )
+
+  return toMobileProcurementRequest(request)
 }
 
 export async function getMobileMemberGuarantorApprovals(input: {

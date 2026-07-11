@@ -1,5 +1,6 @@
 import {
   createMobileMemberFinancingRequest,
+  createMobileMemberProcurementRequest,
   createMobileMemberShareApplication,
   createMobileMemberReceipt,
   createMobileMemberSupportCase,
@@ -8,6 +9,7 @@ import {
   getMobileMemberGuarantorApprovals,
   getMobileMemberHome,
   getMobileMemberMore,
+  getMobileMemberProcurement,
   getMobileMemberReceipts,
   getMobileMemberShares,
   getMobileMemberStatement,
@@ -86,6 +88,14 @@ const mobileFinancingRequestCreateInput = z.object({
   purpose: z.string().trim().max(1000).optional(),
   requestedAmount: z.number().positive(),
   requestedTermMonths: z.number().int().positive(),
+})
+
+const mobileProcurementRequestCreateInput = z.object({
+  itemDescription: z.string().trim().max(1000).optional(),
+  itemName: z.string().trim().min(2).max(160),
+  requestedCost: z.number().positive(),
+  requestedRepaymentMonths: z.number().int().positive(),
+  vendorName: z.string().trim().max(160).optional(),
 })
 
 function assertMemberWorkspace(role: string) {
@@ -210,6 +220,31 @@ export const mobileRouter = createTRPCRouter({
         assertMemberWorkspace(ctx.auth.activeMembership.role)
 
         return getMobileMemberFinancing({
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+    }),
+    procurement: createTRPCRouter({
+      createRequest: tenantProcedure
+        .input(mobileProcurementRequestCreateInput)
+        .mutation(({ ctx, input }) => {
+          assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+          return createMobileMemberProcurementRequest({
+            itemDescription: input.itemDescription,
+            itemName: input.itemName,
+            requestedCost: input.requestedCost,
+            requestedRepaymentMonths: input.requestedRepaymentMonths,
+            tenantId: ctx.tenant.current.id,
+            userId: ctx.auth.session.user.id,
+            vendorName: input.vendorName,
+          })
+        }),
+      list: tenantProcedure.query(({ ctx }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+        return getMobileMemberProcurement({
           tenantId: ctx.tenant.current.id,
           userId: ctx.auth.session.user.id,
         })

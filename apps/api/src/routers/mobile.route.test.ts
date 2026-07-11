@@ -229,6 +229,75 @@ describe("mobileRouter", () => {
     ).rejects.toThrow("Financing requests are unavailable")
   })
 
+  test("returns member procurement for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const procurement = await caller.mobile.member.procurement.list()
+
+    expect(procurement.member).toBeNull()
+    expect(procurement.requests).toEqual([])
+    expect(procurement.summary.pendingRequests).toBe(0)
+    expect(procurement.summary.outstandingAmount).toBe(0)
+  })
+
+  test("rejects member procurement when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(caller.mobile.member.procurement.list()).rejects.toThrow(
+      "Switch to the member workspace"
+    )
+  })
+
+  test("validates member procurement request create input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.procurement.createRequest({
+        itemName: "",
+        requestedCost: 1000,
+        requestedRepaymentMonths: 3,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.procurement.createRequest({
+        itemName: "Rice bags",
+        requestedCost: 0,
+        requestedRepaymentMonths: 3,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.procurement.createRequest({
+        itemName: "Rice bags",
+        requestedCost: 1000,
+        requestedRepaymentMonths: 0,
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member procurement request create without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.procurement.createRequest({
+        itemDescription: "Household supply request",
+        itemName: "Rice bags",
+        requestedCost: 1000,
+        requestedRepaymentMonths: 3,
+        vendorName: "Market vendor",
+      })
+    ).rejects.toThrow("Procurement requests are unavailable")
+  })
+
   test("returns member guarantor approvals for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

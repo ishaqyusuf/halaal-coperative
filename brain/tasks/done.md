@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-11: Added mobile member procurement request self-service: `mobile.member.procurement.list/createRequest` now returns signed-member item-purchase requests and submits audited procurement requests through the existing server-side policy helper, with the More hub opening a guarded `/procurement` screen.
 - 2026-07-11: Added mobile member financing request self-service: `mobile.member.financing.list/createRequest` now returns signed-member financing products/history and submits audited loan requests through the existing server-side policy helper, with the Financing tab rendering products, request inputs, current records, and request history.
 - 2026-07-11: Added mobile member statement view: `mobile.member.statement` now returns signed-member scoped profile, commitments, financing, shares/dividends, documents, and ledger sections from the existing statement detail query, with the mobile More hub opening a guarded read-only `/statement` screen.
 - 2026-07-11: Added mobile member guarantor approval self-service: `mobile.member.guarantorApprovals.list/respond` now returns signed-member scoped financing guarantor requests, stages audited approve/reject responses through the existing loan helper, and exposes a guarded mobile `/guarantor-approvals` screen from the More hub.

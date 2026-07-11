@@ -209,6 +209,62 @@ export type MobileFinancingRequestCreateInput = {
   requestedTermMonths: number
 }
 
+export type MobileProcurementScheduleItem = {
+  amount: number
+  dueDate: string
+  id: string
+  installmentNumber: number
+  paidAmount: number
+  status: string
+}
+
+export type MobileMemberProcurementRequest = {
+  approvedCost: number | null
+  approvedMonthlyRepayment: number | null
+  approvedRepaymentMonths: number | null
+  estimatedMonthlyRepayment: number
+  id: string
+  itemDescription: string | null
+  itemName: string
+  outstandingAmount: number
+  purchasedAt: string | null
+  purchaseReference: string | null
+  requestedAt: string
+  requestedCost: number
+  requestedRepaymentMonths: number
+  reviewNotes: string | null
+  scheduleItems: MobileProcurementScheduleItem[]
+  status: string
+  vendorName: string | null
+}
+
+export type MobileMemberProcurement = {
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  requests: MobileMemberProcurementRequest[]
+  summary: {
+    activeRequests: number
+    approvedRequests: number
+    dueScheduleItems: number
+    outstandingAmount: number
+    overdueScheduleItems: number
+    pendingRequests: number
+    totalRequests: number
+  }
+}
+
+export type MobileProcurementRequestCreateInput = {
+  itemDescription?: string
+  itemName: string
+  requestedCost: number
+  requestedRepaymentMonths: number
+  vendorName?: string
+}
+
 export type MobileMemberShareApplicationCreateInput = {
   notes?: string
   requestedUnits: number
@@ -271,7 +327,13 @@ export type MobileMemberMoreRow = {
 
 export type MobileMemberMoreSection = {
   icon: string
-  key: "profile" | "statement" | "receipts" | "guarantors" | "support"
+  key:
+    | "profile"
+    | "statement"
+    | "receipts"
+    | "procurement"
+    | "guarantors"
+    | "support"
   rows: MobileMemberMoreRow[]
   title: string
 }
@@ -464,6 +526,22 @@ export async function createMobileMemberFinancingRequest(
   return client.mobile.member.financing.createRequest.mutate(
     input
   ) as Promise<MobileMemberFinancingRequest>
+}
+
+export async function getMobileMemberProcurement() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.procurement.list.query() as Promise<MobileMemberProcurement>
+}
+
+export async function createMobileMemberProcurementRequest(
+  input: MobileProcurementRequestCreateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.procurement.createRequest.mutate(
+    input
+  ) as Promise<MobileMemberProcurementRequest>
 }
 
 export async function respondMobileMemberGuarantorApproval(

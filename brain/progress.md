@@ -2,6 +2,17 @@
 
 ## 2026-07-11
 
+### Mobile Member Procurement Requests
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/screens/more-screen.tsx`, `apps/mobile/src/screens/procurement-screen.tsx`, `apps/mobile/src/app/(member)/procurement.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added mobile member procurement request self-service. `mobile.member.procurement.list` now returns signed-member scoped item-purchase requests and repayment summary, while `mobile.member.procurement.createRequest` validates mobile input, derives the member from the signed session, and delegates to the existing audited procurement helper so active-financing and payback-policy checks stay server-owned. The mobile More hub now exposes Procurement, and `/procurement` renders summary stats, item request inputs, and request history for production member sessions.
+- Scope note: This stages procurement requests only. It does not add staff mobile review, purchase activation, receipt repayment posting, offline drafts, device smoke testing, or native visual QA.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; `../../node_modules/.bin/tsc --noEmit` from `packages/db`; `bun --cwd apps/mobile eslint src/screens/procurement-screen.tsx src/screens/more-screen.tsx src/app/\(member\)/procurement.tsx src/lib/mobile-home-api.ts` with existing array-type warnings only; touched-file `prettier --check`; scoped `git diff --check`.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Member Financing Requests
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

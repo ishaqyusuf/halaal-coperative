@@ -10,6 +10,7 @@ import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   createMobileMemberSupportCase,
   getMobileMemberSupport,
@@ -84,6 +85,37 @@ export function SupportScreen() {
     !isMockSessionToken(profile.token)
   )
   const hasStaleSupport = isMobileReadCacheStale(support?.cache)
+  const supportDraft = useMemo(
+    () => ({
+      category,
+      description,
+      moneyImpactRequested,
+      replyCaseId,
+      replyMessage,
+      subject,
+    }),
+    [
+      category,
+      description,
+      moneyImpactRequested,
+      replyCaseId,
+      replyMessage,
+      subject,
+    ]
+  )
+  const clearSupportDraft = useMobileFormDraft({
+    enabled: canUseServerSupport,
+    key: "member.support.forms",
+    onHydrate: (draft) => {
+      setCategory(draft.category)
+      setSubject(draft.subject)
+      setDescription(draft.description)
+      setMoneyImpactRequested(draft.moneyImpactRequested)
+      setReplyCaseId(draft.replyCaseId)
+      setReplyMessage(draft.replyMessage)
+    },
+    value: supportDraft,
+  })
   const stats = useMemo(
     () => [
       {
@@ -176,6 +208,7 @@ export function SupportScreen() {
         moneyImpactRequested,
         subject: subject.trim(),
       })
+      await clearSupportDraft()
       setSubject("")
       setDescription("")
       setMoneyImpactRequested(false)
@@ -205,6 +238,7 @@ export function SupportScreen() {
         message: replyMessage.trim(),
         supportCaseId: replyCaseId,
       })
+      await clearSupportDraft()
       setReplyCaseId(null)
       setReplyMessage("")
       setSuccess("Support reply sent.")

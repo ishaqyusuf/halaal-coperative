@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   getMobileAdminAccess,
   getMobileMemberMore,
@@ -184,6 +185,26 @@ export function MoreScreen() {
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
   const hasStaleAdminAccess = isMobileReadCacheStale(adminAccess?.cache)
+  const adminInviteDraft = useMemo(
+    () => ({
+      inviteEmail,
+      inviteFullName,
+      inviteMakeDefault,
+      inviteRole,
+    }),
+    [inviteEmail, inviteFullName, inviteMakeDefault, inviteRole]
+  )
+  const clearAdminInviteDraft = useMobileFormDraft({
+    enabled: canUseServerAdminAccess,
+    key: "admin.access.invite",
+    onHydrate: (draft) => {
+      setInviteFullName(draft.inviteFullName)
+      setInviteEmail(draft.inviteEmail)
+      setInviteRole(draft.inviteRole)
+      setInviteMakeDefault(draft.inviteMakeDefault)
+    },
+    value: adminInviteDraft,
+  })
 
   useEffect(() => {
     let mounted = true
@@ -283,6 +304,7 @@ export function MoreScreen() {
         makeDefault: inviteMakeDefault,
         role: inviteRole,
       })
+      await clearAdminInviteDraft()
       setInviteFullName("")
       setInviteEmail("")
       setInviteRole("member")

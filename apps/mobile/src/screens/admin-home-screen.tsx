@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { adminExceptions, adminStats } from "@/data/mobile-template"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   getMobileAdminOverview,
   replyMobileAdminSupport,
@@ -220,6 +221,22 @@ export function AdminHomeScreen() {
   )
   const overviewCache = overview?.cache
   const hasStaleOverview = isMobileReadCacheStale(overviewCache)
+  const adminHomeDraft = useMemo(
+    () => ({
+      replyCaseId,
+      replyMessage,
+    }),
+    [replyCaseId, replyMessage]
+  )
+  const clearAdminHomeDraft = useMobileFormDraft({
+    enabled: canUseServerOverview,
+    key: "admin.home.support",
+    onHydrate: (draft) => {
+      setReplyCaseId(draft.replyCaseId)
+      setReplyMessage(draft.replyMessage)
+    },
+    value: adminHomeDraft,
+  })
 
   useEffect(() => {
     let mounted = true
@@ -304,6 +321,7 @@ export function AdminHomeScreen() {
         message: replyMessage.trim(),
         supportCaseId: supportCase.id,
       })
+      await clearAdminHomeDraft()
       setReplyCaseId(null)
       setReplyMessage("")
       await refreshOverview()

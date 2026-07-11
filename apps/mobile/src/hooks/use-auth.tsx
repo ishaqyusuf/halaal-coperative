@@ -18,6 +18,7 @@ import {
   type MobileSignInCredentials,
 } from "@/lib/mobile-auth-api"
 import { registerMobileDeviceSession } from "@/lib/mobile-home-api"
+import { clearMobileFormDrafts } from "@/hooks/use-mobile-form-draft"
 import { clearMobileReadCache } from "@/lib/read-cache"
 import Constants from "expo-constants"
 import {
@@ -141,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [profile?.activeMembershipId, profile?.token])
 
   const signInAs = useCallback(async (role: MobileRole) => {
+    await clearMobileFormDrafts()
     await clearMobileReadCache()
     const nextProfile = createMockProfile(role)
     await setToken(nextProfile.token)
@@ -150,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithPassword = useCallback(
     async (input: MobileSignInCredentials) => {
+      await clearMobileFormDrafts()
       await clearMobileReadCache()
       const response = await signInWithMobileAuth(input)
       await setToken(response.profile.token)
@@ -175,11 +178,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     await clearSession()
+    await clearMobileFormDrafts()
     await clearMobileReadCache()
     setProfile(null)
   }, [profile?.token])
 
   const switchRole = useCallback(async (membershipId: string) => {
+    await clearMobileFormDrafts()
     await clearMobileReadCache()
     const response = await switchMobileRole({ membershipId })
     await setToken(response.profile.token)

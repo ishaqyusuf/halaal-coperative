@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { adminExceptions, adminStats } from "@/data/mobile-template"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   getMobileAdminFinance,
   recordMobileAdminCollectionFollowUp,
@@ -943,6 +944,91 @@ export function AdminFinanceScreen() {
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
   const hasStaleFinance = isMobileReadCacheStale(finance?.cache)
+  const adminFinanceDraft = useMemo(
+    () => ({
+      collectionFollowUpItemId,
+      collectionFollowUpNextActionAt,
+      collectionFollowUpNote,
+      collectionFollowUpPriority,
+      collectionFollowUpStatus,
+      financingReviewItemId,
+      financingReviewNotes,
+      foodPurchaseReviewItemId,
+      foodPurchaseReviewNotes,
+      procurementApprovedCost,
+      procurementApprovedRepaymentMonths,
+      procurementReviewItemId,
+      procurementReviewNotes,
+      projectFinancingApprovedAmount,
+      projectFinancingApprovedPaybackMonths,
+      projectFinancingApprovedStructure,
+      projectFinancingReviewItemId,
+      projectFinancingReviewNotes,
+      receiptReviewItemId,
+      receiptReviewNotes,
+      shareReviewItemId,
+      shareReviewNotes,
+    }),
+    [
+      collectionFollowUpItemId,
+      collectionFollowUpNextActionAt,
+      collectionFollowUpNote,
+      collectionFollowUpPriority,
+      collectionFollowUpStatus,
+      financingReviewItemId,
+      financingReviewNotes,
+      foodPurchaseReviewItemId,
+      foodPurchaseReviewNotes,
+      procurementApprovedCost,
+      procurementApprovedRepaymentMonths,
+      procurementReviewItemId,
+      procurementReviewNotes,
+      projectFinancingApprovedAmount,
+      projectFinancingApprovedPaybackMonths,
+      projectFinancingApprovedStructure,
+      projectFinancingReviewItemId,
+      projectFinancingReviewNotes,
+      receiptReviewItemId,
+      receiptReviewNotes,
+      shareReviewItemId,
+      shareReviewNotes,
+    ]
+  )
+  const clearAdminFinanceDraft = useMobileFormDraft({
+    enabled: canUseServerFinance,
+    key: "admin.finance.review",
+    onHydrate: (draft) => {
+      setFoodPurchaseReviewItemId(draft.foodPurchaseReviewItemId)
+      setFoodPurchaseReviewNotes(draft.foodPurchaseReviewNotes)
+      setFinancingReviewItemId(draft.financingReviewItemId)
+      setFinancingReviewNotes(draft.financingReviewNotes)
+      setProcurementReviewItemId(draft.procurementReviewItemId)
+      setProcurementReviewNotes(draft.procurementReviewNotes)
+      setProcurementApprovedCost(draft.procurementApprovedCost)
+      setProcurementApprovedRepaymentMonths(
+        draft.procurementApprovedRepaymentMonths
+      )
+      setProjectFinancingReviewItemId(draft.projectFinancingReviewItemId)
+      setProjectFinancingReviewNotes(draft.projectFinancingReviewNotes)
+      setProjectFinancingApprovedAmount(draft.projectFinancingApprovedAmount)
+      setProjectFinancingApprovedPaybackMonths(
+        draft.projectFinancingApprovedPaybackMonths
+      )
+      setProjectFinancingApprovedStructure(
+        draft.projectFinancingApprovedStructure
+      )
+      setReceiptReviewItemId(draft.receiptReviewItemId)
+      setReceiptReviewNotes(draft.receiptReviewNotes)
+      setShareReviewItemId(draft.shareReviewItemId)
+      setShareReviewNotes(draft.shareReviewNotes)
+      setCollectionFollowUpItemId(draft.collectionFollowUpItemId)
+      setCollectionFollowUpNote(draft.collectionFollowUpNote)
+      setCollectionFollowUpStatus(draft.collectionFollowUpStatus)
+      setCollectionFollowUpPriority(draft.collectionFollowUpPriority)
+      setCollectionFollowUpNextActionAt(draft.collectionFollowUpNextActionAt)
+    },
+    value: adminFinanceDraft,
+  })
   const stats = useMemo(
     () =>
       finance?.stats.map((metric) => ({
@@ -1083,6 +1169,7 @@ export function AdminFinanceScreen() {
         receiptId: item.id,
         reviewNotes: notes || undefined,
       })
+      await clearAdminFinanceDraft()
       setReceiptReviewItemId(null)
       setReceiptReviewNotes("")
       await refreshFinance()
@@ -1118,6 +1205,7 @@ export function AdminFinanceScreen() {
         notes: notes || undefined,
         status,
       })
+      await clearAdminFinanceDraft()
       setFinancingReviewItemId(null)
       setFinancingReviewNotes("")
       await refreshFinance()
@@ -1175,6 +1263,7 @@ export function AdminFinanceScreen() {
         procurementRequestId: item.id,
         status,
       })
+      await clearAdminFinanceDraft()
       setProcurementReviewItemId(null)
       setProcurementReviewNotes("")
       setProcurementApprovedCost("")
@@ -1218,6 +1307,7 @@ export function AdminFinanceScreen() {
         notes,
         status,
       })
+      await clearAdminFinanceDraft()
       setFoodPurchaseReviewItemId(null)
       setFoodPurchaseReviewNotes("")
       await refreshFinance()
@@ -1286,6 +1376,7 @@ export function AdminFinanceScreen() {
         projectFinancingRequestId: item.id,
         status,
       })
+      await clearAdminFinanceDraft()
       setProjectFinancingReviewItemId(null)
       setProjectFinancingReviewNotes("")
       setProjectFinancingApprovedAmount("")
@@ -1330,6 +1421,7 @@ export function AdminFinanceScreen() {
         decision,
         reviewNotes,
       })
+      await clearAdminFinanceDraft()
       setShareReviewItemId(null)
       setShareReviewNotes("")
       await refreshFinance()
@@ -1382,6 +1474,7 @@ export function AdminFinanceScreen() {
         resolutionStatus: followUp.resolutionStatus,
         status: collectionFollowUpStatus,
       })
+      await clearAdminFinanceDraft()
       setCollectionFollowUpItemId(null)
       setCollectionFollowUpNote("")
       setCollectionFollowUpStatus("reminded")

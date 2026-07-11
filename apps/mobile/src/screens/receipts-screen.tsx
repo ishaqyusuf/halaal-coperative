@@ -10,6 +10,7 @@ import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   createMobileMemberSupportCase,
   createMobileMemberReceipt,
@@ -141,6 +142,45 @@ export function ReceiptsScreen() {
     [allocations]
   )
   const receiptAmount = parseAmount(totalAmount)
+  const receiptDraft = useMemo(
+    () => ({
+      allocations,
+      memberNotes,
+      paidAt,
+      paymentReference,
+      proofDocumentUrl,
+      supportDescription,
+      supportReceiptId,
+      totalAmount,
+    }),
+    [
+      allocations,
+      memberNotes,
+      paidAt,
+      paymentReference,
+      proofDocumentUrl,
+      supportDescription,
+      supportReceiptId,
+      totalAmount,
+    ]
+  )
+  const clearReceiptDraft = useMobileFormDraft({
+    enabled: canUseServerReceipts,
+    key: "member.receipts.create",
+    onHydrate: (draft) => {
+      setTotalAmount(draft.totalAmount)
+      setPaidAt(draft.paidAt)
+      setPaymentReference(draft.paymentReference)
+      setProofDocumentUrl(draft.proofDocumentUrl)
+      setMemberNotes(draft.memberNotes)
+      setSupportReceiptId(draft.supportReceiptId)
+      setSupportDescription(draft.supportDescription)
+      if (draft.allocations.length > 0) {
+        setAllocations(draft.allocations)
+      }
+    },
+    value: receiptDraft,
+  })
   const canSubmit = Boolean(
     receiptAmount > 0 &&
     Math.abs(receiptAmount - allocationTotal) < 0.005 &&
@@ -244,6 +284,7 @@ export function ReceiptsScreen() {
         moneyImpactRequested: true,
         subject: "Receipt support request",
       })
+      await clearReceiptDraft()
       setSupportReceiptId(null)
       setSupportDescription("")
       setSuccess("Receipt support case opened.")
@@ -282,6 +323,7 @@ export function ReceiptsScreen() {
         proofDocumentUrl: proofDocumentUrl.trim() || undefined,
         totalAmount: receiptAmount,
       })
+      await clearReceiptDraft()
       setTotalAmount("")
       setPaymentReference("")
       setProofDocumentUrl("")

@@ -10,6 +10,7 @@ import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   createMobileMemberFoodPurchaseApplication,
   getMobileMemberFoodPurchase,
@@ -263,6 +264,34 @@ export function FoodPurchaseScreen() {
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
   const hasStaleFoodPurchase = isMobileReadCacheStale(foodPurchase?.cache)
+  const foodPurchaseDraft = useMemo(
+    () => ({
+      cycleId,
+      itemDescription,
+      requestedAmount,
+      requestedPaybackMonths,
+      requestNotes,
+    }),
+    [
+      cycleId,
+      itemDescription,
+      requestedAmount,
+      requestedPaybackMonths,
+      requestNotes,
+    ]
+  )
+  const clearFoodPurchaseDraft = useMobileFormDraft({
+    enabled: canUseServerFoodPurchase,
+    key: "member.food-purchase.create",
+    onHydrate: (draft) => {
+      setCycleId(draft.cycleId)
+      setRequestedAmount(draft.requestedAmount)
+      setRequestedPaybackMonths(draft.requestedPaybackMonths)
+      setItemDescription(draft.itemDescription)
+      setRequestNotes(draft.requestNotes)
+    },
+    value: foodPurchaseDraft,
+  })
   const openCycles = useMemo(
     () => foodPurchase?.cycles.filter((cycle) => cycle.status === "open") ?? [],
     [foodPurchase?.cycles]
@@ -381,6 +410,7 @@ export function FoodPurchaseScreen() {
         requestedPaybackMonths: paybackMonths,
         requestNotes: requestNotes.trim() || undefined,
       })
+      await clearFoodPurchaseDraft()
       setRequestedAmount("")
       setRequestedPaybackMonths("1")
       setItemDescription("")

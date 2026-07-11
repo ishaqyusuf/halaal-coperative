@@ -10,6 +10,7 @@ import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   createMobileMemberProcurementRequest,
   getMobileMemberProcurement,
@@ -229,6 +230,34 @@ export function ProcurementScreen() {
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
   const hasStaleProcurement = isMobileReadCacheStale(procurement?.cache)
+  const procurementDraft = useMemo(
+    () => ({
+      itemDescription,
+      itemName,
+      requestedCost,
+      requestedRepaymentMonths,
+      vendorName,
+    }),
+    [
+      itemDescription,
+      itemName,
+      requestedCost,
+      requestedRepaymentMonths,
+      vendorName,
+    ]
+  )
+  const clearProcurementDraft = useMobileFormDraft({
+    enabled: canUseServerProcurement,
+    key: "member.procurement.create",
+    onHydrate: (draft) => {
+      setItemName(draft.itemName)
+      setVendorName(draft.vendorName)
+      setRequestedCost(draft.requestedCost)
+      setRequestedRepaymentMonths(draft.requestedRepaymentMonths)
+      setItemDescription(draft.itemDescription)
+    },
+    value: procurementDraft,
+  })
   const cost = parseAmount(requestedCost)
   const repaymentMonths = parsePositiveInteger(requestedRepaymentMonths)
   const canSubmit = Boolean(
@@ -332,6 +361,7 @@ export function ProcurementScreen() {
         requestedRepaymentMonths: repaymentMonths,
         vendorName: vendorName.trim() || undefined,
       })
+      await clearProcurementDraft()
       setItemName("")
       setVendorName("")
       setRequestedCost("")

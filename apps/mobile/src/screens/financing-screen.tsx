@@ -10,6 +10,7 @@ import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   createMobileMemberFinancingRequest,
   getMobileMemberFinancing,
@@ -221,6 +222,34 @@ export function FinancingScreen() {
   const selectedProduct = financing?.products.find(
     (product) => product.id === selectedProductId
   )
+  const financingDraft = useMemo(
+    () => ({
+      extraMonthlySavingsAmount,
+      purpose,
+      requestedAmount,
+      requestedTermMonths,
+      selectedProductId,
+    }),
+    [
+      extraMonthlySavingsAmount,
+      purpose,
+      requestedAmount,
+      requestedTermMonths,
+      selectedProductId,
+    ]
+  )
+  const clearFinancingDraft = useMobileFormDraft({
+    enabled: canUseServerFinancing,
+    key: "member.financing.create",
+    onHydrate: (draft) => {
+      setSelectedProductId(draft.selectedProductId)
+      setRequestedAmount(draft.requestedAmount)
+      setRequestedTermMonths(draft.requestedTermMonths)
+      setExtraMonthlySavingsAmount(draft.extraMonthlySavingsAmount)
+      setPurpose(draft.purpose)
+    },
+    value: financingDraft,
+  })
   const amount = parseAmount(requestedAmount)
   const termMonths = parsePositiveInteger(requestedTermMonths)
   const extraSavings = parseAmount(extraMonthlySavingsAmount)
@@ -316,6 +345,7 @@ export function FinancingScreen() {
         requestedAmount: amount,
         requestedTermMonths: termMonths,
       })
+      await clearFinancingDraft()
       setRequestedAmount("")
       setRequestedTermMonths("")
       setExtraMonthlySavingsAmount("")

@@ -9,6 +9,7 @@ import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   getMobileMemberGuarantorApprovals,
   respondMobileMemberGuarantorApproval,
@@ -191,6 +192,20 @@ export function GuarantorApprovalsScreen() {
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
   const hasStaleApprovals = isMobileReadCacheStale(approvals?.cache)
+  const guarantorDraft = useMemo(
+    () => ({
+      notesByApprovalId,
+    }),
+    [notesByApprovalId]
+  )
+  const clearGuarantorDraft = useMobileFormDraft({
+    enabled: canUseServerApprovals,
+    key: "member.guarantor-approvals.respond",
+    onHydrate: (draft) => {
+      setNotesByApprovalId(draft.notesByApprovalId)
+    },
+    value: guarantorDraft,
+  })
   const stats = useMemo(
     () => [
       {
@@ -277,6 +292,7 @@ export function GuarantorApprovalsScreen() {
         notes: notesByApprovalId[approvalId]?.trim() || undefined,
         status,
       })
+      await clearGuarantorDraft()
       setSuccess(`Guarantor request ${status}.`)
       setNotesByApprovalId((current) => ({
         ...current,

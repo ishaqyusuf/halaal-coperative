@@ -10,6 +10,7 @@ import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   createMobileAdminMember,
   getMobileAdminMembers,
@@ -442,6 +443,55 @@ export function AdminMembersScreen() {
     members && members.page * members.pageSize < members.total
   )
   const hasStaleMembers = isMobileReadCacheStale(members?.cache)
+  const adminMembersDraft = useMemo(
+    () => ({
+      createEmail,
+      createFullName,
+      createJoinedAt,
+      createMemberNumber,
+      createMemberType,
+      createMonthlyCommitment,
+      createPhoneNumber,
+      kycReviewMemberId,
+      kycReviewNotes,
+      kycReviewStatus,
+      onboardingReviewNotes,
+      onboardingReviewRequestId,
+    }),
+    [
+      createEmail,
+      createFullName,
+      createJoinedAt,
+      createMemberNumber,
+      createMemberType,
+      createMonthlyCommitment,
+      createPhoneNumber,
+      kycReviewMemberId,
+      kycReviewNotes,
+      kycReviewStatus,
+      onboardingReviewNotes,
+      onboardingReviewRequestId,
+    ]
+  )
+  const clearAdminMembersDraft = useMobileFormDraft({
+    enabled: canUseServerMembers,
+    key: "admin.members.forms",
+    onHydrate: (draft) => {
+      setOnboardingReviewRequestId(draft.onboardingReviewRequestId)
+      setOnboardingReviewNotes(draft.onboardingReviewNotes)
+      setKycReviewMemberId(draft.kycReviewMemberId)
+      setKycReviewStatus(draft.kycReviewStatus)
+      setKycReviewNotes(draft.kycReviewNotes)
+      setCreateFullName(draft.createFullName)
+      setCreateMemberNumber(draft.createMemberNumber)
+      setCreateMemberType(draft.createMemberType)
+      setCreateJoinedAt(draft.createJoinedAt)
+      setCreateEmail(draft.createEmail)
+      setCreatePhoneNumber(draft.createPhoneNumber)
+      setCreateMonthlyCommitment(draft.createMonthlyCommitment)
+    },
+    value: adminMembersDraft,
+  })
   const stats = useMemo(
     () => [
       {
@@ -570,6 +620,7 @@ export function AdminMembersScreen() {
         monthlyCommitment,
         phoneNumber: createPhoneNumber.trim() || undefined,
       })
+      await clearAdminMembersDraft()
       setCreateFullName("")
       setCreateMemberNumber("")
       setCreateMemberType("individual")
@@ -618,6 +669,7 @@ export function AdminMembersScreen() {
         requestId: request.id,
         reviewNotes,
       })
+      await clearAdminMembersDraft()
       setOnboardingReviewRequestId(null)
       setOnboardingReviewNotes("")
       setPage(1)
@@ -657,6 +709,7 @@ export function AdminMembersScreen() {
         kycStatus: kycReviewStatus,
         memberId: member.id,
       })
+      await clearAdminMembersDraft()
       setKycReviewMemberId(null)
       setKycReviewNotes("")
       setKycReviewStatus("verified")

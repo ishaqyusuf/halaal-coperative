@@ -10,6 +10,7 @@ import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   createMobileMemberShareApplication,
   getMobileMemberShares,
@@ -144,6 +145,22 @@ export function SharesScreen() {
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
   const hasStaleShares = isMobileReadCacheStale(shares?.cache)
+  const shareDraft = useMemo(
+    () => ({
+      notes,
+      requestedUnits,
+    }),
+    [notes, requestedUnits]
+  )
+  const clearShareDraft = useMobileFormDraft({
+    enabled: canUseServerShares,
+    key: "member.shares.create",
+    onHydrate: (draft) => {
+      setRequestedUnits(draft.requestedUnits)
+      setNotes(draft.notes)
+    },
+    value: shareDraft,
+  })
   const requestedUnitCount = Number(requestedUnits.trim())
   const remainingOptionalUnits = shares?.position?.remainingOptionalUnits ?? 0
   const canRequestOptionalShares = Boolean(
@@ -231,6 +248,7 @@ export function SharesScreen() {
         notes: notes.trim() || undefined,
         requestedUnits: requestedUnitCount,
       })
+      await clearShareDraft()
       setRequestedUnits("")
       setNotes("")
       setSuccess("Share request submitted for review.")

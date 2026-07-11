@@ -10,6 +10,7 @@ import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import {
   createMobileMemberProjectFinancingRequest,
   getMobileMemberProjectFinancing,
@@ -312,6 +313,37 @@ export function ProjectFinancingScreen() {
   const hasStaleProjectFinancing = isMobileReadCacheStale(
     projectFinancing?.cache
   )
+  const projectFinancingDraft = useMemo(
+    () => ({
+      businessDescription,
+      businessName,
+      projectPurpose,
+      proposedStructure,
+      requestedAmount,
+      requestedPaybackMonths,
+    }),
+    [
+      businessDescription,
+      businessName,
+      projectPurpose,
+      proposedStructure,
+      requestedAmount,
+      requestedPaybackMonths,
+    ]
+  )
+  const clearProjectFinancingDraft = useMobileFormDraft({
+    enabled: canUseServerProjectFinancing,
+    key: "member.project-financing.create",
+    onHydrate: (draft) => {
+      setBusinessName(draft.businessName)
+      setRequestedAmount(draft.requestedAmount)
+      setRequestedPaybackMonths(draft.requestedPaybackMonths)
+      setProposedStructure(draft.proposedStructure)
+      setProjectPurpose(draft.projectPurpose)
+      setBusinessDescription(draft.businessDescription)
+    },
+    value: projectFinancingDraft,
+  })
   const amount = parseAmount(requestedAmount)
   const paybackMonths = parsePositiveInteger(requestedPaybackMonths)
   const hasInvalidPayback =
@@ -418,6 +450,7 @@ export function ProjectFinancingScreen() {
         requestedAmount: amount,
         requestedPaybackMonths: paybackMonths || undefined,
       })
+      await clearProjectFinancingDraft()
       setBusinessName("")
       setRequestedAmount("")
       setRequestedPaybackMonths("")

@@ -1,5 +1,5 @@
-import { DetailListScreen } from "@/screens/detail-list-screen";
+import { NotificationsScreen } from "@/screens/notifications-screen"
 
 export default function NotificationsRoute() {
-  return <DetailListScreen detailKey="commitments" />;
+  return <NotificationsScreen />
 }

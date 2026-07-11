@@ -23,6 +23,7 @@ import {
   getMobileMemberStatement,
   getMobileMemberSupport,
   getMobileMemberSection,
+  getMobileNotifications,
   mobileMemberSectionKeys,
   mobileReceiptAllocationCategoryKeys,
   mobileReceiptChannelKeys,
@@ -178,6 +179,15 @@ export const mobileRouter = createTRPCRouter({
       overview: minRoleProcedure("operations_officer").query(({ ctx }) => {
         return getMobileAdminReports(ctx.tenant.current.id)
       }),
+    }),
+  }),
+  notifications: createTRPCRouter({
+    overview: tenantProcedure.query(({ ctx }) => {
+      return getMobileNotifications({
+        role: ctx.auth.activeMembership.role,
+        tenantId: ctx.tenant.current.id,
+        userEmail: ctx.auth.session.user.email,
+      })
     }),
   }),
   member: createTRPCRouter({

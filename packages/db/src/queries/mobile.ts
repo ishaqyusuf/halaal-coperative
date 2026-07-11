@@ -1,5 +1,9 @@
 import { createPrismaClient } from "../prisma"
-import { listActivityReportEvents, type ActivityReportEvent } from "./audit"
+import {
+  listActivityReportEvents,
+  listAuditLogs,
+  type ActivityReportEvent,
+} from "./audit"
 import { listTenantUsersWithMemberships, type MembershipRole } from "./auth"
 import { getDashboardMetrics, getOverviewSummary } from "./dashboard"
 import {
@@ -24,6 +28,7 @@ import {
   listMemberStatementSummaries,
   type ListMembersFilters,
 } from "./members"
+import { listNotificationPreferences } from "./notifications"
 import {
   createMemberPaymentReceipt,
   getMemberScopedPaymentReceiptSummary,
@@ -295,6 +300,37 @@ export type MobileAdminReports = {
   generatedAt: string
   reports: MobileAdminReportCard[]
   stats: MobileOverviewMetric[]
+}
+
+export type MobileNotificationDelivery = {
+  action: string
+  errorMessage: string | null
+  id: string
+  notificationType: string
+  occurredAt: string
+  recipient: string
+  source: string | null
+  status: "failed" | "queued" | "sent" | "unknown"
+}
+
+export type MobileNotificationPreference = {
+  channel: string
+  enabled: boolean
+  notificationType: string
+  role: MembershipRole | "all"
+}
+
+export type MobileNotifications = {
+  deliveries: MobileNotificationDelivery[]
+  generatedAt: string
+  preferences: MobileNotificationPreference[]
+  summary: {
+    enabledPreferences: number
+    failed: number
+    queued: number
+    sent: number
+    totalDeliveries: number
+  }
 }
 
 export type MobileAdminAccessMembership = {
@@ -1321,6 +1357,26 @@ function latestDateLabel(value: Date | null | undefined) {
   return value ? formatDateLabel(value) : "No recent activity"
 }
 
+function getMobileMetadataString(metadata: unknown, key: string) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null
+  }
+
+  const value = (metadata as Record<string, unknown>)[key]
+
+  return typeof value === "string" && value.trim() ? value : null
+}
+
+function getMobileDeliveryStatus(
+  action: string
+): MobileNotificationDelivery["status"] {
+  if (action === "notification.email_sent") return "sent"
+  if (action === "notification.email_failed") return "failed"
+  if (action === "notification.email_queued") return "queued"
+
+  return "unknown"
+}
+
 const mobileAdminAccessRoles: MembershipRole[] = [
   "super_admin",
   "tenant_admin",
@@ -1460,6 +1516,44 @@ function summarizeMobileAdminAccess(
       user.memberships.some((membership) => membership.role !== "member")
     ).length,
     workspaceUsers: users.length,
+  }
+}
+
+type MobileNotificationAuditLog = Awaited<
+  ReturnType<typeof listAuditLogs>
+>[number]
+
+function toMobileNotificationDelivery(
+  log: MobileNotificationAuditLog
+): MobileNotificationDelivery {
+  return {
+    action: log.action,
+    errorMessage: getMobileMetadataString(log.metadata, "errorMessage"),
+    id: log.id,
+    notificationType:
+      getMobileMetadataString(log.metadata, "notificationType") ??
+      "notification.email",
+    occurredAt: log.occurredAt.toISOString(),
+    recipient:
+      getMobileMetadataString(log.metadata, "recipient") ?? "Unknown recipient",
+    source: getMobileMetadataString(log.metadata, "source"),
+    status: getMobileDeliveryStatus(log.action),
+  }
+}
+
+function summarizeMobileNotifications(
+  deliveries: MobileNotificationDelivery[],
+  preferences: MobileNotificationPreference[]
+): MobileNotifications["summary"] {
+  return {
+    enabledPreferences: preferences.filter((preference) => preference.enabled)
+      .length,
+    failed: deliveries.filter((delivery) => delivery.status === "failed")
+      .length,
+    queued: deliveries.filter((delivery) => delivery.status === "queued")
+      .length,
+    sent: deliveries.filter((delivery) => delivery.status === "sent").length,
+    totalDeliveries: deliveries.length,
   }
 }
 
@@ -4295,5 +4389,43 @@ export async function getMobileAdminAccess(
     roles: buildMobileAdminAccessRoles(users),
     summary: summarizeMobileAdminAccess(users),
     users,
+  }
+}
+
+export async function getMobileNotifications(input: {
+  role: MembershipRole
+  tenantId: string
+  userEmail: string
+}): Promise<MobileNotifications> {
+  const normalizedEmail = input.userEmail.trim().toLowerCase()
+  const [deliveryLogs, preferences] = await Promise.all([
+    listAuditLogs(input.tenantId, {
+      action: "notification.email",
+      limit: 100,
+    }),
+    listNotificationPreferences(input.tenantId),
+  ])
+  const deliveries = deliveryLogs
+    .map(toMobileNotificationDelivery)
+    .filter(
+      (delivery) => delivery.recipient.trim().toLowerCase() === normalizedEmail
+    )
+    .slice(0, 25)
+  const visiblePreferences = preferences
+    .filter(
+      (preference) => preference.role === null || preference.role === input.role
+    )
+    .map((preference) => ({
+      channel: preference.channel,
+      enabled: preference.enabled,
+      notificationType: preference.notificationType,
+      role: (preference.role ?? "all") as MembershipRole | "all",
+    }))
+
+  return {
+    deliveries,
+    generatedAt: new Date().toISOString(),
+    preferences: visiblePreferences,
+    summary: summarizeMobileNotifications(deliveries, visiblePreferences),
   }
 }

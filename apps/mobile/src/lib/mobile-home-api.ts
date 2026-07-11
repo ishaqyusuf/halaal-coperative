@@ -170,6 +170,37 @@ export type MobileAdminReports = {
   stats: MobileOverviewMetric[]
 }
 
+export type MobileNotificationDelivery = {
+  action: string
+  errorMessage: string | null
+  id: string
+  notificationType: string
+  occurredAt: string
+  recipient: string
+  source: string | null
+  status: "failed" | "queued" | "sent" | "unknown"
+}
+
+export type MobileNotificationPreference = {
+  channel: string
+  enabled: boolean
+  notificationType: string
+  role: MobileAdminAccessRoleKey | "all"
+}
+
+export type MobileNotifications = {
+  deliveries: MobileNotificationDelivery[]
+  generatedAt: string
+  preferences: MobileNotificationPreference[]
+  summary: {
+    enabledPreferences: number
+    failed: number
+    queued: number
+    sent: number
+    totalDeliveries: number
+  }
+}
+
 export type MobileAdminAccessRoleKey =
   | "super_admin"
   | "tenant_admin"
@@ -936,6 +967,12 @@ export async function getMobileAdminReports() {
   const client = createMobileTrpcClient()
 
   return client.mobile.admin.reports.overview.query() as Promise<MobileAdminReports>
+}
+
+export async function getMobileNotifications() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.notifications.overview.query() as Promise<MobileNotifications>
 }
 
 export async function getMobileAdminAccess() {

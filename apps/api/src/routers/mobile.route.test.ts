@@ -798,6 +798,37 @@ describe("mobileRouter", () => {
     )
   })
 
+  test("returns mobile notifications for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const notifications = await caller.mobile.notifications.overview()
+
+    expect(notifications.deliveries).toEqual([])
+    expect(notifications.generatedAt).toEqual(expect.any(String))
+    expect(notifications.preferences).toEqual([])
+    expect(notifications.summary).toEqual({
+      enabledPreferences: 0,
+      failed: 0,
+      queued: 0,
+      sent: 0,
+      totalDeliveries: 0,
+    })
+  })
+
+  test("returns mobile notifications for staff workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    const notifications = await caller.mobile.notifications.overview()
+
+    expect(notifications.deliveries).toEqual([])
+    expect(notifications.generatedAt).toEqual(expect.any(String))
+    expect(notifications.summary.totalDeliveries).toBe(0)
+  })
+
   test("returns admin overview for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

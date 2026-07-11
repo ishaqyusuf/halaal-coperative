@@ -1,0 +1,237 @@
+import { SectionCard } from "@/components/app/section-card"
+import { StatCard } from "@/components/app/stat-card"
+import { LoadingSpinner } from "@/components/loading-spinner"
+import { SafeArea } from "@/components/safe-area"
+import { Icon } from "@/components/ui/icon"
+import { Text } from "@/components/ui/text"
+import { useAuthContext } from "@/hooks/use-auth"
+import { useColors } from "@/hooks/use-color"
+import {
+  getMobileNotifications,
+  type MobileNotificationDelivery,
+  type MobileNotificationPreference,
+  type MobileNotifications,
+} from "@/lib/mobile-home-api"
+import { isMockSessionToken } from "@/lib/session-store"
+import { useEffect, useMemo, useState } from "react"
+import { ScrollView, View } from "react-native"
+
+function formatDate(value: string) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return "Time unavailable"
+  }
+
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+function DeliveryRow({ delivery }: { delivery: MobileNotificationDelivery }) {
+  const tone =
+    delivery.status === "failed"
+      ? "text-destructive"
+      : delivery.status === "sent"
+        ? "text-accent"
+        : "text-muted-foreground"
+
+  return (
+    <View className="gap-2 border-b border-border pb-3 last:border-b-0 last:pb-0">
+      <View className="flex-row items-start gap-3">
+        <View className="h-9 w-9 items-center justify-center rounded-md bg-secondary">
+          <Icon name="Mail" className="size-sm text-accent" />
+        </View>
+        <View className="flex-1 gap-1">
+          <View className="flex-row items-start justify-between gap-3">
+            <Text className="flex-1 text-sm font-semibold text-foreground">
+              {delivery.notificationType}
+            </Text>
+            <Text className={`text-xs font-medium ${tone}`}>
+              {delivery.status}
+            </Text>
+          </View>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            {delivery.recipient} - {formatDate(delivery.occurredAt)}
+          </Text>
+          {delivery.errorMessage ? (
+            <Text className="text-xs leading-4 text-destructive">
+              {delivery.errorMessage}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function PreferenceRow({
+  preference,
+}: {
+  preference: MobileNotificationPreference
+}) {
+  return (
+    <View className="flex-row items-start justify-between gap-3 border-b border-border pb-3 last:border-b-0 last:pb-0">
+      <View className="flex-1 gap-1">
+        <Text className="text-sm font-semibold text-foreground">
+          {preference.notificationType}
+        </Text>
+        <Text className="text-xs text-muted-foreground">
+          {preference.role} - {preference.channel}
+        </Text>
+      </View>
+      <Text className="text-xs font-medium text-muted-foreground">
+        {preference.enabled ? "on" : "off"}
+      </Text>
+    </View>
+  )
+}
+
+export function NotificationsScreen() {
+  const { profile } = useAuthContext()
+  const colors = useColors()
+  const [notifications, setNotifications] =
+    useState<MobileNotifications | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const canUseServerNotifications = Boolean(
+    profile?.token && !isMockSessionToken(profile.token)
+  )
+  const stats = useMemo(
+    () =>
+      notifications
+        ? [
+            {
+              detail: "Prepared for delivery",
+              label: "Queued",
+              value: String(notifications.summary.queued),
+            },
+            {
+              detail: "Sent to this account",
+              label: "Sent",
+              value: String(notifications.summary.sent),
+            },
+            {
+              detail: "Delivery failures",
+              label: "Failed",
+              value: String(notifications.summary.failed),
+            },
+          ]
+        : [],
+    [notifications]
+  )
+
+  useEffect(() => {
+    let mounted = true
+
+    if (!canUseServerNotifications) {
+      setNotifications(null)
+      setError(null)
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    void getMobileNotifications()
+      .then((response) => {
+        if (mounted) {
+          setNotifications(response)
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setError("Notifications are unavailable.")
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [canUseServerNotifications, profile?.token])
+
+  return (
+    <SafeArea style={{ backgroundColor: colors.background }}>
+      <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-5">
+        <View className="gap-2">
+          <Text className="text-3xl font-black text-foreground">
+            Notifications
+          </Text>
+          <Text className="text-base leading-6 text-muted-foreground">
+            Account delivery history and cooperative notification preferences.
+          </Text>
+        </View>
+
+        {!canUseServerNotifications ? (
+          <SectionCard icon="Bell" title="Notification center">
+            <Text className="text-sm leading-5 text-muted-foreground">
+              Sign in with a production account to review notification delivery
+              history.
+            </Text>
+          </SectionCard>
+        ) : null}
+
+        {canUseServerNotifications ? (
+          <>
+            {stats.length ? (
+              <View className="flex-row flex-wrap gap-3">
+                {stats.map((item) => (
+                  <StatCard key={item.label} {...item} />
+                ))}
+              </View>
+            ) : null}
+
+            {error ? (
+              <Text className="text-sm font-medium text-destructive">
+                {error}
+              </Text>
+            ) : null}
+
+            <SectionCard icon="Bell" title="Delivery history">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : notifications?.deliveries.length ? (
+                <View className="gap-3">
+                  {notifications.deliveries.map((delivery) => (
+                    <DeliveryRow delivery={delivery} key={delivery.id} />
+                  ))}
+                </View>
+              ) : (
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  No notification deliveries are recorded for this account yet.
+                </Text>
+              )}
+            </SectionCard>
+
+            <SectionCard icon="SlidersHorizontal" title="Preference coverage">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : notifications?.preferences.length ? (
+                <View className="gap-3">
+                  {notifications.preferences.slice(0, 12).map((preference) => (
+                    <PreferenceRow
+                      key={`${preference.role}-${preference.notificationType}-${preference.channel}`}
+                      preference={preference}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  Default cooperative notification routing is active.
+                </Text>
+              )}
+            </SectionCard>
+          </>
+        ) : null}
+      </ScrollView>
+    </SafeArea>
+  )
+}

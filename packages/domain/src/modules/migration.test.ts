@@ -44,6 +44,23 @@ describe("initial migration lifecycle", () => {
     expect(snapshot.missingStepKeys).toEqual([])
   })
 
+  test("tracks missing migration setup mode as a setup step", () => {
+    const snapshot = buildInitialMigrationSnapshot({
+      hasBusinessProfitPools: true,
+      hasChargeSchedules: true,
+      hasFinalizationConfirmed: false,
+      hasFinanceStartDate: true,
+      hasLegacyLoansReviewed: true,
+      hasMemberLedgerBackfill: true,
+      hasMemberProfiles: true,
+      hasMigrationSetupMode: false,
+      hasShareCapitalPlan: true,
+      status: "historical_setup_in_progress",
+    })
+
+    expect(snapshot.missingStepKeys).toContain("migration_setup_mode")
+  })
+
   test("opens live writes and allows audited emergency unlock after finalization", () => {
     const snapshot = buildInitialMigrationSnapshot({
       emergencyUnlockActive: true,

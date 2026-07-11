@@ -38,6 +38,8 @@ export function MemberHomeScreen() {
       })) ?? memberStats,
     [home?.stats, profile?.tenant.currencyCode]
   )
+  const homeCache = home?.cache
+  const isStaleHome = homeCache?.status === "stale"
 
   useEffect(() => {
     let mounted = true
@@ -80,6 +82,24 @@ export function MemberHomeScreen() {
     <SafeArea style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-4">
         <ProfileHeader profile={profile} />
+
+        {homeCache ? (
+          <SectionCard
+            icon={isStaleHome ? "WifiOff" : "Clock3"}
+            title={isStaleHome ? "Offline snapshot" : "Data refreshed"}
+          >
+            <Text className="text-sm leading-5 text-muted-foreground">
+              {isStaleHome ? "Showing cached account data from" : "Updated"}{" "}
+              {new Intl.DateTimeFormat("en", {
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                month: "short",
+                timeZone: "UTC",
+              }).format(new Date(homeCache.cachedAt))}
+            </Text>
+          </SectionCard>
+        ) : null}
 
         <SectionCard icon="BadgeCheck" title="Member readiness">
           {isLoadingHome ? (

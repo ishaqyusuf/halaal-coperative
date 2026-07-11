@@ -9,6 +9,7 @@ import { Text } from "@/components/ui/text"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
+  createMobileAdminMember,
   getMobileAdminMembers,
   type MobileAdminMemberOnboardingRequest,
   type MobileAdminMemberKycStatus,
@@ -24,6 +25,7 @@ import { ScrollView, View } from "react-native"
 
 type StatusFilter = "all" | MobileAdminMemberStatus
 type KycFilter = "all" | MobileAdminMemberKycStatus
+type MemberTypeDraft = "civil_servant" | "individual" | "business"
 
 const statusFilters: { label: string; value: StatusFilter }[] = [
   { label: "All", value: "all" },
@@ -52,6 +54,25 @@ function formatStatus(value: string) {
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function parseDateInput(value: string) {
+  const trimmed = value.trim()
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null
+
+  const date = new Date(`${trimmed}T00:00:00.000Z`)
+
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function parseOptionalAmount(value: string) {
+  const trimmed = value.replace(/,/g, "").trim()
+  if (!trimmed) return undefined
+
+  const amount = Number(trimmed)
+
+  return Number.isFinite(amount) && amount > 0 ? amount : null
 }
 
 function FilterButton({
@@ -223,6 +244,18 @@ export function AdminMembersScreen() {
   const [members, setMembers] = useState<MobileAdminMembers | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [createMessage, setCreateMessage] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [createFullName, setCreateFullName] = useState("")
+  const [createMemberNumber, setCreateMemberNumber] = useState("")
+  const [createMemberType, setCreateMemberType] =
+    useState<MemberTypeDraft>("individual")
+  const [createJoinedAt, setCreateJoinedAt] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  )
+  const [createEmail, setCreateEmail] = useState("")
+  const [createPhoneNumber, setCreatePhoneNumber] = useState("")
+  const [createMonthlyCommitment, setCreateMonthlyCommitment] = useState("")
   const [searchDraft, setSearchDraft] = useState("")
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState<StatusFilter>("all")
@@ -316,7 +349,7 @@ export function AdminMembersScreen() {
     const memberDetailHref = {
       params: { memberId },
       pathname: "/members/[memberId]",
-    } as Parameters<typeof router.push>[0]
+    } as unknown as Parameters<typeof router.push>[0]
 
     router.push(memberDetailHref)
   }
@@ -324,6 +357,58 @@ export function AdminMembersScreen() {
   function applySearch() {
     setPage(1)
     setSearch(searchDraft)
+  }
+
+  async function handleCreateMember() {
+    const joinedAt = parseDateInput(createJoinedAt)
+    const monthlyCommitment = parseOptionalAmount(createMonthlyCommitment)
+
+    if (
+      isCreating ||
+      !joinedAt ||
+      !createFullName.trim() ||
+      !createMemberNumber.trim() ||
+      monthlyCommitment === null
+    ) {
+      setCreateMessage(
+        "Enter a valid name, member number, joined date, and optional commitment."
+      )
+      return
+    }
+
+    setIsCreating(true)
+    setCreateMessage(null)
+    setError(null)
+
+    try {
+      await createMobileAdminMember({
+        email: createEmail.trim() || undefined,
+        fullName: createFullName.trim(),
+        joinedAt: joinedAt.toISOString(),
+        memberNumber: createMemberNumber.trim(),
+        memberType: createMemberType,
+        monthlyCommitment,
+        phoneNumber: createPhoneNumber.trim() || undefined,
+      })
+      setCreateFullName("")
+      setCreateMemberNumber("")
+      setCreateMemberType("individual")
+      setCreateJoinedAt(new Date().toISOString().slice(0, 10))
+      setCreateEmail("")
+      setCreatePhoneNumber("")
+      setCreateMonthlyCommitment("")
+      setCreateMessage("Member profile created.")
+      setPage(1)
+      loadMembers()
+    } catch (createError) {
+      setCreateMessage(
+        createError instanceof Error
+          ? createError.message
+          : "Member profile could not be created."
+      )
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   return (
@@ -388,6 +473,78 @@ export function AdminMembersScreen() {
                   No pending member onboarding requests are visible in mobile.
                 </Text>
               )}
+            </SectionCard>
+
+            <SectionCard icon="UserRoundPlus" title="Create member">
+              <View className="gap-3">
+                <Input
+                  editable={!isCreating}
+                  onChangeText={setCreateFullName}
+                  placeholder="Full name"
+                  value={createFullName}
+                />
+                <Input
+                  editable={!isCreating}
+                  onChangeText={setCreateMemberNumber}
+                  placeholder="Member number"
+                  value={createMemberNumber}
+                />
+                <View className="flex-row flex-wrap gap-2">
+                  {(["individual", "civil_servant", "business"] as const).map(
+                    (memberType) => (
+                      <FilterButton
+                        isSelected={createMemberType === memberType}
+                        key={memberType}
+                        label={formatStatus(memberType)}
+                        onPress={() => setCreateMemberType(memberType)}
+                      />
+                    )
+                  )}
+                </View>
+                <Input
+                  editable={!isCreating}
+                  onChangeText={setCreateJoinedAt}
+                  placeholder="Joined date YYYY-MM-DD"
+                  value={createJoinedAt}
+                />
+                <Input
+                  editable={!isCreating}
+                  keyboardType="email-address"
+                  onChangeText={setCreateEmail}
+                  placeholder="Email"
+                  value={createEmail}
+                />
+                <Input
+                  editable={!isCreating}
+                  keyboardType="phone-pad"
+                  onChangeText={setCreatePhoneNumber}
+                  placeholder="Phone"
+                  value={createPhoneNumber}
+                />
+                <Input
+                  editable={!isCreating}
+                  keyboardType="numeric"
+                  onChangeText={setCreateMonthlyCommitment}
+                  placeholder="Starting commitment"
+                  value={createMonthlyCommitment}
+                />
+                <Button
+                  className="h-11"
+                  disabled={isCreating}
+                  onPress={handleCreateMember}
+                >
+                  <Icon
+                    name="UserPlus"
+                    className="size-base text-primary-foreground"
+                  />
+                  <Text>{isCreating ? "Creating..." : "Create member"}</Text>
+                </Button>
+                {createMessage ? (
+                  <Text className="text-sm font-medium text-muted-foreground">
+                    {createMessage}
+                  </Text>
+                ) : null}
+              </View>
             </SectionCard>
 
             <SectionCard icon="Search" title="Find members">

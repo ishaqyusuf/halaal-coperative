@@ -25,6 +25,7 @@ function getMissingGettingStartedSetupStepKeys(
   missingStepKeys: InitialMigrationStepKey[]
 ) {
   const requiredSetupStepKeys = new Set<InitialMigrationStepKey>([
+    "migration_setup_mode",
     "finance_start_date",
     "charge_schedules",
     "business_profit_pools",
@@ -34,26 +35,45 @@ function getMissingGettingStartedSetupStepKeys(
   return missingStepKeys.filter((stepKey) => requiredSetupStepKeys.has(stepKey))
 }
 
-async function readTenantShareConfigurationMode(
+async function readTenantPolicySetupSettings(
   prisma: any,
   tenantId: string
 ) {
   if (typeof prisma.tenantPolicy?.findUnique !== "function") {
-    return "monthly_history"
+    return {
+      hasMigrationSetupMode: false,
+      migrationSetupMode: "historical_backfill" as const,
+    shareConfigurationMode: "monthly_history" as const,
+    }
   }
 
   try {
     const policy = await prisma.tenantPolicy.findUnique({
       select: {
+        migrationSetupMode: true,
         shareConfigurationMode: true,
       },
       where: { tenantId },
     })
 
-    return policy?.shareConfigurationMode ?? "monthly_history"
+    return {
+      hasMigrationSetupMode: Boolean(policy?.migrationSetupMode),
+      migrationSetupMode:
+        policy?.migrationSetupMode === "brought_forward"
+          ? ("brought_forward" as const)
+          : ("historical_backfill" as const),
+      shareConfigurationMode:
+        policy?.shareConfigurationMode === "unit_based"
+          ? ("unit_based" as const)
+          : ("monthly_history" as const),
+    }
   } catch (error) {
     if (isPrismaMissingColumnError(error)) {
-      return "monthly_history"
+      return {
+        hasMigrationSetupMode: false,
+        migrationSetupMode: "historical_backfill" as const,
+        shareConfigurationMode: "monthly_history" as const,
+      }
     }
 
     throw error
@@ -66,6 +86,12 @@ function getActiveEmergencyUnlock(unlockUntil: Date | null | undefined) {
   }
 
   return new Date(unlockUntil).getTime() > Date.now()
+}
+
+function startOfTodayUtc() {
+  const now = new Date()
+
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
 }
 
 function startOfMonth(value: Date) {
@@ -152,7 +178,8 @@ export async function getTenantInitialMigrationState(
     legacyLoanReviewMarkers,
     businessProfitReviewMarkers,
     businessProfitPolicy,
-    shareConfigurationMode,
+    tenantPolicySetup,
+    broughtForwardPendingPastProfitEntries,
     appliedBackfillBatches,
     appliedBackfillBatchMembers,
     appliedBackfillMonths,
@@ -225,7 +252,16 @@ export async function getTenantInitialMigrationState(
         where: { tenantId },
       })
     ),
-    readTenantShareConfigurationMode(prisma, tenantId),
+    readTenantPolicySetupSettings(prisma, tenantId),
+    prisma.shareBusinessProfitEntry.count({
+      where: {
+        tenantId,
+        profitDate: {
+          lt: startOfTodayUtc(),
+        },
+        status: "pending",
+      },
+    }),
     prisma.backfillBatch.count({
       where: {
         tenantId,
@@ -258,17 +294,30 @@ export async function getTenantInitialMigrationState(
     businessProfitReviewMarkers > 0 ||
     businessProfitPolicy?.historicalProfitMigrationMode ===
       "no_historical_business_profit"
+  const hasMigrationSetupMode = tenantPolicySetup.hasMigrationSetupMode
+  const isBroughtForwardSetup =
+    tenantPolicySetup.migrationSetupMode === "brought_forward"
   const hasBusinessProfitPools =
     businessProfitPools > 0 || hasNoHistoricalBusinessProfits
   const hasBusinessProfitSeasons =
     businessProfitPools === 0 ||
     reviewedBusinessProfitEntries >= businessProfitPools
   const hasShareCapitalPlan =
-    shareConfigurationMode === "unit_based" || shareCapitalPlans > 0
+    tenantPolicySetup.shareConfigurationMode === "unit_based" ||
+    shareCapitalPlans > 0
   const memberProfileCount = memberProfiles.length
   const hasMemberProfiles = memberProfileCount > 0
   const legacyLoans = liveLegacyLoans + legacyLoanMigrationDrafts
   const hasLegacyLoansReviewed = legacyLoans > 0 || legacyLoanReviewMarkers > 0
+  const hasRequiredBusinessProfitPools =
+    isBroughtForwardSetup || hasBusinessProfitPools
+  const hasRequiredBusinessProfitSeasons =
+    isBroughtForwardSetup
+      ? broughtForwardPendingPastProfitEntries === 0 ||
+        hasBusinessProfitSeasons
+      : hasBusinessProfitSeasons
+  const hasRequiredLegacyLoansReviewed =
+    isBroughtForwardSetup || hasLegacyLoansReviewed
   const appliedMonthKeysByMemberId = new Map<string, Set<string>>()
 
   for (const month of appliedBackfillMonths) {
@@ -307,11 +356,12 @@ export async function getTenantInitialMigrationState(
   const hasMemberLedgerBackfill =
     hasMemberProfiles && appliedBackfillMembers >= memberProfileCount
   const historicalSetupComplete =
+    hasMigrationSetupMode &&
     hasFinanceStartDate &&
     hasChargeSchedules &&
-    hasBusinessProfitPools &&
-    hasBusinessProfitSeasons &&
-    hasLegacyLoansReviewed
+    hasRequiredBusinessProfitPools &&
+    hasRequiredBusinessProfitSeasons &&
+    hasRequiredLegacyLoansReviewed
   const derivedStatus: InitialMigrationStatus = !hasFinanceStartDate
     ? "not_started"
     : !historicalSetupComplete
@@ -347,14 +397,15 @@ export async function getTenantInitialMigrationState(
     },
     snapshot: buildInitialMigrationSnapshot({
       emergencyUnlockActive,
-      hasBusinessProfitPools,
-      hasBusinessProfitSeasons,
+      hasBusinessProfitPools: hasRequiredBusinessProfitPools,
+      hasBusinessProfitSeasons: hasRequiredBusinessProfitSeasons,
       hasChargeSchedules,
       hasFinalizationConfirmed,
       hasFinanceStartDate,
-      hasLegacyLoansReviewed,
+      hasLegacyLoansReviewed: hasRequiredLegacyLoansReviewed,
       hasMemberLedgerBackfill,
       hasMemberProfiles,
+      hasMigrationSetupMode,
       hasShareCapitalPlan,
       requiresShareCapitalPlan: false,
       status,

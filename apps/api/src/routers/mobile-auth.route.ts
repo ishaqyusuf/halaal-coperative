@@ -191,31 +191,32 @@ export const mobileAuthRouter = createTRPCRouter({
     }),
 
   me: authenticatedProcedure.query(async ({ ctx }) => {
-    if (!ctx.tenant.current || !ctx.auth.activeMembership) {
+    const session = ctx.auth.session
+    const tenant = ctx.tenant.current
+    const membership = ctx.auth.activeMembership
+
+    if (!tenant || !session || !membership) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
         message: "An active mobile session is required.",
       })
     }
 
-    const memberships = await findMembershipsForUserAsync(
-      ctx.auth.session.user.id
-    )
+    const memberships = await findMembershipsForUserAsync(session.user.id)
     const member = await getLinkedMember({
       runtimeStatus: ctx.runtime.status,
-      tenantId: ctx.tenant.current.id,
-      userId: ctx.auth.session.user.id,
+      tenantId: tenant.id,
+      userId: session.user.id,
     })
 
     return {
       profile: buildMobileProfile({
-        membership: ctx.auth.activeMembership,
-        memberships:
-          memberships.length > 0 ? memberships : [ctx.auth.activeMembership],
+        membership,
+        memberships: memberships.length > 0 ? memberships : [membership],
         member,
-        tenant: ctx.tenant.current,
-        token: ctx.auth.session.token,
-        user: ctx.auth.session.user,
+        tenant,
+        token: session.token,
+        user: session.user,
       }),
     }
   }),
@@ -223,9 +224,16 @@ export const mobileAuthRouter = createTRPCRouter({
   switchRole: authenticatedProcedure
     .input(mobileSwitchRoleInput)
     .mutation(async ({ ctx, input }) => {
-      const memberships = await findMembershipsForUserAsync(
-        ctx.auth.session.user.id
-      )
+      const session = ctx.auth.session
+
+      if (!session) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "An active mobile session is required.",
+        })
+      }
+
+      const memberships = await findMembershipsForUserAsync(session.user.id)
       const membership =
         memberships.find((candidate) => candidate.id === input.membershipId) ??
         null
@@ -252,12 +260,12 @@ export const mobileAuthRouter = createTRPCRouter({
         membershipId: membership.id,
         scope: platformSessionScope,
         tenantId: membership.tenantId,
-        userId: ctx.auth.session.user.id,
+        userId: session.user.id,
       })
       const member = await getLinkedMember({
         runtimeStatus: ctx.runtime.status,
         tenantId: tenantResolution.tenant.id,
-        userId: ctx.auth.session.user.id,
+        userId: session.user.id,
       })
 
       return {
@@ -267,7 +275,7 @@ export const mobileAuthRouter = createTRPCRouter({
           member,
           tenant: tenantResolution.tenant,
           token,
-          user: ctx.auth.session.user,
+          user: session.user,
         }),
       }
     }),

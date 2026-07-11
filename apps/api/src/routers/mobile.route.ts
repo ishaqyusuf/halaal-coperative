@@ -6,6 +6,7 @@ import {
   createMobileMemberShareApplication,
   createMobileMemberReceipt,
   createMobileMemberSupportCase,
+  createMobileAdminMember,
   getMobileAdminAccess,
   getMobileAdminFinance,
   getMobileAdminMemberDetail,
@@ -33,8 +34,19 @@ import {
   mobileAdminMemberStatusKeys,
   mobileProjectFinancingStructureKeys,
   mobileSupportCategoryKeys,
+  addMobileAdminSupportReply,
+  recordMobileAdminCollectionFollowUp,
+  reviewMobileAdminFinancingRequest,
+  reviewMobileAdminFoodPurchaseApplication,
+  reviewMobileAdminProcurementRequest,
+  reviewMobileAdminProjectFinancingRequest,
+  reviewMobileAdminReceipt,
+  reviewMobileAdminShareApplication,
   respondMobileMemberGuarantorApproval,
   replyMobileMemberSupportCase,
+  updateMobileAdminMemberKyc,
+  updateMobileAdminMemberStatus,
+  updateMobileAdminSupportStatus,
 } from "@halaalvest/db"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
@@ -149,6 +161,125 @@ const mobileFoodPurchaseApplicationCreateInput = z.object({
   requestNotes: z.string().trim().max(1000).optional(),
 })
 
+const mobileReviewStatusInput = z.enum(["approved", "rejected", "under_review"])
+
+const mobileAdminReceiptReviewInput = z.object({
+  adjustmentReason: z.string().trim().max(1000).optional(),
+  decision: z.enum([
+    "under_review",
+    "correction_requested",
+    "approved",
+    "rejected",
+  ]),
+  receiptId: z.string().trim().min(1),
+  reviewNotes: z.string().trim().max(1000).optional(),
+})
+
+const mobileAdminFinancingReviewInput = z.object({
+  loanRequestId: z.string().trim().min(1),
+  notes: z.string().trim().max(1000).optional(),
+  status: mobileReviewStatusInput,
+})
+
+const mobileAdminProcurementReviewInput = z.object({
+  approvedCost: z.number().positive().optional(),
+  approvedRepaymentMonths: z.number().int().positive().optional(),
+  notes: z.string().trim().max(1000).optional(),
+  procurementRequestId: z.string().trim().min(1),
+  status: mobileReviewStatusInput,
+})
+
+const mobileAdminFoodPurchaseReviewInput = z.object({
+  applicationId: z.string().trim().min(1),
+  approvedAmount: z.number().positive().optional(),
+  approvedPaybackMonths: z.number().int().positive().optional(),
+  notes: z.string().trim().max(1000).optional(),
+  status: mobileReviewStatusInput,
+})
+
+const mobileAdminProjectFinancingReviewInput = z.object({
+  approvedAmount: z.number().positive().optional(),
+  approvedPaybackMonths: z.number().int().positive().optional(),
+  approvedStructure: z.enum(mobileProjectFinancingStructureKeys).optional(),
+  notes: z.string().trim().max(1000).optional(),
+  projectFinancingRequestId: z.string().trim().min(1),
+  status: mobileReviewStatusInput,
+})
+
+const mobileAdminShareReviewInput = z.object({
+  applicationId: z.string().trim().min(1),
+  approvedUnits: z.number().int().positive().optional(),
+  decision: z.enum(["approved", "rejected"]),
+  effectiveDate: z
+    .string()
+    .datetime()
+    .transform((value) => new Date(value))
+    .optional(),
+  reviewNotes: z.string().trim().max(1000).optional(),
+})
+
+const mobileAdminMemberStatusUpdateInput = z.object({
+  memberId: z.string().trim().min(1),
+  status: z.enum(mobileAdminMemberStatusKeys),
+})
+
+const mobileAdminMemberKycUpdateInput = z.object({
+  governmentIdNumber: z.string().trim().max(120).optional(),
+  kycDocumentType: z.string().trim().max(120).optional(),
+  kycDocumentUrl: z.string().trim().url().max(1000).optional(),
+  kycReviewNotes: z.string().trim().max(1000).optional(),
+  kycStatus: z.enum(mobileAdminMemberKycStatusKeys),
+  memberId: z.string().trim().min(1),
+})
+
+const mobileAdminMemberCreateInput = z.object({
+  address: z.string().trim().max(500).optional(),
+  email: z.string().trim().email().optional(),
+  fullName: z.string().trim().min(2).max(160),
+  joinedAt: z
+    .string()
+    .datetime()
+    .transform((value) => new Date(value)),
+  memberNumber: z.string().trim().min(1).max(80),
+  memberType: z.enum(["civil_servant", "individual", "business"]),
+  monthlyCommitment: z.number().positive().optional(),
+  occupation: z.string().trim().max(160).optional(),
+  phoneNumber: z.string().trim().max(80).optional(),
+})
+
+const mobileAdminSupportReplyInput = z.object({
+  attachmentUrl: z.string().trim().url().max(1000).optional(),
+  message: z.string().trim().min(2).max(2000),
+  supportCaseId: z.string().trim().min(1),
+})
+
+const mobileAdminSupportStatusUpdateInput = z.object({
+  assignedToUserId: z.string().trim().min(1).optional(),
+  priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+  requiresFinancialAdjustment: z.boolean().optional(),
+  resolutionSummary: z.string().trim().max(1000).optional(),
+  status: z.enum([
+    "open",
+    "in_progress",
+    "waiting_on_member",
+    "resolved",
+    "closed",
+  ]),
+  supportCaseId: z.string().trim().min(1),
+})
+
+const mobileAdminCollectionFollowUpInput = z.object({
+  assignedToUserId: z.string().trim().min(1).optional(),
+  caseStage: z.string().trim().max(80).optional(),
+  nextActionAt: z.string().date().optional(),
+  note: z.string().trim().min(2).max(1000),
+  priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+  promiseToPayAt: z.string().date().optional(),
+  repaymentScheduleItemId: z.string().trim().min(1),
+  resolutionStatus: z.string().trim().max(80).optional(),
+  status: z.enum(["promise_to_pay", "reminded", "settled", "unreachable"]),
+})
+
 function assertMemberWorkspace(role: string) {
   if (role !== "member") {
     throw new TRPCError({
@@ -164,13 +295,123 @@ export const mobileRouter = createTRPCRouter({
       overview: minRoleProcedure("tenant_admin").query(({ ctx }) => {
         return getMobileAdminAccess(ctx.tenant.current.id)
       }),
+      reviewShareApplication: minRoleProcedure("finance_officer")
+        .input(mobileAdminShareReviewInput)
+        .mutation(({ ctx, input }) => {
+          return reviewMobileAdminShareApplication({
+            actorUserId: ctx.auth.session.user.id,
+            applicationId: input.applicationId,
+            approvedUnits: input.approvedUnits,
+            decision: input.decision,
+            effectiveDate: input.effectiveDate,
+            reviewNotes: input.reviewNotes,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
     }),
     finance: createTRPCRouter({
+      recordCollectionFollowUp: minRoleProcedure("finance_officer")
+        .input(mobileAdminCollectionFollowUpInput)
+        .mutation(({ ctx, input }) => {
+          return recordMobileAdminCollectionFollowUp({
+            actorUserId: ctx.auth.session.user.id,
+            assignedToUserId: input.assignedToUserId,
+            caseStage: input.caseStage,
+            nextActionAt: input.nextActionAt,
+            note: input.note,
+            priority: input.priority,
+            promiseToPayAt: input.promiseToPayAt,
+            repaymentScheduleItemId: input.repaymentScheduleItemId,
+            resolutionStatus: input.resolutionStatus,
+            status: input.status,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
       overview: minRoleProcedure("operations_officer").query(({ ctx }) => {
         return getMobileAdminFinance(ctx.tenant.current.id)
       }),
+      reviewFinancingRequest: minRoleProcedure("finance_officer")
+        .input(mobileAdminFinancingReviewInput)
+        .mutation(({ ctx, input }) => {
+          return reviewMobileAdminFinancingRequest({
+            actorUserId: ctx.auth.session.user.id,
+            loanRequestId: input.loanRequestId,
+            notes: input.notes,
+            status: input.status,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
+      reviewFoodPurchaseApplication: minRoleProcedure("finance_officer")
+        .input(mobileAdminFoodPurchaseReviewInput)
+        .mutation(({ ctx, input }) => {
+          return reviewMobileAdminFoodPurchaseApplication({
+            actorUserId: ctx.auth.session.user.id,
+            applicationId: input.applicationId,
+            approvedAmount: input.approvedAmount,
+            approvedPaybackMonths: input.approvedPaybackMonths,
+            notes: input.notes,
+            status: input.status,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
+      reviewProcurementRequest: minRoleProcedure("finance_officer")
+        .input(mobileAdminProcurementReviewInput)
+        .mutation(({ ctx, input }) => {
+          return reviewMobileAdminProcurementRequest({
+            actorUserId: ctx.auth.session.user.id,
+            approvedCost: input.approvedCost,
+            approvedRepaymentMonths: input.approvedRepaymentMonths,
+            notes: input.notes,
+            procurementRequestId: input.procurementRequestId,
+            status: input.status,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
+      reviewProjectFinancingRequest: minRoleProcedure("finance_officer")
+        .input(mobileAdminProjectFinancingReviewInput)
+        .mutation(({ ctx, input }) => {
+          return reviewMobileAdminProjectFinancingRequest({
+            actorUserId: ctx.auth.session.user.id,
+            approvedAmount: input.approvedAmount,
+            approvedPaybackMonths: input.approvedPaybackMonths,
+            approvedStructure: input.approvedStructure,
+            notes: input.notes,
+            projectFinancingRequestId: input.projectFinancingRequestId,
+            status: input.status,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
+      reviewReceipt: minRoleProcedure("finance_officer")
+        .input(mobileAdminReceiptReviewInput)
+        .mutation(({ ctx, input }) => {
+          return reviewMobileAdminReceipt({
+            actorUserId: ctx.auth.session.user.id,
+            adjustmentReason: input.adjustmentReason,
+            decision: input.decision,
+            receiptId: input.receiptId,
+            reviewNotes: input.reviewNotes,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
     }),
     members: createTRPCRouter({
+      create: minRoleProcedure("operations_officer")
+        .input(mobileAdminMemberCreateInput)
+        .mutation(({ ctx, input }) => {
+          return createMobileAdminMember({
+            actorUserId: ctx.auth.session.user.id,
+            address: input.address,
+            email: input.email,
+            fullName: input.fullName,
+            joinedAt: input.joinedAt,
+            memberNumber: input.memberNumber,
+            memberType: input.memberType,
+            monthlyCommitment: input.monthlyCommitment,
+            occupation: input.occupation,
+            phoneNumber: input.phoneNumber,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
       detail: minRoleProcedure("operations_officer")
         .input(mobileAdminMemberDetailInput)
         .query(({ ctx, input }) => {
@@ -191,6 +432,30 @@ export const mobileRouter = createTRPCRouter({
             tenantId: ctx.tenant.current.id,
           })
         }),
+      updateKyc: minRoleProcedure("operations_officer")
+        .input(mobileAdminMemberKycUpdateInput)
+        .mutation(({ ctx, input }) => {
+          return updateMobileAdminMemberKyc({
+            actorUserId: ctx.auth.session.user.id,
+            governmentIdNumber: input.governmentIdNumber,
+            kycDocumentType: input.kycDocumentType,
+            kycDocumentUrl: input.kycDocumentUrl,
+            kycReviewNotes: input.kycReviewNotes,
+            kycStatus: input.kycStatus,
+            memberId: input.memberId,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
+      updateStatus: minRoleProcedure("operations_officer")
+        .input(mobileAdminMemberStatusUpdateInput)
+        .mutation(({ ctx, input }) => {
+          return updateMobileAdminMemberStatus({
+            actorUserId: ctx.auth.session.user.id,
+            memberId: input.memberId,
+            status: input.status,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
     }),
     overview: minRoleProcedure("operations_officer").query(({ ctx }) => {
       return getMobileAdminOverview(ctx.tenant.current.id)
@@ -199,6 +464,33 @@ export const mobileRouter = createTRPCRouter({
       overview: minRoleProcedure("operations_officer").query(({ ctx }) => {
         return getMobileAdminReports(ctx.tenant.current.id)
       }),
+    }),
+    support: createTRPCRouter({
+      reply: minRoleProcedure("operations_officer")
+        .input(mobileAdminSupportReplyInput)
+        .mutation(({ ctx, input }) => {
+          return addMobileAdminSupportReply({
+            actorUserId: ctx.auth.session.user.id,
+            attachmentUrl: input.attachmentUrl,
+            message: input.message,
+            supportCaseId: input.supportCaseId,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
+      updateStatus: minRoleProcedure("operations_officer")
+        .input(mobileAdminSupportStatusUpdateInput)
+        .mutation(({ ctx, input }) => {
+          return updateMobileAdminSupportStatus({
+            actorUserId: ctx.auth.session.user.id,
+            assignedToUserId: input.assignedToUserId,
+            priority: input.priority,
+            requiresFinancialAdjustment: input.requiresFinancialAdjustment,
+            resolutionSummary: input.resolutionSummary,
+            status: input.status,
+            supportCaseId: input.supportCaseId,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
     }),
   }),
   notifications: createTRPCRouter({

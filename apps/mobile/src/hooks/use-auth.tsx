@@ -16,6 +16,7 @@ import {
   switchMobileRole,
   type MobileSignInCredentials,
 } from "@/lib/mobile-auth-api"
+import { clearMobileReadCache } from "@/lib/read-cache"
 import {
   createContext,
   useCallback,
@@ -102,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signInAs = useCallback(async (role: MobileRole) => {
+    await clearMobileReadCache()
     const nextProfile = createMockProfile(role)
     await setToken(nextProfile.token)
     await setSessionProfile(nextProfile)
@@ -110,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithPassword = useCallback(
     async (input: MobileSignInCredentials) => {
+      await clearMobileReadCache()
       const response = await signInWithMobileAuth(input)
       await setToken(response.profile.token)
       await setSessionProfile(response.profile)
@@ -126,10 +129,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     await clearSession()
+    await clearMobileReadCache()
     setProfile(null)
   }, [])
 
   const switchRole = useCallback(async (membershipId: string) => {
+    await clearMobileReadCache()
     const response = await switchMobileRole({ membershipId })
     await setToken(response.profile.token)
     await setSessionProfile(response.profile)

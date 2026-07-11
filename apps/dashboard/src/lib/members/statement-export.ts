@@ -8,6 +8,30 @@ function formatIsoDate(value: Date) {
   return value.toISOString().slice(0, 10)
 }
 
+function formatChargeSource(
+  charge: MemberStatementDetail["chargeApplications"][number]
+) {
+  if (charge.procurementRequest) {
+    return `Procurement: ${charge.procurementRequest.itemName}`
+  }
+
+  if (charge.foodPurchaseApplication) {
+    return "Foodstuff Purchase"
+  }
+
+  if (charge.projectFinancingRequest) {
+    return `Project financing: ${charge.projectFinancingRequest.businessName}`
+  }
+
+  if (charge.loanRequest) {
+    return "Financing request"
+  }
+
+  return (
+    charge.chargeApplicability?.workflow?.replace(/_/g, " ") ?? "Manual charge"
+  )
+}
+
 export function buildMemberStatementText(detail: MemberStatementDetail) {
   const lines = [
     `Member Statement`,
@@ -46,6 +70,20 @@ export function buildMemberStatementText(detail: MemberStatementDetail) {
           `${formatIsoDate(repayment.paidAt)} | ${
             repayment.loan.loanProduct.name
           } | amount=${Number(repayment.amount)} status=${repayment.status}`
+      ),
+    ``,
+    `Recent Charges`,
+    ...detail.chargeApplications
+      .slice(0, 10)
+      .map(
+        (charge: any) =>
+          `${formatIsoDate(charge.assessedAt)} | ${
+            charge.chargeDefinition.name
+          } | amount=${Number(charge.amount)} status=${
+            charge.status
+          } collection=${charge.collectionMode} source=${formatChargeSource(
+            charge
+          )}`
       ),
     ``,
     `Published Dividends`,

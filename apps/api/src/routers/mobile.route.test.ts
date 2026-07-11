@@ -790,6 +790,66 @@ describe("mobileRouter", () => {
     ).rejects.toThrow()
   })
 
+  test("validates admin member creation input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.members.create({
+        fullName: "",
+        joinedAt: new Date().toISOString(),
+        memberNumber: "M-001",
+        memberType: "individual",
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.admin.members.create({
+        fullName: "Aisha Bello",
+        joinedAt: "not-a-date",
+        memberNumber: "M-001",
+        memberType: "individual",
+      })
+    ).rejects.toThrow()
+  })
+
+  test("routes admin member creation through the database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.members.create({
+        fullName: "Aisha Bello",
+        joinedAt: new Date().toISOString(),
+        memberNumber: "M-001",
+        memberType: "individual",
+      })
+    ).rejects.toThrow("Member creation is unavailable")
+  })
+
+  test("routes admin member review mutations through the database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.members.updateStatus({
+        memberId: "member-1",
+        status: "active",
+      })
+    ).rejects.toThrow("Member status review is unavailable")
+
+    await expect(
+      caller.mobile.admin.members.updateKyc({
+        kycReviewNotes: "Verified from mobile.",
+        kycStatus: "verified",
+        memberId: "member-1",
+      })
+    ).rejects.toThrow("Member KYC review is unavailable")
+  })
+
   test("returns admin finance overview for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",
@@ -811,6 +871,89 @@ describe("mobileRouter", () => {
     await expect(caller.mobile.admin.finance.overview()).rejects.toThrow(
       "This action requires operations_officer role or above."
     )
+  })
+
+  test("validates admin finance review inputs", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.finance.reviewReceipt({
+        decision: "approved",
+        receiptId: "",
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.admin.finance.recordCollectionFollowUp({
+        note: "",
+        repaymentScheduleItemId: "schedule-1",
+        status: "reminded",
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects admin finance review mutations from member workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.admin.finance.reviewFinancingRequest({
+        loanRequestId: "loan-request-1",
+        status: "under_review",
+      })
+    ).rejects.toThrow("This action requires finance_officer role or above.")
+  })
+
+  test("routes admin finance review mutations through the database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.finance.reviewReceipt({
+        decision: "under_review",
+        receiptId: "receipt-1",
+      })
+    ).rejects.toThrow("Receipt review is unavailable")
+
+    await expect(
+      caller.mobile.admin.finance.reviewFinancingRequest({
+        loanRequestId: "loan-request-1",
+        status: "under_review",
+      })
+    ).rejects.toThrow("Financing request review is unavailable")
+
+    await expect(
+      caller.mobile.admin.finance.reviewProcurementRequest({
+        procurementRequestId: "procurement-1",
+        status: "under_review",
+      })
+    ).rejects.toThrow("Procurement request review is unavailable")
+
+    await expect(
+      caller.mobile.admin.finance.reviewFoodPurchaseApplication({
+        applicationId: "food-application-1",
+        status: "under_review",
+      })
+    ).rejects.toThrow("Foodstuff Purchase review is unavailable")
+
+    await expect(
+      caller.mobile.admin.finance.reviewProjectFinancingRequest({
+        projectFinancingRequestId: "project-1",
+        status: "under_review",
+      })
+    ).rejects.toThrow("Project financing review is unavailable")
+
+    await expect(
+      caller.mobile.admin.finance.recordCollectionFollowUp({
+        note: "Called member and agreed next action.",
+        repaymentScheduleItemId: "schedule-1",
+        status: "reminded",
+      })
+    ).rejects.toThrow("Collection follow-up is unavailable")
   })
 
   test("returns admin reports overview for staff workspaces", async () => {
@@ -877,6 +1020,39 @@ describe("mobileRouter", () => {
     await expect(caller.mobile.admin.access.overview()).rejects.toThrow(
       "This action requires tenant_admin role or above."
     )
+  })
+
+  test("routes admin share review through the database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.access.reviewShareApplication({
+        applicationId: "share-application-1",
+        decision: "rejected",
+      })
+    ).rejects.toThrow("Share application review is unavailable")
+  })
+
+  test("routes admin support mutations through the database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.support.reply({
+        message: "We are reviewing this.",
+        supportCaseId: "support-1",
+      })
+    ).rejects.toThrow("Support reply is unavailable")
+
+    await expect(
+      caller.mobile.admin.support.updateStatus({
+        status: "in_progress",
+        supportCaseId: "support-1",
+      })
+    ).rejects.toThrow("Support status update is unavailable")
   })
 
   test("returns mobile notifications for the active member workspace", async () => {

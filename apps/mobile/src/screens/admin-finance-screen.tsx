@@ -2,6 +2,7 @@ import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
+import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import { adminExceptions, adminStats } from "@/data/mobile-template"
@@ -9,6 +10,12 @@ import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminFinance,
+  recordMobileAdminCollectionFollowUp,
+  reviewMobileAdminFinancingRequest,
+  reviewMobileAdminFoodPurchaseApplication,
+  reviewMobileAdminProcurementRequest,
+  reviewMobileAdminProjectFinancingRequest,
+  reviewMobileAdminReceipt,
   type MobileAdminCollectionFollowUp,
   type MobileAdminFinance,
   type MobileAdminFinanceRecentItem,
@@ -51,14 +58,21 @@ function queueIcon(queueKey: MobileAdminFinanceRecentItem["queueKey"]) {
 }
 
 function FinanceRecentItemCard({
+  actionState,
   currencyCode,
   isFirst,
   item,
+  onMarkReviewing,
 }: {
+  actionState: "idle" | "pending"
   currencyCode: string
   isFirst: boolean
   item: MobileAdminFinanceRecentItem
+  onMarkReviewing: (item: MobileAdminFinanceRecentItem) => void
 }) {
+  const canMarkReviewing =
+    item.status !== "under_review" && item.queueKey !== "shares"
+
   return (
     <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
       <View className="flex-row items-start gap-3">
@@ -83,6 +97,19 @@ function FinanceRecentItemCard({
           <Text className="text-xs font-medium text-muted-foreground">
             {formatStatus(item.status)} - {formatDate(item.requestedAt)}
           </Text>
+          {canMarkReviewing ? (
+            <Button
+              className="mt-2 self-start"
+              disabled={actionState === "pending"}
+              onPress={() => onMarkReviewing(item)}
+              size="sm"
+              variant="outline"
+            >
+              <Text>
+                {actionState === "pending" ? "Updating..." : "Mark reviewing"}
+              </Text>
+            </Button>
+          ) : null}
         </View>
       </View>
     </View>
@@ -90,11 +117,15 @@ function FinanceRecentItemCard({
 }
 
 function CollectionFollowUpCard({
+  actionState,
   followUp,
   isFirst,
+  onRecordReminder,
 }: {
+  actionState: "idle" | "pending"
   followUp: MobileAdminCollectionFollowUp
   isFirst: boolean
+  onRecordReminder: (followUp: MobileAdminCollectionFollowUp) => void
 }) {
   return (
     <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
@@ -122,6 +153,17 @@ function CollectionFollowUpCard({
           </Text>
         </View>
       </View>
+      <Button
+        className="self-start"
+        disabled={actionState === "pending"}
+        onPress={() => onRecordReminder(followUp)}
+        size="sm"
+        variant="outline"
+      >
+        <Text>
+          {actionState === "pending" ? "Saving..." : "Record reminder"}
+        </Text>
+      </Button>
     </View>
   )
 }
@@ -131,6 +173,7 @@ export function AdminFinanceScreen() {
   const colors = useColors()
   const [finance, setFinance] = useState<MobileAdminFinance | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [actionKey, setActionKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const canUseServerFinance = Boolean(
     profile?.role === "admin" &&
@@ -191,6 +234,84 @@ export function AdminFinanceScreen() {
       mounted = false
     }
   }, [canUseServerFinance, profile?.token])
+
+  async function refreshFinance() {
+    const response = await getMobileAdminFinance()
+    setFinance(response)
+  }
+
+  async function markReviewing(item: MobileAdminFinanceRecentItem) {
+    const nextActionKey = `${item.queueKey}-${item.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      if (item.queueKey === "receipts") {
+        await reviewMobileAdminReceipt({
+          decision: "under_review",
+          receiptId: item.id,
+        })
+      } else if (item.queueKey === "financing") {
+        await reviewMobileAdminFinancingRequest({
+          loanRequestId: item.id,
+          status: "under_review",
+        })
+      } else if (item.queueKey === "procurement") {
+        await reviewMobileAdminProcurementRequest({
+          procurementRequestId: item.id,
+          status: "under_review",
+        })
+      } else if (item.queueKey === "foodPurchase") {
+        await reviewMobileAdminFoodPurchaseApplication({
+          applicationId: item.id,
+          status: "under_review",
+        })
+      } else if (item.queueKey === "projectFinancing") {
+        await reviewMobileAdminProjectFinancingRequest({
+          projectFinancingRequestId: item.id,
+          status: "under_review",
+        })
+      }
+
+      await refreshFinance()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "The review action could not be completed."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
+  async function recordReminder(followUp: MobileAdminCollectionFollowUp) {
+    const nextActionKey = `follow-up-${followUp.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      await recordMobileAdminCollectionFollowUp({
+        caseStage: followUp.caseStage,
+        note: `Mobile follow-up reminder recorded for ${followUp.memberName}.`,
+        priority: "normal",
+        repaymentScheduleItemId: followUp.repaymentScheduleItemId,
+        resolutionStatus: followUp.resolutionStatus,
+        status: "reminded",
+      })
+      await refreshFinance()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "The follow-up note could not be recorded."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
 
   return (
     <SafeArea style={{ backgroundColor: colors.background }}>
@@ -270,10 +391,16 @@ export function AdminFinanceScreen() {
                 <View className="gap-3">
                   {finance.recentItems.map((item, index) => (
                     <FinanceRecentItemCard
+                      actionState={
+                        actionKey === `${item.queueKey}-${item.id}`
+                          ? "pending"
+                          : "idle"
+                      }
                       currencyCode={currencyCode}
                       isFirst={index === 0}
                       item={item}
                       key={`${item.queueKey}-${item.id}`}
+                      onMarkReviewing={markReviewing}
                     />
                   ))}
                 </View>
@@ -291,9 +418,15 @@ export function AdminFinanceScreen() {
                 <View className="gap-3">
                   {finance.collectionFollowUps.map((followUp, index) => (
                     <CollectionFollowUpCard
+                      actionState={
+                        actionKey === `follow-up-${followUp.id}`
+                          ? "pending"
+                          : "idle"
+                      }
                       followUp={followUp}
                       isFirst={index === 0}
                       key={followUp.id}
+                      onRecordReminder={recordReminder}
                     />
                   ))}
                 </View>

@@ -9,7 +9,11 @@ import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminMemberDetail,
+  updateMobileAdminMemberKyc,
+  updateMobileAdminMemberStatus,
   type MobileAdminMemberDetail,
+  type MobileAdminMemberKycStatus,
+  type MobileAdminMemberStatus,
   type MobileMemberSectionRow,
   type MobileMemberStatementSection,
   type MobileMemberStatementSectionKey,
@@ -119,6 +123,7 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
   const router = useRouter()
   const [detail, setDetail] = useState<MobileAdminMemberDetail | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [reviewAction, setReviewAction] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const canUseServerDetail = Boolean(
     profile?.role === "admin" &&
@@ -176,6 +181,53 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
 
   useEffect(() => loadDetail(), [loadDetail])
 
+  async function updateStatus(status: MobileAdminMemberStatus) {
+    if (!detail?.member || reviewAction) return
+
+    setReviewAction(`status-${status}`)
+    setError(null)
+
+    try {
+      await updateMobileAdminMemberStatus({
+        memberId: detail.member.id,
+        status,
+      })
+      loadDetail()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Member status could not be updated."
+      )
+    } finally {
+      setReviewAction(null)
+    }
+  }
+
+  async function updateKyc(kycStatus: MobileAdminMemberKycStatus) {
+    if (!detail?.member || reviewAction) return
+
+    setReviewAction(`kyc-${kycStatus}`)
+    setError(null)
+
+    try {
+      await updateMobileAdminMemberKyc({
+        kycReviewNotes: `Updated from mobile to ${formatStatus(kycStatus)}.`,
+        kycStatus,
+        memberId: detail.member.id,
+      })
+      loadDetail()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Member KYC could not be updated."
+      )
+    } finally {
+      setReviewAction(null)
+    }
+  }
+
   return (
     <SafeArea style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-5">
@@ -213,28 +265,100 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
           <>
             {detail?.member ? (
               <SectionCard icon="BadgeCheck" title={detail.member.fullName}>
-                <View className="gap-1">
-                  <Text className="text-sm leading-5 text-muted-foreground">
-                    {detail.member.memberNumber} -{" "}
-                    {formatStatus(detail.member.memberType)}
-                  </Text>
-                  <Text className="text-sm leading-5 text-muted-foreground">
-                    Joined {formatDate(detail.member.joinedAt)}
-                    {detail.member.exitedAt
-                      ? ` - Exited ${formatDate(detail.member.exitedAt)}`
-                      : ""}
-                  </Text>
-                  <Text className="text-sm leading-5 text-muted-foreground">
-                    {formatStatus(detail.member.kycStatus)} KYC
-                    {detail.member.deductionSourceName
-                      ? ` - ${detail.member.deductionSourceName}`
-                      : ""}
-                  </Text>
-                  <Text className="text-xs font-medium text-muted-foreground">
-                    {detail.member.linkedUserEmail
-                      ? `Linked login ${detail.member.linkedUserEmail}`
-                      : "No linked login"}
-                  </Text>
+                <View className="gap-3">
+                  <View className="gap-1">
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      {detail.member.memberNumber} -{" "}
+                      {formatStatus(detail.member.memberType)}
+                    </Text>
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      Joined {formatDate(detail.member.joinedAt)}
+                      {detail.member.exitedAt
+                        ? ` - Exited ${formatDate(detail.member.exitedAt)}`
+                        : ""}
+                    </Text>
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      {formatStatus(detail.member.kycStatus)} KYC
+                      {detail.member.deductionSourceName
+                        ? ` - ${detail.member.deductionSourceName}`
+                        : ""}
+                    </Text>
+                    <Text className="text-xs font-medium text-muted-foreground">
+                      {detail.member.linkedUserEmail
+                        ? `Linked login ${detail.member.linkedUserEmail}`
+                        : "No linked login"}
+                    </Text>
+                  </View>
+                  <View className="flex-row flex-wrap gap-2">
+                    <Button
+                      className="h-10 px-3"
+                      disabled={Boolean(reviewAction)}
+                      onPress={() => updateKyc("verified")}
+                      variant={
+                        detail.member.kycStatus === "verified"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      <Icon
+                        name="BadgeCheck"
+                        className="size-base text-foreground"
+                      />
+                      <Text>
+                        {reviewAction === "kyc-verified"
+                          ? "Updating"
+                          : "Verify KYC"}
+                      </Text>
+                    </Button>
+                    <Button
+                      className="h-10 px-3"
+                      disabled={Boolean(reviewAction)}
+                      onPress={() => updateKyc("rejected")}
+                      variant={
+                        detail.member.kycStatus === "rejected"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      <Icon
+                        name="CircleX"
+                        className="size-base text-foreground"
+                      />
+                      <Text>Reject KYC</Text>
+                    </Button>
+                    <Button
+                      className="h-10 px-3"
+                      disabled={Boolean(reviewAction)}
+                      onPress={() => updateStatus("active")}
+                      variant={
+                        detail.member.status === "active"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      <Icon
+                        name="UserCheck"
+                        className="size-base text-foreground"
+                      />
+                      <Text>Activate</Text>
+                    </Button>
+                    <Button
+                      className="h-10 px-3"
+                      disabled={Boolean(reviewAction)}
+                      onPress={() => updateStatus("suspended")}
+                      variant={
+                        detail.member.status === "suspended"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      <Icon
+                        name="UserX"
+                        className="size-base text-foreground"
+                      />
+                      <Text>Suspend</Text>
+                    </Button>
+                  </View>
                 </View>
               </SectionCard>
             ) : null}

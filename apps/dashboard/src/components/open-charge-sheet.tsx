@@ -10,9 +10,11 @@ import { ChargeDefinitionForm } from "@/components/forms/tenant-finance-forms"
 export function OpenChargeSheet({
   disabled,
   financeStartDate,
+  quickFillEnabled = false,
 }: {
   disabled: boolean
   financeStartDate?: string | null
+  quickFillEnabled?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -57,6 +59,7 @@ export function OpenChargeSheet({
 
         <div className="px-6">
           <ChargeDefinitionForm
+            devMode={quickFillEnabled}
             financeStartDate={financeStartDate}
             onSuccess={() => setIsOpen(false)}
           />

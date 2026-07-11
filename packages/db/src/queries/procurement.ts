@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
+import { applyApplicableWorkflowChargesInTransaction } from "./charges"
 import { getTenantInitialMigrationState } from "./migration"
 
 export type ProcurementRequestStatus =
@@ -574,6 +575,21 @@ export async function createProcurementRequest(
       tx
     )
 
+    await applyApplicableWorkflowChargesInTransaction(
+      {
+        actorUserId: input.actorUserId,
+        assessedAt: request.requestedAt,
+        basisAmount: Number(request.requestedCost),
+        memberId: request.memberId,
+        notes: "Automatically applied for procurement request submission.",
+        procurementRequestId: request.id,
+        tenantId: input.tenantId,
+        trigger: "submission",
+        workflow: "procurement_request",
+      },
+      tx as PrismaClient
+    )
+
     return normalizeProcurementRequest(request)
   })
 }
@@ -699,6 +715,23 @@ export async function reviewProcurementRequest(
       },
       tx
     )
+
+    if (input.status === "approved") {
+      await applyApplicableWorkflowChargesInTransaction(
+        {
+          actorUserId: input.actorUserId,
+          assessedAt: request.reviewedAt ?? new Date(),
+          basisAmount: Number(request.approvedCost ?? request.requestedCost),
+          memberId: request.memberId,
+          notes: "Automatically applied for procurement request approval.",
+          procurementRequestId: request.id,
+          tenantId: input.tenantId,
+          trigger: "approval",
+          workflow: "procurement_request",
+        },
+        tx as PrismaClient
+      )
+    }
 
     return normalizeProcurementRequest(request)
   })

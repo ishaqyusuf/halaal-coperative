@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
+import { applyApplicableWorkflowChargesInTransaction } from "./charges"
 import { getTenantInitialMigrationState } from "./migration"
 
 export type ProjectFinancingStructure =
@@ -502,6 +503,22 @@ export async function createProjectFinancingRequest(
       tx
     )
 
+    await applyApplicableWorkflowChargesInTransaction(
+      {
+        actorUserId: input.actorUserId,
+        assessedAt: request.requestedAt,
+        basisAmount: Number(request.requestedAmount),
+        memberId: request.memberId,
+        notes:
+          "Automatically applied for project financing request submission.",
+        projectFinancingRequestId: request.id,
+        tenantId: input.tenantId,
+        trigger: "submission",
+        workflow: "project_financing_request",
+      },
+      tx as PrismaClient
+    )
+
     return normalizeProjectFinancingRequest(request)
   })
 }
@@ -627,6 +644,26 @@ export async function reviewProjectFinancingRequest(
       },
       tx
     )
+
+    if (input.status === "approved") {
+      await applyApplicableWorkflowChargesInTransaction(
+        {
+          actorUserId: input.actorUserId,
+          assessedAt: request.reviewedAt ?? new Date(),
+          basisAmount: Number(
+            request.approvedAmount ?? request.requestedAmount
+          ),
+          memberId: request.memberId,
+          notes:
+            "Automatically applied for project financing request approval.",
+          projectFinancingRequestId: request.id,
+          tenantId: input.tenantId,
+          trigger: "approval",
+          workflow: "project_financing_request",
+        },
+        tx as PrismaClient
+      )
+    }
 
     return normalizeProjectFinancingRequest(request)
   })

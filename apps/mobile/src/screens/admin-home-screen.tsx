@@ -3,6 +3,7 @@ import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
+import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import { adminExceptions, adminStats } from "@/data/mobile-template"
@@ -10,6 +11,7 @@ import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminOverview,
+  updateMobileAdminSupportStatus,
   type MobileAdminOverview,
   type MobileSupportCase,
 } from "@/lib/mobile-home-api"
@@ -43,12 +45,18 @@ function formatMessageAuthor(input: {
 }
 
 function SupportCaseCard({
+  actionState,
   isFirst,
+  onUpdateStatus,
   supportCase,
 }: {
+  actionState: "idle" | "pending"
   isFirst: boolean
+  onUpdateStatus: (supportCase: MobileSupportCase) => void
   supportCase: MobileSupportCase
 }) {
+  const canMarkInProgress = supportCase.status !== "in_progress"
+
   return (
     <View className={isFirst ? "gap-2" : "gap-2 border-t border-border pt-3"}>
       <View className="flex-row items-start justify-between gap-3">
@@ -94,6 +102,19 @@ function SupportCaseCard({
           ) : null}
         </View>
       ) : null}
+      {canMarkInProgress ? (
+        <Button
+          className="self-start"
+          disabled={actionState === "pending"}
+          onPress={() => onUpdateStatus(supportCase)}
+          size="sm"
+          variant="outline"
+        >
+          <Text>
+            {actionState === "pending" ? "Updating..." : "Mark in progress"}
+          </Text>
+        </Button>
+      ) : null}
     </View>
   )
 }
@@ -102,6 +123,7 @@ export function AdminHomeScreen() {
   const { profile } = useAuthContext()
   const colors = useColors()
   const [overview, setOverview] = useState<MobileAdminOverview | null>(null)
+  const [actionKey, setActionKey] = useState<string | null>(null)
   const [isLoadingOverview, setIsLoadingOverview] = useState(false)
   const [overviewError, setOverviewError] = useState<string | null>(null)
   const canUseServerOverview = Boolean(
@@ -128,6 +150,8 @@ export function AdminHomeScreen() {
       })) ?? adminExceptions,
     [overview?.actionQueue]
   )
+  const overviewCache = overview?.cache
+  const isStaleOverview = overviewCache?.status === "stale"
 
   useEffect(() => {
     let mounted = true
@@ -166,10 +190,56 @@ export function AdminHomeScreen() {
 
   if (!profile) return null
 
+  async function refreshOverview() {
+    const response = await getMobileAdminOverview()
+    setOverview(response)
+  }
+
+  async function markSupportInProgress(supportCase: MobileSupportCase) {
+    setActionKey(supportCase.id)
+    setOverviewError(null)
+
+    try {
+      await updateMobileAdminSupportStatus({
+        status: "in_progress",
+        supportCaseId: supportCase.id,
+      })
+      await refreshOverview()
+    } catch (error) {
+      setOverviewError(
+        error instanceof Error
+          ? error.message
+          : "Support case could not be updated."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
   return (
     <SafeArea style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-4">
         <ProfileHeader profile={profile} />
+
+        {overviewCache ? (
+          <SectionCard
+            icon={isStaleOverview ? "WifiOff" : "Clock3"}
+            title={isStaleOverview ? "Offline snapshot" : "Data refreshed"}
+          >
+            <Text className="text-sm leading-5 text-muted-foreground">
+              {isStaleOverview
+                ? "Showing cached admin data from"
+                : "Updated"}{" "}
+              {new Intl.DateTimeFormat("en", {
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                month: "short",
+                timeZone: "UTC",
+              }).format(new Date(overviewCache.cachedAt))}
+            </Text>
+          </SectionCard>
+        ) : null}
 
         <View className="flex-row flex-wrap gap-3">
           {stats.map((item) => (
@@ -217,8 +287,12 @@ export function AdminHomeScreen() {
             <View className="gap-3">
               {overview.supportCases.map((supportCase, index) => (
                 <SupportCaseCard
+                  actionState={
+                    actionKey === supportCase.id ? "pending" : "idle"
+                  }
                   isFirst={index === 0}
                   key={supportCase.id}
+                  onUpdateStatus={markSupportInProgress}
                   supportCase={supportCase}
                 />
               ))}

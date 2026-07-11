@@ -14,6 +14,10 @@ import type {
 } from "@halaalvest/db"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import {
+  WorkflowChargeSummary,
+  type WorkflowChargeOption,
+} from "@/components/workflow-charge-summary"
+import {
   createFoodPurchaseCycleAction,
   recordFoodPurchaseAccountingAction,
   reviewFoodPurchaseAccountingAction,
@@ -75,10 +79,7 @@ function paymentEvidenceText(application: FoodPurchaseApplicationRow) {
     return null
   }
 
-  const outstandingAmount = Math.max(
-    approvedAmount - application.paidAmount,
-    0
-  )
+  const outstandingAmount = Math.max(approvedAmount - application.paidAmount, 0)
   const base = `Paid ${formatCurrency(
     application.paidAmount
   )}, outstanding ${formatCurrency(outstandingAmount)}`
@@ -90,6 +91,7 @@ function paymentEvidenceText(application: FoodPurchaseApplicationRow) {
 
 export function FoodPurchaseView({
   applications,
+  approvalChargeOptions,
   canRecordAccounting,
   canReviewAccounting,
   canReleaseFunds,
@@ -97,9 +99,11 @@ export function FoodPurchaseView({
   canSubmitApplications,
   cycles,
   memberOptions,
+  submissionChargeOptions,
   summary,
 }: {
   applications: FoodPurchaseApplicationRow[]
+  approvalChargeOptions: WorkflowChargeOption[]
   canRecordAccounting: boolean
   canReviewAccounting: boolean
   canReleaseFunds: boolean
@@ -107,6 +111,7 @@ export function FoodPurchaseView({
   canSubmitApplications: boolean
   cycles: FoodPurchaseCycleRow[]
   memberOptions: Option[]
+  submissionChargeOptions: WorkflowChargeOption[]
   summary: FoodPurchaseSummary
 }) {
   const router = useRouter()
@@ -183,7 +188,10 @@ export function FoodPurchaseView({
         setReleasedAmount("")
         setReleasedAt("")
         setReleaseNotes("")
-        showSuccess("Foodstuff Purchase cycle saved", "Committee funds recorded.")
+        showSuccess(
+          "Foodstuff Purchase cycle saved",
+          "Committee funds recorded."
+        )
         router.refresh()
       } catch (error) {
         showError(
@@ -213,7 +221,10 @@ export function FoodPurchaseView({
         setRequestedAmount("")
         setRequestedPaybackMonths("1")
         setRequestNotes("")
-        showSuccess("Foodstuff Purchase application saved", "Request is pending.")
+        showSuccess(
+          "Foodstuff Purchase application saved",
+          "Request is pending."
+        )
         router.refresh()
       } catch (error) {
         showError(
@@ -261,13 +272,15 @@ export function FoodPurchaseView({
           objectToFormData({
             cycleId: cycle.id,
             notes: accountingNotesByCycleId[cycle.id] ?? "",
-            operatingExpenseAmount:
-              operatingExpenseByCycleId[cycle.id] ?? "",
+            operatingExpenseAmount: operatingExpenseByCycleId[cycle.id] ?? "",
             purchaseCostAmount: purchaseCostByCycleId[cycle.id] ?? "",
             salesAmount: salesAmountByCycleId[cycle.id] ?? "",
           })
         )
-        showSuccess("Foodstuff Purchase accounting saved", "Profit was recorded.")
+        showSuccess(
+          "Foodstuff Purchase accounting saved",
+          "Profit was recorded."
+        )
         router.refresh()
       } catch (error) {
         showError(
@@ -434,6 +447,13 @@ export function FoodPurchaseView({
                   value={requestNotes}
                 />
               </Field>
+              <div className="sm:col-span-2">
+                <WorkflowChargeSummary
+                  basisAmount={Number(requestedAmount) || 0}
+                  charges={submissionChargeOptions}
+                  title="Submission charges"
+                />
+              </div>
             </div>
             <div className="mt-4">
               <Button
@@ -496,8 +516,7 @@ export function FoodPurchaseView({
                   {cycle.accountingSubmittedAt ? (
                     <p className="mt-2 text-sm text-muted-foreground">
                       Accounting submitted by{" "}
-                      {cycle.accountingSubmittedByUser?.fullName ??
-                        "committee"}{" "}
+                      {cycle.accountingSubmittedByUser?.fullName ?? "committee"}{" "}
                       on {formatDate(cycle.accountingSubmittedAt)}
                     </p>
                   ) : null}
@@ -716,6 +735,14 @@ export function FoodPurchaseView({
                       placeholder="Review note"
                       value={reviewNotesById[application.id] ?? ""}
                     />
+                    <WorkflowChargeSummary
+                      basisAmount={
+                        Number(approvedAmountById[application.id]) ||
+                        application.requestedAmount
+                      }
+                      charges={approvalChargeOptions}
+                      title="Approval charges"
+                    />
                     <div className="flex flex-wrap gap-2">
                       {application.status === "submitted" ? (
                         <Button
@@ -770,10 +797,12 @@ export function FoodPurchaseView({
 
 export function MemberFoodPurchaseView({
   applications,
+  chargeOptions,
   cycles,
   member,
 }: {
   applications: FoodPurchaseApplicationRow[]
+  chargeOptions: WorkflowChargeOption[]
   cycles: FoodPurchaseCycleRow[]
   member: {
     fullName: string
@@ -825,7 +854,10 @@ export function MemberFoodPurchaseView({
         setRequestedAmount("")
         setRequestedPaybackMonths("1")
         setRequestNotes("")
-        showSuccess("Foodstuff Purchase request sent", "Your request is pending.")
+        showSuccess(
+          "Foodstuff Purchase request sent",
+          "Your request is pending."
+        )
         router.refresh()
       } catch (error) {
         showError(
@@ -884,7 +916,9 @@ export function MemberFoodPurchaseView({
               disabled={isPending}
               inputMode="numeric"
               min="1"
-              onChange={(event) => setRequestedPaybackMonths(event.target.value)}
+              onChange={(event) =>
+                setRequestedPaybackMonths(event.target.value)
+              }
               type="number"
               value={requestedPaybackMonths}
             />
@@ -903,6 +937,13 @@ export function MemberFoodPurchaseView({
               value={requestNotes}
             />
           </Field>
+          <div className="sm:col-span-2">
+            <WorkflowChargeSummary
+              basisAmount={Number(requestedAmount) || 0}
+              charges={chargeOptions}
+              title="Applicable charges"
+            />
+          </div>
         </div>
         <div className="mt-4">
           <Button
@@ -927,7 +968,8 @@ export function MemberFoodPurchaseView({
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium text-foreground">
-                      {application.itemDescription ?? "Foodstuff Purchase request"}
+                      {application.itemDescription ??
+                        "Foodstuff Purchase request"}
                     </p>
                     <span
                       className={`rounded-full border px-2 py-0.5 text-xs capitalize ${statusTone(
@@ -995,7 +1037,7 @@ function SummaryTile({
 }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+      <p className="text-xs tracking-wide text-muted-foreground uppercase">
         {label}
       </p>
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>

@@ -110,7 +110,9 @@ enum ProfitEntrySourceType {
 
 enum ProfitEntryStatus {
   draft
+  pending
   reviewed
+  completed
   approved
   archived
 }

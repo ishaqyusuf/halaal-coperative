@@ -804,6 +804,7 @@ export function TenantFinancePageView({
                         <HistoricalSetupLockedNotice label="Charge creation is locked" />
                       ) : (
                         <ChargeDefinitionForm
+                          devMode={quickFillEnabled}
                           financeStartDate={tenantStartDate}
                         />
                       )}

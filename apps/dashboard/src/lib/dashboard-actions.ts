@@ -219,6 +219,10 @@ export async function updateTenantSharePolicyAction(formData: FormData) {
   return callDashboardFormAction("updateTenantSharePolicyAction", formData)
 }
 
+export async function updateTenantMigrationSetupAction(formData: FormData) {
+  return callDashboardFormAction("updateTenantMigrationSetupAction", formData)
+}
+
 export async function createMemberShareApplicationAction(formData: FormData) {
   return callDashboardFormAction("createMemberShareApplicationAction", formData)
 }
@@ -312,6 +316,12 @@ export async function generateShareProfitAllocationsAction(
   return callDashboardFormAction(
     "generateShareProfitAllocationsAction",
     formData
+  )
+}
+
+export async function generateHistoricalBackfillShareProfitAllocationsAction() {
+  return callDashboardNoInputAction(
+    "generateHistoricalBackfillShareProfitAllocationsAction"
   )
 }
 
@@ -409,6 +419,15 @@ export async function unlockInitialMigrationAction(formData: FormData) {
 
 export async function createMemberOpeningBalanceAction(formData: FormData) {
   return callDashboardFormAction("createMemberOpeningBalanceAction", formData)
+}
+
+export async function createHistoricalMemberSharePurchaseAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "createHistoricalMemberSharePurchaseAction",
+    formData
+  )
 }
 
 export async function reviewMemberOpeningBalanceAction(formData: FormData) {

@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
+import { applyApplicableWorkflowChargesInTransaction } from "./charges"
 import { getTenantInitialMigrationState } from "./migration"
 
 export type FoodPurchaseCycleStatus =
@@ -652,6 +653,22 @@ export async function submitFoodPurchaseApplication(
       tx
     )
 
+    await applyApplicableWorkflowChargesInTransaction(
+      {
+        actorUserId: input.actorUserId,
+        assessedAt: application.requestedAt,
+        basisAmount: Number(application.requestedAmount),
+        foodPurchaseApplicationId: application.id,
+        memberId: application.memberId,
+        notes:
+          "Automatically applied for Foodstuff Purchase application submission.",
+        tenantId: input.tenantId,
+        trigger: "submission",
+        workflow: "food_purchase_application",
+      },
+      tx as PrismaClient
+    )
+
     return normalizeFoodPurchaseApplication(application)
   })
 }
@@ -805,6 +822,26 @@ export async function reviewFoodPurchaseApplication(
       },
       tx
     )
+
+    if (input.status === "approved") {
+      await applyApplicableWorkflowChargesInTransaction(
+        {
+          actorUserId: input.actorUserId,
+          assessedAt: application.reviewedAt ?? new Date(),
+          basisAmount: Number(
+            application.approvedAmount ?? application.requestedAmount
+          ),
+          foodPurchaseApplicationId: application.id,
+          memberId: application.memberId,
+          notes:
+            "Automatically applied for Foodstuff Purchase application approval.",
+          tenantId: input.tenantId,
+          trigger: "approval",
+          workflow: "food_purchase_application",
+        },
+        tx as PrismaClient
+      )
+    }
 
     return normalizeFoodPurchaseApplication(application)
   })

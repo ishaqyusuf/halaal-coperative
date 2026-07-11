@@ -6,11 +6,15 @@ import {
   createShareBusinessProfitEntry,
   createTenantShareStructureVersion,
   getResolvedShareAmountForMonth,
+  generateHistoricalBackfillShareProfitAllocations,
+  getTenantMigrationSetup,
   getMemberUnitSharePosition,
   getTenantSharePolicy,
   publishShareProfitAllocations,
+  recommendTenantMigrationSetupMode,
   reviewMemberShareApplication,
   updateTenantBusinessProfitPolicy,
+  updateTenantMigrationSetup,
   updateTenantSharePolicy,
   updateShareBusinessProfitEntry,
   upsertTenantShareStructureVersion,
@@ -218,6 +222,130 @@ describe("tenant finance queries", () => {
       maximumShareUnits: 20,
       unitAmount: 10000,
     })
+  })
+
+  test("reads default migration setup mode when tenant policy has not been configured", async () => {
+    const setup = await getTenantMigrationSetup("tenant-1", {
+      tenantPolicy: {
+        findUnique: async () => null,
+      },
+    } as never)
+
+    expect(setup).toEqual({
+      id: null,
+      mode: "historical_backfill",
+    })
+  })
+
+  test("updates migration setup mode with audit metadata", async () => {
+    const tenantPolicyUpserts: Record<string, unknown>[] = []
+    const auditLogCreates: Record<string, unknown>[] = []
+
+    const setup = await updateTenantMigrationSetup(
+      {
+        actorUserId: "user-1",
+        mode: "brought_forward",
+        tenantId: "tenant-1",
+      },
+      {
+        auditLog: {
+          create: async (input: Record<string, unknown>) => {
+            auditLogCreates.push(input)
+            return input
+          },
+        },
+        tenantPolicy: {
+          findUnique: async () => ({
+            id: "policy-1",
+            migrationSetupMode: "historical_backfill",
+          }),
+          upsert: async (input: Record<string, unknown>) => {
+            tenantPolicyUpserts.push(input)
+            return {
+              id: "policy-1",
+              migrationSetupMode: "brought_forward",
+            }
+          },
+        },
+      } as never
+    )
+
+    expect(setup).toEqual({
+      id: "policy-1",
+      mode: "brought_forward",
+    })
+    expect(tenantPolicyUpserts).toHaveLength(1)
+    expect(tenantPolicyUpserts[0]).toMatchObject({
+      create: {
+        migrationSetupMode: "brought_forward",
+        tenantId: "tenant-1",
+      },
+      update: {
+        migrationSetupMode: "brought_forward",
+      },
+      where: { tenantId: "tenant-1" },
+    })
+    expect(auditLogCreates).toHaveLength(1)
+    expect(auditLogCreates[0]).toMatchObject({
+      data: {
+        action: "tenant_policy.migration_setup_mode_updated",
+        actorType: "user",
+        actorUserId: "user-1",
+        entityId: "policy-1",
+        entityType: "TenantPolicy",
+        metadata: {
+          next: {
+            id: "policy-1",
+            mode: "brought_forward",
+          },
+          previous: {
+            id: "policy-1",
+            mode: "historical_backfill",
+          },
+        },
+        tenantId: "tenant-1",
+      },
+    })
+  })
+
+  test("recommends migration setup mode from age and member workload", () => {
+    const now = new Date("2026-07-11T00:00:00.000Z")
+
+    expect(
+      recommendTenantMigrationSetupMode({
+        memberCount: 80,
+        now,
+        startDate: "2026-01-01",
+      })
+    ).toBe("historical_backfill")
+    expect(
+      recommendTenantMigrationSetupMode({
+        memberCount: 10,
+        now,
+        startDate: "2025-01-01",
+      })
+    ).toBe("historical_backfill")
+    expect(
+      recommendTenantMigrationSetupMode({
+        memberCount: 20,
+        now,
+        startDate: "2025-01-01",
+      })
+    ).toBe("brought_forward")
+    expect(
+      recommendTenantMigrationSetupMode({
+        memberCount: 20,
+        now,
+        startDate: null,
+      })
+    ).toBeNull()
+    expect(
+      recommendTenantMigrationSetupMode({
+        memberCount: null,
+        now,
+        startDate: "2025-01-01",
+      })
+    ).toBeNull()
   })
 
   test("normalizes monthly share policy without exposing inactive unit settings", async () => {
@@ -1084,6 +1212,15 @@ describe("tenant finance queries", () => {
         createdByUserId: "user-1",
         name: "Retail pool",
         profitAmount: 10000,
+        profitEntries: [
+          {
+            allocatableProfitAmount: 10000,
+            expenseAmount: 0,
+            profitAmount: 10000,
+            profitDate: new Date("2026-01-31T00:00:00.000Z"),
+            status: "completed",
+          },
+        ],
         sourceType: "manual",
         startDate: new Date("2026-01-01T00:00:00.000Z"),
         status: "active",
@@ -1129,6 +1266,7 @@ describe("tenant finance queries", () => {
     expect(profitEntryCreates[0]).toMatchObject({
       data: {
         sourceType: "manual",
+        status: "completed",
       },
     })
     expect(auditLogCreates[0]).toMatchObject({
@@ -1226,6 +1364,115 @@ describe("tenant finance queries", () => {
     )
 
     expect(shareLedgerCreates).toHaveLength(1)
+  })
+
+  test("generates historical backfill dividends from unit share ledger records", async () => {
+    const allocationCreates: Record<string, unknown>[] = []
+    const allocationDeletes: Record<string, unknown>[] = []
+    const tx = {
+      ...withMigrationState({}),
+      memberAmountLog: {
+        findMany: async () => [],
+      },
+      memberShareLedgerEntry: {
+        findMany: async () => [
+          {
+            amount: 20000,
+            member: {
+              fullName: "Aisha Bello",
+              memberNumber: "M-001",
+            },
+            memberId: "member-1",
+          },
+          {
+            amount: 10000,
+            member: {
+              fullName: "Bola Musa",
+              memberNumber: "M-002",
+            },
+            memberId: "member-2",
+          },
+        ],
+      },
+      shareBusinessProfitEntry: {
+        count: async () => 1,
+        findFirst: async () => ({
+          allocatableProfitAmount: 3000,
+          id: "profit-entry-1",
+          profitAmount: 3000,
+          profitDate: new Date("2026-01-31T00:00:00.000Z"),
+          sourceType: "backfill",
+        }),
+        findMany: async () => [{ id: "profit-entry-1" }],
+      },
+      shareProfitAllocation: {
+        createMany: async (input: Record<string, unknown>) => {
+          allocationCreates.push(input)
+          return { count: 2 }
+        },
+        deleteMany: async (input: Record<string, unknown>) => {
+          allocationDeletes.push(input)
+          return { count: 0 }
+        },
+        findMany: async () => [
+          {
+            allocatedProfitAmount: 2000,
+            memberId: "member-1",
+            profitEntryId: "profit-entry-1",
+          },
+          {
+            allocatedProfitAmount: 1000,
+            memberId: "member-2",
+            profitEntryId: "profit-entry-1",
+          },
+        ],
+      },
+      tenantPolicy: {
+        findUnique: async () => ({
+          migrationSetupMode: "historical_backfill",
+          shareConfigurationMode: "unit_based",
+        }),
+      },
+    }
+
+    const allocations = await generateHistoricalBackfillShareProfitAllocations(
+      {
+        actorUserId: "user-1",
+        tenantId: "tenant-1",
+      },
+      {
+        ...tx,
+        $transaction: async (callback: (transaction: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      } as never
+    )
+
+    expect(allocations).toHaveLength(2)
+    expect(allocationDeletes[0]).toMatchObject({
+      where: {
+        profitEntryId: "profit-entry-1",
+        status: "draft",
+        tenantId: "tenant-1",
+      },
+    })
+    expect(allocationCreates[0]).toMatchObject({
+      data: [
+        expect.objectContaining({
+          allocatedProfitAmount: 2000,
+          memberId: "member-1",
+          memberShareBalance: 20000,
+          profitEntryId: "profit-entry-1",
+          status: "draft",
+          tenantId: "tenant-1",
+          totalShareBalance: 30000,
+        }),
+        expect.objectContaining({
+          allocatedProfitAmount: 1000,
+          memberId: "member-2",
+          memberShareBalance: 10000,
+        }),
+      ],
+    })
   })
 
   test("upserts and audits tenant business profit policy", async () => {

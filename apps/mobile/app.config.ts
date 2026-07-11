@@ -74,7 +74,7 @@ const config: ExpoConfig = {
   },
   web: {
     favicon: "./assets/icons/favicon.png",
-    output: "static",
+    output: "single",
   },
   plugins: [
     "expo-router",

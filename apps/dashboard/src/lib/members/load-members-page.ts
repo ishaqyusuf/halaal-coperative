@@ -2,6 +2,8 @@ import {
   createDbRuntime,
   getImportReferenceData,
   getTenantMemberSignupSettings,
+  getTenantMigrationSetup,
+  type TenantMigrationSetupMode,
   listImportBatches,
   listMembers,
 } from "@halaalvest/db"
@@ -19,6 +21,7 @@ type MemberSignupAccessMode = "disabled" | "hidden" | "in_office" | "public"
 
 type MembersPageTenant = {
   memberNumberPrefix?: string | null
+  migrationSetupMode: TenantMigrationSetupMode
   startDate?: string | null
 }
 
@@ -88,11 +91,13 @@ function toTenantStartDateString(value: Date | string | null | undefined) {
 
 function toMembersPageTenant(
   tenant: Awaited<ReturnType<typeof getDashboardServerContext>>["tenant"],
+  migrationSetupMode: TenantMigrationSetupMode = "historical_backfill",
 ): MembersPageTenant | null {
   if (!tenant) return null
 
   return {
     memberNumberPrefix: tenant.memberNumberPrefix,
+    migrationSetupMode,
     startDate: toTenantStartDateString(tenant.startDate),
   }
 }
@@ -117,7 +122,7 @@ export async function loadMembersPageData(
   const canManageMembers = hasAnyRole(context.auth.membership?.role, memberManagementRoles)
   const canManageImports = hasAnyRole(context.auth.membership?.role, allStaffRoles)
   const quickFillEnabled = canShowQuickFill(context)
-  const tenant = toMembersPageTenant(context.tenant)
+  let tenant = toMembersPageTenant(context.tenant)
 
   if (!context.tenant || runtime.status !== "database-configured") {
     return {
@@ -134,9 +139,10 @@ export async function loadMembersPageData(
   let referenceData
   let batches
   let signupSettings
+  let migrationSetup
 
   try {
-    ;[members, referenceData, batches, signupSettings] = await Promise.all([
+    ;[members, referenceData, batches, signupSettings, migrationSetup] = await Promise.all([
       listMembers(context.tenant.id, {
         ...toMemberQueryFilters(filters),
         page: 1,
@@ -145,7 +151,9 @@ export async function loadMembersPageData(
       canManageImports ? getImportReferenceData(context.tenant.id) : Promise.resolve(null),
       canManageImports ? listImportBatches(context.tenant.id) : Promise.resolve([]),
       getTenantMemberSignupSettings(context.tenant.id),
+      getTenantMigrationSetup(context.tenant.id),
     ])
+    tenant = toMembersPageTenant(context.tenant, migrationSetup.mode)
   } catch (error) {
     if (!isUnavailableMembersRuntimeError(error)) {
       throw error

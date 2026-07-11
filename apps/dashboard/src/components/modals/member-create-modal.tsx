@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import type { TenantMigrationSetupMode } from "@halaalvest/db"
 import { Button } from "@halaalvest/ui/components/button"
 import {
   Dialog,
@@ -15,7 +16,10 @@ import {
   type CreatedMemberSummary,
 } from "@/components/forms/member-forms"
 import { MemberBackfillStartModal } from "@/components/modals/member-backfill-start-modal"
-import { shouldPromptMemberBackfill } from "@/lib/members/member-backfill-prompt"
+import {
+  getMemberMigrationStartHref,
+  shouldOpenMemberMigrationAfterCreate,
+} from "@/lib/members/member-migration-routing"
 
 export function MemberCreateModal({
   cooperativeStartDate,
@@ -23,6 +27,7 @@ export function MemberCreateModal({
   devMode,
   initialValues,
   memberNumberPrefix,
+  migrationSetupMode = "historical_backfill",
   onOpenChange,
   onSuccess,
   open,
@@ -35,6 +40,7 @@ export function MemberCreateModal({
   devMode: boolean
   initialValues?: Parameters<typeof MemberCreateForm>[0]["initialValues"]
   memberNumberPrefix?: string | null
+  migrationSetupMode?: TenantMigrationSetupMode
   onOpenChange?: (open: boolean) => void
   onSuccess?: (member: CreatedMemberSummary) => void
   open?: boolean
@@ -61,10 +67,21 @@ export function MemberCreateModal({
     setDialogOpen(false)
     onSuccess?.(member)
 
+    if (suppressBackfillPrompt) {
+      return
+    }
+
     if (
-      !suppressBackfillPrompt &&
-      shouldPromptMemberBackfill(member.joinedAt)
+      shouldOpenMemberMigrationAfterCreate({
+        joinedAt: member.joinedAt,
+        setupMode: migrationSetupMode,
+      })
     ) {
+      if (migrationSetupMode === "brought_forward") {
+        router.push(getMemberMigrationStartHref(member.id, migrationSetupMode))
+        return
+      }
+
       setPendingBackfillMember(member)
     }
   }
@@ -78,7 +95,9 @@ export function MemberCreateModal({
       return
     }
 
-    router.push(`/members/${pendingBackfillMember.id}/backfill?step=baseline`)
+    router.push(
+      getMemberMigrationStartHref(pendingBackfillMember.id, migrationSetupMode)
+    )
     setPendingBackfillMember(null)
   }
 

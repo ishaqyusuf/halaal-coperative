@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  applyApplicableWorkflowCharges,
   applyLoanRequestCharges,
   applyCharge,
   createChargeDefinition,
@@ -17,9 +18,26 @@ function createChargePrismaStub({
   const chargeDefinitionLookups: unknown[] = []
   const chargeDefinitionUpdates: unknown[] = []
   const chargeDefinitionVersionCreates: unknown[] = []
+  const chargeApplicabilityCreates: unknown[] = []
+  const chargeApplicabilityDeletes: unknown[] = []
+  const chargeApplicabilityUpdates: unknown[] = []
   const ledgerLookups: unknown[] = []
 
   const tx = {
+    chargeApplicability: {
+      createMany: async (input: unknown) => {
+        chargeApplicabilityCreates.push(input)
+        return input
+      },
+      deleteMany: async (input: unknown) => {
+        chargeApplicabilityDeletes.push(input)
+        return input
+      },
+      updateMany: async (input: unknown) => {
+        chargeApplicabilityUpdates.push(input)
+        return input
+      },
+    },
     chargeDefinition: {
       create: async (input: unknown) => {
         chargeDefinitionCreates.push(input)
@@ -118,6 +136,9 @@ function createChargePrismaStub({
       count: async () => 1,
     },
     chargeDefinitionCreates,
+    chargeApplicabilityCreates,
+    chargeApplicabilityDeletes,
+    chargeApplicabilityUpdates,
     chargeDefinitionLookups,
     chargeDefinitionUpdates,
     chargeDefinitionVersionCreates,
@@ -133,6 +154,7 @@ function createLoanRequestChargePrismaStub(
     id: string
     kind: "fixed" | "percentage"
     name?: string
+    workflowCollectionMode?: "deduct_from_savings" | "pay_separately"
   }>
 ) {
   const chargeApplicationCreates: any[] = []
@@ -155,6 +177,43 @@ function createLoanRequestChargePrismaStub(
         chargeApplicationFindFirstCalls.push(input)
         return null
       },
+    },
+    chargeApplicability: {
+      findMany: async (input: any) =>
+        definitions
+          .filter((definition) => definition.workflowCollectionMode)
+          .map((definition) => {
+            const effectiveFrom =
+              definition.effectiveFrom ?? new Date("2025-01-01T00:00:00.000Z")
+            const assessedAt =
+              input.include.chargeDefinition.include.versions.where
+                .effectiveFrom.lte
+
+            return {
+              chargeDefinition: {
+                code: definition.id.toUpperCase(),
+                id: definition.id,
+                isActive: true,
+                name: definition.name ?? "Workflow charge",
+                purpose: "loan_fee",
+                versions:
+                  effectiveFrom <= assessedAt
+                    ? [
+                        {
+                          amount: definition.amount,
+                          chargeValueType: definition.chargeValueType,
+                          createdAt: effectiveFrom,
+                          effectiveFrom,
+                          kind: definition.kind,
+                        },
+                      ]
+                    : [],
+              },
+              collectionMode: definition.workflowCollectionMode,
+              id: `applicability-${definition.id}`,
+              isRequired: true,
+            }
+          }),
     },
     chargeDefinition: {
       findFirst: async (input: any) => {
@@ -287,6 +346,54 @@ describe("charge migration guards", () => {
         chargeFrequency: "one_time",
         purpose: "loan_fee",
       },
+    })
+  })
+
+  test("persists explicit workflow applicability for charge definitions", async () => {
+    const prisma = createChargePrismaStub()
+
+    await createChargeDefinition(
+      {
+        amount: 1500,
+        applicability: [
+          {
+            collectionMode: "pay_separately",
+            trigger: "submission",
+            workflow: "procurement_request",
+          },
+          {
+            collectionMode: "deduct_from_savings",
+            trigger: "submission",
+            workflow: "food_purchase_application",
+          },
+        ],
+        code: "OPS",
+        effectiveFrom: new Date("2025-01-01T00:00:00.000Z"),
+        kind: "fixed",
+        name: "Operations fee",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.chargeApplicabilityDeletes).toHaveLength(1)
+    expect(prisma.chargeApplicabilityCreates[0]).toMatchObject({
+      data: [
+        {
+          chargeDefinitionId: "charge-definition-1",
+          collectionMode: "pay_separately",
+          tenantId: "tenant-1",
+          trigger: "submission",
+          workflow: "procurement_request",
+        },
+        {
+          chargeDefinitionId: "charge-definition-1",
+          collectionMode: "deduct_from_savings",
+          tenantId: "tenant-1",
+          trigger: "submission",
+          workflow: "food_purchase_application",
+        },
+      ],
     })
   })
 
@@ -524,5 +631,44 @@ describe("charge migration guards", () => {
     )
 
     expect(prisma.chargeApplicationCreates).toHaveLength(0)
+  })
+
+  test("stages pay-separately workflow charges without ledger posting", async () => {
+    const prisma = createLoanRequestChargePrismaStub([
+      {
+        amount: 1200,
+        chargeValueType: "fixed_amount",
+        id: "loan-charge-1",
+        kind: "fixed",
+        workflowCollectionMode: "pay_separately",
+      },
+    ])
+
+    await applyApplicableWorkflowCharges(
+      {
+        actorUserId: "user-1",
+        assessedAt: new Date("2025-02-01T00:00:00.000Z"),
+        basisAmount: 100000,
+        loanRequestId: "loan-request-1",
+        memberId: "member-1",
+        sourceType: "backfill",
+        tenantId: "tenant-1",
+        trigger: "submission",
+        workflow: "loan_request",
+      },
+      prisma as never
+    )
+
+    expect(prisma.chargeApplicationCreates[0]).toMatchObject({
+      data: {
+        amount: 1200,
+        chargeApplicabilityId: "applicability-loan-charge-1",
+        chargeDefinitionId: "loan-charge-1",
+        collectionMode: "pay_separately",
+        loanRequestId: "loan-request-1",
+        status: "pending",
+      },
+    })
+    expect(prisma.chargeApplicationFindFirstCalls).toHaveLength(1)
   })
 })

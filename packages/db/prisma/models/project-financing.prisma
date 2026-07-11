@@ -33,6 +33,7 @@ model ProjectFinancingRequest {
   createdByUser           User                           @relation("ProjectFinancingRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   reviewedByUser          User?                          @relation("ProjectFinancingRequestReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   disbursedByUser         User?                          @relation("ProjectFinancingRequestDisbursedBy", fields: [disbursedByUserId], references: [id], onDelete: SetNull)
+  charges                 ChargeApplication[]
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
   @@index([tenantId, status, requestedAt], map: "project_financing_requests_tenant_status_requested_idx")

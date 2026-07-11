@@ -3,7 +3,7 @@ const nextConfig = {
   allowedDevOrigins: [
     "*.halaalvest.localhost",
     "*.halaalvest-dash.localhost",
-    "ibadan-heritage-artisans-mutual-aid.halaalvest.localhost",
+    // "ibadan-reliable-small-business-savings.halaalvest-dash.localhost",
   ],
   transpilePackages: [
     "@halaalvest/api",

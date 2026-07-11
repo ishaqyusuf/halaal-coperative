@@ -15,6 +15,7 @@ import {
   listMemberActivityEvents,
   listMemberAmountLogs,
   listMembers,
+  recommendTenantMigrationSetupMode,
 } from "@halaalvest/db"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { GettingStartedPageView } from "@/components/getting-started-page-view"
@@ -22,12 +23,17 @@ import {
   type GettingStartedStepKey,
   loadGettingStartedParams,
 } from "@/hooks/use-getting-started-params"
-import { getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 
 function resolveDefaultStep(
+  hasMigrationSetupMode: boolean,
   missingStepKeys: string[],
   needsProfitPolicy: boolean
 ): GettingStartedStepKey {
+  if (!hasMigrationSetupMode) return "setup-mode"
   if (missingStepKeys.includes("finance_start_date")) return "start-date"
   if (missingStepKeys.includes("charge_schedules")) return "charges"
   if (needsProfitPolicy) return "profit-policy"
@@ -115,6 +121,7 @@ export default async function GettingStartedPage({
   const activeStep: GettingStartedStepKey =
     requestedStep ??
     resolveDefaultStep(
+      Boolean(data.migrationSetup.id),
       migrationState.snapshot.missingStepKeys,
       !data.businessPolicy.id
     )
@@ -268,6 +275,7 @@ export default async function GettingStartedPage({
           profitAmount: entry.profitAmount,
           profitDate: toDateString(entry.profitDate) ?? "",
           reason: entry.reason,
+          status: entry.status ?? "draft",
         })),
         profitEntryCount: season.profitEntryCount,
         status: season.status,
@@ -321,6 +329,11 @@ export default async function GettingStartedPage({
         joinedAt: row.joinedAt.toISOString().slice(0, 10),
       }))}
       migrationSnapshot={migrationState.snapshot}
+      migrationSetup={data.migrationSetup}
+      recommendedMigrationSetupMode={recommendTenantMigrationSetupMode({
+        memberCount: data.tenant?.currentSize ?? memberOptions.items.length,
+        startDate: data.tenant?.startDate ?? null,
+      })}
       profitMigrationOptions={profitMigrationOptions.map((option: any) => ({
         ...option,
         profitDate: option.profitDate.toISOString().slice(0, 10),
@@ -367,6 +380,7 @@ export default async function GettingStartedPage({
           valueType: version.valueType ?? "fixed_amount",
         })
       )}
+      quickFillEnabled={canShowQuickFill(context)}
       tenantName={data.tenant?.name ?? context.tenant.name}
       tenantStartDate={toDateString(data.tenant?.startDate)}
     />

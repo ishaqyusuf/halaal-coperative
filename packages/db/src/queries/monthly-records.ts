@@ -1,6 +1,9 @@
 import type { LoanStatus, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { applyCharge } from "./charges"
+import {
+  applyApplicableWorkflowCharges,
+  quoteApplicableCharges,
+} from "./charges"
 import { recordMemberPayment } from "./contributions"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
@@ -746,41 +749,50 @@ export async function getMonthlyRecordDetail(
       activeLoanByMemberId.set(loan.memberId, loan)
     }
   }
-  const memberChargeDefinitions = await prisma.chargeDefinition.findMany({
-    where: {
-      tenantId,
-      appliesToMembers: true,
-      isActive: true,
-    },
-    orderBy: [{ isMonthlyLevy: "desc" }, { name: "asc" }],
-  })
   const totalPaidByMemberId = new Map(
     record.memberRows.map((row) => [row.memberId, Number(row.totalPaidAmount)])
   )
-  const calculateChargeAmount = (
-    amount: number,
-    kind: string,
-    memberId: string
-  ) =>
-    kind === "percentage"
-      ? (totalPaidByMemberId.get(memberId) ?? 0) * (amount / 100)
-      : amount
   const calculatedChargesByMemberId = new Map<string, number>()
+  const calculatedChargesByDefinitionId = new Map<
+    string,
+    {
+      amount: number
+      code: string
+      kind: "fixed" | "percentage"
+      name: string
+      totalAmount: number
+    }
+  >()
 
   for (const row of record.memberRows) {
+    const quotes = await quoteApplicableCharges(
+      {
+        assessedAt: start,
+        basisAmount: totalPaidByMemberId.get(row.memberId) ?? 0,
+        tenantId,
+        trigger: "monthly_collection",
+        workflow: "commitment_collection",
+      },
+      prisma
+    )
+
     calculatedChargesByMemberId.set(
       row.memberId,
-      memberChargeDefinitions.reduce(
-        (total, charge) =>
-          total +
-          calculateChargeAmount(
-            Number(charge.amount),
-            charge.kind,
-            row.memberId
-          ),
-        0
-      )
+      quotes.reduce((total, charge) => total + charge.amount, 0)
     )
+
+    for (const quote of quotes) {
+      const existing = calculatedChargesByDefinitionId.get(
+        quote.chargeDefinitionId
+      )
+      calculatedChargesByDefinitionId.set(quote.chargeDefinitionId, {
+        amount: quote.effectiveAmount,
+        code: quote.code,
+        kind: quote.chargeValueType === "percentage" ? "percentage" : "fixed",
+        name: quote.name,
+        totalAmount: (existing?.totalAmount ?? 0) + quote.amount,
+      })
+    }
   }
   const appliedCharges = memberIds.length
     ? await prisma.chargeApplication.findMany({
@@ -813,27 +825,25 @@ export async function getMonthlyRecordDetail(
     )
   }
 
-  const chargeBreakdown = memberChargeDefinitions.map((charge) => {
-    const amount = Number(charge.amount)
-    const totalAmount = record.memberRows.reduce(
-      (total, row) =>
-        total + calculateChargeAmount(amount, charge.kind, row.memberId),
-      0
-    )
-    const appliedTotalAmount = actualChargesByDefinitionId.get(charge.id) ?? 0
+  const chargeBreakdown = [...calculatedChargesByDefinitionId.entries()].map(
+    ([chargeDefinitionId, charge]) => {
+      const appliedTotalAmount =
+        actualChargesByDefinitionId.get(chargeDefinitionId) ?? 0
 
-    return {
-      id: charge.id,
-      name: charge.name,
-      code: charge.code,
-      kind: charge.kind,
-      amount,
-      appliedTotalAmount,
-      hasDifference: Math.abs(appliedTotalAmount - totalAmount) > 0.009,
-      memberCount: record.memberRows.length,
-      totalAmount,
+      return {
+        id: chargeDefinitionId,
+        name: charge.name,
+        code: charge.code,
+        kind: charge.kind,
+        amount: charge.amount,
+        appliedTotalAmount,
+        hasDifference:
+          Math.abs(appliedTotalAmount - charge.totalAmount) > 0.009,
+        memberCount: record.memberRows.length,
+        totalAmount: charge.totalAmount,
+      }
     }
-  })
+  )
   const totalChargeAmount = chargeBreakdown.reduce(
     (total, charge) => total + charge.totalAmount,
     0
@@ -1014,40 +1024,24 @@ export async function applyMonthlyRecordMember(
     },
     prisma
   )
-  const memberChargeDefinitions = await prisma.chargeDefinition.findMany({
-    where: {
-      tenantId: input.tenantId,
-      appliesToMembers: true,
-      isActive: true,
-    },
-    orderBy: [{ isMonthlyLevy: "desc" }, { name: "asc" }],
-  })
   const assessedAt = getPeriodRange(
     row.monthlyRecord.periodYear,
     row.monthlyRecord.periodMonth
   ).start
 
-  for (const charge of memberChargeDefinitions) {
-    const amount =
-      charge.kind === "percentage"
-        ? input.totalPaidAmount * (Number(charge.amount) / 100)
-        : Number(charge.amount)
-
-    if (amount <= 0) continue
-
-    await applyCharge(
-      {
-        actorUserId: input.actorUserId,
-        amount,
-        assessedAt,
-        chargeDefinitionId: charge.id,
-        memberId: row.memberId,
-        notes: `Posted from monthly record ${row.monthlyRecord.periodLabel}`,
-        tenantId: input.tenantId,
-      },
-      prisma
-    )
-  }
+  await applyApplicableWorkflowCharges(
+    {
+      actorUserId: input.actorUserId,
+      assessedAt,
+      basisAmount: input.totalPaidAmount,
+      memberId: row.memberId,
+      notes: `Posted from monthly record ${row.monthlyRecord.periodLabel}`,
+      tenantId: input.tenantId,
+      trigger: "monthly_collection",
+      workflow: "commitment_collection",
+    },
+    prisma
+  )
 
   return prisma.monthlyRecordMember.update({
     where: { id: row.id },

@@ -6,9 +6,7 @@ import {
   DashboardSurfaceCard,
   TrendPill,
 } from "@/components/dashboard"
-import {
-  LoanRequestForm,
-} from "@/components/forms/finance-forms"
+import { LoanRequestForm } from "@/components/forms/finance-forms"
 import { WorkspacePageShell } from "@/components/dashboard"
 import { LoanPortfolioTable } from "@/components/tables/loans/portfolio-table"
 import { LoanRequestsTable } from "@/components/tables/loans/requests-table"
@@ -25,6 +23,7 @@ export function LoansPageView({
   dashboard,
   financingCycle,
   loanProducts,
+  loanRequestCharges,
   loanRequests,
   loans,
   members,
@@ -58,6 +57,7 @@ export function LoansPageView({
             <LoanRequestForm
               devMode={quickFillEnabled}
               disabledReason={intakeDisabledReason}
+              loanRequestCharges={loanRequestCharges}
               loanProducts={loanProducts.map((product) => {
                 const codePrefix = product.code ? `${product.code} - ` : ""
                 const remainingAmount = formatCurrency(
@@ -83,9 +83,7 @@ export function LoansPageView({
           actions={
             <TrendPill
               tone={
-                financingCycle.intakeStatus === "open"
-                  ? "positive"
-                  : "warning"
+                financingCycle.intakeStatus === "open" ? "positive" : "warning"
               }
             >
               {financingCycle.intakeStatus === "open"
@@ -102,9 +100,7 @@ export function LoansPageView({
             detail={`${formatCurrency(financingCycle.quick.requestedReservedAmount)} requested or held`}
             label="Quick remaining"
             tone={
-              financingCycle.quick.remainingAmount <= 0
-                ? "warning"
-                : "positive"
+              financingCycle.quick.remainingAmount <= 0 ? "warning" : "positive"
             }
             value={formatCurrency(financingCycle.quick.remainingAmount)}
           />
@@ -126,7 +122,9 @@ export function LoansPageView({
                 ? "positive"
                 : "warning"
             }
-            value={formatCurrency(financingCycle.deployableFunds.deployableFunds)}
+            value={formatCurrency(
+              financingCycle.deployableFunds.deployableFunds
+            )}
           />
           <DashboardStatCard
             detail={`${Math.round(financingCycle.collectionCoverage * 100)}% of projected commitments collected`}

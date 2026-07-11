@@ -104,11 +104,35 @@ model MemberShareLedgerEntry {
   tenant                    Tenant                             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   member                    Member                             @relation(fields: [memberId], references: [id], onDelete: Cascade)
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
+  historicalSharePurchaseSource HistoricalMemberSharePurchase? @relation("HistoricalMemberSharePurchasePostedLedgerEntry")
 
   @@index([tenantId, memberId, effectiveDate], map: "member_share_ledger_entries_tenant_member_effective_idx")
   @@index([tenantId, effectiveDate], map: "member_share_ledger_entries_tenant_effective_idx")
   @@index([tenantId, sourceType, sourceId], map: "member_share_ledger_entries_tenant_source_idx")
   @@map("member_share_ledger_entries")
+}
+
+model HistoricalMemberSharePurchase {
+  id                       String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                 String                  @map("tenant_id") @db.Uuid
+  memberId                 String                  @map("member_id") @db.Uuid
+  shareUnits               Int                     @map("share_units")
+  unitAmountSnapshot       Decimal                 @map("unit_amount_snapshot") @db.Decimal(18, 2)
+  shareCapitalAmount       Decimal                 @map("share_capital_amount") @db.Decimal(18, 2)
+  paidAt                   DateTime                @map("paid_at") @db.Date
+  notes                    String?
+  createdByUserId          String?                 @map("created_by_user_id") @db.Uuid
+  postedShareLedgerEntryId String?                 @unique(map: "historical_share_purchases_posted_share_ledger_entry_key") @map("posted_share_ledger_entry_id") @db.Uuid
+  createdAt                DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                 Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  postedShareLedgerEntry MemberShareLedgerEntry? @relation("HistoricalMemberSharePurchasePostedLedgerEntry", fields: [postedShareLedgerEntryId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, memberId, paidAt], map: "historical_share_purchases_tenant_member_paid_idx")
+  @@index([tenantId, paidAt], map: "historical_share_purchases_tenant_paid_idx")
+  @@map("historical_member_share_purchases")
 }
 
 model MemberShareApplication {

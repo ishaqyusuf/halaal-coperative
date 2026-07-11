@@ -50,6 +50,7 @@ model Tenant {
   tenantShareStructureVersions    TenantShareStructureVersion[]
   chargeDefinitions               ChargeDefinition[]
   chargeDefinitionVersions        ChargeDefinitionVersion[]
+  chargeApplicability             ChargeApplicability[]
   chargeApplications              ChargeApplication[]
   loanProducts                    LoanProduct[]
   financingCycles                 FinancingCycle[]
@@ -76,6 +77,7 @@ model Tenant {
   shareBusinessProfitEntries      ShareBusinessProfitEntry[]
   shareBusinessProfitExpenseLines ShareBusinessProfitExpenseLine[]
   shareLedgerEntries              MemberShareLedgerEntry[]
+  historicalSharePurchases        HistoricalMemberSharePurchase[]
   memberShareApplications         MemberShareApplication[]
   shareProfitAllocations          ShareProfitAllocation[]
   offlineSyncEvents               OfflineSyncEvent[]
@@ -122,6 +124,7 @@ model TenantPolicy {
   foodPurchaseMaximumPaybackMonths Int                 @default(1) @map("food_purchase_maximum_payback_months")
   foodPurchaseAllowsCommitmentReductionDuringPayback Boolean @default(false) @map("food_purchase_allows_commitment_reduction_during_payback")
   monthlyLevyAmount            Decimal?               @map("monthly_levy_amount") @db.Decimal(18, 2)
+  migrationSetupMode           TenantMigrationSetupMode @default(historical_backfill) @map("migration_setup_mode")
   shareUnitAmount              Decimal                @default(10000) @map("share_unit_amount") @db.Decimal(18, 2)
   compulsoryShareUnits         Int                    @default(1) @map("compulsory_share_units")
   maximumShareUnits            Int                    @default(20) @map("maximum_share_units")

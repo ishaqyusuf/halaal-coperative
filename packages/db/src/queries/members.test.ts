@@ -507,6 +507,57 @@ const dividendStatementMemberRow = {
 
 function createMemberStatementPrismaStub() {
   return {
+    chargeApplication: {
+      findMany: async () => [
+        {
+          amount: 2500,
+          assessedAt: new Date("2026-04-11T00:00:00.000Z"),
+          chargeApplicability: {
+            collectionMode: "deduct_from_savings",
+            trigger: "approval",
+            workflow: "project_financing_request",
+          },
+          chargeDefinition: {
+            code: "PRJ",
+            name: "Project review fee",
+          },
+          collectionMode: "deduct_from_savings",
+          foodPurchaseApplication: null,
+          id: "charge-application-1",
+          loanRequest: null,
+          procurementRequest: null,
+          projectFinancingRequest: {
+            businessName: "Aisha Stores",
+            id: "project-financing-1",
+            status: "approved",
+          },
+          status: "posted",
+        },
+        {
+          amount: 1000,
+          assessedAt: new Date("2026-04-12T00:00:00.000Z"),
+          chargeApplicability: {
+            collectionMode: "pay_separately",
+            trigger: "submission",
+            workflow: "food_purchase_application",
+          },
+          chargeDefinition: {
+            code: "FOOD",
+            name: "Foodstuff application fee",
+          },
+          collectionMode: "pay_separately",
+          foodPurchaseApplication: {
+            id: "food-purchase-1",
+            status: "submitted",
+          },
+          id: "charge-application-2",
+          loanRequest: null,
+          procurementRequest: null,
+          projectFinancingRequest: null,
+          status: "pending",
+        },
+      ],
+    },
     contribution: {
       findMany: async () => [],
       groupBy: async () => [
@@ -622,5 +673,36 @@ describe("member statement dividend allocations", () => {
     expect(detail?.summary).toMatchObject({
       totalDividendAllocations: 7500,
     })
+  })
+
+  test("loads workflow-linked posted and pending charges into member statement detail", async () => {
+    const detail = await getMemberStatementDetail(
+      "tenant-1",
+      "member-1",
+      createMemberStatementPrismaStub() as never
+    )
+
+    expect(detail?.chargeApplications).toEqual([
+      expect.objectContaining({
+        chargeDefinition: expect.objectContaining({
+          name: "Project review fee",
+        }),
+        collectionMode: "deduct_from_savings",
+        projectFinancingRequest: expect.objectContaining({
+          businessName: "Aisha Stores",
+        }),
+        status: "posted",
+      }),
+      expect.objectContaining({
+        chargeDefinition: expect.objectContaining({
+          name: "Foodstuff application fee",
+        }),
+        collectionMode: "pay_separately",
+        foodPurchaseApplication: expect.objectContaining({
+          status: "submitted",
+        }),
+        status: "pending",
+      }),
+    ])
   })
 })

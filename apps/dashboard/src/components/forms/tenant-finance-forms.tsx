@@ -63,6 +63,7 @@ import type {
   LoanProductSettingsRow,
   TenantBusinessProfitPolicySettings,
   TenantFinancingSettingsWorkspace,
+  TenantMigrationSetupMode,
   TenantSharePolicySettings,
 } from "@halaalvest/db"
 import { PlusIcon, Trash2Icon } from "lucide-react"
@@ -503,12 +504,14 @@ const historicalProfitMigrationModeOptions = [
 
 export function BusinessProfitPolicyForm({
   defaultPolicy,
+  devMode = false,
   formId,
   preserveDraftKey,
   redirectTo,
   showSubmitButton = true,
 }: {
   defaultPolicy: TenantBusinessProfitPolicySettings
+  devMode?: boolean
   formId?: string
   preserveDraftKey?: string
   redirectTo?: string
@@ -545,6 +548,23 @@ export function BusinessProfitPolicyForm({
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
 
+  function quickFillProfitPolicy() {
+    form.reset({
+      defaultDistributablePercentage: "80",
+      distributionBasis: "share_capital_balance",
+      expenseTreatment: "deduct_reviewed_expenses_before_distribution",
+      financialYearStartMonth: "1",
+      historicalProfitMigrationMode: "import_historical_profit_pools",
+      profitDistributionFrequency: "annual",
+      requiresProfitDistributionApproval: true,
+      reserveRetentionPercentage: "20",
+    })
+    showSuccess(
+      "Profit policy filled",
+      "Review the generated profit-sharing policy before saving."
+    )
+  }
+
   function onSubmit(values: BusinessProfitPolicyValues) {
     startTransition(async () => {
       try {
@@ -571,6 +591,19 @@ export function BusinessProfitPolicyForm({
         id={resolvedFormId}
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        {devMode ? (
+          <div className="flex justify-end">
+            <Button
+              disabled={isPending}
+              onClick={quickFillProfitPolicy}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Quick fill
+            </Button>
+          </div>
+        ) : null}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <FormField
             control={form.control}
@@ -964,7 +997,9 @@ const financingPolicySchema = z
     activeFinancingBlocksEmergency: z.boolean().default(true),
     activeFinancingBlocksProcurement: z.boolean().default(true),
     disbursementRequiresDeployableFunds: z.boolean().default(true),
-    foodPurchaseAllowsCommitmentReductionDuringPayback: z.boolean().default(false),
+    foodPurchaseAllowsCommitmentReductionDuringPayback: z
+      .boolean()
+      .default(false),
     foodPurchaseMaximumPaybackMonths: z
       .string()
       .min(1, "Foodstuff payback cap is required."),
@@ -974,10 +1009,10 @@ const financingPolicySchema = z
     normalLoanAllocationPercentage: z
       .string()
       .min(1, "Normal allocation is required."),
-    normalLoanTermMonths: z
-      .string()
-      .min(1, "Normal term is required."),
-    procurementAllowsCommitmentReductionDuringPayback: z.boolean().default(false),
+    normalLoanTermMonths: z.string().min(1, "Normal term is required."),
+    procurementAllowsCommitmentReductionDuringPayback: z
+      .boolean()
+      .default(false),
     procurementMaximumPaybackMonths: z
       .string()
       .min(1, "Procurement payback cap is required."),
@@ -997,7 +1032,9 @@ const financingPolicySchema = z
     const quickTerm = Number(values.quickLoanTermMonths)
     const normalTerm = Number(values.normalLoanTermMonths)
     const procurementMaxPayback = Number(values.procurementMaximumPaybackMonths)
-    const foodPurchaseMaxPayback = Number(values.foodPurchaseMaximumPaybackMonths)
+    const foodPurchaseMaxPayback = Number(
+      values.foodPurchaseMaximumPaybackMonths
+    )
     const reserveBuffer = Number(values.reserveBufferAmount)
 
     if (
@@ -1322,7 +1359,9 @@ export function FinancingPolicyForm({
                     }
                   />
                 </FormControl>
-                <FormLabel className="text-xs">Deployable funds check</FormLabel>
+                <FormLabel className="text-xs">
+                  Deployable funds check
+                </FormLabel>
                 <FormMessage />
               </FormItem>
             )}
@@ -1394,7 +1433,9 @@ export function FinancingPolicyForm({
                     }
                   />
                 </FormControl>
-                <FormLabel className="text-xs">Block procurement overlap</FormLabel>
+                <FormLabel className="text-xs">
+                  Block procurement overlap
+                </FormLabel>
                 <FormMessage />
               </FormItem>
             )}
@@ -1562,12 +1603,7 @@ export function LoanProductSettingsForm({
               <FormItem>
                 <FormLabel>Term months</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    inputMode="numeric"
-                    min="1"
-                    type="number"
-                  />
+                  <Input {...field} inputMode="numeric" min="1" type="number" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -1627,9 +1663,7 @@ const financingCycleControlSchema = z.object({
   statusNote: z.string().optional(),
 })
 
-type FinancingCycleControlValues = z.infer<
-  typeof financingCycleControlSchema
->
+type FinancingCycleControlValues = z.infer<typeof financingCycleControlSchema>
 
 const cycleStatusOptions = [
   { label: "Open intake", value: "open" },
@@ -2156,6 +2190,7 @@ const chargeDefinitionSchema = z.object({
   appliesToLoanRequests: z.boolean().default(false),
   appliesToLoans: z.boolean().default(false),
   appliesToMembers: z.boolean().default(true),
+  applicability: z.array(z.string()).default([]),
   chargeFrequency: z.enum([
     "recurring_monthly",
     "per_contribution",
@@ -2178,6 +2213,78 @@ const chargeDefinitionSchema = z.object({
 })
 
 type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
+
+const chargeApplicabilityOptions = [
+  {
+    label: "Commitment",
+    value: "commitment_collection:monthly_collection:deduct_from_savings",
+  },
+  {
+    label: "Loan request",
+    value: "loan_request:submission:deduct_from_savings",
+  },
+  {
+    label: "Loan",
+    value: "loan:manual:deduct_from_savings",
+  },
+  {
+    label: "Procurement",
+    value: "procurement_request:submission:deduct_from_savings",
+  },
+  {
+    label: "Foodstuff",
+    value: "food_purchase_application:submission:deduct_from_savings",
+  },
+  {
+    label: "Project",
+    value: "project_financing_request:submission:deduct_from_savings",
+  },
+] as const
+
+function defaultChargeApplicabilityForPurpose(
+  purpose: ChargeDefinitionValues["purpose"]
+) {
+  if (purpose === "loan_fee") {
+    return ["loan_request:submission:deduct_from_savings"]
+  }
+
+  return ["commitment_collection:monthly_collection:deduct_from_savings"]
+}
+
+function legacyChargeApplicabilityValues(input: {
+  appliesToLoanRequests?: boolean
+  appliesToLoans?: boolean
+  appliesToMembers?: boolean
+  purpose?: ChargeDefinitionValues["purpose"]
+}) {
+  const values: string[] = []
+
+  if (input.appliesToMembers ?? true) {
+    values.push("commitment_collection:monthly_collection:deduct_from_savings")
+  }
+
+  if (input.appliesToLoanRequests || input.purpose === "loan_fee") {
+    values.push("loan_request:submission:deduct_from_savings")
+  }
+
+  if (input.appliesToLoans) {
+    values.push("loan:manual:deduct_from_savings")
+  }
+
+  return Array.from(new Set(values))
+}
+
+function getLegacyApplicabilityFlags(values: string[]) {
+  return {
+    appliesToLoanRequests: values.some((value) =>
+      value.startsWith("loan_request:")
+    ),
+    appliesToLoans: values.some((value) => value.startsWith("loan:")),
+    appliesToMembers: values.some((value) =>
+      value.startsWith("commitment_collection:")
+    ),
+  }
+}
 
 function getChargeKindForValueType(
   chargeValueType: ChargeDefinitionValues["chargeValueType"]
@@ -2231,6 +2338,11 @@ type ChargeDefinitionInitialDefinition = {
   appliesToLoanRequests?: boolean
   appliesToLoans?: boolean
   appliesToMembers?: boolean
+  applicability?: Array<{
+    collectionMode?: string | null
+    trigger: string
+    workflow: string
+  }>
   chargeFrequency: ChargeDefinitionValues["chargeFrequency"]
   chargeValueType: ChargeDefinitionValues["chargeValueType"]
   code: string
@@ -2255,6 +2367,79 @@ type ChargeDefinitionInputRow = ChargeDefinitionValues & {
   saved: boolean
 }
 
+type ChargeQuickFillTemplate = Pick<
+  ChargeDefinitionValues,
+  | "appliesToLoanRequests"
+  | "appliesToLoans"
+  | "appliesToMembers"
+  | "applicability"
+  | "chargeFrequency"
+  | "chargeValueType"
+  | "code"
+  | "isMonthlyLevy"
+  | "name"
+  | "purpose"
+> & {
+  amount: string
+}
+
+const chargeQuickFillTemplates = [
+  {
+    amount: "1000",
+    appliesToLoanRequests: false,
+    appliesToLoans: false,
+    appliesToMembers: true,
+    applicability: [
+      "commitment_collection:monthly_collection:deduct_from_savings",
+    ],
+    chargeFrequency: "recurring_monthly",
+    chargeValueType: "fixed_amount",
+    code: "LEVY",
+    isMonthlyLevy: true,
+    name: "Monthly levy",
+    purpose: "general",
+  },
+  {
+    amount: "2000",
+    appliesToLoanRequests: false,
+    appliesToLoans: false,
+    appliesToMembers: true,
+    applicability: [],
+    chargeFrequency: "recurring_monthly",
+    chargeValueType: "fixed_amount",
+    code: "ADM",
+    isMonthlyLevy: false,
+    name: "Administrative fee",
+    purpose: "general",
+  },
+  {
+    amount: "5000",
+    appliesToLoanRequests: false,
+    appliesToLoans: false,
+    appliesToMembers: true,
+    applicability: ["commitment_collection:membership:separate_payment"],
+    chargeFrequency: "one_time",
+    chargeValueType: "fixed_amount",
+    code: "MEM",
+    isMonthlyLevy: false,
+    name: "Membership fee",
+    purpose: "membership_fee",
+  },
+  {
+    amount: "2500",
+    appliesToLoanRequests: true,
+    appliesToLoans: false,
+    appliesToMembers: false,
+    applicability: ["loan_request:submission:deduct_from_savings"],
+    chargeFrequency: "one_time",
+    chargeValueType: "fixed_amount",
+    code: "LNF",
+    isMonthlyLevy: false,
+    name: "Loan processing fee",
+    purpose: "loan_fee",
+  },
+] satisfies ChargeQuickFillTemplate[]
+
 function createChargeDefinitionRow(id?: string): ChargeDefinitionInputRow {
   const rowId =
     id ??
@@ -2265,6 +2450,7 @@ function createChargeDefinitionRow(id?: string): ChargeDefinitionInputRow {
     appliesToLoanRequests: false,
     appliesToLoans: false,
     appliesToMembers: true,
+    applicability: [],
     chargeFrequency: "recurring_monthly",
     chargeValueType: "fixed_amount",
     chargeDefinitionId: "",
@@ -2281,6 +2467,50 @@ function createChargeDefinitionRow(id?: string): ChargeDefinitionInputRow {
   }
 }
 
+function createQuickFillChargeDefinitionRow({
+  effectiveFrom,
+  template,
+}: {
+  effectiveFrom: string
+  template: ChargeQuickFillTemplate
+}) {
+  const rowId = `charge-definition-quick-fill-${template.code.toLowerCase()}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`
+
+  return {
+    ...createChargeDefinitionRow(rowId),
+    ...template,
+    applicability: legacyChargeApplicabilityValues(template),
+    effectiveFrom,
+    historyRows: [
+      {
+        ...createChargeHistoryRow(`${rowId}-history`),
+        amount: template.amount,
+        effectiveFrom,
+      },
+    ],
+    kind: getChargeKindForValueType(template.chargeValueType),
+  }
+}
+
+function buildChargeApplicabilityValues(
+  definition: ChargeDefinitionInitialDefinition
+) {
+  const explicitValues = definition.applicability
+    ?.map(
+      (row) =>
+        `${row.workflow}:${row.trigger}:${row.collectionMode ?? "deduct_from_savings"}`
+    )
+    .filter((value) =>
+      chargeApplicabilityOptions.some((option) => option.value === value)
+    )
+
+  return explicitValues && explicitValues.length > 0
+    ? explicitValues
+    : legacyChargeApplicabilityValues(definition)
+}
+
 function buildChargeDefinitionRows(
   initialDefinitions: ChargeDefinitionInitialDefinition[] | undefined
 ) {
@@ -2290,6 +2520,7 @@ function buildChargeDefinitionRows(
       appliesToLoanRequests: definition.appliesToLoanRequests ?? false,
       appliesToLoans: definition.appliesToLoans ?? false,
       appliesToMembers: definition.appliesToMembers ?? true,
+      applicability: buildChargeApplicabilityValues(definition),
       chargeFrequency: definition.chargeFrequency,
       chargeValueType: definition.chargeValueType,
       chargeDefinitionId: definition.id,
@@ -2339,6 +2570,7 @@ function normalizeChargeDefinitionRows(rows: ChargeDefinitionInputRow[]) {
 }
 
 export function ChargeDefinitionForm({
+  devMode = false,
   financeStartDate,
   formId,
   initialDefinitions,
@@ -2348,6 +2580,7 @@ export function ChargeDefinitionForm({
   showSubmitButton = true,
   stayOnStepHref,
 }: {
+  devMode?: boolean
   financeStartDate?: string | null
   formId?: string
   initialDefinitions?: ChargeDefinitionInitialDefinition[]
@@ -2372,6 +2605,47 @@ export function ChargeDefinitionForm({
     value: chargeRows,
   })
 
+  function quickFillChargeRows() {
+    const effectiveFrom =
+      financeStartDate ?? new Date().toISOString().slice(0, 10)
+    const existingCodes = new Set(
+      chargeRows.map((row) => row.code.trim().toUpperCase()).filter(Boolean)
+    )
+    const generatedRows = chargeQuickFillTemplates
+      .filter((template) => !existingCodes.has(template.code))
+      .map((template) =>
+        createQuickFillChargeDefinitionRow({ effectiveFrom, template })
+      )
+
+    if (generatedRows.length === 0) {
+      showSuccess(
+        "Charges already filled",
+        "The standard charge examples are already in the table."
+      )
+      return
+    }
+
+    setChargeRows((currentRows) => {
+      const currentCodes = new Set(
+        currentRows.map((row) => row.code.trim().toUpperCase()).filter(Boolean)
+      )
+      const rowsToAdd = chargeQuickFillTemplates
+        .filter((template) => !currentCodes.has(template.code))
+        .map((template) =>
+          createQuickFillChargeDefinitionRow({ effectiveFrom, template })
+        )
+      const preservedRows = currentRows.filter(
+        (row) => row.saved || chargeDefinitionRowHasValue(row)
+      )
+
+      return normalizeChargeDefinitionRows([...preservedRows, ...rowsToAdd])
+    })
+    showSuccess(
+      "Charges generated",
+      "Review the generated charge definitions and dated amounts before saving."
+    )
+  }
+
   function resetChargeRows() {
     setChargeRows(buildChargeDefinitionRows(initialDefinitions))
   }
@@ -2384,6 +2658,7 @@ export function ChargeDefinitionForm({
         | "appliesToLoanRequests"
         | "appliesToLoans"
         | "appliesToMembers"
+        | "applicability"
         | "chargeFrequency"
         | "chargeValueType"
         | "code"
@@ -2404,21 +2679,52 @@ export function ChargeDefinitionForm({
                       appliesToLoanRequests: true,
                       appliesToLoans: false,
                       appliesToMembers: false,
+                      applicability:
+                        defaultChargeApplicabilityForPurpose("loan_fee"),
                       chargeFrequency: "one_time" as const,
                     }
                   : patch.purpose
                     ? {
-                        appliesToLoanRequests: false,
-                        appliesToLoans: false,
-                        appliesToMembers: true,
+                        ...getLegacyApplicabilityFlags(
+                          defaultChargeApplicabilityForPurpose(patch.purpose)
+                        ),
+                        applicability: defaultChargeApplicabilityForPurpose(
+                          patch.purpose
+                        ),
                       }
-                  : {}),
+                    : {}),
                 kind: patch.chargeValueType
                   ? getChargeKindForValueType(patch.chargeValueType)
                   : row.kind,
               }
             : row
         )
+      )
+    )
+  }
+
+  function updateChargeApplicability(
+    rowId: string,
+    value: string,
+    checked: boolean
+  ) {
+    setChargeRows((currentRows) =>
+      normalizeChargeDefinitionRows(
+        currentRows.map((row) => {
+          if (row.id !== rowId) {
+            return row
+          }
+
+          const applicability = checked
+            ? Array.from(new Set([...row.applicability, value]))
+            : row.applicability.filter((currentValue) => currentValue !== value)
+
+          return {
+            ...row,
+            ...getLegacyApplicabilityFlags(applicability),
+            applicability,
+          }
+        })
       )
     )
   }
@@ -2522,6 +2828,14 @@ export function ChargeDefinitionForm({
         return null
       }
 
+      if (chargeRow.applicability.length === 0) {
+        showError(
+          "Select charge target",
+          "Each started charge row needs at least one workflow target."
+        )
+        return null
+      }
+
       const startedHistoryRows = chargeRow.historyRows.filter(
         chargeHistoryRowHasValue
       )
@@ -2580,13 +2894,21 @@ export function ChargeDefinitionForm({
           const chargeKind = getChargeKindForValueType(
             chargeRow.chargeValueType
           )
+          const legacyApplicabilityFlags = getLegacyApplicabilityFlags(
+            chargeRow.applicability
+          )
 
           if (chargeRow.saved) {
             await updateChargeDefinitionAction(
               objectToFormData({
-                appliesToLoanRequests: String(chargeRow.appliesToLoanRequests),
-                appliesToLoans: String(chargeRow.appliesToLoans),
-                appliesToMembers: String(chargeRow.appliesToMembers),
+                applicability: chargeRow.applicability,
+                appliesToLoanRequests: String(
+                  legacyApplicabilityFlags.appliesToLoanRequests
+                ),
+                appliesToLoans: String(legacyApplicabilityFlags.appliesToLoans),
+                appliesToMembers: String(
+                  legacyApplicabilityFlags.appliesToMembers
+                ),
                 chargeDefinitionId: chargeRow.chargeDefinitionId,
                 chargeFrequency: chargeRow.chargeFrequency,
                 code: chargeRow.code,
@@ -2627,9 +2949,11 @@ export function ChargeDefinitionForm({
           await createChargeDefinitionAction(
             objectToFormData({
               amount: chargeRow.historyRows[0]?.amount,
-              appliesToLoanRequests: chargeRow.appliesToLoanRequests,
-              appliesToLoans: chargeRow.appliesToLoans,
-              appliesToMembers: chargeRow.appliesToMembers,
+              applicability: chargeRow.applicability,
+              appliesToLoanRequests:
+                legacyApplicabilityFlags.appliesToLoanRequests,
+              appliesToLoans: legacyApplicabilityFlags.appliesToLoans,
+              appliesToMembers: legacyApplicabilityFlags.appliesToMembers,
               chargeFrequency: chargeRow.chargeFrequency,
               chargeValueType: chargeRow.chargeValueType,
               code: chargeRow.code,
@@ -2680,8 +3004,19 @@ export function ChargeDefinitionForm({
       }}
     >
       <div className="flex items-center gap-3">
-        <h3 className="shrink-0 text-sm font-medium">Charge History</h3>
+        <h3 className="shrink-0 text-sm font-medium">Charges</h3>
         <div className="min-w-10 flex-1 border-t border-border/70" />
+        {devMode ? (
+          <Button
+            disabled={isPending}
+            onClick={quickFillChargeRows}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Quick fill charges
+          </Button>
+        ) : null}
         <Button
           disabled={isPending}
           onClick={resetChargeRows}
@@ -2693,13 +3028,14 @@ export function ChargeDefinitionForm({
         </Button>
       </div>
       <div className="overflow-x-auto">
-        <table className={`${compactInputTableClassName} min-w-[800px]`}>
+        <table className={`${compactInputTableClassName} min-w-[1040px]`}>
           <colgroup>
             <col />
             <col className="w-[120px]" />
             <col className="w-[160px]" />
             <col className="w-[140px]" />
             <col className="w-[150px]" />
+            <col className="w-[240px]" />
             <col className="w-8" />
           </colgroup>
           <thead>
@@ -2734,6 +3070,12 @@ export function ChargeDefinitionForm({
               >
                 Purpose
               </th>
+              <th
+                className="text-left text-xs font-medium text-muted-foreground"
+                scope="col"
+              >
+                Applies to
+              </th>
               <th scope="col">
                 <span className="sr-only">Action</span>
               </th>
@@ -2743,7 +3085,7 @@ export function ChargeDefinitionForm({
             {chargeRows.map((chargeRow) => (
               <Fragment key={chargeRow.id}>
                 <tr aria-hidden="true">
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="border-t border-border/70" />
                   </td>
                 </tr>
@@ -2831,6 +3173,31 @@ export function ChargeDefinitionForm({
                     />
                   </td>
                   <td>
+                    <div className="grid grid-cols-2 gap-1">
+                      {chargeApplicabilityOptions.map((option) => (
+                        <label
+                          className="flex h-8 items-center gap-2 rounded-md border border-input px-2 text-xs"
+                          key={option.value}
+                        >
+                          <Checkbox
+                            checked={chargeRow.applicability.includes(
+                              option.value
+                            )}
+                            disabled={isPending}
+                            onCheckedChange={(checked) =>
+                              updateChargeApplicability(
+                                chargeRow.id,
+                                option.value,
+                                checked === true
+                              )
+                            }
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
                     <DeleteInlineRowButton
                       disabled={
                         chargeRow.saved ||
@@ -2845,7 +3212,7 @@ export function ChargeDefinitionForm({
                   </td>
                 </tr>
                 <tr key={`${chargeRow.id}-history`}>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="flex justify-end pl-6">
                       <table
                         className={`${compactInputTableClassName} !w-[430px] max-w-full`}
@@ -2939,7 +3306,7 @@ export function ChargeDefinitionForm({
                             <td colSpan={3}>
                               <AddInlineRowButton
                                 disabled={isPending}
-                                label="Add Amount"
+                                label="Add dated amount"
                                 onAdd={() => addChargeHistoryRow(chargeRow.id)}
                               />
                             </td>
@@ -2952,7 +3319,7 @@ export function ChargeDefinitionForm({
               </Fragment>
             ))}
             <tr>
-              <td colSpan={6}>
+              <td colSpan={7}>
                 <AddInlineRowButton
                   disabled={isPending}
                   label="Add Charge"
@@ -3212,7 +3579,14 @@ const businessProfitHistoryRowSchema = z.object({
   profitEntryId: z.string(),
   reason: z.string(),
   sourceType: z.enum(["manual", "backfill", "import"]),
-  status: z.enum(["draft", "reviewed", "approved", "archived"]),
+  status: z.enum([
+    "draft",
+    "pending",
+    "reviewed",
+    "completed",
+    "approved",
+    "archived",
+  ]),
 })
 
 type BusinessProfitHistoryRow = z.infer<typeof businessProfitHistoryRowSchema>
@@ -3236,7 +3610,9 @@ function normalizeBusinessProfitStatus(
 ): BusinessProfitHistoryRow["status"] {
   if (
     status === "draft" ||
+    status === "pending" ||
     status === "reviewed" ||
+    status === "completed" ||
     status === "approved" ||
     status === "archived"
   ) {
@@ -3246,7 +3622,10 @@ function normalizeBusinessProfitStatus(
   return "draft"
 }
 
-function createBusinessProfitHistoryRow(id?: string): BusinessProfitHistoryRow {
+function createBusinessProfitHistoryRow(
+  id?: string,
+  status: BusinessProfitHistoryRow["status"] = "draft"
+): BusinessProfitHistoryRow {
   return {
     allocatableProfitAmount: "",
     amount: "",
@@ -3261,9 +3640,14 @@ function createBusinessProfitHistoryRow(id?: string): BusinessProfitHistoryRow {
     profitEntryId: "",
     reason: "",
     sourceType: "backfill",
-    status: "draft",
+    status,
   }
 }
+
+const broughtForwardProfitStatusOptions = [
+  { label: "Pending", value: "pending" },
+  { label: "Completed", value: "completed" },
+]
 
 function businessProfitHistoryRowHasValue(row: BusinessProfitHistoryRow) {
   return Boolean(
@@ -3340,6 +3724,7 @@ type ShareBusinessFormProps = {
   redirectTo?: string
   showSubmitButton?: boolean
   sourceType?: "manual" | "backfill" | "import"
+  setupMode?: TenantMigrationSetupMode
   stayOnStepHref?: string
 }
 
@@ -3379,7 +3764,10 @@ function normalizeBusinessHistoryStatus(
   return "active"
 }
 
-function createBusinessHistoryRow(id?: string): BusinessHistoryInputRow {
+function createBusinessHistoryRow(
+  id?: string,
+  profitStatus: BusinessProfitHistoryRow["status"] = "draft"
+): BusinessHistoryInputRow {
   const rowId =
     id ??
     `business-history-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -3392,7 +3780,9 @@ function createBusinessHistoryRow(id?: string): BusinessHistoryInputRow {
     linkedDividendPeriodId: "",
     name: "",
     notes: "",
-    profitRows: [createBusinessProfitHistoryRow(`${rowId}-profit`)],
+    profitRows: [
+      createBusinessProfitHistoryRow(`${rowId}-profit`, profitStatus),
+    ],
     saved: false,
     startDate: "",
     status: "active",
@@ -3419,7 +3809,8 @@ function sortBusinessHistoryRowsByStartDate(
 }
 
 function buildBusinessHistoryRows(
-  initialBusinesses: ShareBusinessInitialBusiness[] | undefined
+  initialBusinesses: ShareBusinessInitialBusiness[] | undefined,
+  profitStatus: BusinessProfitHistoryRow["status"] = "draft"
 ): BusinessHistoryInputRow[] {
   const savedRows =
     initialBusinesses?.map(
@@ -3462,7 +3853,7 @@ function buildBusinessHistoryRows(
                   profitEntryId: "",
                   reason: "",
                   sourceType: "backfill",
-                  status: "draft",
+                  status: profitStatus,
                 },
               ],
         saved: true,
@@ -3473,7 +3864,7 @@ function buildBusinessHistoryRows(
 
   return savedRows.length > 0
     ? [...savedRows].sort(sortBusinessHistoryRowsByStartDate)
-    : [createBusinessHistoryRow("business-history-initial")]
+    : [createBusinessHistoryRow("business-history-initial", profitStatus)]
 }
 
 function businessHistoryRowHasValue(row: BusinessHistoryInputRow) {
@@ -3582,10 +3973,12 @@ function randomAmount(min: number, max: number, step = 1000) {
 function createRandomBusinessProfitRows({
   businessId,
   endDate,
+  profitStatus = "draft",
   startDate,
 }: {
   businessId: string
   endDate: Date
+  profitStatus?: BusinessProfitHistoryRow["status"]
   startDate: Date
 }) {
   const profitCount = randomInt(3, 5)
@@ -3613,7 +4006,10 @@ function createRandomBusinessProfitRows({
       : ""
 
     profitRows.push({
-      ...createBusinessProfitHistoryRow(`${businessId}-profit-${index}`),
+      ...createBusinessProfitHistoryRow(
+        `${businessId}-profit-${index}`,
+        profitStatus
+      ),
       amount,
       deductionAmount,
       profitDate,
@@ -3624,7 +4020,10 @@ function createRandomBusinessProfitRows({
   return profitRows.sort(sortBusinessProfitHistoryRowsByDate)
 }
 
-function createRandomBusinessHistoryRows(financeStartDate?: string | null) {
+function createRandomBusinessHistoryRows(
+  financeStartDate?: string | null,
+  profitStatus: BusinessProfitHistoryRow["status"] = "draft"
+) {
   const today = new Date()
   const todayUtc = new Date(
     Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
@@ -3658,6 +4057,7 @@ function createRandomBusinessHistoryRows(financeStartDate?: string | null) {
       profitRows: createRandomBusinessProfitRows({
         businessId,
         endDate,
+        profitStatus,
         startDate,
       }),
       startDate: formatInputDate(startDate),
@@ -3681,9 +4081,12 @@ function ShareBusinessProfitHistoryTableForm({
   preserveDraftKey,
   sourceType = "backfill",
   redirectTo,
+  setupMode = "historical_backfill",
   showSubmitButton = true,
   stayOnStepHref,
 }: ShareBusinessFormProps) {
+  const isBroughtForwardSetup = setupMode === "brought_forward"
+  const defaultProfitStatus = isBroughtForwardSetup ? "pending" : "draft"
   const router = useTenantRouter()
   const fallbackFormId = useId()
   const resolvedFormId = fallbackFormId
@@ -3691,7 +4094,10 @@ function ShareBusinessProfitHistoryTableForm({
     businessHistoryTableSchema,
     {
       defaultValues: {
-        businessRows: buildBusinessHistoryRows(initialBusinesses),
+        businessRows: buildBusinessHistoryRows(
+          initialBusinesses,
+          defaultProfitStatus
+        ),
       },
     }
   )
@@ -3721,7 +4127,10 @@ function ShareBusinessProfitHistoryTableForm({
 
   function resetBusinessRows() {
     form.reset({
-      businessRows: buildBusinessHistoryRows(initialBusinesses),
+      businessRows: buildBusinessHistoryRows(
+        initialBusinesses,
+        defaultProfitStatus
+      ),
     })
   }
 
@@ -3729,7 +4138,10 @@ function ShareBusinessProfitHistoryTableForm({
     setBusinessRows((currentRows) =>
       normalizeBusinessHistoryRows([
         ...currentRows.filter((row) => row.saved),
-        ...createRandomBusinessHistoryRows(financeStartDate),
+        ...createRandomBusinessHistoryRows(
+          financeStartDate,
+          defaultProfitStatus
+        ),
       ])
     )
   }
@@ -3797,7 +4209,7 @@ function ShareBusinessProfitHistoryTableForm({
     patch: Partial<
       Pick<
         BusinessProfitHistoryRow,
-        "amount" | "deductionAmount" | "profitDate" | "reason"
+        "amount" | "deductionAmount" | "profitDate" | "reason" | "status"
       >
     >
   ) {
@@ -3832,7 +4244,7 @@ function ShareBusinessProfitHistoryTableForm({
   function addBusinessRow() {
     setBusinessRows((currentRows) => [
       ...normalizeBusinessHistoryRows(currentRows),
-      createBusinessHistoryRow(),
+      createBusinessHistoryRow(undefined, defaultProfitStatus),
     ])
   }
 
@@ -3862,7 +4274,10 @@ function ShareBusinessProfitHistoryTableForm({
                 ...businessRow,
                 profitRows: [
                   ...normalizeProfitRows(businessRow.profitRows),
-                  createBusinessProfitHistoryRow(),
+                  createBusinessProfitHistoryRow(
+                    undefined,
+                    defaultProfitStatus
+                  ),
                 ],
               }
             : businessRow
@@ -4109,6 +4524,7 @@ function ShareBusinessProfitHistoryTableForm({
               historyProfitDate: businessRow.profitRows.map(
                 (row) => row.profitDate
               ),
+              historyStatus: businessRow.profitRows.map((row) => row.status),
               name: businessRow.name,
               notes: businessRow.notes,
               profitAmount: totalProfitAmount,
@@ -4124,7 +4540,10 @@ function ShareBusinessProfitHistoryTableForm({
           "Business and profit history rows were recorded."
         )
         form.reset({
-          businessRows: buildBusinessHistoryRows(initialBusinesses),
+          businessRows: buildBusinessHistoryRows(
+            initialBusinesses,
+            defaultProfitStatus
+          ),
         })
         clearPreservedFormState()
         if (redirectTo) {
@@ -4313,6 +4732,9 @@ function ShareBusinessProfitHistoryTableForm({
                             <col className="w-[150px]" />
                             <col className="w-[140px]" />
                             <col className="w-[140px]" />
+                            {isBroughtForwardSetup ? (
+                              <col className="w-[135px]" />
+                            ) : null}
                             <col />
                             <col className="w-[140px]" />
                             <col className="w-8" />
@@ -4337,6 +4759,14 @@ function ShareBusinessProfitHistoryTableForm({
                               >
                                 Deduction
                               </th>
+                              {isBroughtForwardSetup ? (
+                                <th
+                                  className="text-left text-xs font-medium text-muted-foreground"
+                                  scope="col"
+                                >
+                                  Status
+                                </th>
+                              ) : null}
                               <th
                                 className="text-left text-xs font-medium text-muted-foreground"
                                 scope="col"
@@ -4417,6 +4847,33 @@ function ShareBusinessProfitHistoryTableForm({
                                       valueIsNumericString
                                     />
                                   </td>
+                                  {isBroughtForwardSetup ? (
+                                    <td>
+                                      <SelectFormInput
+                                        disabled={isPending}
+                                        onChange={(status) =>
+                                          updateBusinessProfitRow(
+                                            businessRow.id,
+                                            profitRow.id,
+                                            {
+                                              status:
+                                                status === "completed"
+                                                  ? "completed"
+                                                  : "pending",
+                                            }
+                                          )
+                                        }
+                                        options={
+                                          broughtForwardProfitStatusOptions
+                                        }
+                                        value={
+                                          profitRow.status === "completed"
+                                            ? "completed"
+                                            : "pending"
+                                        }
+                                      />
+                                    </td>
+                                  ) : null}
                                   <td>
                                     <Input
                                       disabled={isPending}
@@ -4464,7 +4921,7 @@ function ShareBusinessProfitHistoryTableForm({
                               )
                             })}
                             <tr>
-                              <td colSpan={6}>
+                              <td colSpan={isBroughtForwardSetup ? 7 : 6}>
                                 <AddInlineRowButton
                                   disabled={isPending}
                                   label="Add Profit"

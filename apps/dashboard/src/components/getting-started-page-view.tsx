@@ -50,6 +50,8 @@ import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import type {
   TenantBusinessProfitPolicySettings,
+  TenantMigrationSetupMode,
+  TenantMigrationSetupSettings,
   TenantSharePolicySettings,
 } from "@halaalvest/db"
 import { BusinessProfitSeasonDeductionCells } from "@/components/business-profit-season-deduction-popover"
@@ -69,7 +71,9 @@ import { type GettingStartedStepKey } from "@/hooks/use-getting-started-params"
 import {
   finalizeInitialMigrationAction,
   saveBusinessProfitSeasonReviewAction,
+  updateTenantMigrationSetupAction,
 } from "@/lib/dashboard-actions"
+import { getMemberMigrationStartHref } from "@/lib/members/member-migration-routing"
 import {
   ArrowRightIcon,
   CheckCircle2Icon,
@@ -165,6 +169,7 @@ type BusinessProfitSeasonRow = {
     profitAmount: number
     profitDate: string
     reason?: string | null
+    status: string
   }>
   profitEntryCount: number
   status: "pending" | "draft" | "approved" | "published" | "closed"
@@ -261,7 +266,10 @@ type GettingStartedPageViewProps = {
   memberOptions: MemberOption[]
   migrationMemberReview: MigrationMemberReviewRow[]
   migrationSnapshot: InitialMigrationSnapshot
+  migrationSetup: TenantMigrationSetupSettings
   profitMigrationOptions: ProfitMigrationOptionRow[]
+  quickFillEnabled: boolean
+  recommendedMigrationSetupMode: TenantMigrationSetupMode | null
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   shareBusinesses: ShareBusinessRow[]
@@ -272,6 +280,7 @@ type GettingStartedPageViewProps = {
 }
 
 const setupStepKeys: GettingStartedStepKey[] = [
+  "setup-mode",
   "start-date",
   "charges",
   "shares",
@@ -279,30 +288,79 @@ const setupStepKeys: GettingStartedStepKey[] = [
   "business",
   "profit-seasons",
 ]
-const orderedStepKeys = [...setupStepKeys]
 
 const compactInputTableClassName =
   "w-full table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0"
 const profitSeasonsReviewFormId = "profit-seasons-review-form"
 
-const stepGroups = [
-  {
-    label: "Foundation",
-    steps: ["start-date"],
-  },
-  {
-    label: "Financial history",
-    steps: ["charges", "shares", "profit-policy", "business", "profit-seasons"],
-  },
-] satisfies Array<{ label: string; steps: GettingStartedStepKey[] }>
+function shouldShowProfitSeasonsSetup(props: {
+  businessProfitSeasons: BusinessProfitSeasonRow[]
+  migrationSetup: TenantMigrationSetupSettings
+  migrationSnapshot: InitialMigrationSnapshot
+}) {
+  if (props.migrationSetup.mode === "brought_forward") {
+    const today = new Date().toISOString().slice(0, 10)
+
+    return props.businessProfitSeasons.some(
+      (season) =>
+        season.periodEnd < today &&
+        season.profitEntries.some((entry) => entry.status === "pending")
+    )
+  }
+
+  return (
+    props.migrationSetup.mode === "historical_backfill" ||
+    props.migrationSnapshot.missingStepKeys.includes("business_profit_seasons")
+  )
+}
+
+function getOrderedStepKeys(
+  props: Pick<
+    GettingStartedPageViewProps,
+    "businessProfitSeasons" | "migrationSetup" | "migrationSnapshot"
+  >
+) {
+  return setupStepKeys.filter(
+    (key) => key !== "profit-seasons" || shouldShowProfitSeasonsSetup(props)
+  )
+}
+
+function getStepGroups(
+  props: Pick<
+    GettingStartedPageViewProps,
+    "businessProfitSeasons" | "migrationSetup" | "migrationSnapshot"
+  >
+) {
+  const orderedStepKeys = getOrderedStepKeys(props)
+
+  return [
+    {
+      label: "Foundation",
+      steps: orderedStepKeys.filter((key) =>
+        ["setup-mode", "start-date"].includes(key)
+      ),
+    },
+    {
+      label:
+        props.migrationSetup.mode === "brought_forward"
+          ? "Current finance setup"
+          : "Financial history",
+      steps: orderedStepKeys.filter(
+        (key) => !["setup-mode", "start-date"].includes(key)
+      ),
+    },
+  ] satisfies Array<{ label: string; steps: GettingStartedStepKey[] }>
+}
 
 function isStepComplete(
   key: GettingStartedStepKey,
-  snapshot: InitialMigrationSnapshot
+  snapshot: InitialMigrationSnapshot,
+  migrationSetup?: TenantMigrationSetupSettings
 ) {
   const missing = new Set(snapshot.missingStepKeys)
 
   if (key === "start-date") return !missing.has("finance_start_date")
+  if (key === "setup-mode") return Boolean(migrationSetup?.id)
   if (key === "charges") return !missing.has("charge_schedules")
   if (key === "shares") return true
   if (key === "profit-policy") return true
@@ -362,6 +420,11 @@ function getStepMeta(key: GettingStartedStepKey) {
       description:
         "Anchor historical finance so every charge, share, loan, and contribution is dated against the same start month.",
       label: "Cooperative start date",
+    },
+    "setup-mode": {
+      description:
+        "Choose whether this cooperative will rebuild history or carry current balances forward.",
+      label: "Setup mode",
     },
   } satisfies Record<
     GettingStartedStepKey,
@@ -488,11 +551,26 @@ function ConfirmationForm({
 
 function StepRail({
   activeStep,
+  businessProfitSeasons,
+  migrationSetup,
   snapshot,
 }: {
   activeStep: GettingStartedStepKey
+  businessProfitSeasons: BusinessProfitSeasonRow[]
+  migrationSetup: TenantMigrationSetupSettings
   snapshot: InitialMigrationSnapshot
 }) {
+  const stepGroups = getStepGroups({
+    businessProfitSeasons,
+    migrationSetup,
+    migrationSnapshot: snapshot,
+  })
+  const orderedStepKeys = getOrderedStepKeys({
+    businessProfitSeasons,
+    migrationSetup,
+    migrationSnapshot: snapshot,
+  })
+
   return (
     <Card className="hidden xl:sticky xl:top-24 xl:flex xl:self-start">
       <SetupCardHeader
@@ -508,7 +586,7 @@ function StepRail({
             </p>
             {group.steps.map((key) => {
               const meta = getStepMeta(key)
-              const complete = isStepComplete(key, snapshot)
+              const complete = isStepComplete(key, snapshot, migrationSetup)
               const isActive = activeStep === key
               const stepNumber = orderedStepKeys.indexOf(key) + 1
 
@@ -616,13 +694,100 @@ function StepFooter({
   )
 }
 
+const migrationSetupModeOptions = [
+  {
+    description:
+      "Enter the cooperative's past records so member savings, shares, business profit seasons, and dividends can be reconstructed.",
+    label: "Historical backfill",
+    mode: "historical_backfill",
+  },
+  {
+    description:
+      "Enter the current cooperative and member positions, skip old records that have already landed, and continue operations from today.",
+    label: "Brought forward",
+    mode: "brought_forward",
+  },
+] satisfies Array<{
+  description: string
+  label: string
+  mode: TenantMigrationSetupMode
+}>
+
+function MigrationSetupModeStep({
+  migrationSetup,
+  recommendedMigrationSetupMode,
+  tenantName,
+}: Pick<
+  GettingStartedPageViewProps,
+  "migrationSetup" | "recommendedMigrationSetupMode" | "tenantName"
+>) {
+  return (
+    <Card>
+      <SetupCardHeader
+        eyebrow="Step 1"
+        title="Choose the setup mode"
+        description={`Decide how ${tenantName} will enter its existing cooperative records before the rest of setup begins.`}
+      />
+      <CardContent>
+        <form
+          action={updateTenantMigrationSetupAction}
+          className="grid gap-3 md:grid-cols-2"
+        >
+          {migrationSetupModeOptions.map((option) => {
+            const selected = migrationSetup.mode === option.mode
+            const recommended = recommendedMigrationSetupMode === option.mode
+
+            return (
+              <div
+                className={cn(
+                  "flex min-h-[210px] flex-col justify-between border p-4",
+                  selected
+                    ? "border-primary bg-primary/5"
+                    : "border-border/70 bg-muted/20"
+                )}
+                key={option.mode}
+              >
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={selected ? "default" : "secondary"}>
+                      {selected ? "Selected" : "Option"}
+                    </Badge>
+                    {recommended ? (
+                      <Badge variant="outline">Recommended</Badge>
+                    ) : null}
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold">
+                    {option.label}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {option.description}
+                  </p>
+                </div>
+                <Button
+                  className="mt-5 w-fit"
+                  name="mode"
+                  type="submit"
+                  value={option.mode}
+                  variant={selected ? "default" : "outline"}
+                >
+                  {selected ? "Keep selected" : `Use ${option.label}`}
+                </Button>
+              </div>
+            )
+          })}
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
 function StartDateStep({
   tenantStartDate,
 }: Pick<GettingStartedPageViewProps, "tenantStartDate">) {
   return (
     <Card>
       <SetupCardHeader
-        eyebrow="Step 1"
+        eyebrow="Step 2"
         title="Enter or confirm the cooperative start date"
         description="This date becomes the lower bound for historical finance setup and member migration rows."
       />
@@ -638,17 +803,22 @@ function StartDateStep({
 
 function ChargesStep({
   chargeDefinitions,
+  quickFillEnabled,
   tenantStartDate,
-}: Pick<GettingStartedPageViewProps, "chargeDefinitions" | "tenantStartDate">) {
+}: Pick<
+  GettingStartedPageViewProps,
+  "chargeDefinitions" | "quickFillEnabled" | "tenantStartDate"
+>) {
   return (
     <Card>
       <SetupCardHeader
-        eyebrow="Step 2"
+        eyebrow="Step 3"
         title="Cooperative charges and history"
         description="Create the charge definitions and dated amount changes that member migration will deduct."
       />
       <CardContent className="grid gap-5">
         <ChargeDefinitionForm
+          devMode={quickFillEnabled}
           financeStartDate={tenantStartDate}
           initialDefinitions={chargeDefinitions}
           preserveDraftKey="getting-started:charges"
@@ -671,7 +841,7 @@ function SharesStep({
   return (
     <Card>
       <SetupCardHeader
-        eyebrow="Step 3"
+        eyebrow="Step 4"
         title="Shares system"
         description="Choose the cooperative share model before member balances are brought forward."
       />
@@ -689,17 +859,19 @@ function SharesStep({
 
 function ProfitPolicyStep({
   businessPolicy,
-}: Pick<GettingStartedPageViewProps, "businessPolicy">) {
+  quickFillEnabled,
+}: Pick<GettingStartedPageViewProps, "businessPolicy" | "quickFillEnabled">) {
   return (
     <Card>
       <SetupCardHeader
-        eyebrow="Step 4"
+        eyebrow="Step 5"
         title="Profit-sharing season"
         description="Set the distribution calendar that migration and future profit allocations use."
       />
       <CardContent className="grid gap-5">
         <BusinessProfitPolicyForm
           defaultPolicy={businessPolicy}
+          devMode={quickFillEnabled}
           preserveDraftKey="getting-started:profit-policy"
           redirectTo={stepHref("business")}
           showSubmitButton={false}
@@ -711,18 +883,29 @@ function ProfitPolicyStep({
 
 function BusinessStep({
   dividendPeriods,
+  migrationSetup,
   shareBusinesses,
   tenantStartDate,
 }: Pick<
   GettingStartedPageViewProps,
-  "dividendPeriods" | "shareBusinesses" | "tenantStartDate"
+  "dividendPeriods" | "migrationSetup" | "shareBusinesses" | "tenantStartDate"
 >) {
+  const isBroughtForward = migrationSetup.mode === "brought_forward"
+
   return (
     <Card>
       <SetupCardHeader
-        eyebrow="Step 5"
-        title="Businesses, profits and history"
-        description="Capture profit pools before member backfill so dividend allocations can be reviewed with the ledger."
+        eyebrow="Step 6"
+        title={
+          isBroughtForward
+            ? "Ongoing businesses and unshared profits"
+            : "Businesses, profits and history"
+        }
+        description={
+          isBroughtForward
+            ? "Enter only active businesses and profits that have not yet been shared. Already-shared historical profit should already be reflected in member balances."
+            : "Capture every historical business profit pool before member backfill so dividend allocations can be reviewed with the ledger."
+        }
       />
       <CardContent className="grid gap-5">
         <ShareBusinessForm
@@ -731,7 +914,10 @@ function BusinessStep({
           initialBusinesses={shareBusinesses}
           preserveDraftKey="getting-started:business-history"
           profitHistoryMode
-          redirectTo={stepHref("profit-seasons")}
+          redirectTo={
+            isBroughtForward ? stepHref("admin-member") : stepHref("profit-seasons")
+          }
+          setupMode={migrationSetup.mode}
           showSubmitButton={false}
           sourceType="backfill"
         />
@@ -742,12 +928,14 @@ function BusinessStep({
 
 function ProfitSeasonsStep({
   businessProfitSeasons,
+  migrationSetup,
   migrationSnapshot,
   tenantName,
 }: Pick<
   GettingStartedPageViewProps,
-  "businessProfitSeasons" | "migrationSnapshot" | "tenantName"
+  "businessProfitSeasons" | "migrationSetup" | "migrationSnapshot" | "tenantName"
 >) {
+  const isBroughtForward = migrationSetup.mode === "brought_forward"
   const pendingCount = businessProfitSeasons.filter(
     (season) => season.status === "pending" || season.status === "draft"
   ).length
@@ -764,15 +952,27 @@ function ProfitSeasonsStep({
   return (
     <Card>
       <SetupCardHeader
-        eyebrow="Step 6"
-        title="Dividend sharing seasons"
-        description="Review the generated profit-sharing seasons before member migration consumes business profit entries."
+        eyebrow="Step 7"
+        title={
+          isBroughtForward
+            ? "Old pending dividend sharing"
+            : "Dividend sharing seasons"
+        }
+        description={
+          isBroughtForward
+            ? "Review only past pending profits that have not yet been divided into member dividends."
+            : "Review the generated profit-sharing seasons before member migration consumes business profit entries."
+        }
       />
       <CardContent className="grid gap-5">
         {businessProfitSeasons.length === 0 ? (
           <WorkspaceEmptyState
             title="No dividend seasons to review."
-            body="Record business profit history first, or confirm no historical business profits in the previous step."
+            body={
+              isBroughtForward
+                ? "Brought-forward setup can continue when no old pending profits need sharing."
+                : "Record business profit history first, or confirm no historical business profits in the previous step."
+            }
           />
         ) : (
           <form
@@ -996,12 +1196,16 @@ function ProfitSeasonsStep({
 }
 
 function AdminMemberStep(props: GettingStartedPageViewProps) {
-  const { adminMember, memberOptions, tenantName } = props
+  const { adminMember, memberOptions, migrationSetup, tenantName } = props
+  const isBroughtForward = migrationSetup.mode === "brought_forward"
   const backfillHref = adminMember
     ? `/members/${adminMember.id}/backfill?step=baseline`
     : "/settings/imports/members"
   const broughtForwardHref = adminMember
-    ? `/members/${adminMember.id}/backfill?step=baseline`
+    ? getMemberMigrationStartHref(adminMember.id, "brought_forward")
+    : "/settings/imports/members"
+  const primaryMemberMigrationHref = adminMember
+    ? getMemberMigrationStartHref(adminMember.id, migrationSetup.mode)
     : "/settings/imports/members"
   const onboardingSteps = [
     {
@@ -1010,9 +1214,11 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
       label: "Confirm profile",
     },
     {
-      body: "Capture detailed savings commitments, legacy loans, activity windows, repayments, and profit adjustments only when history is needed.",
+      body: isBroughtForward
+        ? "Capture current savings, special savings, shares, and any active loan, procurement, or Food Purchase obligations."
+        : "Capture detailed savings commitments, legacy loans, activity windows, repayments, and profit adjustments for the historical period.",
       icon: HistoryIcon,
-      label: "Capture history or current state",
+      label: isBroughtForward ? "Capture current state" : "Capture history",
     },
     {
       body: "Review generated ledger rows after the chosen migration details are entered, then apply the approved member migration record.",
@@ -1038,13 +1244,15 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
               </CardTitle>
               <CardDescription className="mt-2 max-w-2xl text-sm">
                 {`${tenantName}'s setup is finalized.`} The next workflow is to
-                onboard each member through full historical backfill or a
-                brought-forward opening position, starting with the registered
-                admin.
+                onboard each member through{" "}
+                {isBroughtForward
+                  ? "a brought-forward current position"
+                  : "full historical backfill"}
+                , starting with the registered admin.
               </CardDescription>
             </div>
           </div>
-          <Link className={buttonVariants({})} href={backfillHref}>
+          <Link className={buttonVariants({})} href={primaryMemberMigrationHref}>
             {adminMember ? "Start admin migration" : "Add members"}
             <ArrowRightIcon className="size-4" />
           </Link>
@@ -1083,8 +1291,15 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {adminMember ? <Badge>Admin account</Badge> : null}
-                <Link className={buttonVariants({})} href={backfillHref}>
-                  {adminMember ? "Begin backfill" : "Add or import members"}
+                <Link
+                  className={buttonVariants({})}
+                  href={primaryMemberMigrationHref}
+                >
+                  {adminMember
+                    ? isBroughtForward
+                      ? "Begin brought-forward"
+                      : "Begin backfill"
+                    : "Add or import members"}
                 </Link>
               </div>
             </div>
@@ -1251,10 +1466,11 @@ function ReviewStep({
 }
 
 function ActiveStepPanel(props: GettingStartedPageViewProps) {
+  const orderedStepKeys = getOrderedStepKeys(props)
   const activeIndex = orderedStepKeys.indexOf(props.activeStep)
   const previousStep =
     props.activeStep === "admin-member"
-      ? "profit-seasons"
+      ? (orderedStepKeys.at(-1) ?? "business")
       : orderedStepKeys[activeIndex - 1]
   const nextStep =
     props.activeStep === "admin-member"
@@ -1273,11 +1489,18 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
 
   return (
     <div>
-      {props.activeStep === "start-date" ? (
+      {props.activeStep === "setup-mode" ? (
+        <MigrationSetupModeStep
+          migrationSetup={props.migrationSetup}
+          recommendedMigrationSetupMode={props.recommendedMigrationSetupMode}
+          tenantName={props.tenantName}
+        />
+      ) : props.activeStep === "start-date" ? (
         <StartDateStep tenantStartDate={props.tenantStartDate} />
       ) : props.activeStep === "charges" ? (
         <ChargesStep
           chargeDefinitions={props.chargeDefinitions}
+          quickFillEnabled={props.quickFillEnabled}
           tenantStartDate={props.tenantStartDate}
         />
       ) : props.activeStep === "shares" ? (
@@ -1287,16 +1510,21 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
           tenantStartDate={props.tenantStartDate}
         />
       ) : props.activeStep === "profit-policy" ? (
-        <ProfitPolicyStep businessPolicy={props.businessPolicy} />
+        <ProfitPolicyStep
+          businessPolicy={props.businessPolicy}
+          quickFillEnabled={props.quickFillEnabled}
+        />
       ) : props.activeStep === "business" ? (
         <BusinessStep
           dividendPeriods={props.dividendPeriods}
+          migrationSetup={props.migrationSetup}
           shareBusinesses={props.shareBusinesses}
           tenantStartDate={props.tenantStartDate}
         />
       ) : props.activeStep === "profit-seasons" ? (
         <ProfitSeasonsStep
           businessProfitSeasons={props.businessProfitSeasons}
+          migrationSetup={props.migrationSetup}
           migrationSnapshot={props.migrationSnapshot}
           tenantName={props.tenantName}
         />
@@ -1321,8 +1549,11 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
 
 export function GettingStartedPageView(props: GettingStartedPageViewProps) {
   const { migrationSnapshot, tenantName } = props
+  const orderedStepKeys = getOrderedStepKeys(props)
   const firstIncompleteStep =
-    orderedStepKeys.find((key) => !isStepComplete(key, migrationSnapshot)) ??
+    orderedStepKeys.find(
+      (key) => !isStepComplete(key, migrationSnapshot, props.migrationSetup)
+    ) ??
     "admin-member"
 
   return (
@@ -1337,10 +1568,15 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
       }
       eyebrow="Initial migration"
       title="Getting started"
-      description={`Complete ${tenantName}'s historical setup before normal workspace records open.`}
+      description={`Choose how ${tenantName} will enter existing records, then complete the setup gates before normal workspace records open.`}
     >
       <section className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <StepRail activeStep={props.activeStep} snapshot={migrationSnapshot} />
+        <StepRail
+          activeStep={props.activeStep}
+          businessProfitSeasons={props.businessProfitSeasons}
+          migrationSetup={props.migrationSetup}
+          snapshot={migrationSnapshot}
+        />
         <ActiveStepPanel {...props} />
       </section>
     </WorkspacePageShell>

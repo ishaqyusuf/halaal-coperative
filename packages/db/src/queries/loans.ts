@@ -1,4 +1,7 @@
-import type { PrismaClient, RepaymentScheduleStatus } from "../../generated/prisma/client"
+import type {
+  PrismaClient,
+  RepaymentScheduleStatus,
+} from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { applyLoanRequestChargesInTransaction } from "./charges"
 import { getDashboardMetrics } from "./dashboard"
@@ -11,18 +14,21 @@ import { getTenantInitialMigrationState } from "./migration"
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
     throw new Error(
-      "Live financial record writes are locked until initial migration is finalized.",
+      "Live financial record writes are locked until initial migration is finalized."
     )
   }
 }
 
-export async function listLoanProducts(tenantId: string, prismaOverride?: PrismaClient) {
+export async function listLoanProducts(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
@@ -32,7 +38,10 @@ export async function listLoanProducts(tenantId: string, prismaOverride?: Prisma
   })
 }
 
-export async function listLoanRequests(tenantId: string, prismaOverride?: PrismaClient) {
+export async function listLoanRequests(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
@@ -41,6 +50,17 @@ export async function listLoanRequests(tenantId: string, prismaOverride?: Prisma
     include: {
       loanProduct: true,
       member: { select: { id: true, fullName: true, memberNumber: true } },
+      charges: {
+        include: {
+          chargeDefinition: {
+            select: {
+              code: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { assessedAt: "asc" },
+      },
       approvals: {
         orderBy: { actedAt: "desc" },
         include: {
@@ -58,7 +78,9 @@ export async function listLoanRequests(tenantId: string, prismaOverride?: Prisma
               memberNumber: true,
             },
           },
-          respondedByUser: { select: { id: true, fullName: true, email: true } },
+          respondedByUser: {
+            select: { id: true, fullName: true, email: true },
+          },
         },
       },
     },
@@ -72,7 +94,7 @@ export async function listMemberLoanGuarantorApprovals(
     status?: "approved" | "pending" | "rejected"
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -103,7 +125,10 @@ export async function listMemberLoanGuarantorApprovals(
   })
 }
 
-export async function listLoans(tenantId: string, prismaOverride?: PrismaClient) {
+export async function listLoans(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
@@ -159,7 +184,7 @@ export async function listRepayments(
     status?: RepaymentScheduleStatus | "posted" | "reversed" | "pending"
     toDate?: Date
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -169,10 +194,11 @@ export async function listRepayments(
       tenantId,
       ...(input?.memberId ? { memberId: input.memberId } : {}),
       ...(input?.loanId ? { loanId: input.loanId } : {}),
-      ...(input?.status && ["posted", "reversed", "pending"].includes(input.status)
+      ...(input?.status &&
+      ["posted", "reversed", "pending"].includes(input.status)
         ? { status: input.status as "posted" | "reversed" | "pending" }
         : {}),
-      ...((input?.fromDate || input?.toDate)
+      ...(input?.fromDate || input?.toDate
         ? {
             paidAt: {
               ...(input?.fromDate ? { gte: input.fromDate } : {}),
@@ -205,7 +231,7 @@ export async function listRepaymentScheduleItems(
     status?: RepaymentScheduleStatus
     toDate?: Date
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -241,7 +267,7 @@ export async function listRepaymentScheduleItems(
             },
           }
         : {}),
-      ...((input?.fromDate || input?.toDate)
+      ...(input?.fromDate || input?.toDate
         ? {
             dueAt: {
               ...(input?.fromDate ? { gte: input.fromDate } : {}),
@@ -289,7 +315,7 @@ export async function listCollectionFollowUps(
     status?: string
     toDate?: Date
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -298,11 +324,15 @@ export async function listCollectionFollowUps(
     where: {
       tenantId,
       ...(input?.memberId ? { memberId: input.memberId } : {}),
-      ...(input?.assignedToUserId ? { assignedToUserId: input.assignedToUserId } : {}),
-      ...(input?.resolutionStatus ? { resolutionStatus: input.resolutionStatus } : {}),
+      ...(input?.assignedToUserId
+        ? { assignedToUserId: input.assignedToUserId }
+        : {}),
+      ...(input?.resolutionStatus
+        ? { resolutionStatus: input.resolutionStatus }
+        : {}),
       ...(input?.stage ? { caseStage: input.stage } : {}),
       ...(input?.status ? { status: input.status } : {}),
-      ...((input?.fromDate || input?.toDate)
+      ...(input?.fromDate || input?.toDate
         ? {
             createdAt: {
               ...(input?.fromDate ? { gte: input.fromDate } : {}),
@@ -330,16 +360,32 @@ export async function listCollectionFollowUps(
 
 export async function getCollectionFollowUpSummary(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const [total, reminded, promiseToPay, unreachable, settled, dueNext, activeCases, resolvedCases, highPriority] = await Promise.all([
+  const [
+    total,
+    reminded,
+    promiseToPay,
+    unreachable,
+    settled,
+    dueNext,
+    activeCases,
+    resolvedCases,
+    highPriority,
+  ] = await Promise.all([
     prisma.collectionFollowUp.count({ where: { tenantId } }),
-    prisma.collectionFollowUp.count({ where: { tenantId, status: "reminded" } }),
-    prisma.collectionFollowUp.count({ where: { tenantId, status: "promise_to_pay" } }),
-    prisma.collectionFollowUp.count({ where: { tenantId, status: "unreachable" } }),
+    prisma.collectionFollowUp.count({
+      where: { tenantId, status: "reminded" },
+    }),
+    prisma.collectionFollowUp.count({
+      where: { tenantId, status: "promise_to_pay" },
+    }),
+    prisma.collectionFollowUp.count({
+      where: { tenantId, status: "unreachable" },
+    }),
     prisma.collectionFollowUp.count({ where: { tenantId, status: "settled" } }),
     prisma.collectionFollowUp.count({
       where: {
@@ -349,12 +395,26 @@ export async function getCollectionFollowUpSummary(
         },
       },
     }),
-    prisma.collectionFollowUp.count({ where: { tenantId, resolutionStatus: "open" } }),
-    prisma.collectionFollowUp.count({ where: { tenantId, resolutionStatus: "resolved" } }),
+    prisma.collectionFollowUp.count({
+      where: { tenantId, resolutionStatus: "open" },
+    }),
+    prisma.collectionFollowUp.count({
+      where: { tenantId, resolutionStatus: "resolved" },
+    }),
     prisma.collectionFollowUp.count({ where: { tenantId, priority: "high" } }),
   ])
 
-  return { activeCases, dueNext, highPriority, promiseToPay, reminded, resolvedCases, settled, total, unreachable }
+  return {
+    activeCases,
+    dueNext,
+    highPriority,
+    promiseToPay,
+    reminded,
+    resolvedCases,
+    settled,
+    total,
+    unreachable,
+  }
 }
 
 export async function refreshCollectionsStatuses(
@@ -362,7 +422,7 @@ export async function refreshCollectionsStatuses(
     actorUserId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -402,7 +462,10 @@ export async function refreshCollectionsStatuses(
   })
 }
 
-function calculateEstimatedMonthlyServicing(requestedAmount: number, requestedTermMonths: number) {
+function calculateEstimatedMonthlyServicing(
+  requestedAmount: number,
+  requestedTermMonths: number
+) {
   if (requestedTermMonths <= 0) {
     throw new Error("Repayment term must be at least one month.")
   }
@@ -478,7 +541,7 @@ function normalizeLoanGuarantorMemberIds(ids?: string[]) {
 
 export async function submitLoanRequest(
   input: SubmitLoanRequestInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -489,7 +552,11 @@ export async function submitLoanRequest(
       where: { id: input.memberId, tenantId: input.tenantId },
     }),
     prisma.loanProduct.findFirst({
-      where: { id: input.loanProductId, tenantId: input.tenantId, isActive: true },
+      where: {
+        id: input.loanProductId,
+        tenantId: input.tenantId,
+        isActive: true,
+      },
     }),
     prisma.tenantPolicy.findUnique({
       where: { tenantId: input.tenantId },
@@ -500,11 +567,13 @@ export async function submitLoanRequest(
   if (!member) throw new Error("Member not found")
   if (!loanProduct) throw new Error("Loan product not found")
   if (input.requestedTermMonths > loanProduct.termMonths) {
-    throw new Error(`Requested term exceeds the product limit of ${loanProduct.termMonths} months.`)
+    throw new Error(
+      `Requested term exceeds the product limit of ${loanProduct.termMonths} months.`
+    )
   }
 
   const guarantorMemberIds = normalizeLoanGuarantorMemberIds(
-    input.guarantorMemberIds,
+    input.guarantorMemberIds
   )
 
   if (guarantorMemberIds.includes(input.memberId)) {
@@ -533,13 +602,15 @@ export async function submitLoanRequest(
 
   const specialSavingsCountsForEligibility =
     policy?.specialSavingsCountsForEligibility ?? true
-  const eligibilitySavingsBase = await getMemberFinancingEligibilitySavingsBase({
-    memberId: input.memberId,
-    prisma,
-    specialSavingsCountsForEligibility,
-    tenantId: input.tenantId,
-    totalSavingsSnapshot: Number(member.totalSavingsSnapshot),
-  })
+  const eligibilitySavingsBase = await getMemberFinancingEligibilitySavingsBase(
+    {
+      memberId: input.memberId,
+      prisma,
+      specialSavingsCountsForEligibility,
+      tenantId: input.tenantId,
+      totalSavingsSnapshot: Number(member.totalSavingsSnapshot),
+    }
+  )
   const policyMultiple = Number(policy?.loanEligibilityMultiple ?? 2)
   const productMultiple = Number(loanProduct.maxSavingsMultiple)
   const eligibleAmount =
@@ -570,7 +641,7 @@ export async function submitLoanRequest(
 
   const estimatedMonthlyServicing = calculateEstimatedMonthlyServicing(
     input.requestedAmount,
-    input.requestedTermMonths,
+    input.requestedTermMonths
   )
   const capacityCheck = await assertLoanRequestIntakeCapacity(
     {
@@ -580,7 +651,7 @@ export async function submitLoanRequest(
       requestedAmount: input.requestedAmount,
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return prisma.$transaction(async (tx) => {
@@ -642,7 +713,7 @@ export async function submitLoanRequest(
         requestedAmount: Number(request.requestedAmount),
         tenantId: input.tenantId,
       },
-      tx as unknown as PrismaClient,
+      tx as unknown as PrismaClient
     )
 
     await tx.auditLog.create({
@@ -690,7 +761,7 @@ export async function reviewLoanGuarantorApproval(
     status: "approved" | "rejected"
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -720,7 +791,9 @@ export async function reviewLoanGuarantorApproval(
     }
 
     if (existingApproval.loanRequest.status === "approved") {
-      throw new Error("Approved loan requests cannot change guarantor evidence.")
+      throw new Error(
+        "Approved loan requests cannot change guarantor evidence."
+      )
     }
 
     const approval = await tx.loanGuarantorApproval.update({
@@ -775,7 +848,7 @@ export async function respondMemberLoanGuarantorApproval(
     status: "approved" | "rejected"
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -806,7 +879,9 @@ export async function respondMemberLoanGuarantorApproval(
     }
 
     if (existingApproval.loanRequest.status === "approved") {
-      throw new Error("Approved loan requests cannot change guarantor evidence.")
+      throw new Error(
+        "Approved loan requests cannot change guarantor evidence."
+      )
     }
 
     if (existingApproval.status !== "pending") {
@@ -878,7 +953,7 @@ export async function reviewLoanRequest(
     status: "approved" | "rejected" | "under_review"
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -914,7 +989,7 @@ export async function reviewLoanRequest(
 
     if (input.status === "approved") {
       const rejectedGuarantor = guarantorApprovals.find(
-        (approval) => approval.status === "rejected",
+        (approval) => approval.status === "rejected"
       )
 
       if (rejectedGuarantor) {
@@ -924,7 +999,7 @@ export async function reviewLoanRequest(
       }
 
       const pendingGuarantor = guarantorApprovals.find(
-        (approval) => approval.status !== "approved",
+        (approval) => approval.status !== "approved"
       )
 
       if (pendingGuarantor) {
@@ -938,7 +1013,9 @@ export async function reviewLoanRequest(
     let shouldMaterializeLoan = input.status === "approved"
 
     if (input.status === "approved" && requiresDualApproval) {
-      const approvingActorIds = new Set(existingApprovals.map((approval) => approval.actorUserId))
+      const approvingActorIds = new Set(
+        existingApprovals.map((approval) => approval.actorUserId)
+      )
       approvingActorIds.add(input.actorUserId)
 
       if (approvingActorIds.size < 2) {
@@ -1015,12 +1092,14 @@ export async function reviewLoanRequest(
         entityId: request.id,
         metadata: {
           approvalCountAfterAction:
-            input.status === "approved" ? existingApprovals.length + 1 : existingApprovals.length,
+            input.status === "approved"
+              ? existingApprovals.length + 1
+              : existingApprovals.length,
           guarantorApprovalCount: guarantorApprovals.length,
           guarantorGateSatisfied:
             guarantorApprovals.length === 0 ||
             guarantorApprovals.every(
-              (approval) => approval.status === "approved",
+              (approval) => approval.status === "approved"
             ),
           requiresDualApproval,
           notes: input.notes ?? null,
@@ -1047,7 +1126,7 @@ export async function recordCollectionFollowUp(
     status: "promise_to_pay" | "reminded" | "settled" | "unreachable"
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -1078,12 +1157,18 @@ export async function recordCollectionFollowUp(
       caseStage: input.caseStage ?? "active",
       loanId: item.loanId,
       memberId: item.loan.memberId,
-      nextActionAt: input.nextActionAt ? new Date(`${input.nextActionAt}T00:00:00.000Z`) : null,
+      nextActionAt: input.nextActionAt
+        ? new Date(`${input.nextActionAt}T00:00:00.000Z`)
+        : null,
       note: input.note,
       priority: input.priority ?? "normal",
-      promiseToPayAt: input.promiseToPayAt ? new Date(`${input.promiseToPayAt}T00:00:00.000Z`) : null,
+      promiseToPayAt: input.promiseToPayAt
+        ? new Date(`${input.promiseToPayAt}T00:00:00.000Z`)
+        : null,
       repaymentScheduleItemId: input.repaymentScheduleItemId,
-      resolutionStatus: input.resolutionStatus ?? (input.status === "settled" ? "resolved" : "open"),
+      resolutionStatus:
+        input.resolutionStatus ??
+        (input.status === "settled" ? "resolved" : "open"),
       status: input.status,
       tenantId: input.tenantId,
     },
@@ -1107,7 +1192,9 @@ export async function recordCollectionFollowUp(
         priority: input.priority ?? "normal",
         promiseToPayAt: input.promiseToPayAt ?? null,
         repaymentScheduleItemId: input.repaymentScheduleItemId,
-        resolutionStatus: input.resolutionStatus ?? (input.status === "settled" ? "resolved" : "open"),
+        resolutionStatus:
+          input.resolutionStatus ??
+          (input.status === "settled" ? "resolved" : "open"),
         status: input.status,
       },
       occurredAt: new Date(),
@@ -1205,7 +1292,7 @@ export async function stopRemainingScheduleForClearedLoan(input: {
     orderBy: [{ installmentNumber: "asc" }],
   })
   const itemsToWaive = scheduleItems.filter(
-    (item) => Number(item.totalDue) - Number(item.amountPaid) > 0,
+    (item) => Number(item.totalDue) - Number(item.amountPaid) > 0
   )
 
   if (itemsToWaive.length === 0) {
@@ -1233,7 +1320,7 @@ export async function stopRemainingScheduleForClearedLoan(input: {
     waivedOutstandingAmount: itemsToWaive.reduce(
       (sum, item) =>
         sum + Math.max(0, Number(item.totalDue) - Number(item.amountPaid)),
-      0,
+      0
     ),
     waivedScheduleItemCount: itemsToWaive.length,
     waivedScheduleItemIds: itemsToWaive.map((item) => item.id),
@@ -1247,7 +1334,7 @@ export async function disburseLoan(
     loanId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -1268,7 +1355,7 @@ export async function disburseLoan(
       excludeLoanId: existingLoan.id,
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   if (
@@ -1276,12 +1363,20 @@ export async function disburseLoan(
     Number(existingLoan.principalAmount) > deployableFunds.deployableFunds
   ) {
     throw new Error(
-      `Deployable funds are insufficient for this disbursement. Available: ${deployableFunds.deployableFunds.toLocaleString("en-NG")}.`,
+      `Deployable funds are insufficient for this disbursement. Available: ${deployableFunds.deployableFunds.toLocaleString("en-NG")}.`
     )
   }
 
-  const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
-  const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", prisma)
+  const cashAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "2000",
+    prisma
+  )
+  const loanReceivableAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "1100",
+    prisma
+  )
 
   if (!cashAccount || !loanReceivableAccount) {
     throw new Error("Ledger accounts not initialized for this cooperative")
@@ -1348,11 +1443,19 @@ export async function disburseLoan(
         loanId: loan.id,
         narration: `Loan disbursement for ${loan.loanProduct.name}`,
         entries: [
-          { ledgerAccountId: loanReceivableAccount.id, direction: "debit", amount: Number(loan.principalAmount) },
-          { ledgerAccountId: cashAccount.id, direction: "credit", amount: Number(loan.principalAmount) },
+          {
+            ledgerAccountId: loanReceivableAccount.id,
+            direction: "debit",
+            amount: Number(loan.principalAmount),
+          },
+          {
+            ledgerAccountId: cashAccount.id,
+            direction: "credit",
+            amount: Number(loan.principalAmount),
+          },
         ],
       },
-      tx as unknown as PrismaClient,
+      tx as unknown as PrismaClient
     )
 
     await tx.auditLog.create({
@@ -1388,7 +1491,7 @@ export async function postRepayment(
     sourceType?: "import"
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -1396,8 +1499,16 @@ export async function postRepayment(
     await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   }
 
-  const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
-  const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", prisma)
+  const cashAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "2000",
+    prisma
+  )
+  const loanReceivableAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "1100",
+    prisma
+  )
 
   if (!cashAccount || !loanReceivableAccount) {
     throw new Error("Ledger accounts not initialized for this cooperative")
@@ -1469,11 +1580,19 @@ export async function postRepayment(
         narration: "Loan repayment received",
         sourceType: input.sourceType,
         entries: [
-          { ledgerAccountId: cashAccount.id, direction: "debit", amount: input.amount },
-          { ledgerAccountId: loanReceivableAccount.id, direction: "credit", amount: input.amount },
+          {
+            ledgerAccountId: cashAccount.id,
+            direction: "debit",
+            amount: input.amount,
+          },
+          {
+            ledgerAccountId: loanReceivableAccount.id,
+            direction: "credit",
+            amount: input.amount,
+          },
         ],
       },
-      tx as unknown as PrismaClient,
+      tx as unknown as PrismaClient
     )
 
     await tx.auditLog.create({
@@ -1508,8 +1627,7 @@ export async function postRepayment(
             repaymentAmount: input.amount,
             previousOutstandingPrincipal,
             closedAt: postedAt.toISOString(),
-            waivedScheduleItemCount:
-              settlement?.waivedScheduleItemCount ?? 0,
+            waivedScheduleItemCount: settlement?.waivedScheduleItemCount ?? 0,
             waivedScheduleItemIds: settlement?.waivedScheduleItemIds ?? [],
             waivedScheduleOutstandingAmount:
               settlement?.waivedOutstandingAmount ?? 0,

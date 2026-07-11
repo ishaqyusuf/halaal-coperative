@@ -7,7 +7,7 @@ import {
 import { ScrollableContent } from "@/components/dashboard"
 import { BusinessProfitPolicyForm } from "@/components/forms/tenant-finance-forms"
 import { SecondaryMenu } from "@/components/secondary-menu"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 
 export const metadata: Metadata = {
   title: "Business | Finance Settings",
@@ -25,6 +25,7 @@ const financeMenuItems = [
 export default async function FinanceBusinessPage() {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
+  const quickFillEnabled = canShowQuickFill(context)
 
   let businessPolicy = defaultTenantBusinessProfitPolicy
   let tenantName = context.tenant?.name ?? "Demo cooperative"
@@ -58,7 +59,10 @@ export default async function FinanceBusinessPage() {
               Profit policy
             </h2>
           </div>
-          <BusinessProfitPolicyForm defaultPolicy={businessPolicy} />
+          <BusinessProfitPolicyForm
+            defaultPolicy={businessPolicy}
+            devMode={quickFillEnabled}
+          />
         </section>
       </div>
     </ScrollableContent>

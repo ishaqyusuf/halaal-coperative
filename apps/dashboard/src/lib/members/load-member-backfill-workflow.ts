@@ -10,7 +10,10 @@ import {
   createDbRuntime,
   getInitialMigrationMemberReview,
   getMemberById,
+  getTenantMigrationSetup,
+  getTenantSharePolicy,
   getTenantInitialMigrationState,
+  listHistoricalMemberSharePurchases,
   listLegacyLoanMigrationDrafts,
   listMemberActivityEvents,
   listMemberAmountLogs,
@@ -31,6 +34,9 @@ type MemberActivityEvent = Awaited<
 type MemberAmountLog = Awaited<ReturnType<typeof listMemberAmountLogs>>[number]
 type MemberOpeningBalance = Awaited<
   ReturnType<typeof listMemberOpeningBalances>
+>[number]
+type HistoricalMemberSharePurchase = Awaited<
+  ReturnType<typeof listHistoricalMemberSharePurchases>
 >[number]
 type ProfitAdjustmentOption = Awaited<
   ReturnType<typeof listMigrationProfitAdjustmentOptions>
@@ -86,13 +92,20 @@ function serializeMemberAmountLog(row: MemberAmountLog) {
 function serializeMemberOpeningBalance(row: MemberOpeningBalance) {
   return {
     activeFinancingOutstanding: row.activeFinancingOutstanding,
+    activeFinancingGuarantorOneMemberId:
+      row.activeFinancingGuarantorOneMemberId,
+    activeFinancingGuarantorTwoMemberId:
+      row.activeFinancingGuarantorTwoMemberId,
+    activeFinancingOpenedAt: toDateString(row.activeFinancingOpenedAt),
     appliedAt: row.appliedAt?.toISOString() ?? null,
+    appliedFoodPurchaseApplicationId: row.appliedFoodPurchaseApplicationId,
     appliedByUserId: row.appliedByUserId,
     appliedLoanId: row.appliedLoanId,
     appliedProcurementRequestId: row.appliedProcurementRequestId,
     commitmentSavingsBalance: row.commitmentSavingsBalance,
     createdAt: row.createdAt.toISOString(),
     createdByUserId: row.createdByUserId,
+    foodPurchaseOutstanding: row.foodPurchaseOutstanding,
     id: row.id,
     memberId: row.memberId,
     notes: row.notes,
@@ -109,6 +122,23 @@ function serializeMemberOpeningBalance(row: MemberOpeningBalance) {
     specialSavingsBalance: row.specialSavingsBalance,
     status: row.status,
     updatedAt: row.updatedAt.toISOString(),
+  }
+}
+
+function serializeHistoricalMemberSharePurchase(
+  row: HistoricalMemberSharePurchase
+) {
+  return {
+    createdAt: row.createdAt.toISOString(),
+    createdByUserId: row.createdByUserId,
+    id: row.id,
+    memberId: row.memberId,
+    notes: row.notes,
+    paidAt: toDateString(row.paidAt) ?? "",
+    postedShareLedgerEntryId: row.postedShareLedgerEntryId,
+    shareCapitalAmount: row.shareCapitalAmount,
+    shareUnits: row.shareUnits,
+    unitAmountSnapshot: row.unitAmountSnapshot,
   }
 }
 
@@ -164,8 +194,11 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     activityEvents,
     allLegacyLoanDrafts,
     openingBalances,
+    sharePurchases,
     profitOptions,
     memberOptions,
+    migrationSetup,
+    sharePolicy,
   ] = await Promise.all([
     getMemberById(tenantId, memberId),
     getTenantInitialMigrationState(tenantId),
@@ -174,8 +207,11 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     listMemberActivityEvents({ memberId, tenantId }),
     listLegacyLoanMigrationDrafts(tenantId),
     listMemberOpeningBalances({ memberId, tenantId }),
+    listHistoricalMemberSharePurchases({ memberId, tenantId }),
     listMigrationProfitAdjustmentOptions(tenantId, undefined, memberId),
     listMembers(tenantId, { page: 1, pageSize: 200 }),
+    getTenantMigrationSetup(tenantId),
+    getTenantSharePolicy(tenantId),
   ])
 
   if (!member || !review) {
@@ -222,11 +258,15 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     memberActivityEvents: activityEvents.map(serializeMemberActivityEvent),
     memberAmountLogs: amountLogs.map(serializeMemberAmountLog),
     memberOpeningBalances: openingBalances.map(serializeMemberOpeningBalance),
+    memberSharePurchases: sharePurchases.map(
+      serializeHistoricalMemberSharePurchase
+    ),
     memberNumberPrefix: context.tenant.memberNumberPrefix,
     memberOptions: memberOptions.items.map((option) => ({
       id: option.id,
       label: `${option.fullName} (${option.memberNumber})`,
     })),
+    migrationSetupMode: migrationSetup.mode,
     migrationSnapshot: migrationState.snapshot,
     profitMigrationOptions: profitOptions.map(serializeProfitAdjustmentOption),
     quickFillEnabled: canShowQuickFill(context),
@@ -235,5 +275,6 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
       joinedAt: toDateString(review.joinedAt) ?? "",
     },
     tenantStartDate: toDateString(context.tenant.startDate),
+    tenantSharePolicy: sharePolicy,
   }
 }

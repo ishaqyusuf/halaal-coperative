@@ -1,12 +1,27 @@
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure, minRoleProcedure } from "../lib.trpc"
 import {
+  createTRPCRouter,
+  tenantProcedure,
+  minRoleProcedure,
+} from "../lib.trpc"
+import {
+  chargeApplicabilityTriggerKeys,
+  chargeCollectionModeKeys,
+  chargeWorkflowKeys,
   createChargeDefinitionVersion,
   listChargeDefinitions,
   listChargeDefinitionVersions,
   createChargeDefinition,
   updateChargeDefinition,
 } from "@halaalvest/db"
+
+const chargeApplicabilityInput = z.object({
+  collectionMode: z.enum(chargeCollectionModeKeys).optional(),
+  isActive: z.boolean().optional(),
+  isRequired: z.boolean().optional(),
+  trigger: z.enum(chargeApplicabilityTriggerKeys),
+  workflow: z.enum(chargeWorkflowKeys),
+})
 
 export const chargesRouter = createTRPCRouter({
   listDefinitions: tenantProcedure.query(async ({ ctx }) => {
@@ -25,7 +40,8 @@ export const chargesRouter = createTRPCRouter({
         appliesToMembers: z.boolean().optional(),
         appliesToLoanRequests: z.boolean().optional(),
         appliesToLoans: z.boolean().optional(),
-      }),
+        applicability: z.array(chargeApplicabilityInput).optional(),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       return createChargeDefinition({
@@ -39,10 +55,13 @@ export const chargesRouter = createTRPCRouter({
     .input(
       z.object({
         chargeDefinitionId: z.string().uuid(),
-      }),
+      })
     )
     .query(async ({ ctx, input }) => {
-      return listChargeDefinitionVersions(ctx.tenant.current.id, input.chargeDefinitionId)
+      return listChargeDefinitionVersions(
+        ctx.tenant.current.id,
+        input.chargeDefinitionId
+      )
     }),
 
   createVersion: minRoleProcedure("tenant_admin")
@@ -53,7 +72,7 @@ export const chargesRouter = createTRPCRouter({
         amount: z.number().positive(),
         kind: z.enum(["fixed", "percentage"]),
         notes: z.string().optional(),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       return createChargeDefinitionVersion({
@@ -76,7 +95,8 @@ export const chargesRouter = createTRPCRouter({
         appliesToMembers: z.boolean().optional(),
         appliesToLoanRequests: z.boolean().optional(),
         appliesToLoans: z.boolean().optional(),
-      }),
+        applicability: z.array(chargeApplicabilityInput).optional(),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       const { chargeDefinitionId, ...data } = input

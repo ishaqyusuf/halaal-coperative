@@ -26,6 +26,30 @@ function formatIsoDate(value: Date | null | undefined) {
   return value ? value.toISOString().slice(0, 10) : null
 }
 
+function formatChargeSource(
+  charge: MemberDetailPageData["detail"]["chargeApplications"][number]
+) {
+  if (charge.procurementRequest) {
+    return `Procurement: ${charge.procurementRequest.itemName}`
+  }
+
+  if (charge.foodPurchaseApplication) {
+    return "Foodstuff Purchase"
+  }
+
+  if (charge.projectFinancingRequest) {
+    return `Project financing: ${charge.projectFinancingRequest.businessName}`
+  }
+
+  if (charge.loanRequest) {
+    return "Financing request"
+  }
+
+  return (
+    charge.chargeApplicability?.workflow?.replace(/_/g, " ") ?? "Manual charge"
+  )
+}
+
 export function MemberStatementView({ detail }: MemberDetailPageData) {
   return (
     <section className="mx-auto max-w-6xl space-y-6 px-6 py-10 print:px-0">
@@ -114,6 +138,50 @@ export function MemberStatementView({ detail }: MemberDetailPageData) {
                     </DashboardTableCell>
                     <DashboardTableCell>
                       {formatCurrency(Number(allocation.allocationAmount))}
+                    </DashboardTableCell>
+                  </DashboardTableRow>
+                ))}
+              </DashboardTableBody>
+            </DashboardTable>
+          </DashboardDataTable>
+        </div>
+      </DashboardSectionCard>
+
+      <DashboardSectionCard>
+        <DashboardSectionHeader
+          actions={
+            <TrendPill>{detail.chargeApplications.length} charges</TrendPill>
+          }
+          eyebrow="Charges"
+          title="Workflow and manual charges"
+        />
+        <div className="mt-5">
+          <DashboardDataTable>
+            <DashboardTable>
+              <DashboardTableHead>
+                <DashboardTableHeaderCell>Charge</DashboardTableHeaderCell>
+                <DashboardTableHeaderCell>Source</DashboardTableHeaderCell>
+                <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
+                <DashboardTableHeaderCell>Collection</DashboardTableHeaderCell>
+                <DashboardTableHeaderCell>Amount</DashboardTableHeaderCell>
+              </DashboardTableHead>
+              <DashboardTableBody>
+                {detail.chargeApplications.slice(0, 20).map((charge: any) => (
+                  <DashboardTableRow key={charge.id}>
+                    <DashboardTableCell>
+                      {charge.chargeDefinition.name}
+                    </DashboardTableCell>
+                    <DashboardTableCell>
+                      {formatChargeSource(charge)}
+                    </DashboardTableCell>
+                    <DashboardTableCell className="capitalize">
+                      {charge.status}
+                    </DashboardTableCell>
+                    <DashboardTableCell className="capitalize">
+                      {charge.collectionMode.replace(/_/g, " ")}
+                    </DashboardTableCell>
+                    <DashboardTableCell>
+                      {formatCurrency(Number(charge.amount))}
                     </DashboardTableCell>
                   </DashboardTableRow>
                 ))}

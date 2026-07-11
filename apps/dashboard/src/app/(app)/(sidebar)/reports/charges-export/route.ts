@@ -1,5 +1,34 @@
 import { listChargeApplications } from "@halaalvest/db"
-import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
+import {
+  createCsvResponse,
+  getReportsDateFilters,
+  requireReportsExportContext,
+  toCsv,
+} from "../export-utils"
+
+function formatChargeSource(
+  charge: Awaited<ReturnType<typeof listChargeApplications>>[number]
+) {
+  if (charge.procurementRequest) {
+    return `Procurement: ${charge.procurementRequest.itemName}`
+  }
+
+  if (charge.foodPurchaseApplication) {
+    return "Foodstuff Purchase"
+  }
+
+  if (charge.projectFinancingRequest) {
+    return `Project Financing: ${charge.projectFinancingRequest.businessName}`
+  }
+
+  if (charge.loanRequest) {
+    return "Loan request"
+  }
+
+  return (
+    charge.chargeApplicability?.workflow?.replace(/_/g, " ") ?? "Manual charge"
+  )
+}
 
 export async function GET(request: Request) {
   const context = await requireReportsExportContext()
@@ -9,7 +38,9 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const filters = getReportsDateFilters(Object.fromEntries(searchParams.entries()))
+  const filters = getReportsDateFilters(
+    Object.fromEntries(searchParams.entries())
+  )
   const charges = await listChargeApplications(context.tenant.id, {
     fromDate: filters.fromDate,
     limit: 500,
@@ -25,9 +56,11 @@ export async function GET(request: Request) {
       "Code",
       "Amount",
       "Status",
+      "Collection Mode",
+      "Source",
       "Notes",
     ],
-    charges.map((charge) => [
+    charges.map((charge: any) => [
       charge.assessedAt.toISOString(),
       charge.member.fullName,
       charge.member.memberNumber,
@@ -35,8 +68,10 @@ export async function GET(request: Request) {
       charge.chargeDefinition.code,
       Number(charge.amount),
       charge.status,
+      charge.collectionMode,
+      formatChargeSource(charge),
       charge.notes ?? "",
-    ]),
+    ])
   )
 
   return createCsvResponse(`${context.tenant.slug}-charges-report.csv`, csv)

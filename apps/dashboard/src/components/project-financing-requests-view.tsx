@@ -15,6 +15,10 @@ import type {
 } from "@halaalvest/db"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import {
+  WorkflowChargeSummary,
+  type WorkflowChargeOption,
+} from "@/components/workflow-charge-summary"
+import {
   createOwnProjectFinancingRequestAction,
   createProjectFinancingRequestAction,
   recordProjectFinancingDisbursementAction,
@@ -87,10 +91,10 @@ function repaymentEvidenceText(request: ProjectFinancingRequestRow) {
 
   const outstandingAmount = Math.max(
     request.approvedAmount - request.paidAmount,
-    0,
+    0
   )
   const base = `Paid ${formatCurrency(
-    request.paidAmount,
+    request.paidAmount
   )}, outstanding ${formatCurrency(outstandingAmount)}`
 
   return request.paidAt
@@ -108,23 +112,25 @@ function disbursementEvidenceText(request: ProjectFinancingRequestRow) {
     request.disbursementReference
       ? `ref ${request.disbursementReference}`
       : null,
-    request.disbursedByUser
-      ? `by ${request.disbursedByUser.fullName}`
-      : null,
+    request.disbursedByUser ? `by ${request.disbursedByUser.fullName}` : null,
   ].filter(Boolean)
 
   return parts.join(" · ")
 }
 
 export function ProjectFinancingRequestsView({
+  approvalChargeOptions,
   canReview,
   memberOptions,
   requests,
+  submissionChargeOptions,
   summary,
 }: {
+  approvalChargeOptions: WorkflowChargeOption[]
   canReview: boolean
   memberOptions: Option[]
   requests: ProjectFinancingRequestRow[]
+  submissionChargeOptions: WorkflowChargeOption[]
   summary: ProjectFinancingSummary
 }) {
   const router = useRouter()
@@ -177,7 +183,7 @@ export function ProjectFinancingRequestsView({
             proposedStructure,
             requestedAmount,
             requestedPaybackMonths,
-          }),
+          })
         )
         setBusinessDescription("")
         setBusinessName("")
@@ -188,13 +194,13 @@ export function ProjectFinancingRequestsView({
         setRequestedPaybackMonths("")
         showSuccess(
           "Project financing request saved",
-          "Request is pending review.",
+          "Request is pending review."
         )
         router.refresh()
       } catch (error) {
         showError(
           "Could not save project financing request",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -202,7 +208,7 @@ export function ProjectFinancingRequestsView({
 
   function reviewRequest(
     request: ProjectFinancingRequestRow,
-    status: "approved" | "rejected" | "under_review",
+    status: "approved" | "rejected" | "under_review"
   ) {
     startTransition(async () => {
       try {
@@ -217,17 +223,17 @@ export function ProjectFinancingRequestsView({
             notes: notesById[request.id] ?? "",
             projectFinancingRequestId: request.id,
             status,
-          }),
+          })
         )
         showSuccess(
           "Project financing review saved",
-          `Request marked ${status.replace(/_/g, " ")}.`,
+          `Request marked ${status.replace(/_/g, " ")}.`
         )
         router.refresh()
       } catch (error) {
         showError(
           "Could not save project financing review",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -244,17 +250,17 @@ export function ProjectFinancingRequestsView({
             notes: disbursementNotesById[request.id] ?? "",
             projectFinancingRequestId: request.id,
             reference: disbursementReferenceById[request.id] ?? "",
-          }),
+          })
         )
         showSuccess(
           "Project financing disbursed",
-          "Funding evidence was recorded.",
+          "Funding evidence was recorded."
         )
         router.refresh()
       } catch (error) {
         showError(
           "Could not record disbursement",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -326,7 +332,9 @@ export function ProjectFinancingRequestsView({
             <Input
               disabled={isPending}
               inputMode="numeric"
-              onChange={(event) => setRequestedPaybackMonths(event.target.value)}
+              onChange={(event) =>
+                setRequestedPaybackMonths(event.target.value)
+              }
               value={requestedPaybackMonths}
             />
           </Field>
@@ -344,6 +352,13 @@ export function ProjectFinancingRequestsView({
               value={businessDescription}
             />
           </Field>
+          <div className="md:col-span-2 xl:col-span-4">
+            <WorkflowChargeSummary
+              basisAmount={Number(requestedAmount) || 0}
+              charges={submissionChargeOptions}
+              title="Submission charges"
+            />
+          </div>
         </div>
 
         <div className="mt-4">
@@ -357,7 +372,8 @@ export function ProjectFinancingRequestsView({
         {requests.length ? (
           requests.map((request) => {
             const approvedStructure =
-              approvedStructureById[request.id] ?? defaultReviewStructure(request)
+              approvedStructureById[request.id] ??
+              defaultReviewStructure(request)
 
             return (
               <article
@@ -490,6 +506,14 @@ export function ProjectFinancingRequestsView({
                         placeholder="Review note"
                         value={notesById[request.id] ?? ""}
                       />
+                      <WorkflowChargeSummary
+                        basisAmount={
+                          Number(approvedAmountById[request.id]) ||
+                          request.requestedAmount
+                        }
+                        charges={approvalChargeOptions}
+                        title="Approval charges"
+                      />
                       <div className="flex flex-wrap gap-2">
                         {request.status === "submitted" ? (
                           <Button
@@ -592,9 +616,11 @@ export function ProjectFinancingRequestsView({
 }
 
 export function MemberProjectFinancingRequestsView({
+  chargeOptions,
   member,
   requests,
 }: {
+  chargeOptions: WorkflowChargeOption[]
   member: {
     fullName: string
     memberNumber: string
@@ -629,7 +655,7 @@ export function MemberProjectFinancingRequestsView({
             proposedStructure,
             requestedAmount,
             requestedPaybackMonths,
-          }),
+          })
         )
         setBusinessDescription("")
         setBusinessName("")
@@ -639,13 +665,13 @@ export function MemberProjectFinancingRequestsView({
         setRequestedPaybackMonths("")
         showSuccess(
           "Project financing request sent",
-          "Request is pending review.",
+          "Request is pending review."
         )
         router.refresh()
       } catch (error) {
         showError(
           "Could not send project financing request",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -701,7 +727,9 @@ export function MemberProjectFinancingRequestsView({
             <Input
               disabled={isPending}
               inputMode="numeric"
-              onChange={(event) => setRequestedPaybackMonths(event.target.value)}
+              onChange={(event) =>
+                setRequestedPaybackMonths(event.target.value)
+              }
               value={requestedPaybackMonths}
             />
           </Field>
@@ -719,6 +747,13 @@ export function MemberProjectFinancingRequestsView({
               value={businessDescription}
             />
           </Field>
+          <div className="md:col-span-2 xl:col-span-4">
+            <WorkflowChargeSummary
+              basisAmount={Number(requestedAmount) || 0}
+              charges={chargeOptions}
+              title="Applicable charges"
+            />
+          </div>
         </div>
 
         <div className="mt-4">
@@ -830,7 +865,7 @@ function SummaryTile({
 }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+      <p className="text-xs tracking-wide text-muted-foreground uppercase">
         {label}
       </p>
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>

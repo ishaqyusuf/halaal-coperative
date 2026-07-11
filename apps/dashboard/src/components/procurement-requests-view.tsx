@@ -8,11 +8,12 @@ import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { formatCurrency } from "@halaalvest/utils"
-import type {
-  ProcurementRequestRow,
-  ProcurementSummary,
-} from "@halaalvest/db"
+import type { ProcurementRequestRow, ProcurementSummary } from "@halaalvest/db"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
+import {
+  WorkflowChargeSummary,
+  type WorkflowChargeOption,
+} from "@/components/workflow-charge-summary"
 import {
   createOwnProcurementRequestAction,
   createProcurementRequestAction,
@@ -100,14 +101,18 @@ function ProcurementScheduleStatus({
 }
 
 export function ProcurementRequestsView({
+  approvalChargeOptions,
   canReview,
   memberOptions,
   requests,
+  submissionChargeOptions,
   summary,
 }: {
+  approvalChargeOptions: WorkflowChargeOption[]
   canReview: boolean
   memberOptions: Option[]
   requests: ProcurementRequestRow[]
+  submissionChargeOptions: WorkflowChargeOption[]
   summary: ProcurementSummary
 }) {
   const router = useRouter()
@@ -157,7 +162,7 @@ export function ProcurementRequestsView({
             requestedCost,
             requestedRepaymentMonths,
             vendorName,
-          }),
+          })
         )
         setItemDescription("")
         setItemName("")
@@ -170,7 +175,7 @@ export function ProcurementRequestsView({
       } catch (error) {
         showError(
           "Could not save procurement request",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -178,7 +183,7 @@ export function ProcurementRequestsView({
 
   function reviewRequest(
     request: ProcurementRequestRow,
-    status: "approved" | "rejected" | "under_review",
+    status: "approved" | "rejected" | "under_review"
   ) {
     startTransition(async () => {
       try {
@@ -189,17 +194,17 @@ export function ProcurementRequestsView({
             notes: notesById[request.id] ?? "",
             procurementRequestId: request.id,
             status,
-          }),
+          })
         )
         showSuccess(
           "Procurement review saved",
-          `Request marked ${status.replace(/_/g, " ")}.`,
+          `Request marked ${status.replace(/_/g, " ")}.`
         )
         router.refresh()
       } catch (error) {
         showError(
           "Could not save procurement review",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -215,17 +220,17 @@ export function ProcurementRequestsView({
             purchaseDate: purchaseDateById[request.id] ?? "",
             purchaseNotes: purchaseNotesById[request.id] ?? "",
             purchaseReference: purchaseReferenceById[request.id] ?? "",
-          }),
+          })
         )
         showSuccess(
           "Procurement purchase recorded",
-          "Repayment schedule is now active.",
+          "Repayment schedule is now active."
         )
         router.refresh()
       } catch (error) {
         showError(
           "Could not record procurement purchase",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -306,6 +311,13 @@ export function ProcurementRequestsView({
               value={itemDescription}
             />
           </Field>
+          <div className="md:col-span-2 xl:col-span-4">
+            <WorkflowChargeSummary
+              basisAmount={Number(requestedCost) || 0}
+              charges={submissionChargeOptions}
+              title="Submission charges"
+            />
+          </div>
         </div>
 
         <div className="mt-4">
@@ -401,6 +413,14 @@ export function ProcurementRequestsView({
                         value={approvedMonthsById[request.id] ?? ""}
                       />
                     </div>
+                    <WorkflowChargeSummary
+                      basisAmount={
+                        Number(approvedCostById[request.id]) ||
+                        request.requestedCost
+                      }
+                      charges={approvalChargeOptions}
+                      title="Approval charges"
+                    />
                     <Input
                       disabled={isPending}
                       onChange={(event) =>
@@ -524,9 +544,11 @@ export function ProcurementRequestsView({
 }
 
 export function MemberProcurementRequestsView({
+  chargeOptions,
   member,
   requests,
 }: {
+  chargeOptions: WorkflowChargeOption[]
   member: {
     fullName: string
     memberNumber: string
@@ -570,7 +592,7 @@ export function MemberProcurementRequestsView({
             requestedCost,
             requestedRepaymentMonths,
             vendorName,
-          }),
+          })
         )
         setItemDescription("")
         setItemName("")
@@ -582,7 +604,7 @@ export function MemberProcurementRequestsView({
       } catch (error) {
         showError(
           "Could not send procurement request",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -650,6 +672,13 @@ export function MemberProcurementRequestsView({
               value={itemDescription}
             />
           </Field>
+          <div className="md:col-span-2 xl:col-span-4">
+            <WorkflowChargeSummary
+              basisAmount={Number(requestedCost) || 0}
+              charges={chargeOptions}
+              title="Applicable charges"
+            />
+          </div>
         </div>
 
         <div className="mt-4">
@@ -740,7 +769,7 @@ function SummaryTile({
 }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+      <p className="text-xs tracking-wide text-muted-foreground uppercase">
         {label}
       </p>
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>

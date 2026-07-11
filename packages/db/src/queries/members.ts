@@ -1161,6 +1161,7 @@ export async function getMemberStatementDetail(
     loans,
     repayments,
     dividendAllocations,
+    chargeApplications,
     ledgerTransactions,
     summary,
   ] = await Promise.all([
@@ -1224,12 +1225,36 @@ export async function getMemberStatementDetail(
       orderBy: { createdAt: "desc" },
       take: 25,
     }),
+    typeof (prisma as any).chargeApplication?.findMany === "function"
+      ? (prisma as any).chargeApplication.findMany({
+          where: { tenantId, memberId },
+          include: {
+            chargeApplicability: true,
+            chargeDefinition: true,
+            foodPurchaseApplication: {
+              select: { id: true, status: true },
+            },
+            loanRequest: {
+              select: { id: true, status: true },
+            },
+            procurementRequest: {
+              select: { id: true, itemName: true, status: true },
+            },
+            projectFinancingRequest: {
+              select: { businessName: true, id: true, status: true },
+            },
+          },
+          orderBy: { assessedAt: "desc" },
+          take: 25,
+        })
+      : [],
     getMemberTransactions(tenantId, memberId, prisma),
     listMemberStatementSummaries(tenantId, prisma),
   ])
 
   return {
     member,
+    chargeApplications,
     contributions,
     dividendAllocations,
     ledgerTransactions,

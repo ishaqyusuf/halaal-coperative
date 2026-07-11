@@ -9,23 +9,34 @@ import { getDashboardMetrics, getOverviewSummary } from "./dashboard"
 import {
   listFoodPurchaseApplications,
   listFoodPurchaseCycles,
+  reviewFoodPurchaseApplication,
   submitFoodPurchaseApplication,
   type FoodPurchaseApplicationRow,
   type FoodPurchaseCycleRow,
 } from "./food-purchase"
 import {
+  quoteApplicableCharges,
+  type ChargeCollectionMode,
+  type ChargeWorkflow,
+} from "./charges"
+import {
   listLoanProducts,
   listCollectionFollowUps,
   listLoanRequests,
   listMemberLoanGuarantorApprovals,
+  recordCollectionFollowUp,
   respondMemberLoanGuarantorApproval,
+  reviewLoanRequest,
   submitLoanRequest,
 } from "./loans"
 import {
+  createMember,
   getMemberByUserId,
   getMemberStatementDetail,
   listMembers,
   listMemberStatementSummaries,
+  updateMemberKyc,
+  updateMemberStatus,
   type ListMembersFilters,
 } from "./members"
 import { listMemberOnboardingRequests } from "./member-onboarding"
@@ -34,28 +45,35 @@ import {
   createMemberPaymentReceipt,
   getMemberScopedPaymentReceiptSummary,
   listMemberPaymentReceipts,
+  reviewMemberPaymentReceipt,
   type MemberPaymentReceiptRow,
   type PaymentReceiptAllocationInput,
 } from "./payment-receipts"
 import {
   createProcurementRequest,
   listProcurementRequests,
+  reviewProcurementRequest,
   type ProcurementRequestRow,
 } from "./procurement"
 import {
   createProjectFinancingRequest,
   listProjectFinancingRequests,
+  reviewProjectFinancingRequest,
   type ProjectFinancingRequestRow,
   type ProjectFinancingStructure,
 } from "./project-financing"
 import {
+  addSupportCaseMessage,
   addMemberSupportCaseMessage,
   createMemberSupportCase,
   getMemberSupportCaseSummary,
   getSupportCase,
   listSupportCases,
+  updateSupportCaseStatus,
   type SupportCaseCategory,
+  type SupportCasePriority,
   type SupportCaseRow,
+  type SupportCaseStatus,
 } from "./support"
 import {
   createMemberShareApplication,
@@ -64,6 +82,7 @@ import {
   getTenantSharePolicy,
   listMemberShareApplications,
   listMemberShareLedgerEntries,
+  reviewMemberShareApplication,
   type MemberShareApplicationRow,
   type MemberShareApplicationStatus,
   type MemberUnitSharePosition,
@@ -335,6 +354,7 @@ export type MobileAdminCollectionFollowUp = {
   nextActionAt: string | null
   note: string
   priority: string
+  repaymentScheduleItemId: string
   resolutionStatus: string
   status: string
 }
@@ -475,6 +495,7 @@ export type MobileMemberStatementSectionKey =
   | MobileMemberSectionKey
   | "documents"
   | "receipts"
+  | "charges"
   | "ledger"
   | "support"
 
@@ -635,6 +656,14 @@ export type MobileLoanProductOption = {
 }
 
 export type MobileMemberFinancingRequest = {
+  charges: {
+    amount: number
+    code: string
+    collectionMode: string
+    id: string
+    name: string
+    status: string
+  }[]
   availablePoolSnapshot: number
   eligibleAmountSnapshot: number
   estimatedMonthlyServicing: number
@@ -657,8 +686,20 @@ export type MobileMemberFinancingRequest = {
   status: string
 }
 
+export type MobileLoanRequestChargeOption = {
+  amount: number
+  chargeValueType: "fixed_amount" | "percentage"
+  code: string
+  collectionMode: ChargeCollectionMode
+  id: string
+  name: string
+}
+
+export type MobileWorkflowChargeOption = MobileLoanRequestChargeOption
+
 export type MobileMemberFinancing = {
   generatedAt: string
+  loanRequestCharges: MobileLoanRequestChargeOption[]
   member: {
     id: string
     memberNumber: string
@@ -708,6 +749,7 @@ export type MobileMemberProcurementRequest = {
 }
 
 export type MobileMemberProcurement = {
+  chargeOptions: MobileWorkflowChargeOption[]
   generatedAt: string
   member: {
     id: string
@@ -759,6 +801,7 @@ export type MobileProjectFinancingRequest = {
 }
 
 export type MobileMemberProjectFinancing = {
+  chargeOptions: MobileWorkflowChargeOption[]
   generatedAt: string
   member: {
     id: string
@@ -818,6 +861,7 @@ export type MobileFoodPurchaseApplication = {
 
 export type MobileMemberFoodPurchase = {
   applications: MobileFoodPurchaseApplication[]
+  chargeOptions: MobileWorkflowChargeOption[]
   cycles: MobileFoodPurchaseCycle[]
   generatedAt: string
   member: {
@@ -1120,6 +1164,7 @@ function emptyMemberFinancing(
 ): MobileMemberFinancing {
   return {
     generatedAt: new Date().toISOString(),
+    loanRequestCharges: [],
     member: null,
     products: [],
     requests: [],
@@ -1128,8 +1173,36 @@ function emptyMemberFinancing(
   }
 }
 
+function toMobileWorkflowChargeOptions(
+  quotes: Awaited<ReturnType<typeof quoteApplicableCharges>>
+): MobileWorkflowChargeOption[] {
+  return quotes.map((quote) => ({
+    amount: quote.effectiveAmount,
+    chargeValueType: quote.chargeValueType,
+    code: quote.code,
+    collectionMode: quote.collectionMode,
+    id: quote.chargeApplicabilityId ?? quote.chargeDefinitionId,
+    name: quote.name,
+  }))
+}
+
+async function getMobileWorkflowChargeOptions(input: {
+  tenantId: string
+  workflow: ChargeWorkflow
+}): Promise<MobileWorkflowChargeOption[]> {
+  const quotes = await quoteApplicableCharges({
+    basisAmount: 100,
+    tenantId: input.tenantId,
+    trigger: "submission",
+    workflow: input.workflow,
+  })
+
+  return toMobileWorkflowChargeOptions(quotes)
+}
+
 function emptyMemberProcurement(): MobileMemberProcurement {
   return {
+    chargeOptions: [],
     generatedAt: new Date().toISOString(),
     member: null,
     requests: [],
@@ -1147,6 +1220,7 @@ function emptyMemberProcurement(): MobileMemberProcurement {
 
 function emptyMemberProjectFinancing(): MobileMemberProjectFinancing {
   return {
+    chargeOptions: [],
     generatedAt: new Date().toISOString(),
     member: null,
     requests: [],
@@ -1165,6 +1239,7 @@ function emptyMemberProjectFinancing(): MobileMemberProjectFinancing {
 function emptyMemberFoodPurchase(): MobileMemberFoodPurchase {
   return {
     applications: [],
+    chargeOptions: [],
     cycles: [],
     generatedAt: new Date().toISOString(),
     member: null,
@@ -1861,6 +1936,7 @@ function toMobileAdminCollectionFollowUp(
     nextActionAt: followUp.nextActionAt?.toISOString() ?? null,
     note: followUp.note,
     priority: followUp.priority,
+    repaymentScheduleItemId: followUp.repaymentScheduleItemId,
     resolutionStatus: followUp.resolutionStatus,
     status: followUp.status,
   }
@@ -2068,6 +2144,14 @@ function toMobileFinancingRequest(
   row: MobileLoanRequestRow
 ): MobileMemberFinancingRequest {
   return {
+    charges: (row.charges ?? []).map((charge: any) => ({
+      amount: Number(charge.amount ?? 0),
+      code: charge.chargeDefinition?.code ?? "",
+      collectionMode: charge.collectionMode ?? "deduct_from_savings",
+      id: charge.id,
+      name: charge.chargeDefinition?.name ?? "Charge",
+      status: charge.status,
+    })),
     availablePoolSnapshot: Number(row.availablePoolSnapshot ?? 0),
     eligibleAmountSnapshot: Number(row.eligibleAmountSnapshot ?? 0),
     estimatedMonthlyServicing: Number(row.estimatedMonthlyServicing ?? 0),
@@ -2810,25 +2894,31 @@ export async function getMobileMemberProcurement(input: {
     return emptyMemberProcurement()
   }
 
-  const requests = (
-    await listProcurementRequests(
+  const [requests, chargeOptions] = await Promise.all([
+    listProcurementRequests(
       {
         memberId: member.id,
         tenantId: input.tenantId,
       },
       prisma
-    )
-  ).map(toMobileProcurementRequest)
+    ),
+    getMobileWorkflowChargeOptions({
+      tenantId: input.tenantId,
+      workflow: "procurement_request",
+    }),
+  ])
+  const mobileRequests = requests.map(toMobileProcurementRequest)
 
   return {
+    chargeOptions,
     generatedAt: new Date().toISOString(),
     member: {
       id: member.id,
       memberNumber: member.memberNumber,
       name: member.fullName,
     },
-    requests,
-    summary: summarizeMobileProcurementRequests(requests),
+    requests: mobileRequests,
+    summary: summarizeMobileProcurementRequests(mobileRequests),
   }
 }
 
@@ -2890,16 +2980,23 @@ export async function getMobileMemberProjectFinancing(input: {
     return emptyMemberProjectFinancing()
   }
 
-  const requests = await listProjectFinancingRequests(
-    {
-      memberId: member.id,
+  const [requests, chargeOptions] = await Promise.all([
+    listProjectFinancingRequests(
+      {
+        memberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    getMobileWorkflowChargeOptions({
       tenantId: input.tenantId,
-    },
-    prisma
-  )
+      workflow: "project_financing_request",
+    }),
+  ])
   const mobileRequests = requests.map(toMobileProjectFinancingRequest)
 
   return {
+    chargeOptions,
     generatedAt: new Date().toISOString(),
     member: {
       id: member.id,
@@ -2971,7 +3068,7 @@ export async function getMobileMemberFoodPurchase(input: {
     return emptyMemberFoodPurchase()
   }
 
-  const [cycles, applications] = await Promise.all([
+  const [cycles, applications, chargeOptions] = await Promise.all([
     listFoodPurchaseCycles(
       {
         tenantId: input.tenantId,
@@ -2985,12 +3082,17 @@ export async function getMobileMemberFoodPurchase(input: {
       },
       prisma
     ),
+    getMobileWorkflowChargeOptions({
+      tenantId: input.tenantId,
+      workflow: "food_purchase_application",
+    }),
   ])
   const mobileCycles = cycles.map(toMobileFoodPurchaseCycle)
   const mobileApplications = applications.map(toMobileFoodPurchaseApplication)
 
   return {
     applications: mobileApplications,
+    chargeOptions,
     cycles: mobileCycles,
     generatedAt: new Date().toISOString(),
     member: {
@@ -3159,10 +3261,14 @@ export async function getMobileMemberFinancing(input: {
     )
   }
 
-  const [detail, products, requests] = await Promise.all([
+  const [detail, products, requests, loanRequestCharges] = await Promise.all([
     getMemberStatementDetail(input.tenantId, member.id, prisma),
     listLoanProducts(input.tenantId, prisma),
     listLoanRequests(input.tenantId, prisma),
+    getMobileWorkflowChargeOptions({
+      tenantId: input.tenantId,
+      workflow: "loan_request",
+    }),
   ])
 
   if (!detail) {
@@ -3174,6 +3280,7 @@ export async function getMobileMemberFinancing(input: {
 
   return {
     generatedAt: new Date().toISOString(),
+    loanRequestCharges,
     member: {
       id: member.id,
       memberNumber: member.memberNumber,
@@ -3534,6 +3641,371 @@ export async function replyMobileMemberSupportCase(input: {
   )
 
   return toMobileSupportCase(supportCase)
+}
+
+function requireMobileAdminPrisma(feature: string) {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error(`${feature} is unavailable without database configuration.`)
+  }
+
+  return prisma
+}
+
+export async function updateMobileAdminMemberStatus(input: {
+  actorUserId: string
+  memberId: string
+  status: string
+  tenantId: string
+}) {
+  const prisma = requireMobileAdminPrisma("Member status review")
+
+  const member = await updateMemberStatus(
+    input.tenantId,
+    input.memberId,
+    input.status as never,
+    input.actorUserId,
+    prisma
+  )
+
+  return {
+    id: member.id,
+    status: member.status,
+  }
+}
+
+export async function createMobileAdminMember(input: {
+  actorUserId: string
+  address?: string | null
+  email?: string | null
+  fullName: string
+  joinedAt: Date
+  memberNumber: string
+  memberType: "civil_servant" | "individual" | "business"
+  monthlyCommitment?: number | null
+  occupation?: string | null
+  phoneNumber?: string | null
+  tenantId: string
+}): Promise<MobileAdminMemberRow> {
+  const prisma = requireMobileAdminPrisma("Member creation")
+  const member = await createMember(
+    {
+      actorUserId: input.actorUserId,
+      address: input.address,
+      email: input.email?.toLowerCase() ?? null,
+      fullName: input.fullName,
+      joinedAt: input.joinedAt,
+      memberNumber: input.memberNumber,
+      memberType: input.memberType,
+      monthlyCommitment: input.monthlyCommitment ?? undefined,
+      occupation: input.occupation,
+      phoneNumber: input.phoneNumber,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return {
+    deductionSourceName: null,
+    email: member.email ?? null,
+    fullName: member.fullName,
+    id: member.id,
+    joinedAt: member.joinedAt.toISOString(),
+    kycStatus: member.kycStatus,
+    linkedUserEmail: null,
+    memberNumber: member.memberNumber,
+    memberType: member.memberType,
+    phoneNumber: member.phoneNumber ?? null,
+    status: member.status,
+  }
+}
+
+export async function updateMobileAdminMemberKyc(input: {
+  actorUserId: string
+  governmentIdNumber?: string | null
+  kycDocumentType?: string | null
+  kycDocumentUrl?: string | null
+  kycReviewNotes?: string | null
+  kycStatus: string
+  memberId: string
+  tenantId: string
+}) {
+  const prisma = requireMobileAdminPrisma("Member KYC review")
+
+  const member = await updateMemberKyc(
+    {
+      actorUserId: input.actorUserId,
+      governmentIdNumber: input.governmentIdNumber,
+      kycDocumentType: input.kycDocumentType,
+      kycDocumentUrl: input.kycDocumentUrl,
+      kycReviewNotes: input.kycReviewNotes,
+      kycStatus: input.kycStatus as never,
+      memberId: input.memberId,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return {
+    id: member.id,
+    kycStatus: member.kycStatus,
+  }
+}
+
+export async function reviewMobileAdminReceipt(input: {
+  actorUserId: string
+  adjustedAllocations?: MobileReceiptCreateAllocation[]
+  adjustmentReason?: string | null
+  decision: string
+  receiptId: string
+  reviewNotes?: string | null
+  tenantId: string
+}): Promise<MobilePaymentReceipt> {
+  const prisma = requireMobileAdminPrisma("Receipt review")
+
+  const receipt = await reviewMemberPaymentReceipt(
+    {
+      actorUserId: input.actorUserId,
+      adjustedAllocations: input.adjustedAllocations,
+      adjustmentReason: input.adjustmentReason,
+      decision: input.decision as never,
+      receiptId: input.receiptId,
+      reviewNotes: input.reviewNotes,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileReceipt(receipt)
+}
+
+export async function reviewMobileAdminFinancingRequest(input: {
+  actorUserId: string
+  loanRequestId: string
+  notes?: string | null
+  status: "approved" | "rejected" | "under_review"
+  tenantId: string
+}) {
+  const prisma = requireMobileAdminPrisma("Financing request review")
+  const request = await reviewLoanRequest(
+    {
+      actorUserId: input.actorUserId,
+      loanRequestId: input.loanRequestId,
+      notes: input.notes ?? undefined,
+      status: input.status,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return {
+    id: request.id,
+    status: request.status,
+  }
+}
+
+export async function reviewMobileAdminProcurementRequest(input: {
+  actorUserId: string
+  approvedCost?: number | null
+  approvedRepaymentMonths?: number | null
+  notes?: string | null
+  procurementRequestId: string
+  status: "approved" | "rejected" | "under_review"
+  tenantId: string
+}): Promise<MobileMemberProcurementRequest> {
+  const prisma = requireMobileAdminPrisma("Procurement request review")
+  const request = await reviewProcurementRequest(
+    {
+      actorUserId: input.actorUserId,
+      approvedCost: input.approvedCost,
+      approvedRepaymentMonths: input.approvedRepaymentMonths,
+      notes: input.notes,
+      procurementRequestId: input.procurementRequestId,
+      status: input.status,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileProcurementRequest(request)
+}
+
+export async function reviewMobileAdminFoodPurchaseApplication(input: {
+  actorUserId: string
+  applicationId: string
+  approvedAmount?: number | null
+  approvedPaybackMonths?: number | null
+  notes?: string | null
+  status: "approved" | "rejected" | "under_review"
+  tenantId: string
+}): Promise<MobileFoodPurchaseApplication> {
+  const prisma = requireMobileAdminPrisma("Foodstuff Purchase review")
+  const application = await reviewFoodPurchaseApplication(
+    {
+      actorUserId: input.actorUserId,
+      applicationId: input.applicationId,
+      approvedAmount: input.approvedAmount,
+      approvedPaybackMonths: input.approvedPaybackMonths,
+      notes: input.notes,
+      status: input.status,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileFoodPurchaseApplication(application)
+}
+
+export async function reviewMobileAdminProjectFinancingRequest(input: {
+  actorUserId: string
+  approvedAmount?: number | null
+  approvedPaybackMonths?: number | null
+  approvedStructure?: MobileProjectFinancingStructure | null
+  notes?: string | null
+  projectFinancingRequestId: string
+  status: "approved" | "rejected" | "under_review"
+  tenantId: string
+}): Promise<MobileProjectFinancingRequest> {
+  const prisma = requireMobileAdminPrisma("Project financing review")
+  const request = await reviewProjectFinancingRequest(
+    {
+      actorUserId: input.actorUserId,
+      approvedAmount: input.approvedAmount,
+      approvedPaybackMonths: input.approvedPaybackMonths,
+      approvedStructure: input.approvedStructure,
+      notes: input.notes,
+      projectFinancingRequestId: input.projectFinancingRequestId,
+      status: input.status,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileProjectFinancingRequest(request)
+}
+
+export async function reviewMobileAdminShareApplication(input: {
+  actorUserId: string
+  applicationId: string
+  approvedUnits?: number | null
+  decision: "approved" | "rejected"
+  effectiveDate?: Date
+  reviewNotes?: string | null
+  tenantId: string
+}): Promise<MobileMemberShareApplication> {
+  const prisma = requireMobileAdminPrisma("Share application review")
+  const application = await reviewMemberShareApplication(
+    {
+      actorUserId: input.actorUserId,
+      applicationId: input.applicationId,
+      approvedUnits: input.approvedUnits ?? undefined,
+      decision: input.decision,
+      effectiveDate: input.effectiveDate,
+      reviewNotes: input.reviewNotes,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileShareApplication(application)
+}
+
+export async function addMobileAdminSupportReply(input: {
+  actorUserId: string
+  attachmentUrl?: string | null
+  message: string
+  supportCaseId: string
+  tenantId: string
+}): Promise<MobileSupportCase> {
+  const prisma = requireMobileAdminPrisma("Support reply")
+
+  await addSupportCaseMessage(
+    {
+      attachmentUrl: input.attachmentUrl,
+      authorType: "staff",
+      authorUserId: input.actorUserId,
+      message: input.message,
+      supportCaseId: input.supportCaseId,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileSupportCase(
+    await getSupportCase(
+      {
+        supportCaseId: input.supportCaseId,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+  )
+}
+
+export async function updateMobileAdminSupportStatus(input: {
+  actorUserId: string
+  assignedToUserId?: string | null
+  priority?: SupportCasePriority
+  requiresFinancialAdjustment?: boolean
+  resolutionSummary?: string | null
+  status: SupportCaseStatus
+  supportCaseId: string
+  tenantId: string
+}): Promise<MobileSupportCase> {
+  const prisma = requireMobileAdminPrisma("Support status update")
+  const supportCase = await updateSupportCaseStatus(
+    {
+      actorUserId: input.actorUserId,
+      assignedToUserId: input.assignedToUserId,
+      priority: input.priority,
+      requiresFinancialAdjustment: input.requiresFinancialAdjustment,
+      resolutionSummary: input.resolutionSummary,
+      status: input.status,
+      supportCaseId: input.supportCaseId,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileSupportCase(supportCase)
+}
+
+export async function recordMobileAdminCollectionFollowUp(input: {
+  actorUserId: string
+  assignedToUserId?: string
+  caseStage?: string
+  nextActionAt?: string
+  note: string
+  priority?: string
+  promiseToPayAt?: string
+  repaymentScheduleItemId: string
+  resolutionStatus?: string
+  status: "promise_to_pay" | "reminded" | "settled" | "unreachable"
+  tenantId: string
+}) {
+  const prisma = requireMobileAdminPrisma("Collection follow-up")
+  const followUp = await recordCollectionFollowUp(
+    {
+      actorUserId: input.actorUserId,
+      assignedToUserId: input.assignedToUserId,
+      caseStage: input.caseStage,
+      nextActionAt: input.nextActionAt,
+      note: input.note,
+      priority: input.priority,
+      promiseToPayAt: input.promiseToPayAt,
+      repaymentScheduleItemId: input.repaymentScheduleItemId,
+      resolutionStatus: input.resolutionStatus,
+      status: input.status,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return {
+    id: followUp.id,
+    status: followUp.status,
+  }
 }
 
 function buildCommitmentSection(
@@ -4156,6 +4628,77 @@ function buildReceiptStatementSection(input: {
   }
 }
 
+function formatChargeWorkflowSource(charge: any) {
+  if (charge.procurementRequest) {
+    return `Procurement - ${charge.procurementRequest.itemName}`
+  }
+
+  if (charge.foodPurchaseApplication) {
+    return "Foodstuff Purchase"
+  }
+
+  if (charge.projectFinancingRequest) {
+    return `Project financing - ${charge.projectFinancingRequest.businessName}`
+  }
+
+  if (charge.loanRequest) {
+    return "Financing request"
+  }
+
+  return (
+    charge.chargeApplicability?.workflow?.replace(/_/g, " ") ?? "Manual charge"
+  )
+}
+
+function buildChargesStatementSection(
+  detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
+): MobileMemberStatementSection {
+  const pendingCharges = detail.chargeApplications.filter(
+    (charge: any) => charge.status === "pending"
+  )
+  const rows: MobileMemberSectionRow[] = [
+    {
+      detail:
+        pendingCharges.length > 0
+          ? "Separately paid charges are waiting for payment evidence, waiver, or correction."
+          : "No separately paid charges are pending.",
+      format: "count",
+      key: "pending-workflow-charges",
+      label: "Pending separate charges",
+      status: pendingCharges.length > 0 ? "Needs payment" : "Clear",
+      value: pendingCharges.length,
+    },
+  ]
+
+  for (const charge of detail.chargeApplications.slice(0, 6)) {
+    rows.push({
+      detail: [
+        formatChargeWorkflowSource(charge),
+        charge.assessedAt
+          ? `Assessed ${formatDateLabel(charge.assessedAt)}`
+          : null,
+        humanizeStatus(charge.collectionMode),
+      ]
+        .filter(Boolean)
+        .join(" - "),
+      format: "currency",
+      key: `charge-${charge.id}`,
+      label: `${charge.chargeDefinition.name} (${charge.chargeDefinition.code})`,
+      status: humanizeStatus(charge.status),
+      value: Number(charge.amount ?? 0),
+    })
+  }
+
+  return {
+    emptyState: "No charge applications are available.",
+    key: "charges",
+    rows,
+    subtitle:
+      "Workflow charges stay separate from financing, procurement, Foodstuff Purchase, and project principal amounts.",
+    title: "Charges",
+  }
+}
+
 function buildSupportStatementSection(input: {
   cases: SupportCaseRow[]
   summary: Awaited<ReturnType<typeof getMemberSupportCaseSummary>>
@@ -4264,6 +4807,7 @@ async function buildMemberStatement(input: {
       toStatementSection(commitmentSection),
       toStatementSection(financingSection),
       toStatementSection(sharesSection),
+      buildChargesStatementSection(input.detail),
       buildDocumentStatementSection(input.detail),
       buildLedgerStatementSection(input.detail),
     ],
@@ -4708,6 +5252,7 @@ export async function getMobileAdminMemberDetail(input: {
         receipts,
         summary: receiptSummary,
       }),
+      buildChargesStatementSection(detail),
       buildSupportStatementSection({
         cases: supportCases,
         summary: supportSummary,

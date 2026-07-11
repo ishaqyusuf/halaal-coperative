@@ -1,7 +1,4 @@
-import {
-  WorkspaceEmptyState,
-  WorkspacePageShell,
-} from "@/components/dashboard"
+import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import {
   MemberProjectFinancingRequestsView,
   ProjectFinancingRequestsView,
@@ -79,6 +76,7 @@ export default async function ProjectFinancingPage() {
         description="Request cooperative business funding and track finance review."
       >
         <MemberProjectFinancingRequestsView
+          chargeOptions={data.chargeOptions}
           member={data.member}
           requests={data.requests}
         />
@@ -93,9 +91,11 @@ export default async function ProjectFinancingPage() {
       description="Stage and review member business funding requests without posting disbursements or profit allocations."
     >
       <ProjectFinancingRequestsView
+        approvalChargeOptions={data.approvalChargeOptions}
         canReview={data.canReview}
         memberOptions={data.memberOptions}
         requests={data.requests}
+        submissionChargeOptions={data.submissionChargeOptions}
         summary={data.summary}
       />
     </WorkspacePageShell>

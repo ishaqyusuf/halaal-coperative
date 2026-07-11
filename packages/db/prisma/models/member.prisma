@@ -51,6 +51,7 @@ model Member {
   monthlyRecordMembers                 MonthlyRecordMember[]
   dividendAllocations                  DividendAllocation[]
   shareLedgerEntries                   MemberShareLedgerEntry[]
+  historicalSharePurchases             HistoricalMemberSharePurchase[]
   shareApplications                    MemberShareApplication[]
   shareProfitAllocations               ShareProfitAllocation[]
   ledgerTransactions                   LedgerTransaction[]

@@ -7,6 +7,7 @@ export type InitialMigrationStatus =
   | "live_operations"
 
 export type InitialMigrationStepKey =
+  | "migration_setup_mode"
   | "finance_start_date"
   | "charge_schedules"
   | "business_profit_pools"
@@ -44,6 +45,7 @@ export function buildInitialMigrationSnapshot(input: {
   hasLegacyLoansReviewed: boolean
   hasMemberLedgerBackfill: boolean
   hasMemberProfiles: boolean
+  hasMigrationSetupMode?: boolean
   hasShareCapitalPlan: boolean
   requiresShareCapitalPlan?: boolean
   status: InitialMigrationStatus
@@ -51,6 +53,11 @@ export function buildInitialMigrationSnapshot(input: {
   const shareCapitalPlanComplete =
     input.requiresShareCapitalPlan === false || input.hasShareCapitalPlan
   const steps: InitialMigrationStep[] = [
+    {
+      complete: input.hasMigrationSetupMode ?? true,
+      key: "migration_setup_mode",
+      label: "Migration setup mode",
+    },
     {
       complete: input.hasFinanceStartDate,
       key: "finance_start_date",

@@ -1,7 +1,4 @@
-import {
-  WorkspaceEmptyState,
-  WorkspacePageShell,
-} from "@/components/dashboard"
+import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import {
   MemberProcurementRequestsView,
   ProcurementRequestsView,
@@ -79,6 +76,7 @@ export default async function ProcurementPage() {
         description="Request a cooperative-purchased item and track finance review."
       >
         <MemberProcurementRequestsView
+          chargeOptions={data.chargeOptions}
           member={data.member}
           requests={data.requests}
         />
@@ -93,9 +91,11 @@ export default async function ProcurementPage() {
       description="Stage and review member item-purchase requests before the cooperative commits funds."
     >
       <ProcurementRequestsView
+        approvalChargeOptions={data.approvalChargeOptions}
         canReview={data.canReview}
         memberOptions={data.memberOptions}
         requests={data.requests}
+        submissionChargeOptions={data.submissionChargeOptions}
         summary={data.summary}
       />
     </WorkspacePageShell>

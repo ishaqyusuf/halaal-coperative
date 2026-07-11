@@ -4,6 +4,7 @@ import {
   listFoodPurchaseApplications,
   listFoodPurchaseCycles,
   listMembers,
+  quoteApplicableCharges,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
@@ -47,31 +48,57 @@ export async function loadFoodPurchasePageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const [cycles, applications] = await Promise.all([
+    const [cycles, applications, chargeOptions] = await Promise.all([
       listFoodPurchaseCycles({ tenantId: context.tenant.id }),
       listFoodPurchaseApplications({
         memberId: member.id,
         tenantId: context.tenant.id,
+      }),
+      quoteApplicableCharges({
+        basisAmount: 100,
+        tenantId: context.tenant.id,
+        trigger: "submission",
+        workflow: "food_purchase_application",
       }),
     ])
 
     return {
       state: "member-ready" as const,
       applications,
+      chargeOptions,
       cycles,
       member,
     }
   }
 
-  const [cycles, applications, members] = await Promise.all([
+  const [
+    cycles,
+    applications,
+    members,
+    submissionChargeOptions,
+    approvalChargeOptions,
+  ] = await Promise.all([
     listFoodPurchaseCycles({ tenantId: context.tenant.id }),
     listFoodPurchaseApplications({ tenantId: context.tenant.id }),
     listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
+    quoteApplicableCharges({
+      basisAmount: 100,
+      tenantId: context.tenant.id,
+      trigger: "submission",
+      workflow: "food_purchase_application",
+    }),
+    quoteApplicableCharges({
+      basisAmount: 100,
+      tenantId: context.tenant.id,
+      trigger: "approval",
+      workflow: "food_purchase_application",
+    }),
   ])
 
   return {
     state: "staff-ready" as const,
     applications,
+    approvalChargeOptions,
     canRecordAccounting: canSubmitApplications,
     canReleaseFunds,
     canReviewAccounting: canReleaseFunds,
@@ -82,6 +109,7 @@ export async function loadFoodPurchasePageData() {
       id: member.id,
       label: `${member.fullName} (${member.memberNumber})`,
     })),
+    submissionChargeOptions,
     summary: {
       approvedApplications: applications.filter(
         (application) => application.status === "approved"

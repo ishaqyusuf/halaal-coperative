@@ -15,13 +15,18 @@ export type MemberOpeningBalanceStatus =
 
 export type MemberOpeningBalanceRow = {
   activeFinancingOutstanding: number
+  activeFinancingGuarantorOneMemberId: string | null
+  activeFinancingGuarantorTwoMemberId: string | null
+  activeFinancingOpenedAt: Date | null
   appliedAt: Date | null
+  appliedFoodPurchaseApplicationId: string | null
   appliedByUserId: string | null
   appliedLoanId: string | null
   appliedProcurementRequestId: string | null
   commitmentSavingsBalance: number
   createdAt: Date
   createdByUserId: string | null
+  foodPurchaseOutstanding: number
   id: string
   member: {
     fullName: string
@@ -48,7 +53,11 @@ export type MemberOpeningBalanceRow = {
 
 type MemberOpeningBalanceInput = {
   activeFinancingOutstanding?: number
+  activeFinancingGuarantorOneMemberId?: string | null
+  activeFinancingGuarantorTwoMemberId?: string | null
+  activeFinancingOpenedAt?: Date | null
   commitmentSavingsBalance?: number
+  foodPurchaseOutstanding?: number
   memberId: string
   notes?: string | null
   openingDate: Date
@@ -86,13 +95,21 @@ function requireLedgerAccountId(
 function normalizeOpeningBalance(row: any): MemberOpeningBalanceRow {
   return {
     activeFinancingOutstanding: Number(row.activeFinancingOutstanding ?? 0),
+    activeFinancingGuarantorOneMemberId:
+      row.activeFinancingGuarantorOneMemberId ?? null,
+    activeFinancingGuarantorTwoMemberId:
+      row.activeFinancingGuarantorTwoMemberId ?? null,
+    activeFinancingOpenedAt: row.activeFinancingOpenedAt ?? null,
     appliedAt: row.appliedAt ?? null,
+    appliedFoodPurchaseApplicationId:
+      row.appliedFoodPurchaseApplicationId ?? null,
     appliedByUserId: row.appliedByUserId ?? null,
     appliedLoanId: row.appliedLoanId ?? null,
     appliedProcurementRequestId: row.appliedProcurementRequestId ?? null,
     commitmentSavingsBalance: Number(row.commitmentSavingsBalance ?? 0),
     createdAt: row.createdAt,
     createdByUserId: row.createdByUserId ?? null,
+    foodPurchaseOutstanding: Number(row.foodPurchaseOutstanding ?? 0),
     id: row.id,
     member: {
       fullName: row.member?.fullName ?? "Member",
@@ -153,6 +170,7 @@ async function createOpeningFinancingObligation(
   },
   prisma: any
 ): Promise<{
+  guarantorApprovalIds: string[]
   loanId: string | null
   loanRequestId: string | null
   scheduleItemId: string | null
@@ -163,6 +181,7 @@ async function createOpeningFinancingObligation(
 
   if (activeFinancingOutstanding <= 0) {
     return {
+      guarantorApprovalIds: [],
       loanId: null,
       loanRequestId: null,
       scheduleItemId: null,
@@ -182,6 +201,19 @@ async function createOpeningFinancingObligation(
   }
 
   const openingDate = input.openingBalance.openingDate
+  const financingOpenedAt =
+    input.openingBalance.activeFinancingOpenedAt ?? openingDate
+  const guarantorMemberIds = Array.from(
+    new Set(
+      [
+        input.openingBalance.activeFinancingGuarantorOneMemberId,
+        input.openingBalance.activeFinancingGuarantorTwoMemberId,
+      ].filter(
+        (value): value is string =>
+          typeof value === "string" && value.trim().length > 0
+      )
+    )
+  )
   const product = await prisma.loanProduct.upsert({
     create: {
       isActive: true,
@@ -216,7 +248,7 @@ async function createOpeningFinancingObligation(
       memberId: input.openingBalance.memberId,
       purpose: "Brought-forward active financing balance",
       requestedAmount: activeFinancingOutstanding,
-      requestedAt: openingDate,
+      requestedAt: financingOpenedAt,
       requestedTermMonths: 1,
       reviewNotes: "Approved as part of brought-forward opening balance.",
       status: "approved",
@@ -235,12 +267,39 @@ async function createOpeningFinancingObligation(
     },
   })
 
+  const guarantorApprovalIds: string[] = []
+  if (guarantorMemberIds.length > 0) {
+    if (typeof prisma.loanGuarantorApproval?.create !== "function") {
+      throw new Error(
+        "Opening financing guarantors require the latest Prisma migration and generated client."
+      )
+    }
+
+    for (const guarantorMemberId of guarantorMemberIds) {
+      const approval = await prisma.loanGuarantorApproval.create({
+        data: {
+          guarantorMemberId,
+          loanRequestId: request.id,
+          requestedAt: financingOpenedAt,
+          requestedByUserId: input.actorUserId,
+          respondedAt: input.appliedAt,
+          respondedByUserId: input.actorUserId,
+          responseNotes:
+            "Accepted as part of brought-forward opening financing evidence.",
+          status: "approved",
+          tenantId: input.tenantId,
+        },
+      })
+      guarantorApprovalIds.push(approval.id)
+    }
+  }
+
   const loan = await prisma.loan.create({
     data: {
-      disbursedAt: openingDate,
+      disbursedAt: financingOpenedAt,
       estimatedMonthlyServicing: activeFinancingOutstanding,
       extraMonthlySavingsAmount: 0,
-      firstRepaymentDueAt: openingDate,
+      firstRepaymentDueAt: financingOpenedAt,
       loanProductId: product.id,
       loanRequestId: request.id,
       memberId: input.openingBalance.memberId,
@@ -256,7 +315,7 @@ async function createOpeningFinancingObligation(
     data: {
       amountPaid: 0,
       chargeDue: 0,
-      dueAt: openingDate,
+      dueAt: financingOpenedAt,
       installmentNumber: 1,
       loanId: loan.id,
       principalDue: activeFinancingOutstanding,
@@ -275,7 +334,9 @@ async function createOpeningFinancingObligation(
       entityType: "Loan",
       metadata: {
         amount: activeFinancingOutstanding,
-        dueAt: openingDate.toISOString(),
+        dueAt: financingOpenedAt.toISOString(),
+        guarantorApprovalIds,
+        guarantorMemberIds,
         loanRequestId: request.id,
         memberId: input.openingBalance.memberId,
         openingBalanceId: input.openingBalance.id,
@@ -287,6 +348,7 @@ async function createOpeningFinancingObligation(
   )
 
   return {
+    guarantorApprovalIds,
     loanId: loan.id,
     loanRequestId: request.id,
     scheduleItemId: scheduleItem.id ?? null,
@@ -544,6 +606,207 @@ async function createOpeningProcurementObligation(
   }
 }
 
+async function createOpeningFoodPurchaseObligation(
+  input: {
+    actorUserId: string
+    appliedAt: Date
+    openingBalance: any
+    tenantId: string
+  },
+  prisma: any
+): Promise<{
+  cycleId: string | null
+  foodPurchaseApplicationId: string | null
+}> {
+  const foodPurchaseOutstanding = Number(
+    input.openingBalance.foodPurchaseOutstanding ?? 0
+  )
+
+  if (foodPurchaseOutstanding <= 0) {
+    return {
+      cycleId: null,
+      foodPurchaseApplicationId: null,
+    }
+  }
+
+  if (
+    typeof prisma.foodPurchaseCycle?.upsert !== "function" ||
+    typeof prisma.foodPurchaseApplication?.create !== "function"
+  ) {
+    throw new Error(
+      "Opening Food Purchase obligations require the latest Prisma migration and generated client."
+    )
+  }
+
+  const openingDate = input.openingBalance.openingDate
+  const periodMonth = new Date(
+    Date.UTC(openingDate.getUTCFullYear(), openingDate.getUTCMonth(), 1)
+  )
+  const policy = await prisma.tenantPolicy.findUnique({
+    where: { tenantId: input.tenantId },
+  })
+  const policyMaximumPaybackMonths = Number(
+    policy?.foodPurchaseMaximumPaybackMonths ?? 1
+  )
+  const cycle = await prisma.foodPurchaseCycle.upsert({
+    create: {
+      periodMonth,
+      releaseNotes:
+        "Brought-forward Food Purchase cycle imported from cooperative records.",
+      releasedAmount: foodPurchaseOutstanding,
+      releasedAt: input.appliedAt,
+      releasedByUserId: input.actorUserId,
+      status: "open",
+      tenantId: input.tenantId,
+    },
+    update: {
+      releasedAmount: {
+        increment: foodPurchaseOutstanding,
+      },
+    },
+    where: {
+      tenantId_periodMonth: {
+        periodMonth,
+        tenantId: input.tenantId,
+      },
+    },
+  })
+
+  const application = await prisma.foodPurchaseApplication.create({
+    data: {
+      allowsCommitmentReductionDuringPayback:
+        policy?.foodPurchaseAllowsCommitmentReductionDuringPayback ?? false,
+      approvedAmount: foodPurchaseOutstanding,
+      approvedPaybackMonths: 1,
+      cycleId: cycle.id,
+      itemDescription: "Brought-forward Food Purchase balance",
+      memberId: input.openingBalance.memberId,
+      paidAmount: 0,
+      policyMaximumPaybackMonths,
+      requestedAmount: foodPurchaseOutstanding,
+      requestedAt: openingDate,
+      requestedPaybackMonths: 1,
+      requestNotes:
+        input.openingBalance.notes?.trim() ||
+        "Opening Food Purchase obligation imported from cooperative records.",
+      reviewedAt: input.appliedAt,
+      reviewedByUserId: input.actorUserId,
+      reviewNotes: "Approved as part of brought-forward opening balance.",
+      status: "approved",
+      submittedByUserId: input.actorUserId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  await createAuditLogEntry(
+    {
+      action: "migration.opening_balance.food_purchase_posted",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityId: application.id,
+      entityType: "FoodPurchaseApplication",
+      metadata: {
+        amount: foodPurchaseOutstanding,
+        cycleId: cycle.id,
+        memberId: input.openingBalance.memberId,
+        openingBalanceId: input.openingBalance.id,
+        policyMaximumPaybackMonths,
+      },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return {
+    cycleId: cycle.id,
+    foodPurchaseApplicationId: application.id,
+  }
+}
+
+async function reverseOpeningFoodPurchaseObligation(
+  input: {
+    actorUserId: string
+    openingBalance: any
+    reversalNotes: string
+    reversedAt: Date
+    tenantId: string
+  },
+  prisma: any
+): Promise<{
+  foodPurchaseApplicationId: string | null
+  reversed: boolean
+}> {
+  const foodPurchaseApplicationId =
+    input.openingBalance.appliedFoodPurchaseApplicationId ?? null
+
+  if (!foodPurchaseApplicationId) {
+    return {
+      foodPurchaseApplicationId: null,
+      reversed: false,
+    }
+  }
+
+  if (
+    typeof prisma.foodPurchaseApplication?.findFirst !== "function" ||
+    typeof prisma.foodPurchaseApplication?.update !== "function"
+  ) {
+    throw new Error(
+      "Opening Food Purchase reversal requires the latest Prisma migration and generated client."
+    )
+  }
+
+  const application = await prisma.foodPurchaseApplication.findFirst({
+    where: {
+      id: foodPurchaseApplicationId,
+      memberId: input.openingBalance.memberId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!application) {
+    throw new Error("Linked opening Food Purchase obligation was not found.")
+  }
+
+  if (Number(application.paidAmount ?? 0) > 0) {
+    throw new Error(
+      "Opening balance reversal cannot cancel a Food Purchase obligation that already has repayment activity."
+    )
+  }
+
+  await prisma.foodPurchaseApplication.update({
+    data: {
+      reviewNotes: `Reversed from opening balance: ${input.reversalNotes}`,
+      status: "cancelled",
+    },
+    where: {
+      id: foodPurchaseApplicationId,
+    },
+  })
+
+  await createAuditLogEntry(
+    {
+      action: "migration.opening_balance.food_purchase_reversed",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityId: foodPurchaseApplicationId,
+      entityType: "FoodPurchaseApplication",
+      metadata: {
+        memberId: input.openingBalance.memberId,
+        openingBalanceId: input.openingBalance.id,
+        reversedAt: input.reversedAt.toISOString(),
+        reversalNotes: input.reversalNotes,
+      },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return {
+    foodPurchaseApplicationId,
+    reversed: true,
+  }
+}
+
 async function reverseOpeningProcurementObligation(
   input: {
     actorUserId: string
@@ -679,12 +942,25 @@ function validateOpeningBalanceInput(input: MemberOpeningBalanceInput) {
     input.procurementOutstanding ?? 0,
     "Procurement outstanding"
   )
+  assertNonNegativeAmount(
+    input.foodPurchaseOutstanding ?? 0,
+    "Food Purchase outstanding"
+  )
 
   if (
     input.shareUnits != null &&
     (!Number.isInteger(input.shareUnits) || input.shareUnits < 0)
   ) {
     throw new Error("Share units must be a whole number 0 or greater.")
+  }
+
+  if (
+    input.activeFinancingGuarantorOneMemberId &&
+    input.activeFinancingGuarantorTwoMemberId &&
+    input.activeFinancingGuarantorOneMemberId ===
+      input.activeFinancingGuarantorTwoMemberId
+  ) {
+    throw new Error("Opening financing guarantors must be different members.")
   }
 }
 
@@ -890,8 +1166,16 @@ export async function createMemberOpeningBalance(
   const created = await prisma.memberOpeningBalance.create({
     data: {
       activeFinancingOutstanding: input.activeFinancingOutstanding ?? 0,
+      activeFinancingGuarantorOneMemberId:
+        input.activeFinancingGuarantorOneMemberId?.trim() || null,
+      activeFinancingGuarantorTwoMemberId:
+        input.activeFinancingGuarantorTwoMemberId?.trim() || null,
+      activeFinancingOpenedAt: input.activeFinancingOpenedAt
+        ? startOfDay(input.activeFinancingOpenedAt)
+        : null,
       commitmentSavingsBalance: input.commitmentSavingsBalance ?? 0,
       createdByUserId: input.actorUserId,
+      foodPurchaseOutstanding: input.foodPurchaseOutstanding ?? 0,
       memberId: input.memberId,
       notes: input.notes?.trim() || null,
       openingDate,
@@ -915,7 +1199,15 @@ export async function createMemberOpeningBalance(
       entityType: "MemberOpeningBalance",
       metadata: {
         activeFinancingOutstanding: input.activeFinancingOutstanding ?? 0,
+        activeFinancingGuarantorOneMemberId:
+          input.activeFinancingGuarantorOneMemberId?.trim() || null,
+        activeFinancingGuarantorTwoMemberId:
+          input.activeFinancingGuarantorTwoMemberId?.trim() || null,
+        activeFinancingOpenedAt: input.activeFinancingOpenedAt
+          ? startOfDay(input.activeFinancingOpenedAt).toISOString()
+          : null,
         commitmentSavingsBalance: input.commitmentSavingsBalance ?? 0,
+        foodPurchaseOutstanding: input.foodPurchaseOutstanding ?? 0,
         hasSourceDocument: Boolean(input.sourceDocumentUrl),
         memberId: input.memberId,
         openingDate: openingDate.toISOString(),
@@ -1074,6 +1366,9 @@ export async function applyMemberOpeningBalance(
       existing.activeFinancingOutstanding ?? 0
     )
     const procurementOutstanding = Number(existing.procurementOutstanding ?? 0)
+    const foodPurchaseOutstanding = Number(
+      existing.foodPurchaseOutstanding ?? 0
+    )
     const appliedAt = new Date()
     let savingsLedgerTransactionId: string | null = null
     let shareLedgerEntryId: string | null = null
@@ -1160,6 +1455,16 @@ export async function applyMemberOpeningBalance(
       tx
     )
 
+    const foodPurchasePosting = await createOpeningFoodPurchaseObligation(
+      {
+        actorUserId: input.actorUserId,
+        appliedAt,
+        openingBalance: existing,
+        tenantId: input.tenantId,
+      },
+      tx
+    )
+
     const updated = await tx.memberOpeningBalance.update({
       data: {
         appliedAt,
@@ -1173,6 +1478,12 @@ export async function applyMemberOpeningBalance(
           ? {
               appliedProcurementRequestId:
                 procurementPosting.procurementRequestId,
+            }
+          : {}),
+        ...(foodPurchasePosting.foodPurchaseApplicationId
+          ? {
+              appliedFoodPurchaseApplicationId:
+                foodPurchasePosting.foodPurchaseApplicationId,
             }
           : {}),
         status: "applied",
@@ -1194,6 +1505,10 @@ export async function applyMemberOpeningBalance(
           appliedAt: appliedAt.toISOString(),
           activeFinancingOutstanding,
           commitmentSavingsBalance,
+          foodPurchaseApplicationId:
+            foodPurchasePosting.foodPurchaseApplicationId,
+          foodPurchaseCycleId: foodPurchasePosting.cycleId,
+          foodPurchaseOutstanding,
           loanId: financingPosting.loanId,
           loanRequestId: financingPosting.loanRequestId,
           loanScheduleItemId: financingPosting.scheduleItemId,
@@ -1264,6 +1579,9 @@ export async function reverseMemberOpeningBalance(
     const specialSavingsBalance = Number(existing.specialSavingsBalance ?? 0)
     const savingsTotal = commitmentSavingsBalance + specialSavingsBalance
     const shareCapitalBalance = Number(existing.shareCapitalBalance ?? 0)
+    const foodPurchaseOutstanding = Number(
+      existing.foodPurchaseOutstanding ?? 0
+    )
     const reversedAt = new Date()
     let savingsReversalLedgerTransactionId: string | null = null
     let shareReversalLedgerEntryId: string | null = null
@@ -1280,6 +1598,17 @@ export async function reverseMemberOpeningBalance(
     )
 
     const procurementReversal = await reverseOpeningProcurementObligation(
+      {
+        actorUserId: input.actorUserId,
+        openingBalance: existing,
+        reversalNotes,
+        reversedAt,
+        tenantId: input.tenantId,
+      },
+      tx
+    )
+
+    const foodPurchaseReversal = await reverseOpeningFoodPurchaseObligation(
       {
         actorUserId: input.actorUserId,
         openingBalance: existing,
@@ -1398,6 +1727,10 @@ export async function reverseMemberOpeningBalance(
         metadata: {
           commitmentSavingsBalance,
           financingReversed: financingReversal.reversed,
+          foodPurchaseApplicationId:
+            foodPurchaseReversal.foodPurchaseApplicationId,
+          foodPurchaseOutstanding,
+          foodPurchaseReversed: foodPurchaseReversal.reversed,
           loanId: financingReversal.loanId,
           memberId: existing.memberId,
           procurementRequestId: procurementReversal.procurementRequestId,

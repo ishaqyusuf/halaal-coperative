@@ -15,6 +15,7 @@ import {
   type MobileFoodPurchaseApplication,
   type MobileFoodPurchaseCycle,
   type MobileMemberFoodPurchase,
+  type MobileWorkflowChargeOption,
 } from "@/lib/mobile-home-api"
 import { isMockSessionToken } from "@/lib/session-store"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -63,6 +64,66 @@ function formatStatus(value: string) {
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function estimateChargeAmount(
+  charge: MobileWorkflowChargeOption,
+  basisAmount: number
+) {
+  if (charge.chargeValueType === "percentage") {
+    return Number(((Math.max(0, basisAmount) * charge.amount) / 100).toFixed(2))
+  }
+
+  return charge.amount
+}
+
+function MobileChargeSummary({
+  basisAmount,
+  charges,
+  currencyCode,
+}: {
+  basisAmount: number
+  charges: MobileWorkflowChargeOption[]
+  currencyCode: string
+}) {
+  const estimatedCharges = charges
+    .map((charge) => ({
+      ...charge,
+      estimatedAmount: estimateChargeAmount(charge, basisAmount),
+    }))
+    .filter((charge) => charge.estimatedAmount > 0)
+  const total = estimatedCharges.reduce(
+    (sum, charge) => sum + charge.estimatedAmount,
+    0
+  )
+
+  if (estimatedCharges.length === 0) return null
+
+  return (
+    <View className="gap-2 rounded-lg bg-secondary p-3">
+      <View className="flex-row items-center justify-between gap-3">
+        <Text className="text-sm font-semibold text-foreground">
+          Applicable charges
+        </Text>
+        <Text className="text-sm font-semibold text-foreground">
+          {formatCurrency(total, currencyCode)}
+        </Text>
+      </View>
+      {estimatedCharges.map((charge) => (
+        <View
+          className="flex-row items-center justify-between gap-3"
+          key={`${charge.id}-${charge.collectionMode}`}
+        >
+          <Text className="flex-1 text-xs text-muted-foreground">
+            {charge.name} - {formatStatus(charge.collectionMode)}
+          </Text>
+          <Text className="text-xs font-medium text-foreground">
+            {formatCurrency(charge.estimatedAmount, currencyCode)}
+          </Text>
+        </View>
+      ))}
+    </View>
+  )
 }
 
 function FoodPurchaseCycleButton({
@@ -413,6 +474,11 @@ export function FoodPurchaseScreen() {
                   onChangeText={setRequestNotes}
                   placeholder="Notes"
                   value={requestNotes}
+                />
+                <MobileChargeSummary
+                  basisAmount={amount}
+                  charges={foodPurchase?.chargeOptions ?? []}
+                  currencyCode={currencyCode}
                 />
                 <Button
                   className="h-12"

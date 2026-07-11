@@ -121,6 +121,7 @@ export default async function MembersPage({
                   cooperativeStartDate={data.tenant?.startDate}
                   devMode={data.quickFillEnabled}
                   memberNumberPrefix={data.tenant?.memberNumberPrefix}
+                  migrationSetupMode={data.tenant?.migrationSetupMode}
                 />
               ) : undefined
             }
@@ -174,6 +175,7 @@ export default async function MembersPage({
                   cooperativeStartDate={data.tenant?.startDate}
                   devMode={data.quickFillEnabled}
                   memberNumberPrefix={data.tenant?.memberNumberPrefix}
+                  migrationSetupMode={data.tenant?.migrationSetupMode}
                 />
               ) : undefined
             }

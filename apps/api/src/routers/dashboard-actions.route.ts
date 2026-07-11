@@ -8,6 +8,9 @@ import {
   applyMemberOpeningBalance,
   buildBackfillDraftInputForMember,
   addSupportCaseMessage,
+  chargeApplicabilityTriggerKeys,
+  chargeCollectionModeKeys,
+  chargeWorkflowKeys,
   approveMemberOnboardingRequest,
   applyCharge,
   applyImportBatch,
@@ -17,6 +20,7 @@ import {
   createChargeDefinition,
   createChargeDefinitionVersion,
   createImportBatch,
+  createHistoricalMemberSharePurchase,
   createLegacyLoanMigrationDraft,
   createMemberOpeningBalance,
   createMemberPaymentReceipt,
@@ -48,6 +52,7 @@ import {
   importMembers,
   importRepaymentMigrations,
   getInitialMigrationMemberReview,
+  generateHistoricalBackfillShareProfitAllocations,
   markTenantBusinessProfitPoolsReviewed,
   markTenantLegacyLoansReviewed,
   applyMonthlyRecordMember,
@@ -103,6 +108,7 @@ import {
   updateTenantTrustProfile,
   updateChargeDefinition,
   updateChargeDefinitionVersion,
+  updateTenantMigrationSetup,
   updateShareBusiness,
   updateSupportCaseStatus,
   updateMemberKyc,
@@ -121,6 +127,7 @@ import {
   waiveChargeApplication,
   upsertMemberAmountLog,
   type FoodPurchaseApplicationRow,
+  type ChargeApplicabilityInput,
   type FoodPurchaseCycleRow,
   type MembershipRole,
   type MemberPaymentReceiptRow,
@@ -1704,6 +1711,109 @@ function getChargeDefinitionHistoryRows(formData: FormData) {
   )
 }
 
+const chargeWorkflowSet = new Set(chargeWorkflowKeys)
+const chargeApplicabilityTriggerSet = new Set(chargeApplicabilityTriggerKeys)
+const chargeCollectionModeSet = new Set(chargeCollectionModeKeys)
+
+function parseChargeApplicabilityRows(
+  formData: FormData
+): ChargeApplicabilityInput[] | undefined {
+  const rows: ChargeApplicabilityInput[] = []
+  const compactValues = [
+    ...formData.getAll("applicability"),
+    ...formData.getAll("chargeApplicability"),
+  ]
+    .map((value) => String(value).trim())
+    .filter(Boolean)
+
+  for (const value of compactValues) {
+    if (value.startsWith("{")) {
+      const parsed = JSON.parse(value) as Partial<ChargeApplicabilityInput>
+
+      if (
+        parsed.workflow &&
+        chargeWorkflowSet.has(parsed.workflow) &&
+        parsed.trigger &&
+        chargeApplicabilityTriggerSet.has(parsed.trigger)
+      ) {
+        rows.push({
+          collectionMode:
+            parsed.collectionMode &&
+            chargeCollectionModeSet.has(parsed.collectionMode)
+              ? parsed.collectionMode
+              : "deduct_from_savings",
+          isActive: parsed.isActive ?? true,
+          isRequired: parsed.isRequired ?? true,
+          trigger: parsed.trigger,
+          workflow: parsed.workflow,
+        })
+      }
+      continue
+    }
+
+    const [workflow, trigger, collectionMode = "deduct_from_savings"] =
+      value.split(":")
+
+    if (
+      chargeWorkflowSet.has(workflow as ChargeApplicabilityInput["workflow"]) &&
+      chargeApplicabilityTriggerSet.has(
+        trigger as ChargeApplicabilityInput["trigger"]
+      ) &&
+      chargeCollectionModeSet.has(
+        collectionMode as NonNullable<
+          ChargeApplicabilityInput["collectionMode"]
+        >
+      )
+    ) {
+      rows.push({
+        collectionMode: collectionMode as NonNullable<
+          ChargeApplicabilityInput["collectionMode"]
+        >,
+        isActive: true,
+        isRequired: true,
+        trigger: trigger as ChargeApplicabilityInput["trigger"],
+        workflow: workflow as ChargeApplicabilityInput["workflow"],
+      })
+    }
+  }
+
+  const workflows = getFormDataStringValues(formData, "applicabilityWorkflow")
+  const triggers = getFormDataStringValues(formData, "applicabilityTrigger")
+  const collectionModes = getFormDataStringValues(
+    formData,
+    "applicabilityCollectionMode"
+  )
+
+  workflows.forEach((workflow, index) => {
+    const trigger = triggers[index]
+    const collectionMode = collectionModes[index] || "deduct_from_savings"
+
+    if (
+      chargeWorkflowSet.has(workflow as ChargeApplicabilityInput["workflow"]) &&
+      chargeApplicabilityTriggerSet.has(
+        trigger as ChargeApplicabilityInput["trigger"]
+      ) &&
+      chargeCollectionModeSet.has(
+        collectionMode as NonNullable<
+          ChargeApplicabilityInput["collectionMode"]
+        >
+      )
+    ) {
+      rows.push({
+        collectionMode: collectionMode as NonNullable<
+          ChargeApplicabilityInput["collectionMode"]
+        >,
+        isActive: true,
+        isRequired: true,
+        trigger: trigger as ChargeApplicabilityInput["trigger"],
+        workflow: workflow as ChargeApplicabilityInput["workflow"],
+      })
+    }
+  })
+
+  return compactValues.length > 0 || workflows.length > 0 ? rows : undefined
+}
+
 function parseChargeHistoryAmount(value: string) {
   const amount = Number(value)
 
@@ -1808,6 +1918,7 @@ export async function createChargeDefinitionAction(formData: FormData) {
     chargeValueType === "percentage" ? "percentage" : kind
   ) as "fixed" | "percentage"
   const historyRows = getChargeDefinitionHistoryRows(formData)
+  const applicability = parseChargeApplicabilityRows(formData)
   const initialHistoryRow = historyRows[0]
 
   if (!initialHistoryRow) {
@@ -1828,6 +1939,7 @@ export async function createChargeDefinitionAction(formData: FormData) {
     appliesToLoanRequests: formData.get("appliesToLoanRequests") === "on",
     appliesToLoans: formData.get("appliesToLoans") === "on",
     appliesToMembers: formData.get("appliesToMembers") === "on",
+    ...(applicability ? { applicability } : {}),
     code: getRequiredString(formData, "code"),
     chargeFrequency: ((
       formData.get("chargeFrequency") as string | null
@@ -2065,6 +2177,21 @@ export async function updateTenantSharePolicyAction(formData: FormData) {
   revalidatePath("/getting-started")
 }
 
+export async function updateTenantMigrationSetupAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await updateTenantMigrationSetup({
+    actorUserId: actor.user.id,
+    mode: getRequiredString(formData, "mode") as
+      | "historical_backfill"
+      | "brought_forward",
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
+}
+
 export async function createMemberShareApplicationAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
 
@@ -2080,7 +2207,9 @@ export async function createMemberShareApplicationAction(formData: FormData) {
   revalidatePath("/settings/finance/shares")
 }
 
-export async function createOwnMemberShareApplicationAction(formData: FormData) {
+export async function createOwnMemberShareApplicationAction(
+  formData: FormData
+) {
   const actor = await requireDashboardActor(memberSelfServiceRoles)
   const member = await requireActorMember(actor)
 
@@ -2246,6 +2375,30 @@ type ShareBusinessProfitHistoryRow = {
   profitAmount: string
   profitDate: string
   reason: string
+  status:
+    | "draft"
+    | "pending"
+    | "reviewed"
+    | "completed"
+    | "approved"
+    | "archived"
+}
+
+function normalizeProfitEntryStatus(
+  status: string | null | undefined
+): ShareBusinessProfitHistoryRow["status"] {
+  if (
+    status === "draft" ||
+    status === "pending" ||
+    status === "reviewed" ||
+    status === "completed" ||
+    status === "approved" ||
+    status === "archived"
+  ) {
+    return status
+  }
+
+  return "draft"
 }
 
 function getShareBusinessProfitHistoryRows(formData: FormData) {
@@ -2265,11 +2418,13 @@ function getShareBusinessProfitHistoryRows(formData: FormData) {
     formData,
     "historyDeductionReason"
   )
+  const historyStatusValues = getFormDataStringValues(formData, "historyStatus")
   const historyRowCount = Math.max(
     historyProfitDateValues.length,
     historyProfitAmountValues.length,
     historyDeductionAmountValues.length,
-    historyDeductionReasonValues.length
+    historyDeductionReasonValues.length,
+    historyStatusValues.length
   )
   const historyRows: ShareBusinessProfitHistoryRow[] = Array.from(
     { length: historyRowCount },
@@ -2278,6 +2433,7 @@ function getShareBusinessProfitHistoryRows(formData: FormData) {
       profitAmount: historyProfitAmountValues[index] ?? "",
       profitDate: historyProfitDateValues[index] ?? "",
       reason: historyDeductionReasonValues[index] ?? "",
+      status: normalizeProfitEntryStatus(historyStatusValues[index]),
     })
   ).filter(
     (row) =>
@@ -2358,6 +2514,7 @@ export async function createShareBusinessAction(formData: FormData) {
       profitAmount,
       profitDate: new Date(`${row.profitDate}T00:00:00.000Z`),
       reason: row.reason.trim() || undefined,
+      status: row.status,
     }
   })
   const legacyProfitAmount = getOptionalNumber(formData, "profitAmount") ?? 0
@@ -2454,7 +2611,9 @@ export async function createShareBusinessProfitEntryAction(formData: FormData) {
     sourceType,
     status: getRequiredString(formData, "status") as
       | "draft"
+      | "pending"
       | "reviewed"
+      | "completed"
       | "approved"
       | "archived",
     tenantId: actor.tenant.id,
@@ -2493,7 +2652,9 @@ export async function updateShareBusinessProfitEntryAction(formData: FormData) {
     sourceType,
     status: getRequiredString(formData, "status") as
       | "draft"
+      | "pending"
       | "reviewed"
+      | "completed"
       | "approved"
       | "archived",
     tenantId: actor.tenant.id,
@@ -2518,6 +2679,21 @@ export async function generateShareProfitAllocationsAction(formData: FormData) {
   revalidatePath("/settings/finance")
   revalidatePath("/settings/finance/business")
   revalidatePath("/business")
+}
+
+export async function generateHistoricalBackfillShareProfitAllocationsAction() {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireHistoricalFinanceSetupMutable(actor)
+
+  await generateHistoricalBackfillShareProfitAllocations({
+    actorUserId: actor.user.id,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/business")
+  revalidatePath("/business")
+  revalidatePath("/getting-started")
 }
 
 export async function publishShareProfitAllocationsAction(formData: FormData) {
@@ -2675,6 +2851,7 @@ export async function updateChargeDefinitionAction(formData: FormData) {
     formData.get("chargeValueType") as string | null
   )?.trim()
   const notes = (formData.get("notes") as string | null)?.trim()
+  const applicability = parseChargeApplicabilityRows(formData)
   const parseOptionalBoolean = (value: string | undefined) =>
     value === "true" || value === "on"
       ? true
@@ -2697,6 +2874,7 @@ export async function updateChargeDefinitionAction(formData: FormData) {
       ...(parseOptionalBoolean(appliesToMembers) !== undefined
         ? { appliesToMembers: parseOptionalBoolean(appliesToMembers) }
         : {}),
+      ...(applicability ? { applicability } : {}),
       ...(chargeFrequency
         ? { chargeFrequency: chargeFrequency as DashboardChargeFrequency }
         : {}),
@@ -2876,7 +3054,7 @@ export async function submitLoanRequestAction(formData: FormData) {
         recipientEmail: approval.guarantorMember.email,
         recipientName: approval.guarantorMember.fullName,
         tenantName: actor.tenant.name,
-      },
+      }
     )
 
     await sendEmailDraftWithAudit({
@@ -3199,8 +3377,26 @@ export async function createMemberOpeningBalanceAction(formData: FormData) {
     actorUserId: actor.user.id,
     activeFinancingOutstanding:
       getOptionalNumber(formData, "activeFinancingOutstanding") ?? 0,
+    activeFinancingGuarantorOneMemberId: getOptionalTrimmedString(
+      formData,
+      "activeFinancingGuarantorOneMemberId"
+    ),
+    activeFinancingGuarantorTwoMemberId: getOptionalTrimmedString(
+      formData,
+      "activeFinancingGuarantorTwoMemberId"
+    ),
+    activeFinancingOpenedAt: getOptionalTrimmedString(
+      formData,
+      "activeFinancingOpenedAt"
+    )
+      ? new Date(
+          `${getOptionalTrimmedString(formData, "activeFinancingOpenedAt")}T00:00:00.000Z`
+        )
+      : null,
     commitmentSavingsBalance:
       getOptionalNumber(formData, "commitmentSavingsBalance") ?? 0,
+    foodPurchaseOutstanding:
+      getOptionalNumber(formData, "foodPurchaseOutstanding") ?? 0,
     memberId,
     notes: getOptionalTrimmedString(formData, "notes"),
     openingDate: new Date(
@@ -3208,7 +3404,8 @@ export async function createMemberOpeningBalanceAction(formData: FormData) {
     ),
     procurementOutstanding:
       getOptionalNumber(formData, "procurementOutstanding") ?? 0,
-    shareCapitalBalance: getOptionalNumber(formData, "shareCapitalBalance") ?? 0,
+    shareCapitalBalance:
+      getOptionalNumber(formData, "shareCapitalBalance") ?? 0,
     shareUnits: getOptionalNumber(formData, "shareUnits") ?? null,
     sourceDocumentName: getOptionalTrimmedString(
       formData,
@@ -3223,6 +3420,26 @@ export async function createMemberOpeningBalanceAction(formData: FormData) {
   revalidateMemberBackfillPaths(memberId)
   revalidatePath("/getting-started")
   revalidatePath("/")
+}
+
+export async function createHistoricalMemberSharePurchaseAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+
+  await requireMemberMigrationDraftMutable(actor, memberId)
+
+  await createHistoricalMemberSharePurchase({
+    actorUserId: actor.user.id,
+    memberId,
+    notes: getOptionalTrimmedString(formData, "notes"),
+    paidAt: new Date(`${getRequiredString(formData, "paidAt")}T00:00:00.000Z`),
+    shareUnits: Number(getRequiredString(formData, "shareUnits")),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateMemberBackfillPaths(memberId)
 }
 
 export async function reviewMemberOpeningBalanceAction(formData: FormData) {
@@ -4307,9 +4524,7 @@ export async function saveMemberProfitSeasonAdjustmentsAction(
   const actor = await requireDashboardActor(financeManagementRoles)
   const memberId = getRequiredString(formData, "memberId")
   await requireMemberMigrationDraftMutable(actor, memberId)
-  const seasonKeys = getAllTrimmedStrings(formData, "seasonKey").filter(
-    Boolean
-  )
+  const seasonKeys = getAllTrimmedStrings(formData, "seasonKey").filter(Boolean)
   const redirectTo = (formData.get("redirectTo") as string | null)?.trim()
 
   await saveMigrationProfitSeasonAdjustments({
@@ -4681,10 +4896,7 @@ export async function createSupportCaseAction(formData: FormData) {
       | "other",
     description: getRequiredString(formData, "description"),
     linkedRecordId: getOptionalTrimmedString(formData, "linkedRecordId"),
-    linkedRecordType: getOptionalTrimmedString(
-      formData,
-      "linkedRecordType"
-    ) as
+    linkedRecordType: getOptionalTrimmedString(formData, "linkedRecordType") as
       | "member"
       | "contribution"
       | "repayment"
@@ -4696,10 +4908,7 @@ export async function createSupportCaseAction(formData: FormData) {
       | "other"
       | null,
     memberId: getOptionalTrimmedString(formData, "memberId"),
-    moneyImpactRequested: getOptionalBoolean(
-      formData,
-      "moneyImpactRequested"
-    ),
+    moneyImpactRequested: getOptionalBoolean(formData, "moneyImpactRequested"),
     openedByUserId: actor.user.id,
     priority: getRequiredString(formData, "priority") as
       | "low"
@@ -4757,10 +4966,7 @@ export async function createMemberSupportCaseAction(formData: FormData) {
       | "other",
     description: getRequiredString(formData, "description"),
     linkedRecordId: getOptionalTrimmedString(formData, "linkedRecordId"),
-    linkedRecordType: getOptionalTrimmedString(
-      formData,
-      "linkedRecordType"
-    ) as
+    linkedRecordType: getOptionalTrimmedString(formData, "linkedRecordType") as
       | "member"
       | "contribution"
       | "repayment"
@@ -4772,10 +4978,7 @@ export async function createMemberSupportCaseAction(formData: FormData) {
       | "other"
       | null,
     memberId: member.id,
-    moneyImpactRequested: getOptionalBoolean(
-      formData,
-      "moneyImpactRequested"
-    ),
+    moneyImpactRequested: getOptionalBoolean(formData, "moneyImpactRequested"),
     openedByUserId: actor.user.id,
     subject: getRequiredString(formData, "subject"),
     tenantId: actor.tenant.id,
@@ -4836,10 +5039,7 @@ export async function updateSupportCaseStatusAction(formData: FormData) {
       formData,
       "requiresFinancialAdjustment"
     ),
-    resolutionSummary: getOptionalTrimmedString(
-      formData,
-      "resolutionSummary"
-    ),
+    resolutionSummary: getOptionalTrimmedString(formData, "resolutionSummary"),
     status: getRequiredString(formData, "status") as
       | "open"
       | "in_progress"
@@ -5177,10 +5377,7 @@ export async function reviewProjectFinancingRequestAction(formData: FormData) {
   const request = await reviewProjectFinancingRequest({
     actorUserId: actor.user.id,
     approvedAmount: getOptionalNumber(formData, "approvedAmount"),
-    approvedPaybackMonths: getOptionalNumber(
-      formData,
-      "approvedPaybackMonths"
-    ),
+    approvedPaybackMonths: getOptionalNumber(formData, "approvedPaybackMonths"),
     approvedStructure: getOptionalTrimmedString(
       formData,
       "approvedStructure"
@@ -5768,6 +5965,7 @@ const dashboardActionHandlers = {
   createChargeDefinitionVersionAction,
   updateChargeDefinitionVersionAction,
   updateTenantSharePolicyAction,
+  updateTenantMigrationSetupAction,
   createMemberShareApplicationAction,
   createOwnMemberShareApplicationAction,
   reviewMemberShareApplicationAction,
@@ -5781,6 +5979,7 @@ const dashboardActionHandlers = {
   createShareBusinessProfitEntryAction,
   updateShareBusinessProfitEntryAction,
   generateShareProfitAllocationsAction,
+  generateHistoricalBackfillShareProfitAllocationsAction,
   publishShareProfitAllocationsAction,
   saveBusinessProfitMigrationWorksheetAction,
   saveBusinessProfitSeasonReviewAction,
@@ -5800,6 +5999,7 @@ const dashboardActionHandlers = {
   finalizeInitialMigrationAction,
   unlockInitialMigrationAction,
   createMemberOpeningBalanceAction,
+  createHistoricalMemberSharePurchaseAction,
   reviewMemberOpeningBalanceAction,
   applyMemberOpeningBalanceAction,
   reverseMemberOpeningBalanceAction,
@@ -5953,6 +6153,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   updateTenantSharePolicyAction: formAction(
     dashboardActionHandlers.updateTenantSharePolicyAction
   ),
+  updateTenantMigrationSetupAction: formAction(
+    dashboardActionHandlers.updateTenantMigrationSetupAction
+  ),
   createMemberShareApplicationAction: formAction(
     dashboardActionHandlers.createMemberShareApplicationAction
   ),
@@ -5991,6 +6194,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   generateShareProfitAllocationsAction: formAction(
     dashboardActionHandlers.generateShareProfitAllocationsAction
+  ),
+  generateHistoricalBackfillShareProfitAllocationsAction: noInputAction(
+    dashboardActionHandlers.generateHistoricalBackfillShareProfitAllocationsAction
   ),
   publishShareProfitAllocationsAction: formAction(
     dashboardActionHandlers.publishShareProfitAllocationsAction
@@ -6042,6 +6248,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   createMemberOpeningBalanceAction: formAction(
     dashboardActionHandlers.createMemberOpeningBalanceAction
+  ),
+  createHistoricalMemberSharePurchaseAction: formAction(
+    dashboardActionHandlers.createHistoricalMemberSharePurchaseAction
   ),
   reviewMemberOpeningBalanceAction: formAction(
     dashboardActionHandlers.reviewMemberOpeningBalanceAction

@@ -1,5 +1,6 @@
 export const memberBackfillStepKeys = [
   "baseline",
+  "brought-forward",
   "commitments",
   "activity",
   "loans",
@@ -9,6 +10,7 @@ export const memberBackfillStepKeys = [
 ] as const
 
 export type MemberBackfillStepKey = (typeof memberBackfillStepKeys)[number]
+export type MemberBackfillSetupMode = "historical_backfill" | "brought_forward"
 
 export type MemberBackfillStepMeta = {
   description: string
@@ -54,32 +56,65 @@ export const memberBackfillSteps: MemberBackfillStepMeta[] = [
   },
 ]
 
+const broughtForwardMemberBackfillSteps: MemberBackfillStepMeta[] = [
+  {
+    description: "Capture the member's current savings, shares, and active obligations.",
+    key: "brought-forward",
+    label: "Current position",
+  },
+]
+
 const stepKeySet = new Set<MemberBackfillStepKey>(memberBackfillStepKeys)
 
 function firstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value
 }
 
+export function getMemberBackfillStepsForMode(
+  setupMode: MemberBackfillSetupMode = "historical_backfill"
+) {
+  return setupMode === "brought_forward"
+    ? broughtForwardMemberBackfillSteps
+    : memberBackfillSteps
+}
+
 export function resolveMemberBackfillStep(
-  value: string | string[] | undefined
+  value: string | string[] | undefined,
+  setupMode: MemberBackfillSetupMode = "historical_backfill"
 ): MemberBackfillStepKey {
   const requestedStep = firstValue(value)
+  const visibleSteps = getMemberBackfillStepsForMode(setupMode)
+  const visibleStepKeys = new Set(visibleSteps.map((step) => step.key))
 
-  return requestedStep && stepKeySet.has(requestedStep as MemberBackfillStepKey)
-    ? (requestedStep as MemberBackfillStepKey)
-    : "baseline"
+  if (
+    requestedStep &&
+    stepKeySet.has(requestedStep as MemberBackfillStepKey) &&
+    visibleStepKeys.has(requestedStep as MemberBackfillStepKey)
+  ) {
+    return requestedStep as MemberBackfillStepKey
+  }
+
+  return visibleSteps[0]?.key ?? "baseline"
 }
 
 export function getMemberBackfillStepMeta(key: MemberBackfillStepKey) {
-  return memberBackfillSteps.find((step) => step.key === key)!
+  return (
+    memberBackfillSteps.find((step) => step.key === key) ??
+    broughtForwardMemberBackfillSteps.find((step) => step.key === key)
+  )!
 }
 
-export function getMemberBackfillAdjacentSteps(key: MemberBackfillStepKey) {
-  const index = memberBackfillStepKeys.indexOf(key)
+export function getMemberBackfillAdjacentSteps(
+  key: MemberBackfillStepKey,
+  setupMode: MemberBackfillSetupMode = "historical_backfill"
+) {
+  const steps = getMemberBackfillStepsForMode(setupMode)
+  const stepKeys = steps.map((step) => step.key)
+  const index = stepKeys.indexOf(key)
 
   return {
-    nextStep: memberBackfillStepKeys[index + 1] ?? null,
-    previousStep: memberBackfillStepKeys[index - 1] ?? null,
+    nextStep: index === -1 ? null : (stepKeys[index + 1] ?? null),
+    previousStep: index === -1 ? null : (stepKeys[index - 1] ?? null),
   }
 }
 

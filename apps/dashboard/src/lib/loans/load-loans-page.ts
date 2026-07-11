@@ -1,6 +1,7 @@
 import {
   createDbRuntime,
   getMonthlyFinancingCycleHealth,
+  listChargeDefinitions,
   listLoanProducts,
   listLoanRequests,
   listLoans,
@@ -11,7 +12,11 @@ import {
   getDashboardPageData,
   getDashboardServerContext,
 } from "@/lib/server-context"
-import { allStaffRoles, financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
+import {
+  allStaffRoles,
+  financeManagementRoles,
+  hasAnyRole,
+} from "@/lib/workspace-access"
 
 type LoanNumericValue = number | string | { toString(): string }
 
@@ -27,6 +32,15 @@ type LoanMemberOptionRow = {
   fullName: string
   id: string
   memberNumber: string
+}
+
+type LoanRequestChargeOptionRow = {
+  amount: number
+  chargeValueType: "fixed_amount" | "percentage"
+  code: string
+  collectionMode: string
+  id: string
+  name: string
 }
 
 type LoanRequestRow = {
@@ -84,6 +98,7 @@ export type LoansPageData =
       dashboard: Awaited<ReturnType<typeof getDashboardPageData>>["dashboard"]
       financingCycle: Awaited<ReturnType<typeof getMonthlyFinancingCycleHealth>>
       loanProducts: LoanProductOptionRow[]
+      loanRequestCharges: LoanRequestChargeOptionRow[]
       loanRequests: LoanRequestRow[]
       loans: LoanPortfolioRow[]
       members: {
@@ -104,21 +119,64 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
     }
   }
 
-  const [members, loanProducts, loanRequests, loans, financingCycle] =
-    await Promise.all([
+  const [
+    members,
+    loanProducts,
+    loanRequests,
+    loans,
+    financingCycle,
+    chargeDefinitions,
+  ] = await Promise.all([
     listMembers(context.tenant.id, { page: 1, pageSize: 100 }),
     listLoanProducts(context.tenant.id),
     listLoanRequests(context.tenant.id),
     listLoans(context.tenant.id),
     getMonthlyFinancingCycleHealth({ tenantId: context.tenant.id }),
+    listChargeDefinitions(context.tenant.id),
   ])
+  const loanRequestCharges = (chargeDefinitions as any[])
+    .map((definition) => {
+      const applicability = definition.applicability?.find(
+        (row: any) =>
+          row.isActive !== false &&
+          row.workflow === "loan_request" &&
+          row.trigger === "submission"
+      )
+      const legacyApplies =
+        definition.appliesToLoanRequests || definition.purpose === "loan_fee"
+
+      if (!applicability && !legacyApplies) {
+        return null
+      }
+
+      const version = definition.versions?.[0]
+      if (!version) {
+        return null
+      }
+
+      return {
+        amount: Number(version.amount ?? definition.amount ?? 0),
+        chargeValueType:
+          version.chargeValueType ??
+          (version.kind === "percentage" ? "percentage" : "fixed_amount"),
+        code: definition.code,
+        collectionMode: applicability?.collectionMode ?? "deduct_from_savings",
+        id: definition.id,
+        name: definition.name,
+      } satisfies LoanRequestChargeOptionRow
+    })
+    .filter((charge): charge is LoanRequestChargeOptionRow => Boolean(charge))
 
   return {
-    canReview: hasAnyRole(context.auth.membership?.role, financeManagementRoles),
+    canReview: hasAnyRole(
+      context.auth.membership?.role,
+      financeManagementRoles
+    ),
     canSubmit: hasAnyRole(context.auth.membership?.role, allStaffRoles),
     dashboard,
     financingCycle,
     loanProducts: loanProducts as LoanProductOptionRow[],
+    loanRequestCharges,
     loanRequests: loanRequests as LoanRequestRow[],
     loans: loans as LoanPortfolioRow[],
     members,

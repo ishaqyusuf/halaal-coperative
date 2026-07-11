@@ -16,6 +16,7 @@ function createMigrationStatePrismaStub(input: {
   appliedBackfillMonthMembers?: number
   appliedBackfillMembers?: number
   businessProfitPools: number
+  broughtForwardPendingPastProfitEntries?: number
   businessProfitReviewMarkers?: number
   businessProfitSeasons?: number
   chargeScheduleVersions: number
@@ -28,6 +29,7 @@ function createMigrationStatePrismaStub(input: {
   memberJoinedAt?: Date
   migrationEmergencyUnlockUntil?: Date | null
   migrationFinalizedAt?: Date | null
+  migrationSetupMode?: "historical_backfill" | "brought_forward" | null
   shareCapitalPlans: number
   startDate: Date | null
   tenantBusinessPolicyFindError?: unknown
@@ -106,7 +108,9 @@ function createMigrationStatePrismaStub(input: {
     },
     shareBusinessProfitEntry: {
       count: async (query?: any) =>
-        query?.where?.linkedDividendPeriodId
+        query?.where?.status === "pending"
+          ? (input.broughtForwardPendingPastProfitEntries ?? 0)
+          : query?.where?.linkedDividendPeriodId
           ? (input.businessProfitSeasons ?? input.businessProfitPools)
           : input.businessProfitPools,
     },
@@ -137,6 +141,15 @@ function createMigrationStatePrismaStub(input: {
       },
     },
     tenantBusinessPolicyUpserts,
+    tenantPolicy: {
+      findUnique: async () => ({
+        migrationSetupMode:
+          input.migrationSetupMode === undefined
+            ? "historical_backfill"
+            : input.migrationSetupMode,
+        shareConfigurationMode: "monthly_history",
+      }),
+    },
     tenantUpdateCalls,
     tenantShareStructureVersion: {
       count: async () => input.shareCapitalPlans,
@@ -372,6 +385,88 @@ describe("tenant initial migration state query", () => {
 
     expect(state.snapshot.status).toBe("historical_setup_in_progress")
     expect(state.snapshot.missingStepKeys).toContain("business_profit_seasons")
+  })
+
+  test("requires a saved migration setup mode before setup can be finalized", async () => {
+    const prisma = createMigrationStatePrismaStub({
+      appliedBackfillBatches: 12,
+      appliedBackfillMembers: 12,
+      businessProfitPools: 1,
+      chargeScheduleVersions: 2,
+      initialMigrationStatus: null,
+      legacyLoans: 1,
+      memberProfiles: 12,
+      migrationSetupMode: null,
+      shareCapitalPlans: 1,
+      startDate: new Date("2025-01-01T00:00:00.000Z"),
+    })
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      prisma as never
+    )
+
+    expect(state.snapshot.missingStepKeys).toContain("migration_setup_mode")
+    await expect(
+      finalizeTenantInitialMigration(
+        { actorUserId: "user-1", tenantId: "tenant-1" },
+        prisma as never
+      )
+    ).rejects.toThrow("migration_setup_mode")
+  })
+
+  test("brought forward mode skips historical business and legacy-loan setup gates", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 0,
+        businessProfitPools: 0,
+        businessProfitSeasons: 0,
+        chargeScheduleVersions: 2,
+        initialMigrationStatus: null,
+        legacyLoans: 0,
+        memberProfiles: 3,
+        migrationSetupMode: "brought_forward",
+        shareCapitalPlans: 0,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+      }) as never
+    )
+
+    expect(state.snapshot.missingStepKeys).not.toContain(
+      "business_profit_pools"
+    )
+    expect(state.snapshot.missingStepKeys).not.toContain(
+      "business_profit_seasons"
+    )
+    expect(state.snapshot.missingStepKeys).not.toContain("legacy_loans")
+    expect(state.snapshot.status).toBe("member_migration_in_progress")
+  })
+
+  test("brought forward mode requires dividend review for old pending profits", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 0,
+        broughtForwardPendingPastProfitEntries: 1,
+        businessProfitPools: 1,
+        businessProfitSeasons: 0,
+        chargeScheduleVersions: 2,
+        initialMigrationStatus: null,
+        legacyLoans: 0,
+        memberProfiles: 3,
+        migrationSetupMode: "brought_forward",
+        shareCapitalPlans: 0,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+      }) as never
+    )
+
+    expect(state.snapshot.missingStepKeys).toContain(
+      "business_profit_seasons"
+    )
+    expect(state.snapshot.missingStepKeys).not.toContain(
+      "business_profit_pools"
+    )
+    expect(state.snapshot.missingStepKeys).not.toContain("legacy_loans")
+    expect(state.snapshot.status).toBe("historical_setup_in_progress")
   })
 
   test("uses applied month ledger members as migration review evidence", async () => {

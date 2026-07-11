@@ -17,12 +17,46 @@ import {
   WorkspacePageShell,
 } from "@/components/dashboard"
 import { DatePickerInput } from "@/components/date-picker-input"
-import { ChargeApplicationForm, ChargeDefinitionForm } from "@/components/forms/finance-forms"
+import {
+  ChargeApplicationForm,
+  ChargeDefinitionForm,
+} from "@/components/forms/finance-forms"
 import {
   reverseChargeApplicationAction,
   updateChargeDefinitionAction,
   waiveChargeApplicationAction,
 } from "@/lib/dashboard-actions"
+
+function formatChargeApplicationSource(application: {
+  chargeApplicability?: {
+    trigger: string
+    workflow: string
+  } | null
+  foodPurchaseApplication?: { status: string } | null
+  loanRequest?: { status: string } | null
+  procurementRequest?: { itemName: string; status: string } | null
+  projectFinancingRequest?: { businessName: string; status: string } | null
+}) {
+  const workflow = application.chargeApplicability?.workflow
+
+  if (application.procurementRequest) {
+    return `Procurement · ${application.procurementRequest.itemName} · ${application.procurementRequest.status}`
+  }
+
+  if (application.foodPurchaseApplication) {
+    return `Foodstuff Purchase · ${application.foodPurchaseApplication.status}`
+  }
+
+  if (application.projectFinancingRequest) {
+    return `Project Financing · ${application.projectFinancingRequest.businessName} · ${application.projectFinancingRequest.status}`
+  }
+
+  if (application.loanRequest) {
+    return `Loan request · ${application.loanRequest.status}`
+  }
+
+  return workflow ? workflow.replace(/_/g, " ") : "Manual charge"
+}
 
 export function ChargesPageView({
   activeCharges,
@@ -46,9 +80,15 @@ export function ChargesPageView({
   canManageCharges: boolean
   chargeApplications: Array<{
     amount: number | string | { toString(): string }
+    chargeApplicability?: { trigger: string; workflow: string } | null
     chargeDefinition: { name: string }
+    collectionMode?: string
+    foodPurchaseApplication?: { status: string } | null
     id: string
+    loanRequest?: { status: string } | null
     member: { fullName: string }
+    procurementRequest?: { itemName: string; status: string } | null
+    projectFinancingRequest?: { businessName: string; status: string } | null
     status: string
   }>
   charges: Array<{
@@ -158,42 +198,65 @@ export function ChargesPageView({
                 <DashboardTableHeaderCell>Charge</DashboardTableHeaderCell>
                 <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
                 <DashboardTableHeaderCell>Kind</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Current date</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">Current amount</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">Action</DashboardTableHeaderCell>
+                <DashboardTableHeaderCell>
+                  Current date
+                </DashboardTableHeaderCell>
+                <DashboardTableHeaderCell align="right">
+                  Current amount
+                </DashboardTableHeaderCell>
+                <DashboardTableHeaderCell align="right">
+                  Action
+                </DashboardTableHeaderCell>
               </DashboardTableHead>
               <DashboardTableBody>
                 {charges.map((charge) => (
                   <DashboardTableRow key={charge.id}>
                     <DashboardTableCell>
                       <div>
-                        <p className="font-medium text-foreground">{charge.name}</p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                        <p className="font-medium text-foreground">
+                          {charge.name}
+                        </p>
+                        <p className="mt-1 text-xs tracking-[0.18em] text-muted-foreground uppercase">
                           {charge.code}
                         </p>
                       </div>
                     </DashboardTableCell>
                     <DashboardTableCell>
                       <div className="flex flex-wrap gap-2">
-                        <TrendPill tone={charge.isActive ? "positive" : "warning"}>
+                        <TrendPill
+                          tone={charge.isActive ? "positive" : "warning"}
+                        >
                           {charge.isActive ? "Active" : "Inactive"}
                         </TrendPill>
-                        {charge.isMonthlyLevy ? <TrendPill>Monthly levy</TrendPill> : null}
+                        {charge.isMonthlyLevy ? (
+                          <TrendPill>Monthly levy</TrendPill>
+                        ) : null}
                       </div>
                     </DashboardTableCell>
                     <DashboardTableCell>
-                      <span className="capitalize text-muted-foreground">{charge.kind.replace(/_/g, " ")}</span>
+                      <span className="text-muted-foreground capitalize">
+                        {charge.kind.replace(/_/g, " ")}
+                      </span>
                     </DashboardTableCell>
                     <DashboardTableCell>
-                      <span className="text-muted-foreground">{charge.currentEffectiveFrom ?? "No dated version"}</span>
+                      <span className="text-muted-foreground">
+                        {charge.currentEffectiveFrom ?? "No dated version"}
+                      </span>
                     </DashboardTableCell>
                     <DashboardTableCell align="right" className="font-medium">
                       {formatCurrency(Number(charge.amount))}
                     </DashboardTableCell>
                     <DashboardTableCell align="right">
                       {canManageCharges ? (
-                        <form action={updateChargeDefinitionAction} className="inline-flex">
-                          <input type="hidden" name="chargeDefinitionId" value={charge.id} />
+                        <form
+                          action={updateChargeDefinitionAction}
+                          className="inline-flex"
+                        >
+                          <input
+                            type="hidden"
+                            name="chargeDefinitionId"
+                            value={charge.id}
+                          />
                           <Button
                             size="sm"
                             type="submit"
@@ -206,7 +269,9 @@ export function ChargesPageView({
                           </Button>
                         </form>
                       ) : (
-                        <span className="text-sm text-muted-foreground">View only</span>
+                        <span className="text-sm text-muted-foreground">
+                          View only
+                        </span>
                       )}
                     </DashboardTableCell>
                   </DashboardTableRow>
@@ -223,18 +288,24 @@ export function ChargesPageView({
                     <p className="font-medium text-foreground">{charge.name}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Current cost {formatCurrency(Number(charge.amount))}
-                      {charge.currentEffectiveFrom ? ` from ${charge.currentEffectiveFrom}` : ""}
+                      {charge.currentEffectiveFrom
+                        ? ` from ${charge.currentEffectiveFrom}`
+                        : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <TrendPill>{charge.versions.length} dated updates</TrendPill>
+                    <TrendPill>
+                      {charge.versions.length} dated updates
+                    </TrendPill>
                     <TrendPill tone="neutral">View history</TrendPill>
                   </div>
                 </summary>
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
                   <div>
-                    <p className="text-sm font-medium text-foreground">Charge update history</p>
+                    <p className="text-sm font-medium text-foreground">
+                      Charge update history
+                    </p>
                     <div className="mt-4 space-y-3">
                       {charge.versions.map((version) => (
                         <div
@@ -242,11 +313,17 @@ export function ChargesPageView({
                           className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/80 px-4 py-3"
                         >
                           <div>
-                            <p className="text-sm font-medium text-foreground">{version.effectiveFrom}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{version.notes ?? "No note"}</p>
+                            <p className="text-sm font-medium text-foreground">
+                              {version.effectiveFrom}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {version.notes ?? "No note"}
+                            </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium text-foreground">{formatCurrency(Number(version.amount))}</p>
+                            <p className="font-medium text-foreground">
+                              {formatCurrency(Number(version.amount))}
+                            </p>
                             <p className="mt-1 text-xs text-muted-foreground">
                               {version.status === "current"
                                 ? "Current cost"
@@ -262,17 +339,28 @@ export function ChargesPageView({
 
                   {canManageCharges ? (
                     <div>
-                      <p className="text-sm font-medium text-foreground">Add dated charge update</p>
+                      <p className="text-sm font-medium text-foreground">
+                        Add dated charge update
+                      </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Schedule a live charge amount change from today or a future effective date.
+                        Schedule a live charge amount change from today or a
+                        future effective date.
                       </p>
                       <form
                         action={updateChargeDefinitionAction}
                         className="mt-4 grid gap-3 rounded-lg border border-border/70 bg-background p-4"
                       >
-                        <input type="hidden" name="chargeDefinitionId" value={charge.id} />
+                        <input
+                          type="hidden"
+                          name="chargeDefinitionId"
+                          value={charge.id}
+                        />
                         <input type="hidden" name="kind" value={charge.kind} />
-                        <input type="hidden" name="chargeValueType" value={charge.chargeValueType} />
+                        <input
+                          type="hidden"
+                          name="chargeValueType"
+                          value={charge.chargeValueType}
+                        />
                         <label className="space-y-1 text-xs font-medium text-muted-foreground">
                           Effective date
                           <DatePickerInput
@@ -319,7 +407,9 @@ export function ChargesPageView({
           eyebrow="Applications"
           title="Recent charge applications"
           description="Track recent charge postings and quickly handle waivers or reversals for posted items."
-          actions={<TrendPill>{chargeApplications.length} recent items</TrendPill>}
+          actions={
+            <TrendPill>{chargeApplications.length} recent items</TrendPill>
+          }
         />
 
         <div className="mt-5 space-y-3">
@@ -327,26 +417,57 @@ export function ChargesPageView({
             <DashboardSurfaceCard as="article" key={application.id}>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-sm font-medium text-foreground">{application.member.fullName}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {application.member.fullName}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {application.chargeDefinition.name} · {formatCurrency(Number(application.amount))}
+                    {application.chargeDefinition.name} ·{" "}
+                    {formatCurrency(Number(application.amount))}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatChargeApplicationSource(application)} ·{" "}
+                    {(
+                      application.collectionMode ?? "deduct_from_savings"
+                    ).replace(/_/g, " ")}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <TrendPill tone={application.status === "posted" ? "positive" : "warning"}>
+                  <TrendPill
+                    tone={
+                      application.status === "posted" ? "positive" : "warning"
+                    }
+                  >
                     {application.status}
                   </TrendPill>
                   {canManageCharges && application.status === "posted" ? (
                     <>
                       <form action={waiveChargeApplicationAction}>
-                        <input type="hidden" name="chargeApplicationId" value={application.id} />
-                        <Button size="sm" type="submit" variant="outline" className="rounded-full">
+                        <input
+                          type="hidden"
+                          name="chargeApplicationId"
+                          value={application.id}
+                        />
+                        <Button
+                          size="sm"
+                          type="submit"
+                          variant="outline"
+                          className="rounded-full"
+                        >
                           Waive
                         </Button>
                       </form>
                       <form action={reverseChargeApplicationAction}>
-                        <input type="hidden" name="chargeApplicationId" value={application.id} />
-                        <Button size="sm" type="submit" variant="outline" className="rounded-full">
+                        <input
+                          type="hidden"
+                          name="chargeApplicationId"
+                          value={application.id}
+                        />
+                        <Button
+                          size="sm"
+                          type="submit"
+                          variant="outline"
+                          className="rounded-full"
+                        >
                           Reverse
                         </Button>
                       </form>

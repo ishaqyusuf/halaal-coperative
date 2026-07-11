@@ -1,4 +1,8 @@
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
+import {
+  readCachedMobileQuery,
+  type MobileReadCacheState,
+} from "@/lib/read-cache"
 
 export type MobileMetricFormat = "currency" | "percent" | "count"
 
@@ -17,6 +21,7 @@ export type MobileMemberHome = {
     label: string
     severity: "neutral" | "warning" | "critical"
   }[]
+  cache?: MobileReadCacheState
   generatedAt: string
   member: {
     id: string
@@ -41,6 +46,7 @@ export type MobileAdminOverview = {
     label: string
     severity: "neutral" | "warning" | "critical"
   }[]
+  cache?: MobileReadCacheState
   generatedAt: string
   stats: MobileOverviewMetric[]
   supportCases: MobileSupportCase[]
@@ -134,6 +140,18 @@ export type MobileAdminMembersListInput = {
   status?: MobileAdminMemberStatus
 }
 
+export type MobileAdminMemberCreateInput = {
+  address?: string
+  email?: string
+  fullName: string
+  joinedAt: string
+  memberNumber: string
+  memberType: "civil_servant" | "individual" | "business"
+  monthlyCommitment?: number
+  occupation?: string
+  phoneNumber?: string
+}
+
 export type MobileAdminFinanceQueue = {
   count: number
   detail: string
@@ -164,6 +182,100 @@ export type MobileAdminFinance = {
   queues: MobileAdminFinanceQueue[]
   recentItems: MobileAdminFinanceRecentItem[]
   stats: MobileOverviewMetric[]
+}
+
+export type MobileAdminActionResult = {
+  id: string
+  status: string
+}
+
+export type MobileAdminReviewStatus = "approved" | "rejected" | "under_review"
+
+export type MobileAdminReceiptReviewInput = {
+  adjustmentReason?: string
+  decision: "under_review" | "correction_requested" | "approved" | "rejected"
+  receiptId: string
+  reviewNotes?: string
+}
+
+export type MobileAdminFinancingReviewInput = {
+  loanRequestId: string
+  notes?: string
+  status: MobileAdminReviewStatus
+}
+
+export type MobileAdminProcurementReviewInput = {
+  approvedCost?: number
+  approvedRepaymentMonths?: number
+  notes?: string
+  procurementRequestId: string
+  status: MobileAdminReviewStatus
+}
+
+export type MobileAdminFoodPurchaseReviewInput = {
+  applicationId: string
+  approvedAmount?: number
+  approvedPaybackMonths?: number
+  notes?: string
+  status: MobileAdminReviewStatus
+}
+
+export type MobileAdminProjectFinancingReviewInput = {
+  approvedAmount?: number
+  approvedPaybackMonths?: number
+  approvedStructure?: MobileProjectFinancingStructure
+  notes?: string
+  projectFinancingRequestId: string
+  status: MobileAdminReviewStatus
+}
+
+export type MobileAdminCollectionFollowUpInput = {
+  assignedToUserId?: string
+  caseStage?: string
+  nextActionAt?: string
+  note: string
+  priority?: "low" | "normal" | "high" | "urgent"
+  promiseToPayAt?: string
+  repaymentScheduleItemId: string
+  resolutionStatus?: string
+  status: "promise_to_pay" | "reminded" | "settled" | "unreachable"
+}
+
+export type MobileAdminMemberStatusUpdateInput = {
+  memberId: string
+  status: MobileAdminMemberStatus
+}
+
+export type MobileAdminMemberKycUpdateInput = {
+  governmentIdNumber?: string
+  kycDocumentType?: string
+  kycDocumentUrl?: string
+  kycReviewNotes?: string
+  kycStatus: MobileAdminMemberKycStatus
+  memberId: string
+}
+
+export type MobileAdminShareReviewInput = {
+  applicationId: string
+  approvedUnits?: number
+  decision: "approved" | "rejected"
+  effectiveDate?: string
+  reviewNotes?: string
+}
+
+export type MobileAdminSupportReplyInput = {
+  attachmentUrl?: string
+  message: string
+  supportCaseId: string
+}
+
+export type MobileAdminSupportStatusUpdateInput = {
+  assignedToUserId?: string
+  priority?: "low" | "normal" | "high" | "urgent"
+  requiresFinancialAdjustment?: boolean
+  resolutionSummary?: string
+  status: "open" | "in_progress" | "waiting_on_member" | "resolved" | "closed"
+  supportCaseId: string
 }
 
 export type MobileAdminReportCard = {
@@ -200,6 +312,7 @@ export type MobileAdminCollectionFollowUp = {
   nextActionAt: string | null
   note: string
   priority: string
+  repaymentScheduleItemId: string
   resolutionStatus: string
   status: string
 }
@@ -410,6 +523,14 @@ export type MobileLoanProductOption = {
 }
 
 export type MobileMemberFinancingRequest = {
+  charges: {
+    amount: number
+    code: string
+    collectionMode: string
+    id: string
+    name: string
+    status: string
+  }[]
   availablePoolSnapshot: number
   eligibleAmountSnapshot: number
   estimatedMonthlyServicing: number
@@ -432,8 +553,20 @@ export type MobileMemberFinancingRequest = {
   status: string
 }
 
+export type MobileLoanRequestChargeOption = {
+  amount: number
+  chargeValueType: "fixed_amount" | "percentage"
+  code: string
+  collectionMode: string
+  id: string
+  name: string
+}
+
+export type MobileWorkflowChargeOption = MobileLoanRequestChargeOption
+
 export type MobileMemberFinancing = {
   generatedAt: string
+  loanRequestCharges: MobileLoanRequestChargeOption[]
   member: {
     id: string
     memberNumber: string
@@ -483,6 +616,7 @@ export type MobileMemberProcurementRequest = {
 }
 
 export type MobileMemberProcurement = {
+  chargeOptions: MobileWorkflowChargeOption[]
   generatedAt: string
   member: {
     id: string
@@ -534,6 +668,7 @@ export type MobileProjectFinancingRequest = {
 }
 
 export type MobileMemberProjectFinancing = {
+  chargeOptions: MobileWorkflowChargeOption[]
   generatedAt: string
   member: {
     id: string
@@ -593,6 +728,7 @@ export type MobileFoodPurchaseApplication = {
 
 export type MobileMemberFoodPurchase = {
   applications: MobileFoodPurchaseApplication[]
+  chargeOptions: MobileWorkflowChargeOption[]
   cycles: MobileFoodPurchaseCycle[]
   generatedAt: string
   member: {
@@ -848,43 +984,57 @@ export type MobileSupportReplyInput = {
 export async function getMobileMemberHome() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.home.query() as Promise<MobileMemberHome>
+  return readCachedMobileQuery("member.home", () =>
+    client.mobile.member.home.query() as Promise<MobileMemberHome>
+  )
 }
 
 export async function getMobileMemberMore() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.more.query() as Promise<MobileMemberMore>
+  return readCachedMobileQuery("member.more", () =>
+    client.mobile.member.more.query() as Promise<MobileMemberMore>
+  )
 }
 
 export async function getMobileMemberStatement() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.statement.query() as Promise<MobileMemberStatement>
+  return readCachedMobileQuery("member.statement", () =>
+    client.mobile.member.statement.query() as Promise<MobileMemberStatement>
+  )
 }
 
 export async function getMobileMemberSupport() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.support.list.query() as Promise<MobileMemberSupport>
+  return readCachedMobileQuery("member.support", () =>
+    client.mobile.member.support.list.query() as Promise<MobileMemberSupport>
+  )
 }
 
 export async function getMobileMemberReceipts() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.receipts.list.query() as Promise<MobileMemberReceipts>
+  return readCachedMobileQuery("member.receipts", () =>
+    client.mobile.member.receipts.list.query() as Promise<MobileMemberReceipts>
+  )
 }
 
 export async function getMobileMemberGuarantorApprovals() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.guarantorApprovals.list.query() as Promise<MobileMemberGuarantorApprovals>
+  return readCachedMobileQuery("member.guarantorApprovals", () =>
+    client.mobile.member.guarantorApprovals.list.query() as Promise<MobileMemberGuarantorApprovals>
+  )
 }
 
 export async function getMobileMemberFinancing() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.financing.list.query() as Promise<MobileMemberFinancing>
+  return readCachedMobileQuery("member.financing", () =>
+    client.mobile.member.financing.list.query() as Promise<MobileMemberFinancing>
+  )
 }
 
 export async function createMobileMemberFinancingRequest(
@@ -900,7 +1050,9 @@ export async function createMobileMemberFinancingRequest(
 export async function getMobileMemberProcurement() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.procurement.list.query() as Promise<MobileMemberProcurement>
+  return readCachedMobileQuery("member.procurement", () =>
+    client.mobile.member.procurement.list.query() as Promise<MobileMemberProcurement>
+  )
 }
 
 export async function createMobileMemberProcurementRequest(
@@ -916,7 +1068,9 @@ export async function createMobileMemberProcurementRequest(
 export async function getMobileMemberProjectFinancing() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.projectFinancing.list.query() as Promise<MobileMemberProjectFinancing>
+  return readCachedMobileQuery("member.projectFinancing", () =>
+    client.mobile.member.projectFinancing.list.query() as Promise<MobileMemberProjectFinancing>
+  )
 }
 
 export async function createMobileMemberProjectFinancingRequest(
@@ -932,7 +1086,9 @@ export async function createMobileMemberProjectFinancingRequest(
 export async function getMobileMemberFoodPurchase() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.foodPurchase.list.query() as Promise<MobileMemberFoodPurchase>
+  return readCachedMobileQuery("member.foodPurchase", () =>
+    client.mobile.member.foodPurchase.list.query() as Promise<MobileMemberFoodPurchase>
+  )
 }
 
 export async function createMobileMemberFoodPurchaseApplication(
@@ -958,7 +1114,9 @@ export async function respondMobileMemberGuarantorApproval(
 export async function getMobileMemberShares() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.shares.list.query() as Promise<MobileMemberShares>
+  return readCachedMobileQuery("member.shares", () =>
+    client.mobile.member.shares.list.query() as Promise<MobileMemberShares>
+  )
 }
 
 export async function createMobileMemberShareApplication(
@@ -1004,15 +1162,19 @@ export async function replyMobileMemberSupportCase(
 export async function getMobileMemberSection(section: MobileMemberSectionKey) {
   const client = createMobileTrpcClient()
 
-  return client.mobile.member.section.query({
-    section,
-  }) as Promise<MobileMemberSection>
+  return readCachedMobileQuery(`member.section.${section}`, () =>
+    client.mobile.member.section.query({
+      section,
+    }) as Promise<MobileMemberSection>
+  )
 }
 
 export async function getMobileAdminOverview() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.admin.overview.query() as Promise<MobileAdminOverview>
+  return readCachedMobileQuery("admin.overview", () =>
+    client.mobile.admin.overview.query() as Promise<MobileAdminOverview>
+  )
 }
 
 export async function getMobileAdminMembers(
@@ -1020,39 +1182,170 @@ export async function getMobileAdminMembers(
 ) {
   const client = createMobileTrpcClient()
 
-  return client.mobile.admin.members.list.query(
-    input
-  ) as Promise<MobileAdminMembers>
+  return readCachedMobileQuery(`admin.members.${JSON.stringify(input ?? {})}`, () =>
+    client.mobile.admin.members.list.query(input) as Promise<MobileAdminMembers>
+  )
 }
 
 export async function getMobileAdminMemberDetail(memberId: string) {
   const client = createMobileTrpcClient()
 
-  return client.mobile.admin.members.detail.query({
-    memberId,
-  }) as Promise<MobileAdminMemberDetail>
+  return readCachedMobileQuery(`admin.member.${memberId}`, () =>
+    client.mobile.admin.members.detail.query({
+      memberId,
+    }) as Promise<MobileAdminMemberDetail>
+  )
+}
+
+export async function createMobileAdminMember(
+  input: MobileAdminMemberCreateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.members.create.mutate(
+    input
+  ) as Promise<MobileAdminMemberRow>
+}
+
+export async function updateMobileAdminMemberStatus(
+  input: MobileAdminMemberStatusUpdateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.members.updateStatus.mutate(
+    input
+  ) as Promise<MobileAdminActionResult>
+}
+
+export async function updateMobileAdminMemberKyc(
+  input: MobileAdminMemberKycUpdateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.members.updateKyc.mutate(input) as Promise<{
+    id: string
+    kycStatus: MobileAdminMemberKycStatus
+  }>
 }
 
 export async function getMobileAdminFinance() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.admin.finance.overview.query() as Promise<MobileAdminFinance>
+  return readCachedMobileQuery("admin.finance", () =>
+    client.mobile.admin.finance.overview.query() as Promise<MobileAdminFinance>
+  )
+}
+
+export async function reviewMobileAdminReceipt(
+  input: MobileAdminReceiptReviewInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.finance.reviewReceipt.mutate(
+    input
+  ) as Promise<MobilePaymentReceipt>
+}
+
+export async function reviewMobileAdminFinancingRequest(
+  input: MobileAdminFinancingReviewInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.finance.reviewFinancingRequest.mutate(
+    input
+  ) as Promise<MobileAdminActionResult>
+}
+
+export async function reviewMobileAdminProcurementRequest(
+  input: MobileAdminProcurementReviewInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.finance.reviewProcurementRequest.mutate(
+    input
+  ) as Promise<MobileMemberProcurementRequest>
+}
+
+export async function reviewMobileAdminFoodPurchaseApplication(
+  input: MobileAdminFoodPurchaseReviewInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.finance.reviewFoodPurchaseApplication.mutate(
+    input
+  ) as Promise<MobileFoodPurchaseApplication>
+}
+
+export async function reviewMobileAdminProjectFinancingRequest(
+  input: MobileAdminProjectFinancingReviewInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.finance.reviewProjectFinancingRequest.mutate(
+    input
+  ) as Promise<MobileProjectFinancingRequest>
+}
+
+export async function recordMobileAdminCollectionFollowUp(
+  input: MobileAdminCollectionFollowUpInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.finance.recordCollectionFollowUp.mutate(
+    input
+  ) as Promise<MobileAdminActionResult>
 }
 
 export async function getMobileAdminReports() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.admin.reports.overview.query() as Promise<MobileAdminReports>
+  return readCachedMobileQuery("admin.reports", () =>
+    client.mobile.admin.reports.overview.query() as Promise<MobileAdminReports>
+  )
 }
 
 export async function getMobileNotifications() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.notifications.overview.query() as Promise<MobileNotifications>
+  return readCachedMobileQuery("notifications", () =>
+    client.mobile.notifications.overview.query() as Promise<MobileNotifications>
+  )
 }
 
 export async function getMobileAdminAccess() {
   const client = createMobileTrpcClient()
 
-  return client.mobile.admin.access.overview.query() as Promise<MobileAdminAccess>
+  return readCachedMobileQuery("admin.access", () =>
+    client.mobile.admin.access.overview.query() as Promise<MobileAdminAccess>
+  )
+}
+
+export async function reviewMobileAdminShareApplication(
+  input: MobileAdminShareReviewInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.access.reviewShareApplication.mutate(
+    input
+  ) as Promise<MobileMemberShareApplication>
+}
+
+export async function replyMobileAdminSupport(
+  input: MobileAdminSupportReplyInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.support.reply.mutate(
+    input
+  ) as Promise<MobileSupportCase>
+}
+
+export async function updateMobileAdminSupportStatus(
+  input: MobileAdminSupportStatusUpdateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.support.updateStatus.mutate(
+    input
+  ) as Promise<MobileSupportCase>
 }

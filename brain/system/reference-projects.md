@@ -13,11 +13,13 @@ This file keeps absolute local paths for external repositories that serve as ref
 - `caltext`: `/Users/M1PRO/Documents/code/_kitchen_sink/caltext`
 - `plot-keys`: `/Users/M1PRO/Documents/code/plot-keys`
 - `gnd`: `/Users/M1PRO/Documents/code/_turbo/gnd`
+- `ewatrade`: `/Users/M1PRO/Documents/code/ewatrade`
 - `school-clerk`: `/Users/M1PRO/Documents/code/school-clerk`
 - `after-service`: `/Users/M1PRO/Documents/code/micro-startups/after-service`
 
 ## Notes
 - `caltext` is the reference for AI assistant workflows, Hono/Nitro API routes, webhook handling, messaging adapters, AI SDK tools, and durable Vercel Workflow patterns.
+- `ewatrade` is the reference for multi-tenant commerce surfaces spanning storefront, marketing, POS, tenant operations dashboard, shared UI, Prisma package structure, and reusable tenant/domain routing helpers.
 - `after-service` is the reference for Bun/Turbo SaaS workspace structure, Next.js website + dashboard separation, Hono/tRPC API boundaries, billing entitlement patterns, follow-up workflow modeling, and shared package organization across auth, db, jobs, notifications, navigation, UI, and utilities.
 - These repositories are external references, not part of this workspace.
 - Primary use: architecture review, implementation pattern comparison, and coding style guidance.

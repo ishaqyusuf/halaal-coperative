@@ -1,7 +1,4 @@
-import {
-  WorkspaceEmptyState,
-  WorkspacePageShell,
-} from "@/components/dashboard"
+import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import {
   FoodPurchaseView,
   MemberFoodPurchaseView,
@@ -80,6 +77,7 @@ export default async function FoodPurchasePage() {
       >
         <MemberFoodPurchaseView
           applications={data.applications}
+          chargeOptions={data.chargeOptions}
           cycles={data.cycles}
           member={data.member}
         />
@@ -95,6 +93,7 @@ export default async function FoodPurchasePage() {
     >
       <FoodPurchaseView
         applications={data.applications}
+        approvalChargeOptions={data.approvalChargeOptions}
         canRecordAccounting={data.canRecordAccounting}
         canReviewAccounting={data.canReviewAccounting}
         canReleaseFunds={data.canReleaseFunds}
@@ -102,6 +101,7 @@ export default async function FoodPurchasePage() {
         canSubmitApplications={data.canSubmitApplications}
         cycles={data.cycles}
         memberOptions={data.memberOptions}
+        submissionChargeOptions={data.submissionChargeOptions}
         summary={data.summary}
       />
     </WorkspacePageShell>

@@ -147,6 +147,33 @@ function RequestCard({
         </View>
       </View>
 
+      {request.charges.length > 0 ? (
+        <View className="gap-2 rounded-md bg-secondary p-3">
+          <Text className="text-xs font-medium text-muted-foreground">
+            Charges
+          </Text>
+          {request.charges.map((charge) => (
+            <View
+              className="flex-row items-center justify-between gap-3"
+              key={charge.id}
+            >
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-foreground">
+                  {charge.name}
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {formatStatus(charge.status)} -{" "}
+                  {formatStatus(charge.collectionMode)}
+                </Text>
+              </View>
+              <Text className="text-sm font-semibold text-foreground">
+                {formatCurrency(charge.amount, currencyCode)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       {request.purpose ? (
         <Text className="text-sm leading-5 text-muted-foreground">
           {request.purpose}
@@ -194,6 +221,18 @@ export function FinancingScreen() {
   const amount = parseAmount(requestedAmount)
   const termMonths = parsePositiveInteger(requestedTermMonths)
   const extraSavings = parseAmount(extraMonthlySavingsAmount)
+  const estimatedRequestCharges =
+    financing?.loanRequestCharges.map((charge) => ({
+      ...charge,
+      estimatedAmount:
+        charge.chargeValueType === "percentage"
+          ? Number(((amount * charge.amount) / 100).toFixed(2))
+          : charge.amount,
+    })) ?? []
+  const estimatedRequestChargeTotal = estimatedRequestCharges.reduce(
+    (total, charge) => total + charge.estimatedAmount,
+    0
+  )
   const canSubmit = Boolean(
     selectedProduct &&
     amount > 0 &&
@@ -379,6 +418,34 @@ export function FinancingScreen() {
                   placeholder="Purpose note"
                   value={purpose}
                 />
+                {estimatedRequestCharges.length > 0 ? (
+                  <View className="gap-2 rounded-md bg-secondary p-3">
+                    <View className="flex-row items-center justify-between gap-3">
+                      <Text className="text-xs font-medium text-muted-foreground">
+                        Applicable charges
+                      </Text>
+                      <Text className="text-sm font-semibold text-foreground">
+                        {formatCurrency(
+                          estimatedRequestChargeTotal,
+                          currencyCode
+                        )}
+                      </Text>
+                    </View>
+                    {estimatedRequestCharges.map((charge) => (
+                      <View
+                        className="flex-row items-center justify-between gap-3"
+                        key={charge.id}
+                      >
+                        <Text className="flex-1 text-xs text-muted-foreground">
+                          {charge.name}
+                        </Text>
+                        <Text className="text-xs font-medium text-foreground">
+                          {formatCurrency(charge.estimatedAmount, currencyCode)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
                 <Button
                   className="h-12"
                   disabled={!canSubmit}

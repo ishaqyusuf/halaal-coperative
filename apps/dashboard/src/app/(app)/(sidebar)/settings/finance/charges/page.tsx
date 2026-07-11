@@ -13,7 +13,7 @@ import { DataTable } from "@/components/tables/charges/data-table"
 import type { Charge, ChargeVersion } from "@/components/tables/charges/columns"
 import { loadChargeFilterParams } from "@/hooks/use-charge-filter-params"
 import { loadChargeParams } from "@/hooks/use-charge-params"
-import { getDashboardServerContext } from "@/lib/server-context"
+import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 
 export const metadata: Metadata = {
   title: "Charges | Finance Settings",
@@ -186,6 +186,7 @@ async function FinanceChargesPageContent({
   loadChargeParams(resolvedSearchParams)
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
+  const quickFillEnabled = canShowQuickFill(context)
 
   let isLocked = false
   let rows = withCurrentVersion(demoChargeDefinitions)
@@ -231,7 +232,11 @@ async function FinanceChargesPageContent({
           </p>
         </div>
 
-        <ChargeHeader financeStartDate={financeStartDate} isLocked={isLocked} />
+        <ChargeHeader
+          financeStartDate={financeStartDate}
+          isLocked={isLocked}
+          quickFillEnabled={quickFillEnabled}
+        />
         <DataTable
           financeStartDate={financeStartDate}
           hasSourceRows={rows.length > 0}

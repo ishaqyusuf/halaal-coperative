@@ -30,6 +30,7 @@ model ProcurementRequest {
   member                    Member                   @relation(fields: [memberId], references: [id], onDelete: Cascade)
   createdByUser             User                     @relation("ProcurementRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   reviewedByUser            User?                    @relation("ProcurementRequestReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  charges                   ChargeApplication[]
   repaymentScheduleItems    ProcurementRepaymentScheduleItem[]
   openingBalanceSource      MemberOpeningBalance?    @relation("MemberOpeningBalanceAppliedProcurement")
 

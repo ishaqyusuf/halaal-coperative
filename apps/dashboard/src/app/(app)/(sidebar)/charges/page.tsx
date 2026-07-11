@@ -1,13 +1,24 @@
-import { createDbRuntime, listChargeApplications, listChargeDefinitions, listMembers } from "@halaalvest/db"
+import {
+  createDbRuntime,
+  listChargeApplications,
+  listChargeDefinitions,
+  listMembers,
+} from "@halaalvest/db"
 import { ChargesPageView } from "@/components/charges-page-view"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 
 export default async function ChargesPage() {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
-  const canManageCharges = hasAnyRole(context.auth.membership?.role, financeManagementRoles)
+  const canManageCharges = hasAnyRole(
+    context.auth.membership?.role,
+    financeManagementRoles
+  )
 
   if (!context.tenant || runtime.status !== "database-configured") {
     return (
@@ -30,9 +41,11 @@ export default async function ChargesPage() {
     listChargeApplications(context.tenant.id, { limit: 20 }),
   ])
 
-  const activeCharges = charges.filter((charge) => charge.isActive)
-  const monthlyLevies = charges.filter((charge) => charge.isMonthlyLevy)
-  const postedApplications = chargeApplications.filter((application) => application.status === "posted")
+  const activeCharges = charges.filter((charge: any) => charge.isActive)
+  const monthlyLevies = charges.filter((charge: any) => charge.isMonthlyLevy)
+  const postedApplications = chargeApplications.filter(
+    (application: any) => application.status === "posted"
+  )
   const today = new Date()
 
   return (
@@ -42,19 +55,27 @@ export default async function ChargesPage() {
       chargeApplications={chargeApplications}
       charges={charges.map((charge: any) => {
         const sortedVersions = [...(charge.versions ?? [])].sort(
-          (left, right) => new Date(right.effectiveFrom).getTime() - new Date(left.effectiveFrom).getTime(),
+          (left, right) =>
+            new Date(right.effectiveFrom).getTime() -
+            new Date(left.effectiveFrom).getTime()
         )
         const currentVersion =
-          sortedVersions.find((version) => new Date(version.effectiveFrom).getTime() <= today.getTime()) ??
-          null
+          sortedVersions.find(
+            (version) =>
+              new Date(version.effectiveFrom).getTime() <= today.getTime()
+          ) ?? null
 
         return {
-          amount: currentVersion ? Number(currentVersion.amount) : Number(charge.amount),
+          amount: currentVersion
+            ? Number(currentVersion.amount)
+            : Number(charge.amount),
           chargeValueType:
             charge.chargeValueType ??
             (charge.kind === "percentage" ? "percentage" : "fixed_amount"),
           code: charge.code,
-          currentEffectiveFrom: currentVersion ? currentVersion.effectiveFrom.toISOString().slice(0, 10) : null,
+          currentEffectiveFrom: currentVersion
+            ? currentVersion.effectiveFrom.toISOString().slice(0, 10)
+            : null,
           id: charge.id,
           isActive: charge.isActive,
           isMonthlyLevy: charge.isMonthlyLevy,

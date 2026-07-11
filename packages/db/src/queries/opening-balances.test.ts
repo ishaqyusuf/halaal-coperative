@@ -10,9 +10,14 @@ import {
 function openingBalanceRow(overrides: Record<string, unknown> = {}) {
   return {
     activeFinancingOutstanding: 75000,
+    activeFinancingGuarantorOneMemberId: null,
+    activeFinancingGuarantorTwoMemberId: null,
+    activeFinancingOpenedAt: null,
+    appliedFoodPurchaseApplicationId: null,
     appliedLoanId: null,
     appliedProcurementRequestId: null,
     commitmentSavingsBalance: 120000,
+    foodPurchaseOutstanding: 0,
     createdAt: new Date("2026-07-09T10:00:00.000Z"),
     createdByUserId: "user-1",
     id: "opening-1",
@@ -46,6 +51,7 @@ function createOpeningBalancePrismaStub({
   appliedLedger = false,
   loanRepaymentAmount = 0,
   loanSchedulePaidAmount = 0,
+  foodPurchasePaidAmount = 0,
   migrationStatus = "member_migration_in_progress",
   openingRows = [openingBalanceRow()],
   procurementSchedulePaidAmount = 0,
@@ -53,14 +59,19 @@ function createOpeningBalancePrismaStub({
   appliedLedger?: boolean
   loanRepaymentAmount?: number
   loanSchedulePaidAmount?: number
+  foodPurchasePaidAmount?: number
   migrationStatus?: string
   openingRows?: Record<string, unknown>[]
   procurementSchedulePaidAmount?: number
 } = {}) {
   const auditLogCreates: Record<string, unknown>[] = []
   const ledgerTransactionCreates: Record<string, unknown>[] = []
+  const foodPurchaseApplicationCreates: Record<string, unknown>[] = []
+  const foodPurchaseApplicationUpdates: Record<string, unknown>[] = []
+  const foodPurchaseCycleUpserts: Record<string, unknown>[] = []
   const loanApprovalCreates: Record<string, unknown>[] = []
   const loanCreates: Record<string, unknown>[] = []
+  const loanGuarantorApprovalCreates: Record<string, unknown>[] = []
   const loanProductUpserts: Record<string, unknown>[] = []
   const loanRequestCreates: Record<string, unknown>[] = []
   const loanUpdates: Record<string, unknown>[] = []
@@ -128,6 +139,37 @@ function createOpeningBalancePrismaStub({
         }
       },
     },
+    foodPurchaseApplication: {
+      create: async (input: any) => {
+        foodPurchaseApplicationCreates.push(input)
+        return {
+          id: "food-purchase-opening-1",
+          ...input.data,
+        }
+      },
+      findFirst: async (input: any) =>
+        input?.where?.id === "food-purchase-opening-1"
+          ? {
+              id: "food-purchase-opening-1",
+              memberId: "member-1",
+              paidAmount: foodPurchasePaidAmount,
+              tenantId: "tenant-1",
+            }
+          : null,
+      update: async (input: any) => {
+        foodPurchaseApplicationUpdates.push(input)
+        return input
+      },
+    },
+    foodPurchaseCycle: {
+      upsert: async (input: any) => {
+        foodPurchaseCycleUpserts.push(input)
+        return {
+          id: "food-cycle-opening-1",
+          ...input.create,
+        }
+      },
+    },
     legacyLoanMigrationDraft: {
       count: async () => 0,
     },
@@ -136,6 +178,15 @@ function createOpeningBalancePrismaStub({
         loanApprovalCreates.push(input)
         return {
           id: "loan-approval-opening-1",
+          ...input.data,
+        }
+      },
+    },
+    loanGuarantorApproval: {
+      create: async (input: any) => {
+        loanGuarantorApprovalCreates.push(input)
+        return {
+          id: `loan-guarantor-approval-${loanGuarantorApprovalCreates.length}`,
           ...input.data,
         }
       },
@@ -350,6 +401,8 @@ function createOpeningBalancePrismaStub({
     },
     tenantPolicy: {
       findUnique: async () => ({
+        foodPurchaseAllowsCommitmentReductionDuringPayback: false,
+        foodPurchaseMaximumPaybackMonths: 1,
         procurementAllowsCommitmentReductionDuringPayback: false,
         procurementMaximumPaybackMonths: 12,
         shareConfigurationMode: "monthly_history",
@@ -370,9 +423,13 @@ function createOpeningBalancePrismaStub({
       callback: (transaction: typeof tx) => Promise<unknown>
     ) => callback(tx),
     auditLogCreates,
+    foodPurchaseApplicationCreates,
+    foodPurchaseApplicationUpdates,
+    foodPurchaseCycleUpserts,
     ledgerTransactionCreates,
     loanApprovalCreates,
     loanCreates,
+    loanGuarantorApprovalCreates,
     loanProductUpserts,
     loanRequestCreates,
     loanUpdates,
@@ -397,7 +454,11 @@ describe("member opening balances", () => {
       {
         actorUserId: "user-1",
         activeFinancingOutstanding: 75000,
+        activeFinancingGuarantorOneMemberId: "member-2",
+        activeFinancingGuarantorTwoMemberId: "member-3",
+        activeFinancingOpenedAt: new Date("2026-06-15T12:00:00.000Z"),
         commitmentSavingsBalance: 120000,
+        foodPurchaseOutstanding: 18000,
         memberId: "member-1",
         notes: "Current book position",
         openingDate: new Date("2026-07-15T18:30:00.000Z"),
@@ -414,7 +475,11 @@ describe("member opening balances", () => {
 
     expect(openingBalance).toMatchObject({
       activeFinancingOutstanding: 75000,
+      activeFinancingGuarantorOneMemberId: "member-2",
+      activeFinancingGuarantorTwoMemberId: "member-3",
+      activeFinancingOpenedAt: new Date("2026-06-15T00:00:00.000Z"),
       commitmentSavingsBalance: 120000,
+      foodPurchaseOutstanding: 18000,
       memberId: "member-1",
       procurementOutstanding: 25000,
       shareCapitalBalance: 30000,
@@ -425,8 +490,12 @@ describe("member opening balances", () => {
     expect(prisma.openingBalanceCreates[0]).toMatchObject({
       data: {
         activeFinancingOutstanding: 75000,
+        activeFinancingGuarantorOneMemberId: "member-2",
+        activeFinancingGuarantorTwoMemberId: "member-3",
+        activeFinancingOpenedAt: new Date("2026-06-15T00:00:00.000Z"),
         commitmentSavingsBalance: 120000,
         createdByUserId: "user-1",
+        foodPurchaseOutstanding: 18000,
         memberId: "member-1",
         procurementOutstanding: 25000,
         shareCapitalBalance: 30000,
@@ -446,7 +515,11 @@ describe("member opening balances", () => {
         entityType: "MemberOpeningBalance",
         metadata: {
           activeFinancingOutstanding: 75000,
+          activeFinancingGuarantorOneMemberId: "member-2",
+          activeFinancingGuarantorTwoMemberId: "member-3",
+          activeFinancingOpenedAt: "2026-06-15T00:00:00.000Z",
           commitmentSavingsBalance: 120000,
+          foodPurchaseOutstanding: 18000,
           hasSourceDocument: true,
           memberId: "member-1",
           procurementOutstanding: 25000,
@@ -725,6 +798,9 @@ describe("member opening balances", () => {
       openingRows: [
         openingBalanceRow({
           activeFinancingOutstanding: 75000,
+          activeFinancingGuarantorOneMemberId: "member-2",
+          activeFinancingGuarantorTwoMemberId: "member-3",
+          activeFinancingOpenedAt: new Date("2026-06-15T00:00:00.000Z"),
           procurementOutstanding: 0,
           status: "approved",
         }),
@@ -771,6 +847,7 @@ describe("member opening balances", () => {
         memberId: "member-1",
         purpose: "Brought-forward active financing balance",
         requestedAmount: 75000,
+        requestedAt: new Date("2026-06-15T00:00:00.000Z"),
         requestedTermMonths: 1,
         status: "approved",
         tenantId: "tenant-1",
@@ -785,10 +862,22 @@ describe("member opening balances", () => {
         tenantId: "tenant-1",
       },
     })
+    expect(prisma.loanGuarantorApprovalCreates).toHaveLength(2)
+    expect(prisma.loanGuarantorApprovalCreates[0]).toMatchObject({
+      data: {
+        guarantorMemberId: "member-2",
+        loanRequestId: "loan-request-opening-1",
+        requestedByUserId: "user-1",
+        respondedByUserId: "user-1",
+        status: "approved",
+        tenantId: "tenant-1",
+      },
+    })
     expect(prisma.loanCreates[0]).toMatchObject({
       data: {
+        disbursedAt: new Date("2026-06-15T00:00:00.000Z"),
         estimatedMonthlyServicing: 75000,
-        firstRepaymentDueAt: new Date("2026-07-01T00:00:00.000Z"),
+        firstRepaymentDueAt: new Date("2026-06-15T00:00:00.000Z"),
         loanProductId: "loan-product-opening-1",
         loanRequestId: "loan-request-opening-1",
         memberId: "member-1",
@@ -802,7 +891,7 @@ describe("member opening balances", () => {
     expect(prisma.repaymentScheduleCreates[0]).toMatchObject({
       data: {
         amountPaid: 0,
-        dueAt: new Date("2026-07-01T00:00:00.000Z"),
+        dueAt: new Date("2026-06-15T00:00:00.000Z"),
         installmentNumber: 1,
         loanId: "loan-opening-1",
         principalDue: 75000,
@@ -827,6 +916,11 @@ describe("member opening balances", () => {
             entityType: "Loan",
             metadata: expect.objectContaining({
               amount: 75000,
+              guarantorApprovalIds: [
+                "loan-guarantor-approval-1",
+                "loan-guarantor-approval-2",
+              ],
+              guarantorMemberIds: ["member-2", "member-3"],
               loanRequestId: "loan-request-opening-1",
               openingBalanceId: "opening-1",
               scheduleItemId: "repayment-schedule-opening-1",
@@ -846,6 +940,81 @@ describe("member opening balances", () => {
         }),
       ])
     )
+  })
+
+  test("applies approved opening Food Purchase as an approved application", async () => {
+    const prisma = createOpeningBalancePrismaStub({
+      openingRows: [
+        openingBalanceRow({
+          activeFinancingOutstanding: 0,
+          foodPurchaseOutstanding: 18000,
+          procurementOutstanding: 0,
+          status: "approved",
+        }),
+      ],
+    })
+
+    const openingBalance = await applyMemberOpeningBalance(
+      {
+        actorUserId: "user-1",
+        openingBalanceId: "opening-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(openingBalance).toMatchObject({
+      appliedByUserId: "user-1",
+      appliedFoodPurchaseApplicationId: "food-purchase-opening-1",
+      status: "applied",
+    })
+    expect(prisma.foodPurchaseCycleUpserts[0]).toMatchObject({
+      create: {
+        releasedAmount: 18000,
+        releasedByUserId: "user-1",
+        status: "open",
+        tenantId: "tenant-1",
+      },
+      where: {
+        tenantId_periodMonth: {
+          tenantId: "tenant-1",
+        },
+      },
+    })
+    expect(prisma.foodPurchaseApplicationCreates[0]).toMatchObject({
+      data: {
+        approvedAmount: 18000,
+        approvedPaybackMonths: 1,
+        cycleId: "food-cycle-opening-1",
+        memberId: "member-1",
+        requestedAmount: 18000,
+        requestedPaybackMonths: 1,
+        reviewedByUserId: "user-1",
+        status: "approved",
+        submittedByUserId: "user-1",
+        tenantId: "tenant-1",
+      },
+    })
+    expect(prisma.openingBalanceUpdates[0]).toMatchObject({
+      data: {
+        appliedFoodPurchaseApplicationId: "food-purchase-opening-1",
+        appliedByUserId: "user-1",
+        status: "applied",
+      },
+      where: {
+        id: "opening-1",
+      },
+    })
+    expect(prisma.auditLogCreates.at(-1)).toMatchObject({
+      data: {
+        action: "migration.opening_balance.applied",
+        metadata: {
+          foodPurchaseApplicationId: "food-purchase-opening-1",
+          foodPurchaseCycleId: "food-cycle-opening-1",
+          foodPurchaseOutstanding: 18000,
+        },
+      },
+    })
   })
 
   test("applies approved opening procurement as an active repayment obligation", async () => {

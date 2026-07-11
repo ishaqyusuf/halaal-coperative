@@ -57,6 +57,7 @@ export type BusinessProfitSeasonReviewRow = {
     profitAmount: number
     profitDate: Date | string
     reason: string | null
+    status: string
   }>
   profitEntryCount: number
   status: "pending" | "draft" | "approved" | "published" | "closed"
@@ -69,6 +70,7 @@ type BusinessProfitSeasonProfitEntry = {
   profitAmount?: unknown
   profitDate: Date | string
   reason?: string | null
+  status?: string | null
   shareBusiness?: {
     name?: string | null
   } | null
@@ -137,6 +139,15 @@ export type TenantSharePolicySettings = {
 
 export type ShareConfigurationMode = "monthly_history" | "unit_based"
 
+export type TenantMigrationSetupMode =
+  | "historical_backfill"
+  | "brought_forward"
+
+export type TenantMigrationSetupSettings = {
+  id: string | null
+  mode: TenantMigrationSetupMode
+}
+
 export type MemberShareApplicationStatus =
   | "pending"
   | "approved"
@@ -183,6 +194,15 @@ export const defaultTenantSharePolicy: TenantSharePolicySettings = {
 }
 
 const shareConfigurationModes = new Set(["monthly_history", "unit_based"])
+const tenantMigrationSetupModes = new Set([
+  "historical_backfill",
+  "brought_forward",
+])
+
+export const defaultTenantMigrationSetup: TenantMigrationSetupSettings = {
+  id: null,
+  mode: "historical_backfill",
+}
 
 async function listDividendPeriodsForBusinessProfitReview(
   prisma: any,
@@ -278,6 +298,21 @@ function normalizeTenantSharePolicy(policy: any): TenantSharePolicySettings {
   }
 }
 
+function normalizeTenantMigrationSetup(
+  policy: any
+): TenantMigrationSetupSettings {
+  const mode =
+    policy?.migrationSetupMode ?? defaultTenantMigrationSetup.mode
+
+  return {
+    ...defaultTenantMigrationSetup,
+    id: policy?.id ?? defaultTenantMigrationSetup.id,
+    mode: tenantMigrationSetupModes.has(mode)
+      ? (mode as TenantMigrationSetupMode)
+      : defaultTenantMigrationSetup.mode,
+  }
+}
+
 function normalizeMemberShareApplication(
   application: any
 ): MemberShareApplicationRow {
@@ -309,6 +344,43 @@ function assertShareConfigurationMode(value: string) {
   if (!shareConfigurationModes.has(value)) {
     throw new Error("Share configuration mode is not supported.")
   }
+}
+
+function assertTenantMigrationSetupMode(value: string) {
+  if (!tenantMigrationSetupModes.has(value)) {
+    throw new Error("Tenant migration setup mode is not supported.")
+  }
+}
+
+export function recommendTenantMigrationSetupMode(input: {
+  memberCount?: number | null
+  now?: Date
+  startDate?: Date | string | null
+}): TenantMigrationSetupMode | null {
+  if (!input.startDate) return null
+
+  const now = input.now ?? new Date()
+  const startDate =
+    input.startDate instanceof Date
+      ? input.startDate
+      : dateFromDateOnly(input.startDate)
+  const ageInMonths = Math.max(
+    0,
+    (now.getUTCFullYear() - startDate.getUTCFullYear()) * 12 +
+      (now.getUTCMonth() - startDate.getUTCMonth())
+  )
+
+  if (ageInMonths <= 12) {
+    return "historical_backfill"
+  }
+
+  if (input.memberCount === null || input.memberCount === undefined) {
+    return null
+  }
+
+  const workload = Math.max(0, input.memberCount) * ageInMonths
+
+  return workload <= 240 ? "historical_backfill" : "brought_forward"
 }
 
 function assertBusinessPolicyChoice(
@@ -686,6 +758,7 @@ function buildBusinessProfitSeasonReviewRows(input: {
           profitAmount: roundCurrency(Number(entry.profitAmount ?? 0)),
           profitDate: entry.profitDate,
           reason: entry.reason ?? null,
+          status: entry.status ?? "draft",
         })),
         profitEntryCount: bucket.entries.length,
         status: existingPeriod?.status ?? "pending",
@@ -780,6 +853,7 @@ export async function getTenantFinanceSetup(
       businessProfitSeasons: [],
       chargeDefinitions: [],
       dividendPeriods: [],
+      migrationSetup: defaultTenantMigrationSetup,
       sharePolicy: defaultTenantSharePolicy,
       shareBusinesses: [],
       shareStructureVersions: [],
@@ -803,6 +877,7 @@ export async function getTenantFinanceSetup(
         name: true,
         slug: true,
         startDate: true,
+        currentSize: true,
         currencyCode: true,
       },
     }),
@@ -880,6 +955,7 @@ export async function getTenantFinanceSetup(
     businessProfitSeasons,
     chargeDefinitions,
     dividendPeriods,
+    migrationSetup: normalizeTenantMigrationSetup(sharePolicy),
     sharePolicy: normalizeTenantSharePolicy(sharePolicy),
     shareBusinesses,
     shareStructureVersions,
@@ -904,6 +980,25 @@ export async function getTenantSharePolicy(
   )
 
   return normalizeTenantSharePolicy(policy)
+}
+
+export async function getTenantMigrationSetup(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+
+  if (!prisma) {
+    return defaultTenantMigrationSetup
+  }
+
+  const policy = await readOptionalTenantPolicy(prisma, (tenantPolicy) =>
+    tenantPolicy.findUnique({
+      where: { tenantId },
+    })
+  )
+
+  return normalizeTenantMigrationSetup(policy)
 }
 
 export async function getTenantBusinessProfitPolicy(
@@ -1334,6 +1429,58 @@ export async function updateTenantSharePolicy(
   )
 
   return normalizeTenantSharePolicy(policy)
+}
+
+export async function updateTenantMigrationSetup(
+  input: {
+    actorUserId?: string | null
+    mode: TenantMigrationSetupMode
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  assertTenantMigrationSetupMode(input.mode)
+
+  const previousPolicy = await readOptionalTenantPolicy(
+    prisma,
+    (tenantPolicy) =>
+      tenantPolicy.findUnique({
+        where: { tenantId: input.tenantId },
+      })
+  )
+  const policy = await prisma.tenantPolicy.upsert({
+    create: {
+      migrationSetupMode: input.mode,
+      tenantId: input.tenantId,
+    },
+    update: {
+      migrationSetupMode: input.mode,
+    },
+    where: { tenantId: input.tenantId },
+  })
+
+  await createAuditLogEntry(
+    {
+      action: "tenant_policy.migration_setup_mode_updated",
+      actorType: "user",
+      actorUserId: input.actorUserId ?? null,
+      entityId: policy.id,
+      entityType: "TenantPolicy",
+      metadata: {
+        next: normalizeTenantMigrationSetup(policy),
+        previous: previousPolicy
+          ? normalizeTenantMigrationSetup(previousPolicy)
+          : null,
+      },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return normalizeTenantMigrationSetup(policy)
 }
 
 async function assertUnitShareApplicationModelSelected(
@@ -2095,6 +2242,7 @@ export async function createShareBusiness(
       profitAmount: number
       profitDate: Date
       reason?: string
+      status?: "draft" | "pending" | "reviewed" | "completed" | "approved" | "archived"
     }>
   },
   prismaOverride?: PrismaClient
@@ -2153,7 +2301,9 @@ export async function createShareBusiness(
           profitDate: profitEntry.profitDate,
           notes: input.notes,
           reason: profitEntry.reason,
-          status: input.status === "completed" ? "reviewed" : "draft",
+          status:
+            profitEntry.status ??
+            (input.status === "completed" ? "reviewed" : "draft"),
           sourceType: input.sourceType ?? "manual",
           createdByUserId: input.createdByUserId,
         },
@@ -2573,7 +2723,7 @@ export async function createShareBusinessProfitEntry(
     allocatableProfitAmount?: number
     profitDate: Date
     reason?: string
-    status?: "draft" | "reviewed" | "approved" | "archived"
+    status?: "draft" | "pending" | "reviewed" | "completed" | "approved" | "archived"
     sourceType?: "manual" | "backfill" | "import"
     linkedDividendPeriodId?: string
     notes?: string
@@ -2652,7 +2802,7 @@ export async function updateShareBusinessProfitEntry(
     allocatableProfitAmount?: number
     profitDate: Date
     reason?: string
-    status?: "draft" | "reviewed" | "approved" | "archived"
+    status?: "draft" | "pending" | "reviewed" | "completed" | "approved" | "archived"
     sourceType?: "manual" | "backfill" | "import"
     linkedDividendPeriodId?: string | null
     notes?: string
@@ -2869,6 +3019,64 @@ export async function generateShareProfitAllocations(
       orderBy: { allocatedProfitAmount: "desc" },
     })
   })
+}
+
+export async function generateHistoricalBackfillShareProfitAllocations(
+  input: {
+    actorUserId?: string | null
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const policy = await prisma.tenantPolicy.findUnique({
+    where: { tenantId: input.tenantId },
+  })
+
+  if (policy?.migrationSetupMode !== "historical_backfill") {
+    throw new Error(
+      "Historical backfill dividend calculation requires historical backfill setup mode."
+    )
+  }
+
+  if (policy?.shareConfigurationMode !== "unit_based") {
+    throw new Error(
+      "Historical backfill dividend calculation requires unit-based shares."
+    )
+  }
+
+  const profitEntries = await prisma.shareBusinessProfitEntry.findMany({
+    select: { id: true },
+    where: {
+      tenantId: input.tenantId,
+      sourceType: "backfill",
+      status: {
+        not: "archived",
+      },
+    },
+    orderBy: [{ profitDate: "asc" }, { createdAt: "asc" }],
+  })
+
+  if (profitEntries.length === 0) {
+    throw new Error("No historical business profit entries are available.")
+  }
+
+  const generatedAllocations = []
+  for (const profitEntry of profitEntries) {
+    const allocations = await generateShareProfitAllocations(
+      {
+        actorUserId: input.actorUserId ?? null,
+        profitEntryId: profitEntry.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+    generatedAllocations.push(...allocations)
+  }
+
+  return generatedAllocations
 }
 
 async function rebuildDividendPeriodAllocationsFromPublishedProfit(

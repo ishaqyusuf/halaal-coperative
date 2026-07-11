@@ -74,3 +74,24 @@ enum ChargeApplicationStatus {
   waived
   reversed
 }
+
+enum ChargeWorkflow {
+  commitment_collection
+  loan_request
+  loan
+  procurement_request
+  food_purchase_application
+  project_financing_request
+}
+
+enum ChargeApplicabilityTrigger {
+  monthly_collection
+  submission
+  approval
+  manual
+}
+
+enum ChargeCollectionMode {
+  deduct_from_savings
+  pay_separately
+}

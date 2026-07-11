@@ -24,7 +24,9 @@ import {
 } from "@/components/migration/member-migration-history-forms"
 import {
   applyMemberOpeningBalanceAction,
+  createHistoricalMemberSharePurchaseAction,
   createMemberOpeningBalanceAction,
+  generateHistoricalBackfillShareProfitAllocationsAction,
   queueBackfillDraftAction,
   reviewMemberOpeningBalanceAction,
   reverseMemberOpeningBalanceAction,
@@ -43,11 +45,12 @@ import {
 } from "./member-profit-season-adjustment-table"
 import {
   getMemberBackfillAdjacentSteps,
+  getMemberBackfillStepsForMode,
   memberBackfillStepHref,
-  memberBackfillSteps,
   type MemberBackfillStepKey,
 } from "./member-backfill-steps"
 import { MemberBackfillBaselineEditDialog } from "./member-backfill-baseline-edit-dialog"
+import { MemberOpeningSharePositionFields } from "./member-opening-share-position-fields"
 import { OpeningSourceDocumentFields } from "./opening-source-document-fields"
 
 type MemberBackfillData = Extract<
@@ -169,6 +172,9 @@ function statusTone(status: MemberBackfillData["review"]["status"]) {
 }
 
 function isStepComplete(step: MemberBackfillStepKey, data: MemberBackfillData) {
+  if (step === "brought-forward") {
+    return data.memberOpeningBalances.length > 0
+  }
   if (step === "baseline") return true
   if (step === "commitments") {
     return (
@@ -214,11 +220,13 @@ function OpeningAmountInput({
   disabled,
   label,
   name,
+  required = false,
   step = "0.01",
 }: {
   disabled?: boolean
   label: string
   name: string
+  required?: boolean
   step?: string
 }) {
   return (
@@ -230,6 +238,7 @@ function OpeningAmountInput({
         min="0"
         name={name}
         placeholder="0"
+        required={required}
         step={step}
         type="number"
       />
@@ -244,6 +253,12 @@ function OpeningBalanceCreateForm({
   data: MemberBackfillData
   disabled: boolean
 }) {
+  const sharePolicy = data.tenantSharePolicy
+  const isUnitBasedShare = sharePolicy.configurationMode === "unit_based"
+  const guarantorOptions = data.memberOptions.filter(
+    (option) => option.id !== data.member.id
+  )
+
   return (
     <form
       action={createMemberOpeningBalanceAction}
@@ -251,6 +266,9 @@ function OpeningBalanceCreateForm({
       id={memberOpeningBalanceFormId}
     >
       <input name="memberId" type="hidden" value={data.member.id} />
+      <p className="text-xs font-medium text-muted-foreground">
+        Required current position
+      </p>
       <label className="grid gap-1 text-xs font-medium text-muted-foreground">
         Opening date
         <input
@@ -267,33 +285,104 @@ function OpeningBalanceCreateForm({
           disabled={disabled}
           label="Commitment savings"
           name="commitmentSavingsBalance"
+          required
         />
         <OpeningAmountInput
           disabled={disabled}
           label="Special savings"
           name="specialSavingsBalance"
+          required
         />
-        <OpeningAmountInput
-          disabled={disabled}
-          label="Share capital"
-          name="shareCapitalBalance"
-        />
-        <OpeningAmountInput
-          disabled={disabled}
-          label="Share units"
-          name="shareUnits"
-          step="1"
-        />
-        <OpeningAmountInput
-          disabled={disabled}
-          label="Active financing"
-          name="activeFinancingOutstanding"
-        />
-        <OpeningAmountInput
-          disabled={disabled}
-          label="Procurement"
-          name="procurementOutstanding"
-        />
+        {isUnitBasedShare ? (
+          <MemberOpeningSharePositionFields
+            disabled={disabled}
+            unitAmount={sharePolicy.unitAmount}
+          />
+        ) : (
+          <OpeningAmountInput
+            disabled={disabled}
+            label="Share capital"
+            name="shareCapitalBalance"
+            required
+          />
+        )}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        <details className="border border-border/70 bg-muted/20 p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-foreground">
+            Add active financing
+          </summary>
+          <div className="mt-3 grid gap-3">
+            <OpeningAmountInput
+              disabled={disabled}
+              label="Outstanding principal"
+              name="activeFinancingOutstanding"
+            />
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Financing start date
+              <input
+                className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+                disabled={disabled}
+                name="activeFinancingOpenedAt"
+                type="date"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Guarantor 1
+              <select
+                className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+                disabled={disabled}
+                name="activeFinancingGuarantorOneMemberId"
+              >
+                <option value="">No guarantor</option>
+                {guarantorOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Guarantor 2
+              <select
+                className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+                disabled={disabled}
+                name="activeFinancingGuarantorTwoMemberId"
+              >
+                <option value="">No guarantor</option>
+                {guarantorOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </details>
+        <details className="border border-border/70 bg-muted/20 p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-foreground">
+            Add procurement
+          </summary>
+          <div className="mt-3">
+            <OpeningAmountInput
+              disabled={disabled}
+              label="Outstanding procurement"
+              name="procurementOutstanding"
+            />
+          </div>
+        </details>
+        <details className="border border-border/70 bg-muted/20 p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-foreground">
+            Add Food Purchase
+          </summary>
+          <div className="mt-3">
+            <OpeningAmountInput
+              disabled={disabled}
+              label="Outstanding Food Purchase"
+              name="foodPurchaseOutstanding"
+            />
+          </div>
+        </details>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <OpeningSourceDocumentFields disabled={disabled} />
@@ -421,10 +510,12 @@ function OpeningBalanceReverseForm({
 function OpeningBalanceRow({
   disabled,
   memberId,
+  memberOptions,
   row,
 }: {
   disabled: boolean
   memberId: string
+  memberOptions: MemberBackfillData["memberOptions"]
   row: MemberBackfillData["memberOpeningBalances"][number]
 }) {
   const pending = row.status === "pending_review"
@@ -434,6 +525,14 @@ function OpeningBalanceRow({
     row.commitmentSavingsBalance +
     row.specialSavingsBalance +
     row.shareCapitalBalance
+  const guarantorOneLabel =
+    memberOptions.find(
+      (option) => option.id === row.activeFinancingGuarantorOneMemberId
+    )?.label ?? row.activeFinancingGuarantorOneMemberId
+  const guarantorTwoLabel =
+    memberOptions.find(
+      (option) => option.id === row.activeFinancingGuarantorTwoMemberId
+    )?.label ?? row.activeFinancingGuarantorTwoMemberId
 
   return (
     <div className="border border-border/70 bg-muted/20 p-3">
@@ -469,8 +568,24 @@ function OpeningBalanceRow({
           value={formatCurrency(row.activeFinancingOutstanding)}
         />
         <MetricBlock
+          label="Financing start"
+          value={formatDate(row.activeFinancingOpenedAt)}
+        />
+        <MetricBlock
+          label="Guarantor 1"
+          value={guarantorOneLabel ?? "Not set"}
+        />
+        <MetricBlock
+          label="Guarantor 2"
+          value={guarantorTwoLabel ?? "Not set"}
+        />
+        <MetricBlock
           label="Procurement"
           value={formatCurrency(row.procurementOutstanding)}
+        />
+        <MetricBlock
+          label="Food Purchase"
+          value={formatCurrency(row.foodPurchaseOutstanding)}
         />
       </div>
       {row.appliedLoanId ? (
@@ -481,6 +596,12 @@ function OpeningBalanceRow({
       {row.appliedProcurementRequestId ? (
         <p className="mt-3 break-all border-t border-border/70 pt-3 text-xs text-muted-foreground">
           Procurement opening posted as request {row.appliedProcurementRequestId}.
+        </p>
+      ) : null}
+      {row.appliedFoodPurchaseApplicationId ? (
+        <p className="mt-3 break-all border-t border-border/70 pt-3 text-xs text-muted-foreground">
+          Food Purchase opening posted as application{" "}
+          {row.appliedFoodPurchaseApplicationId}.
         </p>
       ) : null}
       {row.sourceDocumentName || row.sourceDocumentUrl || row.notes ? (
@@ -558,12 +679,117 @@ function OpeningPositionPanel({ data }: { data: MemberBackfillData }) {
               disabled={disabled}
               key={row.id}
               memberId={data.member.id}
+              memberOptions={data.memberOptions}
               row={row}
             />
           ))
         ) : (
           <div className="border border-dashed border-border/70 p-3 text-sm text-muted-foreground">
             No brought-forward opening position has been staged for this member.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function HistoricalSharePurchasesPanel({ data }: { data: MemberBackfillData }) {
+  const disabled =
+    !data.canEditBackfill || data.review.status === "backfill_applied"
+  const sharePolicy = data.tenantSharePolicy
+
+  if (
+    data.migrationSetupMode !== "historical_backfill" ||
+    sharePolicy.configurationMode !== "unit_based"
+  ) {
+    return null
+  }
+
+  return (
+    <div className="border border-border/70 bg-background p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <Badge variant="outline">Unit shares</Badge>
+          <h3 className="mt-3 text-sm font-semibold">
+            Historical share purchases
+          </h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Record the number of share units bought and the date each payment
+            was made.
+          </p>
+        </div>
+        <TrendPill tone="neutral">
+          {formatCurrency(sharePolicy.unitAmount)} per unit
+        </TrendPill>
+      </div>
+      <form
+        action={createHistoricalMemberSharePurchaseAction}
+        className="mt-4 grid gap-3"
+      >
+        <input name="memberId" type="hidden" value={data.member.id} />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+            Share units
+            <input
+              className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+              disabled={disabled}
+              min="1"
+              name="shareUnits"
+              required
+              step="1"
+              type="number"
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+            Paid date
+            <input
+              className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+              defaultValue={data.member.joinedAt}
+              disabled={disabled}
+              name="paidAt"
+              required
+              type="date"
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-2 xl:col-span-1">
+            Notes
+            <input
+              className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+              disabled={disabled}
+              name="notes"
+              placeholder="Receipt or source note"
+              type="text"
+            />
+          </label>
+        </div>
+        <div className="flex justify-end">
+          <Button disabled={disabled} size="sm" type="submit">
+            Add share purchase
+          </Button>
+        </div>
+      </form>
+      <div className="mt-4 grid gap-2">
+        {data.memberSharePurchases.length > 0 ? (
+          data.memberSharePurchases.map((purchase) => (
+            <div
+              className="grid gap-2 border border-border/70 bg-muted/20 p-3 text-sm sm:grid-cols-4"
+              key={purchase.id}
+            >
+              <MetricBlock label="Paid date" value={formatDate(purchase.paidAt)} />
+              <MetricBlock label="Units" value={purchase.shareUnits} />
+              <MetricBlock
+                label="Unit amount"
+                value={formatCurrency(purchase.unitAmountSnapshot)}
+              />
+              <MetricBlock
+                label="Share capital"
+                value={formatCurrency(purchase.shareCapitalAmount)}
+              />
+            </div>
+          ))
+        ) : (
+          <div className="border border-dashed border-border/70 p-3 text-sm text-muted-foreground">
+            No historical share purchases have been recorded for this member.
           </div>
         )}
       </div>
@@ -578,19 +804,23 @@ function StepRail({
   activeStep: MemberBackfillStepKey
   data: MemberBackfillData
 }) {
+  const steps = getMemberBackfillStepsForMode(data.migrationSetupMode)
+
   return (
     <aside className="hidden xl:sticky xl:top-24 xl:block xl:self-start">
       <DashboardSectionCard className="p-0">
         <div className="border-b border-border/70 p-4">
           <p className="text-[11px] font-semibold text-muted-foreground uppercase">
-            Backfill path
+            {data.migrationSetupMode === "brought_forward"
+              ? "Brought-forward path"
+              : "Backfill path"}
           </p>
           <p className="mt-1 text-sm font-semibold text-foreground">
             {data.member.memberNumber}
           </p>
         </div>
         <div className="flex flex-col gap-2 p-3">
-          {memberBackfillSteps.map((step, index) => {
+          {steps.map((step, index) => {
             const active = step.key === activeStep
             const complete = isStepComplete(step.key, data)
 
@@ -627,12 +857,21 @@ function StepFooter({
   activeStep,
   hasStepNextAction,
   memberId,
+  setupMode,
 }: {
   activeStep: MemberBackfillStepKey
   hasStepNextAction: boolean
   memberId: string
+  setupMode: MemberBackfillData["migrationSetupMode"]
 }) {
-  const { nextStep, previousStep } = getMemberBackfillAdjacentSteps(activeStep)
+  const { nextStep, previousStep } = getMemberBackfillAdjacentSteps(
+    activeStep,
+    setupMode
+  )
+
+  if (!previousStep && !nextStep) {
+    return null
+  }
 
   return (
     <div className="mt-6 flex flex-col gap-4">
@@ -732,6 +971,9 @@ function BaselineStep({ data }: { data: MemberBackfillData }) {
           </p>
         </div>
       </div>
+      <div className="mt-4">
+        <HistoricalSharePurchasesPanel data={data} />
+      </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricBlock
           label="Commitment rows"
@@ -746,6 +988,41 @@ function BaselineStep({ data }: { data: MemberBackfillData }) {
           label="Generated rows"
           value={data.generatedLedgerRows.length}
         />
+      </div>
+    </DashboardSectionCard>
+  )
+}
+
+function BroughtForwardStep({ data }: { data: MemberBackfillData }) {
+  return (
+    <DashboardSectionCard>
+      <DashboardSectionHeader
+        eyebrow="Brought-forward"
+        title="Capture current member position"
+        description="Enter the member's current savings, special savings, share position, and any active obligations that should be carried forward."
+        actions={
+          <TrendPill tone={statusTone(data.review.status)}>
+            {displayEnum(data.review.status)}
+          </TrendPill>
+        }
+      />
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <OpeningPositionPanel data={data} />
+        <div className="border border-border/70 bg-muted/20 p-4">
+          <p className="text-sm font-semibold text-foreground">
+            Required current state
+          </p>
+          <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
+            <p>Current savings balance</p>
+            <p>Current special savings balance</p>
+            <p>Current share capital or share units</p>
+          </div>
+          <Separator className="my-4" />
+          <p className="text-sm text-muted-foreground">
+            Active financing and procurement are optional here. Add them only
+            when the member is currently serving those obligations.
+          </p>
+        </div>
       </div>
     </DashboardSectionCard>
   )
@@ -864,6 +1141,9 @@ function ProfitStep({ data }: { data: MemberBackfillData }) {
   const nextHref = disabled
     ? undefined
     : memberBackfillStepHref(data.member.id, "review")
+  const canCalculateBackfillDividends =
+    data.migrationSetupMode === "historical_backfill" &&
+    data.tenantSharePolicy.configurationMode === "unit_based"
 
   return (
     <DashboardSectionCard>
@@ -871,6 +1151,15 @@ function ProfitStep({ data }: { data: MemberBackfillData }) {
         eyebrow="Step 5"
         title="Profit seasons"
         description="Capture member-specific historical profit adjustments by dividend season."
+        actions={
+          canCalculateBackfillDividends ? (
+            <form action={generateHistoricalBackfillShareProfitAllocationsAction}>
+              <Button disabled={disabled} size="sm" type="submit" variant="outline">
+                Calculate backfill dividends
+              </Button>
+            </form>
+          ) : null
+        }
       />
       <form
         action={saveMemberProfitSeasonAdjustmentsAction}
@@ -1033,6 +1322,9 @@ function ActiveStepPanel({
   activeStep: MemberBackfillStepKey
   data: MemberBackfillData
 }) {
+  if (activeStep === "brought-forward") {
+    return <BroughtForwardStep data={data} />
+  }
   if (activeStep === "baseline") return <BaselineStep data={data} />
   if (activeStep === "commitments") return <CommitmentsStep data={data} />
   if (activeStep === "activity") return <ActivityStep data={data} />
@@ -1057,12 +1349,17 @@ export function MemberBackfillPageView({
       activeStep === "activity" ||
       activeStep === "loans" ||
       activeStep === "profit")
+  const isBroughtForward = data.migrationSetupMode === "brought_forward"
 
   return (
     <WorkspacePageShell
-      eyebrow="Member backfill"
+      eyebrow={isBroughtForward ? "Brought-forward member" : "Member backfill"}
       title={data.member.fullName}
-      description={`${data.member.memberNumber} joined ${formatDate(data.member.joinedAt)}. Complete historical setup for this member before applying generated ledger rows.`}
+      description={
+        isBroughtForward
+          ? `${data.member.memberNumber} joined ${formatDate(data.member.joinedAt)}. Capture the current book position for this member before continuing live operations.`
+          : `${data.member.memberNumber} joined ${formatDate(data.member.joinedAt)}. Complete historical setup for this member before applying generated ledger rows.`
+      }
     >
       <div className="flex flex-wrap items-center gap-3">
         <DashboardActionLink href="/members">
@@ -1084,6 +1381,7 @@ export function MemberBackfillPageView({
             activeStep={activeStep}
             hasStepNextAction={hasStepNextAction}
             memberId={data.member.id}
+            setupMode={data.migrationSetupMode}
           />
         </main>
       </div>

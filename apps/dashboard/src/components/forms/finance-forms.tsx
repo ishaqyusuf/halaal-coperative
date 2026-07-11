@@ -2,6 +2,7 @@
 
 import { useTransition } from "react"
 import { z } from "zod"
+import { formatCurrency } from "@halaalvest/utils"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
@@ -500,13 +501,9 @@ const chargeDefinitionSchema = z.object({
   isMonthlyLevy: z.boolean().default(false),
   kind: z.enum(["fixed", "percentage"]),
   name: z.string().min(1, "Name is required."),
-  purpose: z.enum([
-    "general",
-    "member_share",
-    "loan_fee",
-    "membership_fee",
-    "penalty",
-  ]).default("general"),
+  purpose: z
+    .enum(["general", "member_share", "loan_fee", "membership_fee", "penalty"])
+    .default("general"),
 })
 
 type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
@@ -629,7 +626,8 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
                 <NativeSelect
                   {...field}
                   onChange={(event) => {
-                    const purpose = event.target.value as ChargeDefinitionValues["purpose"]
+                    const purpose = event.target
+                      .value as ChargeDefinitionValues["purpose"]
                     field.onChange(purpose)
                     if (purpose === "loan_fee") {
                       form.setValue("appliesToLoanRequests", true)
@@ -908,11 +906,20 @@ type LoanRequestValues = z.infer<typeof loanRequestSchema>
 export function LoanRequestForm({
   devMode,
   disabledReason,
+  loanRequestCharges,
   loanProducts,
   members,
 }: {
   devMode: boolean
   disabledReason?: string | null
+  loanRequestCharges?: Array<{
+    amount: number
+    chargeValueType: "fixed_amount" | "percentage"
+    code: string
+    collectionMode: string
+    id: string
+    name: string
+  }>
   loanProducts: Array<{ id: string; label: string }>
   members: Array<{ id: string; label: string }>
 }) {
@@ -930,6 +937,19 @@ export function LoanRequestForm({
   })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
+  const requestedAmount = Number(form.watch("requestedAmount") || 0)
+  const estimatedLoanRequestCharges =
+    loanRequestCharges?.map((charge) => ({
+      ...charge,
+      estimatedAmount:
+        charge.chargeValueType === "percentage"
+          ? Number(((requestedAmount * charge.amount) / 100).toFixed(2))
+          : charge.amount,
+    })) ?? []
+  const estimatedLoanRequestChargeTotal = estimatedLoanRequestCharges.reduce(
+    (total, charge) => total + charge.estimatedAmount,
+    0
+  )
 
   function onSubmit(values: LoanRequestValues) {
     startTransition(async () => {
@@ -1086,6 +1106,27 @@ export function LoanRequestForm({
             </FormItem>
           )}
         />
+        {estimatedLoanRequestCharges.length > 0 ? (
+          <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm xl:col-span-2">
+            <div className="flex items-center justify-between gap-3 font-medium">
+              <span>Applicable charges</span>
+              <span>{formatCurrency(estimatedLoanRequestChargeTotal)}</span>
+            </div>
+            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+              {estimatedLoanRequestCharges.map((charge) => (
+                <div
+                  className="flex items-center justify-between gap-3"
+                  key={charge.id}
+                >
+                  <span>
+                    {charge.name} ({charge.code})
+                  </span>
+                  <span>{formatCurrency(charge.estimatedAmount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <FormField
           control={form.control}
           name="requestedTermMonths"
@@ -1596,7 +1637,7 @@ export function LoanGuarantorReviewForm({
 }) {
   const form = useZodForm<LoanGuarantorReviewValues>(
     loanGuarantorReviewSchema,
-    { defaultValues },
+    { defaultValues }
   )
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
@@ -1607,12 +1648,12 @@ export function LoanGuarantorReviewForm({
         await reviewLoanGuarantorApprovalAction(objectToFormData(values))
         showSuccess(
           "Guarantor response saved",
-          `Guarantor marked ${values.status}.`,
+          `Guarantor marked ${values.status}.`
         )
       } catch (error) {
         showError(
           "Could not save guarantor response",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })

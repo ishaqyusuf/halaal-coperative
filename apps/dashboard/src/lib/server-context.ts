@@ -211,14 +211,16 @@ export async function getDashboardPageData(): Promise<DashboardPageData> {
           }),
           listChargeDefinitions(context.tenant.id),
         ]).then(([members, contributions, chargeDefinitions]) => ({
-          chargeDefinitions: chargeDefinitions.slice(0, 6).map((charge) => ({
-            id: charge.id,
-            name: charge.name,
-            code: charge.code,
-            kind: charge.kind,
-            isActive: charge.isActive,
-            amount: Number(charge.amount),
-          })),
+          chargeDefinitions: chargeDefinitions
+            .slice(0, 6)
+            .map((charge: any) => ({
+              id: charge.id,
+              name: charge.name,
+              code: charge.code,
+              kind: charge.kind,
+              isActive: charge.isActive,
+              amount: Number(charge.amount),
+            })),
           contributions: contributions.items.map((contribution) => ({
             id: contribution.id,
             memberName: contribution.member?.fullName ?? "Unknown member",
@@ -250,7 +252,8 @@ export async function getDashboardPageData(): Promise<DashboardPageData> {
           }
         : tenant,
       policy: {
-        reserveBuffer: dashboardMetrics?.reserveBuffer ?? defaultTenantPolicy.reserveBuffer,
+        reserveBuffer:
+          dashboardMetrics?.reserveBuffer ?? defaultTenantPolicy.reserveBuffer,
       },
       metrics: dashboardMetrics
         ? {
@@ -258,7 +261,8 @@ export async function getDashboardPageData(): Promise<DashboardPageData> {
             availablePool: dashboardMetrics.availablePool,
             collectionCoverage:
               dashboardMetrics.totalContributions > 0
-                ? dashboardMetrics.availablePool / dashboardMetrics.totalContributions
+                ? dashboardMetrics.availablePool /
+                  dashboardMetrics.totalContributions
                 : 0,
             delinquencyRate: dashboardMetrics.delinquencyRate,
             monthlyContributionTarget: dashboardMetrics.totalContributions,

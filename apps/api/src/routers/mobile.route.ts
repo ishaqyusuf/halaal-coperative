@@ -1,10 +1,12 @@
 import {
+  createMobileMemberShareApplication,
   createMobileMemberReceipt,
   createMobileMemberSupportCase,
   getMobileAdminOverview,
   getMobileMemberHome,
   getMobileMemberMore,
   getMobileMemberReceipts,
+  getMobileMemberShares,
   getMobileMemberSupport,
   getMobileMemberSection,
   mobileMemberSectionKeys,
@@ -60,6 +62,11 @@ const mobileReceiptCreateInput = z.object({
   proofDocumentName: z.string().trim().max(160).optional(),
   proofDocumentUrl: z.string().trim().url().max(1000).optional(),
   totalAmount: z.number().positive(),
+})
+
+const mobileShareApplicationCreateInput = z.object({
+  notes: z.string().trim().max(1000).optional(),
+  requestedUnits: z.number().int().positive(),
 })
 
 function assertMemberWorkspace(role: string) {
@@ -128,6 +135,28 @@ export const mobileRouter = createTRPCRouter({
         assertMemberWorkspace(ctx.auth.activeMembership.role)
 
         return getMobileMemberReceipts({
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+    }),
+    shares: createTRPCRouter({
+      createApplication: tenantProcedure
+        .input(mobileShareApplicationCreateInput)
+        .mutation(({ ctx, input }) => {
+          assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+          return createMobileMemberShareApplication({
+            notes: input.notes,
+            requestedUnits: input.requestedUnits,
+            tenantId: ctx.tenant.current.id,
+            userId: ctx.auth.session.user.id,
+          })
+        }),
+      list: tenantProcedure.query(({ ctx }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+        return getMobileMemberShares({
           tenantId: ctx.tenant.current.id,
           userId: ctx.auth.session.user.id,
         })

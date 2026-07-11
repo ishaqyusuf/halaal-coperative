@@ -1,5 +1,5 @@
-import { DetailListScreen } from "@/screens/detail-list-screen";
+import { SharesScreen } from "@/screens/shares-screen"
 
 export default function SharesRoute() {
-  return <DetailListScreen detailKey="shares" />;
+  return <SharesScreen />
 }

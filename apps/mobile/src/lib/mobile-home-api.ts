@@ -99,6 +99,68 @@ export type MobileMemberSection = {
   title: string
 }
 
+export type MobileMemberShareApplicationStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cancelled"
+
+export type MobileMemberShareApplication = {
+  approvedUnits: number | null
+  createdAt: string
+  id: string
+  notes: string | null
+  requestedUnits: number
+  reviewedAt: string | null
+  reviewNotes: string | null
+  shareValueSnapshot: number
+  status: MobileMemberShareApplicationStatus
+  unitAmountSnapshot: number
+}
+
+export type MobileMemberSharePolicy = {
+  compulsoryShareUnits: number
+  configurationMode: "monthly_history" | "unit_based"
+  maximumShareUnits: number
+  unitAmount: number
+}
+
+export type MobileMemberSharePosition = {
+  approvedOptionalUnits: number
+  compulsoryUnits: number
+  maximumUnits: number
+  pendingOptionalUnits: number
+  remainingOptionalUnits: number
+  totalApprovedUnits: number
+  totalApprovedValue: number
+  totalPendingUnits: number
+  totalPendingValue: number
+  unitAmount: number
+}
+
+export type MobileMemberShares = {
+  applications: MobileMemberShareApplication[]
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  policy: MobileMemberSharePolicy | null
+  position: MobileMemberSharePosition | null
+  section: MobileMemberSection
+  state:
+    | "available"
+    | "database_unavailable"
+    | "member_profile_missing"
+    | "unit_model_inactive"
+}
+
+export type MobileMemberShareApplicationCreateInput = {
+  notes?: string
+  requestedUnits: number
+}
+
 export type MobileMemberMoreRow = {
   detail: string
   format: MobileMetricFormat | null
@@ -243,6 +305,22 @@ export async function getMobileMemberReceipts() {
   const client = createMobileTrpcClient()
 
   return client.mobile.member.receipts.list.query() as Promise<MobileMemberReceipts>
+}
+
+export async function getMobileMemberShares() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.shares.list.query() as Promise<MobileMemberShares>
+}
+
+export async function createMobileMemberShareApplication(
+  input: MobileMemberShareApplicationCreateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.shares.createApplication.mutate(
+    input
+  ) as Promise<MobileMemberShareApplication>
 }
 
 export async function createMobileMemberReceipt(

@@ -20,11 +20,16 @@ import {
   type SupportCaseRow,
 } from "./support"
 import {
+  createMemberShareApplication,
   getMemberShareBalancesAtDate,
   getMemberUnitSharePosition,
   getTenantSharePolicy,
   listMemberShareApplications,
   listMemberShareLedgerEntries,
+  type MemberShareApplicationRow,
+  type MemberShareApplicationStatus,
+  type MemberUnitSharePosition,
+  type TenantSharePolicySettings,
 } from "./tenant-finance"
 
 export type MobileMetricFormat = "currency" | "percent" | "count"
@@ -246,6 +251,49 @@ export type MobileMemberReceipts = {
   }
 }
 
+export type MobileMemberShareApplication = {
+  approvedUnits: number | null
+  createdAt: string
+  id: string
+  notes: string | null
+  requestedUnits: number
+  reviewedAt: string | null
+  reviewNotes: string | null
+  shareValueSnapshot: number
+  status: MemberShareApplicationStatus
+  unitAmountSnapshot: number
+}
+
+export type MobileMemberSharePolicy = Pick<
+  TenantSharePolicySettings,
+  | "configurationMode"
+  | "compulsoryShareUnits"
+  | "maximumShareUnits"
+  | "unitAmount"
+>
+
+export type MobileMemberSharePosition = MemberUnitSharePosition & {
+  remainingOptionalUnits: number
+}
+
+export type MobileMemberShares = {
+  applications: MobileMemberShareApplication[]
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  policy: MobileMemberSharePolicy | null
+  position: MobileMemberSharePosition | null
+  section: MobileMemberSection
+  state:
+    | "available"
+    | "database_unavailable"
+    | "member_profile_missing"
+    | "unit_model_inactive"
+}
+
 export type MobileReceiptCreateAllocation = {
   amount: number
   category: MobileReceiptAllocationCategory
@@ -348,6 +396,21 @@ function emptyMemberReceipts(): MobileMemberReceipts {
       pendingReviewReceipts: 0,
       rejectedReceipts: 0,
     },
+  }
+}
+
+function emptyMemberShares(
+  state: MobileMemberShares["state"],
+  detail: string
+): MobileMemberShares {
+  return {
+    applications: [],
+    generatedAt: new Date().toISOString(),
+    member: null,
+    policy: null,
+    position: null,
+    section: emptyMemberSection("shares", detail),
+    state,
   }
 }
 
@@ -597,6 +660,46 @@ function toMobileReceipt(row: MemberPaymentReceiptRow): MobilePaymentReceipt {
     status: row.status,
     submittedAt: row.submittedAt.toISOString(),
     totalAmount: row.totalAmount,
+  }
+}
+
+function toMobileShareApplication(
+  row: MemberShareApplicationRow
+): MobileMemberShareApplication {
+  return {
+    approvedUnits: row.approvedUnits,
+    createdAt: row.createdAt.toISOString(),
+    id: row.id,
+    notes: row.notes,
+    requestedUnits: row.requestedUnits,
+    reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
+    reviewNotes: row.reviewNotes,
+    shareValueSnapshot: row.shareValueSnapshot,
+    status: row.status,
+    unitAmountSnapshot: row.unitAmountSnapshot,
+  }
+}
+
+function toMobileSharePolicy(
+  policy: TenantSharePolicySettings
+): MobileMemberSharePolicy {
+  return {
+    compulsoryShareUnits: policy.compulsoryShareUnits,
+    configurationMode: policy.configurationMode,
+    maximumShareUnits: policy.maximumShareUnits,
+    unitAmount: policy.unitAmount,
+  }
+}
+
+function toMobileSharePosition(
+  position: MemberUnitSharePosition
+): MobileMemberSharePosition {
+  return {
+    ...position,
+    remainingOptionalUnits: Math.max(
+      0,
+      position.maximumUnits - position.totalPendingUnits
+    ),
   }
 }
 
@@ -868,6 +971,123 @@ export async function getMobileMemberReceipts(input: {
       rejectedReceipts: summary.rejectedReceipts,
     },
   }
+}
+
+export async function getMobileMemberShares(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberShares> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberShares(
+      "database_unavailable",
+      "Share self-service needs the database runtime."
+    )
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberShares(
+      "member_profile_missing",
+      "No linked member profile was found for this mobile session."
+    )
+  }
+
+  const detail = await getMemberStatementDetail(
+    input.tenantId,
+    member.id,
+    prisma
+  )
+
+  if (!detail) {
+    return emptyMemberShares(
+      "member_profile_missing",
+      "No linked member statement was found for this mobile session."
+    )
+  }
+
+  const policy = await getTenantSharePolicy(input.tenantId, prisma)
+  const [section, applications, unitPosition] = await Promise.all([
+    buildSharesSection(
+      {
+        detail,
+        memberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    listMemberShareApplications(
+      {
+        memberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    policy.configurationMode === "unit_based"
+      ? getMemberUnitSharePosition(
+          {
+            memberId: member.id,
+            tenantId: input.tenantId,
+          },
+          prisma
+        )
+      : Promise.resolve(null),
+  ])
+
+  return {
+    applications: applications.map(toMobileShareApplication),
+    generatedAt: new Date().toISOString(),
+    member: {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      name: member.fullName,
+    },
+    policy: toMobileSharePolicy(policy),
+    position: unitPosition ? toMobileSharePosition(unitPosition) : null,
+    section,
+    state:
+      policy.configurationMode === "unit_based"
+        ? "available"
+        : "unit_model_inactive",
+  }
+}
+
+export async function createMobileMemberShareApplication(input: {
+  notes?: string | null
+  requestedUnits: number
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberShareApplication> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error(
+      "Share requests are unavailable without database configuration."
+    )
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    throw new Error(
+      "Member profile needs linking before requesting optional shares."
+    )
+  }
+
+  const application = await createMemberShareApplication(
+    {
+      memberId: member.id,
+      notes: input.notes,
+      requestedByUserId: input.userId,
+      requestedUnits: input.requestedUnits,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileShareApplication(application)
 }
 
 export async function createMobileMemberReceipt(input: {

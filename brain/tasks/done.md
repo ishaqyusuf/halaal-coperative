@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-11: Added server-backed mobile member section reads for Commitments, Financing, and Shares: `mobile.member.section` validates the section key, stays member-workspace gated, derives data from signed-session member statement/share queries, and the shared mobile detail screen now renders signed-session DTO metrics and rows while keeping static starter rows for mock/development fallbacks.
 - 2026-07-11: Added the first Phase 2 mobile home read DTOs: `mobile.member.home` derives member self-service state from the signed member workspace, `mobile.admin.overview` reuses the server overview summary behind staff role gating, and mobile member/admin home screens now fetch server DTOs for signed sessions while keeping static fixtures for development mock sessions.
 - 2026-07-11: Added the mobile role resolver and workspace switcher: signed sessions now preserve selected membership, API context refuses invalid selected-membership fallback, `auth.mobile.switchRole` mints a resumable token for owned memberships, and the shared mobile More screen lets multi-role users switch between member/admin workspaces.
 - 2026-07-11: Hardened mobile session resume and tenant bootstrap: startup now verifies `auth.mobile.me`, clears stale native sessions, keeps mock sessions development-only, adds selected-tenant signed-session context, ignores client override headers for bearer sessions, and exposes server-shaped tenant branding fields to the mobile profile.

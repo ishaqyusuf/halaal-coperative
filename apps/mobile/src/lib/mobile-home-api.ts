@@ -49,10 +49,39 @@ export type MobileAdminOverview = {
   }>
 }
 
+export type MobileMemberSectionKey = "commitments" | "financing" | "shares"
+
+export type MobileMemberSectionRow = {
+  detail: string
+  format: MobileMetricFormat | null
+  key: string
+  label: string
+  status: string | null
+  value: number | null
+}
+
+export type MobileMemberSection = {
+  emptyState: string
+  generatedAt: string
+  key: MobileMemberSectionKey
+  rows: MobileMemberSectionRow[]
+  stats: MobileOverviewMetric[]
+  subtitle: string
+  title: string
+}
+
 export async function getMobileMemberHome() {
   const client = createMobileTrpcClient()
 
   return client.mobile.member.home.query() as Promise<MobileMemberHome>
+}
+
+export async function getMobileMemberSection(section: MobileMemberSectionKey) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.section.query({
+    section,
+  }) as Promise<MobileMemberSection>
 }
 
 export async function getMobileAdminOverview() {

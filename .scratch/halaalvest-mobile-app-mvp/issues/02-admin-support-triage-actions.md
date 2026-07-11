@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A permitted staff user can add an audited reply to an open support case from mobile.
-- [ ] Safe support status updates from mobile preserve tenant scoping, role checks, and money-impact approval warnings.
+- [x] A permitted staff user can add an audited reply to an open support case from mobile.
+- [x] Safe support status updates from mobile preserve tenant scoping, role checks, and money-impact approval warnings.

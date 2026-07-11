@@ -6,11 +6,13 @@ import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
+import { Textarea } from "@/components/ui/textarea"
 import { adminExceptions, adminStats } from "@/data/mobile-template"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminOverview,
+  replyMobileAdminSupport,
   updateMobileAdminSupportStatus,
   type MobileAdminOverview,
   type MobileSupportCase,
@@ -47,15 +49,28 @@ function formatMessageAuthor(input: {
 function SupportCaseCard({
   actionState,
   isFirst,
+  onCancelReply,
+  onOpenReply,
+  onReply,
   onUpdateStatus,
+  replyCaseId,
+  replyMessage,
+  setReplyMessage,
   supportCase,
 }: {
   actionState: "idle" | "pending"
   isFirst: boolean
+  onCancelReply: () => void
+  onOpenReply: (supportCase: MobileSupportCase) => void
+  onReply: (supportCase: MobileSupportCase) => void
   onUpdateStatus: (supportCase: MobileSupportCase) => void
+  replyCaseId: string | null
+  replyMessage: string
+  setReplyMessage: (value: string) => void
   supportCase: MobileSupportCase
 }) {
   const canMarkInProgress = supportCase.status !== "in_progress"
+  const isReplying = replyCaseId === supportCase.id
 
   return (
     <View className={isFirst ? "gap-2" : "gap-2 border-t border-border pt-3"}>
@@ -102,19 +117,64 @@ function SupportCaseCard({
           ) : null}
         </View>
       ) : null}
-      {canMarkInProgress ? (
-        <Button
-          className="self-start"
-          disabled={actionState === "pending"}
-          onPress={() => onUpdateStatus(supportCase)}
-          size="sm"
-          variant="outline"
-        >
-          <Text>
-            {actionState === "pending" ? "Updating..." : "Mark in progress"}
-          </Text>
-        </Button>
-      ) : null}
+      {isReplying ? (
+        <View className="gap-2 pt-1">
+          <Textarea
+            editable={actionState !== "pending"}
+            onChangeText={setReplyMessage}
+            placeholder="Write a staff reply"
+            value={replyMessage}
+          />
+          <View className="flex-row gap-2">
+            <Button
+              className="h-10 flex-1"
+              disabled={
+                replyMessage.trim().length < 2 || actionState === "pending"
+              }
+              onPress={() => onReply(supportCase)}
+            >
+              <Icon name="Send" className="size-base text-primary-foreground" />
+              <Text>
+                {actionState === "pending" ? "Sending" : "Send reply"}
+              </Text>
+            </Button>
+            <Button
+              className="h-10 flex-1"
+              disabled={actionState === "pending"}
+              onPress={onCancelReply}
+              variant="outline"
+            >
+              <Text>Cancel</Text>
+            </Button>
+          </View>
+        </View>
+      ) : (
+        <View className="flex-row flex-wrap gap-2">
+          <Button
+            className="self-start"
+            disabled={actionState === "pending"}
+            onPress={() => onOpenReply(supportCase)}
+            size="sm"
+            variant="outline"
+          >
+            <Icon name="MessageSquareReply" className="size-sm" />
+            <Text>Reply</Text>
+          </Button>
+          {canMarkInProgress ? (
+            <Button
+              className="self-start"
+              disabled={actionState === "pending"}
+              onPress={() => onUpdateStatus(supportCase)}
+              size="sm"
+              variant="outline"
+            >
+              <Text>
+                {actionState === "pending" ? "Updating..." : "Mark in progress"}
+              </Text>
+            </Button>
+          ) : null}
+        </View>
+      )}
     </View>
   )
 }
@@ -124,6 +184,8 @@ export function AdminHomeScreen() {
   const colors = useColors()
   const [overview, setOverview] = useState<MobileAdminOverview | null>(null)
   const [actionKey, setActionKey] = useState<string | null>(null)
+  const [replyCaseId, setReplyCaseId] = useState<string | null>(null)
+  const [replyMessage, setReplyMessage] = useState("")
   const [isLoadingOverview, setIsLoadingOverview] = useState(false)
   const [overviewError, setOverviewError] = useState<string | null>(null)
   const canUseServerOverview = Boolean(
@@ -196,7 +258,7 @@ export function AdminHomeScreen() {
   }
 
   async function markSupportInProgress(supportCase: MobileSupportCase) {
-    setActionKey(supportCase.id)
+    setActionKey(`${supportCase.id}:status`)
     setOverviewError(null)
 
     try {
@@ -216,6 +278,31 @@ export function AdminHomeScreen() {
     }
   }
 
+  async function sendSupportReply(supportCase: MobileSupportCase) {
+    if (replyMessage.trim().length < 2) return
+
+    setActionKey(`${supportCase.id}:reply`)
+    setOverviewError(null)
+
+    try {
+      await replyMobileAdminSupport({
+        message: replyMessage.trim(),
+        supportCaseId: supportCase.id,
+      })
+      setReplyCaseId(null)
+      setReplyMessage("")
+      await refreshOverview()
+    } catch (error) {
+      setOverviewError(
+        error instanceof Error
+          ? error.message
+          : "Support reply could not be sent."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
   return (
     <SafeArea style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-4">
@@ -227,9 +314,7 @@ export function AdminHomeScreen() {
             title={isStaleOverview ? "Offline snapshot" : "Data refreshed"}
           >
             <Text className="text-sm leading-5 text-muted-foreground">
-              {isStaleOverview
-                ? "Showing cached admin data from"
-                : "Updated"}{" "}
+              {isStaleOverview ? "Showing cached admin data from" : "Updated"}{" "}
               {new Intl.DateTimeFormat("en", {
                 day: "numeric",
                 hour: "2-digit",
@@ -288,11 +373,26 @@ export function AdminHomeScreen() {
               {overview.supportCases.map((supportCase, index) => (
                 <SupportCaseCard
                   actionState={
-                    actionKey === supportCase.id ? "pending" : "idle"
+                    actionKey?.startsWith(`${supportCase.id}:`)
+                      ? "pending"
+                      : "idle"
                   }
                   isFirst={index === 0}
                   key={supportCase.id}
+                  onCancelReply={() => {
+                    setReplyCaseId(null)
+                    setReplyMessage("")
+                  }}
+                  onOpenReply={(selectedCase) => {
+                    setReplyCaseId(selectedCase.id)
+                    setReplyMessage("")
+                    setOverviewError(null)
+                  }}
+                  onReply={sendSupportReply}
                   onUpdateStatus={markSupportInProgress}
+                  replyCaseId={replyCaseId}
+                  replyMessage={replyMessage}
+                  setReplyMessage={setReplyMessage}
                   supportCase={supportCase}
                 />
               ))}

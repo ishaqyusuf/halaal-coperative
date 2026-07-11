@@ -9,6 +9,7 @@ import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminReports,
   type MobileAdminActivityEvent,
+  type MobileAdminCollectionFollowUp,
   type MobileAdminReportCard,
   type MobileAdminReports,
 } from "@/lib/mobile-home-api"
@@ -137,6 +138,49 @@ function ActivityEventRow({
   )
 }
 
+function CollectionFollowUpRow({
+  followUp,
+  isFirst,
+}: {
+  followUp: MobileAdminCollectionFollowUp
+  isFirst: boolean
+}) {
+  return (
+    <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
+      <View className="flex-row items-start gap-3">
+        <View className="h-9 w-9 items-center justify-center rounded-md bg-secondary">
+          <Icon name="CalendarClock" className="size-sm text-accent" />
+        </View>
+        <View className="flex-1 gap-2">
+          <View className="flex-row items-start justify-between gap-3">
+            <Text className="flex-1 text-sm font-semibold text-foreground">
+              {followUp.memberName}
+            </Text>
+            <Text className="text-xs font-medium text-muted-foreground">
+              {followUp.priority}
+            </Text>
+          </View>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            {followUp.memberNumber} - {followUp.loanProductName}
+          </Text>
+          <Text className="text-xs leading-4 text-muted-foreground">
+            {followUp.status.replace(/_/g, " ")} -{" "}
+            {followUp.resolutionStatus.replace(/_/g, " ")}
+          </Text>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            {followUp.note}
+          </Text>
+          {followUp.nextActionAt ? (
+            <Text className="text-xs font-medium text-muted-foreground">
+              Next action: {formatActivityDate(followUp.nextActionAt)}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  )
+}
+
 function ReportCard({
   currencyCode,
   isFirst,
@@ -202,6 +246,7 @@ export function AdminReportsScreen() {
   )
   const reportCards = reports?.reports ?? fallbackReports
   const activityEvents = reports?.activityEvents ?? []
+  const collectionFollowUps = reports?.collectionFollowUps ?? []
 
   useEffect(() => {
     let mounted = true
@@ -308,6 +353,27 @@ export function AdminReportsScreen() {
               ) : (
                 <Text className="text-sm leading-5 text-muted-foreground">
                   No recent audit events are available for this workspace.
+                </Text>
+              )}
+            </SectionCard>
+
+            <SectionCard icon="CalendarClock" title="Collections evidence">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : collectionFollowUps.length ? (
+                <View className="gap-3">
+                  {collectionFollowUps.map((followUp, index) => (
+                    <CollectionFollowUpRow
+                      followUp={followUp}
+                      isFirst={index === 0}
+                      key={followUp.id}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  No collections follow-up activity is available for this
+                  workspace.
                 </Text>
               )}
             </SectionCard>

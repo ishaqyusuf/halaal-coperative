@@ -11,6 +11,7 @@ import {
 } from "./food-purchase"
 import {
   listLoanProducts,
+  listCollectionFollowUps,
   listLoanRequests,
   listMemberLoanGuarantorApprovals,
   respondMemberLoanGuarantorApproval,
@@ -274,8 +275,23 @@ export type MobileAdminActivityEvent = {
   occurredAt: string
 }
 
+export type MobileAdminCollectionFollowUp = {
+  caseStage: string
+  createdAt: string
+  id: string
+  loanProductName: string
+  memberName: string
+  memberNumber: string
+  nextActionAt: string | null
+  note: string
+  priority: string
+  resolutionStatus: string
+  status: string
+}
+
 export type MobileAdminReports = {
   activityEvents: MobileAdminActivityEvent[]
+  collectionFollowUps: MobileAdminCollectionFollowUp[]
   generatedAt: string
   reports: MobileAdminReportCard[]
   stats: MobileOverviewMetric[]
@@ -896,6 +912,7 @@ function emptyAdminFinance(): MobileAdminFinance {
 function emptyAdminReports(): MobileAdminReports {
   return {
     activityEvents: [],
+    collectionFollowUps: [],
     generatedAt: new Date().toISOString(),
     reports: buildMobileAdminReportCards({
       activeMemberCount: 0,
@@ -1600,6 +1617,28 @@ function toMobileAdminActivityEvent(
     id: event.id,
     metadataSummary: event.metadataSummary.slice(0, 3),
     occurredAt: event.occurredAt.toISOString(),
+  }
+}
+
+type MobileCollectionFollowUpRow = Awaited<
+  ReturnType<typeof listCollectionFollowUps>
+>[number]
+
+function toMobileAdminCollectionFollowUp(
+  followUp: MobileCollectionFollowUpRow
+): MobileAdminCollectionFollowUp {
+  return {
+    caseStage: followUp.caseStage,
+    createdAt: followUp.createdAt.toISOString(),
+    id: followUp.id,
+    loanProductName: followUp.loan.loanProduct.name,
+    memberName: followUp.member.fullName,
+    memberNumber: followUp.member.memberNumber,
+    nextActionAt: followUp.nextActionAt?.toISOString() ?? null,
+    note: followUp.note,
+    priority: followUp.priority,
+    resolutionStatus: followUp.resolutionStatus,
+    status: followUp.status,
   }
 }
 
@@ -4190,21 +4229,32 @@ export async function getMobileAdminReports(
     return emptyAdminReports()
   }
 
-  const [overview, metrics, activityEvents] = await Promise.all([
-    getOverviewSummary(tenantId, prisma),
-    getDashboardMetrics(tenantId, prisma),
-    listActivityReportEvents(
-      tenantId,
-      {
-        limit: 8,
-      },
-      prisma
-    ),
-  ])
+  const [overview, metrics, activityEvents, collectionFollowUps] =
+    await Promise.all([
+      getOverviewSummary(tenantId, prisma),
+      getDashboardMetrics(tenantId, prisma),
+      listActivityReportEvents(
+        tenantId,
+        {
+          limit: 8,
+        },
+        prisma
+      ),
+      listCollectionFollowUps(
+        tenantId,
+        {
+          limit: 8,
+        },
+        prisma
+      ),
+    ])
   const reports = buildMobileAdminReportCards(metrics, overview)
 
   return {
     activityEvents: activityEvents.map(toMobileAdminActivityEvent),
+    collectionFollowUps: collectionFollowUps.map(
+      toMobileAdminCollectionFollowUp
+    ),
     generatedAt: overview.workspace.generatedAt,
     reports,
     stats: [

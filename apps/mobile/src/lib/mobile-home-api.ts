@@ -148,8 +148,23 @@ export type MobileAdminActivityEvent = {
   occurredAt: string
 }
 
+export type MobileAdminCollectionFollowUp = {
+  caseStage: string
+  createdAt: string
+  id: string
+  loanProductName: string
+  memberName: string
+  memberNumber: string
+  nextActionAt: string | null
+  note: string
+  priority: string
+  resolutionStatus: string
+  status: string
+}
+
 export type MobileAdminReports = {
   activityEvents: MobileAdminActivityEvent[]
+  collectionFollowUps: MobileAdminCollectionFollowUp[]
   generatedAt: string
   reports: MobileAdminReportCard[]
   stats: MobileOverviewMetric[]

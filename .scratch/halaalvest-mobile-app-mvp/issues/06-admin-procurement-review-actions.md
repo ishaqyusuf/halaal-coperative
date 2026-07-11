@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Admin Support Triage Actions.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A permitted finance user can review a procurement request from mobile with approved cost, repayment months, and review notes.
-- [ ] Procurement review remains separate from ordinary financing and uses the existing server-owned procurement rules and audit evidence.
+- [x] A permitted finance user can review a procurement request from mobile with approved cost, repayment months, and review notes.
+- [x] Procurement review remains separate from ordinary financing and uses the existing server-owned procurement rules and audit evidence.

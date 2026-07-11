@@ -98,14 +98,23 @@ function FinanceRecentItemCard({
   item,
   onMarkReviewing,
   onOpenFinancingReview,
+  onOpenProcurementReview,
   onOpenReceiptReview,
   onReviewFinancing,
+  onReviewProcurement,
   onReviewReceipt,
   financingReviewItemId,
   financingReviewNotes,
+  procurementApprovedCost,
+  procurementApprovedRepaymentMonths,
+  procurementReviewItemId,
+  procurementReviewNotes,
   receiptReviewItemId,
   receiptReviewNotes,
   setFinancingReviewNotes,
+  setProcurementApprovedCost,
+  setProcurementApprovedRepaymentMonths,
+  setProcurementReviewNotes,
   setReceiptReviewNotes,
 }: {
   actionState: "idle" | "pending"
@@ -116,8 +125,13 @@ function FinanceRecentItemCard({
   item: MobileAdminFinanceRecentItem
   onMarkReviewing: (item: MobileAdminFinanceRecentItem) => void
   onOpenFinancingReview: (item: MobileAdminFinanceRecentItem | null) => void
+  onOpenProcurementReview: (item: MobileAdminFinanceRecentItem | null) => void
   onOpenReceiptReview: (item: MobileAdminFinanceRecentItem | null) => void
   onReviewFinancing: (
+    item: MobileAdminFinanceRecentItem,
+    status: MobileAdminReviewStatus
+  ) => void
+  onReviewProcurement: (
     item: MobileAdminFinanceRecentItem,
     status: MobileAdminReviewStatus
   ) => void
@@ -125,19 +139,39 @@ function FinanceRecentItemCard({
     item: MobileAdminFinanceRecentItem,
     decision: ReceiptReviewDecision
   ) => void
+  procurementApprovedCost: string
+  procurementApprovedRepaymentMonths: string
+  procurementReviewItemId: string | null
+  procurementReviewNotes: string
   receiptReviewItemId: string | null
   receiptReviewNotes: string
   setFinancingReviewNotes: (value: string) => void
+  setProcurementApprovedCost: (value: string) => void
+  setProcurementApprovedRepaymentMonths: (value: string) => void
+  setProcurementReviewNotes: (value: string) => void
   setReceiptReviewNotes: (value: string) => void
 }) {
   const canMarkReviewing =
     item.status !== "under_review" &&
     item.queueKey !== "financing" &&
+    item.queueKey !== "procurement" &&
     item.queueKey !== "shares"
   const isFinancingReviewing =
     item.queueKey === "financing" && financingReviewItemId === item.id
+  const isProcurementReviewing =
+    item.queueKey === "procurement" && procurementReviewItemId === item.id
   const isReceiptReviewing =
     item.queueKey === "receipts" && receiptReviewItemId === item.id
+  const procurementCostValue = Number(procurementApprovedCost)
+  const procurementRepaymentMonthsValue = Number(
+    procurementApprovedRepaymentMonths
+  )
+  const procurementNotesRequired = procurementReviewNotes.trim().length < 2
+  const procurementApprovalValuesMissing =
+    !Number.isFinite(procurementCostValue) ||
+    procurementCostValue <= 0 ||
+    !Number.isInteger(procurementRepaymentMonthsValue) ||
+    procurementRepaymentMonthsValue <= 0
   const receiptNotesRequired = receiptReviewNotes.trim().length < 2
 
   return (
@@ -201,6 +235,75 @@ function FinanceRecentItemCard({
                   className="h-9"
                   disabled={actionState === "pending"}
                   onPress={() => onOpenFinancingReview(null)}
+                  variant="ghost"
+                >
+                  <Text>Cancel</Text>
+                </Button>
+              </View>
+            </View>
+          ) : isProcurementReviewing ? (
+            <View className="gap-2 pt-2">
+              <View className="flex-row gap-2">
+                <Input
+                  className="flex-1"
+                  editable={actionState !== "pending"}
+                  keyboardType="numeric"
+                  onChangeText={setProcurementApprovedCost}
+                  placeholder="Approved cost"
+                  value={procurementApprovedCost}
+                />
+                <Input
+                  className="w-28"
+                  editable={actionState !== "pending"}
+                  keyboardType="numeric"
+                  onChangeText={setProcurementApprovedRepaymentMonths}
+                  placeholder="Months"
+                  value={procurementApprovedRepaymentMonths}
+                />
+              </View>
+              <Textarea
+                editable={actionState !== "pending"}
+                onChangeText={setProcurementReviewNotes}
+                placeholder="Review notes"
+                value={procurementReviewNotes}
+              />
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  className="h-9"
+                  disabled={
+                    actionState === "pending" || procurementNotesRequired
+                  }
+                  onPress={() => onReviewProcurement(item, "under_review")}
+                  variant="outline"
+                >
+                  <Text>Under review</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={
+                    actionState === "pending" ||
+                    procurementNotesRequired ||
+                    procurementApprovalValuesMissing
+                  }
+                  onPress={() => onReviewProcurement(item, "approved")}
+                  variant="outline"
+                >
+                  <Text>Approve</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={
+                    actionState === "pending" || procurementNotesRequired
+                  }
+                  onPress={() => onReviewProcurement(item, "rejected")}
+                  variant="outline"
+                >
+                  <Text>Reject</Text>
+                </Button>
+                <Button
+                  className="h-9"
+                  disabled={actionState === "pending"}
+                  onPress={() => onOpenProcurementReview(null)}
                   variant="ghost"
                 >
                   <Text>Cancel</Text>
@@ -279,6 +382,17 @@ function FinanceRecentItemCard({
             >
               <Icon name="HandCoins" className="size-sm" />
               <Text>Review financing</Text>
+            </Button>
+          ) : item.queueKey === "procurement" ? (
+            <Button
+              className="mt-2 self-start"
+              disabled={actionState === "pending"}
+              onPress={() => onOpenProcurementReview(item)}
+              size="sm"
+              variant="outline"
+            >
+              <Icon name="PackageSearch" className="size-sm" />
+              <Text>Review procurement</Text>
             </Button>
           ) : canMarkReviewing ? (
             <Button
@@ -475,6 +589,15 @@ export function AdminFinanceScreen() {
     string | null
   >(null)
   const [financingReviewNotes, setFinancingReviewNotes] = useState("")
+  const [procurementReviewItemId, setProcurementReviewItemId] = useState<
+    string | null
+  >(null)
+  const [procurementReviewNotes, setProcurementReviewNotes] = useState("")
+  const [procurementApprovedCost, setProcurementApprovedCost] = useState("")
+  const [
+    procurementApprovedRepaymentMonths,
+    setProcurementApprovedRepaymentMonths,
+  ] = useState("")
   const [receiptReviewItemId, setReceiptReviewItemId] = useState<string | null>(
     null
   )
@@ -670,6 +793,60 @@ export function AdminFinanceScreen() {
     }
   }
 
+  async function reviewProcurementDecision(
+    item: MobileAdminFinanceRecentItem,
+    status: MobileAdminReviewStatus
+  ) {
+    const notes = procurementReviewNotes.trim()
+    const approvedCost = Number(procurementApprovedCost)
+    const approvedRepaymentMonths = Number(procurementApprovedRepaymentMonths)
+
+    if (notes.length < 2) {
+      setError("Procurement review notes are required.")
+      return
+    }
+
+    if (
+      status === "approved" &&
+      (!Number.isFinite(approvedCost) ||
+        approvedCost <= 0 ||
+        !Number.isInteger(approvedRepaymentMonths) ||
+        approvedRepaymentMonths <= 0)
+    ) {
+      setError("Approved cost and repayment months are required.")
+      return
+    }
+
+    const nextActionKey = `${item.queueKey}-${item.id}`
+
+    setActionKey(nextActionKey)
+    setError(null)
+
+    try {
+      await reviewMobileAdminProcurementRequest({
+        approvedCost: status === "approved" ? approvedCost : undefined,
+        approvedRepaymentMonths:
+          status === "approved" ? approvedRepaymentMonths : undefined,
+        notes,
+        procurementRequestId: item.id,
+        status,
+      })
+      setProcurementReviewItemId(null)
+      setProcurementReviewNotes("")
+      setProcurementApprovedCost("")
+      setProcurementApprovedRepaymentMonths("")
+      await refreshFinance()
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "The procurement review action could not be completed."
+      )
+    } finally {
+      setActionKey(null)
+    }
+  }
+
   async function recordFollowUp(followUp: MobileAdminCollectionFollowUp) {
     const note = collectionFollowUpNote.trim()
     const nextActionAt = collectionFollowUpNextActionAt.trim()
@@ -813,6 +990,21 @@ export function AdminFinanceScreen() {
                       onOpenFinancingReview={(selectedItem) => {
                         setFinancingReviewItemId(selectedItem?.id ?? null)
                         setFinancingReviewNotes("")
+                        setProcurementReviewItemId(null)
+                        setProcurementReviewNotes("")
+                        setProcurementApprovedCost("")
+                        setProcurementApprovedRepaymentMonths("")
+                        setReceiptReviewItemId(null)
+                        setReceiptReviewNotes("")
+                        setError(null)
+                      }}
+                      onOpenProcurementReview={(selectedItem) => {
+                        setFinancingReviewItemId(null)
+                        setFinancingReviewNotes("")
+                        setProcurementReviewItemId(selectedItem?.id ?? null)
+                        setProcurementReviewNotes("")
+                        setProcurementApprovedCost("")
+                        setProcurementApprovedRepaymentMonths("")
                         setReceiptReviewItemId(null)
                         setReceiptReviewNotes("")
                         setError(null)
@@ -820,15 +1012,31 @@ export function AdminFinanceScreen() {
                       onOpenReceiptReview={(selectedItem) => {
                         setFinancingReviewItemId(null)
                         setFinancingReviewNotes("")
+                        setProcurementReviewItemId(null)
+                        setProcurementReviewNotes("")
+                        setProcurementApprovedCost("")
+                        setProcurementApprovedRepaymentMonths("")
                         setReceiptReviewItemId(selectedItem?.id ?? null)
                         setReceiptReviewNotes("")
                         setError(null)
                       }}
                       onReviewFinancing={reviewFinancingDecision}
+                      onReviewProcurement={reviewProcurementDecision}
                       onReviewReceipt={reviewReceiptDecision}
+                      procurementApprovedCost={procurementApprovedCost}
+                      procurementApprovedRepaymentMonths={
+                        procurementApprovedRepaymentMonths
+                      }
+                      procurementReviewItemId={procurementReviewItemId}
+                      procurementReviewNotes={procurementReviewNotes}
                       receiptReviewItemId={receiptReviewItemId}
                       receiptReviewNotes={receiptReviewNotes}
                       setFinancingReviewNotes={setFinancingReviewNotes}
+                      setProcurementApprovedCost={setProcurementApprovedCost}
+                      setProcurementApprovedRepaymentMonths={
+                        setProcurementApprovedRepaymentMonths
+                      }
+                      setProcurementReviewNotes={setProcurementReviewNotes}
                       setReceiptReviewNotes={setReceiptReviewNotes}
                     />
                   ))}

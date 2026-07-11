@@ -298,6 +298,76 @@ describe("mobileRouter", () => {
     ).rejects.toThrow("Procurement requests are unavailable")
   })
 
+  test("returns member food purchase for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const foodPurchase = await caller.mobile.member.foodPurchase.list()
+
+    expect(foodPurchase.member).toBeNull()
+    expect(foodPurchase.cycles).toEqual([])
+    expect(foodPurchase.applications).toEqual([])
+    expect(foodPurchase.summary.openCycles).toBe(0)
+    expect(foodPurchase.summary.pendingApplications).toBe(0)
+  })
+
+  test("rejects member food purchase when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(caller.mobile.member.foodPurchase.list()).rejects.toThrow(
+      "Switch to the member workspace"
+    )
+  })
+
+  test("validates member food purchase application create input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.foodPurchase.createApplication({
+        cycleId: "",
+        requestedAmount: 1000,
+        requestedPaybackMonths: 1,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.foodPurchase.createApplication({
+        cycleId: "food-cycle-1",
+        requestedAmount: 0,
+        requestedPaybackMonths: 1,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.foodPurchase.createApplication({
+        cycleId: "food-cycle-1",
+        requestedAmount: 1000,
+        requestedPaybackMonths: 0,
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member food purchase application create without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.foodPurchase.createApplication({
+        cycleId: "food-cycle-1",
+        itemDescription: "Monthly staple foods",
+        requestedAmount: 1000,
+        requestedPaybackMonths: 1,
+        requestNotes: "Needed for household supplies.",
+      })
+    ).rejects.toThrow("Foodstuff Purchase applications are unavailable")
+  })
+
   test("returns member guarantor approvals for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

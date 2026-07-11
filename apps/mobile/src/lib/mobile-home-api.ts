@@ -265,6 +265,61 @@ export type MobileProcurementRequestCreateInput = {
   vendorName?: string
 }
 
+export type MobileFoodPurchaseCycle = {
+  id: string
+  periodMonth: string
+  releasedAmount: number
+  releasedAt: string
+  releaseNotes: string | null
+  status: string
+}
+
+export type MobileFoodPurchaseApplication = {
+  approvedAmount: number | null
+  approvedPaybackMonths: number | null
+  cycle: {
+    id: string
+    periodMonth: string
+    releasedAmount: number
+    status: string
+  }
+  id: string
+  itemDescription: string | null
+  paidAmount: number
+  paidAt: string | null
+  requestedAmount: number
+  requestedAt: string
+  requestedPaybackMonths: number
+  requestNotes: string | null
+  reviewNotes: string | null
+  status: string
+}
+
+export type MobileMemberFoodPurchase = {
+  applications: MobileFoodPurchaseApplication[]
+  cycles: MobileFoodPurchaseCycle[]
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  summary: {
+    approvedApplications: number
+    openCycles: number
+    pendingApplications: number
+    totalApplications: number
+  }
+}
+
+export type MobileFoodPurchaseApplicationCreateInput = {
+  cycleId: string
+  itemDescription?: string
+  requestedAmount: number
+  requestedPaybackMonths: number
+  requestNotes?: string
+}
+
 export type MobileMemberShareApplicationCreateInput = {
   notes?: string
   requestedUnits: number
@@ -332,6 +387,7 @@ export type MobileMemberMoreSection = {
     | "statement"
     | "receipts"
     | "procurement"
+    | "foodPurchase"
     | "guarantors"
     | "support"
   rows: MobileMemberMoreRow[]
@@ -542,6 +598,22 @@ export async function createMobileMemberProcurementRequest(
   return client.mobile.member.procurement.createRequest.mutate(
     input
   ) as Promise<MobileMemberProcurementRequest>
+}
+
+export async function getMobileMemberFoodPurchase() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.foodPurchase.list.query() as Promise<MobileMemberFoodPurchase>
+}
+
+export async function createMobileMemberFoodPurchaseApplication(
+  input: MobileFoodPurchaseApplicationCreateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.foodPurchase.createApplication.mutate(
+    input
+  ) as Promise<MobileFoodPurchaseApplication>
 }
 
 export async function respondMobileMemberGuarantorApproval(

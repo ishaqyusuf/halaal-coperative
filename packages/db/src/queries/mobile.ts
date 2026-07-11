@@ -1,6 +1,13 @@
 import { createPrismaClient } from "../prisma"
 import { getOverviewSummary } from "./dashboard"
 import {
+  listFoodPurchaseApplications,
+  listFoodPurchaseCycles,
+  submitFoodPurchaseApplication,
+  type FoodPurchaseApplicationRow,
+  type FoodPurchaseCycleRow,
+} from "./food-purchase"
+import {
   listLoanProducts,
   listLoanRequests,
   listMemberLoanGuarantorApprovals,
@@ -183,6 +190,7 @@ export type MobileMemberMoreSection = {
     | "statement"
     | "receipts"
     | "procurement"
+    | "foodPurchase"
     | "guarantors"
     | "support"
   rows: MobileMemberMoreRow[]
@@ -455,6 +463,61 @@ export type MobileProcurementRequestCreateInput = {
   vendorName?: string | null
 }
 
+export type MobileFoodPurchaseCycle = {
+  id: string
+  periodMonth: string
+  releasedAmount: number
+  releasedAt: string
+  releaseNotes: string | null
+  status: string
+}
+
+export type MobileFoodPurchaseApplication = {
+  approvedAmount: number | null
+  approvedPaybackMonths: number | null
+  cycle: {
+    id: string
+    periodMonth: string
+    releasedAmount: number
+    status: string
+  }
+  id: string
+  itemDescription: string | null
+  paidAmount: number
+  paidAt: string | null
+  requestedAmount: number
+  requestedAt: string
+  requestedPaybackMonths: number
+  requestNotes: string | null
+  reviewNotes: string | null
+  status: string
+}
+
+export type MobileMemberFoodPurchase = {
+  applications: MobileFoodPurchaseApplication[]
+  cycles: MobileFoodPurchaseCycle[]
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  summary: {
+    approvedApplications: number
+    openCycles: number
+    pendingApplications: number
+    totalApplications: number
+  }
+}
+
+export type MobileFoodPurchaseApplicationCreateInput = {
+  cycleId: string
+  itemDescription?: string | null
+  requestedAmount: number
+  requestedPaybackMonths: number
+  requestNotes?: string | null
+}
+
 type MobileLoanGuarantorApprovalRow = Awaited<
   ReturnType<typeof listMemberLoanGuarantorApprovals>
 >[number]
@@ -660,6 +723,21 @@ function emptyMemberProcurement(): MobileMemberProcurement {
       overdueScheduleItems: 0,
       pendingRequests: 0,
       totalRequests: 0,
+    },
+  }
+}
+
+function emptyMemberFoodPurchase(): MobileMemberFoodPurchase {
+  return {
+    applications: [],
+    cycles: [],
+    generatedAt: new Date().toISOString(),
+    member: null,
+    summary: {
+      approvedApplications: 0,
+      openCycles: 0,
+      pendingApplications: 0,
+      totalApplications: 0,
     },
   }
 }
@@ -1121,6 +1199,60 @@ function summarizeMobileProcurementRequests(
   }
 }
 
+function toMobileFoodPurchaseCycle(
+  row: FoodPurchaseCycleRow
+): MobileFoodPurchaseCycle {
+  return {
+    id: row.id,
+    periodMonth: row.periodMonth.toISOString(),
+    releasedAmount: row.releasedAmount,
+    releasedAt: row.releasedAt.toISOString(),
+    releaseNotes: row.releaseNotes,
+    status: row.status,
+  }
+}
+
+function toMobileFoodPurchaseApplication(
+  row: FoodPurchaseApplicationRow
+): MobileFoodPurchaseApplication {
+  return {
+    approvedAmount: row.approvedAmount,
+    approvedPaybackMonths: row.approvedPaybackMonths,
+    cycle: {
+      id: row.cycle.id,
+      periodMonth: row.cycle.periodMonth.toISOString(),
+      releasedAmount: row.cycle.releasedAmount,
+      status: row.cycle.status,
+    },
+    id: row.id,
+    itemDescription: row.itemDescription,
+    paidAmount: row.paidAmount,
+    paidAt: row.paidAt ? row.paidAt.toISOString() : null,
+    requestedAmount: row.requestedAmount,
+    requestedAt: row.requestedAt.toISOString(),
+    requestedPaybackMonths: row.requestedPaybackMonths,
+    requestNotes: row.requestNotes,
+    reviewNotes: row.reviewNotes,
+    status: row.status,
+  }
+}
+
+function summarizeMobileFoodPurchase(input: {
+  applications: MobileFoodPurchaseApplication[]
+  cycles: MobileFoodPurchaseCycle[]
+}): MobileMemberFoodPurchase["summary"] {
+  return {
+    approvedApplications: input.applications.filter(
+      (application) => application.status === "approved"
+    ).length,
+    openCycles: input.cycles.filter((cycle) => cycle.status === "open").length,
+    pendingApplications: input.applications.filter((application) =>
+      ["submitted", "under_review"].includes(application.status)
+    ).length,
+    totalApplications: input.applications.length,
+  }
+}
+
 function toMobileGuarantorApproval(
   row: MobileLoanGuarantorApprovalRow
 ): MobileMemberGuarantorApproval {
@@ -1176,6 +1308,8 @@ async function buildMemberMore(input: {
     receiptSummary,
     receipts,
     procurementRequests,
+    foodPurchaseCycles,
+    foodPurchaseApplications,
     guarantorApprovals,
     supportSummary,
     supportCases,
@@ -1196,6 +1330,22 @@ async function buildMemberMore(input: {
       input.prisma
     ),
     listProcurementRequests(
+      {
+        limit: 3,
+        memberId: input.member.id,
+        tenantId: input.tenantId,
+      },
+      input.prisma
+    ),
+    listFoodPurchaseCycles(
+      {
+        limit: 3,
+        status: "open",
+        tenantId: input.tenantId,
+      },
+      input.prisma
+    ),
+    listFoodPurchaseApplications(
       {
         limit: 3,
         memberId: input.member.id,
@@ -1235,6 +1385,10 @@ async function buildMemberMore(input: {
     ["submitted", "under_review"].includes(request.status)
   ).length
   const latestProcurementRequest = procurementRequests[0] ?? null
+  const latestFoodPurchaseApplication = foodPurchaseApplications[0] ?? null
+  const pendingFoodPurchaseCount = foodPurchaseApplications.filter(
+    (application) => ["submitted", "under_review"].includes(application.status)
+  ).length
   const pendingGuarantorCount = guarantorApprovals.filter(
     (approval) => approval.status === "pending"
   ).length
@@ -1397,6 +1551,49 @@ async function buildMemberMore(input: {
             : []),
         ],
         title: "Procurement",
+      },
+      {
+        icon: "ShoppingBasket",
+        key: "foodPurchase",
+        rows: [
+          moreRow({
+            detail:
+              foodPurchaseCycles.length > 0
+                ? "Monthly purchase cycle accepting applications"
+                : "No open Foodstuff Purchase cycle",
+            format: "count",
+            key: "open-food-purchase-cycles",
+            label: "Open cycles",
+            status: foodPurchaseCycles.length > 0 ? "Open" : "Closed",
+            value: foodPurchaseCycles.length,
+          }),
+          moreRow({
+            detail:
+              pendingFoodPurchaseCount > 0
+                ? "Waiting for committee review"
+                : "No pending Foodstuff Purchase applications",
+            format: "count",
+            key: "pending-food-purchase",
+            label: "Pending applications",
+            status: pendingFoodPurchaseCount > 0 ? "Open" : "Clear",
+            value: pendingFoodPurchaseCount,
+          }),
+          ...(latestFoodPurchaseApplication
+            ? [
+                moreRow({
+                  detail: latestFoodPurchaseApplication.itemDescription
+                    ? latestFoodPurchaseApplication.itemDescription
+                    : `Cycle ${formatDateLabel(latestFoodPurchaseApplication.cycle.periodMonth)}`,
+                  format: "currency" as const,
+                  key: `food-purchase-${latestFoodPurchaseApplication.id}`,
+                  label: "Latest application",
+                  status: humanizeStatus(latestFoodPurchaseApplication.status),
+                  value: latestFoodPurchaseApplication.requestedAmount,
+                }),
+              ]
+            : []),
+        ],
+        title: "Foodstuff Purchase",
       },
       {
         icon: "ShieldCheck",
@@ -1607,6 +1804,98 @@ export async function createMobileMemberProcurementRequest(input: {
   )
 
   return toMobileProcurementRequest(request)
+}
+
+export async function getMobileMemberFoodPurchase(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberFoodPurchase> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberFoodPurchase()
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberFoodPurchase()
+  }
+
+  const [cycles, applications] = await Promise.all([
+    listFoodPurchaseCycles(
+      {
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    listFoodPurchaseApplications(
+      {
+        memberId: member.id,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+  ])
+  const mobileCycles = cycles.map(toMobileFoodPurchaseCycle)
+  const mobileApplications = applications.map(toMobileFoodPurchaseApplication)
+
+  return {
+    applications: mobileApplications,
+    cycles: mobileCycles,
+    generatedAt: new Date().toISOString(),
+    member: {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      name: member.fullName,
+    },
+    summary: summarizeMobileFoodPurchase({
+      applications: mobileApplications,
+      cycles: mobileCycles,
+    }),
+  }
+}
+
+export async function createMobileMemberFoodPurchaseApplication(input: {
+  cycleId: string
+  itemDescription?: string | null
+  requestedAmount: number
+  requestedPaybackMonths: number
+  requestNotes?: string | null
+  tenantId: string
+  userId: string
+}): Promise<MobileFoodPurchaseApplication> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error(
+      "Foodstuff Purchase applications are unavailable without database configuration."
+    )
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    throw new Error(
+      "Member profile needs linking before submitting Foodstuff Purchase applications."
+    )
+  }
+
+  const application = await submitFoodPurchaseApplication(
+    {
+      actorUserId: input.userId,
+      cycleId: input.cycleId,
+      itemDescription: input.itemDescription ?? undefined,
+      memberId: member.id,
+      requestedAmount: input.requestedAmount,
+      requestedPaybackMonths: input.requestedPaybackMonths,
+      requestNotes: input.requestNotes ?? undefined,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileFoodPurchaseApplication(application)
 }
 
 export async function getMobileMemberGuarantorApprovals(input: {

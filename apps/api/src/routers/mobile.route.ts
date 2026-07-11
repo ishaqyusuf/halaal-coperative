@@ -1,11 +1,13 @@
 import {
   createMobileMemberFinancingRequest,
+  createMobileMemberFoodPurchaseApplication,
   createMobileMemberProcurementRequest,
   createMobileMemberShareApplication,
   createMobileMemberReceipt,
   createMobileMemberSupportCase,
   getMobileAdminOverview,
   getMobileMemberFinancing,
+  getMobileMemberFoodPurchase,
   getMobileMemberGuarantorApprovals,
   getMobileMemberHome,
   getMobileMemberMore,
@@ -96,6 +98,14 @@ const mobileProcurementRequestCreateInput = z.object({
   requestedCost: z.number().positive(),
   requestedRepaymentMonths: z.number().int().positive(),
   vendorName: z.string().trim().max(160).optional(),
+})
+
+const mobileFoodPurchaseApplicationCreateInput = z.object({
+  cycleId: z.string().trim().min(1),
+  itemDescription: z.string().trim().max(1000).optional(),
+  requestedAmount: z.number().positive(),
+  requestedPaybackMonths: z.number().int().positive(),
+  requestNotes: z.string().trim().max(1000).optional(),
 })
 
 function assertMemberWorkspace(role: string) {
@@ -245,6 +255,31 @@ export const mobileRouter = createTRPCRouter({
         assertMemberWorkspace(ctx.auth.activeMembership.role)
 
         return getMobileMemberProcurement({
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+    }),
+    foodPurchase: createTRPCRouter({
+      createApplication: tenantProcedure
+        .input(mobileFoodPurchaseApplicationCreateInput)
+        .mutation(({ ctx, input }) => {
+          assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+          return createMobileMemberFoodPurchaseApplication({
+            cycleId: input.cycleId,
+            itemDescription: input.itemDescription,
+            requestedAmount: input.requestedAmount,
+            requestedPaybackMonths: input.requestedPaybackMonths,
+            requestNotes: input.requestNotes,
+            tenantId: ctx.tenant.current.id,
+            userId: ctx.auth.session.user.id,
+          })
+        }),
+      list: tenantProcedure.query(({ ctx }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+        return getMobileMemberFoodPurchase({
           tenantId: ctx.tenant.current.id,
           userId: ctx.auth.session.user.id,
         })

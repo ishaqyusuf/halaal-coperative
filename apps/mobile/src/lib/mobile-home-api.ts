@@ -156,6 +156,59 @@ export type MobileMemberShares = {
     | "unit_model_inactive"
 }
 
+export type MobileLoanProductOption = {
+  code: string | null
+  id: string
+  loanType: string
+  maxSavingsMultiple: number
+  name: string
+  termMonths: number
+}
+
+export type MobileMemberFinancingRequest = {
+  availablePoolSnapshot: number
+  eligibleAmountSnapshot: number
+  estimatedMonthlyServicing: number
+  extraMonthlySavingsAmount: number
+  guarantorApprovals: {
+    guarantorMemberNumber: string
+    guarantorName: string
+    id: string
+    respondedAt: string | null
+    status: string
+  }[]
+  id: string
+  loanProductCode: string | null
+  loanProductName: string
+  purpose: string | null
+  requestedAmount: number
+  requestedAt: string
+  requestedTermMonths: number
+  reviewNotes: string | null
+  status: string
+}
+
+export type MobileMemberFinancing = {
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  products: MobileLoanProductOption[]
+  requests: MobileMemberFinancingRequest[]
+  section: MobileMemberSection
+  state: "available" | "database_unavailable" | "member_profile_missing"
+}
+
+export type MobileFinancingRequestCreateInput = {
+  extraMonthlySavingsAmount?: number
+  loanProductId: string
+  purpose?: string
+  requestedAmount: number
+  requestedTermMonths: number
+}
+
 export type MobileMemberShareApplicationCreateInput = {
   notes?: string
   requestedUnits: number
@@ -395,6 +448,22 @@ export async function getMobileMemberGuarantorApprovals() {
   const client = createMobileTrpcClient()
 
   return client.mobile.member.guarantorApprovals.list.query() as Promise<MobileMemberGuarantorApprovals>
+}
+
+export async function getMobileMemberFinancing() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.financing.list.query() as Promise<MobileMemberFinancing>
+}
+
+export async function createMobileMemberFinancingRequest(
+  input: MobileFinancingRequestCreateInput
+) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.financing.createRequest.mutate(
+    input
+  ) as Promise<MobileMemberFinancingRequest>
 }
 
 export async function respondMobileMemberGuarantorApproval(

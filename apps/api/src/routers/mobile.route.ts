@@ -1,8 +1,10 @@
 import {
+  createMobileMemberFinancingRequest,
   createMobileMemberShareApplication,
   createMobileMemberReceipt,
   createMobileMemberSupportCase,
   getMobileAdminOverview,
+  getMobileMemberFinancing,
   getMobileMemberGuarantorApprovals,
   getMobileMemberHome,
   getMobileMemberMore,
@@ -76,6 +78,14 @@ const mobileGuarantorApprovalRespondInput = z.object({
   guarantorApprovalId: z.string().trim().min(1),
   notes: z.string().trim().max(1000).optional(),
   status: z.enum(["approved", "rejected"]),
+})
+
+const mobileFinancingRequestCreateInput = z.object({
+  extraMonthlySavingsAmount: z.number().min(0).optional(),
+  loanProductId: z.string().trim().min(1),
+  purpose: z.string().trim().max(1000).optional(),
+  requestedAmount: z.number().positive(),
+  requestedTermMonths: z.number().int().positive(),
 })
 
 function assertMemberWorkspace(role: string) {
@@ -179,6 +189,31 @@ export const mobileRouter = createTRPCRouter({
             userId: ctx.auth.session.user.id,
           })
         }),
+    }),
+    financing: createTRPCRouter({
+      createRequest: tenantProcedure
+        .input(mobileFinancingRequestCreateInput)
+        .mutation(({ ctx, input }) => {
+          assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+          return createMobileMemberFinancingRequest({
+            extraMonthlySavingsAmount: input.extraMonthlySavingsAmount,
+            loanProductId: input.loanProductId,
+            purpose: input.purpose,
+            requestedAmount: input.requestedAmount,
+            requestedTermMonths: input.requestedTermMonths,
+            tenantId: ctx.tenant.current.id,
+            userId: ctx.auth.session.user.id,
+          })
+        }),
+      list: tenantProcedure.query(({ ctx }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+        return getMobileMemberFinancing({
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
     }),
     shares: createTRPCRouter({
       createApplication: tenantProcedure

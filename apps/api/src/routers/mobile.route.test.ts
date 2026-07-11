@@ -159,6 +159,76 @@ describe("mobileRouter", () => {
     ).rejects.toThrow()
   })
 
+  test("returns member financing for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const financing = await caller.mobile.member.financing.list()
+
+    expect(financing.state).toBe("database_unavailable")
+    expect(financing.member).toBeNull()
+    expect(financing.products).toEqual([])
+    expect(financing.requests).toEqual([])
+    expect(financing.section.key).toBe("financing")
+  })
+
+  test("rejects member financing when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(caller.mobile.member.financing.list()).rejects.toThrow(
+      "Switch to the member workspace"
+    )
+  })
+
+  test("validates member financing request create input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.financing.createRequest({
+        loanProductId: "",
+        requestedAmount: 1000,
+        requestedTermMonths: 3,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.financing.createRequest({
+        loanProductId: "loan-product-1",
+        requestedAmount: 0,
+        requestedTermMonths: 3,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.financing.createRequest({
+        loanProductId: "loan-product-1",
+        requestedAmount: 1000,
+        requestedTermMonths: 0,
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member financing request create without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.financing.createRequest({
+        extraMonthlySavingsAmount: 100,
+        loanProductId: "loan-product-1",
+        purpose: "Emergency cooperative financing",
+        requestedAmount: 1000,
+        requestedTermMonths: 3,
+      })
+    ).rejects.toThrow("Financing requests are unavailable")
+  })
+
   test("returns member guarantor approvals for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

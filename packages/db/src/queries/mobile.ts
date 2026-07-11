@@ -1,8 +1,11 @@
 import { createPrismaClient } from "../prisma"
 import { getOverviewSummary } from "./dashboard"
 import {
+  listLoanProducts,
+  listLoanRequests,
   listMemberLoanGuarantorApprovals,
   respondMemberLoanGuarantorApproval,
+  submitLoanRequest,
 } from "./loans"
 import {
   getMemberByUserId,
@@ -330,6 +333,61 @@ export type MobileMemberShares = {
     | "unit_model_inactive"
 }
 
+type MobileLoanRequestRow = Awaited<ReturnType<typeof listLoanRequests>>[number]
+
+export type MobileLoanProductOption = {
+  code: string | null
+  id: string
+  loanType: string
+  maxSavingsMultiple: number
+  name: string
+  termMonths: number
+}
+
+export type MobileMemberFinancingRequest = {
+  availablePoolSnapshot: number
+  eligibleAmountSnapshot: number
+  estimatedMonthlyServicing: number
+  extraMonthlySavingsAmount: number
+  guarantorApprovals: {
+    guarantorMemberNumber: string
+    guarantorName: string
+    id: string
+    respondedAt: string | null
+    status: string
+  }[]
+  id: string
+  loanProductCode: string | null
+  loanProductName: string
+  purpose: string | null
+  requestedAmount: number
+  requestedAt: string
+  requestedTermMonths: number
+  reviewNotes: string | null
+  status: string
+}
+
+export type MobileMemberFinancing = {
+  generatedAt: string
+  member: {
+    id: string
+    memberNumber: string
+    name: string
+  } | null
+  products: MobileLoanProductOption[]
+  requests: MobileMemberFinancingRequest[]
+  section: MobileMemberSection
+  state: "available" | "database_unavailable" | "member_profile_missing"
+}
+
+export type MobileFinancingRequestCreateInput = {
+  extraMonthlySavingsAmount?: number | null
+  loanProductId: string
+  purpose?: string | null
+  requestedAmount: number
+  requestedTermMonths: number
+}
+
 type MobileLoanGuarantorApprovalRow = Awaited<
   ReturnType<typeof listMemberLoanGuarantorApprovals>
 >[number]
@@ -504,6 +562,20 @@ function emptyMemberShares(
     policy: null,
     position: null,
     section: emptyMemberSection("shares", detail),
+    state,
+  }
+}
+
+function emptyMemberFinancing(
+  state: MobileMemberFinancing["state"],
+  detail: string
+): MobileMemberFinancing {
+  return {
+    generatedAt: new Date().toISOString(),
+    member: null,
+    products: [],
+    requests: [],
+    section: emptyMemberSection("financing", detail),
     state,
   }
 }
@@ -855,6 +927,48 @@ function toMobileSharePosition(
       0,
       position.maximumUnits - position.totalPendingUnits
     ),
+  }
+}
+
+function toMobileLoanProductOption(
+  row: Awaited<ReturnType<typeof listLoanProducts>>[number]
+): MobileLoanProductOption {
+  return {
+    code: row.code,
+    id: row.id,
+    loanType: row.loanType,
+    maxSavingsMultiple: Number(row.maxSavingsMultiple ?? 0),
+    name: row.name,
+    termMonths: row.termMonths,
+  }
+}
+
+function toMobileFinancingRequest(
+  row: MobileLoanRequestRow
+): MobileMemberFinancingRequest {
+  return {
+    availablePoolSnapshot: Number(row.availablePoolSnapshot ?? 0),
+    eligibleAmountSnapshot: Number(row.eligibleAmountSnapshot ?? 0),
+    estimatedMonthlyServicing: Number(row.estimatedMonthlyServicing ?? 0),
+    extraMonthlySavingsAmount: Number(row.extraMonthlySavingsAmount ?? 0),
+    guarantorApprovals: row.guarantorApprovals.map((approval) => ({
+      guarantorMemberNumber: approval.guarantorMember.memberNumber,
+      guarantorName: approval.guarantorMember.fullName,
+      id: approval.id,
+      respondedAt: approval.respondedAt
+        ? approval.respondedAt.toISOString()
+        : null,
+      status: approval.status,
+    })),
+    id: row.id,
+    loanProductCode: row.loanProduct.code,
+    loanProductName: row.loanProduct.name,
+    purpose: row.purpose,
+    requestedAmount: Number(row.requestedAmount ?? 0),
+    requestedAt: row.requestedAt.toISOString(),
+    requestedTermMonths: row.requestedTermMonths,
+    reviewNotes: row.reviewNotes,
+    status: row.status,
   }
 }
 
@@ -1309,6 +1423,107 @@ export async function respondMobileMemberGuarantorApproval(input: {
   }
 
   return toMobileGuarantorApproval(approval)
+}
+
+export async function getMobileMemberFinancing(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberFinancing> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberFinancing(
+      "database_unavailable",
+      "Financing self-service needs the database runtime."
+    )
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberFinancing(
+      "member_profile_missing",
+      "No linked member profile was found for this mobile session."
+    )
+  }
+
+  const [detail, products, requests] = await Promise.all([
+    getMemberStatementDetail(input.tenantId, member.id, prisma),
+    listLoanProducts(input.tenantId, prisma),
+    listLoanRequests(input.tenantId, prisma),
+  ])
+
+  if (!detail) {
+    return emptyMemberFinancing(
+      "member_profile_missing",
+      "No linked member statement was found for this mobile session."
+    )
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    member: {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      name: member.fullName,
+    },
+    products: products.map(toMobileLoanProductOption),
+    requests: requests
+      .filter((request) => request.member.id === member.id)
+      .map(toMobileFinancingRequest),
+    section: buildFinancingSection(detail),
+    state: "available",
+  }
+}
+
+export async function createMobileMemberFinancingRequest(input: {
+  extraMonthlySavingsAmount?: number | null
+  loanProductId: string
+  purpose?: string | null
+  requestedAmount: number
+  requestedTermMonths: number
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberFinancingRequest> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    throw new Error(
+      "Financing requests are unavailable without database configuration."
+    )
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    throw new Error(
+      "Member profile needs linking before submitting financing requests."
+    )
+  }
+
+  const created = await submitLoanRequest(
+    {
+      actorUserId: input.userId,
+      extraMonthlySavingsAmount: input.extraMonthlySavingsAmount ?? undefined,
+      loanProductId: input.loanProductId,
+      memberId: member.id,
+      purpose: input.purpose ?? undefined,
+      requestedAmount: input.requestedAmount,
+      requestedTermMonths: input.requestedTermMonths,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  const request = (await listLoanRequests(input.tenantId, prisma)).find(
+    (item) => item.id === created.id
+  )
+
+  if (!request) {
+    throw new Error("Financing request not found.")
+  }
+
+  return toMobileFinancingRequest(request)
 }
 
 export async function getMobileMemberShares(input: {

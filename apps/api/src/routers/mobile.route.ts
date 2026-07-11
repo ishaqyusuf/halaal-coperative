@@ -1,6 +1,7 @@
 import {
   getMobileAdminOverview,
   getMobileMemberHome,
+  getMobileMemberMore,
   getMobileMemberSection,
   mobileMemberSectionKeys,
 } from "@halaalvest/db"
@@ -37,6 +38,14 @@ export const mobileRouter = createTRPCRouter({
       assertMemberWorkspace(ctx.auth.activeMembership.role)
 
       return getMobileMemberHome({
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
+    more: tenantProcedure.query(({ ctx }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+      return getMobileMemberMore({
         tenantId: ctx.tenant.current.id,
         userId: ctx.auth.session.user.id,
       })

@@ -6,6 +6,11 @@ import {
   listMemberStatementSummaries,
 } from "./members"
 import {
+  getMemberScopedPaymentReceiptSummary,
+  listMemberPaymentReceipts,
+} from "./payment-receipts"
+import { getMemberSupportCaseSummary, listSupportCases } from "./support"
+import {
   getMemberShareBalancesAtDate,
   getMemberUnitSharePosition,
   getTenantSharePolicy,
@@ -89,6 +94,34 @@ export type MobileMemberSection = {
   title: string
 }
 
+export type MobileMemberMoreRow = {
+  detail: string
+  format: MobileMetricFormat | null
+  key: string
+  label: string
+  status: string | null
+  value: number | null
+}
+
+export type MobileMemberMoreSection = {
+  icon: string
+  key: "profile" | "statement" | "receipts" | "support"
+  rows: MobileMemberMoreRow[]
+  title: string
+}
+
+export type MobileMemberMore = {
+  generatedAt: string
+  member: {
+    id: string
+    kycStatus: string
+    memberNumber: string
+    name: string
+    status: string
+  } | null
+  sections: MobileMemberMoreSection[]
+}
+
 const memberSectionCopy: Record<
   MobileMemberSectionKey,
   {
@@ -154,6 +187,31 @@ function emptyMemberHome(): MobileMemberHome {
         key: "financing",
         label: "Financing",
         value: 0,
+      },
+    ],
+  }
+}
+
+function emptyMemberMore(): MobileMemberMore {
+  return {
+    generatedAt: new Date().toISOString(),
+    member: null,
+    sections: [
+      {
+        icon: "UserRound",
+        key: "profile",
+        rows: [
+          {
+            detail:
+              "No linked member profile was found for this mobile session.",
+            format: null,
+            key: "member-profile",
+            label: "Member profile needs linking",
+            status: "Needs setup",
+            value: null,
+          },
+        ],
+        title: "Profile",
       },
     ],
   }
@@ -237,6 +295,10 @@ function getEmptySectionStats(
       value: 0,
     },
   ]
+}
+
+function moreRow(input: MobileMemberMoreRow): MobileMemberMoreRow {
+  return input
 }
 
 function emptyMemberSection(
@@ -329,6 +391,229 @@ function emptyRows(section: MobileMemberSectionKey): MobileMemberSectionRow[] {
       value: null,
     },
   ]
+}
+
+function latestDateLabel(value: Date | null | undefined) {
+  return value ? formatDateLabel(value) : "No recent activity"
+}
+
+async function buildMemberMore(input: {
+  detail: NonNullable<Awaited<ReturnType<typeof getMemberStatementDetail>>>
+  member: NonNullable<Awaited<ReturnType<typeof getMemberByUserId>>>
+  prisma: NonNullable<ReturnType<typeof createPrismaClient>>
+  tenantId: string
+}): Promise<MobileMemberMore> {
+  const [receiptSummary, receipts, supportSummary, supportCases] =
+    await Promise.all([
+      getMemberScopedPaymentReceiptSummary(
+        {
+          memberId: input.member.id,
+          tenantId: input.tenantId,
+        },
+        input.prisma
+      ),
+      listMemberPaymentReceipts(
+        input.tenantId,
+        {
+          limit: 3,
+          memberId: input.member.id,
+        },
+        input.prisma
+      ),
+      getMemberSupportCaseSummary(
+        {
+          memberId: input.member.id,
+          tenantId: input.tenantId,
+        },
+        input.prisma
+      ),
+      listSupportCases(
+        {
+          limit: 3,
+          memberId: input.member.id,
+          tenantId: input.tenantId,
+        },
+        input.prisma
+      ),
+    ])
+  const summary = input.detail.summary
+  const verifiedDocuments = input.detail.member.documents.filter(
+    (document) => document.reviewStatus === "verified"
+  ).length
+  const latestReceipt = receipts[0] ?? null
+  const latestSupportCase = supportCases[0] ?? null
+
+  return {
+    generatedAt: new Date().toISOString(),
+    member: {
+      id: input.member.id,
+      kycStatus: input.member.kycStatus,
+      memberNumber: input.member.memberNumber,
+      name: input.member.fullName,
+      status: input.member.status,
+    },
+    sections: [
+      {
+        icon: "UserRound",
+        key: "profile",
+        rows: [
+          moreRow({
+            detail: `${humanizeStatus(input.member.status) ?? "Member"} membership`,
+            format: null,
+            key: "member-number",
+            label: input.member.memberNumber,
+            status: humanizeStatus(input.member.kycStatus),
+            value: null,
+          }),
+          moreRow({
+            detail:
+              input.detail.member.documents.length > 0
+                ? `${verifiedDocuments} verified document(s)`
+                : "No uploaded member documents",
+            format: "count",
+            key: "documents",
+            label: "Documents",
+            status:
+              input.detail.member.documents.length > 0
+                ? "Available"
+                : "Needs upload",
+            value: input.detail.member.documents.length,
+          }),
+        ],
+        title: "Profile",
+      },
+      {
+        icon: "FileText",
+        key: "statement",
+        rows: [
+          moreRow({
+            detail:
+              (summary?.contributionsCount ?? 0) > 0
+                ? `${summary?.contributionsCount ?? 0} posted contribution entries`
+                : "No posted contribution entries",
+            format: "currency",
+            key: "savings",
+            label: "Savings snapshot",
+            status: latestDateLabel(summary?.lastContributionAt),
+            value: summary?.totalSavingsSnapshot ?? 0,
+          }),
+          moreRow({
+            detail:
+              (summary?.activeLoanCount ?? 0) > 0
+                ? `${summary?.activeLoanCount ?? 0} active financing record(s)`
+                : "No active financing",
+            format: "currency",
+            key: "financing",
+            label: "Financing exposure",
+            status: latestDateLabel(summary?.lastRepaymentAt),
+            value: summary?.totalOutstandingPrincipal ?? 0,
+          }),
+          moreRow({
+            detail:
+              (summary?.dividendAllocationCount ?? 0) > 0
+                ? `${summary?.dividendAllocationCount ?? 0} published allocation(s)`
+                : "No published dividend allocations",
+            format: "currency",
+            key: "dividends",
+            label: "Published dividends",
+            status: latestDateLabel(summary?.lastDividendAllocatedAt),
+            value: summary?.totalDividendAllocations ?? 0,
+          }),
+        ],
+        title: "Statement",
+      },
+      {
+        icon: "ReceiptText",
+        key: "receipts",
+        rows: [
+          moreRow({
+            detail:
+              receiptSummary.pendingReviewReceipts > 0
+                ? "Submitted or under review"
+                : "No receipts waiting on finance",
+            format: "count",
+            key: "pending-receipts",
+            label: "Pending review",
+            status: receiptSummary.pendingReviewReceipts > 0 ? "Open" : "Clear",
+            value: receiptSummary.pendingReviewReceipts,
+          }),
+          moreRow({
+            detail:
+              receiptSummary.correctionRequestedReceipts > 0
+                ? "Finance requested a correction"
+                : "No correction requests",
+            format: "count",
+            key: "correction-receipts",
+            label: "Corrections requested",
+            status:
+              receiptSummary.correctionRequestedReceipts > 0
+                ? "Needs action"
+                : "Clear",
+            value: receiptSummary.correctionRequestedReceipts,
+          }),
+          ...(latestReceipt
+            ? [
+                moreRow({
+                  detail: latestReceipt.paymentReference
+                    ? `Ref ${latestReceipt.paymentReference}`
+                    : `Submitted ${formatDateLabel(latestReceipt.submittedAt)}`,
+                  format: "currency" as const,
+                  key: `receipt-${latestReceipt.id}`,
+                  label: "Latest receipt",
+                  status: humanizeStatus(latestReceipt.status),
+                  value: latestReceipt.totalAmount,
+                }),
+              ]
+            : []),
+        ],
+        title: "Receipts",
+      },
+      {
+        icon: "Headphones",
+        key: "support",
+        rows: [
+          moreRow({
+            detail:
+              supportSummary.openCases > 0
+                ? "Open, in progress, or waiting on member"
+                : "No open support cases",
+            format: "count",
+            key: "open-support",
+            label: "Open cases",
+            status: supportSummary.openCases > 0 ? "Open" : "Clear",
+            value: supportSummary.openCases,
+          }),
+          moreRow({
+            detail:
+              supportSummary.highPriorityOpenCases > 0
+                ? "High or urgent priority"
+                : "No high priority open cases",
+            format: "count",
+            key: "priority-support",
+            label: "Priority cases",
+            status:
+              supportSummary.highPriorityOpenCases > 0
+                ? "Needs attention"
+                : "Clear",
+            value: supportSummary.highPriorityOpenCases,
+          }),
+          ...(latestSupportCase
+            ? [
+                moreRow({
+                  detail: latestSupportCase.subject,
+                  format: null,
+                  key: `support-${latestSupportCase.id}`,
+                  label: "Latest support case",
+                  status: humanizeStatus(latestSupportCase.status),
+                  value: null,
+                }),
+              ]
+            : []),
+        ],
+        title: "Support",
+      },
+    ],
+  }
 }
 
 function buildCommitmentSection(
@@ -812,6 +1097,40 @@ export async function getMobileMemberSection(input: {
     },
     prisma
   )
+}
+
+export async function getMobileMemberMore(input: {
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberMore> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyMemberMore()
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+
+  if (!member) {
+    return emptyMemberMore()
+  }
+
+  const detail = await getMemberStatementDetail(
+    input.tenantId,
+    member.id,
+    prisma
+  )
+
+  if (!detail) {
+    return emptyMemberMore()
+  }
+
+  return buildMemberMore({
+    detail,
+    member,
+    prisma,
+    tenantId: input.tenantId,
+  })
 }
 
 export async function getMobileAdminOverview(

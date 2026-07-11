@@ -2,6 +2,18 @@
 
 ## 2026-07-11
 
+### Mobile Member More Hub Reads
+
+- Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.
+- Source issue: `https://github.com/ishaqyusuf/halaal-coperative/issues/9`.
+- Changed source files: `packages/db/src/queries/mobile.ts`, `apps/api/src/routers/mobile.route.ts`, `apps/api/src/routers/mobile.route.test.ts`, `apps/mobile/src/lib/mobile-home-api.ts`, `apps/mobile/src/screens/more-screen.tsx`.
+- Brain files updated: `brain/progress.md`, `brain/tasks/done.md`.
+- Current status: Added another Phase 2 member read DTO for the mobile More tab. `mobile.member.more` now derives the signed member profile, statement highlights, receipt review status, and support case status from existing member statement, payment receipt, and support query helpers behind member-workspace gating. The mobile More screen now renders those server-backed sections for signed member sessions while keeping the static menu for admin and development mock sessions.
+- Scope note: This is read-only hub wiring. It does not yet add receipt/support submission forms, notifications inbox storage, statement downloads, offline stale cache markers, or device smoke testing.
+- Checks run: `bun test apps/api/src/context.test.ts apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts`; `../../node_modules/.bin/tsc --noEmit` from `packages/db`; touched-file `prettier --check`; scoped `git diff --check`.
+- Attempted checks: `bun --cwd apps/api typecheck` still fails on existing `bun:test` type declarations and nullable `ctx.auth.session` warnings in `apps/api/src/routers/mobile-auth.route.ts`. `bun --cwd apps/mobile typecheck` still fails on existing React ref type duplication in `src/components/ui/label.tsx`, `src/components/ui/switch.tsx`, and `src/components/ui/tabs.tsx`. No new touched More screen error was reported before those existing mobile blockers.
+- Skipped checks: Broad monorepo typecheck, build, Expo smoke testing, dev server, browser/device QA, and full test suite were skipped under fast Bun monorepo command discipline.
+
 ### Mobile Member Section Reads
 
 - Source mode: `$implement` continuation from `brain/specs/2026-07-11-halaalvest-mobile-app-mvp.md` using fast Bun monorepo command discipline.

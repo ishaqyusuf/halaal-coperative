@@ -69,6 +69,29 @@ describe("mobileRouter", () => {
     )
   })
 
+  test("returns member more hub for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const hub = await caller.mobile.member.more()
+
+    expect(hub.member).toBeNull()
+    expect(hub.generatedAt).toEqual(expect.any(String))
+    expect(hub.sections.map((section) => section.key)).toEqual(["profile"])
+    expect(hub.sections[0]?.rows[0]?.key).toBe("member-profile")
+  })
+
+  test("rejects member more hub when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(caller.mobile.member.more()).rejects.toThrow(
+      "Switch to the member workspace"
+    )
+  })
+
   test("returns member sections for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

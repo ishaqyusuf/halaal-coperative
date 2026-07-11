@@ -70,10 +70,44 @@ export type MobileMemberSection = {
   title: string
 }
 
+export type MobileMemberMoreRow = {
+  detail: string
+  format: MobileMetricFormat | null
+  key: string
+  label: string
+  status: string | null
+  value: number | null
+}
+
+export type MobileMemberMoreSection = {
+  icon: string
+  key: "profile" | "statement" | "receipts" | "support"
+  rows: MobileMemberMoreRow[]
+  title: string
+}
+
+export type MobileMemberMore = {
+  generatedAt: string
+  member: {
+    id: string
+    kycStatus: string
+    memberNumber: string
+    name: string
+    status: string
+  } | null
+  sections: MobileMemberMoreSection[]
+}
+
 export async function getMobileMemberHome() {
   const client = createMobileTrpcClient()
 
   return client.mobile.member.home.query() as Promise<MobileMemberHome>
+}
+
+export async function getMobileMemberMore() {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.member.more.query() as Promise<MobileMemberMore>
 }
 
 export async function getMobileMemberSection(section: MobileMemberSectionKey) {

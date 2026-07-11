@@ -267,6 +267,7 @@ export type MobileAdminFinanceRecentItem = {
 }
 
 export type MobileAdminFinance = {
+  collectionFollowUps: MobileAdminCollectionFollowUp[]
   generatedAt: string
   queues: MobileAdminFinanceQueue[]
   recentItems: MobileAdminFinanceRecentItem[]
@@ -977,6 +978,7 @@ function emptyAdminMemberDetail(
 
 function emptyAdminFinance(): MobileAdminFinance {
   return {
+    collectionFollowUps: [],
     generatedAt: new Date().toISOString(),
     queues: [],
     recentItems: [],
@@ -4548,6 +4550,7 @@ export async function getMobileAdminFinance(
     projectRequests,
     foodApplications,
     receipts,
+    collectionFollowUps,
   ] = await Promise.all([
     getOverviewSummary(tenantId),
     listLoanRequests(tenantId, prisma),
@@ -4579,6 +4582,14 @@ export async function getMobileAdminFinance(
       },
       prisma
     ),
+    listCollectionFollowUps(
+      tenantId,
+      {
+        limit: 5,
+        resolutionStatus: "open",
+      },
+      prisma
+    ),
   ])
   const queues = overview.actionQueue
     .map(toMobileAdminFinanceQueue)
@@ -4606,6 +4617,9 @@ export async function getMobileAdminFinance(
     .slice(0, 12)
 
   return {
+    collectionFollowUps: collectionFollowUps.map(
+      toMobileAdminCollectionFollowUp
+    ),
     generatedAt: overview.workspace.generatedAt,
     queues,
     recentItems,

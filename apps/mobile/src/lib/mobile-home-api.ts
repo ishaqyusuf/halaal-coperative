@@ -135,6 +135,7 @@ export type MobileAdminFinanceRecentItem = {
 }
 
 export type MobileAdminFinance = {
+  collectionFollowUps: MobileAdminCollectionFollowUp[]
   generatedAt: string
   queues: MobileAdminFinanceQueue[]
   recentItems: MobileAdminFinanceRecentItem[]

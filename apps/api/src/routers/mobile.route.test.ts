@@ -756,6 +756,7 @@ describe("mobileRouter", () => {
 
     const finance = await caller.mobile.admin.finance.overview()
 
+    expect(finance.collectionFollowUps).toEqual([])
     expect(finance.generatedAt).toEqual(expect.any(String))
     expect(finance.recentItems).toEqual([])
     expect(finance.stats.map((stat) => stat.key)).toEqual(["finance-queues"])

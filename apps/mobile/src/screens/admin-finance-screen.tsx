@@ -9,6 +9,7 @@ import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import {
   getMobileAdminFinance,
+  type MobileAdminCollectionFollowUp,
   type MobileAdminFinance,
   type MobileAdminFinanceRecentItem,
 } from "@/lib/mobile-home-api"
@@ -80,6 +81,43 @@ function FinanceRecentItemCard({
           </Text>
           <Text className="text-xs font-medium text-muted-foreground">
             {formatStatus(item.status)} - {formatDate(item.requestedAt)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function CollectionFollowUpCard({
+  followUp,
+  isFirst,
+}: {
+  followUp: MobileAdminCollectionFollowUp
+  isFirst: boolean
+}) {
+  return (
+    <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
+      <View className="flex-row items-start gap-3">
+        <View className="h-9 w-9 items-center justify-center rounded-md bg-secondary">
+          <Icon name="MessageSquareText" className="size-sm text-accent" />
+        </View>
+        <View className="flex-1 gap-1">
+          <View className="flex-row items-start justify-between gap-3">
+            <Text className="flex-1 text-sm font-semibold text-foreground">
+              {followUp.memberName}
+            </Text>
+            <Text className="text-xs font-medium text-muted-foreground">
+              {followUp.memberNumber}
+            </Text>
+          </View>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            {followUp.loanProductName} - {followUp.note}
+          </Text>
+          <Text className="text-xs font-medium text-muted-foreground">
+            {formatStatus(followUp.status)} - {formatStatus(followUp.priority)}
+            {followUp.nextActionAt
+              ? ` - Next ${formatDate(followUp.nextActionAt)}`
+              : ""}
           </Text>
         </View>
       </View>
@@ -241,6 +279,26 @@ export function AdminFinanceScreen() {
               ) : (
                 <Text className="text-sm leading-5 text-muted-foreground">
                   No pending finance requests are visible in the mobile queue.
+                </Text>
+              )}
+            </SectionCard>
+
+            <SectionCard icon="MessageSquareText" title="Collection follow-ups">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : finance?.collectionFollowUps.length ? (
+                <View className="gap-3">
+                  {finance.collectionFollowUps.map((followUp, index) => (
+                    <CollectionFollowUpCard
+                      followUp={followUp}
+                      isFirst={index === 0}
+                      key={followUp.id}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  No open collection follow-ups are visible in the mobile queue.
                 </Text>
               )}
             </SectionCard>

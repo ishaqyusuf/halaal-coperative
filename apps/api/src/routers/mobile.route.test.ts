@@ -676,6 +676,21 @@ describe("mobileRouter", () => {
     expect(members.summary.totalCount).toBe(0)
   })
 
+  test("returns admin member detail for staff workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    const detail = await caller.mobile.admin.members.detail({
+      memberId: "member-amanah-missing",
+    })
+
+    expect(detail.generatedAt).toEqual(expect.any(String))
+    expect(detail.member).toBeNull()
+    expect(detail.sections[0]?.key).toBe("profile")
+    expect(detail.stats).toHaveLength(4)
+  })
+
   test("rejects admin member directory from the member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",
@@ -684,6 +699,30 @@ describe("mobileRouter", () => {
     await expect(caller.mobile.admin.members.list()).rejects.toThrow(
       "This action requires operations_officer role or above."
     )
+  })
+
+  test("rejects admin member detail from the member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.admin.members.detail({
+        memberId: "member-amanah-missing",
+      })
+    ).rejects.toThrow("This action requires operations_officer role or above.")
+  })
+
+  test("validates admin member detail input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.members.detail({
+        memberId: "",
+      })
+    ).rejects.toThrow()
   })
 
   test("validates admin member directory filters", async () => {

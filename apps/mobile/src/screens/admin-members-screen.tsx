@@ -16,6 +16,7 @@ import {
   type MobileAdminMembers,
 } from "@/lib/mobile-home-api"
 import { isMockSessionToken } from "@/lib/session-store"
+import { useRouter } from "expo-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
 
@@ -74,9 +75,11 @@ function FilterButton({
 function MemberCard({
   isFirst,
   member,
+  onOpen,
 }: {
   isFirst: boolean
   member: MobileAdminMemberRow
+  onOpen: () => void
 }) {
   return (
     <View className={isFirst ? "gap-3" : "gap-3 border-t border-border pt-3"}>
@@ -137,6 +140,15 @@ function MemberCard({
             : "No linked login"}
         </Text>
       </View>
+
+      <Button
+        className="h-10 self-start px-3"
+        onPress={onOpen}
+        variant="outline"
+      >
+        <Icon name="FileText" className="size-base text-foreground" />
+        <Text>Open detail</Text>
+      </Button>
     </View>
   )
 }
@@ -144,6 +156,7 @@ function MemberCard({
 export function AdminMembersScreen() {
   const { profile } = useAuthContext()
   const colors = useColors()
+  const router = useRouter()
   const [members, setMembers] = useState<MobileAdminMembers | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -235,6 +248,15 @@ export function AdminMembersScreen() {
   }, [canUseServerMembers, kycStatus, page, search, status])
 
   useEffect(() => loadMembers(), [loadMembers])
+
+  function openMemberDetail(memberId: string) {
+    const memberDetailHref = {
+      params: { memberId },
+      pathname: "/members/[memberId]",
+    } as Parameters<typeof router.push>[0]
+
+    router.push(memberDetailHref)
+  }
 
   function applySearch() {
     setPage(1)
@@ -337,6 +359,7 @@ export function AdminMembersScreen() {
                       isFirst={index === 0}
                       key={member.id}
                       member={member}
+                      onOpen={() => openMemberDetail(member.id)}
                     />
                   ))}
                 </View>

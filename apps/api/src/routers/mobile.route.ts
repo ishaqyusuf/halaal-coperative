@@ -8,6 +8,7 @@ import {
   createMobileMemberSupportCase,
   getMobileAdminAccess,
   getMobileAdminFinance,
+  getMobileAdminMemberDetail,
   getMobileAdminMembers,
   getMobileAdminOverview,
   getMobileAdminReports,
@@ -56,6 +57,10 @@ const mobileAdminMembersListInput = z
     status: z.enum(mobileAdminMemberStatusKeys).optional(),
   })
   .optional()
+
+const mobileAdminMemberDetailInput = z.object({
+  memberId: z.string().trim().min(1),
+})
 
 const mobileSupportCreateInput = z.object({
   category: z.enum(mobileSupportCategoryKeys),
@@ -159,6 +164,14 @@ export const mobileRouter = createTRPCRouter({
       }),
     }),
     members: createTRPCRouter({
+      detail: minRoleProcedure("operations_officer")
+        .input(mobileAdminMemberDetailInput)
+        .query(({ ctx, input }) => {
+          return getMobileAdminMemberDetail({
+            memberId: input.memberId,
+            tenantId: ctx.tenant.current.id,
+          })
+        }),
       list: minRoleProcedure("operations_officer")
         .input(mobileAdminMembersListInput)
         .query(({ ctx, input }) => {

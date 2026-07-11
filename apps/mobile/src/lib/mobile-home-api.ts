@@ -91,6 +91,18 @@ export type MobileAdminMembers = {
   total: number
 }
 
+export type MobileAdminMemberDetail = {
+  generatedAt: string
+  member:
+    | (MobileAdminMemberRow & {
+        exitedAt: string | null
+        linkedUserName: string | null
+      })
+    | null
+  sections: MobileMemberStatementSection[]
+  stats: MobileOverviewMetric[]
+}
+
 export type MobileAdminMembersListInput = {
   kycStatus?: MobileAdminMemberKycStatus
   page?: number
@@ -955,6 +967,14 @@ export async function getMobileAdminMembers(
   return client.mobile.admin.members.list.query(
     input
   ) as Promise<MobileAdminMembers>
+}
+
+export async function getMobileAdminMemberDetail(memberId: string) {
+  const client = createMobileTrpcClient()
+
+  return client.mobile.admin.members.detail.query({
+    memberId,
+  }) as Promise<MobileAdminMemberDetail>
 }
 
 export async function getMobileAdminFinance() {

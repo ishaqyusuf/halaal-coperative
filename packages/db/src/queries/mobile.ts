@@ -231,6 +231,18 @@ export type MobileAdminMembers = {
   total: number
 }
 
+export type MobileAdminMemberDetail = {
+  generatedAt: string
+  member:
+    | (MobileAdminMemberRow & {
+        exitedAt: string | null
+        linkedUserName: string | null
+      })
+    | null
+  sections: MobileMemberStatementSection[]
+  stats: MobileOverviewMetric[]
+}
+
 export type MobileAdminFinanceQueue = {
   count: number
   detail: string
@@ -925,6 +937,34 @@ function emptyAdminMembers(input?: {
       totalCount: 0,
     },
     total: 0,
+  }
+}
+
+function emptyAdminMemberDetail(
+  detail = "No statement detail was found for this member profile."
+): MobileAdminMemberDetail {
+  return {
+    generatedAt: new Date().toISOString(),
+    member: null,
+    sections: [
+      {
+        emptyState: detail,
+        key: "profile",
+        rows: [
+          {
+            detail,
+            format: null,
+            key: "member-profile",
+            label: "Member profile",
+            status: "Unavailable",
+            value: null,
+          },
+        ],
+        subtitle: "Membership identity and account readiness.",
+        title: "Profile",
+      },
+    ],
+    stats: getEmptyStatementStats(),
   }
 }
 
@@ -4219,6 +4259,70 @@ export async function getMobileAdminMembers(input: {
       total: result.total,
     }),
     total: result.total,
+  }
+}
+
+export async function getMobileAdminMemberDetail(input: {
+  memberId: string
+  tenantId: string
+}): Promise<MobileAdminMemberDetail> {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return emptyAdminMemberDetail(
+      "Database is not configured for this mobile session."
+    )
+  }
+
+  const detail = await getMemberStatementDetail(
+    input.tenantId,
+    input.memberId,
+    prisma
+  )
+
+  if (!detail) {
+    return emptyAdminMemberDetail()
+  }
+
+  const commitmentSection = buildCommitmentSection(detail)
+  const financingSection = buildFinancingSection(detail)
+  const sharesSection = await buildSharesSection(
+    {
+      detail,
+      memberId: detail.member.id,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return {
+    generatedAt: new Date().toISOString(),
+    member: {
+      deductionSourceName: detail.member.deductionSource?.name ?? null,
+      email: detail.member.email ?? null,
+      exitedAt: detail.member.exitedAt
+        ? detail.member.exitedAt.toISOString()
+        : null,
+      fullName: detail.member.fullName,
+      id: detail.member.id,
+      joinedAt: detail.member.joinedAt.toISOString(),
+      kycStatus: detail.member.kycStatus,
+      linkedUserEmail: detail.member.user?.email ?? null,
+      linkedUserName: detail.member.user?.fullName ?? null,
+      memberNumber: detail.member.memberNumber,
+      memberType: detail.member.memberType,
+      phoneNumber: detail.member.phoneNumber ?? null,
+      status: detail.member.status,
+    },
+    sections: [
+      buildProfileStatementSection(detail),
+      toStatementSection(commitmentSection),
+      toStatementSection(financingSection),
+      toStatementSection(sharesSection),
+      buildDocumentStatementSection(detail),
+      buildLedgerStatementSection(detail),
+    ],
+    stats: buildStatementStats(detail),
   }
 }
 

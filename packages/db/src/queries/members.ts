@@ -10,6 +10,7 @@ import { createPrismaClient } from "../prisma"
 import { getMemberTransactions } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
 import { ensureMemberInGeneratedMonthlyRecord } from "./monthly-records"
+import { getTenantOperationProfile } from "./operation-profile"
 
 export type ListMembersFilters = {
   kycStatus?: KycStatus
@@ -305,7 +306,7 @@ export type CreateMemberInput = {
     startDate: Date
   }
   userId?: string
-  deductionSourceId?: string
+  deductionSourceId?: string | null
   actorUserId: string
 }
 
@@ -435,11 +436,52 @@ function normalizeCommitmentHistory(input: CreateMemberInput) {
   )
 }
 
+async function assertCollectionSourceAssignmentAllowed(input: {
+  deductionSourceId: string
+  prisma: PrismaClient | Prisma.TransactionClient
+  tenantId: string
+}) {
+  const operationProfile = await getTenantOperationProfile(
+    input.tenantId,
+    input.prisma as PrismaClient
+  )
+
+  if (!operationProfile.services.collection_sources.canStaffCreate) {
+    throw new Error(
+      "Collection Source assignment is not enabled for this cooperative."
+    )
+  }
+
+  const deductionSource = await (input.prisma as any).deductionSource.findFirst(
+    {
+      select: { id: true },
+      where: {
+        id: input.deductionSourceId,
+        isActive: true,
+        tenantId: input.tenantId,
+      },
+    }
+  )
+
+  if (!deductionSource) {
+    throw new Error(
+      "Collection Source does not belong to this cooperative or is inactive."
+    )
+  }
+}
+
 export async function createMemberWithState(
   tx: MemberWriteClient,
   input: CreateMemberInput
 ) {
   await assertMemberProfileMutationOpen(input.tenantId, tx)
+  if (input.deductionSourceId) {
+    await assertCollectionSourceAssignmentAllowed({
+      deductionSourceId: input.deductionSourceId,
+      prisma: tx,
+      tenantId: input.tenantId,
+    })
+  }
   const commitmentHistory = normalizeCommitmentHistory(input)
 
   const member = await tx.member.create({
@@ -707,6 +749,13 @@ export async function updateMember(
 
   return prisma.$transaction(async (tx) => {
     await assertMemberProfileMutationOpen(tenantId, tx)
+    if (input.deductionSourceId) {
+      await assertCollectionSourceAssignmentAllowed({
+        deductionSourceId: input.deductionSourceId,
+        prisma: tx,
+        tenantId,
+      })
+    }
 
     const member = await tx.member.update({
       where: { id: memberId, tenantId },
@@ -737,6 +786,7 @@ export async function updateMember(
         entityId: member.id,
         metadata: {
           address: input.address,
+          deductionSourceId: input.deductionSourceId,
           email: input.email,
           fullName: input.fullName,
           memberType: input.memberType,

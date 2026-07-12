@@ -111,7 +111,17 @@ function FinanceSnapshot({ data }: { data: ReportsSummary["financeSnapshot"] }) 
   )
 }
 
-function ExportCatalog({ filters }: { filters: ReportsFilterParams }) {
+function ExportCatalog({
+  exportVisibility,
+  filters,
+}: {
+  exportVisibility: ReportsSummary["exportVisibility"]
+  filters: ReportsFilterParams
+}) {
+  const visibleExports = reportExports.filter(
+    (item) => exportVisibility[item.href] !== false
+  )
+
   return (
     <OverviewSection
       actions={
@@ -123,7 +133,7 @@ function ExportCatalog({ filters }: { filters: ReportsFilterParams }) {
       title="Report exports"
     >
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {reportExports.map((item) => (
+        {visibleExports.map((item) => (
           <a
             className="border border-border bg-background p-4 text-sm transition hover:border-foreground/30 hover:bg-muted"
             href={withReportFilters(item.href, filters)}
@@ -294,7 +304,10 @@ export function ReportsView({ filters }: { filters: ReportsFilterParams }) {
 
       <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
         <FinanceSnapshot data={data.financeSnapshot} />
-        <ExportCatalog filters={filters} />
+        <ExportCatalog
+          exportVisibility={data.exportVisibility}
+          filters={filters}
+        />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-3">

@@ -20,8 +20,11 @@ import {
   getMemberMigrationStartHref,
   shouldOpenMemberMigrationAfterCreate,
 } from "@/lib/members/member-migration-routing"
+import type { MemberCollectionSourceOption } from "@/lib/members/load-members-page"
 
 export function MemberCreateModal({
+  canManageCollectionSources = false,
+  collectionSourceOptions = [],
   cooperativeStartDate,
   description = "Add the member profile, joined date, and starting commitment.",
   devMode,
@@ -35,6 +38,8 @@ export function MemberCreateModal({
   title = "Create member",
   triggerLabel = "New member",
 }: {
+  canManageCollectionSources?: boolean
+  collectionSourceOptions?: MemberCollectionSourceOption[]
   cooperativeStartDate?: string | null
   description?: string
   devMode: boolean
@@ -123,6 +128,8 @@ export function MemberCreateModal({
             </DialogHeader>
 
             <MemberCreateForm
+              canManageCollectionSources={canManageCollectionSources}
+              collectionSourceOptions={collectionSourceOptions}
               cooperativeStartDate={cooperativeStartDate}
               devMode={devMode}
               initialValues={initialValues}

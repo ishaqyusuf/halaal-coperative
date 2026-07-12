@@ -6,6 +6,7 @@ import { buildBackfillDraft } from "@halaalvest/backfill"
 import {
   addMemberSupportCaseMessage,
   applyMemberOpeningBalance,
+  postCollectionSourceContributionBatchRows,
   buildBackfillDraftInputForMember,
   addSupportCaseMessage,
   chargeApplicabilityTriggerKeys,
@@ -25,6 +26,7 @@ import {
   createMemberOpeningBalance,
   createMemberPaymentReceipt,
   createProjectFinancingRequest,
+  stageCollectionSourceContributionBatch,
   deleteMemberActivityEvent,
   createMember,
   createMemberDocument,
@@ -52,6 +54,7 @@ import {
   importMembers,
   importRepaymentMigrations,
   getInitialMigrationMemberReview,
+  getTenantOperationProfile,
   generateHistoricalBackfillShareProfitAllocations,
   markTenantBusinessProfitPoolsReviewed,
   markTenantLegacyLoansReviewed,
@@ -59,6 +62,7 @@ import {
   cancelMonthlyRecordMember,
   ensureMonthlyRecord,
   updateMonthlyRecordSettings,
+  updateCollectionSourceContributionBatchRows,
   recordCollectionFollowUp,
   provisionTenantUserRole,
   rotateMemberSignupLinkToken,
@@ -124,6 +128,7 @@ import {
   upsertMemberActivityEvent,
   upsertMigrationBackfillAdjustment,
   updateMemberStatus,
+  updateTenantOperationProfile,
   waiveChargeApplication,
   upsertMemberAmountLog,
   type FoodPurchaseApplicationRow,
@@ -136,6 +141,9 @@ import {
   type ProjectFinancingRequestRow,
   type SupportCaseMessageAuthorType,
   type SupportCaseRow,
+  tenantServiceAccessModes,
+  tenantServiceKeys,
+  type TenantServiceAccessMode,
 } from "@halaalvest/db"
 import { createEmailDraftFromType } from "@halaalvest/notifications"
 import {
@@ -295,6 +303,15 @@ function getOptionalTrimmedString(formData: FormData, key: string) {
 
   return value.trim() || null
 }
+
+function normalizeCollectionSourceFormValue(value: string | null) {
+  if (!value || value === "none") {
+    return null
+  }
+
+  return value
+}
+
 type DashboardChargeValueType = "fixed_amount" | "percentage"
 type DashboardPaymentAllocationPreference =
   | "manual_split"
@@ -794,6 +811,19 @@ function getOptionalBoolean(formData: FormData, key: string) {
   return value === "on" || value === "true"
 }
 
+function getTenantServiceAccessMode(
+  formData: FormData,
+  key: string
+): TenantServiceAccessMode {
+  const value = getRequiredString(formData, key)
+
+  if (!tenantServiceAccessModes.includes(value as TenantServiceAccessMode)) {
+    throw new Error(`Invalid service access mode for ${key}.`)
+  }
+
+  return value as TenantServiceAccessMode
+}
+
 function parseOptionalJsonArray(formData: FormData, key: string) {
   const value = formData.get(key)
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -1125,6 +1155,9 @@ export async function createMemberAction(formData: FormData) {
   const joinedAt = new Date(`${joinedAtValue}T00:00:00.000Z`)
   requireDateOnOrAfterTenantStartDate(actor, joinedAt, "Joined date")
   const monthlyCommitment = getOptionalNumber(formData, "monthlyCommitment")
+  const deductionSourceId = normalizeCollectionSourceFormValue(
+    getOptionalTrimmedString(formData, "deductionSourceId")
+  )
 
   if (
     monthlyCommitment === undefined ||
@@ -1137,6 +1170,7 @@ export async function createMemberAction(formData: FormData) {
   const member = await createMember({
     actorUserId: actor.user.id,
     address: getOptionalTrimmedString(formData, "address"),
+    deductionSourceId,
     email: getOptionalTrimmedString(formData, "email")?.toLowerCase() ?? null,
     fullName: getRequiredString(formData, "fullName"),
     joinedAt,
@@ -1170,10 +1204,14 @@ export async function createMemberAction(formData: FormData) {
 export async function updateMemberAction(formData: FormData) {
   const actor = await requireDashboardActor(memberManagementRoles)
   const memberId = getRequiredString(formData, "memberId")
+  const deductionSourceId = normalizeCollectionSourceFormValue(
+    getOptionalTrimmedString(formData, "deductionSourceId")
+  )
 
   await updateMember(actor.tenant.id, memberId, {
     actorUserId: actor.user.id,
     address: getOptionalTrimmedString(formData, "address"),
+    deductionSourceId,
     email: getOptionalTrimmedString(formData, "email")?.toLowerCase() ?? null,
     fullName: getRequiredString(formData, "fullName"),
     memberType: getRequiredString(
@@ -1650,6 +1688,87 @@ export async function cancelMonthlyRecordMemberAction(formData: FormData) {
   revalidatePath("/contributions")
   revalidatePath("/repayments")
   revalidatePath("/loans")
+  revalidatePath("/members")
+  revalidatePath("/notifications")
+}
+
+export async function stageCollectionSourceContributionBatchAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  const batch = await stageCollectionSourceContributionBatch({
+    actorUserId: actor.user.id,
+    deductionSourceId: getRequiredString(formData, "deductionSourceId"),
+    month: Number(getRequiredString(formData, "month")),
+    notes: getOptionalTrimmedString(formData, "notes"),
+    reference: getOptionalTrimmedString(formData, "reference"),
+    tenantId: actor.tenant.id,
+    year: Number(getRequiredString(formData, "year")),
+  })
+
+  revalidatePath("/contributions")
+
+  return {
+    redirectTo: `/contributions?batchId=${batch.id}`,
+  }
+}
+
+export async function updateCollectionSourceContributionBatchRowsAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  const batchId = getRequiredString(formData, "batchId")
+  const rowIds = formData
+    .getAll("rowId")
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+  const status = getRequiredString(formData, "status") as
+    | "collected"
+    | "exception"
+    | "skipped"
+    | "staged"
+  const paidAmount = getOptionalTrimmedString(formData, "paidAmount")
+  const exceptionReason = getOptionalTrimmedString(formData, "exceptionReason")
+
+  await updateCollectionSourceContributionBatchRows({
+    actorUserId: actor.user.id,
+    batchId,
+    rows: rowIds.map((rowId) => ({
+      exceptionReason,
+      paidAmount: paidAmount ? Number(paidAmount) : null,
+      rowId,
+      status,
+    })),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/contributions")
+}
+
+export async function postCollectionSourceContributionBatchRowsAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  const batchId = getRequiredString(formData, "batchId")
+  const rowIds = formData
+    .getAll("rowId")
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+
+  await postCollectionSourceContributionBatchRows({
+    actorUserId: actor.user.id,
+    batchId,
+    notes: getOptionalTrimmedString(formData, "notes"),
+    reference: getOptionalTrimmedString(formData, "reference"),
+    rowIds,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/contributions")
   revalidatePath("/members")
   revalidatePath("/notifications")
 }
@@ -2190,6 +2309,44 @@ export async function updateTenantMigrationSetupAction(formData: FormData) {
 
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
+}
+
+export async function updateTenantOperationProfileAction(formData: FormData) {
+  const actor = await requireDashboardActor(workspaceAdminRoles)
+
+  await updateTenantOperationProfile({
+    actorUserId: actor.user.id,
+    changeReason: getOptionalTrimmedString(formData, "changeReason"),
+    policy: {
+      foodPurchaseMaximumActiveObligationsPerMember: Number(
+        getRequiredString(
+          formData,
+          "foodPurchaseMaximumActiveObligationsPerMember"
+        )
+      ),
+      foodPurchaseRequiresOpenCycle: getOptionalBoolean(
+        formData,
+        "foodPurchaseRequiresOpenCycle"
+      ),
+      procurementMaximumActiveObligationsPerMember: Number(
+        getRequiredString(
+          formData,
+          "procurementMaximumActiveObligationsPerMember"
+        )
+      ),
+    },
+    services: Object.fromEntries(
+      tenantServiceKeys.map((serviceKey) => [
+        serviceKey,
+        getTenantServiceAccessMode(formData, `${serviceKey}AccessMode`),
+      ])
+    ),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/getting-started")
+  revalidatePath("/onboarding")
+  revalidatePath("/settings/finance")
 }
 
 export async function createMemberShareApplicationAction(formData: FormData) {
@@ -5092,6 +5249,7 @@ export async function createFoodPurchaseCycleAction(formData: FormData) {
     releasedAmount: Number(getRequiredString(formData, "releasedAmount")),
     releasedAt: new Date(`${releasedAt}T00:00:00.000Z`),
     releaseNotes: getOptionalTrimmedString(formData, "releaseNotes"),
+    requestSource: "staff",
     tenantId: actor.tenant.id,
   })
 
@@ -5108,6 +5266,7 @@ export async function submitFoodPurchaseApplicationAction(formData: FormData) {
     cycleId: getRequiredString(formData, "cycleId"),
     itemDescription: getOptionalTrimmedString(formData, "itemDescription"),
     memberId: getRequiredString(formData, "memberId"),
+    requestSource: "staff",
     requestedAmount: Number(getRequiredString(formData, "requestedAmount")),
     requestedPaybackMonths: Number(
       getRequiredString(formData, "requestedPaybackMonths")
@@ -5132,6 +5291,7 @@ export async function submitOwnFoodPurchaseApplicationAction(
     cycleId: getRequiredString(formData, "cycleId"),
     itemDescription: getOptionalTrimmedString(formData, "itemDescription"),
     memberId: member.id,
+    requestSource: "member_self_service",
     requestedAmount: Number(getRequiredString(formData, "requestedAmount")),
     requestedPaybackMonths: Number(
       getRequiredString(formData, "requestedPaybackMonths")
@@ -5217,6 +5377,7 @@ export async function createProcurementRequestAction(formData: FormData) {
     itemDescription: getOptionalTrimmedString(formData, "itemDescription"),
     itemName: getRequiredString(formData, "itemName"),
     memberId: getRequiredString(formData, "memberId"),
+    requestSource: "staff",
     requestedCost: Number(getRequiredString(formData, "requestedCost")),
     requestedRepaymentMonths: Number(
       getRequiredString(formData, "requestedRepaymentMonths")
@@ -5239,6 +5400,7 @@ export async function createOwnProcurementRequestAction(formData: FormData) {
     itemDescription: getOptionalTrimmedString(formData, "itemDescription"),
     itemName: getRequiredString(formData, "itemName"),
     memberId: member.id,
+    requestSource: "member_self_service",
     requestedCost: Number(getRequiredString(formData, "requestedCost")),
     requestedRepaymentMonths: Number(
       getRequiredString(formData, "requestedRepaymentMonths")
@@ -5457,6 +5619,13 @@ export async function createMemberPaymentReceiptAction(formData: FormData) {
 export async function createOwnMemberPaymentReceiptAction(formData: FormData) {
   const actor = await requireDashboardActor(memberSelfServiceRoles)
   const member = await requireActorMember(actor)
+  const operationProfile = await getTenantOperationProfile(actor.tenant.id)
+
+  if (!operationProfile.services.payment_receipts.canMemberCreate) {
+    throw new Error(
+      "Payment receipt self-service is not enabled for this cooperative."
+    )
+  }
 
   await createMemberPaymentReceipt({
     allocations: parsePaymentReceiptAllocations(formData),
@@ -5959,6 +6128,9 @@ const dashboardActionHandlers = {
   generateMonthlyRecordsNowAction,
   applyMonthlyRecordMemberAction,
   cancelMonthlyRecordMemberAction,
+  stageCollectionSourceContributionBatchAction,
+  updateCollectionSourceContributionBatchRowsAction,
+  postCollectionSourceContributionBatchRowsAction,
   createChargeDefinitionAction,
   createTenantShareStructureVersionAction,
   updateTenantShareStructureVersionAction,
@@ -5966,6 +6138,7 @@ const dashboardActionHandlers = {
   updateChargeDefinitionVersionAction,
   updateTenantSharePolicyAction,
   updateTenantMigrationSetupAction,
+  updateTenantOperationProfileAction,
   createMemberShareApplicationAction,
   createOwnMemberShareApplicationAction,
   reviewMemberShareApplicationAction,
@@ -6135,6 +6308,15 @@ export const dashboardActionsRouter = createTRPCRouter({
   cancelMonthlyRecordMemberAction: formAction(
     dashboardActionHandlers.cancelMonthlyRecordMemberAction
   ),
+  stageCollectionSourceContributionBatchAction: formAction(
+    dashboardActionHandlers.stageCollectionSourceContributionBatchAction
+  ),
+  updateCollectionSourceContributionBatchRowsAction: formAction(
+    dashboardActionHandlers.updateCollectionSourceContributionBatchRowsAction
+  ),
+  postCollectionSourceContributionBatchRowsAction: formAction(
+    dashboardActionHandlers.postCollectionSourceContributionBatchRowsAction
+  ),
   createChargeDefinitionAction: formAction(
     dashboardActionHandlers.createChargeDefinitionAction
   ),
@@ -6155,6 +6337,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   updateTenantMigrationSetupAction: formAction(
     dashboardActionHandlers.updateTenantMigrationSetupAction
+  ),
+  updateTenantOperationProfileAction: formAction(
+    dashboardActionHandlers.updateTenantOperationProfileAction
   ),
   createMemberShareApplicationAction: formAction(
     dashboardActionHandlers.createMemberShareApplicationAction

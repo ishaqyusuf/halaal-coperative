@@ -59,6 +59,8 @@ function memberSupportPrefillHref(values: Record<string, string>) {
 }
 
 export function MemberPortalOverview({
+  canShowFoodPurchase,
+  canShowProcurement,
   detail,
   foodPurchaseApplications,
   procurementRequests,
@@ -69,6 +71,8 @@ export function MemberPortalOverview({
   sharePosition,
   supportCases,
 }: {
+  canShowFoodPurchase: boolean
+  canShowProcurement: boolean
   detail: MemberStatementDetail
   foodPurchaseApplications: FoodPurchaseApplicationRow[]
   procurementRequests: ProcurementRequestRow[]
@@ -132,9 +136,13 @@ export function MemberPortalOverview({
           <div className="flex flex-wrap gap-2">
             <MemberLink href="/member-statement-export">Statement</MemberLink>
             <MemberLink href="/payment-receipts">Receipts</MemberLink>
-            <MemberLink href="/food-purchase">Foodstuff Purchase</MemberLink>
+            {canShowFoodPurchase ? (
+              <MemberLink href="/food-purchase">Foodstuff Purchase</MemberLink>
+            ) : null}
             <MemberLink href="/guarantor-approvals">Guarantor</MemberLink>
-            <MemberLink href="/procurement">Procurement</MemberLink>
+            {canShowProcurement ? (
+              <MemberLink href="/procurement">Procurement</MemberLink>
+            ) : null}
             <MemberLink href="/support">Support</MemberLink>
             <MemberLink href="/shares">Shares</MemberLink>
           </div>

@@ -3,6 +3,7 @@ import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 import { applyApplicableWorkflowChargesInTransaction } from "./charges"
 import { getTenantInitialMigrationState } from "./migration"
+import { getTenantOperationProfile } from "./operation-profile"
 
 export type ProcurementRequestStatus =
   | "active"
@@ -80,6 +81,11 @@ export type ProcurementSummary = {
   totalRequestedCost: number
 }
 
+export type ProcurementRequestSource =
+  | "member_self_service"
+  | "staff"
+  | "system"
+
 const procurementRequestStatuses = new Set([
   "active",
   "approved",
@@ -98,6 +104,7 @@ const payableScheduleStatuses = [
   "partially_paid",
   "pending",
 ] as const
+const activeProcurementObligationStatuses = ["active", "purchased"] as const
 
 function trimRequired(value: string, label: string) {
   const trimmed = value.trim()
@@ -119,6 +126,37 @@ function assertPositiveInteger(value: number, label: string) {
   if (!Number.isInteger(value) || value <= 0) {
     throw new Error(`${label} must be a positive whole number.`)
   }
+}
+
+function assertProcurementRequestCreationAllowed(input: {
+  accessMode: string
+  canMemberCreate: boolean
+  canStaffCreate: boolean
+  requestSource: ProcurementRequestSource
+}) {
+  if (input.requestSource === "system") {
+    return
+  }
+
+  if (input.requestSource === "member_self_service") {
+    if (input.canMemberCreate) {
+      return
+    }
+
+    if (input.accessMode === "office_only") {
+      throw new Error(
+        "Procurement requests must be submitted through the cooperative office."
+      )
+    }
+  } else if (input.canStaffCreate) {
+    return
+  }
+
+  if (input.accessMode === "read_only") {
+    throw new Error("Procurement is currently read-only for this cooperative.")
+  }
+
+  throw new Error("Procurement is not enabled for this cooperative.")
 }
 
 function calculateMonthlyRepayment(amount: number, months: number) {
@@ -467,6 +505,7 @@ export async function createProcurementRequest(
     itemDescription?: string | null
     itemName: string
     memberId: string
+    requestSource?: ProcurementRequestSource
     requestedCost: number
     requestedRepaymentMonths: number
     tenantId: string
@@ -485,7 +524,7 @@ export async function createProcurementRequest(
     "Requested repayment months"
   )
 
-  const [member, policy] = await Promise.all([
+  const [member, policy, operationProfile] = await Promise.all([
     prisma.member.findFirst({
       select: { id: true },
       where: {
@@ -497,7 +536,16 @@ export async function createProcurementRequest(
     prisma.tenantPolicy.findUnique({
       where: { tenantId: input.tenantId },
     }),
+    getTenantOperationProfile(input.tenantId, prisma as PrismaClient),
   ])
+  const procurementCapability = operationProfile.services.procurement
+
+  assertProcurementRequestCreationAllowed({
+    accessMode: procurementCapability.accessMode,
+    canMemberCreate: procurementCapability.canMemberCreate,
+    canStaffCreate: procurementCapability.canStaffCreate,
+    requestSource: input.requestSource ?? "staff",
+  })
 
   if (!member) {
     throw new Error("Member does not belong to this cooperative.")
@@ -510,6 +558,36 @@ export async function createProcurementRequest(
   if (input.requestedRepaymentMonths > procurementMaximumPaybackMonths) {
     throw new Error(
       `Requested procurement repayment months cannot exceed ${procurementMaximumPaybackMonths}.`
+    )
+  }
+
+  const procurementMaximumActiveObligationsPerMember = Number(
+    policy?.procurementMaximumActiveObligationsPerMember ?? 1
+  )
+  assertPositiveInteger(
+    procurementMaximumActiveObligationsPerMember,
+    "Procurement active obligation limit"
+  )
+  const activeProcurementObligationCount =
+    await prisma.procurementRequest.count({
+      where: {
+        memberId: input.memberId,
+        repaymentScheduleItems: {
+          some: {
+            status: { notIn: ["paid", "waived"] },
+          },
+        },
+        status: { in: [...activeProcurementObligationStatuses] },
+        tenantId: input.tenantId,
+      },
+    })
+
+  if (
+    activeProcurementObligationCount >=
+    procurementMaximumActiveObligationsPerMember
+  ) {
+    throw new Error(
+      `This member has reached the active procurement obligation limit (${procurementMaximumActiveObligationsPerMember}). Settle an active procurement obligation before creating another request.`
     )
   }
 

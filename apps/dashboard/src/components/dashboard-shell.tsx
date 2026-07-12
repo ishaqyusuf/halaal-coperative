@@ -15,11 +15,13 @@ import { DashboardTopbar } from "./dashboard/topbar"
 
 export function DashboardShellClient({
   children,
+  hiddenNavPaths = [],
   role,
   tenantName,
   userName,
 }: {
   children: React.ReactNode
+  hiddenNavPaths?: string[]
   role: CooperativeRole | null
   tenantName: string
   userName: string
@@ -27,7 +29,7 @@ export function DashboardShellClient({
   const pathname = usePathname()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const { activeItem, currentModule, modules, roleLabel } =
-    getDashboardRouteTitle(pathname, role)
+    getDashboardRouteTitle(pathname, role, hiddenNavPaths)
   const quickLinks = getDashboardQuickLinks(pathname, modules)
 
   return (

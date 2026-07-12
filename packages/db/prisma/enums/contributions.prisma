@@ -18,6 +18,22 @@ enum ContributionChannel {
   manual
 }
 
+enum CollectionSourceContributionBatchStatus {
+  staged
+  partially_posted
+  posted
+  cancelled
+}
+
+enum CollectionSourceContributionBatchRowStatus {
+  staged
+  collected
+  exception
+  posted
+  skipped
+  blocked
+}
+
 enum PaymentAllocationPreference {
   manual_split
   savings_first

@@ -34,6 +34,8 @@ model Tenant {
   updatedAt                          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   policies                        TenantPolicy?
+  operationProfile                TenantOperationProfile?
+  serviceSettings                 TenantServiceSetting[]
   businessPolicy                  TenantBusinessPolicy?
   domains                         TenantDomain[]
   users                           User[]
@@ -45,6 +47,8 @@ model Tenant {
   deductionSources                DeductionSource[]
   contributionPlans               ContributionPlan[]
   contributions                   Contribution[]
+  collectionSourceContributionBatches CollectionSourceContributionBatch[]
+  collectionSourceContributionBatchRows CollectionSourceContributionBatchRow[]
   memberPaymentReceipts           MemberPaymentReceipt[]
   memberPaymentReceiptAllocations MemberPaymentReceiptAllocation[]
   tenantShareStructureVersions    TenantShareStructureVersion[]
@@ -121,8 +125,11 @@ model TenantPolicy {
   activeFinancingBlocksProcurement Boolean             @default(true) @map("active_financing_blocks_procurement")
   procurementMaximumPaybackMonths Int                  @default(12) @map("procurement_maximum_payback_months")
   procurementAllowsCommitmentReductionDuringPayback Boolean @default(false) @map("procurement_allows_commitment_reduction_during_payback")
+  procurementMaximumActiveObligationsPerMember Int     @default(1) @map("procurement_maximum_active_obligations_per_member")
   foodPurchaseMaximumPaybackMonths Int                 @default(1) @map("food_purchase_maximum_payback_months")
   foodPurchaseAllowsCommitmentReductionDuringPayback Boolean @default(false) @map("food_purchase_allows_commitment_reduction_during_payback")
+  foodPurchaseRequiresOpenCycle Boolean                @default(true) @map("food_purchase_requires_open_cycle")
+  foodPurchaseMaximumActiveObligationsPerMember Int    @default(1) @map("food_purchase_maximum_active_obligations_per_member")
   monthlyLevyAmount            Decimal?               @map("monthly_levy_amount") @db.Decimal(18, 2)
   migrationSetupMode           TenantMigrationSetupMode @default(historical_backfill) @map("migration_setup_mode")
   shareUnitAmount              Decimal                @default(10000) @map("share_unit_amount") @db.Decimal(18, 2)
@@ -138,6 +145,38 @@ model TenantPolicy {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_policies")
+}
+
+model TenantOperationProfile {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String    @unique @map("tenant_id") @db.Uuid
+  reviewedAt       DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewedByUserId String?   @map("reviewed_by_user_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reviewedByUser   User?     @relation("TenantOperationProfileReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  serviceSettings  TenantServiceSetting[]
+
+  @@map("tenant_operation_profiles")
+}
+
+model TenantServiceSetting {
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                  @map("tenant_id") @db.Uuid
+  operationProfileId String                  @map("operation_profile_id") @db.Uuid
+  serviceKey         TenantServiceKey        @map("service_key")
+  accessMode         TenantServiceAccessMode @map("access_mode")
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operationProfile   TenantOperationProfile  @relation(fields: [operationProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, serviceKey], map: "tenant_service_settings_tenant_service_key")
+  @@index([tenantId, accessMode], map: "tenant_service_settings_tenant_access_mode_idx")
+  @@map("tenant_service_settings")
 }
 
 model TenantBusinessPolicy {

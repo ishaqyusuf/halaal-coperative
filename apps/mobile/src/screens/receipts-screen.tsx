@@ -377,6 +377,7 @@ export function ReceiptsScreen() {
               ))}
             </View>
 
+            {receipts?.canCreateReceipt ? (
             <SectionCard icon="ReceiptText" title="Submit receipt">
               <View className="gap-3">
                 <Input
@@ -552,6 +553,7 @@ export function ReceiptsScreen() {
                 </Button>
               </View>
             </SectionCard>
+            ) : null}
 
             <SectionCard icon="ClipboardList" title="Recent receipts">
               {isLoading ? (

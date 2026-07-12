@@ -1,9 +1,11 @@
 import {
   createDbRuntime,
   getImportReferenceData,
+  getTenantOperationProfile,
   getTenantMemberSignupSettings,
   getTenantMigrationSetup,
   type TenantMigrationSetupMode,
+  listActiveDeductionSources,
   listImportBatches,
   listMembers,
 } from "@halaalvest/db"
@@ -51,10 +53,17 @@ type MembersPageSignupSettings = {
   memberSignupAccessMode: MemberSignupAccessMode
 }
 
+export type MemberCollectionSourceOption = {
+  id: string
+  label: string
+}
+
 export type MembersPageData =
   | {
       canManageImports: boolean
+      canManageCollectionSources: boolean
       canManageMembers: boolean
+      collectionSourceOptions: MemberCollectionSourceOption[]
       filters: MembersFilterParams
       quickFillEnabled: boolean
       state: "unavailable"
@@ -64,7 +73,9 @@ export type MembersPageData =
       activeFilters: ReturnType<typeof getActiveMemberFilters>
       batches: MembersPageBatchRow[]
       canManageImports: boolean
+      canManageCollectionSources: boolean
       canManageMembers: boolean
+      collectionSourceOptions: MemberCollectionSourceOption[]
       filters: MembersFilterParams
       hasFilters: boolean
       members: {
@@ -125,11 +136,13 @@ export async function loadMembersPageData(
   let tenant = toMembersPageTenant(context.tenant)
 
   if (!context.tenant || runtime.status !== "database-configured") {
-    return {
-      state: "unavailable" as const,
-      canManageImports,
-      canManageMembers,
-      filters,
+      return {
+        state: "unavailable" as const,
+        canManageCollectionSources: false,
+        canManageImports,
+        canManageMembers,
+        collectionSourceOptions: [],
+        filters,
       quickFillEnabled,
       tenant,
     }
@@ -140,9 +153,11 @@ export async function loadMembersPageData(
   let batches
   let signupSettings
   let migrationSetup
+  let operationProfile
+  let deductionSources = [] as Awaited<ReturnType<typeof listActiveDeductionSources>>
 
   try {
-    ;[members, referenceData, batches, signupSettings, migrationSetup] = await Promise.all([
+    ;[members, referenceData, batches, signupSettings, migrationSetup, operationProfile] = await Promise.all([
       listMembers(context.tenant.id, {
         ...toMemberQueryFilters(filters),
         page: 1,
@@ -152,8 +167,15 @@ export async function loadMembersPageData(
       canManageImports ? listImportBatches(context.tenant.id) : Promise.resolve([]),
       getTenantMemberSignupSettings(context.tenant.id),
       getTenantMigrationSetup(context.tenant.id),
+      getTenantOperationProfile(context.tenant.id),
     ])
     tenant = toMembersPageTenant(context.tenant, migrationSetup.mode)
+    if (
+      canManageMembers &&
+      operationProfile.services.collection_sources.canStaffCreate
+    ) {
+      deductionSources = await listActiveDeductionSources(context.tenant.id)
+    }
   } catch (error) {
     if (!isUnavailableMembersRuntimeError(error)) {
       throw error
@@ -161,8 +183,10 @@ export async function loadMembersPageData(
 
     return {
       state: "unavailable" as const,
+      canManageCollectionSources: false,
       canManageImports,
       canManageMembers,
+      collectionSourceOptions: [],
       filters,
       quickFillEnabled,
       tenant,
@@ -172,8 +196,15 @@ export async function loadMembersPageData(
   return {
     state: "ready" as const,
     batches: batches as MembersPageBatchRow[],
+    canManageCollectionSources:
+      canManageMembers &&
+      operationProfile.services.collection_sources.canStaffCreate,
     canManageImports,
     canManageMembers,
+    collectionSourceOptions: deductionSources.map((source) => ({
+      id: source.id,
+      label: `${source.name} (${source.type.replace(/_/g, " ")})`,
+    })),
     activeFilters: getActiveMemberFilters(filters),
     filters,
     hasFilters: hasActiveMemberFilters(filters),

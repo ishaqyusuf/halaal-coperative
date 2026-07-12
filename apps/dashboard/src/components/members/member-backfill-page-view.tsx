@@ -912,6 +912,8 @@ function BaselineStep({ data }: { data: MemberBackfillData }) {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <MemberBackfillBaselineEditDialog
+              canManageCollectionSources={data.canManageCollectionSources}
+              collectionSourceOptions={data.collectionSourceOptions}
               disabled={
                 !data.canEditBackfill ||
                 data.review.status === "backfill_applied"

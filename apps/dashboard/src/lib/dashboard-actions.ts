@@ -75,10 +75,7 @@ async function callDashboardNoInputAction<TName extends NoInputActionName>(
 ): Promise<HandlerReturn<TName>> {
   const caller = await getServerCaller()
   const action = (
-    caller.dashboardActions as unknown as Record<
-      string,
-      () => Promise<unknown>
-    >
+    caller.dashboardActions as unknown as Record<string, () => Promise<unknown>>
   )[actionName]
   if (!action) {
     throw new Error(`Unknown dashboard action: ${actionName}`)
@@ -193,6 +190,35 @@ export async function cancelMonthlyRecordMemberAction(formData: FormData) {
   return callDashboardFormAction("cancelMonthlyRecordMemberAction", formData)
 }
 
+export async function stageCollectionSourceContributionBatchAction(
+  formData: FormData
+) {
+  const result = await callDashboardFormAction(
+    "stageCollectionSourceContributionBatchAction",
+    formData
+  )
+
+  redirect(result.redirectTo)
+}
+
+export async function updateCollectionSourceContributionBatchRowsAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "updateCollectionSourceContributionBatchRowsAction",
+    formData
+  )
+}
+
+export async function postCollectionSourceContributionBatchRowsAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "postCollectionSourceContributionBatchRowsAction",
+    formData
+  )
+}
+
 export async function createChargeDefinitionAction(formData: FormData) {
   return callDashboardFormAction("createChargeDefinitionAction", formData)
 }
@@ -221,6 +247,10 @@ export async function updateTenantSharePolicyAction(formData: FormData) {
 
 export async function updateTenantMigrationSetupAction(formData: FormData) {
   return callDashboardFormAction("updateTenantMigrationSetupAction", formData)
+}
+
+export async function updateTenantOperationProfileAction(formData: FormData) {
+  return callDashboardFormAction("updateTenantOperationProfileAction", formData)
 }
 
 export async function createMemberShareApplicationAction(formData: FormData) {
@@ -292,27 +322,21 @@ export async function updateShareBusinessAction(formData: FormData) {
   return callDashboardFormAction("updateShareBusinessAction", formData)
 }
 
-export async function createShareBusinessProfitEntryAction(
-  formData: FormData
-) {
+export async function createShareBusinessProfitEntryAction(formData: FormData) {
   return callDashboardFormAction(
     "createShareBusinessProfitEntryAction",
     formData
   )
 }
 
-export async function updateShareBusinessProfitEntryAction(
-  formData: FormData
-) {
+export async function updateShareBusinessProfitEntryAction(formData: FormData) {
   return callDashboardFormAction(
     "updateShareBusinessProfitEntryAction",
     formData
   )
 }
 
-export async function generateShareProfitAllocationsAction(
-  formData: FormData
-) {
+export async function generateShareProfitAllocationsAction(formData: FormData) {
   return callDashboardFormAction(
     "generateShareProfitAllocationsAction",
     formData
@@ -341,9 +365,7 @@ export async function saveBusinessProfitMigrationWorksheetAction(
   )
 }
 
-export async function saveBusinessProfitSeasonReviewAction(
-  formData: FormData
-) {
+export async function saveBusinessProfitSeasonReviewAction(formData: FormData) {
   const result = await callDashboardFormAction(
     "saveBusinessProfitSeasonReviewAction",
     formData
@@ -442,18 +464,14 @@ export async function reverseMemberOpeningBalanceAction(formData: FormData) {
   return callDashboardFormAction("reverseMemberOpeningBalanceAction", formData)
 }
 
-export async function createLegacyLoanMigrationDraftAction(
-  formData: FormData
-) {
+export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
   return callDashboardFormAction(
     "createLegacyLoanMigrationDraftAction",
     formData
   )
 }
 
-export async function updateLegacyLoanMigrationDraftAction(
-  formData: FormData
-) {
+export async function updateLegacyLoanMigrationDraftAction(formData: FormData) {
   return callDashboardFormAction(
     "updateLegacyLoanMigrationDraftAction",
     formData
@@ -496,10 +514,7 @@ export async function setMigrationBackfillDefaultingMonthsAction(
 }
 
 export async function upsertMemberActivityEventAction(formData: FormData) {
-  return callDashboardFormAction(
-    "upsertMemberActivityEventAction",
-    formData
-  )
+  return callDashboardFormAction("upsertMemberActivityEventAction", formData)
 }
 
 export async function deleteMemberActivityEventAction(formData: FormData) {
@@ -529,10 +544,7 @@ export async function saveMemberProfitSeasonAdjustmentsAction(
 }
 
 export async function updateMemberSignupAccessModeAction(formData: FormData) {
-  return callDashboardFormAction(
-    "updateMemberSignupAccessModeAction",
-    formData
-  )
+  return callDashboardFormAction("updateMemberSignupAccessModeAction", formData)
 }
 
 export async function createMemberSignupLinkAction(formData: FormData) {
@@ -643,7 +655,10 @@ export async function submitOwnFoodPurchaseApplicationAction(
 }
 
 export async function reviewFoodPurchaseApplicationAction(formData: FormData) {
-  return callDashboardFormAction("reviewFoodPurchaseApplicationAction", formData)
+  return callDashboardFormAction(
+    "reviewFoodPurchaseApplicationAction",
+    formData
+  )
 }
 
 export async function recordFoodPurchaseAccountingAction(formData: FormData) {

@@ -35,6 +35,12 @@ export type MobileMemberHome = {
     percentage: number
     status: "ready" | "needs_attention" | "missing_profile"
   }
+  services: {
+    icon: string
+    key: string
+    label: string
+    tone: "accent" | "primary" | "success"
+  }[]
   stats: MobileOverviewMetric[]
 }
 
@@ -651,6 +657,7 @@ export type MobileMemberProcurementRequest = {
 
 export type MobileMemberProcurement = {
   cache?: MobileReadCacheState
+  canCreateRequest: boolean
   chargeOptions: MobileWorkflowChargeOption[]
   generatedAt: string
   member: {
@@ -765,6 +772,7 @@ export type MobileFoodPurchaseApplication = {
 export type MobileMemberFoodPurchase = {
   applications: MobileFoodPurchaseApplication[]
   cache?: MobileReadCacheState
+  canCreateApplication: boolean
   chargeOptions: MobileWorkflowChargeOption[]
   cycles: MobileFoodPurchaseCycle[]
   generatedAt: string
@@ -975,6 +983,7 @@ export type MobilePaymentReceipt = {
 }
 
 export type MobileMemberReceipts = {
+  canCreateReceipt: boolean
   cache?: MobileReadCacheState
   generatedAt: string
   member: {

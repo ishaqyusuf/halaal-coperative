@@ -127,12 +127,27 @@ function createDashboardPrismaStub({
         name: "Demo Cooperative",
       }),
     },
+    tenantOperationProfile: {
+      upsert: async () => ({
+        id: "operation-profile-1",
+        reviewedAt: null,
+        reviewedByUserId: null,
+        tenantId: "tenant-1",
+      }),
+    },
     tenantPolicy: {
       findUnique: async () => ({
+        foodPurchaseMaximumActiveObligationsPerMember: 1,
+        foodPurchaseRequiresOpenCycle: true,
         normalLoanAllocationPercentage: 70,
+        procurementMaximumActiveObligationsPerMember: 1,
         quickLoanAllocationPercentage: 30,
         reserveBufferAmount: 0,
       }),
+    },
+    tenantServiceSetting: {
+      findMany: async () => [],
+      upsert: async () => ({}),
     },
   }
 }

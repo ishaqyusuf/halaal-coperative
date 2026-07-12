@@ -30,14 +30,34 @@ function isPathActive(pathname: string, href: string) {
 }
 
 export function getVisibleDashboardNav(
-  role: CooperativeRole | null
+  role: CooperativeRole | null,
+  hiddenPaths: string[] = []
 ): NavModule[] {
+  const hiddenPathSet = new Set(
+    hiddenPaths.map((path) => normalizePath(path).toLowerCase())
+  )
+
   return validateLinks({
     linkModules: dashboardNavRegistry,
     role,
-  }).filter((module) =>
-    module.sections.some((section) => section.links.some((item) => item.show))
-  )
+  })
+    .map((module) => ({
+      ...module,
+      sections: module.sections.map((section) => ({
+        ...section,
+        links: section.links.map((item) => ({
+          ...item,
+          show:
+            item.show &&
+            !hiddenPathSet.has(normalizePath(item.href ?? "").toLowerCase()),
+        })),
+      })),
+    }))
+    .filter((module) =>
+      module.sections.some((section) =>
+        section.links.some((item) => item.show)
+      )
+    )
 }
 
 export function getActiveDashboardNavItem(
@@ -89,9 +109,10 @@ export function getDashboardQuickLinks(pathname: string, modules: NavModule[]) {
 
 export function getDashboardRouteTitle(
   pathname: string,
-  role: CooperativeRole | null
+  role: CooperativeRole | null,
+  hiddenPaths: string[] = []
 ) {
-  const modules = getVisibleDashboardNav(role)
+  const modules = getVisibleDashboardNav(role, hiddenPaths)
   const activeItem = getActiveDashboardNavItem(pathname, modules)
   const currentModule = getCurrentDashboardModule(pathname, modules)
 

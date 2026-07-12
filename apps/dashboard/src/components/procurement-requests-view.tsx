@@ -102,6 +102,7 @@ function ProcurementScheduleStatus({
 
 export function ProcurementRequestsView({
   approvalChargeOptions,
+  canCreate,
   canReview,
   memberOptions,
   requests,
@@ -109,6 +110,7 @@ export function ProcurementRequestsView({
   summary,
 }: {
   approvalChargeOptions: WorkflowChargeOption[]
+  canCreate: boolean
   canReview: boolean
   memberOptions: Option[]
   requests: ProcurementRequestRow[]
@@ -250,82 +252,95 @@ export function ProcurementRequestsView({
         />
       </section>
 
-      <section className="rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              New procurement request
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Capture the item, expected cost, and repayment months before
-              finance review.
-            </p>
+      {canCreate ? (
+        <section className="rounded-lg border border-border bg-card p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                New procurement request
+              </p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Capture the item, expected cost, and repayment months before
+                finance review.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Member">
-            <LabeledSelectInput
-              disabled={isPending}
-              onValueChange={setMemberId}
-              options={memberSelectOptions}
-              value={memberId}
-            />
-          </Field>
-          <Field label="Item">
-            <Input
-              disabled={isPending}
-              onChange={(event) => setItemName(event.target.value)}
-              value={itemName}
-            />
-          </Field>
-          <Field label="Vendor">
-            <Input
-              disabled={isPending}
-              onChange={(event) => setVendorName(event.target.value)}
-              value={vendorName}
-            />
-          </Field>
-          <Field label="Requested cost">
-            <Input
-              disabled={isPending}
-              inputMode="decimal"
-              onChange={(event) => setRequestedCost(event.target.value)}
-              value={requestedCost}
-            />
-          </Field>
-          <Field label="Repayment months">
-            <Input
-              disabled={isPending}
-              inputMode="numeric"
-              onChange={(event) =>
-                setRequestedRepaymentMonths(event.target.value)
-              }
-              value={requestedRepaymentMonths}
-            />
-          </Field>
-          <Field className="md:col-span-2 xl:col-span-3" label="Description">
-            <Textarea
-              disabled={isPending}
-              onChange={(event) => setItemDescription(event.target.value)}
-              value={itemDescription}
-            />
-          </Field>
-          <div className="md:col-span-2 xl:col-span-4">
-            <WorkflowChargeSummary
-              basisAmount={Number(requestedCost) || 0}
-              charges={submissionChargeOptions}
-              title="Submission charges"
-            />
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="Member">
+              <LabeledSelectInput
+                disabled={isPending}
+                onValueChange={setMemberId}
+                options={memberSelectOptions}
+                value={memberId}
+              />
+            </Field>
+            <Field label="Item">
+              <Input
+                disabled={isPending}
+                onChange={(event) => setItemName(event.target.value)}
+                value={itemName}
+              />
+            </Field>
+            <Field label="Vendor">
+              <Input
+                disabled={isPending}
+                onChange={(event) => setVendorName(event.target.value)}
+                value={vendorName}
+              />
+            </Field>
+            <Field label="Requested cost">
+              <Input
+                disabled={isPending}
+                inputMode="decimal"
+                onChange={(event) => setRequestedCost(event.target.value)}
+                value={requestedCost}
+              />
+            </Field>
+            <Field label="Repayment months">
+              <Input
+                disabled={isPending}
+                inputMode="numeric"
+                onChange={(event) =>
+                  setRequestedRepaymentMonths(event.target.value)
+                }
+                value={requestedRepaymentMonths}
+              />
+            </Field>
+            <Field className="md:col-span-2 xl:col-span-3" label="Description">
+              <Textarea
+                disabled={isPending}
+                onChange={(event) => setItemDescription(event.target.value)}
+                value={itemDescription}
+              />
+            </Field>
+            <div className="md:col-span-2 xl:col-span-4">
+              <WorkflowChargeSummary
+                basisAmount={Number(requestedCost) || 0}
+                charges={submissionChargeOptions}
+                title="Submission charges"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4">
-          <Button disabled={isPending} onClick={submitRequest} type="button">
-            Save request
-          </Button>
-        </div>
-      </section>
+          <div className="mt-4">
+            <Button disabled={isPending} onClick={submitRequest} type="button">
+              Save request
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <section className="rounded-lg border border-border bg-card p-4">
+          <p className="text-sm font-medium text-foreground">
+            New procurement requests are closed
+          </p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Existing procurement requests and repayment schedules remain
+            visible. Admins can change access from Settings &gt; Operation
+            Profile.
+          </p>
+        </section>
+      )}
 
       <section className="space-y-3">
         {requests.length ? (
@@ -545,10 +560,12 @@ export function ProcurementRequestsView({
 
 export function MemberProcurementRequestsView({
   chargeOptions,
+  canCreate,
   member,
   requests,
 }: {
   chargeOptions: WorkflowChargeOption[]
+  canCreate: boolean
   member: {
     fullName: string
     memberNumber: string
@@ -620,73 +637,85 @@ export function MemberProcurementRequestsView({
         <SummaryTile label="Total requests" value={requests.length} />
       </section>
 
-      <section className="rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Request item purchase
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {member.fullName} ({member.memberNumber})
-            </p>
+      {canCreate ? (
+        <section className="rounded-lg border border-border bg-card p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Request item purchase
+              </p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                {member.fullName} ({member.memberNumber})
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Item">
-            <Input
-              disabled={isPending}
-              onChange={(event) => setItemName(event.target.value)}
-              value={itemName}
-            />
-          </Field>
-          <Field label="Vendor">
-            <Input
-              disabled={isPending}
-              onChange={(event) => setVendorName(event.target.value)}
-              value={vendorName}
-            />
-          </Field>
-          <Field label="Requested cost">
-            <Input
-              disabled={isPending}
-              inputMode="decimal"
-              onChange={(event) => setRequestedCost(event.target.value)}
-              value={requestedCost}
-            />
-          </Field>
-          <Field label="Repayment months">
-            <Input
-              disabled={isPending}
-              inputMode="numeric"
-              onChange={(event) =>
-                setRequestedRepaymentMonths(event.target.value)
-              }
-              value={requestedRepaymentMonths}
-            />
-          </Field>
-          <Field className="md:col-span-2 xl:col-span-4" label="Description">
-            <Textarea
-              disabled={isPending}
-              onChange={(event) => setItemDescription(event.target.value)}
-              value={itemDescription}
-            />
-          </Field>
-          <div className="md:col-span-2 xl:col-span-4">
-            <WorkflowChargeSummary
-              basisAmount={Number(requestedCost) || 0}
-              charges={chargeOptions}
-              title="Applicable charges"
-            />
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="Item">
+              <Input
+                disabled={isPending}
+                onChange={(event) => setItemName(event.target.value)}
+                value={itemName}
+              />
+            </Field>
+            <Field label="Vendor">
+              <Input
+                disabled={isPending}
+                onChange={(event) => setVendorName(event.target.value)}
+                value={vendorName}
+              />
+            </Field>
+            <Field label="Requested cost">
+              <Input
+                disabled={isPending}
+                inputMode="decimal"
+                onChange={(event) => setRequestedCost(event.target.value)}
+                value={requestedCost}
+              />
+            </Field>
+            <Field label="Repayment months">
+              <Input
+                disabled={isPending}
+                inputMode="numeric"
+                onChange={(event) =>
+                  setRequestedRepaymentMonths(event.target.value)
+                }
+                value={requestedRepaymentMonths}
+              />
+            </Field>
+            <Field className="md:col-span-2 xl:col-span-4" label="Description">
+              <Textarea
+                disabled={isPending}
+                onChange={(event) => setItemDescription(event.target.value)}
+                value={itemDescription}
+              />
+            </Field>
+            <div className="md:col-span-2 xl:col-span-4">
+              <WorkflowChargeSummary
+                basisAmount={Number(requestedCost) || 0}
+                charges={chargeOptions}
+                title="Applicable charges"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4">
-          <Button disabled={isPending} onClick={submitRequest} type="button">
-            Send request
-          </Button>
-        </div>
-      </section>
+          <div className="mt-4">
+            <Button disabled={isPending} onClick={submitRequest} type="button">
+              Send request
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <section className="rounded-lg border border-border bg-card p-4">
+          <p className="text-sm font-medium text-foreground">
+            Procurement requests are handled by the cooperative office
+          </p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Existing procurement requests and repayment schedules remain visible
+            here.
+          </p>
+        </section>
+      )}
 
       <section className="space-y-3">
         {requests.length ? (

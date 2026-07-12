@@ -76,6 +76,8 @@ export default async function PaymentReceiptsPage() {
         title="My payment receipts"
       >
         <MemberPaymentReceiptsView
+          canCreateReceipt={data.canCreateReceipt}
+          categoryOptions={data.categoryOptions}
           commitmentPlans={data.commitmentPlans}
           foodPurchaseApplications={data.foodPurchaseApplications}
           loans={data.loans}
@@ -96,6 +98,7 @@ export default async function PaymentReceiptsPage() {
       title="Payment receipts"
     >
       <PaymentReceiptsView
+        categoryOptions={data.categoryOptions}
         commitmentPlans={data.commitmentPlans}
         foodPurchaseApplications={data.foodPurchaseApplications}
         loans={data.loans}

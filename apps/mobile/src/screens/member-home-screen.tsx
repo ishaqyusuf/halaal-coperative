@@ -39,6 +39,7 @@ export function MemberHomeScreen() {
       })) ?? memberStats,
     [home?.stats, profile?.tenant.currencyCode]
   )
+  const services = home?.services ?? memberServices
   const homeCache = home?.cache
 
   useEffect(() => {
@@ -134,7 +135,7 @@ export function MemberHomeScreen() {
 
         <SectionCard icon="LayoutGrid" title="Services">
           <View className="flex-row flex-wrap justify-between gap-y-4">
-            {memberServices.map((item) => (
+            {services.map((item) => (
               <ServiceTile key={item.label} {...item} />
             ))}
           </View>

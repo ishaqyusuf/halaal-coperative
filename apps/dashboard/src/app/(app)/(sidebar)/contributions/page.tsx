@@ -12,9 +12,11 @@ export default async function ContributionsPage({
 }) {
   const params = await searchParams
   const filters = loadContributionsFilterParams(params)
+  const selectedBatchId =
+    typeof params.batchId === "string" ? params.batchId : undefined
   const context = await getDashboardServerContext()
   const [data, filterList] = await Promise.all([
-    loadContributionsPageData(filters),
+    loadContributionsPageData(filters, { selectedBatchId }),
     context.tenant ? getContributionFilterMetadata(context.tenant.id) : Promise.resolve([]),
   ])
 

@@ -38,6 +38,21 @@ export default async function ProcurementPage() {
     )
   }
 
+  if (data.state === "service-disabled") {
+    return (
+      <WorkspacePageShell
+        eyebrow="Procurement"
+        title="Procurement"
+        description="Track cooperative-purchased member items and repayment plans."
+      >
+        <WorkspaceEmptyState
+          body="This cooperative has not enabled procurement. Admins can enable it from Settings > Operation Profile."
+          title="Procurement is not enabled."
+        />
+      </WorkspacePageShell>
+    )
+  }
+
   if (data.state === "member-sign-in-required") {
     return (
       <WorkspacePageShell
@@ -77,6 +92,7 @@ export default async function ProcurementPage() {
       >
         <MemberProcurementRequestsView
           chargeOptions={data.chargeOptions}
+          canCreate={data.canCreate}
           member={data.member}
           requests={data.requests}
         />
@@ -92,6 +108,7 @@ export default async function ProcurementPage() {
     >
       <ProcurementRequestsView
         approvalChargeOptions={data.approvalChargeOptions}
+        canCreate={data.canCreate}
         canReview={data.canReview}
         memberOptions={data.memberOptions}
         requests={data.requests}

@@ -3,6 +3,7 @@ import {
   getMemberByUserId,
   getMemberPaymentReceiptSummary,
   getMemberScopedPaymentReceiptSummary,
+  getTenantOperationProfile,
   listContributionPlans,
   listFoodPurchaseApplications,
   listLoans,
@@ -15,6 +16,30 @@ import {
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
+
+export type PaymentReceiptCategoryOption = {
+  label: string
+  value:
+    | "commitment"
+    | "special_savings"
+    | "loan_servicing"
+    | "loan_extra_payment"
+    | "shares"
+    | "procurement"
+    | "project_financing"
+    | "food_purchase"
+    | "other"
+}
+
+const baseCategoryOptions = [
+  { label: "Commitment", value: "commitment" },
+  { label: "Special savings", value: "special_savings" },
+  { label: "Loan servicing", value: "loan_servicing" },
+  { label: "Extra loan payment", value: "loan_extra_payment" },
+  { label: "Shares", value: "shares" },
+  { label: "Project financing", value: "project_financing" },
+  { label: "Other", value: "other" },
+] as const satisfies PaymentReceiptCategoryOption[]
 
 const payableProcurementScheduleStatuses = new Set([
   "due",
@@ -97,6 +122,39 @@ function buildProjectFinancingRequestOptions(
         memberId: request.memberId,
       }
     })
+}
+
+export function buildPaymentReceiptCategoryOptions(input: {
+  foodPurchaseAccessMode: string
+  foodPurchaseApplicationsCount: number
+  procurementAccessMode: string
+  procurementSchedulesCount: number
+}): PaymentReceiptCategoryOption[] {
+  const categoryOptions: PaymentReceiptCategoryOption[] = [
+    ...baseCategoryOptions,
+  ]
+  const shouldShowProcurement =
+    input.procurementAccessMode !== "disabled" ||
+    input.procurementSchedulesCount > 0
+  const shouldShowFoodPurchase =
+    input.foodPurchaseAccessMode !== "disabled" ||
+    input.foodPurchaseApplicationsCount > 0
+
+  if (shouldShowProcurement) {
+    categoryOptions.splice(5, 0, {
+      label: "Procurement",
+      value: "procurement",
+    })
+  }
+
+  if (shouldShowFoodPurchase) {
+    categoryOptions.splice(shouldShowProcurement ? 7 : 6, 0, {
+      label: "Foodstuff Purchase",
+      value: "food_purchase",
+    })
+  }
+
+  return categoryOptions
 }
 
 function buildCommitmentPlanOptions(
@@ -189,6 +247,7 @@ export async function loadPaymentReceiptsPageData() {
       foodPurchaseApplications,
       activeProjectFinancingRequests,
       approvedProjectFinancingRequests,
+      operationProfile,
     ] = await Promise.all([
       listMemberPaymentReceipts(tenantId, { memberId: member.id }),
       getMemberScopedPaymentReceiptSummary({
@@ -227,17 +286,31 @@ export async function loadPaymentReceiptsPageData() {
         status: "approved",
         tenantId,
       }),
+      getTenantOperationProfile(tenantId),
     ])
+    const procurementSchedules = buildProcurementScheduleOptions(
+      procurementRequests
+    )
+    const foodPurchaseApplicationOptions = buildFoodPurchaseApplicationOptions(
+      foodPurchaseApplications
+    )
 
     return {
       state: "member-ready" as const,
+      canCreateReceipt:
+        operationProfile.services.payment_receipts.canMemberCreate,
+      categoryOptions: buildPaymentReceiptCategoryOptions({
+        foodPurchaseAccessMode:
+          operationProfile.services.food_purchase.accessMode,
+        foodPurchaseApplicationsCount: foodPurchaseApplicationOptions.length,
+        procurementAccessMode: operationProfile.services.procurement.accessMode,
+        procurementSchedulesCount: procurementSchedules.length,
+      }),
       commitmentPlans: buildMemberCommitmentPlanOptions(plans),
-      foodPurchaseApplications:
-        buildFoodPurchaseApplicationOptions(foodPurchaseApplications),
+      foodPurchaseApplications: foodPurchaseApplicationOptions,
       loans: buildMemberLoanOptions(loans),
       member,
-      procurementSchedules:
-        buildProcurementScheduleOptions(procurementRequests),
+      procurementSchedules,
       projectFinancingRequests: buildProjectFinancingRequestOptions([
         ...activeProjectFinancingRequests,
         ...approvedProjectFinancingRequests,
@@ -257,6 +330,7 @@ export async function loadPaymentReceiptsPageData() {
     foodPurchaseApplications,
     activeProjectFinancingRequests,
     approvedProjectFinancingRequests,
+    operationProfile,
   ] = await Promise.all([
     listMemberPaymentReceipts(tenantId),
     getMemberPaymentReceiptSummary(tenantId),
@@ -283,19 +357,31 @@ export async function loadPaymentReceiptsPageData() {
       status: "approved",
       tenantId,
     }),
+    getTenantOperationProfile(tenantId),
   ])
+  const procurementSchedules = buildProcurementScheduleOptions(
+    procurementRequests
+  )
+  const foodPurchaseApplicationOptions = buildFoodPurchaseApplicationOptions(
+    foodPurchaseApplications
+  )
 
   return {
     state: "staff-ready" as const,
+    categoryOptions: buildPaymentReceiptCategoryOptions({
+      foodPurchaseAccessMode: operationProfile.services.food_purchase.accessMode,
+      foodPurchaseApplicationsCount: foodPurchaseApplicationOptions.length,
+      procurementAccessMode: operationProfile.services.procurement.accessMode,
+      procurementSchedulesCount: procurementSchedules.length,
+    }),
     commitmentPlans: buildCommitmentPlanOptions(plans),
-    foodPurchaseApplications:
-      buildFoodPurchaseApplicationOptions(foodPurchaseApplications),
+    foodPurchaseApplications: foodPurchaseApplicationOptions,
     loans: buildLoanOptions(loans),
     members: members.items.map((member) => ({
       id: member.id,
       label: `${member.fullName} (${member.memberNumber})`,
     })),
-    procurementSchedules: buildProcurementScheduleOptions(procurementRequests),
+    procurementSchedules,
     projectFinancingRequests: buildProjectFinancingRequestOptions([
       ...activeProjectFinancingRequests,
       ...approvedProjectFinancingRequests,

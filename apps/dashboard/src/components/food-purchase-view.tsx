@@ -797,11 +797,13 @@ export function FoodPurchaseView({
 
 export function MemberFoodPurchaseView({
   applications,
+  canCreateApplication,
   chargeOptions,
   cycles,
   member,
 }: {
   applications: FoodPurchaseApplicationRow[]
+  canCreateApplication: boolean
   chargeOptions: WorkflowChargeOption[]
   cycles: FoodPurchaseCycleRow[]
   member: {
@@ -882,79 +884,86 @@ export function MemberFoodPurchaseView({
         />
       </section>
 
-      <section className="rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Apply for Foodstuff Purchase
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {member.fullName} ({member.memberNumber})
-            </p>
+      {canCreateApplication ? (
+        <section className="rounded-lg border border-border bg-card p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Apply for Foodstuff Purchase
+              </p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                {member.fullName} ({member.memberNumber})
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Field label="Cycle">
-            <LabeledSelectInput
-              disabled={isPending}
-              onValueChange={setCycleId}
-              options={openCycleOptions}
-              value={cycleId}
-            />
-          </Field>
-          <Field label="Requested amount">
-            <Input
-              disabled={isPending}
-              inputMode="decimal"
-              onChange={(event) => setRequestedAmount(event.target.value)}
-              value={requestedAmount}
-            />
-          </Field>
-          <Field label="Payback months">
-            <Input
-              disabled={isPending}
-              inputMode="numeric"
-              min="1"
-              onChange={(event) =>
-                setRequestedPaybackMonths(event.target.value)
-              }
-              type="number"
-              value={requestedPaybackMonths}
-            />
-          </Field>
-          <Field label="Item">
-            <Input
-              disabled={isPending}
-              onChange={(event) => setItemDescription(event.target.value)}
-              value={itemDescription}
-            />
-          </Field>
-          <Field className="sm:col-span-2" label="Notes">
-            <Textarea
-              disabled={isPending}
-              onChange={(event) => setRequestNotes(event.target.value)}
-              value={requestNotes}
-            />
-          </Field>
-          <div className="sm:col-span-2">
-            <WorkflowChargeSummary
-              basisAmount={Number(requestedAmount) || 0}
-              charges={chargeOptions}
-              title="Applicable charges"
-            />
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Field label="Cycle">
+              <LabeledSelectInput
+                disabled={isPending}
+                onValueChange={setCycleId}
+                options={openCycleOptions}
+                value={cycleId}
+              />
+            </Field>
+            <Field label="Requested amount">
+              <Input
+                disabled={isPending}
+                inputMode="decimal"
+                onChange={(event) => setRequestedAmount(event.target.value)}
+                value={requestedAmount}
+              />
+            </Field>
+            <Field label="Payback months">
+              <Input
+                disabled={isPending}
+                inputMode="numeric"
+                min="1"
+                onChange={(event) =>
+                  setRequestedPaybackMonths(event.target.value)
+                }
+                type="number"
+                value={requestedPaybackMonths}
+              />
+            </Field>
+            <Field label="Item">
+              <Input
+                disabled={isPending}
+                onChange={(event) => setItemDescription(event.target.value)}
+                value={itemDescription}
+              />
+            </Field>
+            <Field className="sm:col-span-2" label="Notes">
+              <Textarea
+                disabled={isPending}
+                onChange={(event) => setRequestNotes(event.target.value)}
+                value={requestNotes}
+              />
+            </Field>
+            <div className="sm:col-span-2">
+              <WorkflowChargeSummary
+                basisAmount={Number(requestedAmount) || 0}
+                charges={chargeOptions}
+                title="Applicable charges"
+              />
+            </div>
           </div>
-        </div>
-        <div className="mt-4">
-          <Button
-            disabled={isPending || openCycleOptions.length <= 1}
-            onClick={submitApplication}
-            type="button"
-          >
-            Send request
-          </Button>
-        </div>
-      </section>
+          <div className="mt-4">
+            <Button
+              disabled={isPending || openCycleOptions.length <= 1}
+              onClick={submitApplication}
+              type="button"
+            >
+              Send request
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <EmptyState
+          body="New Foodstuff Purchase applications are handled by the cooperative office. Existing applications remain visible here."
+          title="Foodstuff Purchase requests are office-managed"
+        />
+      )}
 
       <section className="space-y-3">
         <SectionHeading title="My applications" />

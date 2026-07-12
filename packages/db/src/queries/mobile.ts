@@ -63,6 +63,7 @@ import {
   reviewProcurementRequest,
   type ProcurementRequestRow,
 } from "./procurement"
+import { getTenantOperationProfile } from "./operation-profile"
 import {
   createProjectFinancingRequest,
   listProjectFinancingRequests,
@@ -214,6 +215,12 @@ export type MobileMemberHome = {
     percentage: number
     status: "ready" | "needs_attention" | "missing_profile"
   }
+  services: Array<{
+    icon: string
+    key: string
+    label: string
+    tone: "accent" | "primary" | "success"
+  }>
   stats: MobileOverviewMetric[]
 }
 
@@ -599,6 +606,7 @@ export type MobilePaymentReceipt = {
 }
 
 export type MobileMemberReceipts = {
+  canCreateReceipt: boolean
   generatedAt: string
   member: {
     id: string
@@ -762,6 +770,7 @@ export type MobileMemberProcurementRequest = {
 }
 
 export type MobileMemberProcurement = {
+  canCreateRequest: boolean
   chargeOptions: MobileWorkflowChargeOption[]
   generatedAt: string
   member: {
@@ -874,6 +883,7 @@ export type MobileFoodPurchaseApplication = {
 
 export type MobileMemberFoodPurchase = {
   applications: MobileFoodPurchaseApplication[]
+  canCreateApplication: boolean
   chargeOptions: MobileWorkflowChargeOption[]
   cycles: MobileFoodPurchaseCycle[]
   generatedAt: string
@@ -994,6 +1004,13 @@ function emptyMemberHome(): MobileMemberHome {
       percentage: 0,
       status: "missing_profile",
     },
+    services: getMobileMemberHomeServices({
+      foodPurchaseRecords: 0,
+      operationProfile: null,
+      procurementRecords: 0,
+      receiptRecords: 0,
+      supportRecords: 0,
+    }),
     stats: [
       {
         detail: "No active commitment available",
@@ -1130,6 +1147,7 @@ function emptyMemberSupport(): MobileMemberSupport {
 
 function emptyMemberReceipts(): MobileMemberReceipts {
   return {
+    canCreateReceipt: false,
     generatedAt: new Date().toISOString(),
     member: null,
     receipts: [],
@@ -1215,6 +1233,7 @@ async function getMobileWorkflowChargeOptions(input: {
 
 function emptyMemberProcurement(): MobileMemberProcurement {
   return {
+    canCreateRequest: false,
     chargeOptions: [],
     generatedAt: new Date().toISOString(),
     member: null,
@@ -1252,6 +1271,7 @@ function emptyMemberProjectFinancing(): MobileMemberProjectFinancing {
 function emptyMemberFoodPurchase(): MobileMemberFoodPurchase {
   return {
     applications: [],
+    canCreateApplication: false,
     chargeOptions: [],
     cycles: [],
     generatedAt: new Date().toISOString(),
@@ -1895,7 +1915,9 @@ function buildMobileAdminReportCards(
   metrics: Awaited<ReturnType<typeof getDashboardMetrics>>,
   summary?: Awaited<ReturnType<typeof getOverviewSummary>> | null
 ): MobileAdminReportCard[] {
-  return [
+  const hasQueue = (key: string) =>
+    summary?.actionQueue.some((item) => item.key === key) ?? true
+  const cards: MobileAdminReportCard[] = [
     {
       detail: "Member identity, KYC, status, and linked-login evidence.",
       exportHref: "/reports/members-export",
@@ -1992,6 +2014,34 @@ function buildMobileAdminReportCards(
       title: "Activity evidence",
     },
   ]
+
+  if (!summary) {
+    return cards
+  }
+
+  return cards.filter((card) => {
+    if (card.key === "paymentReceipts") {
+      return hasQueue("payment-receipts") || card.metricValue > 0
+    }
+
+    if (card.key === "procurement") {
+      return hasQueue("procurement-requests") || card.metricValue > 0
+    }
+
+    if (card.key === "foodPurchase") {
+      return (
+        hasQueue("food-purchase-applications") ||
+        hasQueue("food-purchase-accounting") ||
+        card.metricValue > 0
+      )
+    }
+
+    if (card.key === "support") {
+      return hasQueue("support-cases") || card.metricValue > 0
+    }
+
+    return true
+  })
 }
 
 function toMobileAdminActivityEvent(
@@ -2511,6 +2561,7 @@ async function buildMemberMore(input: {
     guarantorApprovals,
     supportSummary,
     supportCases,
+    operationProfile,
   ] = await Promise.all([
     getMemberScopedPaymentReceiptSummary(
       {
@@ -2581,6 +2632,7 @@ async function buildMemberMore(input: {
       },
       input.prisma
     ),
+    getTenantOperationProfile(input.tenantId, input.prisma),
   ])
   const summary = input.detail.summary
   const verifiedDocuments = input.detail.member.documents.filter(
@@ -2614,7 +2666,7 @@ async function buildMemberMore(input: {
       name: input.member.fullName,
       status: input.member.status,
     },
-    sections: [
+    sections: ([
       {
         icon: "UserRound",
         key: "profile",
@@ -2916,7 +2968,38 @@ async function buildMemberMore(input: {
         ],
         title: "Support",
       },
-    ],
+    ] satisfies MobileMemberMoreSection[]).filter((section) => {
+      if (section.key === "receipts") {
+        return (
+          operationProfile.services.payment_receipts.shouldShowInMemberNav ||
+          receipts.length > 0
+        )
+      }
+
+      if (section.key === "procurement") {
+        return (
+          operationProfile.services.procurement.shouldShowInMemberNav ||
+          procurementRequests.length > 0
+        )
+      }
+
+      if (section.key === "foodPurchase") {
+        return (
+          operationProfile.services.food_purchase.shouldShowInMemberNav ||
+          foodPurchaseApplications.length > 0 ||
+          foodPurchaseCycles.length > 0
+        )
+      }
+
+      if (section.key === "support") {
+        return (
+          operationProfile.services.support_cases.shouldShowInMemberNav ||
+          supportCases.length > 0
+        )
+      }
+
+      return true
+    }),
   }
 }
 
@@ -2936,7 +3019,7 @@ export async function getMobileMemberReceipts(input: {
     return emptyMemberReceipts()
   }
 
-  const [summary, receipts] = await Promise.all([
+  const [summary, receipts, operationProfile] = await Promise.all([
     getMemberScopedPaymentReceiptSummary(
       {
         memberId: member.id,
@@ -2952,9 +3035,11 @@ export async function getMobileMemberReceipts(input: {
       },
       prisma
     ),
+    getTenantOperationProfile(input.tenantId, prisma),
   ])
 
   return {
+    canCreateReceipt: operationProfile.services.payment_receipts.canMemberCreate,
     generatedAt: new Date().toISOString(),
     member: {
       id: member.id,
@@ -2987,7 +3072,7 @@ export async function getMobileMemberProcurement(input: {
     return emptyMemberProcurement()
   }
 
-  const [requests, chargeOptions] = await Promise.all([
+  const [requests, chargeOptions, operationProfile] = await Promise.all([
     listProcurementRequests(
       {
         memberId: member.id,
@@ -2999,10 +3084,12 @@ export async function getMobileMemberProcurement(input: {
       tenantId: input.tenantId,
       workflow: "procurement_request",
     }),
+    getTenantOperationProfile(input.tenantId, prisma),
   ])
   const mobileRequests = requests.map(toMobileProcurementRequest)
 
   return {
+    canCreateRequest: operationProfile.services.procurement.canMemberCreate,
     chargeOptions,
     generatedAt: new Date().toISOString(),
     member: {
@@ -3046,6 +3133,7 @@ export async function createMobileMemberProcurementRequest(input: {
       itemDescription: input.itemDescription ?? undefined,
       itemName: input.itemName,
       memberId: member.id,
+      requestSource: "member_self_service",
       requestedCost: input.requestedCost,
       requestedRepaymentMonths: input.requestedRepaymentMonths,
       tenantId: input.tenantId,
@@ -3161,30 +3249,34 @@ export async function getMobileMemberFoodPurchase(input: {
     return emptyMemberFoodPurchase()
   }
 
-  const [cycles, applications, chargeOptions] = await Promise.all([
-    listFoodPurchaseCycles(
-      {
+  const [cycles, applications, chargeOptions, operationProfile] =
+    await Promise.all([
+      listFoodPurchaseCycles(
+        {
+          tenantId: input.tenantId,
+        },
+        prisma
+      ),
+      listFoodPurchaseApplications(
+        {
+          memberId: member.id,
+          tenantId: input.tenantId,
+        },
+        prisma
+      ),
+      getMobileWorkflowChargeOptions({
         tenantId: input.tenantId,
-      },
-      prisma
-    ),
-    listFoodPurchaseApplications(
-      {
-        memberId: member.id,
-        tenantId: input.tenantId,
-      },
-      prisma
-    ),
-    getMobileWorkflowChargeOptions({
-      tenantId: input.tenantId,
-      workflow: "food_purchase_application",
-    }),
-  ])
+        workflow: "food_purchase_application",
+      }),
+      getTenantOperationProfile(input.tenantId, prisma),
+    ])
   const mobileCycles = cycles.map(toMobileFoodPurchaseCycle)
   const mobileApplications = applications.map(toMobileFoodPurchaseApplication)
 
   return {
     applications: mobileApplications,
+    canCreateApplication:
+      operationProfile.services.food_purchase.canMemberCreate,
     chargeOptions,
     cycles: mobileCycles,
     generatedAt: new Date().toISOString(),
@@ -3231,6 +3323,7 @@ export async function createMobileMemberFoodPurchaseApplication(input: {
       cycleId: input.cycleId,
       itemDescription: input.itemDescription ?? undefined,
       memberId: member.id,
+      requestSource: "member_self_service",
       requestedAmount: input.requestedAmount,
       requestedPaybackMonths: input.requestedPaybackMonths,
       requestNotes: input.requestNotes ?? undefined,
@@ -3577,6 +3670,12 @@ export async function createMobileMemberReceipt(input: {
 
   if (!member) {
     throw new Error("Member profile needs linking before submitting receipts.")
+  }
+
+  const operationProfile = await getTenantOperationProfile(input.tenantId, prisma)
+
+  if (!operationProfile.services.payment_receipts.canMemberCreate) {
+    throw new Error("Payment receipt self-service is not enabled for this cooperative.")
   }
 
   const receipt = await createMemberPaymentReceipt(
@@ -5037,6 +5136,62 @@ async function buildMemberStatement(input: {
   }
 }
 
+function getMobileMemberHomeServices(input: {
+  foodPurchaseRecords: number
+  operationProfile: Awaited<ReturnType<typeof getTenantOperationProfile>> | null
+  procurementRecords: number
+  receiptRecords: number
+  supportRecords: number
+}) {
+  const services: MobileMemberHome["services"] = [
+    { icon: "BadgeCheck", key: "commitments", label: "Commitments", tone: "accent" },
+    { icon: "Wallet", key: "savings", label: "Savings", tone: "success" },
+    { icon: "HandCoins", key: "financing", label: "Financing", tone: "primary" },
+    { icon: "PieChart", key: "shares", label: "Shares", tone: "accent" },
+    { icon: "FileText", key: "statements", label: "Statements", tone: "primary" },
+    { icon: "FolderOpen", key: "documents", label: "Documents", tone: "success" },
+    { icon: "Bell", key: "notifications", label: "Notifications", tone: "accent" },
+  ]
+
+  if (!input.operationProfile) {
+    services.push({ icon: "Headphones", key: "support", label: "Support", tone: "primary" })
+
+    return services
+  }
+
+  const { services: profileServices } = input.operationProfile
+
+  if (
+    profileServices.payment_receipts.shouldShowInMemberNav ||
+    input.receiptRecords > 0
+  ) {
+    services.push({ icon: "ReceiptText", key: "receipts", label: "Receipts", tone: "primary" })
+  }
+
+  if (
+    profileServices.procurement.shouldShowInMemberNav ||
+    input.procurementRecords > 0
+  ) {
+    services.push({ icon: "PackageSearch", key: "procurement", label: "Procurement", tone: "accent" })
+  }
+
+  if (
+    profileServices.food_purchase.shouldShowInMemberNav ||
+    input.foodPurchaseRecords > 0
+  ) {
+    services.push({ icon: "ShoppingBasket", key: "foodPurchase", label: "Foodstuff", tone: "success" })
+  }
+
+  if (
+    profileServices.support_cases.shouldShowInMemberNav ||
+    input.supportRecords > 0
+  ) {
+    services.push({ icon: "Headphones", key: "support", label: "Support", tone: "primary" })
+  }
+
+  return services
+}
+
 export async function getMobileMemberHome(input: {
   tenantId: string
   userId: string
@@ -5055,6 +5210,27 @@ export async function getMobileMemberHome(input: {
 
   const summaries = await listMemberStatementSummaries(input.tenantId, prisma)
   const summary = summaries.find((item) => item.memberId === member.id) ?? null
+  const [operationProfile, receipts, procurementRequests, foodPurchaseApplications, supportCases] =
+    await Promise.all([
+      getTenantOperationProfile(input.tenantId, prisma),
+      listMemberPaymentReceipts(
+        input.tenantId,
+        { limit: 1, memberId: member.id },
+        prisma
+      ),
+      listProcurementRequests(
+        { limit: 1, memberId: member.id, tenantId: input.tenantId },
+        prisma
+      ),
+      listFoodPurchaseApplications(
+        { limit: 1, memberId: member.id, tenantId: input.tenantId },
+        prisma
+      ),
+      listSupportCases(
+        { limit: 1, memberId: member.id, tenantId: input.tenantId },
+        prisma
+      ),
+    ])
   const readiness = getReadiness({
     kycStatus: member.kycStatus,
     memberStatus: member.status,
@@ -5099,6 +5275,13 @@ export async function getMobileMemberHome(input: {
       status: member.status,
     },
     readiness,
+    services: getMobileMemberHomeServices({
+      foodPurchaseRecords: foodPurchaseApplications.length,
+      operationProfile,
+      procurementRecords: procurementRequests.length,
+      receiptRecords: receipts.length,
+      supportRecords: supportCases.length,
+    }),
     stats: [
       {
         detail: summary?.activeCommitmentStartsAt

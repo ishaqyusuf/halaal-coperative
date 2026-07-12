@@ -72,6 +72,22 @@ enum MemberSignupAccessMode {
   disabled
 }
 
+enum TenantServiceAccessMode {
+  disabled
+  office_only
+  member_self_service
+  read_only
+}
+
+enum TenantServiceKey {
+  payment_receipts
+  procurement
+  food_purchase
+  support_cases
+  collection_sources
+  collection_source_batch_posting
+}
+
 enum TenantDomainKind {
   site
   dashboard

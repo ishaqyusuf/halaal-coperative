@@ -10,18 +10,41 @@ import {
 function createFoodPurchasePrismaStub(input?: {
   actorBelongsToTenant?: boolean
   approvedApplicationTotal?: number
+  activeFoodPurchaseApplications?: Array<{
+    approvedAmount: number | null
+    id: string
+    memberId?: string
+    paidAmount: number
+    status: string
+    tenantId?: string
+  }>
   canUseLiveWrites?: boolean
   cycleStatus?: string
   existingCycle?: boolean
+  foodPurchaseAccessMode?:
+    | "disabled"
+    | "member_self_service"
+    | "office_only"
+    | "read_only"
   foodPurchaseAllowsCommitmentReductionDuringPayback?: boolean
+  foodPurchaseMaximumActiveObligationsPerMember?: number
   foodPurchaseMaximumPaybackMonths?: number
+  foodPurchaseRequiresOpenCycle?: boolean
   memberBelongsToTenant?: boolean
 }) {
   const auditLogCreates: unknown[] = []
+  const foodPurchaseApplicationFindManyArgs: unknown[] = []
   const foodPurchaseApplicationCreates: unknown[] = []
   const foodPurchaseApplicationUpdates: unknown[] = []
   const foodPurchaseCycleCreates: unknown[] = []
   const foodPurchaseCycleUpdates: unknown[] = []
+  const serviceSettings = [
+    {
+      accessMode: input?.foodPurchaseAccessMode ?? "office_only",
+      serviceKey: "food_purchase",
+      tenantId: "tenant-1",
+    },
+  ]
   const canUseLiveWrites = input?.canUseLiveWrites ?? true
   const staffUser = {
     email: "committee@example.com",
@@ -107,8 +130,11 @@ function createFoodPurchasePrismaStub(input?: {
   const tenantPolicy = {
     foodPurchaseAllowsCommitmentReductionDuringPayback:
       input?.foodPurchaseAllowsCommitmentReductionDuringPayback ?? false,
+    foodPurchaseMaximumActiveObligationsPerMember:
+      input?.foodPurchaseMaximumActiveObligationsPerMember ?? 1,
     foodPurchaseMaximumPaybackMonths:
       input?.foodPurchaseMaximumPaybackMonths ?? 1,
+    foodPurchaseRequiresOpenCycle: input?.foodPurchaseRequiresOpenCycle ?? true,
     shareConfigurationMode: "monthly_history",
   }
 
@@ -184,9 +210,35 @@ function createFoodPurchasePrismaStub(input?: {
       count: async () => 1,
     },
     foodPurchaseApplicationCreates,
+    foodPurchaseApplicationFindManyArgs,
     foodPurchaseApplicationUpdates,
     foodPurchaseApplication: {
       create: async (args: any) => tx.foodPurchaseApplication.create(args),
+      findMany: async (args: any) => {
+        foodPurchaseApplicationFindManyArgs.push(args)
+
+        return (input?.activeFoodPurchaseApplications ?? []).filter((row) => {
+          const tenantMatches =
+            !args.where?.tenantId ||
+            (row.tenantId ?? "tenant-1") === args.where.tenantId
+          const memberMatches =
+            !args.where?.memberId ||
+            (row.memberId ?? member.id) === args.where.memberId
+          const statusMatches =
+            !args.where?.status || row.status === args.where.status
+          const approvedAmountMatches =
+            !args.where?.approvedAmount ||
+            !("not" in args.where.approvedAmount) ||
+            row.approvedAmount !== args.where.approvedAmount.not
+
+          return (
+            tenantMatches &&
+            memberMatches &&
+            statusMatches &&
+            approvedAmountMatches
+          )
+        })
+      },
     },
     foodPurchaseCycle: {
       create: async (args: any) => tx.foodPurchaseCycle.create(args),
@@ -216,6 +268,47 @@ function createFoodPurchasePrismaStub(input?: {
     },
     tenantPolicy: {
       findUnique: async () => tenantPolicy,
+    },
+    tenantOperationProfile: {
+      upsert: async () => ({
+        id: "operation-profile-1",
+        reviewedAt: new Date("2026-07-01T00:00:00.000Z"),
+        reviewedByUserId: "user-1",
+        tenantId: "tenant-1",
+      }),
+    },
+    tenantServiceSetting: {
+      findMany: async ({ where }: { where: { tenantId: string } }) =>
+        serviceSettings.filter(
+          (setting) => setting.tenantId === where.tenantId
+        ),
+      upsert: async (upsertInput: {
+        create: {
+          accessMode: string
+          serviceKey: string
+          tenantId: string
+        }
+        where: {
+          tenantId_serviceKey: {
+            serviceKey: string
+            tenantId: string
+          }
+        }
+      }) => {
+        const existing = serviceSettings.find(
+          (setting) =>
+            setting.tenantId ===
+              upsertInput.where.tenantId_serviceKey.tenantId &&
+            setting.serviceKey ===
+              upsertInput.where.tenantId_serviceKey.serviceKey
+        )
+
+        if (existing) return existing
+
+        serviceSettings.push(upsertInput.create)
+
+        return upsertInput.create
+      },
     },
     tenantShareStructureVersion: {
       count: async () => 1,
@@ -303,6 +396,285 @@ describe("food purchase workflow", () => {
     expect(application.requestedAmount).toBe(75000)
     expect(application.requestedPaybackMonths).toBe(1)
     expect(application.member.email).toBe("aisha@example.com")
+  })
+
+  test("blocks food purchase application for a closed cycle when open-cycle policy requires it", async () => {
+    const prisma = createFoodPurchasePrismaStub({
+      cycleStatus: "closed",
+      foodPurchaseRequiresOpenCycle: true,
+    })
+
+    await expect(
+      submitFoodPurchaseApplication(
+        {
+          actorUserId: "user-1",
+          cycleId: "cycle-1",
+          itemDescription: "Monthly food package",
+          memberId: "member-1",
+          requestedAmount: 75000,
+          requestedPaybackMonths: 1,
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("open cycle")
+
+    expect(prisma.foodPurchaseApplicationCreates).toHaveLength(0)
+  })
+
+  test("allows food purchase application for a non-open cycle when open-cycle policy is off", async () => {
+    const prisma = createFoodPurchasePrismaStub({
+      cycleStatus: "closed",
+      foodPurchaseRequiresOpenCycle: false,
+    })
+
+    const application = await submitFoodPurchaseApplication(
+      {
+        actorUserId: "user-1",
+        cycleId: "cycle-1",
+        itemDescription: "Monthly food package",
+        memberId: "member-1",
+        requestedAmount: 75000,
+        requestedPaybackMonths: 1,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(application.status).toBe("submitted")
+    expect(prisma.foodPurchaseApplicationCreates).toHaveLength(1)
+  })
+
+  test("blocks food purchase application at the active obligation cap", async () => {
+    const prisma = createFoodPurchasePrismaStub({
+      activeFoodPurchaseApplications: [
+        {
+          approvedAmount: 75000,
+          id: "application-active-1",
+          paidAmount: 25000,
+          status: "approved",
+        },
+      ],
+      foodPurchaseMaximumActiveObligationsPerMember: 1,
+    })
+
+    await expect(
+      submitFoodPurchaseApplication(
+        {
+          actorUserId: "user-1",
+          cycleId: "cycle-1",
+          itemDescription: "Monthly food package",
+          memberId: "member-1",
+          requestedAmount: 75000,
+          requestedPaybackMonths: 1,
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("active Foodstuff Purchase obligation limit (1)")
+
+    expect(prisma.foodPurchaseApplicationCreates).toHaveLength(0)
+  })
+
+  test("does not count submitted, under-review, rejected, cancelled, or paid food purchase applications toward the cap", async () => {
+    const prisma = createFoodPurchasePrismaStub({
+      activeFoodPurchaseApplications: [
+        {
+          approvedAmount: null,
+          id: "application-submitted",
+          paidAmount: 0,
+          status: "submitted",
+        },
+        {
+          approvedAmount: null,
+          id: "application-under-review",
+          paidAmount: 0,
+          status: "under_review",
+        },
+        {
+          approvedAmount: null,
+          id: "application-rejected",
+          paidAmount: 0,
+          status: "rejected",
+        },
+        {
+          approvedAmount: null,
+          id: "application-cancelled",
+          paidAmount: 0,
+          status: "cancelled",
+        },
+        {
+          approvedAmount: 75000,
+          id: "application-paid",
+          paidAmount: 75000,
+          status: "approved",
+        },
+      ],
+      foodPurchaseMaximumActiveObligationsPerMember: 1,
+    })
+
+    const application = await submitFoodPurchaseApplication(
+      {
+        actorUserId: "user-1",
+        cycleId: "cycle-1",
+        itemDescription: "Monthly food package",
+        memberId: "member-1",
+        requestedAmount: 75000,
+        requestedPaybackMonths: 1,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(application.status).toBe("submitted")
+    expect(prisma.foodPurchaseApplicationCreates).toHaveLength(1)
+  })
+
+  test("counts active food purchase obligations by tenant and member", async () => {
+    const prisma = createFoodPurchasePrismaStub({
+      activeFoodPurchaseApplications: [
+        {
+          approvedAmount: 75000,
+          id: "application-active-1",
+          memberId: "member-1",
+          paidAmount: 0,
+          status: "approved",
+          tenantId: "tenant-1",
+        },
+        {
+          approvedAmount: 75000,
+          id: "application-other-member",
+          memberId: "member-2",
+          paidAmount: 0,
+          status: "approved",
+          tenantId: "tenant-1",
+        },
+        {
+          approvedAmount: 75000,
+          id: "application-other-tenant",
+          memberId: "member-1",
+          paidAmount: 0,
+          status: "approved",
+          tenantId: "tenant-2",
+        },
+      ],
+      foodPurchaseMaximumActiveObligationsPerMember: 2,
+    })
+
+    await submitFoodPurchaseApplication(
+      {
+        actorUserId: "user-1",
+        cycleId: "cycle-1",
+        itemDescription: "Monthly food package",
+        memberId: "member-1",
+        requestedAmount: 75000,
+        requestedPaybackMonths: 1,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.foodPurchaseApplicationFindManyArgs[0]).toMatchObject({
+      where: {
+        approvedAmount: { not: null },
+        memberId: "member-1",
+        status: "approved",
+        tenantId: "tenant-1",
+      },
+    })
+    expect(prisma.foodPurchaseApplicationCreates).toHaveLength(1)
+  })
+
+  test("blocks member-created food purchase applications when service is office-only", async () => {
+    const prisma = createFoodPurchasePrismaStub({
+      foodPurchaseAccessMode: "office_only",
+    })
+
+    await expect(
+      submitFoodPurchaseApplication(
+        {
+          actorUserId: "user-1",
+          cycleId: "cycle-1",
+          itemDescription: "Monthly food package",
+          memberId: "member-1",
+          requestSource: "member_self_service",
+          requestedAmount: 75000,
+          requestedPaybackMonths: 1,
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("cooperative office")
+
+    expect(prisma.foodPurchaseApplicationCreates).toHaveLength(0)
+  })
+
+  test("allows member-created food purchase applications when self-service is enabled", async () => {
+    const prisma = createFoodPurchasePrismaStub({
+      foodPurchaseAccessMode: "member_self_service",
+    })
+
+    const application = await submitFoodPurchaseApplication(
+      {
+        actorUserId: "user-1",
+        cycleId: "cycle-1",
+        itemDescription: "Monthly food package",
+        memberId: "member-1",
+        requestSource: "member_self_service",
+        requestedAmount: 75000,
+        requestedPaybackMonths: 1,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(application.status).toBe("submitted")
+    expect(prisma.foodPurchaseApplicationCreates).toHaveLength(1)
+  })
+
+  test("blocks staff-created food purchase applications when service is read-only", async () => {
+    const prisma = createFoodPurchasePrismaStub({
+      foodPurchaseAccessMode: "read_only",
+    })
+
+    await expect(
+      submitFoodPurchaseApplication(
+        {
+          actorUserId: "user-1",
+          cycleId: "cycle-1",
+          itemDescription: "Monthly food package",
+          memberId: "member-1",
+          requestSource: "staff",
+          requestedAmount: 75000,
+          requestedPaybackMonths: 1,
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("read-only")
+
+    expect(prisma.foodPurchaseApplicationCreates).toHaveLength(0)
+  })
+
+  test("blocks new food purchase cycles when service is disabled", async () => {
+    const prisma = createFoodPurchasePrismaStub({
+      foodPurchaseAccessMode: "disabled",
+    })
+
+    await expect(
+      createFoodPurchaseCycle(
+        {
+          actorUserId: "user-1",
+          periodMonth: new Date("2026-07-19T12:00:00.000Z"),
+          releasedAmount: 500000,
+          requestSource: "staff",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("not enabled")
+
+    expect(prisma.foodPurchaseCycleCreates).toHaveLength(0)
   })
 
   test("blocks food purchase application above tenant payback cap", async () => {

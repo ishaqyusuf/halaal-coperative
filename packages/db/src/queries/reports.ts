@@ -4,6 +4,7 @@ import { getAuditSummary, listAuditLogs } from "./audit"
 import { getOverviewSummary } from "./dashboard"
 import { getCollectionFollowUpSummary, listCollectionFollowUps } from "./loans"
 import { getMemberKycSummary } from "./members"
+import { getTenantOperationProfile } from "./operation-profile"
 
 export type ReportsSummaryInput = {
   tenantId: string
@@ -46,6 +47,7 @@ export type ReportsSummary = {
     queued: number
     failed: number
   }
+  exportVisibility: Record<string, boolean>
   complianceWatch: Array<{
     key: string
     label: string
@@ -132,6 +134,7 @@ function getEmptyReportsSummary(input: {
       sent: 0,
       total: 0,
     },
+    exportVisibility: {},
   }
 }
 
@@ -172,6 +175,11 @@ export async function getReportsSummary(
     notificationsSent,
     notificationsQueued,
     notificationsFailed,
+    operationProfile,
+    procurementRecordCount,
+    foodPurchaseRecordCount,
+    supportRecordCount,
+    paymentReceiptRecordCount,
   ] = await Promise.all([
     getOverviewSummary(input.tenantId, prisma),
     getAuditSummary(input.tenantId, prisma),
@@ -230,7 +238,34 @@ export async function getReportsSummary(
         ...(dateRange ? { occurredAt: dateRange } : {}),
       },
     }),
+    getTenantOperationProfile(input.tenantId, prisma),
+    prisma.procurementRequest.count({
+      where: { tenantId: input.tenantId },
+    }),
+    prisma.foodPurchaseApplication.count({
+      where: { tenantId: input.tenantId },
+    }),
+    prisma.supportCase.count({
+      where: { tenantId: input.tenantId },
+    }),
+    prisma.memberPaymentReceipt.count({
+      where: { tenantId: input.tenantId },
+    }),
   ])
+  const exportVisibility = {
+    "/reports/food-purchase-export":
+      operationProfile.services.food_purchase.shouldShowInStaffNav ||
+      foodPurchaseRecordCount > 0,
+    "/reports/payment-receipts-export":
+      operationProfile.services.payment_receipts.shouldShowInStaffNav ||
+      paymentReceiptRecordCount > 0,
+    "/reports/procurement-export":
+      operationProfile.services.procurement.shouldShowInStaffNav ||
+      procurementRecordCount > 0,
+    "/reports/support-export":
+      operationProfile.services.support_cases.shouldShowInStaffNav ||
+      supportRecordCount > 0,
+  }
 
   return {
     workspace: {
@@ -328,5 +363,6 @@ export async function getReportsSummary(
       sent: notificationsSent,
       total: notificationTotal,
     },
+    exportVisibility,
   }
 }

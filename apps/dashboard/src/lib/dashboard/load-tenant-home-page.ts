@@ -4,6 +4,7 @@ import {
   getMemberByUserId,
   getMemberStatementDetail,
   getMemberUnitSharePosition,
+  getTenantOperationProfile,
   getTenantSharePolicy,
   listFoodPurchaseApplications,
   listMemberPaymentReceipts,
@@ -12,6 +13,7 @@ import {
   listProjectFinancingRequests,
   listSupportCases,
 } from "@halaalvest/db"
+import { getOperationProfileHiddenNavPaths } from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 
@@ -23,6 +25,16 @@ export async function loadTenantHomePageData() {
     const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
     const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
     const runtime = createDbRuntime()
+    const shell = {
+      hiddenNavPaths: await getOperationProfileHiddenNavPaths({
+        role,
+        tenantId: context.tenant?.id,
+        userId: context.auth.user?.id,
+      }),
+      role,
+      tenantName,
+      userName,
+    }
 
     if (context.tenant && runtime.status === "database-configured") {
       const setupGate = await resolveInitialMigrationSetupGate({
@@ -41,16 +53,8 @@ export async function loadTenantHomePageData() {
     if (context.auth.membership.role !== "member") {
       return {
         state: "staff-ready" as const,
-        role,
-        tenantName,
-        userName,
+        ...shell,
       }
-    }
-
-    const shell = {
-      role,
-      tenantName,
-      userName,
     }
 
     if (
@@ -102,6 +106,7 @@ export async function loadTenantHomePageData() {
       procurementRequests,
       projectFinancingRequests,
       foodPurchaseApplications,
+      operationProfile,
     ] = await Promise.all([
       listMemberShareApplications({
         memberId: member.id,
@@ -128,10 +133,19 @@ export async function loadTenantHomePageData() {
         memberId: member.id,
         tenantId: context.tenant.id,
       }),
+      getTenantOperationProfile(context.tenant.id),
     ])
+    const procurementCapability = operationProfile.services.procurement
+    const foodPurchaseCapability = operationProfile.services.food_purchase
 
     return {
       state: "member-ready" as const,
+      canShowFoodPurchase:
+        foodPurchaseCapability.shouldShowInMemberNav ||
+        foodPurchaseApplications.length > 0,
+      canShowProcurement:
+        procurementCapability.shouldShowInMemberNav ||
+        procurementRequests.length > 0,
       detail,
       foodPurchaseApplications,
       procurementRequests,

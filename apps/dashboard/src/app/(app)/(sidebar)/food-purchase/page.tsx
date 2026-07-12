@@ -38,6 +38,21 @@ export default async function FoodPurchasePage() {
     )
   }
 
+  if (data.state === "service-disabled") {
+    return (
+      <WorkspacePageShell
+        eyebrow="Foodstuff Purchase"
+        title="Foodstuff Purchase"
+        description="Track monthly committee funds, member applications, approvals, and accounting."
+      >
+        <WorkspaceEmptyState
+          body="This cooperative has not enabled Foodstuff Purchase. Admins can enable it from Settings > Operation Profile."
+          title="Foodstuff Purchase is not enabled."
+        />
+      </WorkspacePageShell>
+    )
+  }
+
   if (data.state === "member-sign-in-required") {
     return (
       <WorkspacePageShell
@@ -77,6 +92,7 @@ export default async function FoodPurchasePage() {
       >
         <MemberFoodPurchaseView
           applications={data.applications}
+          canCreateApplication={data.canCreateApplication}
           chargeOptions={data.chargeOptions}
           cycles={data.cycles}
           member={data.member}

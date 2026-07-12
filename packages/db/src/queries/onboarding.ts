@@ -7,6 +7,7 @@ import {
 import { createPrismaClient } from "../prisma"
 import { ensureTenantLedgerAccounts } from "./ledger"
 import { listSeedMemberships, listSeedUsers } from "./auth"
+import { ensureTenantOperationProfileDefaults } from "./operation-profile"
 import {
   listSeedTenantDomains,
   getTenantById,
@@ -40,6 +41,7 @@ export type TenantOnboardingSnapshot = {
 }
 
 export type TenantFirstRunOnboardingStepKey =
+  | "operation_profile"
   | "charges"
   | "shares"
   | "business"
@@ -235,10 +237,8 @@ export async function getTenantOnboardingState(tenantId: string) {
       (domain) => domain.tenantId === tenantId
     )
     const primarySiteDomain =
-      domains.find(
-        (domain) =>
-          domain.kind === "site" && domain.isPrimary
-      ) ?? null
+      domains.find((domain) => domain.kind === "site" && domain.isPrimary) ??
+      null
     const hasWorkspaceOwner = listSeedMemberships().some((membership) =>
       listSeedUsers().some(
         (user) =>
@@ -303,8 +303,7 @@ export async function getTenantOnboardingState(tenantId: string) {
 
   const primarySiteDomain =
     tenant?.domains.find(
-      (domain) =>
-        domain.kind === "site" && domain.isPrimary
+      (domain) => domain.kind === "site" && domain.isPrimary
     ) ?? null
   return buildTenantOnboardingSnapshot({
     hasTenantProfile: Boolean(tenant),
@@ -348,6 +347,7 @@ export async function getTenantFirstRunOnboardingState(
     contributions,
     monthlyRecords,
     importBatches,
+    operationProfile,
   ] = await Promise.all([
     prisma.chargeDefinition.count({
       where: { isActive: true, tenantId },
@@ -369,9 +369,21 @@ export async function getTenantFirstRunOnboardingState(
         tenantId,
       },
     }),
+    prisma.tenantOperationProfile.findUnique({
+      select: { reviewedAt: true },
+      where: { tenantId },
+    }),
   ])
   const hasMembersBeyondOwner = activeMembers > 1 || importBatches > 0
   const steps: TenantFirstRunOnboardingStep[] = [
+    {
+      key: "operation_profile",
+      label: "Operation profile",
+      description:
+        "Confirm how the cooperative collects commitments and which services members can use.",
+      complete: Boolean(operationProfile?.reviewedAt),
+      href: "/getting-started?step=operation-profile",
+    },
     {
       key: "charges",
       label: "Charges",
@@ -452,7 +464,9 @@ export async function createTenantWorkspaceBootstrap(
   const prisma = createPrismaClient()
 
   if (!prisma) {
-    throw new Error("Cooperative bootstrap requires DATABASE_URL to be configured")
+    throw new Error(
+      "Cooperative bootstrap requires DATABASE_URL to be configured"
+    )
   }
 
   const slug = normalizeSubdomainLabel(input.slug)
@@ -594,9 +608,14 @@ export async function createTenantWorkspaceBootstrap(
         },
       })
 
+      await ensureTenantOperationProfileDefaults(
+        createdTenant.id,
+        tx as unknown as PrismaClient
+      )
+
       await ensureTenantLedgerAccounts(
         createdTenant.id,
-        tx as unknown as PrismaClient,
+        tx as unknown as PrismaClient
       )
 
       return {
@@ -606,7 +625,7 @@ export async function createTenantWorkspaceBootstrap(
     },
     {
       timeout: tenantBootstrapTransactionTimeoutMs,
-    },
+    }
   )
 
   const onboarding = await getTenantOnboardingState(tenant.tenant.id)

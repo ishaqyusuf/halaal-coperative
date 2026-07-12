@@ -35,6 +35,7 @@ import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { updateMemberAction } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import type { MemberCollectionSourceOption } from "@/lib/members/load-members-page"
 
 const memberTypeOptions = [
   { label: "Individual", value: "individual" },
@@ -44,6 +45,7 @@ const memberTypeOptions = [
 
 const memberBaselineEditSchema = z.object({
   address: z.string().optional(),
+  deductionSourceId: z.string().optional(),
   email: z
     .string()
     .email("Enter a valid email.")
@@ -60,6 +62,7 @@ type MemberBaselineEditValues = z.infer<typeof memberBaselineEditSchema>
 
 type MemberBackfillBaselineMember = {
   address: string | null
+  deductionSourceId: string | null
   email: string | null
   fullName: string
   id: string
@@ -73,6 +76,7 @@ function getDefaultValues(
 ): MemberBaselineEditValues {
   return {
     address: member.address ?? "",
+    deductionSourceId: member.deductionSourceId ?? "none",
     email: member.email ?? "",
     fullName: member.fullName,
     memberId: member.id,
@@ -132,10 +136,64 @@ function MemberTypeSelectInput({
   )
 }
 
+function CollectionSourceSelectInput({
+  disabled,
+  onChange,
+  options,
+  value,
+}: {
+  disabled?: boolean
+  onChange: (value: string) => void
+  options: MemberCollectionSourceOption[]
+  value?: string
+}) {
+  const selectOptions = [
+    { label: "None/manual", value: "none" },
+    ...options.map((option) => ({ label: option.label, value: option.id })),
+  ]
+  const selectedOption = selectOptions.find((option) => option.value === value)
+
+  return (
+    <Select
+      disabled={disabled}
+      value={value}
+      onValueChange={(nextValue) => {
+        if (nextValue) {
+          onChange(nextValue)
+        }
+      }}
+    >
+      <SelectTrigger className="w-full">
+        <span
+          className={cn(
+            "truncate",
+            selectedOption ? undefined : "text-muted-foreground"
+          )}
+        >
+          {selectedOption?.label ?? "Select collection source"}
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {selectOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  )
+}
+
 export function MemberBackfillBaselineEditDialog({
+  canManageCollectionSources = false,
+  collectionSourceOptions = [],
   disabled,
   member,
 }: {
+  canManageCollectionSources?: boolean
+  collectionSourceOptions?: MemberCollectionSourceOption[]
   disabled?: boolean
   member: MemberBackfillBaselineMember
 }) {
@@ -231,6 +289,26 @@ export function MemberBackfillBaselineEditDialog({
                     </FormItem>
                   )}
                 />
+                {canManageCollectionSources ? (
+                  <FormField
+                    control={form.control}
+                    name="deductionSourceId"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Collection source</FormLabel>
+                        <FormControl>
+                          <CollectionSourceSelectInput
+                            disabled={isPending}
+                            onChange={field.onChange}
+                            options={collectionSourceOptions}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
                 <FormField
                   control={form.control}
                   name="phoneNumber"

@@ -3,6 +3,7 @@ import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 export const gettingStartedStepKeys = [
   "setup-mode",
+  "operation-profile",
   "start-date",
   "charges",
   "shares",
@@ -29,6 +30,4 @@ export function useGettingStartedParams() {
   }
 }
 
-export const loadGettingStartedParams = createLoader(
-  gettingStartedParamsSchema
-)
+export const loadGettingStartedParams = createLoader(gettingStartedParamsSchema)

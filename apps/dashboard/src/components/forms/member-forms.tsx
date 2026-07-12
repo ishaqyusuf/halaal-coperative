@@ -40,6 +40,7 @@ import {
 import { DatePickerInput } from "@/components/date-picker-input"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import { objectToFormData } from "@/lib/form-submit"
+import type { MemberCollectionSourceOption } from "@/lib/members/load-members-page"
 import {
   createMemberAction,
   createMemberDocumentAction,
@@ -151,6 +152,7 @@ const reviewStatusOptions = [
 const memberCreateSchema = z
   .object({
     address: z.string().optional(),
+    deductionSourceId: z.string().optional(),
     email: z
       .string()
       .email("Enter a valid email.")
@@ -289,6 +291,8 @@ export function MemberCommitmentForm({
 }
 
 export function MemberCreateForm({
+  canManageCollectionSources = false,
+  collectionSourceOptions = [],
   cooperativeStartDate,
   devMode,
   inModal = false,
@@ -296,6 +300,8 @@ export function MemberCreateForm({
   memberNumberPrefix,
   onSuccess,
 }: {
+  canManageCollectionSources?: boolean
+  collectionSourceOptions?: MemberCollectionSourceOption[]
   cooperativeStartDate?: string | null
   devMode: boolean
   inModal?: boolean
@@ -306,6 +312,7 @@ export function MemberCreateForm({
   const form = useZodForm<MemberCreateValues>(memberCreateSchema, {
     defaultValues: {
       address: initialValues?.address ?? "",
+      deductionSourceId: initialValues?.deductionSourceId ?? "none",
       email: initialValues?.email ?? "",
       fullName: initialValues?.fullName ?? "",
       joinedAt: initialValues?.joinedAt ?? "",
@@ -343,6 +350,7 @@ export function MemberCreateForm({
         showSuccess("Member added", "Member record created.")
         form.reset({
           address: "",
+          deductionSourceId: "none",
           email: "",
           fullName: "",
           joinedAt: "",
@@ -472,6 +480,31 @@ export function MemberCreateForm({
               </FormItem>
             )}
           />
+          {canManageCollectionSources ? (
+            <FormField
+              control={form.control}
+              name="deductionSourceId"
+              render={({ field }) => (
+                <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+                  <FormLabel>Collection source</FormLabel>
+                  <FormControl>
+                    <SelectFormInput
+                      {...field}
+                      options={[
+                        { label: "None/manual", value: "none" },
+                        ...collectionSourceOptions.map((source) => ({
+                          label: source.label,
+                          value: source.id,
+                        })),
+                      ]}
+                      placeholder="Select collection source"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : null}
           <FormField
             control={form.control}
             name="joinedAt"

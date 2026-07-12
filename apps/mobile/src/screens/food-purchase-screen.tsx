@@ -300,6 +300,7 @@ export function FoodPurchaseScreen() {
   const amount = parseAmount(requestedAmount)
   const paybackMonths = parsePositiveInteger(requestedPaybackMonths)
   const canSubmit = Boolean(
+    foodPurchase?.canCreateApplication &&
     cycleId &&
     amount > 0 &&
     paybackMonths > 0 &&
@@ -475,74 +476,83 @@ export function FoodPurchaseScreen() {
               </Text>
             ) : null}
 
-            <SectionCard icon="ShoppingBasket" title="New application">
-              <View className="gap-3">
-                {isLoading ? (
-                  <LoadingSpinner />
-                ) : openCycles.length ? (
-                  <View className="gap-2">
-                    {openCycles.map((cycle) => (
-                      <FoodPurchaseCycleButton
-                        currencyCode={currencyCode}
-                        cycle={cycle}
-                        isSelected={cycle.id === cycleId}
-                        key={cycle.id}
-                        onPress={() => setCycleId(cycle.id)}
-                      />
-                    ))}
-                  </View>
-                ) : (
-                  <Text className="text-sm leading-5 text-muted-foreground">
-                    No Foodstuff Purchase cycle is currently open for
-                    applications.
-                  </Text>
-                )}
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setRequestedAmount}
-                  placeholder="Requested amount"
-                  value={requestedAmount}
-                />
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setRequestedPaybackMonths}
-                  placeholder="Payback months"
-                  value={requestedPaybackMonths}
-                />
-                <Textarea
-                  editable={!isSubmitting}
-                  onChangeText={setItemDescription}
-                  placeholder="Items requested"
-                  value={itemDescription}
-                />
-                <Textarea
-                  editable={!isSubmitting}
-                  onChangeText={setRequestNotes}
-                  placeholder="Notes"
-                  value={requestNotes}
-                />
-                <MobileChargeSummary
-                  basisAmount={amount}
-                  charges={foodPurchase?.chargeOptions ?? []}
-                  currencyCode={currencyCode}
-                />
-                <Button
-                  className="h-12"
-                  disabled={!canSubmit}
-                  onPress={handleSubmit}
-                >
-                  <Icon
-                    name="Send"
-                    className="size-base text-primary-foreground"
+            {foodPurchase?.canCreateApplication ? (
+              <SectionCard icon="ShoppingBasket" title="New application">
+                <View className="gap-3">
+                  {isLoading ? (
+                    <LoadingSpinner />
+                  ) : openCycles.length ? (
+                    <View className="gap-2">
+                      {openCycles.map((cycle) => (
+                        <FoodPurchaseCycleButton
+                          currencyCode={currencyCode}
+                          cycle={cycle}
+                          isSelected={cycle.id === cycleId}
+                          key={cycle.id}
+                          onPress={() => setCycleId(cycle.id)}
+                        />
+                      ))}
+                    </View>
+                  ) : (
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      No Foodstuff Purchase cycle is currently open for
+                      applications.
+                    </Text>
+                  )}
+                  <Input
+                    editable={!isSubmitting}
+                    keyboardType="numeric"
+                    onChangeText={setRequestedAmount}
+                    placeholder="Requested amount"
+                    value={requestedAmount}
                   />
-                  <Text>
-                    {isSubmitting ? "Submitting" : "Send application"}
-                  </Text>
-                </Button>
-              </View>
-            </SectionCard>
+                  <Input
+                    editable={!isSubmitting}
+                    keyboardType="numeric"
+                    onChangeText={setRequestedPaybackMonths}
+                    placeholder="Payback months"
+                    value={requestedPaybackMonths}
+                  />
+                  <Textarea
+                    editable={!isSubmitting}
+                    onChangeText={setItemDescription}
+                    placeholder="Items requested"
+                    value={itemDescription}
+                  />
+                  <Textarea
+                    editable={!isSubmitting}
+                    onChangeText={setRequestNotes}
+                    placeholder="Notes"
+                    value={requestNotes}
+                  />
+                  <MobileChargeSummary
+                    basisAmount={amount}
+                    charges={foodPurchase?.chargeOptions ?? []}
+                    currencyCode={currencyCode}
+                  />
+                  <Button
+                    className="h-12"
+                    disabled={!canSubmit}
+                    onPress={handleSubmit}
+                  >
+                    <Icon
+                      name="Send"
+                      className="size-base text-primary-foreground"
+                    />
+                    <Text>
+                      {isSubmitting ? "Submitting" : "Send application"}
+                    </Text>
+                  </Button>
+                </View>
+              </SectionCard>
+            ) : (
+              <SectionCard icon="ShoppingBasket" title="Foodstuff Purchase">
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  New Foodstuff Purchase applications are handled by the
+                  cooperative office. Existing applications remain visible here.
+                </Text>
+              </SectionCard>
+            )}
 
             <SectionCard icon="ClipboardList" title="Application history">
               {isLoading ? (

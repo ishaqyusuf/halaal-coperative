@@ -6,6 +6,7 @@ import { headers } from "next/headers"
 import { DashboardShellClient } from "@/components/dashboard-shell"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
 import { canAccessDashboardPath } from "@/lib/navigation/lib"
+import { getOperationProfileHiddenNavPaths } from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   isInitialMigrationSetupPath,
@@ -43,6 +44,11 @@ export default async function SidebarLayout({
   }
 
   const role = normalizeRole(context.auth.membership?.role ?? null)
+  const hiddenNavPaths = await getOperationProfileHiddenNavPaths({
+    role,
+    tenantId: context.tenant?.id,
+    userId: context.auth.user?.id,
+  })
 
   if (!canAccessDashboardPath(nextPath, role)) {
     await tenantRedirect("/")
@@ -66,6 +72,7 @@ export default async function SidebarLayout({
       return (
         <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
           <DashboardShellClient
+            hiddenNavPaths={hiddenNavPaths}
             role={role}
             tenantName={tenantName}
             userName={userName}
@@ -137,6 +144,7 @@ export default async function SidebarLayout({
   return (
     <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
       <DashboardShellClient
+        hiddenNavPaths={hiddenNavPaths}
         role={role}
         tenantName={tenantName}
         userName={userName}

@@ -15,6 +15,7 @@ model ContributionPlan {
   member                Member                   @relation(fields: [memberId], references: [id], onDelete: Cascade)
   contributions         Contribution[]
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
+  collectionSourceBatchRows CollectionSourceContributionBatchRow[]
 
   @@index([tenantId, memberId], map: "contribution_plans_tenant_member_idx")
   @@map("contribution_plans")
@@ -43,10 +44,67 @@ model Contribution {
   chargeApplication     ChargeApplication?
   ledgerTransaction     LedgerTransaction?
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
+  collectionSourceBatchRows CollectionSourceContributionBatchRow[]
 
   @@index([tenantId, memberId, postedAt], map: "contributions_tenant_member_posted_at_idx")
   @@index([tenantId, status], map: "contributions_tenant_status_idx")
   @@map("contributions")
+}
+
+model CollectionSourceContributionBatch {
+  id                String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                                  @map("tenant_id") @db.Uuid
+  deductionSourceId String                                  @map("deduction_source_id") @db.Uuid
+  periodYear        Int                                     @map("period_year")
+  periodMonth       Int                                     @map("period_month")
+  periodLabel       String                                  @map("period_label")
+  status            CollectionSourceContributionBatchStatus @default(staged)
+  reference         String?
+  notes             String?
+  createdByUserId   String                                  @map("created_by_user_id") @db.Uuid
+  postedByUserId    String?                                 @map("posted_by_user_id") @db.Uuid
+  postedAt          DateTime?                               @map("posted_at") @db.Timestamptz(6)
+  createdAt         DateTime                                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant            Tenant                                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deductionSource   DeductionSource                         @relation(fields: [deductionSourceId], references: [id], onDelete: Restrict)
+  createdByUser     User                                    @relation("CollectionSourceBatchCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  postedByUser      User?                                   @relation("CollectionSourceBatchPostedBy", fields: [postedByUserId], references: [id], onDelete: SetNull)
+  rows              CollectionSourceContributionBatchRow[]
+
+  @@unique([tenantId, deductionSourceId, periodYear, periodMonth], map: "collection_source_batches_tenant_source_period_key")
+  @@index([tenantId, status], map: "collection_source_batches_tenant_status_idx")
+  @@index([tenantId, periodYear, periodMonth], map: "collection_source_batches_tenant_period_idx")
+  @@map("collection_source_contribution_batches")
+}
+
+model CollectionSourceContributionBatchRow {
+  id                 String                                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                                     @map("tenant_id") @db.Uuid
+  batchId            String                                     @map("batch_id") @db.Uuid
+  memberId           String                                     @map("member_id") @db.Uuid
+  contributionPlanId String?                                    @map("contribution_plan_id") @db.Uuid
+  contributionId     String?                                    @map("contribution_id") @db.Uuid
+  expectedAmount     Decimal                                    @default(0) @map("expected_amount") @db.Decimal(18, 2)
+  paidAmount         Decimal                                    @default(0) @map("paid_amount") @db.Decimal(18, 2)
+  status             CollectionSourceContributionBatchRowStatus @default(staged)
+  blocker            String?
+  exceptionReason    String?                                    @map("exception_reason")
+  postedAt           DateTime?                                  @map("posted_at") @db.Timestamptz(6)
+  createdAt          DateTime                                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant             Tenant                                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch              CollectionSourceContributionBatch          @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  member             Member                                     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  contributionPlan   ContributionPlan?                          @relation(fields: [contributionPlanId], references: [id], onDelete: SetNull)
+  contribution       Contribution?                              @relation(fields: [contributionId], references: [id], onDelete: SetNull)
+
+  @@unique([batchId, memberId], map: "collection_source_batch_rows_batch_member_key")
+  @@index([tenantId, status], map: "collection_source_batch_rows_tenant_status_idx")
+  @@index([tenantId, memberId], map: "collection_source_batch_rows_tenant_member_idx")
+  @@map("collection_source_contribution_batch_rows")
 }
 
 model MemberPaymentReceipt {

@@ -40,6 +40,9 @@ model User {
   auditLogs    AuditLog[]    @relation("AuditActorUser")
   memberOnboardingRequests MemberOnboardingRequest[]
   createdSignupLinks MemberSignupLink[] @relation("MemberSignupLinkCreatedBy")
+  reviewedTenantOperationProfiles TenantOperationProfile[] @relation("TenantOperationProfileReviewedBy")
+  createdCollectionSourceContributionBatches CollectionSourceContributionBatch[] @relation("CollectionSourceBatchCreatedBy")
+  postedCollectionSourceContributionBatches CollectionSourceContributionBatch[] @relation("CollectionSourceBatchPostedBy")
 
   @@unique([tenantId, email], map: "users_tenant_email_key")
   @@index([tenantId], map: "users_tenant_id_idx")

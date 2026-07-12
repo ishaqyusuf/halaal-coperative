@@ -1,6 +1,7 @@
 import {
   createDbRuntime,
   getMemberByUserId,
+  getTenantOperationProfile,
   getProcurementSummary,
   listMembers,
   listProcurementRequests,
@@ -31,6 +32,9 @@ export async function loadProcurementPageData() {
     return { state: "unavailable" as const }
   }
 
+  const operationProfile = await getTenantOperationProfile(context.tenant.id)
+  const procurementCapability = operationProfile.services.procurement
+
   if (canUseMemberProcurement) {
     if (!context.auth.user) {
       return { state: "member-sign-in-required" as const }
@@ -50,6 +54,13 @@ export async function loadProcurementPageData() {
       tenantId: context.tenant.id,
     })
 
+    if (
+      procurementCapability.accessMode === "disabled" &&
+      requests.length === 0
+    ) {
+      return { state: "service-disabled" as const }
+    }
+
     return {
       state: "member-ready" as const,
       chargeOptions: await quoteApplicableCharges({
@@ -58,6 +69,7 @@ export async function loadProcurementPageData() {
         trigger: "submission",
         workflow: "procurement_request",
       }),
+      canCreate: procurementCapability.canMemberCreate,
       member,
       requests,
     }
@@ -87,9 +99,17 @@ export async function loadProcurementPageData() {
     }),
   ])
 
+  if (
+    procurementCapability.accessMode === "disabled" &&
+    requests.length === 0
+  ) {
+    return { state: "service-disabled" as const }
+  }
+
   return {
     state: "staff-ready" as const,
     approvalChargeOptions,
+    canCreate: procurementCapability.canStaffCreate,
     canReview,
     memberOptions: members.items.map((member) => ({
       id: member.id,

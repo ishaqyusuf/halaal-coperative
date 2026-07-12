@@ -262,6 +262,7 @@ export function ProcurementScreen() {
   const cost = parseAmount(requestedCost)
   const repaymentMonths = parsePositiveInteger(requestedRepaymentMonths)
   const canSubmit = Boolean(
+    procurement?.canCreateRequest &&
     itemName.trim().length >= 2 &&
     cost > 0 &&
     repaymentMonths > 0 &&
@@ -426,58 +427,68 @@ export function ProcurementScreen() {
               </Text>
             ) : null}
 
-            <SectionCard icon="PackagePlus" title="New item request">
-              <View className="gap-3">
-                <Input
-                  editable={!isSubmitting}
-                  onChangeText={setItemName}
-                  placeholder="Item name"
-                  value={itemName}
-                />
-                <Input
-                  editable={!isSubmitting}
-                  onChangeText={setVendorName}
-                  placeholder="Vendor"
-                  value={vendorName}
-                />
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setRequestedCost}
-                  placeholder="Requested cost"
-                  value={requestedCost}
-                />
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setRequestedRepaymentMonths}
-                  placeholder="Repayment months"
-                  value={requestedRepaymentMonths}
-                />
-                <Textarea
-                  editable={!isSubmitting}
-                  onChangeText={setItemDescription}
-                  placeholder="Description"
-                  value={itemDescription}
-                />
-                <MobileChargeSummary
-                  basisAmount={cost}
-                  charges={procurement?.chargeOptions ?? []}
-                  currencyCode={currencyCode}
-                />
-                <Button
-                  className="h-12"
-                  disabled={!canSubmit}
-                  onPress={handleSubmit}
-                >
-                  <Icon
-                    name="Send"
-                    className="size-base text-primary-foreground"
+            {procurement?.canCreateRequest ? (
+              <SectionCard icon="PackagePlus" title="New item request">
+                <View className="gap-3">
+                  <Input
+                    editable={!isSubmitting}
+                    onChangeText={setItemName}
+                    placeholder="Item name"
+                    value={itemName}
                   />
-                  <Text>{isSubmitting ? "Submitting" : "Send request"}</Text>
-                </Button>
-              </View>
-            </SectionCard>
+                  <Input
+                    editable={!isSubmitting}
+                    onChangeText={setVendorName}
+                    placeholder="Vendor"
+                    value={vendorName}
+                  />
+                  <Input
+                    editable={!isSubmitting}
+                    keyboardType="numeric"
+                    onChangeText={setRequestedCost}
+                    placeholder="Requested cost"
+                    value={requestedCost}
+                  />
+                  <Input
+                    editable={!isSubmitting}
+                    keyboardType="numeric"
+                    onChangeText={setRequestedRepaymentMonths}
+                    placeholder="Repayment months"
+                    value={requestedRepaymentMonths}
+                  />
+                  <Textarea
+                    editable={!isSubmitting}
+                    onChangeText={setItemDescription}
+                    placeholder="Description"
+                    value={itemDescription}
+                  />
+                  <MobileChargeSummary
+                    basisAmount={cost}
+                    charges={procurement?.chargeOptions ?? []}
+                    currencyCode={currencyCode}
+                  />
+                  <Button
+                    className="h-12"
+                    disabled={!canSubmit}
+                    onPress={handleSubmit}
+                  >
+                    <Icon
+                      name="Send"
+                      className="size-base text-primary-foreground"
+                    />
+                    <Text>{isSubmitting ? "Submitting" : "Send request"}</Text>
+                  </Button>
+                </View>
+              </SectionCard>
+            ) : (
+              <SectionCard icon="PackageSearch" title="Procurement requests">
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  New procurement requests are handled by the cooperative
+                  office. Existing requests and repayment schedules remain
+                  visible here.
+                </Text>
+              </SectionCard>
+            )}
 
             <SectionCard icon="ClipboardList" title="Request history">
               {isLoading ? (

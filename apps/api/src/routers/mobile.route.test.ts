@@ -236,6 +236,7 @@ describe("mobileRouter", () => {
 
     const procurement = await caller.mobile.member.procurement.list()
 
+    expect(procurement.canCreateRequest).toBe(false)
     expect(procurement.member).toBeNull()
     expect(procurement.requests).toEqual([])
     expect(procurement.summary.pendingRequests).toBe(0)
@@ -382,6 +383,7 @@ describe("mobileRouter", () => {
     const foodPurchase = await caller.mobile.member.foodPurchase.list()
 
     expect(foodPurchase.member).toBeNull()
+    expect(foodPurchase.canCreateApplication).toBe(false)
     expect(foodPurchase.cycles).toEqual([])
     expect(foodPurchase.applications).toEqual([])
     expect(foodPurchase.summary.openCycles).toBe(0)

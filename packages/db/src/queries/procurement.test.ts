@@ -8,12 +8,18 @@ import {
 } from "./procurement"
 
 function startOfDayUtc(value: Date) {
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
+  return new Date(
+    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())
+  )
 }
 
 function addDaysUtc(value: Date, days: number) {
   return new Date(
-    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate() + days),
+    Date.UTC(
+      value.getUTCFullYear(),
+      value.getUTCMonth(),
+      value.getUTCDate() + days
+    )
   )
 }
 
@@ -65,14 +71,28 @@ function procurementRequestRow(overrides: Record<string, unknown> = {}) {
 
 function createProcurementPrismaStub(input?: {
   activeFinancingCount?: number
+  activeProcurementObligationCount?: number
   canUseLiveWrites?: boolean
   existingRequestOverrides?: Record<string, unknown>
+  procurementAccessMode?:
+    | "disabled"
+    | "member_self_service"
+    | "office_only"
+    | "read_only"
   policyOverrides?: Record<string, unknown>
 }) {
   const auditLogCreates: unknown[] = []
   const procurementRequestCreates: unknown[] = []
+  const procurementRequestCounts: unknown[] = []
   const procurementRepaymentScheduleCreates: unknown[] = []
   const procurementRequestUpdates: unknown[] = []
+  const serviceSettings = [
+    {
+      accessMode: input?.procurementAccessMode ?? "office_only",
+      serviceKey: "procurement",
+      tenantId: "tenant-1",
+    },
+  ]
   const canUseLiveWrites = input?.canUseLiveWrites ?? true
   const tenant = {
     id: "tenant-1",
@@ -135,6 +155,7 @@ function createProcurementPrismaStub(input?: {
       },
     },
     procurementRequest: {
+      count: async () => input?.activeProcurementObligationCount ?? 0,
       create: async (args: any) => {
         procurementRequestCreates.push(args)
         return {
@@ -200,7 +221,15 @@ function createProcurementPrismaStub(input?: {
       findFirst: async () => ({ id: "member-1" }),
       findMany: async () => [],
     },
+    procurementRequest: {
+      count: async (args: unknown) => {
+        procurementRequestCounts.push(args)
+
+        return input?.activeProcurementObligationCount ?? 0
+      },
+    },
     procurementRequestCreates,
+    procurementRequestCounts,
     procurementRequestUpdates,
     procurementRepaymentScheduleCreates,
     shareBusinessProfitEntry: {
@@ -216,6 +245,47 @@ function createProcurementPrismaStub(input?: {
         procurementMaximumPaybackMonths: 12,
         ...(input?.policyOverrides ?? {}),
       }),
+    },
+    tenantOperationProfile: {
+      upsert: async () => ({
+        id: "operation-profile-1",
+        reviewedAt: new Date("2026-07-01T00:00:00.000Z"),
+        reviewedByUserId: "user-1",
+        tenantId: "tenant-1",
+      }),
+    },
+    tenantServiceSetting: {
+      findMany: async ({ where }: { where: { tenantId: string } }) =>
+        serviceSettings.filter(
+          (setting) => setting.tenantId === where.tenantId
+        ),
+      upsert: async (upsertInput: {
+        create: {
+          accessMode: string
+          serviceKey: string
+          tenantId: string
+        }
+        where: {
+          tenantId_serviceKey: {
+            serviceKey: string
+            tenantId: string
+          }
+        }
+      }) => {
+        const existing = serviceSettings.find(
+          (setting) =>
+            setting.tenantId ===
+              upsertInput.where.tenantId_serviceKey.tenantId &&
+            setting.serviceKey ===
+              upsertInput.where.tenantId_serviceKey.serviceKey
+        )
+
+        if (existing) return existing
+
+        serviceSettings.push(upsertInput.create)
+
+        return upsertInput.create
+      },
     },
     tenantShareStructureVersion: {
       count: async () => 1,
@@ -237,8 +307,8 @@ describe("procurement request workflow", () => {
           requestedRepaymentMonths: 6,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.procurementRequestCreates).toHaveLength(0)
@@ -257,8 +327,8 @@ describe("procurement request workflow", () => {
           requestedRepaymentMonths: 6,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("blocks procurement")
 
     expect(prisma.procurementRequestCreates).toHaveLength(0)
@@ -287,7 +357,7 @@ describe("procurement request workflow", () => {
         tenantId: "tenant-1",
         vendorName: "Local Vendor",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.procurementRequestCreates[0]).toMatchObject({
@@ -301,6 +371,97 @@ describe("procurement request workflow", () => {
       },
     })
     expect(request.estimatedMonthlyRepayment).toBe(25000)
+  })
+
+  test("blocks member-created procurement when service is office-only", async () => {
+    const prisma = createProcurementPrismaStub({
+      procurementAccessMode: "office_only",
+    })
+
+    await expect(
+      createProcurementRequest(
+        {
+          actorUserId: "user-1",
+          itemName: "Phone",
+          memberId: "member-1",
+          requestSource: "member_self_service",
+          requestedCost: 120000,
+          requestedRepaymentMonths: 6,
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("cooperative office")
+
+    expect(prisma.procurementRequestCreates).toHaveLength(0)
+  })
+
+  test("allows member-created procurement when self-service is enabled", async () => {
+    const prisma = createProcurementPrismaStub({
+      procurementAccessMode: "member_self_service",
+    })
+
+    const request = await createProcurementRequest(
+      {
+        actorUserId: "user-1",
+        itemName: "Phone",
+        memberId: "member-1",
+        requestSource: "member_self_service",
+        requestedCost: 120000,
+        requestedRepaymentMonths: 6,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(request.status).toBe("submitted")
+    expect(prisma.procurementRequestCreates).toHaveLength(1)
+  })
+
+  test("blocks staff-created procurement when service is read-only", async () => {
+    const prisma = createProcurementPrismaStub({
+      procurementAccessMode: "read_only",
+    })
+
+    await expect(
+      createProcurementRequest(
+        {
+          actorUserId: "user-1",
+          itemName: "Phone",
+          memberId: "member-1",
+          requestSource: "staff",
+          requestedCost: 120000,
+          requestedRepaymentMonths: 6,
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("read-only")
+
+    expect(prisma.procurementRequestCreates).toHaveLength(0)
+  })
+
+  test("blocks staff-created procurement when service is disabled", async () => {
+    const prisma = createProcurementPrismaStub({
+      procurementAccessMode: "disabled",
+    })
+
+    await expect(
+      createProcurementRequest(
+        {
+          actorUserId: "user-1",
+          itemName: "Phone",
+          memberId: "member-1",
+          requestSource: "staff",
+          requestedCost: 120000,
+          requestedRepaymentMonths: 6,
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("not enabled")
+
+    expect(prisma.procurementRequestCreates).toHaveLength(0)
   })
 
   test("blocks procurement request above tenant payback cap", async () => {
@@ -318,11 +479,71 @@ describe("procurement request workflow", () => {
           requestedRepaymentMonths: 6,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("cannot exceed 3")
 
     expect(prisma.procurementRequestCreates).toHaveLength(0)
+  })
+
+  test("blocks procurement request at the active obligation cap", async () => {
+    const prisma = createProcurementPrismaStub({
+      activeProcurementObligationCount: 1,
+      policyOverrides: {
+        procurementMaximumActiveObligationsPerMember: 1,
+      },
+    })
+
+    await expect(
+      createProcurementRequest(
+        {
+          actorUserId: "user-1",
+          itemName: "Phone",
+          memberId: "member-1",
+          requestedCost: 120000,
+          requestedRepaymentMonths: 6,
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("active procurement obligation limit (1)")
+
+    expect(prisma.procurementRequestCreates).toHaveLength(0)
+  })
+
+  test("counts only tenant-scoped active unpaid procurement obligations", async () => {
+    const prisma = createProcurementPrismaStub({
+      activeProcurementObligationCount: 1,
+      policyOverrides: {
+        procurementMaximumActiveObligationsPerMember: 2,
+      },
+    })
+
+    await createProcurementRequest(
+      {
+        actorUserId: "user-1",
+        itemName: "Phone",
+        memberId: "member-1",
+        requestedCost: 120000,
+        requestedRepaymentMonths: 6,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.procurementRequestCounts[0]).toMatchObject({
+      where: {
+        memberId: "member-1",
+        repaymentScheduleItems: {
+          some: {
+            status: { notIn: ["paid", "waived"] },
+          },
+        },
+        status: { in: ["active", "purchased"] },
+        tenantId: "tenant-1",
+      },
+    })
+    expect(prisma.procurementRequestCreates).toHaveLength(1)
   })
 
   test("approves procurement request with reviewed cost and repayment plan", async () => {
@@ -343,7 +564,7 @@ describe("procurement request workflow", () => {
         status: "approved",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.procurementRequestUpdates[0]).toMatchObject({
@@ -380,8 +601,8 @@ describe("procurement request workflow", () => {
           status: "approved",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("cannot exceed 3")
 
     expect(prisma.procurementRequestUpdates).toHaveLength(0)
@@ -389,51 +610,48 @@ describe("procurement request workflow", () => {
 
   test("lists procurement schedules with due and overdue read-model status", async () => {
     const today = startOfDayUtc(new Date())
-    const requests = await listProcurementRequests(
-      { tenantId: "tenant-1" },
-      {
-        procurementRequest: {
-          findMany: async () => [
-            procurementRequestRow({
-              repaymentScheduleItems: [
-                {
-                  amount: 20000,
-                  dueDate: addDaysUtc(today, -1),
-                  id: "schedule-overdue",
-                  installmentNumber: 1,
-                  paidAmount: 0,
-                  status: "pending",
-                },
-                {
-                  amount: 20000,
-                  dueDate: today,
-                  id: "schedule-due",
-                  installmentNumber: 2,
-                  paidAmount: 5000,
-                  status: "partially_paid",
-                },
-                {
-                  amount: 20000,
-                  dueDate: addDaysUtc(today, 20),
-                  id: "schedule-future",
-                  installmentNumber: 3,
-                  paidAmount: 0,
-                  status: "pending",
-                },
-                {
-                  amount: 20000,
-                  dueDate: addDaysUtc(today, -10),
-                  id: "schedule-paid",
-                  installmentNumber: 4,
-                  paidAmount: 20000,
-                  status: "paid",
-                },
-              ],
-            }),
-          ],
-        },
-      } as never,
-    )
+    const requests = await listProcurementRequests({ tenantId: "tenant-1" }, {
+      procurementRequest: {
+        findMany: async () => [
+          procurementRequestRow({
+            repaymentScheduleItems: [
+              {
+                amount: 20000,
+                dueDate: addDaysUtc(today, -1),
+                id: "schedule-overdue",
+                installmentNumber: 1,
+                paidAmount: 0,
+                status: "pending",
+              },
+              {
+                amount: 20000,
+                dueDate: today,
+                id: "schedule-due",
+                installmentNumber: 2,
+                paidAmount: 5000,
+                status: "partially_paid",
+              },
+              {
+                amount: 20000,
+                dueDate: addDaysUtc(today, 20),
+                id: "schedule-future",
+                installmentNumber: 3,
+                paidAmount: 0,
+                status: "pending",
+              },
+              {
+                amount: 20000,
+                dueDate: addDaysUtc(today, -10),
+                id: "schedule-paid",
+                installmentNumber: 4,
+                paidAmount: 20000,
+                status: "paid",
+              },
+            ],
+          }),
+        ],
+      },
+    } as never)
 
     expect(requests[0].repaymentScheduleItems).toMatchObject([
       { id: "schedule-overdue", status: "overdue" },
@@ -447,37 +665,34 @@ describe("procurement request workflow", () => {
   test("summarizes due, overdue, and outstanding procurement schedules", async () => {
     const scheduleCountWheres: unknown[] = []
 
-    const summary = await getProcurementSummary(
-      "tenant-1",
-      {
-        procurementRequest: {
-          aggregate: async (input: any) => ({
-            _sum: input.where.status
-              ? { approvedCost: 250000 }
-              : { requestedCost: 300000 },
-          }),
-          count: async (input: any) => {
-            if (input.where.status === "approved") return 1
-            if (input.where.status === "rejected") return 2
-            if (input.where.status?.in?.includes("submitted")) return 3
-            if (input.where.status?.in?.includes("active")) return 4
-            return 0
-          },
+    const summary = await getProcurementSummary("tenant-1", {
+      procurementRequest: {
+        aggregate: async (input: any) => ({
+          _sum: input.where.status
+            ? { approvedCost: 250000 }
+            : { requestedCost: 300000 },
+        }),
+        count: async (input: any) => {
+          if (input.where.status === "approved") return 1
+          if (input.where.status === "rejected") return 2
+          if (input.where.status?.in?.includes("submitted")) return 3
+          if (input.where.status?.in?.includes("active")) return 4
+          return 0
         },
-        procurementRepaymentScheduleItem: {
-          aggregate: async () => ({
-            _sum: {
-              amount: 90000,
-              paidAmount: 25000,
-            },
-          }),
-          count: async (input: any) => {
-            scheduleCountWheres.push(input.where)
-            return scheduleCountWheres.length === 1 ? 2 : 1
+      },
+      procurementRepaymentScheduleItem: {
+        aggregate: async () => ({
+          _sum: {
+            amount: 90000,
+            paidAmount: 25000,
           },
+        }),
+        count: async (input: any) => {
+          scheduleCountWheres.push(input.where)
+          return scheduleCountWheres.length === 1 ? 2 : 1
         },
-      } as never,
-    )
+      },
+    } as never)
 
     expect(summary).toMatchObject({
       activeRequests: 4,
@@ -520,7 +735,7 @@ describe("procurement request workflow", () => {
         purchaseReference: "INV-100",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect((prisma as any).procurementRequestUpdates[0]).toMatchObject({
@@ -532,8 +747,12 @@ describe("procurement request workflow", () => {
       },
       where: { id: "procurement-1" },
     })
-    expect((prisma as any).procurementRepaymentScheduleCreates[0].data).toHaveLength(9)
-    expect((prisma as any).procurementRepaymentScheduleCreates[0].data[0]).toMatchObject({
+    expect(
+      (prisma as any).procurementRepaymentScheduleCreates[0].data
+    ).toHaveLength(9)
+    expect(
+      (prisma as any).procurementRepaymentScheduleCreates[0].data[0]
+    ).toMatchObject({
       amount: 20000,
       dueDate: new Date("2026-08-31T00:00:00.000Z"),
       installmentNumber: 1,
@@ -542,11 +761,15 @@ describe("procurement request workflow", () => {
       status: "pending",
       tenantId: "tenant-1",
     })
-    expect((prisma as any).procurementRepaymentScheduleCreates[0].data[1]).toMatchObject({
+    expect(
+      (prisma as any).procurementRepaymentScheduleCreates[0].data[1]
+    ).toMatchObject({
       dueDate: new Date("2026-09-30T00:00:00.000Z"),
       installmentNumber: 2,
     })
-    expect((prisma as any).procurementRepaymentScheduleCreates[0].data.at(-1)).toMatchObject({
+    expect(
+      (prisma as any).procurementRepaymentScheduleCreates[0].data.at(-1)
+    ).toMatchObject({
       amount: 20000,
       installmentNumber: 9,
     })

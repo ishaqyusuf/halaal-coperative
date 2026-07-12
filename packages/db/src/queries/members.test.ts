@@ -14,6 +14,8 @@ import {
 function createMemberPrismaStub({
   appliedBackfillBatches = 0,
   chargeScheduleVersions = 1,
+  collectionSourcesAccessMode = "office_only",
+  deductionSourceActive = true,
   initialMigrationStatus = "historical_setup_in_progress",
   shareBusinessProfitEntries = 1,
   shareStructureVersions = 1,
@@ -21,11 +23,18 @@ function createMemberPrismaStub({
 }: {
   appliedBackfillBatches?: number
   chargeScheduleVersions?: number
+  collectionSourcesAccessMode?:
+    | "disabled"
+    | "member_self_service"
+    | "office_only"
+    | "read_only"
+  deductionSourceActive?: boolean
   initialMigrationStatus?: string
   shareBusinessProfitEntries?: number
   shareStructureVersions?: number
   startDate?: Date | null
 } = {}) {
+  const auditLogCreates: unknown[] = []
   const contributionPlanCreateMany: unknown[] = []
   const memberCreates: unknown[] = []
   const memberAmountLogCreateMany: unknown[] = []
@@ -40,7 +49,11 @@ function createMemberPrismaStub({
     },
     auditLog: {
       count: async () => 0,
-      create: async (input: unknown) => input,
+      create: async (input: unknown) => {
+        auditLogCreates.push(input)
+
+        return input
+      },
     },
     backfillBatch: {
       count: async () => appliedBackfillBatches,
@@ -56,6 +69,17 @@ function createMemberPrismaStub({
 
         return { count: 1 }
       },
+    },
+    deductionSource: {
+      findFirst: async (input: {
+        where: { id: string; isActive: boolean; tenantId: string }
+      }) =>
+        deductionSourceActive &&
+        input.where.id === "source-1" &&
+        input.where.tenantId === "tenant-1" &&
+        input.where.isActive
+          ? { id: "source-1" }
+          : null,
     },
     legacyLoanMigrationDraft: {
       count: async () => 0,
@@ -146,6 +170,27 @@ function createMemberPrismaStub({
         startDate,
       }),
     },
+    tenantOperationProfile: {
+      upsert: async () => ({
+        id: "operation-profile-1",
+        reviewedAt: null,
+        reviewedByUserId: null,
+        tenantId: "tenant-1",
+      }),
+    },
+    tenantPolicy: {
+      findUnique: async () => null,
+    },
+    tenantServiceSetting: {
+      findMany: async () => [
+        {
+          accessMode: collectionSourcesAccessMode,
+          serviceKey: "collection_sources",
+          tenantId: "tenant-1",
+        },
+      ],
+      upsert: async (input: { create: unknown }) => input.create,
+    },
     tenantShareStructureVersion: {
       count: async () => shareStructureVersions,
     },
@@ -154,6 +199,7 @@ function createMemberPrismaStub({
   return {
     $transaction: async (callback: (tx: typeof tx) => Promise<unknown>) =>
       callback(tx),
+    auditLogCreates,
     contributionPlanCreateMany,
     memberAmountLogCreateMany,
     memberDocumentCreates,
@@ -202,6 +248,63 @@ describe("member profile migration guards", () => {
     await createMember(memberInput, prisma as never)
 
     expect(prisma.memberCreates).toHaveLength(1)
+  })
+
+  test("creates a member with an enabled tenant collection source", async () => {
+    const prisma = createMemberPrismaStub({
+      collectionSourcesAccessMode: "office_only",
+    })
+
+    await createMember(
+      {
+        ...memberInput,
+        deductionSourceId: "source-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.memberCreates[0]).toMatchObject({
+      data: {
+        deductionSourceId: "source-1",
+        memberType: "individual",
+      },
+    })
+  })
+
+  test("blocks collection source assignment when collection sources are disabled", async () => {
+    const prisma = createMemberPrismaStub({
+      collectionSourcesAccessMode: "disabled",
+    })
+
+    await expect(
+      createMember(
+        {
+          ...memberInput,
+          deductionSourceId: "source-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("Collection Source assignment is not enabled")
+
+    expect(prisma.memberCreates).toHaveLength(0)
+  })
+
+  test("blocks collection source assignment for inactive or cross-tenant sources", async () => {
+    const prisma = createMemberPrismaStub({
+      deductionSourceActive: false,
+    })
+
+    await expect(
+      createMember(
+        {
+          ...memberInput,
+          deductionSourceId: "source-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("does not belong to this cooperative or is inactive")
+
+    expect(prisma.memberCreates).toHaveLength(0)
   })
 
   test("allows member creation during migration without share history", async () => {
@@ -326,6 +429,39 @@ describe("member profile migration guards", () => {
         },
       },
     ])
+  })
+
+  test("updates and audits member collection source separately from member type", async () => {
+    const prisma = createMemberPrismaStub({
+      collectionSourcesAccessMode: "office_only",
+    })
+
+    await updateMember(
+      "tenant-1",
+      "member-1",
+      {
+        actorUserId: "user-1",
+        deductionSourceId: "source-1",
+        memberType: "business",
+      },
+      prisma as never
+    )
+
+    expect(prisma.memberUpdates[0]).toMatchObject({
+      data: {
+        deductionSourceId: "source-1",
+        memberType: "business",
+      },
+    })
+    expect(prisma.auditLogCreates.at(-1)).toMatchObject({
+      data: {
+        action: "member.updated",
+        metadata: {
+          deductionSourceId: "source-1",
+          memberType: "business",
+        },
+      },
+    })
   })
 
   test("blocks member status updates before live operations", async () => {

@@ -3,6 +3,7 @@ import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 import { applyApplicableWorkflowChargesInTransaction } from "./charges"
 import { getTenantInitialMigrationState } from "./migration"
+import { getTenantOperationProfile } from "./operation-profile"
 
 export type FoodPurchaseCycleStatus =
   | "accounting_approved"
@@ -18,6 +19,11 @@ export type FoodPurchaseApplicationStatus =
   | "rejected"
   | "submitted"
   | "under_review"
+
+export type FoodPurchaseRequestSource =
+  | "member_self_service"
+  | "staff"
+  | "system"
 
 type UserPreview = {
   email: string
@@ -122,6 +128,39 @@ function assertNonNegativeAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0) {
     throw new Error(`${label} cannot be negative.`)
   }
+}
+
+function assertFoodPurchaseCreationAllowed(input: {
+  accessMode: string
+  canMemberCreate: boolean
+  canStaffCreate: boolean
+  requestSource: FoodPurchaseRequestSource
+}) {
+  if (input.requestSource === "system") {
+    return
+  }
+
+  if (input.requestSource === "member_self_service") {
+    if (input.canMemberCreate) {
+      return
+    }
+
+    if (input.accessMode === "office_only") {
+      throw new Error(
+        "Foodstuff Purchase applications must be submitted through the cooperative office."
+      )
+    }
+  } else if (input.canStaffCreate) {
+    return
+  }
+
+  if (input.accessMode === "read_only") {
+    throw new Error(
+      "Foodstuff Purchase is currently read-only for this cooperative."
+    )
+  }
+
+  throw new Error("Foodstuff Purchase is not enabled for this cooperative.")
 }
 
 function normalizePeriodMonth(value: Date) {
@@ -408,6 +447,39 @@ async function getApprovedApplicationTotal(
   return Number(approved._sum.approvedAmount ?? 0)
 }
 
+async function getActiveFoodPurchaseObligationCount(
+  input: {
+    memberId: string
+    tenantId: string
+  },
+  prisma: any
+) {
+  if (typeof prisma.foodPurchaseApplication?.findMany !== "function") {
+    return 0
+  }
+
+  const approvedApplications = await prisma.foodPurchaseApplication.findMany({
+    select: {
+      approvedAmount: true,
+      id: true,
+      paidAmount: true,
+    },
+    where: {
+      approvedAmount: { not: null },
+      memberId: input.memberId,
+      status: "approved",
+      tenantId: input.tenantId,
+    },
+  })
+
+  return approvedApplications.filter((application: any) => {
+    const approvedAmount = Number(application.approvedAmount ?? 0)
+    const paidAmount = Number(application.paidAmount ?? 0)
+
+    return approvedAmount > 0 && paidAmount < approvedAmount
+  }).length
+}
+
 export async function listFoodPurchaseCycles(
   input: {
     limit?: number
@@ -447,6 +519,7 @@ export async function createFoodPurchaseCycle(
     releasedAmount: number
     releasedAt?: Date
     releaseNotes?: string | null
+    requestSource?: FoodPurchaseRequestSource
     tenantId: string
   },
   prismaOverride?: PrismaClient
@@ -462,6 +535,17 @@ export async function createFoodPurchaseCycle(
 
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   await assertActorBelongsToTenant(input, prisma)
+  const operationProfile = await getTenantOperationProfile(
+    input.tenantId,
+    prisma as PrismaClient
+  )
+  const foodPurchaseCapability = operationProfile.services.food_purchase
+  assertFoodPurchaseCreationAllowed({
+    accessMode: foodPurchaseCapability.accessMode,
+    canMemberCreate: foodPurchaseCapability.canMemberCreate,
+    canStaffCreate: foodPurchaseCapability.canStaffCreate,
+    requestSource: input.requestSource ?? "staff",
+  })
   assertPositiveAmount(
     input.releasedAmount,
     "Released Foodstuff Purchase amount"
@@ -558,6 +642,7 @@ export async function submitFoodPurchaseApplication(
     cycleId: string
     itemDescription?: string | null
     memberId: string
+    requestSource?: FoodPurchaseRequestSource
     requestNotes?: string | null
     requestedAmount: number
     requestedPaybackMonths: number
@@ -586,8 +671,18 @@ export async function submitFoodPurchaseApplication(
     "Requested foodstuff payback months"
   )
 
-  const policy = await prisma.tenantPolicy.findUnique({
-    where: { tenantId: input.tenantId },
+  const [policy, operationProfile] = await Promise.all([
+    prisma.tenantPolicy.findUnique({
+      where: { tenantId: input.tenantId },
+    }),
+    getTenantOperationProfile(input.tenantId, prisma as PrismaClient),
+  ])
+  const foodPurchaseCapability = operationProfile.services.food_purchase
+  assertFoodPurchaseCreationAllowed({
+    accessMode: foodPurchaseCapability.accessMode,
+    canMemberCreate: foodPurchaseCapability.canMemberCreate,
+    canStaffCreate: foodPurchaseCapability.canStaffCreate,
+    requestSource: input.requestSource ?? "staff",
   })
   const foodPurchaseMaximumPaybackMonths = Number(
     policy?.foodPurchaseMaximumPaybackMonths ?? 1
@@ -596,6 +691,31 @@ export async function submitFoodPurchaseApplication(
   if (input.requestedPaybackMonths > foodPurchaseMaximumPaybackMonths) {
     throw new Error(
       `Requested Foodstuff Purchase payback months cannot exceed ${foodPurchaseMaximumPaybackMonths}.`
+    )
+  }
+
+  const foodPurchaseMaximumActiveObligationsPerMember = Number(
+    policy?.foodPurchaseMaximumActiveObligationsPerMember ?? 1
+  )
+  assertPositiveInteger(
+    foodPurchaseMaximumActiveObligationsPerMember,
+    "Foodstuff Purchase active obligation limit"
+  )
+  const activeFoodPurchaseObligationCount =
+    await getActiveFoodPurchaseObligationCount(
+      {
+        memberId: input.memberId,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+
+  if (
+    activeFoodPurchaseObligationCount >=
+    foodPurchaseMaximumActiveObligationsPerMember
+  ) {
+    throw new Error(
+      `This member has reached the active Foodstuff Purchase obligation limit (${foodPurchaseMaximumActiveObligationsPerMember}). Settle an active Foodstuff Purchase obligation before creating another application.`
     )
   }
 
@@ -608,7 +728,10 @@ export async function submitFoodPurchaseApplication(
       tx
     )
 
-    if (cycle.status !== "open") {
+    if (
+      (policy?.foodPurchaseRequiresOpenCycle ?? true) &&
+      cycle.status !== "open"
+    ) {
       throw new Error(
         "Foodstuff Purchase applications can only be submitted for an open cycle."
       )

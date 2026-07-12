@@ -51,6 +51,8 @@ export default async function TenantHomePage() {
     if (data.state === "member-ready") {
       memberPortalContent = (
         <MemberPortalOverview
+          canShowFoodPurchase={data.canShowFoodPurchase}
+          canShowProcurement={data.canShowProcurement}
           detail={data.detail}
           foodPurchaseApplications={data.foodPurchaseApplications}
           procurementRequests={data.procurementRequests}
@@ -67,6 +69,7 @@ export default async function TenantHomePage() {
     return (
       <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
         <DashboardShellClient
+          hiddenNavPaths={data.hiddenNavPaths}
           role={data.role}
           tenantName={data.tenantName}
           userName={data.userName}
@@ -82,6 +85,7 @@ export default async function TenantHomePage() {
   return (
     <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
       <DashboardShellClient
+        hiddenNavPaths={data.hiddenNavPaths}
         role={data.role}
         tenantName={data.tenantName}
         userName={data.userName}

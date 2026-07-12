@@ -13,7 +13,9 @@ import {
   getTenantMigrationSetup,
   getTenantSharePolicy,
   getTenantInitialMigrationState,
+  getTenantOperationProfile,
   listHistoricalMemberSharePurchases,
+  listActiveDeductionSources,
   listLegacyLoanMigrationDrafts,
   listMemberActivityEvents,
   listMemberAmountLogs,
@@ -159,6 +161,7 @@ function serializeMember(member: BackfillMember) {
 
   return {
     address: member.address,
+    deductionSourceId: member.deductionSourceId,
     email: member.email,
     fullName: member.fullName,
     id: member.id,
@@ -199,6 +202,7 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     memberOptions,
     migrationSetup,
     sharePolicy,
+    operationProfile,
   ] = await Promise.all([
     getMemberById(tenantId, memberId),
     getTenantInitialMigrationState(tenantId),
@@ -212,6 +216,7 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     listMembers(tenantId, { page: 1, pageSize: 200 }),
     getTenantMigrationSetup(tenantId),
     getTenantSharePolicy(tenantId),
+    getTenantOperationProfile(tenantId),
   ])
 
   if (!member || !review) {
@@ -242,8 +247,15 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
         : "Could not generate the member ledger preview."
   }
 
+  const canManageCollectionSources =
+    operationProfile.services.collection_sources.canStaffCreate
+  const deductionSources = canManageCollectionSources
+    ? await listActiveDeductionSources(tenantId)
+    : []
+
   return {
     state: "ready" as const,
+    canManageCollectionSources,
     canEditBackfill: hasAnyRole(
       context.auth.membership?.role,
       financeManagementRoles
@@ -255,6 +267,10 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
       .filter((draft) => draft.memberId === memberId)
       .map(serializeLegacyLoanDraft),
     member: serializeMember(member),
+    collectionSourceOptions: deductionSources.map((source) => ({
+      id: source.id,
+      label: `${source.name} (${source.type.replace(/_/g, " ")})`,
+    })),
     memberActivityEvents: activityEvents.map(serializeMemberActivityEvent),
     memberAmountLogs: amountLogs.map(serializeMemberAmountLog),
     memberOpeningBalances: openingBalances.map(serializeMemberOpeningBalance),

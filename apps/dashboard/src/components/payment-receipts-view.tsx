@@ -22,6 +22,7 @@ import {
   reviewMemberPaymentReceiptAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import type { PaymentReceiptCategoryOption } from "@/lib/payment-receipts/load-payment-receipts-page"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 
 type Option = {
@@ -66,17 +67,17 @@ type AllocationDraft = {
   targetMonth: string
 }
 
-const categoryOptions: Array<{ label: string; value: AllocationCategory }> = [
-  { label: "Commitment", value: "commitment" },
-  { label: "Special savings", value: "special_savings" },
-  { label: "Loan servicing", value: "loan_servicing" },
-  { label: "Extra loan payment", value: "loan_extra_payment" },
-  { label: "Shares", value: "shares" },
-  { label: "Procurement", value: "procurement" },
-  { label: "Project financing", value: "project_financing" },
-  { label: "Foodstuff Purchase", value: "food_purchase" },
-  { label: "Other", value: "other" },
-]
+const categoryLabels: Record<AllocationCategory, string> = {
+  commitment: "Commitment",
+  food_purchase: "Foodstuff Purchase",
+  loan_extra_payment: "Extra loan payment",
+  loan_servicing: "Loan servicing",
+  other: "Other",
+  procurement: "Procurement",
+  project_financing: "Project financing",
+  shares: "Shares",
+  special_savings: "Special savings",
+}
 
 const periodOptions: Array<{ label: string; value: PeriodIntent }> = [
   { label: "Current", value: "current_period" },
@@ -190,6 +191,7 @@ function statusTone(status: MemberPaymentReceiptRow["status"]) {
 }
 
 export function PaymentReceiptsView({
+  categoryOptions,
   commitmentPlans,
   foodPurchaseApplications,
   loans,
@@ -199,6 +201,7 @@ export function PaymentReceiptsView({
   receipts,
   summary,
 }: {
+  categoryOptions: PaymentReceiptCategoryOption[]
   commitmentPlans: Option[]
   foodPurchaseApplications: Option[]
   loans: Option[]
@@ -507,6 +510,7 @@ export function PaymentReceiptsView({
           {allocations.map((allocation, index) => (
             <AllocationEditor
               allocation={allocation}
+              categoryOptions={categoryOptions}
               commitmentPlans={selectedMemberPlans}
               disabled={isPending}
               foodPurchaseApplications={selectedMemberFoodPurchaseApplications}
@@ -604,6 +608,7 @@ export function PaymentReceiptsView({
                   {reviewAllocations.map((allocation, index) => (
                     <AllocationEditor
                       allocation={allocation}
+                      categoryOptions={categoryOptions}
                       commitmentPlans={receiptPlans}
                       disabled={
                         isPending ||
@@ -708,6 +713,8 @@ export function PaymentReceiptsView({
 }
 
 export function MemberPaymentReceiptsView({
+  canCreateReceipt,
+  categoryOptions,
   commitmentPlans,
   foodPurchaseApplications,
   loans,
@@ -717,6 +724,8 @@ export function MemberPaymentReceiptsView({
   receipts,
   summary,
 }: {
+  canCreateReceipt: boolean
+  categoryOptions: PaymentReceiptCategoryOption[]
   commitmentPlans: Option[]
   foodPurchaseApplications: Option[]
   loans: Option[]
@@ -873,6 +882,7 @@ export function MemberPaymentReceiptsView({
         <SummaryTile label="Rejected" value={summary.rejectedReceipts} />
       </section>
 
+      {canCreateReceipt ? (
       <section className="rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -956,6 +966,7 @@ export function MemberPaymentReceiptsView({
           {allocations.map((allocation, index) => (
             <AllocationEditor
               allocation={allocation}
+              categoryOptions={categoryOptions}
               commitmentPlans={planOptions}
               disabled={isPending}
               foodPurchaseApplications={foodPurchaseApplicationOptions}
@@ -997,6 +1008,7 @@ export function MemberPaymentReceiptsView({
           </Button>
         </div>
       </section>
+      ) : null}
 
       <section className="space-y-3">
         {receipts.length ? (
@@ -1106,6 +1118,7 @@ export function MemberPaymentReceiptsView({
 
 function AllocationEditor({
   allocation,
+  categoryOptions,
   commitmentPlans,
   disabled,
   foodPurchaseApplications,
@@ -1116,6 +1129,7 @@ function AllocationEditor({
   procurementSchedules,
 }: {
   allocation: AllocationDraft
+  categoryOptions: PaymentReceiptCategoryOption[]
   commitmentPlans: Array<{ label: string; value: string }>
   disabled?: boolean
   foodPurchaseApplications: Array<{ label: string; value: string }>
@@ -1125,6 +1139,18 @@ function AllocationEditor({
   projectFinancingRequests: Array<{ label: string; value: string }>
   procurementSchedules: Array<{ label: string; value: string }>
 }) {
+  const visibleCategoryOptions = categoryOptions.some(
+    (option) => option.value === allocation.category
+  )
+    ? categoryOptions
+    : [
+        ...categoryOptions,
+        {
+          label: categoryLabels[allocation.category],
+          value: allocation.category,
+        },
+      ]
+
   return (
     <div className="grid gap-3 rounded-lg border border-border bg-background p-3 md:grid-cols-2 xl:grid-cols-9">
       <Field label="Category">
@@ -1133,7 +1159,7 @@ function AllocationEditor({
           onValueChange={(value) =>
             onChange({ category: value as AllocationCategory })
           }
-          options={categoryOptions}
+          options={visibleCategoryOptions}
           value={allocation.category}
         />
       </Field>

@@ -9,6 +9,7 @@ import {
   createDbRuntime,
   getTenantFinanceSetup,
   getTenantInitialMigrationState,
+  getTenantOperationProfile,
   listInitialMigrationMemberReview,
   listLegacyLoanMigrationDrafts,
   listMigrationProfitAdjustmentOptions,
@@ -31,9 +32,11 @@ import {
 function resolveDefaultStep(
   hasMigrationSetupMode: boolean,
   missingStepKeys: string[],
+  needsOperationProfileReview: boolean,
   needsProfitPolicy: boolean
 ): GettingStartedStepKey {
   if (!hasMigrationSetupMode) return "setup-mode"
+  if (needsOperationProfileReview) return "operation-profile"
   if (missingStepKeys.includes("finance_start_date")) return "start-date"
   if (missingStepKeys.includes("charge_schedules")) return "charges"
   if (needsProfitPolicy) return "profit-policy"
@@ -111,18 +114,21 @@ export default async function GettingStartedPage({
     legacyLoanDrafts,
     memberOptions,
     migrationMemberReview,
+    operationProfile,
   ] = await Promise.all([
     getTenantFinanceSetup(context.tenant.id),
     getTenantInitialMigrationState(context.tenant.id),
     listLegacyLoanMigrationDrafts(context.tenant.id),
     listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
     listInitialMigrationMemberReview(context.tenant.id),
+    getTenantOperationProfile(context.tenant.id),
   ])
   const activeStep: GettingStartedStepKey =
     requestedStep ??
     resolveDefaultStep(
       Boolean(data.migrationSetup.id),
       migrationState.snapshot.missingStepKeys,
+      !operationProfile.reviewedAt,
       !data.businessPolicy.id
     )
   const adminMember =
@@ -330,6 +336,7 @@ export default async function GettingStartedPage({
       }))}
       migrationSnapshot={migrationState.snapshot}
       migrationSetup={data.migrationSetup}
+      operationProfile={operationProfile}
       recommendedMigrationSetupMode={recommendTenantMigrationSetupMode({
         memberCount: data.tenant?.currentSize ?? memberOptions.items.length,
         startDate: data.tenant?.startDate ?? null,

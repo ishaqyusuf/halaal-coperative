@@ -483,6 +483,28 @@ export async function getImportReferenceData(
   }
 }
 
+export async function listActiveDeductionSources(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.deductionSource.findMany({
+    orderBy: [{ type: "asc" }, { name: "asc" }],
+    select: {
+      externalReference: true,
+      id: true,
+      name: true,
+      type: true,
+    },
+    where: {
+      isActive: true,
+      tenantId,
+    },
+  })
+}
+
 function buildRepaymentSchedule(input: {
   monthlyRepaymentAmount?: number
   principalAmount: number

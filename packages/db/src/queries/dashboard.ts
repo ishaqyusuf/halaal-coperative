@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getMonthlyFinancingCycleHealth } from "./financing-cycles"
+import { getTenantOperationProfile } from "./operation-profile"
 
 const activeFinancingStatuses = ["disbursed", "active"] as const
 const pendingFinancingRequestStatuses = ["submitted", "under_review"] as const
@@ -325,6 +326,7 @@ export async function getOverviewSummary(
     latestRepayments,
     latestLoanRequests,
     financingCycleHealth,
+    operationProfile,
   ] = await Promise.all([
     getDashboardMetrics(tenantId, prisma),
     prisma.memberOnboardingRequest.count({
@@ -454,6 +456,7 @@ export async function getOverviewSummary(
       where: { tenantId },
     }),
     getMonthlyFinancingCycleHealth({ tenantId }, prisma),
+    getTenantOperationProfile(tenantId, prisma),
   ])
 
   const monthlyRows = currentMonthlyRecord?.memberRows ?? []
@@ -652,7 +655,40 @@ export async function getOverviewSummary(
       label: "Setup warnings",
       severity: "neutral" as const,
     },
-  ]
+  ].filter((item) => {
+    if (item.key === "procurement-requests") {
+      return (
+        operationProfile.services.procurement.shouldShowInStaffNav ||
+        item.count > 0
+      )
+    }
+
+    if (
+      item.key === "food-purchase-applications" ||
+      item.key === "food-purchase-accounting"
+    ) {
+      return (
+        operationProfile.services.food_purchase.shouldShowInStaffNav ||
+        item.count > 0
+      )
+    }
+
+    if (item.key === "payment-receipts") {
+      return (
+        operationProfile.services.payment_receipts.shouldShowInStaffNav ||
+        item.count > 0
+      )
+    }
+
+    if (item.key === "support-cases") {
+      return (
+        operationProfile.services.support_cases.shouldShowInStaffNav ||
+        item.count > 0
+      )
+    }
+
+    return true
+  })
 
   const recentActivity = [
     ...latestContributions.map((contribution) => ({

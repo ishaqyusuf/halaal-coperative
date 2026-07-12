@@ -118,6 +118,8 @@ export default async function MembersPage({
             createAction={
               data.canManageMembers ? (
                 <MemberCreateModal
+                  canManageCollectionSources={data.canManageCollectionSources}
+                  collectionSourceOptions={data.collectionSourceOptions}
                   cooperativeStartDate={data.tenant?.startDate}
                   devMode={data.quickFillEnabled}
                   memberNumberPrefix={data.tenant?.memberNumberPrefix}
@@ -172,6 +174,8 @@ export default async function MembersPage({
             createAction={
               data.canManageMembers ? (
                 <MemberCreateModal
+                  canManageCollectionSources={data.canManageCollectionSources}
+                  collectionSourceOptions={data.collectionSourceOptions}
                   cooperativeStartDate={data.tenant?.startDate}
                   devMode={data.quickFillEnabled}
                   memberNumberPrefix={data.tenant?.memberNumberPrefix}

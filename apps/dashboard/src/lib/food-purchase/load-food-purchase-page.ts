@@ -1,6 +1,7 @@
 import {
   createDbRuntime,
   getMemberByUserId,
+  getTenantOperationProfile,
   listFoodPurchaseApplications,
   listFoodPurchaseCycles,
   listMembers,
@@ -34,6 +35,9 @@ export async function loadFoodPurchasePageData() {
     return { state: "unavailable" as const }
   }
 
+  const operationProfile = await getTenantOperationProfile(context.tenant.id)
+  const foodPurchaseCapability = operationProfile.services.food_purchase
+
   if (canUseMemberFoodPurchase) {
     if (!context.auth.user) {
       return { state: "member-sign-in-required" as const }
@@ -62,9 +66,18 @@ export async function loadFoodPurchasePageData() {
       }),
     ])
 
+    if (
+      foodPurchaseCapability.accessMode === "disabled" &&
+      cycles.length === 0 &&
+      applications.length === 0
+    ) {
+      return { state: "service-disabled" as const }
+    }
+
     return {
       state: "member-ready" as const,
       applications,
+      canCreateApplication: foodPurchaseCapability.canMemberCreate,
       chargeOptions,
       cycles,
       member,
@@ -95,15 +108,24 @@ export async function loadFoodPurchasePageData() {
     }),
   ])
 
+  if (
+    foodPurchaseCapability.accessMode === "disabled" &&
+    cycles.length === 0 &&
+    applications.length === 0
+  ) {
+    return { state: "service-disabled" as const }
+  }
+
   return {
     state: "staff-ready" as const,
     applications,
     approvalChargeOptions,
     canRecordAccounting: canSubmitApplications,
-    canReleaseFunds,
+    canReleaseFunds: canReleaseFunds && foodPurchaseCapability.canStaffCreate,
     canReviewAccounting: canReleaseFunds,
     canReviewApplications: canSubmitApplications,
-    canSubmitApplications,
+    canSubmitApplications:
+      canSubmitApplications && foodPurchaseCapability.canStaffCreate,
     cycles,
     memberOptions: members.items.map((member) => ({
       id: member.id,

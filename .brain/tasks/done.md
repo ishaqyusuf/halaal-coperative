@@ -11,6 +11,8 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-12: Added Halaalvest mobile EAS release plumbing aligned with EwaTrade and Al-Ghurobaa: root account-aware EAS build/update scripts, mobile package EAS aliases, Expo app config support for environment-driven project identity and preview OTA updates, and the live Expo project `cipron-startups/halaalvest` (`3fb3e5e2-bd84-4308-8739-e9f4436d0da9`) configured in local env.
+- 2026-07-12: Stabilized the Halaalvest mobile preview build input by aligning the Expo slug to `halaalvest`, pinning the NativeWind/Tailwind/Lightning CSS toolchain to the EwaTrade-compatible versions, validating the Android `export:embed` bundle locally, and submitting EAS Android preview build `32ec4a70-d495-464e-87fc-5cb386b9a39b` for `cipron-startups/halaalvest` build version 4.
 - 2026-07-12: Implemented the Cooperative Operation Profile feature set: tenant service settings, Getting Started review, Settings workspace, procurement/Foodstuff Purchase/payment receipt gating, active-obligation guards, Collection Source member assignment, staged Collection Source batch posting, Operation Profile-aware dashboard/member/mobile/report visibility, Brain documentation, and QA audit evidence.
 - 2026-07-11: Completed the Halaalvest mobile MVP release audit and Brain update: all 18 local mobile MVP tickets are done, the release audit records evidence/checks/skipped checks/residual risks, and ADR-009 locks the EwaTrade-aligned Expo/tRPC/NativeWind/server-owned architecture for future mobile work.
 - 2026-07-11: Added mobile admin report preview reads: `mobile.admin.reports.overview` now returns operations-officer gated report cards for real dashboard report/export paths with compact server metrics, and the admin Reports tab renders the guarded API-backed preview list.
@@ -417,6 +419,18 @@ This file records completed work and important outcomes.
 - Created Date: 2026-07-09
 - Completed Date: 2026-07-09
 - Checks: `bun --cwd packages/db test src/queries/support.test.ts`; package-local targeted ESLint commands with warnings only for DB/API and clean dashboard lint; `git diff --check`
+
+### Cooperative Operation Profile Full QA
+
+- Priority: High
+- Description: Completed the website-first/mobile-second QA cycle for tenant Operation Profile configuration, including Getting Started, Settings, staff/member service workspaces, reports/navigation preservation, security/audit boundaries, visual/accessibility coverage, mobile DTO/screen consumption, and final ship recommendation.
+- Related Feature: Cooperative Operation Profile
+- Status: Done
+- Plan Status: Done
+- Plan File: `.scratch/cooperative-operation-profile-full-qa/map.md`
+- Created Date: 2026-07-12
+- Completed Date: 2026-07-12
+- Checks: `bun --filter @halaalvest/dashboard typecheck`; `bun run typecheck:mobile`; `bun test apps/api/src/routers/mobile.route.test.ts`; `bun run --filter @halaalvest/mobile check:smoke`; `bun run --filter @halaalvest/mobile check:native-imports`; final compact regression `bun test packages/db/src/queries/operation-profile.test.ts apps/dashboard/src/lib/navigation/lib.test.ts apps/api/src/routers/mobile.route.test.ts packages/db/src/queries/members.test.ts` passed with 105 tests and 0 failures.
 
 ### Support Case CSV Export
 

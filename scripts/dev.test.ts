@@ -44,14 +44,14 @@ describe("dev script profile router", () => {
     const options = parseArgs([
       "--filter",
       "@halaalvest/api",
-      "@halaalvest/web",
+      "@halaalvest/marketing",
       "@halaalvest/jobs",
     ])
 
     expect(options).toEqual({
       profile: "local",
       filters: {
-        targets: ["@halaalvest/api", "@halaalvest/web", "@halaalvest/jobs"],
+        targets: ["@halaalvest/api", "@halaalvest/marketing", "@halaalvest/jobs"],
       },
     })
     expect(commandForProfile(options.profile, options.filters)).toEqual([
@@ -63,7 +63,7 @@ describe("dev script profile router", () => {
       "--filter",
       "@halaalvest/api",
       "--filter",
-      "@halaalvest/web",
+      "@halaalvest/marketing",
       "--filter",
       "@halaalvest/jobs",
     ])
@@ -127,21 +127,25 @@ describe("dev script profile router", () => {
       })
     }
 
-    expect(parseArgs(["--filter", "api", "-f", "jobs", "--f", "web!"])).toEqual(
-      {
-        profile: "local",
-        filters: {
-          targets: ["@halaalvest/api", "@halaalvest/jobs", "!@halaalvest/web"],
-        },
-      }
-    )
+    expect(
+      parseArgs(["--filter", "api", "-f", "jobs", "--f", "marketing!"])
+    ).toEqual({
+      profile: "local",
+      filters: {
+        targets: [
+          "@halaalvest/api",
+          "@halaalvest/jobs",
+          "!@halaalvest/marketing",
+        ],
+      },
+    })
   })
 
   test("passes complex turbo selectors through without package validation", () => {
     expect(
       parseArgs([
         "--filter",
-        "@halaalvest/web...",
+        "@halaalvest/marketing...",
         "...@halaalvest/dashboard",
         "@halaalvest/*",
         "{apps/*}",
@@ -151,7 +155,7 @@ describe("dev script profile router", () => {
       profile: "local",
       filters: {
         targets: [
-          "@halaalvest/web...",
+          "@halaalvest/marketing...",
           "...@halaalvest/dashboard",
           "@halaalvest/*",
           "{apps/*}",
@@ -163,9 +167,9 @@ describe("dev script profile router", () => {
 
   test("lists valid packages when a filter target is missing", () => {
     expect(() =>
-      parseArgs(["--filter", "marketing", "@halaalvest/unknown"])
+      parseArgs(["--filter", "web", "@halaalvest/unknown"])
     ).toThrow(
-      /Unknown dev filter packages: marketing, @halaalvest\/unknown\nAvailable packages:\napps\/:\n  @halaalvest\/api[\s\S]*  @halaalvest\/web\npackages\/:\n  @halaalvest\/auth[\s\S]*  @halaalvest\/utils/
+      /Unknown dev filter packages: web, @halaalvest\/unknown\nAvailable packages:\napps\/:\n  @halaalvest\/api[\s\S]*  @halaalvest\/marketing[\s\S]*packages\/:\n  @halaalvest\/auth[\s\S]*  @halaalvest\/utils/
     )
   })
 })

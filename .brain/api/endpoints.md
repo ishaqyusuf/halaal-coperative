@@ -42,10 +42,10 @@ This file tracks the public and internal API surface of the platform.
   - Purpose: create a new tenant workspace with primary domains, tenant-admin contact, default policy, and baseline ledger accounts.
 - `POST /api/signup`
   - Purpose: validate the public signup intent, mint a signed onboarding token, and build the verification email draft for the cooperative primary contact.
-  - Notes: implemented as `apps/web/app/api/signup/route.ts` because the full auth/session stack is not in place yet.
+  - Notes: implemented as `apps/marketing/app/api/signup/route.ts` because the full auth/session stack is not in place yet.
 - `POST /api/onboarding`
   - Purpose: verify the signed signup token and provision the tenant workspace from a simplified cooperative profile payload.
-  - Notes: implemented as `apps/web/app/api/onboarding/route.ts` and backed directly by `createTenantWorkspaceBootstrap`.
+  - Notes: implemented as `apps/marketing/app/api/onboarding/route.ts` and backed directly by `createTenantWorkspaceBootstrap`.
 - `TRPC /trpc/notifications.list`
   - Purpose: return sample notification payloads using the shared notification registry.
 - `TRPC /trpc/members.list|get|create|update|updateStatus`

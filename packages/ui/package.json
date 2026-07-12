@@ -37,7 +37,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.18",
+    "@tailwindcss/postcss": "4.1.18",
     "@turbo/gen": "^2.8.1",
     "@types/node": "^25.1.0",
     "@types/react": "^19.2.10",
@@ -45,7 +45,7 @@
     "@halaalvest/eslint-config": "workspace:*",
     "@halaalvest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
-    "tailwindcss": "^4.1.18",
+    "tailwindcss": "4.1.18",
     "typescript": "^5.9.3"
   },
   "exports": {

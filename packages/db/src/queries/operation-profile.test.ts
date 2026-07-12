@@ -33,9 +33,17 @@ function createOperationProfilePrismaStub(input?: {
   const auditLogCreates: unknown[] = []
   const serviceSettings = [...(input?.settings ?? [])]
   const serviceSettingUpserts: unknown[] = []
+  let failNextProfileCreateWithUniqueConstraint = false
+  let failNextServiceSettingUpsertWithUniqueConstraint = false
 
   return {
     auditLogCreates,
+    failNextProfileCreateWithUniqueConstraint: () => {
+      failNextProfileCreateWithUniqueConstraint = true
+    },
+    failNextServiceSettingUpsertWithUniqueConstraint: () => {
+      failNextServiceSettingUpsertWithUniqueConstraint = true
+    },
     profile,
     serviceSettingUpserts,
     auditLog: {
@@ -46,14 +54,42 @@ function createOperationProfilePrismaStub(input?: {
       },
     },
     tenantOperationProfile: {
-      upsert: async (upsertInput: {
-        create?: Partial<typeof profile>
-        update?: Partial<typeof profile>
-      }) => {
+      create: async ({ data }: { data: Partial<typeof profile> }) => {
+        if (failNextProfileCreateWithUniqueConstraint) {
+          failNextProfileCreateWithUniqueConstraint = false
+          profile = {
+            ...profile,
+            ...data,
+          }
+          const error = new Error("Unique constraint failed")
+          Object.assign(error, { code: "P2002" })
+
+          throw error
+        }
+
         profile = {
           ...profile,
-          ...(upsertInput.create ?? {}),
-          ...(upsertInput.update ?? {}),
+          ...data,
+        }
+
+        return profile
+      },
+      findUnique: async ({ where }: { where: { tenantId: string } }) =>
+        profile.tenantId === where.tenantId ? profile : null,
+      update: async ({
+        data,
+        where,
+      }: {
+        data: Partial<typeof profile>
+        where: { tenantId: string }
+      }) => {
+        if (profile.tenantId !== where.tenantId) {
+          throw new Error("Profile not found")
+        }
+
+        profile = {
+          ...profile,
+          ...data,
         }
 
         return profile
@@ -75,6 +111,21 @@ function createOperationProfilePrismaStub(input?: {
       },
     },
     tenantServiceSetting: {
+      findUnique: async ({
+        where,
+      }: {
+        where: {
+          tenantId_serviceKey: {
+            serviceKey: TenantServiceKey
+            tenantId: string
+          }
+        }
+      }) =>
+        serviceSettings.find(
+          (setting) =>
+            setting.tenantId === where.tenantId_serviceKey.tenantId &&
+            setting.serviceKey === where.tenantId_serviceKey.serviceKey
+        ) ?? null,
       findMany: async ({ where }: { where: { tenantId: string } }) =>
         serviceSettings.filter(
           (setting) => setting.tenantId === where.tenantId
@@ -104,6 +155,17 @@ function createOperationProfilePrismaStub(input?: {
             setting.serviceKey ===
               upsertInput.where.tenantId_serviceKey.serviceKey
         )
+
+        if (failNextServiceSettingUpsertWithUniqueConstraint) {
+          failNextServiceSettingUpsertWithUniqueConstraint = false
+          if (!existing) {
+            serviceSettings.push(upsertInput.create)
+          }
+          const error = new Error("Unique constraint failed")
+          Object.assign(error, { code: "P2002" })
+
+          throw error
+        }
 
         if (existing) {
           Object.assign(existing, upsertInput.update ?? {})
@@ -140,6 +202,24 @@ describe("tenant operation profile", () => {
         defaultTenantServiceAccessModes[serviceKey],
       ])
     )
+  })
+
+  test("recovers when concurrent default initialization already created the profile", async () => {
+    const prisma = createOperationProfilePrismaStub()
+    prisma.failNextProfileCreateWithUniqueConstraint()
+
+    await ensureTenantOperationProfileDefaults("missing-tenant", prisma as never)
+
+    expect(prisma.serviceSettingUpserts).toHaveLength(tenantServiceKeys.length)
+  })
+
+  test("recovers when concurrent default initialization already created a service setting", async () => {
+    const prisma = createOperationProfilePrismaStub()
+    prisma.failNextServiceSettingUpsertWithUniqueConstraint()
+
+    await ensureTenantOperationProfileDefaults("tenant-1", prisma as never)
+
+    expect(prisma.serviceSettingUpserts).toHaveLength(tenantServiceKeys.length)
   })
 
   test("reads normalized defaults and derived service permissions", async () => {
@@ -294,5 +374,37 @@ describe("tenant operation profile", () => {
         prisma as never
       )
     ).rejects.toThrow("A reason is required")
+  })
+
+  test("rejects invalid policy cap updates", async () => {
+    const prisma = createOperationProfilePrismaStub()
+
+    await expect(
+      updateTenantOperationProfile(
+        {
+          policy: {
+            procurementMaximumActiveObligationsPerMember: 0,
+          },
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow(
+      "Procurement active obligation limit must be a positive whole number."
+    )
+
+    await expect(
+      updateTenantOperationProfile(
+        {
+          policy: {
+            foodPurchaseMaximumActiveObligationsPerMember: 1.5,
+          },
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow(
+      "Foodstuff Purchase active obligation limit must be a positive whole number."
+    )
   })
 })

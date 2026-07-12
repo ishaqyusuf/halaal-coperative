@@ -2,11 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web",
+      "name": "marketing",
       "runtimeExecutable": "bunx",
       "runtimeArgs": ["next", "dev", "--turbopack", "--port", "4200"],
       "port": 4200,
-      "cwd": "apps/web"
+      "cwd": "apps/marketing"
     }
   ]
 }

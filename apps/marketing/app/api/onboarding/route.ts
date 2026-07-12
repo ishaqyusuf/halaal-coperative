@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       messageId: workspaceReadyDelivery.messageId,
       notificationType: workspaceReadyDelivery.draft.notificationType,
       recipient: workspaceReadyDelivery.draft.recipient.value,
-      source: "apps/web/app/api/onboarding",
+      source: "apps/marketing/app/api/onboarding",
       status: workspaceReadyDelivery.status,
       tenantId: result.tenant.id,
     })

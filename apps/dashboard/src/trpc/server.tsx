@@ -60,10 +60,8 @@ export function prefetch<T extends { queryKey: unknown }>(queryOptions: T) {
     .catch(() => {})
 }
 
-export function batchPrefetch<T extends { queryKey: unknown }>(
+export async function batchPrefetch<T extends { queryKey: unknown }>(
   queryOptionsArray: T[],
 ) {
-  for (const queryOptions of queryOptionsArray) {
-    void prefetch(queryOptions)
-  }
+  await Promise.all(queryOptionsArray.map((queryOptions) => prefetch(queryOptions)))
 }

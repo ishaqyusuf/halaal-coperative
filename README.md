@@ -4,7 +4,7 @@ Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant interest-free c
 
 ## Workspace
 
-- `apps/web`: Next.js SaaS marketing experience.
+- `apps/marketing`: Next.js SaaS marketing experience.
 - `apps/dashboard`: Next.js tenant application serving the public tenant homepage, shared login, and protected `/app` workspace on the same host.
 - `apps/api`: Hono + tRPC backend for tenant-aware workflows.
 - `packages/ui`: shared shadcn/base UI components and theme tokens.
@@ -28,7 +28,7 @@ bun run db:start
 bun run db:push --local
 bun run db:push --remote
 bun run db:push --prod
-bun run dev -f web dashboard api
+bun run dev -f marketing dashboard api
 bun run lint
 bun run typecheck
 ```
@@ -38,7 +38,7 @@ Development starters resolve a database profile, export the selected `DATABASE_U
 - `bun run dev` uses the local profile, starts the local Docker PostgreSQL service, and forwards to Turbo `dev`.
 - `bun run dev --remote-dev` loads `.env.remote-dev` and `.env.remote-dev.local` when present, then uses the hosted development database.
 - `bun run dev --prod` loads production env files, requires a non-localhost production `DATABASE_URL`, and skips local prepare/migration.
-- `bun run dev -f dashboard api` accepts Turbo filter aliases and bare package names such as `web`, `dashboard`, `api`, and `jobs`.
+- `bun run dev -f dashboard api` accepts Turbo filter aliases and bare package names such as `marketing`, `dashboard`, `api`, and `jobs`.
 
 The local profile defaults to Docker PostgreSQL on `localhost:55434` with database `amanah_cooperative`. Override it with `LOCAL_DATABASE_URL` or `LOCAL_POSTGRES_URL` when needed. Run the local database directly with:
 
@@ -74,7 +74,7 @@ This repo uses `plot-keys`-style `portless` hostnames by default in app dev scri
 
 ```bash
 bun run dev
-bun run dev -f web dashboard
+bun run dev -f marketing dashboard
 bun run dev -f api
 ```
 
@@ -89,5 +89,5 @@ npm install -g portless
 From the repository root, use the same preset family already installed here:
 
 ```bash
-bunx --bun shadcn@latest add button -c apps/web
+bunx --bun shadcn@latest add button -c apps/marketing
 ```

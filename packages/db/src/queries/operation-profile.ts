@@ -98,6 +98,24 @@ function normalizePositiveInteger(value: unknown, fallback: number) {
     : fallback
 }
 
+function normalizeInputPositiveInteger(
+  value: unknown,
+  fallback: number,
+  label: string
+) {
+  if (typeof value === "undefined") {
+    return fallback
+  }
+
+  const numberValue = Number(value)
+
+  if (!Number.isInteger(numberValue) || numberValue <= 0) {
+    throw new Error(`${label} must be a positive whole number.`)
+  }
+
+  return numberValue
+}
+
 function buildServiceCapability(
   serviceKey: TenantServiceKey,
   accessMode: TenantServiceAccessMode
@@ -161,17 +179,19 @@ function normalizeInputPolicy(
   fallback: TenantOperationProfilePolicy
 ) {
   return {
-    foodPurchaseMaximumActiveObligationsPerMember: normalizePositiveInteger(
+    foodPurchaseMaximumActiveObligationsPerMember: normalizeInputPositiveInteger(
       input?.foodPurchaseMaximumActiveObligationsPerMember,
-      fallback.foodPurchaseMaximumActiveObligationsPerMember
+      fallback.foodPurchaseMaximumActiveObligationsPerMember,
+      "Foodstuff Purchase active obligation limit"
     ),
     foodPurchaseRequiresOpenCycle:
       typeof input?.foodPurchaseRequiresOpenCycle === "boolean"
         ? input.foodPurchaseRequiresOpenCycle
         : fallback.foodPurchaseRequiresOpenCycle,
-    procurementMaximumActiveObligationsPerMember: normalizePositiveInteger(
+    procurementMaximumActiveObligationsPerMember: normalizeInputPositiveInteger(
       input?.procurementMaximumActiveObligationsPerMember,
-      fallback.procurementMaximumActiveObligationsPerMember
+      fallback.procurementMaximumActiveObligationsPerMember,
+      "Procurement active obligation limit"
     ),
   } satisfies TenantOperationProfilePolicy
 }
@@ -189,34 +209,103 @@ function isRestrictiveAccessChange(input: {
   )
 }
 
+function isUniqueConstraintFailure(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  )
+}
+
+async function findTenantOperationProfileByTenantId(
+  tenantId: string,
+  prisma: ReturnType<typeof getPrisma>
+) {
+  return prisma.tenantOperationProfile.findUnique({
+    where: { tenantId },
+  })
+}
+
+async function ensureTenantServiceSettingDefault(input: {
+  accessMode: TenantServiceAccessMode
+  operationProfileId: string
+  prisma: ReturnType<typeof getPrisma>
+  serviceKey: TenantServiceKey
+  tenantId: string
+}) {
+  try {
+    return await input.prisma.tenantServiceSetting.upsert({
+      where: {
+        tenantId_serviceKey: {
+          serviceKey: input.serviceKey,
+          tenantId: input.tenantId,
+        },
+      },
+      create: {
+        accessMode: input.accessMode,
+        operationProfileId: input.operationProfileId,
+        serviceKey: input.serviceKey,
+        tenantId: input.tenantId,
+      },
+      update: {},
+    })
+  } catch (error) {
+    if (!isUniqueConstraintFailure(error)) {
+      throw error
+    }
+
+    const existing = await input.prisma.tenantServiceSetting.findUnique?.({
+      where: {
+        tenantId_serviceKey: {
+          serviceKey: input.serviceKey,
+          tenantId: input.tenantId,
+        },
+      },
+    })
+
+    if (!existing) {
+      throw error
+    }
+
+    return existing
+  }
+}
+
 export async function ensureTenantOperationProfileDefaults(
   tenantId: string,
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
 
-  const profile = await prisma.tenantOperationProfile.upsert({
-    where: { tenantId },
-    create: { tenantId },
-    update: {},
-  })
+  let profile = await findTenantOperationProfileByTenantId(tenantId, prisma)
+
+  if (!profile) {
+    try {
+      profile = await prisma.tenantOperationProfile.create({
+        data: { tenantId },
+      })
+    } catch (error) {
+      if (!isUniqueConstraintFailure(error)) {
+        throw error
+      }
+
+      profile = await findTenantOperationProfileByTenantId(tenantId, prisma)
+    }
+  }
+
+  if (!profile) {
+    throw new Error("Could not initialize tenant operation profile.")
+  }
 
   await Promise.all(
     tenantServiceKeys.map((serviceKey) =>
-      prisma.tenantServiceSetting.upsert({
-        where: {
-          tenantId_serviceKey: {
-            serviceKey,
-            tenantId,
-          },
-        },
-        create: {
-          accessMode: defaultTenantServiceAccessModes[serviceKey],
-          operationProfileId: profile.id,
-          serviceKey,
-          tenantId,
-        },
-        update: {},
+      ensureTenantServiceSettingDefault({
+        accessMode: defaultTenantServiceAccessModes[serviceKey],
+        operationProfileId: profile.id,
+        prisma,
+        serviceKey,
+        tenantId,
       })
     )
   )
@@ -305,14 +394,11 @@ export async function updateTenantOperationProfile(
     )
   }
 
-  const profile = await prisma.tenantOperationProfile.upsert({
+  await ensureTenantOperationProfileDefaults(input.tenantId, prisma)
+
+  const profile = await prisma.tenantOperationProfile.update({
     where: { tenantId: input.tenantId },
-    create: {
-      reviewedAt: new Date(),
-      reviewedByUserId: input.actorUserId ?? null,
-      tenantId: input.tenantId,
-    },
-    update: {
+    data: {
       reviewedAt: new Date(),
       reviewedByUserId: input.actorUserId ?? null,
     },

@@ -212,11 +212,21 @@ function createCollectionSourceBatchPrismaStub(input?: {
     shareBusinessProfitEntry: { count: async () => 1 },
     tenant: { findUnique: async () => liveTenant },
     tenantOperationProfile: {
-      upsert: async () => ({
+      create: async ({ data }: { data: { tenantId: string } }) => ({
         id: "profile-1",
         reviewedAt: null,
         reviewedByUserId: null,
+        tenantId: data.tenantId,
       }),
+      findUnique: async ({ where }: { where: { tenantId: string } }) =>
+        where.tenantId === "tenant-1"
+          ? {
+              id: "profile-1",
+              reviewedAt: null,
+              reviewedByUserId: null,
+              tenantId: "tenant-1",
+            }
+          : null,
     },
     tenantPolicy: {
       findUnique: async () => ({

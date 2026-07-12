@@ -1,15 +1,23 @@
-import type { ExpoConfig } from "expo/config";
+import type { ExpoConfig } from "expo/config"
 
-export const UPDATE_VERSION = "2026.07.02";
+export const UPDATE_VERSION = "2026.07.02"
+const PROJECT_ID =
+  process.env.HALAALVEST_EXPO_PROJECT_ID ??
+  process.env.EXPO_PROJECT_ID ??
+  process.env.EAS_PROJECT_ID ??
+  ""
+const EXPO_OWNER =
+  process.env.HALAALVEST_EXPO_OWNER ?? process.env.EXPO_OWNER ?? undefined
+const updateUrl = PROJECT_ID ? `https://u.expo.dev/${PROJECT_ID}` : undefined
 
 const appVariant =
   process.env.APP_VARIANT ??
   process.env.EXPO_PUBLIC_APP_VARIANT ??
-  (process.env.EAS_BUILD_PROFILE === "development" ? "development" : undefined);
+  (process.env.EAS_BUILD_PROFILE === "development" ? "development" : undefined)
 
-const normalizedAppVariant = (appVariant ?? "production").toLowerCase();
+const normalizedAppVariant = (appVariant ?? "production").toLowerCase()
 const isDevelopmentBuild =
-  normalizedAppVariant === "development" || normalizedAppVariant === "dev";
+  normalizedAppVariant === "development" || normalizedAppVariant === "dev"
 
 const variantConfig = isDevelopmentBuild
   ? {
@@ -45,11 +53,12 @@ const variantConfig = isDevelopmentBuild
         splashLight: "./assets/icons/splash-logo.png",
         splashDark: "./assets/icons/splash-logo.png",
       },
-    };
+    }
 
 const config: ExpoConfig = {
   name: variantConfig.name,
-  slug: "halaalvest-mobile",
+  slug: "halaalvest",
+  ...(EXPO_OWNER ? { owner: EXPO_OWNER } : {}),
   version: "0.1.0",
   orientation: "portrait",
   icon: variantConfig.icons.app,
@@ -107,14 +116,31 @@ const config: ExpoConfig = {
   extra: {
     appVariant: normalizedAppVariant,
     updateVersion: UPDATE_VERSION,
+    ...(EXPO_OWNER
+      ? {
+          owner: EXPO_OWNER,
+        }
+      : {}),
+    ...(PROJECT_ID
+      ? {
+          eas: {
+            projectId: PROJECT_ID,
+          },
+          updates: {
+            url: updateUrl,
+            checkAutomatically: "NEVER",
+          },
+        }
+      : {}),
     router: {},
   },
   runtimeVersion: {
     policy: "appVersion",
   },
   updates: {
+    ...(updateUrl ? { url: updateUrl } : {}),
     checkAutomatically: "NEVER",
   },
-};
+}
 
-export default config;
+export default config

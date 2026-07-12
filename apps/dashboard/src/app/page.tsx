@@ -51,6 +51,8 @@ export default async function TenantHomePage() {
     if (data.state === "member-ready") {
       memberPortalContent = (
         <MemberPortalOverview
+          canCreateFoodPurchase={data.canCreateFoodPurchase}
+          canCreateProcurement={data.canCreateProcurement}
           canShowFoodPurchase={data.canShowFoodPurchase}
           canShowProcurement={data.canShowProcurement}
           detail={data.detail}

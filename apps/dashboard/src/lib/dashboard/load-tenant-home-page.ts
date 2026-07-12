@@ -140,6 +140,8 @@ export async function loadTenantHomePageData() {
 
     return {
       state: "member-ready" as const,
+      canCreateFoodPurchase: foodPurchaseCapability.canMemberCreate,
+      canCreateProcurement: procurementCapability.canMemberCreate,
       canShowFoodPurchase:
         foodPurchaseCapability.shouldShowInMemberNav ||
         foodPurchaseApplications.length > 0,

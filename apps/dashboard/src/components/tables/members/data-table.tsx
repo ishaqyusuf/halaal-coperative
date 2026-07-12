@@ -7,7 +7,7 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
+import { useInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useRouter } from "next/navigation"
@@ -33,6 +33,7 @@ import { ROW_HEIGHTS, STICKY_COLUMNS, SUMMARY_GRID_HEIGHTS } from "@/utils/table
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { columns } from "./columns"
 import { MembersEmptyState, MembersNoResults } from "./empty-states"
+import { MembersSkeleton } from "./skeleton"
 import { MembersTableHeader } from "./table-header"
 
 const NON_CLICKABLE_COLUMNS = new Set(["select", "actions"])
@@ -145,8 +146,14 @@ export function MembersDataTable({
     }
   )
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useSuspenseInfiniteQuery(infiniteQueryOptions)
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    isPending,
+  } = useInfiniteQuery(infiniteQueryOptions)
 
   const tableData = useMemo(
     () => data?.pages.flatMap((page) => page.data) ?? [],
@@ -230,6 +237,14 @@ export function MembersDataTable({
   const hasTableFilters = Object.values(filters).some(
     (value) => value !== null && value !== ""
   )
+
+  if (isPending) {
+    return <MembersSkeleton />
+  }
+
+  if (isError) {
+    return <MembersNoResults />
+  }
 
   if (!tableData.length && hasTableFilters) {
     return <MembersNoResults />

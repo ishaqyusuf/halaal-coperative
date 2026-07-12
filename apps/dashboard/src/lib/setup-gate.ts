@@ -6,6 +6,7 @@ import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
 export const initialMigrationSetupPaths = [
   "/getting-started",
+  "/settings/operation-profile",
   "/settings/finance/migration",
   "/settings/imports",
   "/settings/profile",

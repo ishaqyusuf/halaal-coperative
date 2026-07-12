@@ -39,6 +39,7 @@
 - The staff user saves the backfill batch as draft, regenerates if needed before manual edits are locked in, and then applies the batch.
 - Saving and applying are queued through the jobs package so heavy history rewrites and warning-aware updates do not block the modal UI.
 - Applying the batch creates the corresponding live finance records and audit entries.
+- After migration finalization, historical backfill mutation tools remain locked unless the tenant is still in migration setup or has an audited migration-tool/emergency-unlock state; ordinary audited member amount history updates remain allowed during live operations until that member's historical ledger has been applied.
 
 ## Data Model
 - Existing tables used directly:

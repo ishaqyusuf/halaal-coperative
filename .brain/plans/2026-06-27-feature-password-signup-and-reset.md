@@ -25,7 +25,7 @@ The repository already contains password and reset surfaces:
 - `apps/dashboard/src/lib/password.ts` and `apps/dashboard/src/lib/password-reset-token.ts` provide password/token helpers.
 - `apps/dashboard/src/app/(public)/login/page.tsx`, `apps/dashboard/src/app/auth/login/route.ts`, `apps/dashboard/src/app/(public)/login/reset/page.tsx`, and `apps/dashboard/src/app/(public)/login/reset/confirm/page.tsx` exist.
 - Member onboarding currently accepts password data in `packages/db/src/queries/member-onboarding.ts` and UI lives in `apps/dashboard/src/components/onboarding/member-signup-form.tsx`.
-- Tenant signup and onboarding live in `apps/web/app/signup/page.tsx`, `apps/web/app/onboarding/page.tsx`, `apps/web/app/api/signup/route.ts`, and `apps/web/app/api/onboarding/route.ts`.
+- Tenant signup and onboarding live in `apps/marketing/app/signup/page.tsx`, `apps/marketing/app/onboarding/page.tsx`, `apps/marketing/app/api/signup/route.ts`, and `apps/marketing/app/api/onboarding/route.ts`.
 
 ## Proposed Approach
 Audit the existing password and reset routes, then close the product gaps: password creation during the relevant signup flow, secure reset request, reset email/outbox delivery, token verification, password update, and polished success/error states. Keep password hashing and token signing centralized in existing helpers. If tenant signup currently creates a workspace without a dashboard password, add a password setup or invite flow at the onboarding handoff.
@@ -54,8 +54,8 @@ Audit the existing password and reset routes, then close the product gaps: passw
 - `packages/notifications/src/types/onboarding.ts`
 - `packages/notifications/src/types/registry.ts`
 - `packages/jobs/src/handlers/notification-outbox-deliver.ts`
-- `apps/web/src/components/signup/signup-form.tsx`
-- `apps/web/src/components/signup/onboarding-form.tsx`
+- `apps/marketing/src/components/signup/signup-form.tsx`
+- `apps/marketing/src/components/signup/onboarding-form.tsx`
 
 ## Acceptance Criteria
 - Signup requires or initiates password setup for the intended user type.

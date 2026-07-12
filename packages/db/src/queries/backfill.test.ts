@@ -23,13 +23,14 @@ function createFinalizedBackfillPrismaStub({
   const monthRowUpdates: unknown[] = []
   const transactions: unknown[] = []
 
-  return {
+  const prisma = {
     $transaction: async (callback: (tx: unknown) => Promise<unknown>) => {
       transactions.push(callback)
 
-      return callback({})
+      return callback(prisma)
     },
     appliedBackfillMonth: {
+      count: async () => 0,
       findMany: async () => [],
     },
     auditLog: {
@@ -55,6 +56,7 @@ function createFinalizedBackfillPrismaStub({
         return input
       },
       findMany: async () => [],
+      findFirst: async () => null,
       update: async (input: unknown) => {
         batchUpdates.push(input)
 
@@ -112,6 +114,8 @@ function createFinalizedBackfillPrismaStub({
     monthRowUpdates,
     transactions,
   }
+
+  return prisma
 }
 
 describe("backfill migration lifecycle guards", () => {
@@ -140,8 +144,12 @@ describe("backfill migration lifecycle guards", () => {
       saveBackfillDraft(
         {
           actorUserId: "user-1",
-          draft: {} as never,
-          draftInput: {} as never,
+          draftInput: {
+            endMonth: "2025-01",
+            memberId: "member-1",
+            monthlyCommitment: 1000,
+            startMonth: "2025-01",
+          } as never,
           memberId: "member-1",
           tenantId: "tenant-1",
         },

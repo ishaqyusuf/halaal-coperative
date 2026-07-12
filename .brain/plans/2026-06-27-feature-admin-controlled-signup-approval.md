@@ -100,7 +100,7 @@ Lower agent must report:
 
 ## Open Questions
 - TODO: Should hidden mode still allow existing staff-issued links, or should hiding imply total self-service disablement?
-- TODO: Does this plan also need to cover public cooperative/tenant signup from `apps/web`, or only tenant member signup?
+- TODO: Does this plan also need to cover public cooperative/tenant signup from `apps/marketing`, or only tenant member signup?
 
 ## Linked Task
 - Task Title: Admin Controlled Signup Visibility And Approval

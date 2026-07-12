@@ -21,10 +21,10 @@ This file documents the intended high-level architecture, service boundaries, an
 ## Implemented Scaffold
 
 - Bun workspace monorepo orchestrated with Turbo.
-- App layout now centers on `apps/web`, `apps/dashboard`, and `apps/api`, with `apps/dashboard` absorbing the former tenant-site responsibility into one host-aware tenant app.
-- `apps/web` now uses a server-driven marketing-state switch so the main landing route can render either a pre-launch page or the full launch landing experience from environment configuration.
-- `apps/web` and `apps/dashboard` now share one env-driven homepage visibility config through `packages/domain/src/modules/marketing.ts`, allowing the platform marketing root to redirect to `/signup` and tenant roots to redirect to `/login` when `SHOW_HOME_PAGE` is disabled.
-- `apps/web` now also uses a `src/` layout so route files, marketing sections, and server-side config helpers are separated more cleanly in the same direction as the reference applications.
+- App layout now centers on `apps/marketing`, `apps/dashboard`, and `apps/api`, with `apps/dashboard` absorbing the former tenant-site responsibility into one host-aware tenant app.
+- `apps/marketing` now uses a server-driven marketing-state switch so the main landing route can render either a pre-launch page or the full launch landing experience from environment configuration.
+- `apps/marketing` and `apps/dashboard` now share one env-driven homepage visibility config through `packages/domain/src/modules/marketing.ts`, allowing the platform marketing root to redirect to `/signup` and tenant roots to redirect to `/login` when `SHOW_HOME_PAGE` is disabled.
+- `apps/marketing` now also uses a `src/` layout so route files, marketing sections, and server-side config helpers are separated more cleanly in the same direction as the reference applications.
 - `apps/api` now uses a Hono + tRPC foundation with grouped routers and shared request context.
 - Shared packages are split by responsibility: `auth`, `db`, `domain`, `notifications`, `notifications-react`, `ui`, `utils`, `eslint-config`, and `tsconfig`.
 - `packages/db` now owns tenant resolution, auth seed/query scaffolding, and runtime-status boundaries instead of exporting one flat demo helper.
@@ -39,6 +39,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - Dashboard routes now also sit inside a shared role-filtered shell with a registry-driven sidebar and route-aware header, borrowing the information architecture idea from the local `gnd` site-nav pattern while keeping route data ownership local to each page.
 - Dashboard UI now uses a Midday-style `src/` architecture under `apps/dashboard/src`, with route grouping in `src/app`, canonical shell and page composition in `src/components/dashboard`, table atoms in `src/components/tables/core`, domain table views in `src/components/tables/<domain>`, and route/data helpers in `src/lib/<domain>`.
 - The old dashboard `features/`, `primitives/`, `data-display/`, and `shell/` buckets have been retired in favor of the `src/components/*` and `src/lib/*` structure so new work follows one standard by default.
+- `apps/mobile` is an Expo Router app aligned with the EwaTrade mobile pattern, including EAS development/preview Android build commands, a root account-aware EAS runner, preview OTA update publishing, manual Expo Updates checking, and environment-driven Expo project identity.
 - Reusable list filtering now lives in `src/components/search-filter`, split into typed search/filter shell, active filter pills, field renderers, and label utilities that match the Midday invoice search-filter interaction while preserving server-first URL params.
 - The members workspace now demonstrates the intended route pattern inside the new layout: `/members` route files stay thin, member loaders and URL-filter mapping live in `src/lib/members`, member page widgets live in `src/components/members`, and member-facing tables live in `src/components/tables/members`.
 - The members list route now explicitly follows the local Midday table-page anatomy, using the Midday invoice/customers pattern of `ScrollableContent -> CollapsibleSummary -> compact toolbar/search-filter -> table surface`.

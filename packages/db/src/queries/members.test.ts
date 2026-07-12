@@ -171,12 +171,21 @@ function createMemberPrismaStub({
       }),
     },
     tenantOperationProfile: {
-      upsert: async () => ({
+      create: async ({ data }: { data: { tenantId: string } }) => ({
         id: "operation-profile-1",
         reviewedAt: null,
         reviewedByUserId: null,
-        tenantId: "tenant-1",
+        tenantId: data.tenantId,
       }),
+      findUnique: async ({ where }: { where: { tenantId: string } }) =>
+        where.tenantId === "tenant-1"
+          ? {
+              id: "operation-profile-1",
+              reviewedAt: null,
+              reviewedByUserId: null,
+              tenantId: "tenant-1",
+            }
+          : null,
     },
     tenantPolicy: {
       findUnique: async () => null,
@@ -608,6 +617,35 @@ describe("members table backfill status", () => {
       draftBatchId: null,
       state: "applied",
     })
+  })
+
+  test("serializes member table money snapshots as plain numbers", async () => {
+    const prisma = {
+      appliedBackfillMonth: {
+        findMany: async () => [],
+      },
+      backfillBatch: {
+        findMany: async () => [],
+      },
+      member: {
+        findMany: async () => [
+          {
+            fullName: "Serialized Member",
+            id: "member-1",
+            memberNumber: "001",
+            totalSavingsSnapshot: { toString: () => "12500.75" },
+          },
+        ],
+      },
+    }
+
+    const result = await listMembersTable(
+      "tenant-1",
+      { pageSize: 10 },
+      prisma as never
+    )
+
+    expect(result.data[0]?.totalSavingsSnapshot).toBe(12500.75)
   })
 })
 

@@ -21,8 +21,8 @@ The first impression of Halaalvest should feel polished, credible, and focused o
 
 ## Current Context
 Existing public/auth surfaces include:
-- `apps/web/app/page.tsx` for the platform marketing root.
-- `apps/web/app/signup/page.tsx`, `apps/web/src/components/signup/signup-shell.tsx`, and related signup/onboarding components.
+- `apps/marketing/app/page.tsx` for the platform marketing root.
+- `apps/marketing/app/signup/page.tsx`, `apps/marketing/src/components/signup/signup-shell.tsx`, and related signup/onboarding components.
 - `apps/dashboard/src/app/page.tsx` for the tenant root.
 - `apps/dashboard/src/app/(public)/login/page.tsx`, reset pages, member signup pages, and awaiting approval page.
 - `packages/domain/src/modules/marketing.ts` controls `SHOW_HOME_PAGE` and marketing visibility behavior.
@@ -33,7 +33,7 @@ Run a focused public/auth redesign pass. Remove demo language and filler content
 
 ## Implementation Steps
 - Inventory visible marketing/auth copy and identify dummy, placeholder, duplicated, or unnecessary content.
-- Redesign `apps/web` landing content around real product outcomes, target customers, and conversion paths.
+- Redesign `apps/marketing` landing content around real product outcomes, target customers, and conversion paths.
 - Redesign dashboard tenant login and reset pages using shared UI primitives, clear hierarchy, and no placeholder claims.
 - Ensure signup, login, reset, and awaiting-approval pages all reflect admin-controlled signup visibility.
 - Keep pages responsive with no overlapping text, no nested cards, and no decorative clutter.
@@ -42,12 +42,12 @@ Run a focused public/auth redesign pass. Remove demo language and filler content
 - Update Brain notes with the final positioning/copy decisions.
 
 ## Affected Files Or Areas
-- `apps/web/app/page.tsx`
-- `apps/web/app/signup/page.tsx`
-- `apps/web/app/onboarding/page.tsx`
-- `apps/web/src/components/signup/signup-shell.tsx`
-- `apps/web/src/components/signup/signup-form.tsx`
-- `apps/web/src/components/signup/onboarding-form.tsx`
+- `apps/marketing/app/page.tsx`
+- `apps/marketing/app/signup/page.tsx`
+- `apps/marketing/app/onboarding/page.tsx`
+- `apps/marketing/src/components/signup/signup-shell.tsx`
+- `apps/marketing/src/components/signup/signup-form.tsx`
+- `apps/marketing/src/components/signup/onboarding-form.tsx`
 - `apps/dashboard/src/app/page.tsx`
 - `apps/dashboard/src/app/(public)/login/page.tsx`
 - `apps/dashboard/src/app/(public)/login/reset/page.tsx`

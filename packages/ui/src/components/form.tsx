@@ -13,7 +13,7 @@ import {
 import { Label } from "@halaalvest/ui/components/label"
 import { cn } from "@halaalvest/ui/lib/utils"
 
-const Form = FormProvider
+const Form: typeof FormProvider = FormProvider
 
 type FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,

@@ -29,6 +29,7 @@ function DashboardSidebarLink({
   return (
     <Link
       href={href}
+      aria-label={label}
       onClick={onNavigate}
       title={expanded ? undefined : label}
       className="group block"

@@ -110,8 +110,8 @@ flowchart TD
 - [ ] Keep an `email-smoke-test` task if useful, but write to message logs rather than creating an outbox row.
 
 ### Phase 6: Workflow Producer Migration
-- [ ] `apps/web/app/api/signup/route.ts`: replace outbox queue/trigger with direct signup verification send; production failure should block signup.
-- [ ] `apps/web/app/api/onboarding/route.ts`: send workspace-ready email directly; failure should remain non-blocking and be logged.
+- [ ] `apps/marketing/app/api/signup/route.ts`: replace outbox queue/trigger with direct signup verification send; production failure should block signup.
+- [ ] `apps/marketing/app/api/onboarding/route.ts`: send workspace-ready email directly; failure should remain non-blocking and be logged.
 - [ ] `apps/dashboard/src/app/auth/password-reset/request/route.ts`: send password reset directly and log the outcome.
 - [ ] `apps/dashboard/src/lib/public-actions.ts`: move member signup verification notifications to the dispatcher.
 - [ ] `apps/dashboard/src/lib/dashboard-actions.ts`: replace outbox creation and role queueing with typed dispatcher calls for approvals, KYC, monthly records, charges, loans, repayments, domains, collections, imports, migration, and share profit events.
@@ -170,9 +170,9 @@ flowchart TD
 - `apps/dashboard/src/app/(app)/(sidebar)/notifications/page.tsx`
 - `apps/dashboard/src/app/(app)/(sidebar)/reports/notifications-export/route.ts`
 - `apps/dashboard/src/app/auth/password-reset/request/route.ts`
-- `apps/web/app/api/signup/route.ts`
-- `apps/web/app/api/onboarding/route.ts`
-- `apps/web/src/lib/server-notifications.ts`
+- `apps/marketing/app/api/signup/route.ts`
+- `apps/marketing/app/api/onboarding/route.ts`
+- `apps/marketing/src/lib/server-notifications.ts`
 - `brain/PROJECT_INDEX.md`
 - `brain/api/endpoints.md`
 - `brain/database/schema.md`

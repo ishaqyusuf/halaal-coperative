@@ -247,12 +247,21 @@ function createProcurementPrismaStub(input?: {
       }),
     },
     tenantOperationProfile: {
-      upsert: async () => ({
+      create: async ({ data }: { data: { tenantId: string } }) => ({
         id: "operation-profile-1",
         reviewedAt: new Date("2026-07-01T00:00:00.000Z"),
         reviewedByUserId: "user-1",
-        tenantId: "tenant-1",
+        tenantId: data.tenantId,
       }),
+      findUnique: async ({ where }: { where: { tenantId: string } }) =>
+        where.tenantId === "tenant-1"
+          ? {
+              id: "operation-profile-1",
+              reviewedAt: new Date("2026-07-01T00:00:00.000Z"),
+              reviewedByUserId: "user-1",
+              tenantId: "tenant-1",
+            }
+          : null,
     },
     tenantServiceSetting: {
       findMany: async ({ where }: { where: { tenantId: string } }) =>

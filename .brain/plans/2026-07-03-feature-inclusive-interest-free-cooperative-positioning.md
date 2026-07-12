@@ -44,9 +44,9 @@ flowchart TD
 - Record the remaining tenant-configurable religious-tone setting as future work.
 
 ## Affected Files Or Areas
-- `apps/web/src/components/marketing/launch-landing.tsx`
-- `apps/web/src/components/marketing/prelaunch-landing.tsx`
-- `apps/web/app/layout.tsx`
+- `apps/marketing/src/components/marketing/launch-landing.tsx`
+- `apps/marketing/src/components/marketing/prelaunch-landing.tsx`
+- `apps/marketing/app/layout.tsx`
 - `packages/notifications/src/types/onboarding.ts`
 - `packages/notifications/src/types/member.ts`
 - `apps/dashboard/src/app/auth/password-reset/request/route.ts`

@@ -7,7 +7,7 @@ import { useTenantHref } from "./react"
 
 const isDev = process.env.NODE_ENV !== "production"
 
-export type TenantLinkProps = ComponentPropsWithoutRef<typeof NextLink>
+export type TenantLinkProps = Omit<ComponentPropsWithoutRef<typeof NextLink>, "key">
 
 export const LocalTenantLink = forwardRef<HTMLAnchorElement, TenantLinkProps>(
   function LocalTenantLink({ href, ...props }, ref) {
@@ -18,7 +18,7 @@ export const LocalTenantLink = forwardRef<HTMLAnchorElement, TenantLinkProps>(
   },
 )
 
-export const TenantLink = isDev ? LocalTenantLink : NextLink
+export const TenantLink = (isDev ? LocalTenantLink : NextLink) as typeof NextLink
 
 export function useLocalTenantRouter() {
   const router = useRouter()
@@ -37,7 +37,7 @@ export function useLocalTenantRouter() {
 
 export const useTenantRouter = isDev ? useLocalTenantRouter : useRouter
 
-export function createTenantLink(Link = NextLink) {
+export function createTenantLink(Link: typeof NextLink = NextLink): typeof NextLink {
   const LocalLink = forwardRef<HTMLAnchorElement, TenantLinkProps>(
     function LocalLink({ href, ...props }, ref) {
       const buildHref = useTenantHref()
@@ -47,7 +47,7 @@ export function createTenantLink(Link = NextLink) {
     },
   )
 
-  return isDev ? LocalLink : Link
+  return (isDev ? LocalLink : Link) as typeof NextLink
 }
 
 export function createTenantRouterHook(baseUseRouter = useRouter) {

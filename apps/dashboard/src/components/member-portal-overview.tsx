@@ -59,6 +59,8 @@ function memberSupportPrefillHref(values: Record<string, string>) {
 }
 
 export function MemberPortalOverview({
+  canCreateFoodPurchase,
+  canCreateProcurement,
   canShowFoodPurchase,
   canShowProcurement,
   detail,
@@ -71,6 +73,8 @@ export function MemberPortalOverview({
   sharePosition,
   supportCases,
 }: {
+  canCreateFoodPurchase: boolean
+  canCreateProcurement: boolean
   canShowFoodPurchase: boolean
   canShowProcurement: boolean
   detail: MemberStatementDetail
@@ -272,7 +276,9 @@ export function MemberPortalOverview({
             actions={
               <>
                 <TrendPill>{detail.loans.length} records</TrendPill>
-                <MemberLink href="/procurement">Request item</MemberLink>
+                {canCreateProcurement ? (
+                  <MemberLink href="/procurement">Request item</MemberLink>
+                ) : null}
                 <MemberLink href="/project-financing">
                   Request business
                 </MemberLink>
@@ -291,15 +297,17 @@ export function MemberPortalOverview({
                 status: loan.status,
               }))}
             />
-            <StatusRows
-              empty="No procurement requests."
-              rows={procurementRequests.slice(0, 3).map((request) => ({
-                detail: formatCurrency(request.requestedCost),
-                key: request.id,
-                label: request.itemName,
-                status: request.status,
-              }))}
-            />
+            {canShowProcurement ? (
+              <StatusRows
+                empty="No procurement requests."
+                rows={procurementRequests.slice(0, 3).map((request) => ({
+                  detail: formatCurrency(request.requestedCost),
+                  key: request.id,
+                  label: request.itemName,
+                  status: request.status,
+                }))}
+              />
+            ) : null}
             <StatusRows
               empty="No project financing requests."
               rows={projectFinancingRequests.slice(0, 3).map((request) => ({
@@ -351,33 +359,37 @@ export function MemberPortalOverview({
         </DashboardSectionCard>
       </section>
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={
-            <>
-              <TrendPill>
-                {foodPurchaseApplications.length} applications
-              </TrendPill>
-              <MemberLink href="/food-purchase">Apply</MemberLink>
-            </>
-          }
-          eyebrow="Foodstuff Purchase"
-          title="Foodstuff Purchase applications"
-        />
-        <div className="mt-5">
-          <StatusRows
-            empty="No Foodstuff Purchase applications."
-            rows={foodPurchaseApplications.slice(0, 5).map((application) => ({
-              detail: formatCurrency(application.requestedAmount),
-              key: application.id,
-              label:
-                application.itemDescription ??
-                formatDate(application.cycle.periodMonth),
-              status: application.status,
-            }))}
+      {canShowFoodPurchase ? (
+        <DashboardSectionCard>
+          <DashboardSectionHeader
+            actions={
+              <>
+                <TrendPill>
+                  {foodPurchaseApplications.length} applications
+                </TrendPill>
+                {canCreateFoodPurchase ? (
+                  <MemberLink href="/food-purchase">Apply</MemberLink>
+                ) : null}
+              </>
+            }
+            eyebrow="Foodstuff Purchase"
+            title="Foodstuff Purchase applications"
           />
-        </div>
-      </DashboardSectionCard>
+          <div className="mt-5">
+            <StatusRows
+              empty="No Foodstuff Purchase applications."
+              rows={foodPurchaseApplications.slice(0, 5).map((application) => ({
+                detail: formatCurrency(application.requestedAmount),
+                key: application.id,
+                label:
+                  application.itemDescription ??
+                  formatDate(application.cycle.periodMonth),
+                status: application.status,
+              }))}
+            />
+          </div>
+        </DashboardSectionCard>
+      ) : null}
 
       <DashboardSectionCard>
         <DashboardSectionHeader

@@ -53,6 +53,15 @@ const memberListInclude = {
   user: { select: { id: true, email: true, fullName: true } },
 } satisfies Prisma.MemberInclude
 
+function serializeMemberListItem<TMember extends { totalSavingsSnapshot?: unknown }>(
+  member: TMember
+) {
+  return {
+    ...member,
+    totalSavingsSnapshot: Number(member.totalSavingsSnapshot ?? 0),
+  }
+}
+
 function buildMemberWhere(
   tenantId: string,
   filters?: ListMembersFilters
@@ -120,7 +129,7 @@ export async function listMembers(
     prisma.member.count({ where }),
   ])
 
-  return { items, total, page, pageSize }
+  return { items: items.map(serializeMemberListItem), total, page, pageSize }
 }
 
 export async function getMemberByUserId(
@@ -231,7 +240,7 @@ export async function listMembersTable(
     })
   }
   const dataWithBackfillStatus = data.map((member) => ({
-    ...member,
+    ...serializeMemberListItem(member),
     backfillStatus: statusByMemberId.get(member.id) ?? {
       appliedBatchId: null,
       appliedMonthCount: 0,

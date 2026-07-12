@@ -23,7 +23,7 @@ import {
 import { loadSortParams } from "@/hooks/use-sort-params"
 import { getInitialMemberImportColumnSettings } from "@/lib/member-import-column-settings.server"
 import { loadMembersPageData } from "@/lib/members"
-import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
+import { getQueryClient, getServerCaller, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
 
 type SearchParams = Record<string, string | string[] | undefined>
@@ -145,14 +145,20 @@ export default async function MembersPage({
     )
   }
 
-  batchPrefetch([
-    trpc.members.list.infiniteQueryOptions(
-      getMembersListInput(filters, sort),
-      {
-        getNextPageParam: ({ meta }) => meta?.cursor,
-      }
-    ),
-  ])
+  const membersListInput = getMembersListInput(filters, sort)
+  const membersListOptions = trpc.members.list.infiniteQueryOptions(
+    membersListInput,
+    {
+      getNextPageParam: ({ meta }) => meta?.cursor,
+    }
+  )
+  const caller = await getServerCaller()
+  const initialMembersPage = await caller.members.list(membersListInput)
+
+  getQueryClient().setQueryData(membersListOptions.queryKey, {
+    pageParams: [membersListOptions.initialPageParam],
+    pages: [initialMembersPage],
+  })
 
   return (
     <HydrateClient>

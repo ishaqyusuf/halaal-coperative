@@ -15,18 +15,18 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `brain/product/pricing-and-packaging.md`: public pricing posture, plan bands, Free Beta rules, pass-through fee treatment, and packaging guardrails.
 - `brain/product/admin-dashboard-kpi-framework.md`: source of truth for admin dashboard metrics, sections, and exception-led content hierarchy.
 - `brain/features/member-commitments-and-payment-allocation.md`: source of truth for member-specific commitments, loan servicing estimates, and split payment allocation.
-- `apps/web/`: Next.js SaaS marketing application.
-- `apps/web/app/signup/page.tsx`: public signup route that captures cooperative primary-contact details and prepares a verification link.
-- `apps/web/app/onboarding/page.tsx`: verified onboarding route that finalizes tenant bootstrap from the signed signup token.
-- `apps/web/app/api/signup/route.ts`: public signup API endpoint that issues the signed onboarding link and verification email draft.
-- `apps/web/app/api/onboarding/route.ts`: public onboarding API endpoint that verifies the token and provisions the tenant workspace.
-- `apps/web/src/app/`: main marketing route entrypoints for launch and pre-launch rendering.
-- `apps/web/src/lib/marketing-config.ts`: web-app wrapper around the shared homepage and launch-stage config exported from `packages/domain`.
-- `apps/web/src/lib/signup-flow.ts`: shared signup and onboarding schemas, defaults, and payload shaping.
-- `apps/web/src/lib/dev-form-fill.ts`: central dev-mode random autofill generator for signup and onboarding forms.
-- `apps/web/src/components/marketing/`: launch and pre-launch landing page sections for the public marketing surface.
-- `apps/web/src/components/signup/`: shared shell and client forms for signup verification and onboarding bootstrap.
-- `apps/web/src/components/signup/*.tsx`: public signup and onboarding forms now consume the shared `@halaalvest/ui/hooks/use-zod-form` hook instead of a web-local duplicate.
+- `apps/marketing/`: Next.js SaaS marketing application published as `@halaalvest/marketing`.
+- `apps/marketing/app/signup/page.tsx`: public signup route that captures cooperative primary-contact details and prepares a verification link.
+- `apps/marketing/app/onboarding/page.tsx`: verified onboarding route that finalizes tenant bootstrap from the signed signup token.
+- `apps/marketing/app/api/signup/route.ts`: public signup API endpoint that issues the signed onboarding link and verification email draft.
+- `apps/marketing/app/api/onboarding/route.ts`: public onboarding API endpoint that verifies the token and provisions the tenant workspace.
+- `apps/marketing/src/app/`: main marketing route entrypoints for launch and pre-launch rendering.
+- `apps/marketing/src/lib/marketing-config.ts`: marketing-app wrapper around the shared homepage and launch-stage config exported from `packages/domain`.
+- `apps/marketing/src/lib/signup-flow.ts`: shared signup and onboarding schemas, defaults, and payload shaping.
+- `apps/marketing/src/lib/dev-form-fill.ts`: central dev-mode random autofill generator for signup and onboarding forms.
+- `apps/marketing/src/components/marketing/`: launch and pre-launch landing page sections for the public marketing surface.
+- `apps/marketing/src/components/signup/`: shared shell and client forms for signup verification and onboarding bootstrap.
+- `apps/marketing/src/components/signup/*.tsx`: public signup and onboarding forms now consume the shared `@halaalvest/ui/hooks/use-zod-form` hook instead of a web-local duplicate.
 - `apps/dashboard/`: Next.js tenant application serving the public tenant homepage, shared login/signup, and protected workspace routes on the same host.
 - `apps/dashboard/src/`: Midday-style dashboard application root with grouped routes, shell components, domain tables, forms, and route/data helpers.
 - `apps/dashboard/src/app/page.tsx`: tenant-root entrypoint that chooses between the public tenant homepage and the authenticated dashboard overview.
@@ -70,7 +70,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/auth/src/index.ts`: auth cookie naming, session-scope helpers, and role utilities shared by the dashboard and API request contexts.
 - `packages/db/`: tenant, domain, user, and membership repository scaffolding plus runtime boundaries for the future Prisma-backed data layer.
 - `packages/domain/`: shared cooperative rules, platform identity, policies, finance helpers, and dashboard builders, intended to stay app-agnostic like the domain layer in `plot-keys`.
-- `packages/domain/src/modules/marketing.ts`: shared env-driven homepage visibility and launch-stage config consumed by both `apps/web` and `apps/dashboard`.
+- `packages/domain/src/modules/marketing.ts`: shared env-driven homepage visibility and launch-stage config consumed by both `apps/marketing` and `apps/dashboard`.
 - `packages/notifications/`: shared notification types, in-memory store, and service primitives.
 - `packages/notifications/src/index.ts`: notification registry, delivery service, console email transport, and shared email-draft builders for signup verification and workspace-ready follow-up.
 - `packages/notifications-react/`: React adapter for rendering shared notification events in web surfaces.

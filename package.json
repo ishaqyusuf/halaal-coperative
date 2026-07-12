@@ -13,6 +13,9 @@
     "kill:ports": "node ./scripts/with-workspace-env.mjs sh ./scripts/kill-port.sh",
     "dev:prepare": "bun run kill:ports && bun run db:start && bun run db:generate && bun run db:migrate:deploy",
     "dev": "bun scripts/dev.ts",
+    "eas-build:dev": "bun ./scripts/eas-account-runner.ts eas-build:dev",
+    "eas-build:preview": "bun ./scripts/eas-account-runner.ts eas-build:preview",
+    "eas-update:preview": "bun ./scripts/eas-account-runner.ts update:preview",
     "jobs:deploy": "bun run --filter @halaalvest/jobs deploy",
     "lint": "turbo lint",
     "lint:mobile": "turbo lint --filter=@halaalvest/mobile",
@@ -37,5 +40,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "overrides": {
+    "lightningcss": "1.30.1"
+  }
 }

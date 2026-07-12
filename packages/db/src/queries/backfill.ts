@@ -20,14 +20,16 @@ import {
 
 async function assertBackfillMutationOpen(
   tenantId: string,
-  prisma: PrismaClient
+  prisma: PrismaClient,
+  options: { allowLiveFinancialWrites?: boolean } = {}
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const mutationOpen =
+    migrationState.snapshot.canUseMigrationTools ||
+    (options.allowLiveFinancialWrites &&
+      migrationState.snapshot.canUseLiveFinancialWrites)
 
-  if (
-    !migrationState.snapshot.canUseMigrationTools &&
-    !migrationState.snapshot.canUseLiveFinancialWrites
-  ) {
+  if (!mutationOpen) {
     throw new Error(
       "Member ledger backfill is locked because migration tools and live financial writes are closed."
     )
@@ -1362,7 +1364,9 @@ export async function upsertMemberAmountLog(
     throw new Error("Commitment amount cannot be negative.")
   }
 
-  await assertBackfillMutationOpen(input.tenantId, prisma)
+  await assertBackfillMutationOpen(input.tenantId, prisma, {
+    allowLiveFinancialWrites: true,
+  })
   await assertMemberBackfillDraftNotAlreadyApplied({
     memberId: input.memberId,
     tenantId: input.tenantId,

@@ -1440,9 +1440,15 @@ function OperationProfileStep({
           <OperationProfileChangeReasonField />
         )}
         <GettingStartedFooterPortal>
-          <Button form={operationProfileFormId} type="submit">
-            {operationProfileStep === "review" ? "Save and continue" : "Next"}
-          </Button>
+          {operationProfileStep === "intro" ? (
+            <Link className={buttonVariants({})} href={navigation.nextHref}>
+              Next
+            </Link>
+          ) : (
+            <Button form={operationProfileFormId} type="submit">
+              {operationProfileStep === "review" ? "Save and continue" : "Next"}
+            </Button>
+          )}
         </GettingStartedFooterPortal>
       </form>
     </div>

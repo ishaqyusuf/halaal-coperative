@@ -5,6 +5,7 @@ import { z } from "zod"
 import {
   cooperativeCountryOptions,
   cooperativeSizeRanges,
+  formatCooperativeSizeRangeLabel,
   isCooperativeCountry,
   parseCooperativeSizeRangeValue,
 } from "@halaalvest/domain"
@@ -47,14 +48,14 @@ const profileSchema = z.object({
     .optional()
     .refine(
       (value) => !value || isCooperativeCountry(value),
-      "Select a valid cooperative country.",
+      "Select a valid cooperative country."
     ),
   currentSize: z
     .string()
     .optional()
     .refine(
       (value) => !value || parseCooperativeSizeRangeValue(value) !== null,
-      "Select a valid cooperative size.",
+      "Select a valid cooperative size."
     ),
   memberNumberPrefix: z.string().optional(),
   name: z.string().min(1, "Cooperative name is required."),
@@ -143,7 +144,11 @@ export function CooperativeProfileForm({
               >
                 <FormControl>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select cooperative size" />
+                    <SelectValue placeholder="Select cooperative size">
+                      {field.value
+                        ? formatCooperativeSizeRangeLabel(field.value, "")
+                        : undefined}
+                    </SelectValue>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -313,7 +318,7 @@ const trustProfileSchema = z.object({
     .optional()
     .refine(
       (value) => !value || z.string().email().safeParse(value).success,
-      "Enter a valid email address.",
+      "Enter a valid email address."
     ),
   incidentContactName: z.string().optional(),
   legalTermsUrl: z
@@ -349,7 +354,7 @@ export function TenantTrustProfileForm({
       } catch (error) {
         showError(
           "Could not save trust profile",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })

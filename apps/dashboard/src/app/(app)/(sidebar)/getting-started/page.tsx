@@ -24,6 +24,7 @@ import {
   type GettingStartedStepKey,
   loadGettingStartedParams,
 } from "@/hooks/use-getting-started-params"
+import { resolveOperationProfileStep } from "@/lib/getting-started/operation-profile-flow"
 import {
   canShowQuickFill,
   getDashboardServerContext,
@@ -107,6 +108,9 @@ export default async function GettingStartedPage({
 
   const requestedStep =
     gettingStartedParams.step as GettingStartedStepKey | null
+  const operationProfileStep = resolveOperationProfileStep(
+    gettingStartedParams.profileStep
+  )
   const requestedMigrationMemberId = gettingStartedParams.migrationMemberId
   const [
     data,
@@ -337,6 +341,7 @@ export default async function GettingStartedPage({
       migrationSnapshot={migrationState.snapshot}
       migrationSetup={data.migrationSetup}
       operationProfile={operationProfile}
+      operationProfileStep={operationProfileStep}
       recommendedMigrationSetupMode={recommendTenantMigrationSetupMode({
         memberCount: data.tenant?.currentSize ?? memberOptions.items.length,
         startDate: data.tenant?.startDate ?? null,

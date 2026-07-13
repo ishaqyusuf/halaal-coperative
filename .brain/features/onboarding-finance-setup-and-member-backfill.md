@@ -21,6 +21,8 @@
   - optional member-specific share override history
   - any active loan context already carried by the member record
 - During Getting Started and the member baseline step, staff can now choose between the existing full historical backfill path and a brought-forward opening-position path.
+- During Getting Started, the Operation Profile review is presented as a guided sub-step flow instead of one dense service-access form. The flow asks about commitment collection, procurement, Foodstuff Purchase, member access, and review/save one area at a time, while the full setup rail is hidden for focus.
+- Operation Profile settings remain available after setup as a compact service summary where admins can expand one service at a time to edit access mode and supply an audit reason when access is reduced.
 - Admin share setup surfaces must present the two share models as mutually exclusive. When staff select a different active model, inactive model workflows should be hidden until the selected model is saved, so monthly share history and unit-based shareholding are never treated as side-by-side setup paths.
 - The brought-forward path now has a staged opening-position data model for current book balances and active obligations.
 - The member backfill baseline step now lets finance staff stage, review, and apply approved brought-forward opening positions for one member when the row contains savings, share-capital balances, active financing outstanding, and procurement outstanding.

@@ -168,12 +168,12 @@ export default async function OperationProfileSettingsPage() {
                   operationProfile.services[service.key].accessMode
 
                 return (
-                  <Field
-                    className="border border-border/70 bg-background p-4"
+                  <details
+                    className="group border border-border/70 bg-background"
                     key={service.key}
                   >
-                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
-                      <div>
+                    <summary className="flex cursor-pointer list-none items-start justify-between gap-4 p-4 marker:hidden">
+                      <div className="min-w-0">
                         <FieldLabel
                           htmlFor={serviceAccessInputName(service.key)}
                         >
@@ -184,20 +184,47 @@ export default async function OperationProfileSettingsPage() {
                           Current: {accessModeLabel(currentAccessMode)}
                         </p>
                       </div>
-                      <select
-                        className="h-10 w-full border border-input bg-background px-3 text-sm text-foreground"
-                        defaultValue={currentAccessMode}
-                        id={serviceAccessInputName(service.key)}
-                        name={serviceAccessInputName(service.key)}
+                      <Button
+                        className="shrink-0 group-open:hidden"
+                        type="button"
+                        variant="outline"
                       >
-                        {accessModeOptions.map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
+                        Edit
+                      </Button>
+                      <Button
+                        className="hidden shrink-0 group-open:inline-flex"
+                        type="button"
+                        variant="secondary"
+                      >
+                        Close
+                      </Button>
+                    </summary>
+                    <div className="border-t border-border/70 bg-muted/20 p-4">
+                      <Field className="max-w-sm">
+                        <FieldLabel
+                          htmlFor={serviceAccessInputName(service.key)}
+                        >
+                          Access mode
+                        </FieldLabel>
+                        <select
+                          className="h-10 w-full border border-input bg-background px-3 text-sm text-foreground"
+                          defaultValue={currentAccessMode}
+                          id={serviceAccessInputName(service.key)}
+                          name={serviceAccessInputName(service.key)}
+                        >
+                          {accessModeOptions.map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        <FieldDescription>
+                          Use read-only only when existing records should stay
+                          visible but new requests are closed.
+                        </FieldDescription>
+                      </Field>
                     </div>
-                  </Field>
+                  </details>
                 )
               })}
             </FieldGroup>

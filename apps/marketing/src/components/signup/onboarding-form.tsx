@@ -58,6 +58,7 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import {
   cooperativeCountryOptions,
   cooperativeSizeRanges,
+  formatCooperativeSizeRangeLabel,
 } from "@halaalvest/domain"
 import { ChevronDownIcon, ExternalLinkIcon } from "lucide-react"
 import { DatePickerInput } from "@/components/date-picker-input"
@@ -366,7 +367,11 @@ export function OnboardingForm({
                     >
                       <FormControl>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select cooperative size" />
+                          <SelectValue placeholder="Select cooperative size">
+                            {field.value
+                              ? formatCooperativeSizeRangeLabel(field.value, "")
+                              : undefined}
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

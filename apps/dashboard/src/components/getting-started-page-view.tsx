@@ -54,7 +54,6 @@ import type {
   TenantMigrationSetupMode,
   TenantMigrationSetupSettings,
   TenantServiceAccessMode,
-  TenantServiceKey,
   TenantSharePolicySettings,
 } from "@halaalvest/db"
 import { BusinessProfitSeasonDeductionCells } from "@/components/business-profit-season-deduction-popover"
@@ -72,6 +71,17 @@ import {
 import { GettingStartedShareModelPanel } from "@/components/share-model-workspace"
 import { type GettingStartedStepKey } from "@/hooks/use-getting-started-params"
 import {
+  accessModesFromCommitmentCollectionChoice,
+  firstOperationProfileStep,
+  getOperationProfileStepIndex,
+  getOperationProfileStepMeta,
+  getOperationProfileStepNavigation,
+  operationProfileStepHref,
+  operationProfileStepKeys,
+  type CommitmentCollectionChoice,
+  type OperationProfileStepKey,
+} from "@/lib/getting-started/operation-profile-flow"
+import {
   finalizeInitialMigrationAction,
   saveBusinessProfitSeasonReviewAction,
   updateTenantOperationProfileAction,
@@ -83,7 +93,6 @@ import {
   CheckCircle2Icon,
   ClipboardListIcon,
   HistoryIcon,
-  SlidersHorizontalIcon,
   UsersIcon,
 } from "lucide-react"
 
@@ -273,6 +282,7 @@ type GettingStartedPageViewProps = {
   migrationSnapshot: InitialMigrationSnapshot
   migrationSetup: TenantMigrationSetupSettings
   operationProfile: TenantOperationProfileReadModel
+  operationProfileStep: OperationProfileStepKey
   profitMigrationOptions: ProfitMigrationOptionRow[]
   quickFillEnabled: boolean
   recommendedMigrationSetupMode: TenantMigrationSetupMode | null
@@ -460,6 +470,10 @@ function formatDate(value: string | null) {
 }
 
 function stepHref(key: GettingStartedStepKey) {
+  if (key === "operation-profile") {
+    return operationProfileStepHref(firstOperationProfileStep)
+  }
+
   return `?step=${key}`
 }
 
@@ -652,6 +666,7 @@ function StepFooter({
   nextHrefOverride,
   nextLabel = "Next",
   nextStep,
+  previousHrefOverride,
   previousStep,
   requireHistoryConfirmation = false,
 }: {
@@ -660,20 +675,23 @@ function StepFooter({
   nextHrefOverride?: string
   nextLabel?: string
   nextStep?: GettingStartedStepKey
+  previousHrefOverride?: string
   previousStep?: GettingStartedStepKey
   requireHistoryConfirmation?: boolean
 }) {
   const nextHref = nextHrefOverride ?? (nextStep ? stepHref(nextStep) : "")
+  const previousHref =
+    previousHrefOverride ?? (previousStep ? stepHref(previousStep) : "")
   const hasNext = Boolean(nextHref) && !hideNext
 
   return (
     <div className="mt-6 flex flex-col gap-4">
       <Separator />
       <div className="flex flex-wrap justify-between gap-2">
-        {previousStep ? (
+        {previousHref ? (
           <Link
             className={buttonVariants({ variant: "outline" })}
-            href={stepHref(previousStep)}
+            href={previousHref}
           >
             Previous
           </Link>
@@ -737,64 +755,7 @@ const migrationSetupModeOptions = [
   mode: TenantMigrationSetupMode
 }>
 
-const serviceAccessModeOptions = [
-  {
-    description: "This cooperative does not run this service.",
-    label: "Not offered",
-    value: "disabled",
-  },
-  {
-    description: "Members request it in the office; staff records it online.",
-    label: "Office only",
-    value: "office_only",
-  },
-  {
-    description: "Members can start the request from their portal.",
-    label: "Member self-service",
-    value: "member_self_service",
-  },
-  {
-    description:
-      "Members and staff can see records, but new requests are closed.",
-    label: "View only",
-    value: "read_only",
-  },
-] satisfies Array<{
-  description: string
-  label: string
-  value: TenantServiceAccessMode
-}>
-
-const operationProfileServiceCards = [
-  {
-    body: "How members show that they have paid savings, commitments, charges, loan repayments, or other balances.",
-    key: "payment_receipts",
-    title: "Payment receipts",
-  },
-  {
-    body: "Whether the cooperative helps members purchase goods or services and recover payment over time.",
-    key: "procurement",
-    title: "Procurement",
-  },
-  {
-    body: "Whether the cooperative runs Foodstuff Purchase cycles for members.",
-    key: "food_purchase",
-    title: "Foodstuff Purchase",
-  },
-  {
-    body: "Whether members can raise support cases or ask officials for help through the portal.",
-    key: "support_cases",
-    title: "Member support",
-  },
-] satisfies Array<{
-  body: string
-  key: TenantServiceKey
-  title: string
-}>
-
-function serviceAccessInputName(serviceKey: TenantServiceKey) {
-  return `${serviceKey}AccessMode`
-}
+const operationProfileFormId = "getting-started-operation-profile-form"
 
 function MigrationSetupModeStep({
   migrationSetup,
@@ -862,309 +823,629 @@ function MigrationSetupModeStep({
   )
 }
 
-function ServiceAccessModeFields({
-  accessMode,
-  serviceKey,
+function getCommitmentCollectionChoice(
+  operationProfile: TenantOperationProfileReadModel
+): CommitmentCollectionChoice {
+  const membersUploadReceipts =
+    operationProfile.services.payment_receipts.accessMode ===
+    "member_self_service"
+  const usesCollectionSources =
+    operationProfile.services.collection_sources.accessMode !== "disabled"
+
+  if (membersUploadReceipts && usesCollectionSources) return "mixed"
+  if (usesCollectionSources) return "collection_sources"
+  if (membersUploadReceipts) return "member_receipts"
+  return "office"
+}
+
+function isServiceOffered(accessMode: TenantServiceAccessMode) {
+  return accessMode !== "disabled" && accessMode !== "read_only"
+}
+
+function getRequestChannel(accessMode: TenantServiceAccessMode) {
+  return accessMode === "member_self_service" ? "member" : "office"
+}
+
+function formatAccessMode(value: TenantServiceAccessMode) {
+  const labels = {
+    disabled: "Not offered",
+    member_self_service: "Members can request",
+    office_only: "Office-managed",
+    read_only: "View existing records only",
+  } satisfies Record<TenantServiceAccessMode, string>
+
+  return labels[value]
+}
+
+function GuidedChoice({
+  checked,
+  description,
+  name,
+  title,
+  value,
 }: {
-  accessMode: TenantServiceAccessMode
-  serviceKey: TenantServiceKey
+  checked: boolean
+  description: string
+  name: string
+  title: string
+  value: string
 }) {
   return (
-    <div className="grid gap-2 md:grid-cols-2">
-      {serviceAccessModeOptions.map((option) => {
-        const id = `${serviceKey}-${option.value}`
+    <label
+      className={cn(
+        "flex min-h-28 cursor-pointer gap-3 border p-4 text-sm transition-all duration-200",
+        checked
+          ? "border-primary bg-primary/5 shadow-sm"
+          : "border-border/70 bg-background hover:border-foreground/30 hover:bg-muted/20"
+      )}
+    >
+      <input
+        className="mt-1 size-4 shrink-0 accent-primary"
+        defaultChecked={checked}
+        name={name}
+        type="radio"
+        value={value}
+      />
+      <span>
+        <span className="block text-base font-semibold text-foreground">
+          {title}
+        </span>
+        <span className="mt-1 block leading-6 text-muted-foreground">
+          {description}
+        </span>
+      </span>
+    </label>
+  )
+}
 
-        return (
-          <label
-            className={cn(
-              "flex min-h-24 cursor-pointer gap-3 border border-border/70 bg-background p-3 text-sm transition-colors",
-              accessMode === option.value
-                ? "border-primary/50 bg-primary/5"
-                : "hover:bg-muted/30"
-            )}
-            htmlFor={id}
-            key={option.value}
-          >
-            <input
-              className="mt-1 size-4 shrink-0 accent-primary"
-              defaultChecked={accessMode === option.value}
-              id={id}
-              name={serviceAccessInputName(serviceKey)}
-              type="radio"
-              value={option.value}
-            />
-            <span>
-              <span className="block font-medium text-foreground">
-                {option.label}
-              </span>
-              <span className="mt-1 block text-muted-foreground">
-                {option.description}
-              </span>
-            </span>
-          </label>
-        )
-      })}
+function OperationProfileProgress({
+  activeStep,
+  reviewed,
+}: {
+  activeStep: OperationProfileStepKey
+  reviewed: boolean
+}) {
+  const activeIndex = getOperationProfileStepIndex(activeStep)
+  const activeMeta = getOperationProfileStepMeta(activeStep)
+  const progressPercent =
+    ((activeIndex + 1) / operationProfileStepKeys.length) * 100
+
+  return (
+    <div className="border-b border-border/70 bg-muted/20 px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">
+            Operation Profile
+          </p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+            {activeMeta.label}
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+            {activeMeta.description}
+          </p>
+        </div>
+        <Badge variant={reviewed ? "default" : "secondary"}>
+          {reviewed ? "Reviewed" : "Needs review"}
+        </Badge>
+      </div>
+      <div className="mt-4 h-1.5 overflow-hidden bg-background">
+        <div
+          className="h-full bg-primary transition-all duration-300"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Step {activeIndex + 1} of {operationProfileStepKeys.length}
+      </p>
     </div>
   )
 }
 
-function OperationProfileStep({
+function OperationProfilePolicyInputs({
   operationProfile,
-  tenantName,
-}: Pick<GettingStartedPageViewProps, "operationProfile" | "tenantName">) {
-  const procurementEnabled =
-    operationProfile.services.procurement.accessMode !== "disabled"
-  const foodPurchaseEnabled =
-    operationProfile.services.food_purchase.accessMode !== "disabled"
-  const collectionSourcesEnabled =
-    operationProfile.services.collection_sources.accessMode !== "disabled"
+  step,
+}: {
+  operationProfile: TenantOperationProfileReadModel
+  step: OperationProfileStepKey
+}) {
+  const hideProcurementPolicy =
+    step !== "procurement" ||
+    !isServiceOffered(operationProfile.services.procurement.accessMode)
+  const hideFoodPurchasePolicy =
+    step !== "foodstuff" ||
+    !isServiceOffered(operationProfile.services.food_purchase.accessMode)
 
   return (
-    <Card>
-      <SetupCardHeader
-        action={
-          <Badge
-            variant={operationProfile.reviewedAt ? "default" : "secondary"}
-          >
-            {operationProfile.reviewedAt ? "Reviewed" : "Needs review"}
-          </Badge>
-        }
-        eyebrow="How the cooperative operates"
-        title="Confirm service access"
-        description={`Tell HalaalVest how ${tenantName} collects commitments and which services members can use online, in-office, or only for viewing.`}
+    <>
+      {hideProcurementPolicy ? (
+        <input
+          name="procurementMaximumActiveObligationsPerMember"
+          type="hidden"
+          value={
+            operationProfile.policy.procurementMaximumActiveObligationsPerMember
+          }
+        />
+      ) : null}
+      {hideFoodPurchasePolicy ? (
+        <>
+          <input
+            name="foodPurchaseMaximumActiveObligationsPerMember"
+            type="hidden"
+            value={
+              operationProfile.policy
+                .foodPurchaseMaximumActiveObligationsPerMember
+            }
+          />
+          <input
+            name="foodPurchaseRequiresOpenCycle"
+            type="hidden"
+            value={
+              operationProfile.policy.foodPurchaseRequiresOpenCycle
+                ? "true"
+                : "false"
+            }
+          />
+        </>
+      ) : null}
+    </>
+  )
+}
+
+function OperationProfileChangeReasonField() {
+  return (
+    <Field>
+      <FieldLabel htmlFor="operationProfileChangeReason">
+        Change reason
+      </FieldLabel>
+      <Textarea
+        id="operationProfileChangeReason"
+        name="changeReason"
+        placeholder="Required when disabling a service, making it view-only, or removing member self-service access."
       />
-      <CardContent>
-        <form
-          action={updateTenantOperationProfileAction}
-          className="grid gap-5"
-        >
-          <FieldSet>
-            <FieldLegend>Commitment collection style</FieldLegend>
-            <FieldDescription>
-              Use this to separate cooperatives where members upload receipts
-              from cooperatives where payroll, ministry, or office records are
-              posted by officials.
-            </FieldDescription>
-            <FieldGroup>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="border border-border/70 bg-muted/10 p-4">
-                  <h3 className="text-sm font-semibold">Payment receipts</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Manual commitment proof, cash office payments, transfers,
-                    and other member-submitted evidence.
-                  </p>
-                  <div className="mt-4">
-                    <ServiceAccessModeFields
-                      accessMode={
-                        operationProfile.services.payment_receipts.accessMode
-                      }
-                      serviceKey="payment_receipts"
-                    />
-                  </div>
-                </div>
-                <div className="border border-border/70 bg-muted/10 p-4">
-                  <h3 className="text-sm font-semibold">
-                    Payroll or ministry collection sources
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Track the organization, ministry, employer, or payroll
-                    source that deducts commitments before salaries are paid.
-                  </p>
-                  <div className="mt-4">
-                    <ServiceAccessModeFields
-                      accessMode={
-                        operationProfile.services.collection_sources.accessMode
-                      }
-                      serviceKey="collection_sources"
-                    />
-                  </div>
-                  {collectionSourcesEnabled ? (
-                    <div className="mt-4 border border-border/70 bg-background p-3">
-                      <h4 className="text-sm font-medium">
-                        Batch posting for released payroll
-                      </h4>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Allow officials to mark a full source group as paid for
-                        a month after the deduction file or salary release is
-                        confirmed.
-                      </p>
-                      <div className="mt-3">
-                        <ServiceAccessModeFields
-                          accessMode={
-                            operationProfile.services
-                              .collection_source_batch_posting.accessMode
-                          }
-                          serviceKey="collection_source_batch_posting"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <input
-                      name={serviceAccessInputName(
-                        "collection_source_batch_posting"
-                      )}
-                      type="hidden"
-                      value="disabled"
-                    />
-                  )}
-                </div>
-              </div>
-            </FieldGroup>
-          </FieldSet>
+      <FieldDescription>
+        Only needed when this step reduces member or staff access. It is saved
+        with the operation profile audit record.
+      </FieldDescription>
+    </Field>
+  )
+}
 
-          <FieldSet>
-            <FieldLegend>Member service channels</FieldLegend>
-            <FieldDescription>
-              These choices decide whether members can start requests from the
-              portal or must work with officials in the cooperative office.
-            </FieldDescription>
-            <div className="grid gap-4">
-              {operationProfileServiceCards.map((service) => (
-                <div
-                  className="border border-border/70 bg-background p-4"
-                  key={service.key}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center border border-border bg-muted/40">
-                      <SlidersHorizontalIcon className="size-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold">{service.title}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {service.body}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <ServiceAccessModeFields
-                      accessMode={
-                        operationProfile.services[service.key].accessMode
-                      }
-                      serviceKey={service.key}
-                    />
-                  </div>
-                  {service.key === "procurement" && procurementEnabled ? (
-                    <Field className="mt-4 max-w-md">
-                      <FieldLabel htmlFor="procurementMaximumActiveObligationsPerMember">
-                        Active procurement limit per member
-                      </FieldLabel>
-                      <Input
-                        defaultValue={
-                          operationProfile.policy
-                            .procurementMaximumActiveObligationsPerMember
-                        }
-                        id="procurementMaximumActiveObligationsPerMember"
-                        min={1}
-                        name="procurementMaximumActiveObligationsPerMember"
-                        type="number"
-                      />
-                      <FieldDescription>
-                        Example: enter 1 when a member must finish paying one
-                        procurement before collecting another.
-                      </FieldDescription>
-                    </Field>
-                  ) : null}
-                  {service.key === "food_purchase" && foodPurchaseEnabled ? (
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="foodPurchaseMaximumActiveObligationsPerMember">
-                          Active Foodstuff Purchase limit per member
-                        </FieldLabel>
-                        <Input
-                          defaultValue={
-                            operationProfile.policy
-                              .foodPurchaseMaximumActiveObligationsPerMember
-                          }
-                          id="foodPurchaseMaximumActiveObligationsPerMember"
-                          min={1}
-                          name="foodPurchaseMaximumActiveObligationsPerMember"
-                          type="number"
-                        />
-                      </Field>
-                      <label
-                        className="flex gap-3 border border-border/70 bg-muted/20 p-3 text-sm"
-                        htmlFor="foodPurchaseRequiresOpenCycle"
-                      >
-                        <input
-                          className="mt-1 size-4 shrink-0 accent-primary"
-                          defaultChecked={
-                            operationProfile.policy
-                              .foodPurchaseRequiresOpenCycle
-                          }
-                          id="foodPurchaseRequiresOpenCycle"
-                          name="foodPurchaseRequiresOpenCycle"
-                          type="checkbox"
-                        />
-                        <span>
-                          <span className="block font-medium text-foreground">
-                            Require an open Foodstuff Purchase cycle
-                          </span>
-                          <span className="mt-1 block text-muted-foreground">
-                            Members can only apply when officials open an active
-                            purchase cycle.
-                          </span>
-                        </span>
-                      </label>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
+function IntroOperationProfileStep({ tenantName }: { tenantName: string }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(260px,0.8fr)]">
+      <div className="border border-border/70 bg-background p-5">
+        <Badge variant="secondary">Let&apos;s know about your operation</Badge>
+        <h3 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
+          Tell us how {tenantName} works day to day.
+        </h3>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          We will ask about commitment collection, procurement, Foodstuff
+          Purchase, and member access one at a time. Your answers tailor the
+          member portal and staff workspaces without changing existing finance
+          safety rules.
+        </p>
+      </div>
+      <div className="grid gap-3">
+        {[
+          "Short choices, not a long settings table.",
+          "Services can stay office-managed when members should come in person.",
+          "Existing obligations and records remain visible for audit and trust.",
+        ].map((item) => (
+          <div className="border border-border/70 bg-muted/20 p-4" key={item}>
+            <CheckCircle2Icon className="size-4 text-primary" />
+            <p className="mt-3 text-sm leading-6 font-medium text-foreground">
+              {item}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CommitmentCollectionStep({
+  operationProfile,
+}: {
+  operationProfile: TenantOperationProfileReadModel
+}) {
+  const selectedChoice = getCommitmentCollectionChoice(operationProfile)
+
+  return (
+    <FieldSet>
+      <FieldLegend>How are commitments collected?</FieldLegend>
+      <FieldDescription>
+        Choose the closest operating model. Manual payers remain valid even when
+        payroll-style sources are enabled.
+      </FieldDescription>
+      <div className="grid gap-3 md:grid-cols-2">
+        <GuidedChoice
+          checked={selectedChoice === "office"}
+          description="Officials post office payments, cash payments, transfers, and other evidence for members."
+          name="commitmentCollection"
+          title="Officials record payments"
+          value="office"
+        />
+        <GuidedChoice
+          checked={selectedChoice === "member_receipts"}
+          description="Members upload receipts from their portal, then officials review and post them."
+          name="commitmentCollection"
+          title="Members submit receipts"
+          value="member_receipts"
+        />
+        <GuidedChoice
+          checked={selectedChoice === "collection_sources"}
+          description="A ministry, employer, payroll group, or other Collection Source releases deductions in batches."
+          name="commitmentCollection"
+          title="Collection Source batches"
+          value="collection_sources"
+        />
+        <GuidedChoice
+          checked={selectedChoice === "mixed"}
+          description="Some members pay through a source, while manual or self-employed members submit receipts or pay in-office."
+          name="commitmentCollection"
+          title="Mixed collection"
+          value="mixed"
+        />
+      </div>
+    </FieldSet>
+  )
+}
+
+function ProcurementOperationStep({
+  operationProfile,
+}: {
+  operationProfile: TenantOperationProfileReadModel
+}) {
+  const accessMode = operationProfile.services.procurement.accessMode
+  const offered = isServiceOffered(accessMode)
+  const channel = getRequestChannel(accessMode)
+
+  return (
+    <FieldSet>
+      <FieldLegend>Does this cooperative offer procurement?</FieldLegend>
+      <FieldDescription>
+        Procurement helps members purchase goods or services and repay over
+        time. If it is not offered, member and staff create actions stay closed.
+      </FieldDescription>
+      <div className="grid gap-3 md:grid-cols-2">
+        <GuidedChoice
+          checked={!offered}
+          description={
+            accessMode === "read_only"
+              ? "New procurement is closed, but existing procurement records remain visible."
+              : "Hide procurement request actions for this cooperative."
+          }
+          name="procurementOffered"
+          title="No, not offered"
+          value="no"
+        />
+        <GuidedChoice
+          checked={offered}
+          description="Enable procurement setup and choose whether members can start requests online."
+          name="procurementOffered"
+          title="Yes, procurement is offered"
+          value="yes"
+        />
+      </div>
+      {offered ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">
+              Who starts requests?
+            </h4>
+            <div className="mt-3 grid gap-3">
+              <GuidedChoice
+                checked={channel === "office"}
+                description="Members come to the office. Staff record and manage requests online."
+                name="procurementRequestChannel"
+                title="Office-managed"
+                value="office"
+              />
+              <GuidedChoice
+                checked={channel === "member"}
+                description="Members can start procurement requests from their portal."
+                name="procurementRequestChannel"
+                title="Members can request online"
+                value="member"
+              />
             </div>
-          </FieldSet>
-
-          {!procurementEnabled ? (
-            <input
-              name="procurementMaximumActiveObligationsPerMember"
-              type="hidden"
-              value={
+          </div>
+          <Field>
+            <FieldLabel htmlFor="procurementMaximumActiveObligationsPerMember">
+              Active procurement limit per member
+            </FieldLabel>
+            <Input
+              defaultValue={
                 operationProfile.policy
                   .procurementMaximumActiveObligationsPerMember
               }
+              id="procurementMaximumActiveObligationsPerMember"
+              min={1}
+              name="procurementMaximumActiveObligationsPerMember"
+              type="number"
             />
-          ) : null}
-          {!foodPurchaseEnabled ? (
-            <>
-              <input
-                name="foodPurchaseMaximumActiveObligationsPerMember"
-                type="hidden"
-                value={
+            <FieldDescription>
+              Use 1 when a member must finish one procurement before collecting
+              another.
+            </FieldDescription>
+          </Field>
+        </div>
+      ) : null}
+    </FieldSet>
+  )
+}
+
+function FoodstuffOperationStep({
+  operationProfile,
+}: {
+  operationProfile: TenantOperationProfileReadModel
+}) {
+  const accessMode = operationProfile.services.food_purchase.accessMode
+  const offered = isServiceOffered(accessMode)
+  const channel = getRequestChannel(accessMode)
+
+  return (
+    <FieldSet>
+      <FieldLegend>Does this cooperative run Foodstuff Purchase?</FieldLegend>
+      <FieldDescription>
+        Foodstuff Purchase is a separate cycle-led service. Officials can open
+        cycles and members apply only when the service is active.
+      </FieldDescription>
+      <div className="grid gap-3 md:grid-cols-2">
+        <GuidedChoice
+          checked={!offered}
+          description={
+            accessMode === "read_only"
+              ? "New applications are closed, but existing Foodstuff Purchase records remain visible."
+              : "Hide Foodstuff Purchase application actions for this cooperative."
+          }
+          name="foodPurchaseOffered"
+          title="No, not offered"
+          value="no"
+        />
+        <GuidedChoice
+          checked={offered}
+          description="Enable Foodstuff Purchase and choose how members join purchase cycles."
+          name="foodPurchaseOffered"
+          title="Yes, Foodstuff Purchase is offered"
+          value="yes"
+        />
+      </div>
+      {offered ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">
+              Who starts applications?
+            </h4>
+            <div className="mt-3 grid gap-3">
+              <GuidedChoice
+                checked={channel === "office"}
+                description="Members come to the office. Staff record applications during a cycle."
+                name="foodPurchaseRequestChannel"
+                title="Office-managed"
+                value="office"
+              />
+              <GuidedChoice
+                checked={channel === "member"}
+                description="Members can apply from their portal when a cycle is open."
+                name="foodPurchaseRequestChannel"
+                title="Members can apply online"
+                value="member"
+              />
+            </div>
+          </div>
+          <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="foodPurchaseMaximumActiveObligationsPerMember">
+                Active Foodstuff Purchase limit per member
+              </FieldLabel>
+              <Input
+                defaultValue={
                   operationProfile.policy
                     .foodPurchaseMaximumActiveObligationsPerMember
                 }
+                id="foodPurchaseMaximumActiveObligationsPerMember"
+                min={1}
+                name="foodPurchaseMaximumActiveObligationsPerMember"
+                type="number"
               />
+            </Field>
+            <label
+              className="flex gap-3 border border-border/70 bg-muted/20 p-3 text-sm"
+              htmlFor="foodPurchaseRequiresOpenCycle"
+            >
               <input
-                name="foodPurchaseRequiresOpenCycle"
-                type="hidden"
-                value={
+                className="mt-1 size-4 shrink-0 accent-primary"
+                defaultChecked={
                   operationProfile.policy.foodPurchaseRequiresOpenCycle
-                    ? "true"
-                    : "false"
                 }
+                id="foodPurchaseRequiresOpenCycle"
+                name="foodPurchaseRequiresOpenCycle"
+                type="checkbox"
               />
-            </>
-          ) : null}
+              <span>
+                <span className="block font-medium text-foreground">
+                  Require an open cycle
+                </span>
+                <span className="mt-1 block text-muted-foreground">
+                  Members can only apply when officials open an active purchase
+                  cycle.
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+      ) : null}
+    </FieldSet>
+  )
+}
 
-          <Field>
-            <FieldLabel htmlFor="operationProfileChangeReason">
-              Change reason
-            </FieldLabel>
-            <Textarea
-              id="operationProfileChangeReason"
-              name="changeReason"
-              placeholder="Required when disabling a service, making it view-only, or removing member self-service access."
-            />
-            <FieldDescription>
-              Saved with the operation profile audit record when access is
-              reduced.
-            </FieldDescription>
-          </Field>
+function MemberAccessOperationStep({
+  operationProfile,
+}: {
+  operationProfile: TenantOperationProfileReadModel
+}) {
+  const supportMode = operationProfile.services.support_cases.accessMode
+  const supportChannel = supportMode === "office_only" ? "office" : "member"
 
-          <GettingStartedFooterPortal>
-            <Button type="submit">Save operation profile</Button>
-          </GettingStartedFooterPortal>
-        </form>
-      </CardContent>
-    </Card>
+  return (
+    <FieldSet>
+      <FieldLegend>What can members do from their portal?</FieldLegend>
+      <FieldDescription>
+        Keep member support simple. Other service actions follow the choices you
+        made in the earlier steps.
+      </FieldDescription>
+      <div className="grid gap-3 md:grid-cols-2">
+        <GuidedChoice
+          checked={supportChannel === "member"}
+          description="Members can raise support cases and ask officials for help from the portal."
+          name="supportAccess"
+          title="Members can contact support online"
+          value="member"
+        />
+        <GuidedChoice
+          checked={supportChannel === "office"}
+          description="Support is handled by officials in the office; members do not start cases online."
+          name="supportAccess"
+          title="Office-managed support"
+          value="office"
+        />
+      </div>
+    </FieldSet>
+  )
+}
+
+function OperationProfileReviewStep({
+  operationProfile,
+}: {
+  operationProfile: TenantOperationProfileReadModel
+}) {
+  const commitmentChoice = getCommitmentCollectionChoice(operationProfile)
+  const commitmentModes =
+    accessModesFromCommitmentCollectionChoice(commitmentChoice)
+  const rows = [
+    ["Commitment collection", commitmentChoice.replaceAll("_", " ")],
+    ["Payment receipts", formatAccessMode(commitmentModes.paymentReceipts)],
+    ["Collection Sources", formatAccessMode(commitmentModes.collectionSources)],
+    [
+      "Batch posting",
+      formatAccessMode(commitmentModes.collectionSourceBatchPosting),
+    ],
+    [
+      "Procurement",
+      formatAccessMode(operationProfile.services.procurement.accessMode),
+    ],
+    [
+      "Foodstuff Purchase",
+      formatAccessMode(operationProfile.services.food_purchase.accessMode),
+    ],
+    [
+      "Member support",
+      formatAccessMode(operationProfile.services.support_cases.accessMode),
+    ],
+  ] satisfies Array<[string, string]>
+
+  return (
+    <div className="grid gap-4">
+      <div className="border border-border/70 bg-muted/20 p-4">
+        <h3 className="text-lg font-semibold tracking-tight text-foreground">
+          Review operation profile
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Save these choices to tailor staff workspaces, member actions, and
+          reports without hiding existing records or obligations.
+        </p>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div
+            className="border border-border/70 bg-background p-4"
+            key={label}
+          >
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground capitalize">
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function OperationProfileStepContent({
+  operationProfile,
+  step,
+  tenantName,
+}: Pick<GettingStartedPageViewProps, "operationProfile" | "tenantName"> & {
+  step: OperationProfileStepKey
+}) {
+  if (step === "intro") {
+    return <IntroOperationProfileStep tenantName={tenantName} />
+  }
+
+  if (step === "commitments") {
+    return <CommitmentCollectionStep operationProfile={operationProfile} />
+  }
+
+  if (step === "procurement") {
+    return <ProcurementOperationStep operationProfile={operationProfile} />
+  }
+
+  if (step === "foodstuff") {
+    return <FoodstuffOperationStep operationProfile={operationProfile} />
+  }
+
+  if (step === "member-access") {
+    return <MemberAccessOperationStep operationProfile={operationProfile} />
+  }
+
+  return <OperationProfileReviewStep operationProfile={operationProfile} />
+}
+
+function OperationProfileStep({
+  operationProfile,
+  operationProfileStep,
+  tenantName,
+}: Pick<
+  GettingStartedPageViewProps,
+  "operationProfile" | "operationProfileStep" | "tenantName"
+>) {
+  const navigation = getOperationProfileStepNavigation(operationProfileStep)
+
+  return (
+    <div className="overflow-hidden border border-border/70 bg-background">
+      <OperationProfileProgress
+        activeStep={operationProfileStep}
+        reviewed={Boolean(operationProfile.reviewedAt)}
+      />
+      <form
+        action={updateTenantOperationProfileAction}
+        className="grid gap-5 p-5"
+        id={operationProfileFormId}
+      >
+        <input name="redirectTo" type="hidden" value={navigation.nextHref} />
+        <OperationProfilePolicyInputs
+          operationProfile={operationProfile}
+          step={operationProfileStep}
+        />
+        <div className="motion-safe:animate-in motion-safe:duration-300 motion-safe:fade-in-0 motion-safe:slide-in-from-right-2">
+          <OperationProfileStepContent
+            operationProfile={operationProfile}
+            step={operationProfileStep}
+            tenantName={tenantName}
+          />
+        </div>
+        {operationProfileStep === "intro" ? null : (
+          <OperationProfileChangeReasonField />
+        )}
+        <GettingStartedFooterPortal>
+          <Button form={operationProfileFormId} type="submit">
+            {operationProfileStep === "review" ? "Save and continue" : "Next"}
+          </Button>
+        </GettingStartedFooterPortal>
+      </form>
+    </div>
   )
 }
 
@@ -1863,6 +2144,9 @@ function ReviewStep({
 function ActiveStepPanel(props: GettingStartedPageViewProps) {
   const orderedStepKeys = getOrderedStepKeys(props)
   const activeIndex = orderedStepKeys.indexOf(props.activeStep)
+  const operationProfileNavigation = getOperationProfileStepNavigation(
+    props.operationProfileStep
+  )
   const previousStep =
     props.activeStep === "admin-member"
       ? (orderedStepKeys.at(-1) ?? "business")
@@ -1876,13 +2160,10 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
   const requireHistoryConfirmation =
     props.activeStep === "charges" && props.chargeDefinitions.length === 0
   const hasStepNextAction =
-    [
-      "operation-profile",
-      "charges",
-      "shares",
-      "profit-policy",
-      "business",
-    ].includes(props.activeStep) ||
+    props.activeStep === "operation-profile" ||
+    ["charges", "shares", "profit-policy", "business"].includes(
+      props.activeStep
+    ) ||
     (props.activeStep === "profit-seasons" &&
       props.businessProfitSeasons.length > 0)
 
@@ -1897,6 +2178,7 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
       ) : props.activeStep === "operation-profile" ? (
         <OperationProfileStep
           operationProfile={props.operationProfile}
+          operationProfileStep={props.operationProfileStep}
           tenantName={props.tenantName}
         />
       ) : props.activeStep === "start-date" ? (
@@ -1943,8 +2225,24 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
       <StepFooter
         hasStepNextAction={hasStepNextAction}
         hideNext={props.activeStep === "admin-member"}
-        nextStep={nextStep}
-        previousStep={previousStep}
+        nextHrefOverride={
+          props.activeStep === "setup-mode"
+            ? operationProfileStepHref(firstOperationProfileStep)
+            : props.activeStep === "operation-profile"
+              ? operationProfileNavigation.nextHref
+              : undefined
+        }
+        nextStep={
+          props.activeStep === "operation-profile" ? undefined : nextStep
+        }
+        previousHrefOverride={
+          props.activeStep === "operation-profile"
+            ? operationProfileNavigation.previousHref
+            : undefined
+        }
+        previousStep={
+          props.activeStep === "operation-profile" ? undefined : previousStep
+        }
         requireHistoryConfirmation={requireHistoryConfirmation}
       />
     </div>
@@ -1979,14 +2277,23 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
       title="Getting started"
       description={`Choose how ${tenantName} will enter existing records, then complete the setup gates before normal workspace records open.`}
     >
-      <section className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <StepRail
-          activeStep={props.activeStep}
-          businessProfitSeasons={props.businessProfitSeasons}
-          migrationSetup={props.migrationSetup}
-          operationProfile={props.operationProfile}
-          snapshot={migrationSnapshot}
-        />
+      <section
+        className={cn(
+          "grid gap-5",
+          props.activeStep === "operation-profile"
+            ? "xl:grid-cols-1"
+            : "xl:grid-cols-[280px_minmax(0,1fr)]"
+        )}
+      >
+        {props.activeStep === "operation-profile" ? null : (
+          <StepRail
+            activeStep={props.activeStep}
+            businessProfitSeasons={props.businessProfitSeasons}
+            migrationSetup={props.migrationSetup}
+            operationProfile={props.operationProfile}
+            snapshot={migrationSnapshot}
+          />
+        )}
         <ActiveStepPanel {...props} />
       </section>
     </WorkspacePageShell>

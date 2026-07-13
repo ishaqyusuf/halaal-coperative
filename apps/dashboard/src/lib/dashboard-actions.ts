@@ -56,6 +56,7 @@ async function callDashboardFormAction<TName extends FormActionName>(
     | HandlerReturn<TName>
 
   if (
+    result &&
     typeof result === "object" &&
     result !== null &&
     "revalidatePaths" in result
@@ -250,7 +251,14 @@ export async function updateTenantMigrationSetupAction(formData: FormData) {
 }
 
 export async function updateTenantOperationProfileAction(formData: FormData) {
-  return callDashboardFormAction("updateTenantOperationProfileAction", formData)
+  const result = await callDashboardFormAction(
+    "updateTenantOperationProfileAction",
+    formData
+  )
+
+  if (result?.redirectTo) {
+    redirect(result.redirectTo)
+  }
 }
 
 export async function createMemberShareApplicationAction(formData: FormData) {

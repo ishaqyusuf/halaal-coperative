@@ -18,6 +18,7 @@ export type GettingStartedStepKey = (typeof gettingStartedStepKeys)[number]
 
 const gettingStartedParamsSchema = {
   migrationMemberId: parseAsString,
+  profileStep: parseAsString,
   step: parseAsStringEnum([...gettingStartedStepKeys]),
 }
 

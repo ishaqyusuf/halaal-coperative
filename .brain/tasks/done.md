@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-13: Simplified the Getting Started Operation Profile into a guided sub-step flow with compact progress, simpler service choices, focused Settings edit disclosures, and tested flow navigation/option mapping.
 - 2026-07-12: Added Halaalvest mobile EAS release plumbing aligned with EwaTrade and Al-Ghurobaa: root account-aware EAS build/update scripts, mobile package EAS aliases, Expo app config support for environment-driven project identity and preview OTA updates, and the live Expo project `cipron-startups/halaalvest` (`3fb3e5e2-bd84-4308-8739-e9f4436d0da9`) configured in local env.
 - 2026-07-12: Stabilized the Halaalvest mobile preview build input by aligning the Expo slug to `halaalvest`, pinning the NativeWind/Tailwind/Lightning CSS toolchain to the EwaTrade-compatible versions, validating the Android `export:embed` bundle locally, and submitting EAS Android preview build `32ec4a70-d495-464e-87fc-5cb386b9a39b` for `cipron-startups/halaalvest` build version 4.
 - 2026-07-12: Implemented the Cooperative Operation Profile feature set: tenant service settings, Getting Started review, Settings workspace, procurement/Foodstuff Purchase/payment receipt gating, active-obligation guards, Collection Source member assignment, staged Collection Source batch posting, Operation Profile-aware dashboard/member/mobile/report visibility, Brain documentation, and QA audit evidence.

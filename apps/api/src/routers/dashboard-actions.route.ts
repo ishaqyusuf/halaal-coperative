@@ -144,6 +144,7 @@ import {
   tenantServiceAccessModes,
   tenantServiceKeys,
   type TenantServiceAccessMode,
+  type TenantServiceKey,
 } from "@halaalvest/db"
 import { createEmailDraftFromType } from "@halaalvest/notifications"
 import {
@@ -822,6 +823,59 @@ function getTenantServiceAccessMode(
   }
 
   return value as TenantServiceAccessMode
+}
+
+function getOptionalTenantServiceAccessMode(
+  formData: FormData,
+  key: string
+): TenantServiceAccessMode | null {
+  const value = (formData.get(key) as string | null)?.trim()
+
+  if (!value) {
+    return null
+  }
+
+  if (!tenantServiceAccessModes.includes(value as TenantServiceAccessMode)) {
+    throw new Error(`Invalid service access mode for ${key}.`)
+  }
+
+  return value as TenantServiceAccessMode
+}
+
+function getGuidedServiceAccessMode(
+  formData: FormData,
+  serviceKey: string,
+  fallback: TenantServiceAccessMode
+): TenantServiceAccessMode {
+  const offered = (
+    formData.get(`${serviceKey}Offered`) as string | null
+  )?.trim()
+
+  if (!offered) {
+    return fallback
+  }
+
+  if (offered === "no") {
+    return fallback === "read_only" ? "read_only" : "disabled"
+  }
+
+  if (offered !== "yes") {
+    throw new Error(`Invalid offered value for ${serviceKey}.`)
+  }
+
+  const channel = (
+    formData.get(`${serviceKey}RequestChannel`) as string | null
+  )?.trim()
+
+  if (channel === "member") {
+    return "member_self_service"
+  }
+
+  if (!channel || channel === "office") {
+    return "office_only"
+  }
+
+  throw new Error(`Invalid request channel for ${serviceKey}.`)
 }
 
 function parseOptionalJsonArray(formData: FormData, key: string) {
@@ -1724,7 +1778,9 @@ export async function updateCollectionSourceContributionBatchRowsAction(
   const batchId = getRequiredString(formData, "batchId")
   const rowIds = formData
     .getAll("rowId")
-    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .filter(
+      (value): value is string => typeof value === "string" && value.length > 0
+    )
   const status = getRequiredString(formData, "status") as
     | "collected"
     | "exception"
@@ -1757,7 +1813,9 @@ export async function postCollectionSourceContributionBatchRowsAction(
   const batchId = getRequiredString(formData, "batchId")
   const rowIds = formData
     .getAll("rowId")
-    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .filter(
+      (value): value is string => typeof value === "string" && value.length > 0
+    )
 
   await postCollectionSourceContributionBatchRows({
     actorUserId: actor.user.id,
@@ -2313,6 +2371,65 @@ export async function updateTenantMigrationSetupAction(formData: FormData) {
 
 export async function updateTenantOperationProfileAction(formData: FormData) {
   const actor = await requireDashboardActor(workspaceAdminRoles)
+  const currentProfile = await getTenantOperationProfile(actor.tenant.id)
+  const serviceAccessModes = tenantServiceKeys.reduce(
+    (services, serviceKey) => {
+      services[serviceKey] =
+        getOptionalTenantServiceAccessMode(
+          formData,
+          `${serviceKey}AccessMode`
+        ) ?? currentProfile.services[serviceKey].accessMode
+
+      return services
+    },
+    {} as Record<TenantServiceKey, TenantServiceAccessMode>
+  )
+  const commitmentCollection = (
+    formData.get("commitmentCollection") as string | null
+  )?.trim()
+
+  if (commitmentCollection) {
+    if (commitmentCollection === "office") {
+      serviceAccessModes.payment_receipts = "office_only"
+      serviceAccessModes.collection_sources = "disabled"
+      serviceAccessModes.collection_source_batch_posting = "disabled"
+    } else if (commitmentCollection === "member_receipts") {
+      serviceAccessModes.payment_receipts = "member_self_service"
+      serviceAccessModes.collection_sources = "disabled"
+      serviceAccessModes.collection_source_batch_posting = "disabled"
+    } else if (commitmentCollection === "collection_sources") {
+      serviceAccessModes.payment_receipts = "office_only"
+      serviceAccessModes.collection_sources = "office_only"
+      serviceAccessModes.collection_source_batch_posting = "office_only"
+    } else if (commitmentCollection === "mixed") {
+      serviceAccessModes.payment_receipts = "member_self_service"
+      serviceAccessModes.collection_sources = "office_only"
+      serviceAccessModes.collection_source_batch_posting = "office_only"
+    } else {
+      throw new Error("Invalid commitment collection style.")
+    }
+  }
+
+  serviceAccessModes.procurement = getGuidedServiceAccessMode(
+    formData,
+    "procurement",
+    serviceAccessModes.procurement
+  )
+  serviceAccessModes.food_purchase = getGuidedServiceAccessMode(
+    formData,
+    "foodPurchase",
+    serviceAccessModes.food_purchase
+  )
+
+  const supportAccess = (formData.get("supportAccess") as string | null)?.trim()
+
+  if (supportAccess === "office") {
+    serviceAccessModes.support_cases = "office_only"
+  } else if (supportAccess === "member") {
+    serviceAccessModes.support_cases = "member_self_service"
+  } else if (supportAccess && supportAccess !== "keep") {
+    throw new Error("Invalid member support access.")
+  }
 
   await updateTenantOperationProfile({
     actorUserId: actor.user.id,
@@ -2335,18 +2452,19 @@ export async function updateTenantOperationProfileAction(formData: FormData) {
         )
       ),
     },
-    services: Object.fromEntries(
-      tenantServiceKeys.map((serviceKey) => [
-        serviceKey,
-        getTenantServiceAccessMode(formData, `${serviceKey}AccessMode`),
-      ])
-    ),
+    services: serviceAccessModes,
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/getting-started")
   revalidatePath("/onboarding")
   revalidatePath("/settings/finance")
+
+  const redirectTo = (formData.get("redirectTo") as string | null)?.trim()
+
+  if (redirectTo?.startsWith("/")) {
+    return { redirectTo }
+  }
 }
 
 export async function createMemberShareApplicationAction(formData: FormData) {

@@ -991,25 +991,6 @@ function OperationProfilePolicyInputs({
   )
 }
 
-function OperationProfileChangeReasonField() {
-  return (
-    <Field>
-      <FieldLabel htmlFor="operationProfileChangeReason">
-        Change reason
-      </FieldLabel>
-      <Textarea
-        id="operationProfileChangeReason"
-        name="changeReason"
-        placeholder="Required when disabling a service, making it view-only, or removing member self-service access."
-      />
-      <FieldDescription>
-        Only needed when this step reduces member or staff access. It is saved
-        with the operation profile audit record.
-      </FieldDescription>
-    </Field>
-  )
-}
-
 function IntroOperationProfileStep({ tenantName }: { tenantName: string }) {
   return (
     <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(260px,0.8fr)]">
@@ -1425,6 +1406,13 @@ function OperationProfileStep({
         id={operationProfileFormId}
       >
         <input name="redirectTo" type="hidden" value={navigation.nextHref} />
+        {operationProfileStep === "intro" ? null : (
+          <input
+            name="changeReason"
+            type="hidden"
+            value="Initial setup operation profile update."
+          />
+        )}
         <OperationProfilePolicyInputs
           operationProfile={operationProfile}
           step={operationProfileStep}
@@ -1436,9 +1424,6 @@ function OperationProfileStep({
             tenantName={tenantName}
           />
         </div>
-        {operationProfileStep === "intro" ? null : (
-          <OperationProfileChangeReasonField />
-        )}
         <GettingStartedFooterPortal>
           {operationProfileStep === "intro" ? (
             <Link className={buttonVariants({})} href={navigation.nextHref}>

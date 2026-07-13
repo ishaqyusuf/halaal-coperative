@@ -1,0 +1,31 @@
+# Route And Workflow Matrix
+
+Use the portless dashboard host for all tenant routes:
+`http://minna-trust-civil-servants-multipurpose.halaalvest-dash.localhost`.
+
+| Workflow | URL | Role | Component/action surface | Browser-testable now | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Cooperative admin setup | `/getting-started` | tenant admin | `GettingStartedPageView`, `saveTenantOperationProfileAction`, finance setup forms | Yes | Use sub-step operation profile flow, then finance/share/loan setup routes as linked by Getting Started. |
+| Operation profile settings | `/settings/operation-profile` | tenant admin | `updateTenantOperationProfileAction` | Yes | Post-setup settings require an audit reason for access reductions. Getting Started setup does not. |
+| Share setup | `/settings/finance/shares` or finance setup step | tenant admin/finance | `updateTenantSharePolicyAction` | Yes | Select unit-based shareholding, NGN 10,000 per unit, compulsory 1, max 19. |
+| Loan policy setup | `/settings/finance/loan` or finance setup step | tenant admin/finance | `updateTenantFinancingPolicyAction`, `updateLoanProductSettingsAction` | Yes | Configure term support for 24 months and active-financing commitment behavior. |
+| Member list/create | `/members` | tenant admin/staff | `createMemberAction` | Yes | Use for Aisha Bello if direct staff creation is chosen. |
+| Member signup links | `/member-signup-links` | tenant admin/staff | `updateMemberSignupAccessModeAction`, `createMemberSignupLinkAction` | Yes | Preferred for testing member onboarding/password setup through staff-issued link. |
+| Member approval | `/membership-approvals` and `/membership-approvals/[requestId]` | tenant admin/staff | `approveMemberOnboardingAction`, `rejectMemberOnboardingAction` | Yes | Required if Aisha signs up through public/member signup. |
+| Member backfill/opening position | `/members/[memberId]/backfill?mode=brought-forward` | tenant admin/finance | `createMemberOpeningBalanceAction`, `reviewMemberOpeningBalanceAction`, `applyMemberOpeningBalanceAction` | Yes | Supports commitment savings, special savings, shares, active financing outstanding, procurement outstanding, and Foodstuff Purchase outstanding. |
+| Member dashboard | `/` | member | `MemberPortalOverview` | Yes | Must show member-scoped balances and links only after member login. |
+| Payment receipts | `/payment-receipts` | member, finance | `createOwnMemberPaymentReceiptAction`, `reviewMemberPaymentReceiptAction` | Yes | Member self-service is gated by Operation Profile. Approval posts supported allocations. |
+| Loan requests | `/loans` | member, finance | `submitLoanRequestAction`, `reviewLoanRequestAction`, `disburseLoanAction` | Yes | Request may require an open financing cycle depending on current policy/data. |
+| Financing cycles | finance settings or loans page | finance | `openMonthlyFinancingCycleAction`, `updateMonthlyFinancingCycleStatusAction` | Conditional | If loan request form blocks due to no open cycle, open a July 2026 cycle before member loan request. |
+| Procurement | `/procurement` | member, finance/staff | `createOwnProcurementRequestAction`, `reviewProcurementRequestAction`, `recordProcurementPurchaseAction` | Yes | Member self-service requires Operation Profile `member_self_service`. |
+| Foodstuff Purchase | `/food-purchase` | member, finance/staff | `createFoodPurchaseCycleAction`, `submitOwnFoodPurchaseApplicationAction`, `reviewFoodPurchaseApplicationAction` | Yes | Create/open July 2026 cycle before member application when open-cycle policy is enabled. |
+| Notifications | `/notifications` | admin/staff | notification audit/preferences page | Yes | Verify procurement/receipt/loan/Foodstuff status delivery evidence through notification logs or audit history. |
+| Activity report | `/reports/audit` | workspace admin | `listActivityReportEvents` | Yes | Verify actor, action, entity, timestamp, metadata summary. |
+| Exports | `/reports/*-export` | workspace admin | CSV route handlers | Yes | Use only as supporting evidence when UI tables do not show enough detail. |
+
+## Known Caveats
+
+- During initial migration, protected workspace routes such as `/members`, `/payment-receipts`, `/loans`, `/procurement`, `/food-purchase`, `/notifications`, and `/reports/audit` can redirect back to `/getting-started` until setup gates are complete.
+- Password setup for a staff-created member uses the existing password reset/onboarding token path; if the browser UI does not expose the link directly, capture local-safe evidence from the notification delivery/audit surface or database token flow.
+- Opening-position brought-forward obligations capture current outstanding values, not full historical month-by-month schedules.
+- Real email delivery is out of scope; use local notification/outbox/audit evidence.

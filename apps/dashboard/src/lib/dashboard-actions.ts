@@ -261,6 +261,10 @@ export async function updateTenantOperationProfileAction(formData: FormData) {
   }
 }
 
+export async function saveTenantOperationProfileAction(formData: FormData) {
+  await callDashboardFormAction("updateTenantOperationProfileAction", formData)
+}
+
 export async function createMemberShareApplicationAction(formData: FormData) {
   return callDashboardFormAction("createMemberShareApplicationAction", formData)
 }

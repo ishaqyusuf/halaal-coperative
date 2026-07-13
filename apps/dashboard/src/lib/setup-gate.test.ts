@@ -8,7 +8,23 @@ describe("initial migration setup gate", () => {
     )
   })
 
+  test("allows member backfill workflow during initial setup", () => {
+    expect(
+      isInitialMigrationSetupPath("/members/member-123/backfill")
+    ).toBe(true)
+    expect(
+      isInitialMigrationSetupPath("/members/member-123/backfill/review")
+    ).toBe(true)
+  })
+
   test("does not treat unrelated settings pages as setup paths", () => {
     expect(isInitialMigrationSetupPath("/settings/roles")).toBe(false)
+  })
+
+  test("does not allow unrelated member pages during initial setup", () => {
+    expect(isInitialMigrationSetupPath("/members/member-123")).toBe(false)
+    expect(
+      isInitialMigrationSetupPath("/members/member-123/activity")
+    ).toBe(false)
   })
 })

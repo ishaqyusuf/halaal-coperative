@@ -15,6 +15,7 @@ function createMigrationStatePrismaStub(input: {
   }>
   appliedBackfillMonthMembers?: number
   appliedBackfillMembers?: number
+  appliedOpeningBalanceMembers?: number
   businessProfitPools: number
   broughtForwardPendingPastProfitEntries?: number
   businessProfitReviewMarkers?: number
@@ -105,6 +106,15 @@ function createMigrationStatePrismaStub(input: {
           joinedAt:
             input.memberJoinedAt ?? new Date("2025-01-01T00:00:00.000Z"),
         })),
+    },
+    memberOpeningBalance: {
+      findMany: async () =>
+        Array.from(
+          { length: input.appliedOpeningBalanceMembers ?? 0 },
+          (_, index) => ({
+            memberId: `member-${index + 1}`,
+          })
+        ),
     },
     shareBusinessProfitEntry: {
       count: async (query?: any) =>
@@ -230,6 +240,50 @@ describe("tenant initial migration state query", () => {
     expect(state.counts.appliedBackfillMembers).toBe(12)
     expect(state.snapshot.status).toBe("migration_review")
     expect(state.snapshot.missingStepKeys).toEqual(["finalization"])
+  })
+
+  test("uses applied opening balances as member migration evidence in brought-forward setup", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 0,
+        appliedOpeningBalanceMembers: 12,
+        businessProfitPools: 0,
+        chargeScheduleVersions: 2,
+        initialMigrationStatus: null,
+        legacyLoans: 0,
+        memberProfiles: 12,
+        migrationSetupMode: "brought_forward",
+        shareCapitalPlans: 0,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+      }) as never
+    )
+
+    expect(state.counts.appliedBackfillMembers).toBe(12)
+    expect(state.snapshot.status).toBe("migration_review")
+    expect(state.snapshot.missingStepKeys).toEqual(["finalization"])
+  })
+
+  test("does not use opening balances as historical backfill evidence", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 0,
+        appliedOpeningBalanceMembers: 12,
+        businessProfitPools: 1,
+        chargeScheduleVersions: 2,
+        initialMigrationStatus: null,
+        legacyLoans: 1,
+        memberProfiles: 12,
+        migrationSetupMode: "historical_backfill",
+        shareCapitalPlans: 1,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+      }) as never
+    )
+
+    expect(state.counts.appliedBackfillMembers).toBe(0)
+    expect(state.snapshot.status).toBe("member_migration_in_progress")
+    expect(state.snapshot.missingStepKeys).toContain("member_ledger_backfill")
   })
 
   test("treats share history as optional during initial onboarding", async () => {

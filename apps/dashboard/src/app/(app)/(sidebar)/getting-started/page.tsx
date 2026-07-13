@@ -34,15 +34,26 @@ function resolveDefaultStep(
   hasMigrationSetupMode: boolean,
   missingStepKeys: string[],
   needsOperationProfileReview: boolean,
-  needsProfitPolicy: boolean
+  needsProfitPolicy: boolean,
+  migrationSetupMode?: string | null
 ): GettingStartedStepKey {
+  const isBroughtForwardSetup = migrationSetupMode === "brought_forward"
+
   if (!hasMigrationSetupMode) return "setup-mode"
   if (needsOperationProfileReview) return "operation-profile"
   if (missingStepKeys.includes("finance_start_date")) return "start-date"
   if (missingStepKeys.includes("charge_schedules")) return "charges"
   if (needsProfitPolicy) return "profit-policy"
-  if (missingStepKeys.includes("business_profit_pools")) return "business"
-  if (missingStepKeys.includes("business_profit_seasons")) {
+  if (
+    !isBroughtForwardSetup &&
+    missingStepKeys.includes("business_profit_pools")
+  ) {
+    return "business"
+  }
+  if (
+    !isBroughtForwardSetup &&
+    missingStepKeys.includes("business_profit_seasons")
+  ) {
     return "profit-seasons"
   }
   if (
@@ -54,7 +65,7 @@ function resolveDefaultStep(
   ) {
     return "admin-member"
   }
-  return "admin-member"
+  return "review"
 }
 
 function toDateString(value: Date | string | null | undefined) {
@@ -133,7 +144,8 @@ export default async function GettingStartedPage({
       Boolean(data.migrationSetup.id),
       migrationState.snapshot.missingStepKeys,
       !operationProfile.reviewedAt,
-      !data.businessPolicy.id
+      !data.businessPolicy.id,
+      data.migrationSetup.mode
     )
   const adminMember =
     memberOptions.items.find(
@@ -159,10 +171,14 @@ export default async function GettingStartedPage({
       [
         "finance_start_date",
         "charge_schedules",
-        "business_profit_pools",
-        "business_profit_seasons",
         "member_profiles",
-      ].includes(stepKey)
+      ]
+        .concat(
+          data.migrationSetup.mode === "brought_forward"
+            ? []
+            : ["business_profit_pools", "business_profit_seasons"]
+        )
+        .includes(stepKey)
     )
   let generatedLedgerRows: MemberLedgerBackfillRow[] | undefined
   let generatedLedgerError: string | null = null

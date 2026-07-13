@@ -37,6 +37,7 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 
 ## Midday Standard
 - Pages, tables, modals, sheets, forms, onboarding, sidebar, sign-out, and shared dashboard components must follow Midday architecture, file naming, and coding patterns.
+- Dashboard forms must use the shared shadcn-style `Form`, `FormField`, and input primitives from `@halaalvest/ui`; avoid custom radio, checkbox, select, and submit-control implementations when a shared primitive exists.
 - Tables should follow the Midday domain table pattern: `components/tables/core`, `components/tables/<domain>/columns.tsx`, `data-table.tsx`, `table-header.tsx`, `skeleton.tsx`, `empty-states.tsx`, and `bottom-bar.tsx` or `action-menu.tsx` when needed.
 - Sheets should follow the Midday global sheets pattern: `components/sheets/global-sheets.tsx`, `components/sheets/global-sheets-provider.tsx`, and domain sheet files under `components/sheets/`.
 - Forms must follow Midday validation, error handling, and mutation patterns.

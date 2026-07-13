@@ -12,10 +12,17 @@ export const initialMigrationSetupPaths = [
   "/settings/profile",
 ]
 
+function isMemberBackfillSetupPath(pathname: string) {
+  return /^\/members\/[^/]+\/backfill(?:\/|$)/.test(pathname)
+}
+
 export function isInitialMigrationSetupPath(pathname: string) {
-  return initialMigrationSetupPaths.some(
-    (setupPath) =>
-      pathname === setupPath || pathname.startsWith(`${setupPath}/`)
+  return (
+    isMemberBackfillSetupPath(pathname) ||
+    initialMigrationSetupPaths.some(
+      (setupPath) =>
+        pathname === setupPath || pathname.startsWith(`${setupPath}/`)
+    )
   )
 }
 

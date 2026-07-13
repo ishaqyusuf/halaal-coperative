@@ -183,6 +183,7 @@ export async function getTenantInitialMigrationState(
     appliedBackfillBatches,
     appliedBackfillBatchMembers,
     appliedBackfillMonths,
+    appliedOpeningBalanceMembers,
   ] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -286,6 +287,17 @@ export async function getTenantInitialMigrationState(
           where: { tenantId },
         })
       : [],
+    typeof prisma.memberOpeningBalance?.findMany === "function"
+      ? prisma.memberOpeningBalance.findMany({
+          select: {
+            memberId: true,
+          },
+          where: {
+            status: "applied",
+            tenantId,
+          },
+        })
+      : [],
   ])
 
   const hasFinanceStartDate = Boolean(tenant?.startDate)
@@ -351,6 +363,11 @@ export async function getTenantInitialMigrationState(
   const appliedBackfillMemberIds = new Set([
     ...appliedBackfillBatchMemberIds,
     ...appliedBackfillMonthMemberIds,
+    ...(isBroughtForwardSetup
+      ? appliedOpeningBalanceMembers.map(
+          (row: { memberId: string }) => row.memberId
+        )
+      : []),
   ])
   const appliedBackfillMembers = appliedBackfillMemberIds.size
   const hasMemberLedgerBackfill =

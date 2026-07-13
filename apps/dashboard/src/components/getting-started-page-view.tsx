@@ -68,6 +68,10 @@ import {
   GettingStartedFooterActionsSlot,
   GettingStartedFooterPortal,
 } from "@/components/getting-started-footer-slot"
+import {
+  OperationProfileChoice,
+  OperationProfileSubmitButton,
+} from "@/components/operation-profile-wizard-controls"
 import { GettingStartedShareModelPanel } from "@/components/share-model-workspace"
 import { type GettingStartedStepKey } from "@/hooks/use-getting-started-params"
 import {
@@ -857,46 +861,6 @@ function formatAccessMode(value: TenantServiceAccessMode) {
   return labels[value]
 }
 
-function GuidedChoice({
-  checked,
-  description,
-  name,
-  title,
-  value,
-}: {
-  checked: boolean
-  description: string
-  name: string
-  title: string
-  value: string
-}) {
-  return (
-    <label
-      className={cn(
-        "flex min-h-28 cursor-pointer gap-3 border border-border/70 bg-background p-4 text-sm transition-all duration-200",
-        "hover:border-foreground/30 hover:bg-muted/20",
-        "has-[input:checked]:border-primary has-[input:checked]:bg-primary/5 has-[input:checked]:shadow-sm"
-      )}
-    >
-      <input
-        className="mt-1 size-4 shrink-0 accent-primary"
-        defaultChecked={checked}
-        name={name}
-        type="radio"
-        value={value}
-      />
-      <span>
-        <span className="block text-base font-semibold text-foreground">
-          {title}
-        </span>
-        <span className="mt-1 block leading-6 text-muted-foreground">
-          {description}
-        </span>
-      </span>
-    </label>
-  )
-}
-
 function OperationProfileProgress({
   activeStep,
   reviewed,
@@ -1038,28 +1002,28 @@ function CommitmentCollectionStep({
         payroll-style sources are enabled.
       </FieldDescription>
       <div className="grid gap-3 md:grid-cols-2">
-        <GuidedChoice
+        <OperationProfileChoice
           checked={selectedChoice === "office"}
           description="Officials post office payments, cash payments, transfers, and other evidence for members."
           name="commitmentCollection"
           title="Officials record payments"
           value="office"
         />
-        <GuidedChoice
+        <OperationProfileChoice
           checked={selectedChoice === "member_receipts"}
           description="Members upload receipts from their portal, then officials review and post them."
           name="commitmentCollection"
           title="Members submit receipts"
           value="member_receipts"
         />
-        <GuidedChoice
+        <OperationProfileChoice
           checked={selectedChoice === "collection_sources"}
           description="A ministry, employer, payroll group, or other Collection Source releases deductions in batches."
           name="commitmentCollection"
           title="Collection Source batches"
           value="collection_sources"
         />
-        <GuidedChoice
+        <OperationProfileChoice
           checked={selectedChoice === "mixed"}
           description="Some members pay through a source, while manual or self-employed members submit receipts or pay in-office."
           name="commitmentCollection"
@@ -1088,7 +1052,7 @@ function ProcurementOperationStep({
         time. If it is not offered, member and staff create actions stay closed.
       </FieldDescription>
       <div className="grid gap-3 md:grid-cols-2">
-        <GuidedChoice
+        <OperationProfileChoice
           checked={!offered}
           description={
             accessMode === "read_only"
@@ -1099,7 +1063,7 @@ function ProcurementOperationStep({
           title="No, not offered"
           value="no"
         />
-        <GuidedChoice
+        <OperationProfileChoice
           checked={offered}
           description="Enable procurement setup and choose whether members can start requests online."
           name="procurementOffered"
@@ -1114,14 +1078,14 @@ function ProcurementOperationStep({
               Who starts requests?
             </h4>
             <div className="mt-3 grid gap-3">
-              <GuidedChoice
+              <OperationProfileChoice
                 checked={channel === "office"}
                 description="Members come to the office. Staff record and manage requests online."
                 name="procurementRequestChannel"
                 title="Office-managed"
                 value="office"
               />
-              <GuidedChoice
+              <OperationProfileChoice
                 checked={channel === "member"}
                 description="Members can start procurement requests from their portal."
                 name="procurementRequestChannel"
@@ -1172,7 +1136,7 @@ function FoodstuffOperationStep({
         cycles and members apply only when the service is active.
       </FieldDescription>
       <div className="grid gap-3 md:grid-cols-2">
-        <GuidedChoice
+        <OperationProfileChoice
           checked={!offered}
           description={
             accessMode === "read_only"
@@ -1183,7 +1147,7 @@ function FoodstuffOperationStep({
           title="No, not offered"
           value="no"
         />
-        <GuidedChoice
+        <OperationProfileChoice
           checked={offered}
           description="Enable Foodstuff Purchase and choose how members join purchase cycles."
           name="foodPurchaseOffered"
@@ -1198,14 +1162,14 @@ function FoodstuffOperationStep({
               Who starts applications?
             </h4>
             <div className="mt-3 grid gap-3">
-              <GuidedChoice
+              <OperationProfileChoice
                 checked={channel === "office"}
                 description="Members come to the office. Staff record applications during a cycle."
                 name="foodPurchaseRequestChannel"
                 title="Office-managed"
                 value="office"
               />
-              <GuidedChoice
+              <OperationProfileChoice
                 checked={channel === "member"}
                 description="Members can apply from their portal when a cycle is open."
                 name="foodPurchaseRequestChannel"
@@ -1276,14 +1240,14 @@ function MemberAccessOperationStep({
         made in the earlier steps.
       </FieldDescription>
       <div className="grid gap-3 md:grid-cols-2">
-        <GuidedChoice
+        <OperationProfileChoice
           checked={supportChannel === "member"}
           description="Members can raise support cases and ask officials for help from the portal."
           name="supportAccess"
           title="Members can contact support online"
           value="member"
         />
-        <GuidedChoice
+        <OperationProfileChoice
           checked={supportChannel === "office"}
           description="Support is handled by officials in the office; members do not start cases online."
           name="supportAccess"
@@ -1429,9 +1393,12 @@ function OperationProfileStep({
               Next
             </Link>
           ) : (
-            <Button form={operationProfileFormId} type="submit">
-              {operationProfileStep === "review" ? "Save and continue" : "Next"}
-            </Button>
+            <OperationProfileSubmitButton
+              formId={operationProfileFormId}
+              label={
+                operationProfileStep === "review" ? "Save and continue" : "Next"
+              }
+            />
           )}
         </GettingStartedFooterPortal>
       </form>

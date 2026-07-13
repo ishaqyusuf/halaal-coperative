@@ -873,10 +873,9 @@ function GuidedChoice({
   return (
     <label
       className={cn(
-        "flex min-h-28 cursor-pointer gap-3 border p-4 text-sm transition-all duration-200",
-        checked
-          ? "border-primary bg-primary/5 shadow-sm"
-          : "border-border/70 bg-background hover:border-foreground/30 hover:bg-muted/20"
+        "flex min-h-28 cursor-pointer gap-3 border border-border/70 bg-background p-4 text-sm transition-all duration-200",
+        "hover:border-foreground/30 hover:bg-muted/20",
+        "has-[input:checked]:border-primary has-[input:checked]:bg-primary/5 has-[input:checked]:shadow-sm"
       )}
     >
       <input

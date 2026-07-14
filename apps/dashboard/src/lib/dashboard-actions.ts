@@ -113,6 +113,10 @@ export async function updateMemberStatusAction(formData: FormData) {
   return callDashboardFormAction("updateMemberStatusAction", formData)
 }
 
+export async function sendMemberPortalAccessEmailAction(formData: FormData) {
+  return callDashboardFormAction("sendMemberPortalAccessEmailAction", formData)
+}
+
 export async function approveMemberOnboardingAction(formData: FormData) {
   return callDashboardFormAction("approveMemberOnboardingAction", formData)
 }

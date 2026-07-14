@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   createMember,
   createMemberDocument,
+  ensureMemberPortalAccess,
   getMemberStatementDetail,
   listMemberStatementSummaries,
   listMembersTable,
@@ -10,6 +11,81 @@ import {
   updateMemberKyc,
   updateMemberStatus,
 } from "./members"
+
+function createMemberPortalAccessPrismaStub() {
+  const auditLogCreates: unknown[] = []
+  const memberUpdates: unknown[] = []
+  const membershipUpserts: unknown[] = []
+  const userUpserts: unknown[] = []
+
+  const tx = {
+    auditLog: {
+      create: async (input: unknown) => {
+        auditLogCreates.push(input)
+
+        return input
+      },
+    },
+    member: {
+      findFirst: async (input: {
+        include?: unknown
+        select?: unknown
+        where: { id?: string; tenantId: string; userId?: string }
+      }) => {
+        if (input.where.userId === "user-1") {
+          return null
+        }
+
+        return {
+          email: "aisha@example.test",
+          fullName: "Aisha Bello",
+          id: "member-1",
+          memberNumber: "MBR-001",
+          phoneNumber: "08030000000",
+          tenantId: "tenant-1",
+          user: null,
+          userId: null,
+        }
+      },
+      update: async (input: unknown) => {
+        memberUpdates.push(input)
+
+        return input
+      },
+    },
+    membership: {
+      upsert: async (input: unknown) => {
+        membershipUpserts.push(input)
+
+        return input
+      },
+    },
+    user: {
+      upsert: async (input: unknown) => {
+        userUpserts.push(input)
+
+        return {
+          email: "aisha@example.test",
+          fullName: "Aisha Bello",
+          id: "user-1",
+          isPlatformOwner: false,
+          passwordHash: null,
+          phoneNumber: "08030000000",
+          tenantId: "tenant-1",
+        }
+      },
+    },
+  }
+
+  return {
+    $transaction: async (callback: (tx: typeof tx) => Promise<unknown>) =>
+      callback(tx),
+    auditLogCreates,
+    memberUpdates,
+    membershipUpserts,
+    userUpserts,
+  }
+}
 
 function createMemberPrismaStub({
   appliedBackfillBatches = 0,
@@ -227,6 +303,59 @@ const memberInput = {
   memberType: "individual" as const,
   tenantId: "tenant-1",
 }
+
+describe("member portal access", () => {
+  test("creates a member user, links the profile, provisions member role, and writes audit evidence", async () => {
+    const prisma = createMemberPortalAccessPrismaStub()
+    const access = await ensureMemberPortalAccess(
+      {
+        actorUserId: "admin-1",
+        memberId: "member-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(access).toMatchObject({
+      member: {
+        email: "aisha@example.test",
+        fullName: "Aisha Bello",
+        id: "member-1",
+      },
+      user: {
+        email: "aisha@example.test",
+        id: "user-1",
+        passwordHash: null,
+      },
+    })
+    expect(prisma.userUpserts).toHaveLength(1)
+    expect(prisma.memberUpdates).toEqual([
+      expect.objectContaining({
+        data: {
+          userId: "user-1",
+        },
+      }),
+    ])
+    expect(prisma.membershipUpserts).toEqual([
+      expect.objectContaining({
+        create: expect.objectContaining({
+          role: "member",
+          tenantId: "tenant-1",
+          userId: "user-1",
+        }),
+      }),
+    ])
+    expect(prisma.auditLogCreates).toEqual([
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "member.portal_access_prepared",
+          actorUserId: "admin-1",
+          entityId: "member-1",
+        }),
+      }),
+    ])
+  })
+})
 
 describe("member profile migration guards", () => {
   test("blocks member creation before historical finance setup is complete", async () => {

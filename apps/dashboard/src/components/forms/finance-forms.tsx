@@ -906,12 +906,14 @@ type LoanRequestValues = z.infer<typeof loanRequestSchema>
 export function LoanRequestForm({
   devMode,
   disabledReason,
+  fixedMember,
   loanRequestCharges,
   loanProducts,
   members,
 }: {
   devMode: boolean
   disabledReason?: string | null
+  fixedMember?: { id: string; label: string }
   loanRequestCharges?: Array<{
     amount: number
     chargeValueType: "fixed_amount" | "percentage"
@@ -929,7 +931,7 @@ export function LoanRequestForm({
       guarantorOneMemberId: "",
       guarantorTwoMemberId: "",
       loanProductId: "",
-      memberId: "",
+      memberId: fixedMember?.id ?? "",
       purpose: "",
       requestedAmount: "",
       requestedTermMonths: "",
@@ -961,7 +963,7 @@ export function LoanRequestForm({
           guarantorOneMemberId: "",
           guarantorTwoMemberId: "",
           loanProductId: "",
-          memberId: "",
+          memberId: fixedMember?.id ?? "",
           purpose: "",
           requestedAmount: "",
           requestedTermMonths: "",
@@ -999,7 +1001,7 @@ export function LoanRequestForm({
               onClick={() =>
                 applyDashboardDevFormFill(form, "loan_request", {
                   loanProductId: loanProducts[0]?.id ?? "",
-                  memberId: members[0]?.id ?? "",
+                  memberId: fixedMember?.id ?? members[0]?.id ?? "",
                 })
               }
             >
@@ -1020,14 +1022,21 @@ export function LoanRequestForm({
             <FormItem className="xl:col-span-2">
               <FormLabel>Member</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="">Select a member</option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.label}
-                    </option>
-                  ))}
-                </NativeSelect>
+                {fixedMember ? (
+                  <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm font-medium text-foreground">
+                    <input {...field} type="hidden" value={fixedMember.id} />
+                    {fixedMember.label}
+                  </div>
+                ) : (
+                  <NativeSelect {...field}>
+                    <option value="">Select a member</option>
+                    {members.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.label}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                )}
               </FormControl>
               <FormMessage />
             </FormItem>

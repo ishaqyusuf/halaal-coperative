@@ -27,6 +27,7 @@ export function LoansPageView({
   loanRequests,
   loans,
   members,
+  isMemberView,
   quickFillEnabled,
 }: LoansPageData) {
   const intakeDisabledReason =
@@ -43,15 +44,25 @@ export function LoansPageView({
   return (
     <WorkspacePageShell
       eyebrow="Loans"
-      title="Loan operations"
-      description="Review requests, approval history, liquidity posture, and approved loans from a denser credit-control workspace."
+      title={isMemberView ? "My loans" : "Loan operations"}
+      description={
+        isMemberView
+          ? "Request cooperative financing and track your submitted requests and approved loans."
+          : "Review requests, approval history, liquidity posture, and approved loans from a denser credit-control workspace."
+      }
     >
       {canSubmit ? (
         <DashboardSectionCard>
           <DashboardSectionHeader
-            description="Capture product, term months, expected monthly servicing, and extra savings commitment in one request."
+            description={
+              isMemberView
+                ? "Choose the product, amount, term, and any extra monthly savings you want to keep while servicing the loan."
+                : "Capture product, term months, expected monthly servicing, and extra savings commitment in one request."
+            }
             eyebrow="Requests"
-            title="Submit a new loan request"
+            title={
+              isMemberView ? "Request a loan" : "Submit a new loan request"
+            }
           />
           <div className="mt-5">
             <LoanRequestForm
@@ -73,108 +84,130 @@ export function LoansPageView({
                 id: member.id,
                 label: `${member.fullName} (${member.memberNumber})`,
               }))}
+              fixedMember={
+                isMemberView && members.items[0]
+                  ? {
+                      id: members.items[0].id,
+                      label: `${members.items[0].fullName} (${members.items[0].memberNumber})`,
+                    }
+                  : undefined
+              }
             />
           </div>
         </DashboardSectionCard>
       ) : null}
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={
-            <TrendPill
+      {!isMemberView ? (
+        <DashboardSectionCard>
+          <DashboardSectionHeader
+            actions={
+              <TrendPill
+                tone={
+                  financingCycle.intakeStatus === "open"
+                    ? "positive"
+                    : "warning"
+                }
+              >
+                {financingCycle.intakeStatus === "open"
+                  ? "intake open"
+                  : "intake closed"}
+              </TrendPill>
+            }
+            description="Monthly cycle capacity reserves submitted, under-review, and approved requests against quick and normal budgets."
+            eyebrow="Cycle capacity"
+            title="Current monthly financing capacity"
+          />
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <DashboardStatCard
+              detail={`${formatCurrency(financingCycle.quick.requestedReservedAmount)} requested or held`}
+              label="Quick remaining"
               tone={
-                financingCycle.intakeStatus === "open" ? "positive" : "warning"
+                financingCycle.quick.remainingAmount <= 0
+                  ? "warning"
+                  : "positive"
               }
-            >
-              {financingCycle.intakeStatus === "open"
-                ? "intake open"
-                : "intake closed"}
-            </TrendPill>
-          }
-          description="Monthly cycle capacity reserves submitted, under-review, and approved requests against quick and normal budgets."
-          eyebrow="Cycle capacity"
-          title="Current monthly financing capacity"
-        />
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              value={formatCurrency(financingCycle.quick.remainingAmount)}
+            />
+            <DashboardStatCard
+              detail={`${formatCurrency(financingCycle.normal.requestedReservedAmount)} requested or held`}
+              label="Normal remaining"
+              tone={
+                financingCycle.normal.remainingAmount <= 0
+                  ? "warning"
+                  : "positive"
+              }
+              value={formatCurrency(financingCycle.normal.remainingAmount)}
+            />
+            <DashboardStatCard
+              detail={`${formatCurrency(financingCycle.deployableFunds.approvedHoldAmount)} approved holds excluded`}
+              label="Deployable funds"
+              tone={
+                financingCycle.deployableFunds.deployableFunds > 0
+                  ? "positive"
+                  : "warning"
+              }
+              value={formatCurrency(
+                financingCycle.deployableFunds.deployableFunds
+              )}
+            />
+            <DashboardStatCard
+              detail={`${Math.round(financingCycle.collectionCoverage * 100)}% of projected commitments collected`}
+              label="Collections"
+              tone={
+                financingCycle.receivedContributionAmount >=
+                financingCycle.projectedCommitmentAmount
+                  ? "positive"
+                  : "warning"
+              }
+              value={formatCurrency(financingCycle.receivedContributionAmount)}
+            />
+          </div>
+          {financingCycle.warnings.length ? (
+            <DashboardSurfaceCard className="mt-4 border-amber-200 bg-amber-50 text-amber-950">
+              <p className="text-sm font-medium">Financing cycle warnings</p>
+              <ul className="mt-2 space-y-1 text-sm">
+                {financingCycle.warnings.map((warning) => (
+                  <li key={warning.key}>{warning.label}</li>
+                ))}
+              </ul>
+            </DashboardSurfaceCard>
+          ) : null}
+        </DashboardSectionCard>
+      ) : null}
+
+      {!isMemberView ? (
+        <section className="grid gap-4 sm:grid-cols-3">
           <DashboardStatCard
-            detail={`${formatCurrency(financingCycle.quick.requestedReservedAmount)} requested or held`}
-            label="Quick remaining"
-            tone={
-              financingCycle.quick.remainingAmount <= 0 ? "warning" : "positive"
-            }
-            value={formatCurrency(financingCycle.quick.remainingAmount)}
+            detail="Currently approved, disbursed, or active loan records."
+            label="Active loans"
+            value={dashboard.activeLoans.toString()}
           />
           <DashboardStatCard
-            detail={`${formatCurrency(financingCycle.normal.requestedReservedAmount)} requested or held`}
-            label="Normal remaining"
-            tone={
-              financingCycle.normal.remainingAmount <= 0
-                ? "warning"
-                : "positive"
-            }
-            value={formatCurrency(financingCycle.normal.remainingAmount)}
-          />
-          <DashboardStatCard
-            detail={`${formatCurrency(financingCycle.deployableFunds.approvedHoldAmount)} approved holds excluded`}
+            detail="Current liquidity available for approved disbursement."
             label="Deployable funds"
-            tone={
-              financingCycle.deployableFunds.deployableFunds > 0
-                ? "positive"
-                : "warning"
-            }
             value={formatCurrency(
               financingCycle.deployableFunds.deployableFunds
             )}
           />
           <DashboardStatCard
-            detail={`${Math.round(financingCycle.collectionCoverage * 100)}% of projected commitments collected`}
-            label="Collections"
-            tone={
-              financingCycle.receivedContributionAmount >=
-              financingCycle.projectedCommitmentAmount
-                ? "positive"
-                : "warning"
-            }
-            value={formatCurrency(financingCycle.receivedContributionAmount)}
+            detail="Share of active facilities with overdue repayment items."
+            label="Delinquency"
+            tone={dashboard.delinquencyRate > 0.08 ? "warning" : "default"}
+            value={`${Math.round(dashboard.delinquencyRate * 100)}%`}
           />
-        </div>
-        {financingCycle.warnings.length ? (
-          <DashboardSurfaceCard className="mt-4 border-amber-200 bg-amber-50 text-amber-950">
-            <p className="text-sm font-medium">Financing cycle warnings</p>
-            <ul className="mt-2 space-y-1 text-sm">
-              {financingCycle.warnings.map((warning) => (
-                <li key={warning.key}>{warning.label}</li>
-              ))}
-            </ul>
-          </DashboardSurfaceCard>
-        ) : null}
-      </DashboardSectionCard>
-
-      <section className="grid gap-4 sm:grid-cols-3">
-        <DashboardStatCard
-          detail="Currently approved, disbursed, or active loan records."
-          label="Active loans"
-          value={dashboard.activeLoans.toString()}
-        />
-        <DashboardStatCard
-          detail="Current liquidity available for approved disbursement."
-          label="Deployable funds"
-          value={formatCurrency(financingCycle.deployableFunds.deployableFunds)}
-        />
-        <DashboardStatCard
-          detail="Share of active facilities with overdue repayment items."
-          label="Delinquency"
-          tone={dashboard.delinquencyRate > 0.08 ? "warning" : "default"}
-          value={`${Math.round(dashboard.delinquencyRate * 100)}%`}
-        />
-      </section>
+        </section>
+      ) : null}
 
       <DashboardSectionCard>
         <DashboardSectionHeader
           actions={<TrendPill>{loanRequests.length} requests</TrendPill>}
-          description="Review request context, approval history, and monthly servicing before the request becomes a live loan."
-          eyebrow="Reviews"
-          title="Loan requests queue"
+          description={
+            isMemberView
+              ? "Track requests you have submitted and their approval progress."
+              : "Review request context, approval history, and monthly servicing before the request becomes a live loan."
+          }
+          eyebrow={isMemberView ? "Requests" : "Reviews"}
+          title={isMemberView ? "My loan requests" : "Loan requests queue"}
         />
         <div className="mt-5">
           <LoanRequestsTable canReview={canReview} items={loanRequests} />
@@ -184,9 +217,15 @@ export function LoansPageView({
       <DashboardSectionCard>
         <DashboardSectionHeader
           actions={<TrendPill>{loans.length} loans</TrendPill>}
-          description="Review live principal, outstanding balance, and liquidity warnings before disbursement."
+          description={
+            isMemberView
+              ? "Review your approved principal, outstanding balance, and repayment status."
+              : "Review live principal, outstanding balance, and liquidity warnings before disbursement."
+          }
           eyebrow="Portfolio"
-          title="Approved and active loans"
+          title={
+            isMemberView ? "My approved loans" : "Approved and active loans"
+          }
         />
         <div className="mt-5">
           <LoanPortfolioTable

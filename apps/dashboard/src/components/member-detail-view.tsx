@@ -21,6 +21,7 @@ import {
   MemberCommitmentForm,
   MemberDocumentForm,
   MemberDocumentReviewForm,
+  MemberPortalAccessForm,
   MemberKycForm,
 } from "@/components/forms/member-forms"
 import { loadMemberDetailPageData } from "@/lib/members"
@@ -40,7 +41,8 @@ export function MemberDetailView({
   detail,
   quickFillEnabled,
 }: MemberDetailPageData) {
-  const activePlan = detail.member.contributionPlans.find((plan) => plan.isActive) ?? null
+  const activePlan =
+    detail.member.contributionPlans.find((plan) => plan.isActive) ?? null
   const today = new Date()
 
   return (
@@ -68,6 +70,9 @@ export function MemberDetailView({
         >
           Download member statement
         </a>
+        {canManageMembers ? (
+          <MemberPortalAccessForm memberId={detail.member.id} />
+        ) : null}
       </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -89,7 +94,9 @@ export function MemberDetailView({
         <DashboardStatCard
           detail={`${detail.summary?.activeLoanCount ?? 0} active or open loan records`}
           label="Outstanding loan balance"
-          tone={detail.summary?.totalOutstandingPrincipal ? "warning" : "default"}
+          tone={
+            detail.summary?.totalOutstandingPrincipal ? "warning" : "default"
+          }
           value={formatCurrency(detail.summary?.totalOutstandingPrincipal ?? 0)}
         />
         <DashboardStatCard
@@ -107,7 +114,13 @@ export function MemberDetailView({
         <DashboardSectionCard>
           <DashboardSectionHeader
             actions={
-              <TrendPill tone={detail.member.kycStatus === "verified" ? "positive" : "warning"}>
+              <TrendPill
+                tone={
+                  detail.member.kycStatus === "verified"
+                    ? "positive"
+                    : "warning"
+                }
+              >
                 {detail.member.kycStatus.replace(/_/g, " ")}
               </TrendPill>
             }
@@ -117,15 +130,19 @@ export function MemberDetailView({
           <dl className="mt-5 grid gap-4 text-sm md:grid-cols-2">
             <div>
               <dt className="text-muted-foreground">Member number</dt>
-              <dd className="mt-1 font-medium text-foreground">{detail.member.memberNumber}</dd>
+              <dd className="mt-1 font-medium text-foreground">
+                {detail.member.memberNumber}
+              </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Status</dt>
-              <dd className="mt-1 font-medium capitalize text-foreground">{detail.member.status}</dd>
+              <dd className="mt-1 font-medium text-foreground capitalize">
+                {detail.member.status}
+              </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Type</dt>
-              <dd className="mt-1 font-medium capitalize text-foreground">
+              <dd className="mt-1 font-medium text-foreground capitalize">
                 {detail.member.memberType.replace(/_/g, " ")}
               </dd>
             </div>
@@ -138,7 +155,9 @@ export function MemberDetailView({
             <div>
               <dt className="text-muted-foreground">Primary email</dt>
               <dd className="mt-1 font-medium text-foreground">
-                {detail.member.email ?? detail.member.user?.email ?? "Not provided"}
+                {detail.member.email ??
+                  detail.member.user?.email ??
+                  "Not provided"}
               </dd>
             </div>
             <div>
@@ -174,7 +193,8 @@ export function MemberDetailView({
             <div>
               <dt className="text-muted-foreground">Document uploaded</dt>
               <dd className="mt-1 font-medium text-foreground">
-                {formatIsoDate(detail.member.kycDocumentUploadedAt) ?? "Not uploaded"}
+                {formatIsoDate(detail.member.kycDocumentUploadedAt) ??
+                  "Not uploaded"}
               </dd>
             </div>
             <div className="md:col-span-2">
@@ -186,15 +206,19 @@ export function MemberDetailView({
           </dl>
           {canManageMembers ? (
             <p className="mt-4 text-sm leading-6 text-muted-foreground">
-              Registry actions still happen from the main members page, while this view focuses on
-              statement context and KYC review detail.
+              Registry actions still happen from the main members page, while
+              this view focuses on statement context and KYC review detail.
             </p>
           ) : null}
         </DashboardSectionCard>
 
         <DashboardSectionCard>
           <DashboardSectionHeader
-            actions={<TrendPill>{detail.member.contributionPlans.length} plans</TrendPill>}
+            actions={
+              <TrendPill>
+                {detail.member.contributionPlans.length} plans
+              </TrendPill>
+            }
             eyebrow="Commitment"
             title="Monthly commitment history"
           />
@@ -203,7 +227,10 @@ export function MemberDetailView({
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
                 <div>
                   <p className="font-medium text-foreground">
-                    Current monthly commitment {formatCurrency(detail.summary?.activeCommitmentAmount ?? 0)}
+                    Current monthly commitment{" "}
+                    {formatCurrency(
+                      detail.summary?.activeCommitmentAmount ?? 0
+                    )}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {activePlan
@@ -212,14 +239,18 @@ export function MemberDetailView({
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <TrendPill>{detail.member.contributionPlans.length} dated updates</TrendPill>
+                  <TrendPill>
+                    {detail.member.contributionPlans.length} dated updates
+                  </TrendPill>
                   <TrendPill tone="neutral">View history</TrendPill>
                 </div>
               </summary>
 
               <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Commitment update history</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Commitment update history
+                  </p>
                   <div className="mt-4 space-y-3">
                     {detail.member.contributionPlans.length ? (
                       detail.member.contributionPlans.map((plan) => {
@@ -242,13 +273,17 @@ export function MemberDetailView({
                                 {startsAt}
                                 {endsAt ? ` to ${endsAt}` : ""}
                               </p>
-                              <p className="mt-1 text-xs text-muted-foreground">{plan.name}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {plan.name}
+                              </p>
                             </div>
                             <div className="text-right">
                               <p className="font-medium text-foreground">
                                 {formatCurrency(Number(plan.amount))}
                               </p>
-                              <p className="mt-1 text-xs text-muted-foreground">{statusLabel}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {statusLabel}
+                              </p>
                             </div>
                           </div>
                         )
@@ -263,23 +298,32 @@ export function MemberDetailView({
 
                 {canManageCommitments ? (
                   <div>
-                    <p className="text-sm font-medium text-foreground">New commitment version</p>
+                    <p className="text-sm font-medium text-foreground">
+                      New commitment version
+                    </p>
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                      Add the member’s next monthly commitment and the date it starts.
+                      Add the member’s next monthly commitment and the date it
+                      starts.
                     </p>
                     <div className="mt-5">
                       <MemberCommitmentForm
                         defaultAmount={
-                          activePlan ? String(Number(activePlan.amount)) : undefined
+                          activePlan
+                            ? String(Number(activePlan.amount))
+                            : undefined
                         }
                         defaultStartDate={
-                          activePlan ? undefined : formatIsoDate(detail.member.joinedAt) ?? undefined
+                          activePlan
+                            ? undefined
+                            : (formatIsoDate(detail.member.joinedAt) ??
+                              undefined)
                         }
                         memberId={detail.member.id}
                       />
                     </div>
                     <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                      Saving closes the existing active commitment from the selected effective date.
+                      Saving closes the existing active commitment from the
+                      selected effective date.
                     </p>
                   </div>
                 ) : null}
@@ -292,7 +336,10 @@ export function MemberDetailView({
       {canManageMembers ? (
         <section className="grid gap-4 xl:grid-cols-2">
           <DashboardSectionCard>
-            <DashboardSectionHeader eyebrow="Review" title="Update KYC details" />
+            <DashboardSectionHeader
+              eyebrow="Review"
+              title="Update KYC details"
+            />
             <div className="mt-5">
               <MemberKycForm
                 defaultValues={{
@@ -308,7 +355,10 @@ export function MemberDetailView({
             </div>
           </DashboardSectionCard>
           <DashboardSectionCard>
-            <DashboardSectionHeader eyebrow="Documents" title="Attach supporting document" />
+            <DashboardSectionHeader
+              eyebrow="Documents"
+              title="Attach supporting document"
+            />
             <div className="mt-5">
               <MemberDocumentForm
                 defaultMemberId={detail.member.id}
@@ -321,7 +371,9 @@ export function MemberDetailView({
 
       <DashboardSectionCard>
         <DashboardSectionHeader
-          actions={<TrendPill>{detail.member.documents.length} documents</TrendPill>}
+          actions={
+            <TrendPill>{detail.member.documents.length} documents</TrendPill>
+          }
           eyebrow="Documents"
           title="KYC documents"
         />
@@ -331,9 +383,12 @@ export function MemberDetailView({
               <DashboardSurfaceCard key={document.id}>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="font-medium text-foreground">{document.documentType}</p>
+                    <p className="font-medium text-foreground">
+                      {document.documentType}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      {document.reviewStatus} · uploaded {formatIsoDate(document.uploadedAt)}
+                      {document.reviewStatus} · uploaded{" "}
+                      {formatIsoDate(document.uploadedAt)}
                     </p>
                     <a
                       className="mt-1 inline-block text-sm font-medium text-foreground underline-offset-4 hover:underline"
@@ -368,8 +423,10 @@ export function MemberDetailView({
                         documentId: document.id,
                         reviewNotes: document.reviewNotes ?? "",
                         reviewStatus:
-                          (document.reviewStatus as "pending" | "verified" | "rejected") ??
-                          "pending",
+                          (document.reviewStatus as
+                            | "pending"
+                            | "verified"
+                            | "rejected") ?? "pending",
                       }}
                     />
                   </div>
@@ -387,7 +444,9 @@ export function MemberDetailView({
       <section className="grid gap-4 xl:grid-cols-2">
         <DashboardSectionCard>
           <DashboardSectionHeader
-            actions={<TrendPill>{detail.contributions.length} entries</TrendPill>}
+            actions={
+              <TrendPill>{detail.contributions.length} entries</TrendPill>
+            }
             eyebrow="Savings"
             title="Recent contributions"
           />
@@ -401,7 +460,8 @@ export function MemberDetailView({
                         {formatCurrency(Number(contribution.amount))}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {contribution.periodLabel ?? "Unlabeled period"} · {contribution.channel}
+                        {contribution.periodLabel ?? "Unlabeled period"} ·{" "}
+                        {contribution.channel}
                       </p>
                     </div>
                     <p className="text-sm text-muted-foreground">
@@ -409,13 +469,19 @@ export function MemberDetailView({
                     </p>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Commitment {formatCurrency(Number(contribution.committedAmount ?? 0))} · Extra
-                    savings {formatCurrency(Number(contribution.extraSavingsAmount ?? 0))}
+                    Commitment{" "}
+                    {formatCurrency(Number(contribution.committedAmount ?? 0))}{" "}
+                    · Extra savings{" "}
+                    {formatCurrency(
+                      Number(contribution.extraSavingsAmount ?? 0)
+                    )}
                   </p>
                 </DashboardSurfaceCard>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No contributions recorded yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No contributions recorded yet.
+              </p>
             )}
           </div>
         </DashboardSectionCard>
@@ -445,12 +511,16 @@ export function MemberDetailView({
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">
                     Outstanding after posting{" "}
-                    {formatCurrency(Number(repayment.loan.outstandingPrincipal))}
+                    {formatCurrency(
+                      Number(repayment.loan.outstandingPrincipal)
+                    )}
                   </p>
                 </DashboardSurfaceCard>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No repayments recorded yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No repayments recorded yet.
+              </p>
             )}
           </div>
         </DashboardSectionCard>
@@ -458,7 +528,11 @@ export function MemberDetailView({
 
       <DashboardSectionCard>
         <DashboardSectionHeader
-          actions={<TrendPill>{detail.ledgerTransactions.length} transactions</TrendPill>}
+          actions={
+            <TrendPill>
+              {detail.ledgerTransactions.length} transactions
+            </TrendPill>
+          }
           eyebrow="Ledger"
           title="Ledger timeline"
         />
@@ -480,11 +554,16 @@ export function MemberDetailView({
                     <DashboardTableCell className="capitalize">
                       {transaction.transactionType}
                     </DashboardTableCell>
-                    <DashboardTableCell>{formatIsoDate(transaction.postedAt)}</DashboardTableCell>
+                    <DashboardTableCell>
+                      {formatIsoDate(transaction.postedAt)}
+                    </DashboardTableCell>
                     <DashboardTableCell>
                       <div className="space-y-1">
                         {transaction.entries.map((entry) => (
-                          <p key={entry.id} className="text-xs text-muted-foreground">
+                          <p
+                            key={entry.id}
+                            className="text-xs text-muted-foreground"
+                          >
                             {entry.ledgerAccount.name} · {entry.direction} ·{" "}
                             {formatCurrency(Number(entry.amount))}
                           </p>
@@ -511,9 +590,12 @@ export function MemberDetailView({
               <DashboardSurfaceCard key={loan.id}>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="font-medium text-foreground">{loan.loanProduct.name}</p>
+                    <p className="font-medium text-foreground">
+                      {loan.loanProduct.name}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      Principal {formatCurrency(Number(loan.principalAmount))} · Outstanding{" "}
+                      Principal {formatCurrency(Number(loan.principalAmount))} ·
+                      Outstanding{" "}
                       {formatCurrency(Number(loan.outstandingPrincipal))}
                     </p>
                   </div>
@@ -529,7 +611,8 @@ export function MemberDetailView({
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">
                   {loan.termMonths} months · servicing{" "}
-                  {formatCurrency(Number(loan.estimatedMonthlyServicing))} · extra savings{" "}
+                  {formatCurrency(Number(loan.estimatedMonthlyServicing))} ·
+                  extra savings{" "}
                   {formatCurrency(Number(loan.extraMonthlySavingsAmount))}
                 </p>
                 <div className="mt-4 grid gap-2 md:grid-cols-3">
@@ -567,7 +650,9 @@ export function MemberDetailView({
               </DashboardSurfaceCard>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">No loan records yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No loan records yet.
+            </p>
           )}
         </div>
       </DashboardSectionCard>

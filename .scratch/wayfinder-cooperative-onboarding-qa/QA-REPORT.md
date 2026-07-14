@@ -16,15 +16,15 @@ Status: website QA pass completed locally for the Minna Trust cooperative onboar
 
 ## Results
 
-| Step | Area | Result | Evidence | Notes |
-| --- | --- | --- | --- | --- |
-| 0 | Preflight | Pass | Portless dashboard host loaded and authenticated users could switch through the local login picker. | Used existing local tenant. |
-| 1 | Cooperative setup | Pass after fixes | Operation profile, shares, charges, admin member backfill, and final review unlocked live operations. `/getting-started` showed "Live operations are unlocked." | Fixed setup routing so brought-forward mode does not loop through empty business/profit steps and final review is reachable. |
-| 2 | Admin opening position | Pass after fix | Sally opening position applied: NGN 830,000 commitment savings, NGN 200,000 special savings, active brought-forward loan, NGN 500,000 procurement, NGN 25,000 Foodstuff Purchase. | Fixed setup gate so `/members/:id/backfill` is allowed during setup. |
-| 3 | Second member onboarding | Pass with local provisioning fallback | Created Aisha Bello `MT-0002`, applied opening position, linked local user `aisha.bello.minna.qa@example.test`, and logged in as member. | Admin UI for sending onboarding email to an existing staff-created member was not found; used local DB provisioning fallback for QA. |
-| 4 | Member self-service | Pass with one route caveat | Aisha submitted receipt `QA-AISHA-JULY-001`, procurement MacBook Pro M1 for NGN 1,500,000 over 2 months, Foodstuff Purchase for NGN 60,000 over 2 months, and project financing for NGN 200,000 over 6 months. | `/loans` redirected to member dashboard; available member-side financing request route is `/project-financing`. |
-| 5 | Admin reviews and notifications | Pass with local email caveat | Admin approved receipt, procurement, Foodstuff Purchase, and project financing. Procurement review note: "Approved. Please step into the office for final activities." | Local audit showed notification email attempts failed for `example.test` addresses, which is expected in this local QA environment. |
-| 6 | Activity and audit | Pass | `/reports/audit` loaded 72 events and showed receipt approval, procurement approval, Food Purchase approval, project financing approval, actors, approvers, entity IDs, timestamps, and notes. | Activity report met the "who did what" requirement. |
+| Step | Area                            | Result                                            | Evidence                                                                                                                                                                                                       | Notes                                                                                                                                                             |
+| ---- | ------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | Preflight                       | Pass                                              | Portless dashboard host loaded and authenticated users could switch through the local login picker.                                                                                                            | Used existing local tenant.                                                                                                                                       |
+| 1    | Cooperative setup               | Pass after fixes                                  | Operation profile, shares, charges, admin member backfill, and final review unlocked live operations. `/getting-started` showed "Live operations are unlocked."                                                | Fixed setup routing so brought-forward mode does not loop through empty business/profit steps and final review is reachable.                                      |
+| 2    | Admin opening position          | Pass after fix                                    | Sally opening position applied: NGN 830,000 commitment savings, NGN 200,000 special savings, active brought-forward loan, NGN 500,000 procurement, NGN 25,000 Foodstuff Purchase.                              | Fixed setup gate so `/members/:id/backfill` is allowed during setup.                                                                                              |
+| 3    | Second member onboarding        | Pass; follow-up implemented visible access action | Created Aisha Bello `MT-0002`, applied opening position, linked local user `aisha.bello.minna.qa@example.test`, and logged in as member.                                                                       | Follow-up implementation added `Send portal access` on member detail for existing staff-created members.                                                          |
+| 4    | Member self-service             | Pass; follow-up implemented `/loans` self-service | Aisha submitted receipt `QA-AISHA-JULY-001`, procurement MacBook Pro M1 for NGN 1,500,000 over 2 months, Foodstuff Purchase for NGN 60,000 over 2 months, and project financing for NGN 200,000 over 6 months. | Follow-up implementation lets members access `/loans` with only their own requests and approved loans.                                                            |
+| 5    | Admin reviews and notifications | Pass; local email gap resolved for test domains   | Admin approved receipt, procurement, Foodstuff Purchase, and project financing. Procurement review note: "Approved. Please step into the office for final activities."                                         | Follow-up implementation routes local `*.test` and `*.localhost` email recipients through console delivery so audit status can be `sent` without a real provider. |
+| 6    | Activity and audit              | Pass                                              | `/reports/audit` loaded 72 events and showed receipt approval, procurement approval, Food Purchase approval, project financing approval, actors, approvers, entity IDs, timestamps, and notes.                 | Activity report met the "who did what" requirement.                                                                                                               |
 
 ## Fixes Validated
 
@@ -40,9 +40,9 @@ Status: website QA pass completed locally for the Minna Trust cooperative onboar
 
 ## Bugs / Product Gaps Found
 
-- Existing staff-created member onboarding email flow was not visible from the member detail page. QA used local password provisioning to continue.
-- Member `/loans` did not expose a loan request form for Aisha; it redirected to the member dashboard. The currently available member self-service financing request is `/project-financing`.
-- Local email delivery attempts failed for `example.test` recipients. This is acceptable for local QA but should be re-tested with a configured mail sink/provider before launch.
+- Resolved follow-up: Existing staff-created member onboarding email flow is now visible from the member detail page as `Send portal access`.
+- Resolved follow-up: Member `/loans` now exposes a member-scoped loan request form and member-only request/loan history.
+- Resolved follow-up: Local email delivery for reserved test recipients now uses console delivery in non-production, including when provider credentials are configured.
 
 ## Automated Checks
 
@@ -50,3 +50,13 @@ Status: website QA pass completed locally for the Minna Trust cooperative onboar
 - `bun --filter @halaalvest/dashboard typecheck` -> pass.
 - `bun --filter @halaalvest/dashboard lint` -> exit 0 with existing warnings.
 - `git diff --check` -> pass.
+
+## Follow-Up Implementation Checks
+
+- `bun test packages/notifications/src/server.test.ts` -> 2 pass, 0 fail.
+- `bun test apps/dashboard/src/lib/navigation/lib.test.ts` -> 2 pass, 0 fail.
+- `bun test packages/db/src/queries/members.test.ts` -> 22 pass, 0 fail.
+- `bun --filter @halaalvest/notifications typecheck` -> pass.
+- `bun --filter @halaalvest/api typecheck` -> pass.
+- `bun --filter @halaalvest/dashboard typecheck` -> pass.
+- `bun --filter @halaalvest/db typecheck` -> pass.

@@ -44,6 +44,7 @@ import type { MemberCollectionSourceOption } from "@/lib/members/load-members-pa
 import {
   createMemberAction,
   createMemberDocumentAction,
+  sendMemberPortalAccessEmailAction,
   setMemberContributionPlanAction,
   updateMemberDocumentReviewAction,
   updateMemberKycAction,
@@ -75,6 +76,54 @@ function CurrencyFormInput({
 type SelectFormInputOption = {
   label: string
   value: string
+}
+
+const memberPortalAccessSchema = z.object({
+  memberId: z.string().min(1, "Member is required."),
+})
+
+type MemberPortalAccessValues = z.infer<typeof memberPortalAccessSchema>
+
+export function MemberPortalAccessForm({ memberId }: { memberId: string }) {
+  const form = useZodForm<MemberPortalAccessValues>(memberPortalAccessSchema, {
+    defaultValues: {
+      memberId,
+    },
+  })
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+
+  function onSubmit(values: MemberPortalAccessValues) {
+    startTransition(async () => {
+      try {
+        await sendMemberPortalAccessEmailAction(objectToFormData(values))
+        showSuccess(
+          "Portal access sent",
+          "The member can use the email link to set their password."
+        )
+      } catch (error) {
+        showError(
+          "Could not send portal access",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <FormField
+          control={form.control}
+          name="memberId"
+          render={({ field }) => <input type="hidden" {...field} />}
+        />
+        <Button disabled={isPending} type="submit" variant="outline">
+          Send portal access
+        </Button>
+      </form>
+    </Form>
+  )
 }
 
 function SelectFormInput({
@@ -430,9 +479,7 @@ export function MemberCreateForm({
             control={form.control}
             name="fullName"
             render={({ field }) => (
-              <FormItem
-                className={inModal ? "sm:col-span-3" : "xl:col-span-2"}
-              >
+              <FormItem className={inModal ? "sm:col-span-3" : "xl:col-span-2"}>
                 <FormLabel>Full name</FormLabel>
                 <FormControl>
                   <Input {...field} placeholder="Amina Yusuf" />
@@ -583,9 +630,7 @@ export function MemberCreateForm({
             control={form.control}
             name="address"
             render={({ field }) => (
-              <FormItem
-                className={inModal ? "sm:col-span-4" : "xl:col-span-2"}
-              >
+              <FormItem className={inModal ? "sm:col-span-4" : "xl:col-span-2"}>
                 <FormLabel>Address</FormLabel>
                 <FormControl>
                   <Input {...field} placeholder="No. 12 Cooperative Road" />

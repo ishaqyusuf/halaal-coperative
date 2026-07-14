@@ -155,7 +155,7 @@ export const dashboardNavRegistry: NavModule[] = [
         FinanceIcon,
         "/loans",
         [],
-        [role.in(...allStaffRoles)]
+        [role.in(...allStaffRoles, "member")]
       ).title("Loans").data,
       createNavLink(
         "Procurement",

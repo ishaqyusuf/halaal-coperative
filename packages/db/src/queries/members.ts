@@ -53,9 +53,9 @@ const memberListInclude = {
   user: { select: { id: true, email: true, fullName: true } },
 } satisfies Prisma.MemberInclude
 
-function serializeMemberListItem<TMember extends { totalSavingsSnapshot?: unknown }>(
-  member: TMember
-) {
+function serializeMemberListItem<
+  TMember extends { totalSavingsSnapshot?: unknown },
+>(member: TMember) {
   return {
     ...member,
     totalSavingsSnapshot: Number(member.totalSavingsSnapshot ?? 0),
@@ -156,6 +156,153 @@ export async function getMemberByUserId(
       tenantId: input.tenantId,
       userId: input.userId,
     },
+  })
+}
+
+export async function ensureMemberPortalAccess(
+  input: {
+    actorUserId: string
+    memberId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.$transaction(async (tx) => {
+    const member = await tx.member.findFirst({
+      where: {
+        id: input.memberId,
+        tenantId: input.tenantId,
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+            fullName: true,
+            id: true,
+            isPlatformOwner: true,
+            passwordHash: true,
+            phoneNumber: true,
+            tenantId: true,
+          },
+        },
+      },
+    })
+
+    if (!member) {
+      throw new Error("Member not found.")
+    }
+
+    const email = (member.user?.email ?? member.email ?? "")
+      .trim()
+      .toLowerCase()
+
+    if (!email) {
+      throw new Error(
+        "Add an email address to this member before sending portal access."
+      )
+    }
+
+    const user =
+      member.user ??
+      (await tx.user.upsert({
+        where: {
+          tenantId_email: {
+            tenantId: input.tenantId,
+            email,
+          },
+        },
+        update: {
+          fullName: member.fullName,
+          phoneNumber: member.phoneNumber ?? undefined,
+        },
+        create: {
+          email,
+          fullName: member.fullName,
+          phoneNumber: member.phoneNumber ?? null,
+          tenantId: input.tenantId,
+        },
+        select: {
+          email: true,
+          fullName: true,
+          id: true,
+          isPlatformOwner: true,
+          passwordHash: true,
+          phoneNumber: true,
+          tenantId: true,
+        },
+      }))
+
+    const linkedMember = await tx.member.findFirst({
+      where: {
+        tenantId: input.tenantId,
+        userId: user.id,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (linkedMember && linkedMember.id !== member.id) {
+      throw new Error("This email is already linked to another member profile.")
+    }
+
+    if (member.userId !== user.id) {
+      await tx.member.update({
+        where: {
+          id: member.id,
+          tenantId: input.tenantId,
+        },
+        data: {
+          userId: user.id,
+        },
+      })
+    }
+
+    await tx.membership.upsert({
+      where: {
+        tenantId_userId_role: {
+          role: "member",
+          tenantId: input.tenantId,
+          userId: user.id,
+        },
+      },
+      update: {},
+      create: {
+        isDefault: false,
+        role: "member",
+        tenantId: input.tenantId,
+        userId: user.id,
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        action: "member.portal_access_prepared",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: member.id,
+        entityType: "Member",
+        metadata: {
+          email,
+          userId: user.id,
+        },
+        occurredAt: new Date(),
+        tenantId: input.tenantId,
+      },
+    })
+
+    return {
+      member: {
+        email,
+        fullName: member.fullName,
+        id: member.id,
+        memberNumber: member.memberNumber,
+      },
+      user,
+    }
   })
 }
 

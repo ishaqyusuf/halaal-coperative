@@ -552,3 +552,15 @@ This file records completed work and important outcomes.
 - Created Date: 2026-07-09
 - Completed Date: 2026-07-09
 - Checks: `bun --cwd packages/db test src/queries/audit.test.ts`; package-local targeted ESLint commands with warnings only; `git diff --check`
+
+### Cooperative Onboarding QA Gap Fixes
+
+- Priority: High
+- Description: Resolved the local onboarding QA gaps by adding member-detail portal access emails for existing staff-created members, opening `/loans` as a member-scoped self-service request route, and making local reserved-domain notification delivery console-backed in non-production.
+- Related Feature: Member self-service dashboard; member signup gating and links
+- Status: Done
+- Plan Status: Done
+- Plan File: .scratch/wayfinder-cooperative-onboarding-qa/QA-REPORT.md
+- Created Date: 2026-07-14
+- Completed Date: 2026-07-14
+- Checks: `bun test packages/notifications/src/server.test.ts`; `bun test apps/dashboard/src/lib/navigation/lib.test.ts`; `bun test packages/db/src/queries/members.test.ts`; `bun --filter @halaalvest/notifications typecheck`; `bun --filter @halaalvest/api typecheck`; `bun --filter @halaalvest/dashboard typecheck`; `bun --filter @halaalvest/db typecheck`

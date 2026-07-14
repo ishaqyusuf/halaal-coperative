@@ -1,6 +1,7 @@
 import {
   createDbRuntime,
   getMonthlyFinancingCycleHealth,
+  getMemberByUserId,
   listChargeDefinitions,
   listLoanProducts,
   listLoanRequests,
@@ -68,7 +69,7 @@ type LoanRequestRow = {
   }>
   id: string
   loanProduct: { name: string }
-  member: { fullName: string }
+  member: { fullName: string; id: string; memberNumber: string }
   purpose?: string | null
   requestedAmount: LoanNumericValue
   requestedTermMonths: number
@@ -81,7 +82,7 @@ type LoanPortfolioRow = {
   extraMonthlySavingsAmount: LoanNumericValue
   id: string
   loanProduct: { name: string }
-  member: { fullName: string }
+  member: { fullName: string; id: string; memberNumber: string }
   outstandingPrincipal: LoanNumericValue
   principalAmount: LoanNumericValue
   status: string
@@ -104,6 +105,7 @@ export type LoansPageData =
       members: {
         items: LoanMemberOptionRow[]
       }
+      isMemberView: boolean
       quickFillEnabled: boolean
       state: "ready"
     }
@@ -118,6 +120,15 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
       state: "unavailable" as const,
     }
   }
+  const role = context.auth.membership?.role
+  const isMemberView = role === "member"
+  const actorMember =
+    isMemberView && context.auth.user
+      ? await getMemberByUserId({
+          tenantId: context.tenant.id,
+          userId: context.auth.user.id,
+        })
+      : null
 
   const [
     members,
@@ -166,20 +177,45 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
       } satisfies LoanRequestChargeOptionRow
     })
     .filter((charge): charge is LoanRequestChargeOptionRow => Boolean(charge))
+  const visibleMembers =
+    isMemberView && actorMember
+      ? {
+          items: [
+            {
+              fullName: actorMember.fullName,
+              id: actorMember.id,
+              memberNumber: actorMember.memberNumber,
+            },
+          ],
+        }
+      : members
+  const visibleLoanRequests =
+    isMemberView && actorMember
+      ? (loanRequests as LoanRequestRow[]).filter(
+          (request) => request.member.id === actorMember.id
+        )
+      : (loanRequests as LoanRequestRow[])
+  const visibleLoans =
+    isMemberView && actorMember
+      ? (loans as LoanPortfolioRow[]).filter(
+          (loan) => loan.member.id === actorMember.id
+        )
+      : (loans as LoanPortfolioRow[])
 
   return {
     canReview: hasAnyRole(
       context.auth.membership?.role,
       financeManagementRoles
     ),
-    canSubmit: hasAnyRole(context.auth.membership?.role, allStaffRoles),
+    canSubmit: hasAnyRole(role, allStaffRoles) || Boolean(actorMember),
     dashboard,
     financingCycle,
     loanProducts: loanProducts as LoanProductOptionRow[],
     loanRequestCharges,
-    loanRequests: loanRequests as LoanRequestRow[],
-    loans: loans as LoanPortfolioRow[],
-    members,
+    loanRequests: visibleLoanRequests,
+    loans: visibleLoans,
+    members: visibleMembers,
+    isMemberView,
     quickFillEnabled: canShowQuickFill(context),
     state: "ready" as const,
   }

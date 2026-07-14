@@ -1,7 +1,9 @@
 import {
+  createConsoleEmailTransport,
   createRetryingEmailTransport,
   createResendEmailTransport,
   NotificationService,
+  type NotificationEmailTransport,
   type NotificationInput,
 } from "./index"
 
@@ -25,7 +27,10 @@ function formatServerEmailFrom(from: string | undefined) {
 function isEmailTestModeEnabled() {
   const value = process.env.EMAIL_TEST_MODE?.trim().toLowerCase()
 
-  return process.env.NODE_ENV === "production" && ["1", "true", "yes", "on"].includes(value ?? "")
+  return (
+    process.env.NODE_ENV === "production" &&
+    ["1", "true", "yes", "on"].includes(value ?? "")
+  )
 }
 
 function getEmailTestCopyRecipient() {
@@ -40,11 +45,45 @@ function getEmailTestCopyRecipient() {
   return testEmail
 }
 
+function isReservedLocalRecipient(recipient: string) {
+  const value = recipient.trim().toLowerCase()
+  const domain = value.split("@").pop() ?? ""
+
+  return (
+    domain === "localhost" ||
+    domain.endsWith(".localhost") ||
+    domain === "test" ||
+    domain.endsWith(".test")
+  )
+}
+
+function createDevelopmentSafeEmailTransport(
+  transport: NotificationEmailTransport | undefined
+): NotificationEmailTransport | undefined {
+  if (process.env.NODE_ENV === "production") {
+    return transport
+  }
+
+  const consoleTransport = createConsoleEmailTransport()
+
+  if (!transport) {
+    return consoleTransport
+  }
+
+  return {
+    send(draft) {
+      if (isReservedLocalRecipient(draft.recipient.value)) {
+        return consoleTransport.send(draft)
+      }
+
+      return transport.send(draft)
+    },
+  }
+}
+
 export function getServerEmailDeliveryConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim()
-  const from = formatServerEmailFrom(
-    process.env.EMAIL_FROM_ADDRESS?.trim(),
-  )
+  const from = formatServerEmailFrom(process.env.EMAIL_FROM_ADDRESS?.trim())
   const replyTo = process.env.EMAIL_REPLY_TO?.trim()
   const copyRecipient = getEmailTestCopyRecipient()
   const testRecipient = process.env.EMAIL_TEST_RECIPIENT?.trim()
@@ -78,8 +117,11 @@ export function createServerNotificationService() {
         })
       : undefined
 
-  const emailTransport = baseEmailTransport
-    ? createRetryingEmailTransport(baseEmailTransport, {
+  const safeEmailTransport =
+    createDevelopmentSafeEmailTransport(baseEmailTransport)
+
+  const emailTransport = safeEmailTransport
+    ? createRetryingEmailTransport(safeEmailTransport, {
         maxAttempts: 2,
         onAttemptFailure({ attempt, draft, error, maxAttempts }) {
           console.error(
@@ -93,8 +135,8 @@ export function createServerNotificationService() {
                 recipient: draft.recipient.value,
               },
               null,
-              2,
-            ),
+              2
+            )
           )
         },
       })

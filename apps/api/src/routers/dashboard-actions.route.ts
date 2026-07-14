@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks"
+import { createHash, createHmac } from "node:crypto"
 import { z } from "zod"
 import type { TRPCContext } from "../context"
 import { authenticatedProcedure, createTRPCRouter } from "../lib.trpc"
@@ -61,6 +62,7 @@ import {
   applyMonthlyRecordMember,
   cancelMonthlyRecordMember,
   ensureMonthlyRecord,
+  ensureMemberPortalAccess,
   updateMonthlyRecordSettings,
   updateCollectionSourceContributionBatchRows,
   recordCollectionFollowUp,
@@ -146,7 +148,10 @@ import {
   type TenantServiceAccessMode,
   type TenantServiceKey,
 } from "@halaalvest/db"
-import { createEmailDraftFromType } from "@halaalvest/notifications"
+import {
+  createEmailDraftFromType,
+  createNotificationEmailDraft,
+} from "@halaalvest/notifications"
 import {
   isCooperativeCountry,
   parseCooperativeSizeRangeValue,
@@ -191,6 +196,54 @@ function revalidatePath(path: string) {
   }
 
   state.revalidatePaths.push(path)
+}
+
+function getPasswordSetupSecret() {
+  const configuredSecret = process.env.AUTH_SECRET?.trim()
+
+  if (configuredSecret) {
+    return configuredSecret
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return "halaalvest-dev-password-reset-secret"
+  }
+
+  throw new Error("AUTH_SECRET must be configured in production.")
+}
+
+function signPasswordSetupToken(body: string) {
+  return createHmac("sha256", getPasswordSetupSecret())
+    .update(body)
+    .digest("base64url")
+}
+
+function getPasswordState(passwordHash: string | null | undefined) {
+  return createHash("sha256")
+    .update(passwordHash?.trim() || "password-unset")
+    .digest("base64url")
+}
+
+function createPasswordSetupToken(user: {
+  email: string
+  id: string
+  passwordHash: string | null
+  tenantId: string
+}) {
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60).toISOString()
+  const payload = {
+    email: user.email,
+    expiresAt,
+    passwordState: getPasswordState(user.passwordHash),
+    tenantId: user.tenantId,
+    userId: user.id,
+  }
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url")
+
+  return {
+    expiresAt,
+    token: `${body}.${signPasswordSetupToken(body)}`,
+  }
 }
 
 function revalidateMemberBackfillPaths(memberId: string) {
@@ -1306,6 +1359,52 @@ export async function updateMemberStatusAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
 
+  revalidatePath("/members")
+}
+
+export async function sendMemberPortalAccessEmailAction(formData: FormData) {
+  const actor = await requireDashboardActor(memberManagementRoles)
+  const access = await ensureMemberPortalAccess({
+    actorUserId: actor.user.id,
+    memberId: getRequiredString(formData, "memberId"),
+    tenantId: actor.tenant.id,
+  })
+  const setup = createPasswordSetupToken(access.user)
+  const setupUrl = buildTenantDashboardUrl(actor.tenant.slug, {
+    pathname: `/login/reset/confirm?token=${encodeURIComponent(setup.token)}`,
+  })
+  const bodyText = [
+    `Hello ${access.member.fullName},`,
+    "",
+    `${actor.tenant.name} has enabled your member portal access.`,
+    "Use the secure link below to set your password and sign in.",
+    `This link expires on ${setup.expiresAt}.`,
+    "",
+    setupUrl,
+  ].join("\n")
+  const draft = createNotificationEmailDraft({
+    actionLabel: "Set portal password",
+    actionUrl: setupUrl,
+    bodyText,
+    eventLabel: "member.portal_access_invited",
+    notificationType: "member.portal_access_invited",
+    previewText: `Set your password for ${actor.tenant.name}.`,
+    recipient: {
+      displayName: access.member.fullName,
+      email: access.member.email,
+      kind: "email",
+      value: access.member.email,
+    },
+    subject: `${actor.tenant.name}: set up your member portal`,
+  })
+
+  await sendEmailDraftWithAudit({
+    draft,
+    source: "dashboard.members",
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath(`/members/${access.member.id}`)
   revalidatePath("/members")
 }
 
@@ -3285,8 +3384,13 @@ export async function reverseChargeApplicationAction(formData: FormData) {
 }
 
 export async function submitLoanRequestAction(formData: FormData) {
-  const actor = await requireDashboardActor(allStaffRoles)
+  const actor = await requireDashboardActor([
+    ...allStaffRoles,
+    ...memberSelfServiceRoles,
+  ])
   await requireLiveFinancialWritesOpen(actor)
+  const actorMember =
+    actor.membership.role === "member" ? await requireActorMember(actor) : null
   const requestedAmount = Number(getRequiredString(formData, "requestedAmount"))
   const requestedTermMonths = Number(
     getRequiredString(formData, "requestedTermMonths")
@@ -3303,7 +3407,7 @@ export async function submitLoanRequestAction(formData: FormData) {
       (formData.get("guarantorTwoMemberId") as string | null)?.trim() ?? "",
     ],
     loanProductId: getRequiredString(formData, "loanProductId"),
-    memberId: getRequiredString(formData, "memberId"),
+    memberId: actorMember?.id ?? getRequiredString(formData, "memberId"),
     purpose: (formData.get("purpose") as string | null)?.trim() || undefined,
     requestedAmount,
     requestedTermMonths,
@@ -3340,6 +3444,7 @@ export async function submitLoanRequestAction(formData: FormData) {
   }
 
   revalidatePath("/loans")
+  revalidatePath("/")
 }
 
 export async function reviewLoanGuarantorApprovalAction(formData: FormData) {
@@ -6229,6 +6334,7 @@ const dashboardActionHandlers = {
   createMemberAction,
   updateMemberAction,
   updateMemberStatusAction,
+  sendMemberPortalAccessEmailAction,
   approveMemberOnboardingAction,
   rejectMemberOnboardingAction,
   updateMemberKycAction,
@@ -6374,6 +6480,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   updateMemberAction: formAction(dashboardActionHandlers.updateMemberAction),
   updateMemberStatusAction: formAction(
     dashboardActionHandlers.updateMemberStatusAction
+  ),
+  sendMemberPortalAccessEmailAction: formAction(
+    dashboardActionHandlers.sendMemberPortalAccessEmailAction
   ),
   approveMemberOnboardingAction: formAction(
     dashboardActionHandlers.approveMemberOnboardingAction

@@ -1,12 +1,18 @@
 import { describe, expect, test } from "bun:test"
 import { getVisibleDashboardNav } from "./lib"
 
-function visibleHrefs(hiddenPaths: string[] = []) {
-  return getVisibleDashboardNav("tenant_admin", hiddenPaths).flatMap((module) =>
+function visibleHrefs(
+  hiddenPaths: string[] = [],
+  role:
+    | "finance_officer"
+    | "member"
+    | "operations_officer"
+    | "super_admin"
+    | "tenant_admin" = "tenant_admin"
+) {
+  return getVisibleDashboardNav(role, hiddenPaths).flatMap((module) =>
     module.sections.flatMap((section) =>
-      section.links
-        .filter((link) => link.show)
-        .map((link) => link.href)
+      section.links.filter((link) => link.show).map((link) => link.href)
     )
   )
 }
@@ -27,5 +33,11 @@ describe("dashboard navigation operation profile filtering", () => {
     expect(hrefs).toContain("/contributions")
     expect(hrefs).toContain("/reports")
     expect(hrefs).toContain("/settings/operation-profile")
+  })
+
+  test("shows loans to member users for self-service requests", () => {
+    const hrefs = visibleHrefs([], "member")
+
+    expect(hrefs).toContain("/loans")
   })
 })

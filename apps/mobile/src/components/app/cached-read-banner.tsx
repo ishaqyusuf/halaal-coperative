@@ -28,15 +28,13 @@ export function CachedReadBanner({
   return (
     <View
       className={`gap-1 rounded-md border p-3 ${
-        isStale
-          ? "border-warning/40 bg-warning/10"
-          : "border-border bg-secondary"
+        isStale ? "border-warn/40 bg-warn/10" : "border-border bg-secondary"
       }`}
     >
       <View className="flex-row items-center gap-2">
         <Icon
           name={isStale ? "WifiOff" : "CloudCheck"}
-          className={`size-sm ${isStale ? "text-warning" : "text-success"}`}
+          className={`size-sm ${isStale ? "text-warn" : "text-success"}`}
         />
         <Text className="text-sm font-semibold text-foreground">
           {isStale ? "Offline snapshot" : "Data refreshed"}

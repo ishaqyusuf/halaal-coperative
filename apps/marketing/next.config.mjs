@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  allowedDevOrigins: ["*.halaalvest.localhost"],
+  allowedDevOrigins: ["*.halaalvest.localhost", "*.halaalvest-dash.localhost"],
   transpilePackages: [
     "@halaalvest/db",
     "@halaalvest/domain",

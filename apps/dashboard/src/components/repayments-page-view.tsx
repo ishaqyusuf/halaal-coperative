@@ -1,10 +1,36 @@
-import { Button } from "@halaalvest/ui/components/button"
 import type { PageFilterData } from "@halaalvest/utils"
 import { formatCurrency } from "@halaalvest/utils"
-import { DashboardSectionCard, DashboardSectionHeader, DashboardStatCard, DashboardSurfaceCard, TrendPill, WorkspacePageShell } from "@/components/dashboard"
-import { CollectionFollowUpForm, RepaymentPostForm } from "@/components/forms/finance-forms"
+import {
+  DashboardSectionCard,
+  DashboardSectionHeader,
+  DashboardStatCard,
+  DashboardSurfaceCard,
+  TrendPill,
+  WorkspaceEmptyState,
+  WorkspacePageShell,
+} from "@/components/dashboard"
+import {
+  OpenCollectionFollowUpSheet,
+  OpenRepaymentPostSheet,
+  OpenRepaymentRefreshSheet,
+} from "@/components/open-repayment-sheet"
 import { RepaymentsHeader } from "@/components/repayments-header"
-import { refreshCollectionsStatusesAction } from "@/lib/dashboard-actions"
+import { RepaymentSheet } from "@/components/sheets/repayment-sheet"
+
+export function RepaymentsUnavailableView() {
+  return (
+    <WorkspacePageShell
+      eyebrow="Repayments"
+      title="Repayment tracking"
+      description="Track overdue exposure, repayment progress, and the collections workflow from one route."
+    >
+      <WorkspaceEmptyState
+        title="Repayment workflows need the database runtime."
+        body="Once the database-backed environment is active, this route will manage schedule items, repayment posting, and collections follow-up."
+      />
+    </WorkspacePageShell>
+  )
+}
 
 export function RepaymentsPageView({
   assignedToUserId,
@@ -58,9 +84,7 @@ export function RepaymentsPageView({
       <RepaymentsHeader
         actions={
           canPostRepayment ? (
-            <form action={refreshCollectionsStatusesAction}>
-              <Button type="submit" variant="outline" className="rounded-full">Refresh collections status</Button>
-            </form>
+            <OpenRepaymentRefreshSheet />
           ) : undefined
         }
         filterList={filterList}
@@ -68,14 +92,16 @@ export function RepaymentsPageView({
 
       {canPostRepayment ? (
         <DashboardSectionCard>
-          <DashboardSectionHeader eyebrow="Posting" title="Post repayment" description="Apply repayments against due items and keep installment status synchronized." />
-          <div className="mt-5">
-            <RepaymentPostForm
-              devMode={quickFillEnabled}
-              loans={loans.filter((loan) => ["disbursed", "active"].includes(loan.status)).map((loan) => ({ id: loan.id, label: `${loan.member.fullName} · ${loan.loanProduct.name}` }))}
-              scheduleItems={scheduleItems.filter((item) => ["pending", "due", "overdue", "partially_paid"].includes(item.status)).map((item) => ({ id: item.id, label: `${item.loan.member.fullName} · installment ${item.installmentNumber} · due ${item.dueAt.toISOString().slice(0, 10)}` }))}
-            />
-          </div>
+          <DashboardSectionHeader
+            actions={<OpenRepaymentPostSheet />}
+            eyebrow="Posting"
+            title="Post repayment"
+            description="Apply repayments against due items and keep installment status synchronized."
+          />
+          <p className="mt-5 text-sm leading-6 text-muted-foreground">
+            Post repayments from a focused sheet so the servicing page stays
+            centered on queues, schedule status, and recent activity.
+          </p>
         </DashboardSectionCard>
       ) : null}
 
@@ -132,7 +158,13 @@ export function RepaymentsPageView({
                 </div>
                 <div className="text-sm text-muted-foreground">outstanding {formatCurrency(Number(item.totalDue) - Number(item.amountPaid))}</div>
               </div>
-              {canPostRepayment ? <div className="mt-4"><CollectionFollowUpForm assignees={assignees} repaymentScheduleItemId={item.id} /></div> : null}
+              {canPostRepayment ? (
+                <div className="mt-4">
+                  <OpenCollectionFollowUpSheet
+                    repaymentScheduleItemId={item.id}
+                  />
+                </div>
+              ) : null}
             </DashboardSurfaceCard>
           )) : <p className="text-sm text-muted-foreground">No overdue installments are currently flagged.</p>}
         </div>
@@ -165,6 +197,13 @@ export function RepaymentsPageView({
           </div>
         </DashboardSectionCard>
       </section>
+
+      <RepaymentSheet
+        assignees={assignees}
+        devMode={quickFillEnabled}
+        loans={loans}
+        scheduleItems={scheduleItems}
+      />
     </WorkspacePageShell>
   )
 }

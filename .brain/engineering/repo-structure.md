@@ -27,10 +27,12 @@ This file documents how the repository is organized and what belongs where.
 - Co-locate tests with the units they verify when practical.
 
 ## Required Folder And Route Conventions
-- `components/modals/...`
 - `components/sheets/global-sheets.tsx`
 - `components/sheets/global-sheets-provider.tsx`
 - `components/sheets/...`
+- `components/open-*-sheet.tsx`
+- `components/*-sheet-header.tsx`
+- `components/*-content.tsx`
 - `components/tables/core`
 - `components/tables/<domain>/...`
 - `components/forms/...`

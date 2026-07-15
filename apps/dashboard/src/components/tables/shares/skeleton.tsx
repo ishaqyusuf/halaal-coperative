@@ -1,16 +1,12 @@
-import { TableSkeleton } from "@/components/dashboard/static-table"
+import { TableSkeleton } from "@/components/tables/core"
+import { columns } from "./columns"
 
 export function ShareSkeleton() {
   return (
     <TableSkeleton
-      columns={[
-        { key: "effectiveFrom", label: "Effective date", render: () => null },
-        { key: "rule", label: "Rule", render: () => null },
-        { key: "value", label: "Value", render: () => null },
-        { key: "notes", label: "Notes", render: () => null },
-        { key: "status", label: "Status", render: () => null },
-      ]}
+      columns={columns}
       rowCount={6}
+      stickyColumnIds={["effectiveFrom"]}
     />
   )
 }

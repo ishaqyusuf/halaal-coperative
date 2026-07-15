@@ -24,12 +24,13 @@ import { useImportFilterParams } from "@/hooks/use-import-filter-params"
 const statusFilters = [
   { id: "draft", name: "Draft" },
   { id: "applied", name: "Applied" },
+  { id: "failed", name: "Failed" },
 ]
 
 export function ImportSearchFilter() {
-  const [input, setInput] = useState("")
-  const [isOpen, setIsOpen] = useState(false)
   const { filter, hasFilters, setFilter } = useImportFilterParams()
+  const [input, setInput] = useState(filter.q ?? "")
+  const [isOpen, setIsOpen] = useState(false)
 
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value

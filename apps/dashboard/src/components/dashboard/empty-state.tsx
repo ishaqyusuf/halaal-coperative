@@ -9,7 +9,7 @@ export function DashboardEmptyState({
 }) {
   return (
     <DashboardSectionCard className="border-dashed bg-background/80 p-8 text-center">
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">
+      <h3 className="text-xl font-semibold text-foreground">
         {title}
       </h3>
       <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">

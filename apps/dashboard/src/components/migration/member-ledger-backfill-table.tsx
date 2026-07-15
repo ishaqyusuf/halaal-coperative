@@ -12,15 +12,7 @@ import {
 } from "@halaalvest/ui/components/dropdown-menu"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
-import {
-  DashboardDataTable,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
-} from "@/components/dashboard"
+import { DashboardSurfaceCard } from "@/components/dashboard"
 import { LedgerColumnVisibilityFrame } from "@/components/migration/ledger-column-visibility-frame"
 
 type MemberLedgerBackfillTableProps = {
@@ -100,18 +92,6 @@ function getSegmentLoanColumns(segment: MonthlyLedgerSegment) {
   return loans
 }
 
-function getLoanColumnValues(
-  segment: MonthlyLedgerSegment,
-  loanId: string,
-  field: "outstandingPrincipalBalance" | "repaymentAmount"
-) {
-  return segment.rows.flatMap((row) => {
-    const loan = row.loanColumns.find((item) => item.id === loanId)
-
-    return loan ? [loan[field]] : []
-  })
-}
-
 function getLoanColumnLabel(
   loan: Pick<MemberLedgerBackfillLoanColumn, "label">,
   suffix: string
@@ -127,22 +107,6 @@ function formatCompactPeriod(period: string) {
   }
 
   return `${month.slice(0, 3).toUpperCase()} ${year.slice(-2)}`
-}
-
-const compactTableClass =
-  "w-max min-w-full table-fixed text-xs [&_td]:border-r [&_td]:border-border/60 [&_td]:px-1.5 [&_td]:py-1.5 [&_td]:whitespace-nowrap [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:border-border/60 [&_th]:px-1.5 [&_th]:py-1.5 [&_th]:leading-3 [&_th]:whitespace-normal [&_th:last-child]:border-r-0"
-const segmentDataTableClass = "overflow-visible rounded-none"
-const segmentDataTableContentClass = "overflow-visible"
-const stickySegmentHeadClass =
-  "bg-muted/95 [&_th]:sticky [&_th]:top-[70px] [&_th]:z-20 [&_th]:bg-muted/95 [&_th]:shadow-sm [&_th]:backdrop-blur"
-
-const columnClass = {
-  label: "w-28",
-  money: "w-20",
-  period: "w-16",
-  percent: "w-14",
-  source: "w-28",
-  term: "w-14",
 }
 
 const ledgerDomainColor = {
@@ -194,10 +158,6 @@ const ledgerLegendItems: Array<{ key: LedgerDomainKey; label: string }> = [
   { key: "share", label: "Share capital" },
   { key: "profit", label: "Business profit" },
 ]
-
-function domainHeaderClass(domain: LedgerDomainKey, className?: string) {
-  return cn(className, ledgerDomainColor[domain].text)
-}
 
 function LedgerDomainValue({
   children,
@@ -275,12 +235,29 @@ function LedgerActionItem({
   )
 }
 
+function LedgerMetricBlock({
+  children,
+  className,
+  label,
+}: {
+  children: React.ReactNode
+  className?: string
+  label: string
+}) {
+  return (
+    <div className={className}>
+      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+      <div className="mt-1 text-sm font-medium text-foreground">{children}</div>
+    </div>
+  )
+}
+
 function SegmentReasonList({ reasons }: { reasons: string[] }) {
   return (
     <div className="mb-1 flex flex-wrap gap-1.5">
       {reasons.map((reason) => (
         <span
-          className="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase"
+          className="text-[11px] font-semibold text-muted-foreground uppercase"
           key={reason}
         >
           {reason}
@@ -444,147 +421,45 @@ function MonthlyLedgerSegmentTable({
         columns={visibilityColumns}
         metadataItems={segmentMetadataItems}
       >
-        <DashboardDataTable
-          className={segmentDataTableClass}
-          contentClassName={segmentDataTableContentClass}
-        >
-          <DashboardTable className={compactTableClass}>
-            <colgroup>
-              <col className={columnClass.period} />
-              <col className={cn(columnClass.money, "commitment-column")} />
-              {chargeColumns.map((charge) => (
-                <col
-                  className={cn(columnClass.money, "charge-column")}
-                  key={`${charge.label}-charge-col`}
-                />
-              ))}
-              {segmentLoanColumns.map((loan) => (
-                <col
-                  className={cn(columnClass.money, "repayment-column")}
-                  key={`${loan.id}-repayment-col`}
-                />
-              ))}
-              <col className={cn(columnClass.money, "share-column")} />
-              <col className={cn(columnClass.money, "final-saving-column")} />
-              {segmentLoanColumns.map((loan) => (
-                <col
-                  className={cn(columnClass.money, "loan-balance-column")}
-                  key={`${loan.id}-balance-col`}
-                />
-              ))}
-              <col className="total-saving-column" />
-              <col />
-            </colgroup>
-            <DashboardTableHead className={stickySegmentHeadClass}>
-              <DashboardTableHeaderCell className={columnClass.period}>
-                Period
-              </DashboardTableHeaderCell>
-              <DashboardTableHeaderCell
-                align="right"
-                className={domainHeaderClass(
-                  "saving",
-                  cn(columnClass.money, "commitment-column")
-                )}
-              >
-                {formatHeaderAmount(
-                  "Commitment",
-                  segment.rows.map((row) => row.savingsContribution)
-                )}
-              </DashboardTableHeaderCell>
-              {chargeColumns.map((charge) => (
-                <DashboardTableHeaderCell
-                  align="right"
-                  className={domainHeaderClass(
-                    "charge",
-                    cn(columnClass.money, "charge-column")
-                  )}
-                  key={`${charge.label}-charge-header`}
-                >
-                  {formatHeaderAmount(
-                    charge.label,
-                    segment.rows.map(
-                      (row) => row.chargeDeductions[charge.label] ?? 0
-                    )
-                  )}
-                </DashboardTableHeaderCell>
-              ))}
-              {segmentLoanColumns.map((loan) => (
-                <DashboardTableHeaderCell
-                  align="right"
-                  className={domainHeaderClass(
-                    "repayment",
-                    cn(columnClass.money, "repayment-column")
-                  )}
-                  key={`${loan.id}-repayment-header`}
-                >
-                  {formatHeaderAmount(
-                    getLoanColumnLabel(loan, "repayment"),
-                    getLoanColumnValues(segment, loan.id, "repaymentAmount")
-                  )}
-                </DashboardTableHeaderCell>
-              ))}
-              <DashboardTableHeaderCell
-                align="right"
-                className={cn(columnClass.money, "share-column")}
-              >
-                Total share value
-              </DashboardTableHeaderCell>
-              <DashboardTableHeaderCell
-                align="right"
-                className={cn(columnClass.money, "final-saving-column")}
-              >
-                Final saving
-              </DashboardTableHeaderCell>
-              {segmentLoanColumns.map((loan) => (
-                <DashboardTableHeaderCell
-                  align="right"
-                  className={cn(columnClass.money, "loan-balance-column")}
-                  key={`${loan.id}-balance-header`}
-                >
-                  {getLoanColumnLabel(loan, "balance")}
-                </DashboardTableHeaderCell>
-              ))}
-              <DashboardTableHeaderCell
-                align="right"
-                className="total-saving-column"
-              >
-                Total saving
-              </DashboardTableHeaderCell>
-              <DashboardTableHeaderCell align="right">
-                Action
-              </DashboardTableHeaderCell>
-            </DashboardTableHead>
-            <DashboardTableBody>
-              {segment.rows.map((row) => {
-                const adjustmentsDisabled = isRowAdjustmentDisabled(row)
+        <div className="space-y-3">
+          {segment.rows.map((row) => {
+            const adjustmentsDisabled = isRowAdjustmentDisabled(row)
 
-                return (
-                  <DashboardTableRow key={`${segment.key}-${row.period}`}>
-                    <DashboardTableCell className={columnClass.period}>
-                      <div>
-                        <p className="font-medium">
-                          {formatCompactPeriod(row.period)}
-                        </p>
-                        {row.isEdited &&
-                        row.status !== "missed" &&
-                        row.status !== "paused" ? (
-                          <p className="mt-1 text-xs text-amber-700">
-                            One-time override
-                          </p>
-                        ) : null}
-                        {row.status === "missed" || row.status === "paused" ? (
-                          <p className="mt-1 text-xs font-medium text-muted-foreground">
-                            {row.statusReason ??
-                              (row.status === "missed"
-                                ? "Defaulting"
-                                : "Inactive")}
-                          </p>
-                        ) : null}
-                      </div>
-                    </DashboardTableCell>
-                    <DashboardTableCell
-                      align="right"
-                      className={cn(columnClass.money, "commitment-column")}
+            return (
+              <DashboardSurfaceCard
+                as="article"
+                className="rounded-lg"
+                key={`${segment.key}-${row.period}`}
+              >
+                <div className="grid gap-4 xl:grid-cols-[7rem_minmax(0,1fr)_auto] xl:items-start">
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      Period
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">
+                      {formatCompactPeriod(row.period)}
+                    </p>
+                    {row.isEdited &&
+                    row.status !== "missed" &&
+                    row.status !== "paused" ? (
+                      <p className="mt-1 text-xs text-amber-700">
+                        One-time override
+                      </p>
+                    ) : null}
+                    {row.status === "missed" || row.status === "paused" ? (
+                      <p className="mt-1 text-xs font-medium text-muted-foreground">
+                        {row.statusReason ??
+                          (row.status === "missed" ? "Defaulting" : "Inactive")}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <LedgerMetricBlock
+                      className="commitment-column"
+                      label={formatHeaderAmount("Commitment", [
+                        row.savingsContribution,
+                      ])}
                     >
                       <LedgerDomainValue domain="saving">
                         {renderSavingsControl(
@@ -593,30 +468,37 @@ function MonthlyLedgerSegmentTable({
                           adjustmentsDisabled
                         )}
                       </LedgerDomainValue>
-                    </DashboardTableCell>
+                    </LedgerMetricBlock>
+
                     {chargeColumns.map((charge) => (
-                      <DashboardTableCell
-                        align="right"
-                        className={cn(columnClass.money, "charge-column")}
+                      <LedgerMetricBlock
+                        className="charge-column"
                         key={`${charge.label}-charge-${row.period}`}
+                        label={formatHeaderAmount(charge.label, [
+                          row.chargeDeductions[charge.label] ?? 0,
+                        ])}
                       >
                         <LedgerDomainValue domain="charge">
                           {formatCurrency(
                             row.chargeDeductions[charge.label] ?? 0
                           )}
                         </LedgerDomainValue>
-                      </DashboardTableCell>
+                      </LedgerMetricBlock>
                     ))}
+
                     {segmentLoanColumns.map((segmentLoan) => {
                       const rowLoan = row.loanColumns.find(
                         (item) => item.id === segmentLoan.id
                       )
 
                       return (
-                        <DashboardTableCell
-                          align="right"
-                          className={cn(columnClass.money, "repayment-column")}
+                        <LedgerMetricBlock
+                          className="repayment-column"
                           key={`${segmentLoan.id}-repayment`}
+                          label={getLoanColumnLabel(
+                            segmentLoan,
+                            "repayment"
+                          )}
                         >
                           {rowLoan ? (
                             <LedgerDomainValue domain="repayment">
@@ -629,106 +511,107 @@ function MonthlyLedgerSegmentTable({
                           ) : (
                             "-"
                           )}
-                        </DashboardTableCell>
+                        </LedgerMetricBlock>
                       )
                     })}
-                    <DashboardTableCell
-                      align="right"
-                      className={cn(columnClass.money, "share-column")}
+
+                    <LedgerMetricBlock
+                      className="share-column"
+                      label="Total share value"
                     >
                       {formatCurrency(row.runningShareCapitalBalance)}
-                    </DashboardTableCell>
-                    <DashboardTableCell
-                      align="right"
-                      className={cn(columnClass.money, "final-saving-column")}
+                    </LedgerMetricBlock>
+                    <LedgerMetricBlock
+                      className="final-saving-column"
+                      label="Final saving"
                     >
                       {formatCurrency(row.netSavingsContribution)}
-                    </DashboardTableCell>
+                    </LedgerMetricBlock>
+
                     {segmentLoanColumns.map((segmentLoan) => {
                       const rowLoan = row.loanColumns.find(
                         (item) => item.id === segmentLoan.id
                       )
 
                       return (
-                        <DashboardTableCell
-                          align="right"
-                          className={cn(
-                            columnClass.money,
-                            "loan-balance-column"
-                          )}
+                        <LedgerMetricBlock
+                          className="loan-balance-column"
                           key={`${segmentLoan.id}-balance`}
+                          label={getLoanColumnLabel(segmentLoan, "balance")}
                         >
                           {rowLoan
                             ? formatCurrency(
                                 rowLoan.outstandingPrincipalBalance
                               )
                             : "-"}
-                        </DashboardTableCell>
+                        </LedgerMetricBlock>
                       )
                     })}
-                    <DashboardTableCell
-                      align="right"
+
+                    <LedgerMetricBlock
                       className="total-saving-column"
+                      label="Total saving"
                     >
                       {formatCurrency(row.runningSavingsBalance)}
-                    </DashboardTableCell>
-                    <DashboardTableCell align="right">
-                      <LedgerActionMenu>
-                        <LedgerActionItem label="Savings">
-                          <LedgerDomainValue domain="saving">
-                            {renderSavingsControl(
-                              row,
-                              row.loanColumns,
-                              adjustmentsDisabled
+                    </LedgerMetricBlock>
+                  </div>
+
+                  <div className="flex justify-start xl:justify-end">
+                    <LedgerActionMenu>
+                      <LedgerActionItem label="Savings">
+                        <LedgerDomainValue domain="saving">
+                          {renderSavingsControl(
+                            row,
+                            row.loanColumns,
+                            adjustmentsDisabled
+                          )}
+                        </LedgerDomainValue>
+                      </LedgerActionItem>
+                      {row.loanColumns.map((rowLoan) => (
+                        <LedgerActionItem
+                          key={rowLoan.id}
+                          label={rowLoan.label}
+                        >
+                          <div className="flex items-center gap-1">
+                            <LedgerDomainValue domain="repayment">
+                              {renderRepaymentControl(
+                                row,
+                                rowLoan,
+                                adjustmentsDisabled
+                              )}
+                            </LedgerDomainValue>
+                            {rowLoan.repaymentOnTime ? (
+                              <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                                On-time
+                              </span>
+                            ) : null}
+                          </div>
+                        </LedgerActionItem>
+                      ))}
+                      {chargeColumns.map((charge) => (
+                        <LedgerActionItem
+                          key={`${charge.label}-action`}
+                          label={charge.label}
+                        >
+                          <LedgerDomainValue domain="charge">
+                            {formatCurrency(
+                              row.chargeDeductions[charge.label] ?? 0
                             )}
                           </LedgerDomainValue>
                         </LedgerActionItem>
-                        {row.loanColumns.map((rowLoan) => (
-                          <LedgerActionItem
-                            key={rowLoan.id}
-                            label={rowLoan.label}
-                          >
-                            <div className="flex items-center gap-1">
-                              <LedgerDomainValue domain="repayment">
-                                {renderRepaymentControl(
-                                  row,
-                                  rowLoan,
-                                  adjustmentsDisabled
-                                )}
-                              </LedgerDomainValue>
-                              {rowLoan.repaymentOnTime ? (
-                                <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                                  On-time
-                                </span>
-                              ) : null}
-                            </div>
-                          </LedgerActionItem>
-                        ))}
-                        {chargeColumns.map((charge) => (
-                          <LedgerActionItem
-                            key={`${charge.label}-action`}
-                            label={charge.label}
-                          >
-                            <LedgerDomainValue domain="charge">
-                              {formatCurrency(
-                                row.chargeDeductions[charge.label] ?? 0
-                              )}
-                            </LedgerDomainValue>
-                          </LedgerActionItem>
-                        ))}
-                        {renderMonthStatusControl ? (
-                          <LedgerActionItem label="Month status">
-                            {renderMonthStatusControl(row, adjustmentsDisabled)}
-                          </LedgerActionItem>
-                        ) : null}
-                      </LedgerActionMenu>
-                    </DashboardTableCell>
-                  </DashboardTableRow>
-                )
-              })}
-            </DashboardTableBody>
-          </DashboardTable>
-        </DashboardDataTable>
+                      ))}
+                      {renderMonthStatusControl ? (
+                        <LedgerActionItem label="Month status">
+                          {renderMonthStatusControl(row, adjustmentsDisabled)}
+                        </LedgerActionItem>
+                      ) : null}
+                    </LedgerActionMenu>
+                  </div>
+                </div>
+              </DashboardSurfaceCard>
+            )
+          })}
+        </div>
       </LedgerColumnVisibilityFrame>
     </div>
   )
@@ -770,104 +653,49 @@ export function MemberLedgerBackfillTable({
           return (
             <div key={segment.key}>
               <SegmentReasonList reasons={segment.reasonList} />
-              <DashboardDataTable
-                className={segmentDataTableClass}
-                contentClassName={segmentDataTableContentClass}
+              <DashboardSurfaceCard
+                as="article"
+                className="rounded-lg"
               >
-                <DashboardTable className={compactTableClass}>
-                  <colgroup>
-                    <col className={columnClass.period} />
-                    <col className={columnClass.label} />
-                    <col className={columnClass.percent} />
-                    <col className={columnClass.money} />
-                    <col className={columnClass.source} />
-                    <col />
-                    <col />
-                  </colgroup>
-                  <DashboardTableHead className={stickySegmentHeadClass}>
-                    <DashboardTableHeaderCell className={columnClass.period}>
-                      Period
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell
-                      className={domainHeaderClass("profit", columnClass.label)}
-                    >
-                      Business profit
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell
-                      align="right"
-                      className={domainHeaderClass(
-                        "profit",
-                        columnClass.percent
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[7rem_minmax(0,1.2fr)_6rem_9rem_minmax(0,1fr)_9rem_auto] xl:items-center">
+                  <LedgerMetricBlock label="Period">
+                    {formatCompactPeriod(row.period)}
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Business profit">
+                    <span
+                      className={cn(
+                        "font-medium",
+                        ledgerDomainColor.profit.text
                       )}
                     >
-                      Share %
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell
-                      align="right"
-                      className={domainHeaderClass("profit", columnClass.money)}
-                    >
-                      Member amount
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell className={columnClass.source}>
-                      Source/label
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell align="right">
-                      Total saving
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell align="right">
-                      Action
-                    </DashboardTableHeaderCell>
-                  </DashboardTableHead>
-                  <DashboardTableBody>
-                    <DashboardTableRow>
-                      <DashboardTableCell className={columnClass.period}>
-                        <p className="font-medium">
-                          {formatCompactPeriod(row.period)}
-                        </p>
-                      </DashboardTableCell>
-                      <DashboardTableCell className={columnClass.label}>
-                        <p
-                          className={cn(
-                            "truncate font-medium",
-                            ledgerDomainColor.profit.text
-                          )}
-                        >
-                          {row.dividendLabel ?? "Business profit"}
-                        </p>
-                      </DashboardTableCell>
-                      <DashboardTableCell
-                        align="right"
-                        className={columnClass.percent}
-                      >
-                        <LedgerDomainValue domain="profit">
-                          {row.dividendSharePercentage == null
-                            ? "-"
-                            : `${row.dividendSharePercentage}%`}
-                        </LedgerDomainValue>
-                      </DashboardTableCell>
-                      <DashboardTableCell
-                        align="right"
-                        className={columnClass.money}
-                      >
-                        <LedgerDomainValue domain="profit">
-                          {formatCurrency(row.dividendCredit)}
-                        </LedgerDomainValue>
-                      </DashboardTableCell>
-                      <DashboardTableCell className={columnClass.source}>
-                        <p className="truncate text-muted-foreground">
-                          {row.dividendProfitEntryId
-                            ? "Migration profit allocation"
-                            : "Existing dividend allocation"}
-                        </p>
-                      </DashboardTableCell>
-                      <DashboardTableCell align="right">
-                        {formatCurrency(profitRunningSavingsBalance)}
-                      </DashboardTableCell>
-                      <DashboardTableCell align="right">-</DashboardTableCell>
-                    </DashboardTableRow>
-                  </DashboardTableBody>
-                </DashboardTable>
-              </DashboardDataTable>
+                      {row.dividendLabel ?? "Business profit"}
+                    </span>
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Share %">
+                    <LedgerDomainValue domain="profit">
+                      {row.dividendSharePercentage == null
+                        ? "-"
+                        : `${row.dividendSharePercentage}%`}
+                    </LedgerDomainValue>
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Member amount">
+                    <LedgerDomainValue domain="profit">
+                      {formatCurrency(row.dividendCredit)}
+                    </LedgerDomainValue>
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Source">
+                    <span className="text-muted-foreground">
+                      {row.dividendProfitEntryId
+                        ? "Migration profit allocation"
+                        : "Existing dividend allocation"}
+                    </span>
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Total saving">
+                    {formatCurrency(profitRunningSavingsBalance)}
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Action">-</LedgerMetricBlock>
+                </div>
+              </DashboardSurfaceCard>
             </div>
           )
         }
@@ -878,124 +706,45 @@ export function MemberLedgerBackfillTable({
           return (
             <div key={segment.key}>
               <SegmentReasonList reasons={segment.reasonList} />
-              <DashboardDataTable
-                className={segmentDataTableClass}
-                contentClassName={segmentDataTableContentClass}
+              <DashboardSurfaceCard
+                as="article"
+                className="rounded-lg"
               >
-                <DashboardTable className={compactTableClass}>
-                  <colgroup>
-                    <col className={columnClass.period} />
-                    <col className={columnClass.money} />
-                    <col className={columnClass.money} />
-                    <col className={columnClass.money} />
-                    <col className={columnClass.term} />
-                    <col className={columnClass.money} />
-                    <col className={columnClass.label} />
-                    <col />
-                  </colgroup>
-                  <DashboardTableHead className={stickySegmentHeadClass}>
-                    <DashboardTableHeaderCell className={columnClass.period}>
-                      Period
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell
-                      align="right"
-                      className={domainHeaderClass("loan", columnClass.money)}
-                    >
-                      Amount
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell
-                      align="right"
-                      className={domainHeaderClass("loan", columnClass.money)}
-                    >
-                      Repay amount
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell
-                      align="right"
-                      className={domainHeaderClass("loan", columnClass.money)}
-                    >
-                      Commitment
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell
-                      align="right"
-                      className={columnClass.term}
-                    >
-                      Term
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell
-                      align="right"
-                      className={domainHeaderClass("loan", columnClass.money)}
-                    >
-                      Opening pending
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell
-                      className={domainHeaderClass("loan", columnClass.label)}
-                    >
-                      Loan
-                    </DashboardTableHeaderCell>
-                    <DashboardTableHeaderCell align="right">
-                      Action
-                    </DashboardTableHeaderCell>
-                  </DashboardTableHead>
-                  <DashboardTableBody>
-                    <DashboardTableRow>
-                      <DashboardTableCell className={columnClass.period}>
-                        <p className="font-medium">
-                          {formatCompactPeriod(row.period)}
-                        </p>
-                      </DashboardTableCell>
-                      <DashboardTableCell
-                        align="right"
-                        className={columnClass.money}
-                      >
-                        <LedgerDomainValue domain="loan">
-                          {formatCurrency(loan.amount)}
-                        </LedgerDomainValue>
-                      </DashboardTableCell>
-                      <DashboardTableCell
-                        align="right"
-                        className={columnClass.money}
-                      >
-                        <LedgerDomainValue domain="loan">
-                          {formatCurrency(loan.repaymentAmount)}
-                        </LedgerDomainValue>
-                      </DashboardTableCell>
-                      <DashboardTableCell
-                        align="right"
-                        className={columnClass.money}
-                      >
-                        <LedgerDomainValue domain="loan">
-                          {formatCurrency(loan.commitmentAmount)}
-                        </LedgerDomainValue>
-                      </DashboardTableCell>
-                      <DashboardTableCell
-                        align="right"
-                        className={columnClass.term}
-                      >
-                        {loan.termMonths} mo
-                      </DashboardTableCell>
-                      <DashboardTableCell
-                        align="right"
-                        className={columnClass.money}
-                      >
-                        <LedgerDomainValue domain="loan">
-                          {formatCurrency(loan.openingPendingAmount)}
-                        </LedgerDomainValue>
-                      </DashboardTableCell>
-                      <DashboardTableCell className={columnClass.label}>
-                        <p
-                          className={cn(
-                            "truncate",
-                            ledgerDomainColor.loan.text
-                          )}
-                        >
-                          {loan.label}
-                        </p>
-                      </DashboardTableCell>
-                      <DashboardTableCell align="right">-</DashboardTableCell>
-                    </DashboardTableRow>
-                  </DashboardTableBody>
-                </DashboardTable>
-              </DashboardDataTable>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[7rem_9rem_9rem_9rem_5rem_9rem_minmax(0,1fr)_auto] xl:items-center">
+                  <LedgerMetricBlock label="Period">
+                    {formatCompactPeriod(row.period)}
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Amount">
+                    <LedgerDomainValue domain="loan">
+                      {formatCurrency(loan.amount)}
+                    </LedgerDomainValue>
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Repay amount">
+                    <LedgerDomainValue domain="loan">
+                      {formatCurrency(loan.repaymentAmount)}
+                    </LedgerDomainValue>
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Commitment">
+                    <LedgerDomainValue domain="loan">
+                      {formatCurrency(loan.commitmentAmount)}
+                    </LedgerDomainValue>
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Term">
+                    {loan.termMonths} mo
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Opening pending">
+                    <LedgerDomainValue domain="loan">
+                      {formatCurrency(loan.openingPendingAmount)}
+                    </LedgerDomainValue>
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Loan">
+                    <span className={ledgerDomainColor.loan.text}>
+                      {loan.label}
+                    </span>
+                  </LedgerMetricBlock>
+                  <LedgerMetricBlock label="Action">-</LedgerMetricBlock>
+                </div>
+              </DashboardSurfaceCard>
             </div>
           )
         }

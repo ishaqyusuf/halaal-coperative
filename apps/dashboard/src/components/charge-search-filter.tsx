@@ -40,9 +40,9 @@ const valueTypeFilters = [
 
 export function ChargeSearchFilter() {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [input, setInput] = useState("")
-  const [isOpen, setIsOpen] = useState(false)
   const { filter, hasFilters, setFilter } = useChargeFilterParams()
+  const [input, setInput] = useState(filter.q ?? "")
+  const [isOpen, setIsOpen] = useState(false)
 
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value

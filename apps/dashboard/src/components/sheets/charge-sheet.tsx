@@ -1,49 +1,29 @@
 "use client"
 
-import { Button } from "@halaalvest/ui/components/button"
-import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
-import { Input } from "@halaalvest/ui/components/input"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@halaalvest/ui/components/sheet"
-import { Textarea } from "@halaalvest/ui/components/textarea"
-import { DatePickerInput } from "@/components/date-picker-input"
-import { ChargeDefinitionVersionForm } from "@/components/forms/tenant-finance-forms"
+import { Suspense } from "react"
+import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
+import { ChargeContent } from "@/components/charge-content"
+import { ChargeSheetFormProvider } from "@/components/charge/form-context"
+import { ChargeSheetHeader } from "@/components/charge-sheet-header"
 import { useChargeParams } from "@/hooks/use-charge-params"
-import {
-  createChargeDefinitionVersionAction,
-  updateChargeDefinitionVersionAction,
-} from "@/lib/dashboard-actions"
 import type { Charge } from "@/components/tables/charges/columns"
 
 export function ChargeSheet({
   financeStartDate,
   isLocked,
+  quickFillEnabled = false,
   rows,
 }: {
   financeStartDate?: string | null
   isLocked: boolean
+  quickFillEnabled?: boolean
   rows: Charge[]
 }) {
-  const { chargeId, chargeType, chargeVersionId, setParams } = useChargeParams()
+  const { chargeType, setParams } = useChargeParams()
+  const isCreate = chargeType === "create"
   const isUpdate = chargeType === "update"
   const isEdit = chargeType === "edit"
-  const isOpen = isUpdate || isEdit
-  const charge = rows.find((row) => row.id === chargeId)
-  const version =
-    charge?.versions.find((item) => item.id === chargeVersionId) ??
-    charge?.currentVersion ??
-    null
-  const chargeOptions = rows.map((row) => ({
-    id: row.id,
-    kind: row.kind,
-    label: `${row.name} (${row.code})`,
-  }))
-  const title = isUpdate ? "Add charge update" : "Edit charge update"
+  const isOpen = isCreate || isUpdate || isEdit
 
   const handleOnOpenChange = (open: boolean) => {
     if (!open) {
@@ -54,127 +34,27 @@ export function ChargeSheet({
   return (
     <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
       <SheetContent>
-        <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
-          <SheetDescription>
-            Charge schedules are dated migration inputs. Once member backfill
-            starts, this history is locked for ledger accuracy.
-          </SheetDescription>
-        </SheetHeader>
-
-        {isUpdate && charge ? (
-          <form
-            action={createChargeDefinitionVersionAction}
-            className="grid gap-4 px-6"
+        {isOpen ? (
+          <Suspense
+            fallback={
+              <div className="px-6 text-sm text-muted-foreground">
+                Loading charge form...
+              </div>
+            }
           >
-            <input name="chargeDefinitionId" type="hidden" value={charge.id} />
-            <input name="kind" type="hidden" value={charge.kind} />
-            <input
-              name="chargeValueType"
-              type="hidden"
-              value={charge.chargeValueType}
-            />
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Charge
-              <Input disabled value={`${charge.name} (${charge.code})`} />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Effective date
-              <DatePickerInput
-                disabled={isLocked}
-                min={financeStartDate ?? undefined}
-                name="effectiveFrom"
-                placeholder="Select effective date"
-                required
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Amount
-              <CurrencyPrefixInput
-                disabled={isLocked}
-                min="0"
-                name="amount"
-                placeholder="0.00"
-                required
-                step="0.01"
-                type="number"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Notes
-              <Textarea
-                disabled={isLocked}
-                name="notes"
-                placeholder="Reason or board reference"
-              />
-            </label>
-            <Button disabled={isLocked} type="submit">
-              Save update
-            </Button>
-          </form>
-        ) : isUpdate ? (
-          <div className="px-6">
-            <ChargeDefinitionVersionForm
-              chargeDefinitions={chargeOptions}
-              financeStartDate={financeStartDate}
-            />
-          </div>
-        ) : version ? (
-          <form
-            action={updateChargeDefinitionVersionAction}
-            className="grid gap-4 px-6"
-          >
-            <input
-              name="chargeDefinitionVersionId"
-              type="hidden"
-              value={version.id}
-            />
-            <input
-              name="chargeValueType"
-              type="hidden"
-              value={version.chargeValueType}
-            />
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Effective date
-              <DatePickerInput
-                defaultValue={version.effectiveFrom}
-                disabled={isLocked}
-                min={financeStartDate ?? undefined}
-                name="effectiveFrom"
-                placeholder="Select effective date"
-                required
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Amount
-              <CurrencyPrefixInput
-                defaultValue={version.amount}
-                disabled={isLocked}
-                min="0"
-                name="amount"
-                required
-                step="0.01"
-                type="number"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Notes
-              <Textarea
-                defaultValue={version.notes ?? ""}
-                disabled={isLocked}
-                name="notes"
-                placeholder="Reason or board reference"
-              />
-            </label>
-            <Button disabled={isLocked} type="submit">
-              Save changes
-            </Button>
-          </form>
-        ) : (
-          <div className="px-6 text-sm text-muted-foreground">
-            Select a charge update to edit.
-          </div>
-        )}
+            <ChargeSheetFormProvider
+              value={{
+                financeStartDate,
+                isLocked,
+                quickFillEnabled,
+                rows,
+              }}
+            >
+              <ChargeSheetHeader />
+              <ChargeContent />
+            </ChargeSheetFormProvider>
+          </Suspense>
+        ) : null}
       </SheetContent>
     </Sheet>
   )

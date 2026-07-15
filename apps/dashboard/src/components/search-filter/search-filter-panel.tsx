@@ -143,7 +143,7 @@ export function SearchFilterPanel({
       </div>
 
       {isOpen ? (
-        <div className="grid gap-4 rounded-2xl border border-border/70 bg-background/96 p-4 shadow-sm lg:grid-cols-2">
+        <div className="grid gap-4 rounded-lg border border-border/70 bg-background/96 p-4 shadow-sm lg:grid-cols-2">
           {filterList
             .filter((filter) => !isSearchKey(String(filter.value)))
             .map((filter) => (

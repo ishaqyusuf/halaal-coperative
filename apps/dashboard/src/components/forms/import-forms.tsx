@@ -34,15 +34,6 @@ import {
   type DashboardImportReferenceData,
 } from "@/lib/import-csv"
 import { objectToFormData } from "@/lib/form-submit"
-import {
-  DashboardDataTable,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
-} from "@/components/dashboard"
 
 const csvImportSchema = z.object({
   confirmExistingMatches: z.boolean().default(false),
@@ -81,28 +72,35 @@ function ImportPreviewTable({
   }
 
   return (
-    <DashboardDataTable className="mt-3 rounded-xl bg-background/80">
-      <DashboardTable className="min-w-max table-fixed text-xs [&_td]:max-w-48 [&_td]:px-2 [&_td]:py-2 [&_th]:px-2 [&_th]:py-2">
-        <DashboardTableHead>
-          {headers.map((header) => (
-            <DashboardTableHeaderCell className="w-40" key={header}>
-              {header}
-            </DashboardTableHeaderCell>
-          ))}
-        </DashboardTableHead>
-        <DashboardTableBody>
-          {rows.map((row, rowIndex) => (
-            <DashboardTableRow key={`preview-row-${rowIndex}`}>
-              {headers.map((header) => (
-                <DashboardTableCell className="truncate" key={header}>
-                  {formatPreviewValue(row[header])}
-                </DashboardTableCell>
-              ))}
-            </DashboardTableRow>
-          ))}
-        </DashboardTableBody>
-      </DashboardTable>
-    </DashboardDataTable>
+    <div className="mt-3 w-full overflow-x-auto rounded-xl bg-background/80">
+      <div
+        className="grid min-w-max text-xs"
+        style={{
+          gridTemplateColumns: `repeat(${headers.length}, 10rem)`,
+        }}
+      >
+        {headers.map((header) => (
+          <div
+            className="border-r border-border/60 bg-muted/35 px-2 py-2 font-medium text-muted-foreground last:border-r-0"
+            key={header}
+          >
+            {header}
+          </div>
+        ))}
+        {rows.map((row, rowIndex) => (
+          <div className="contents" key={`preview-row-${rowIndex}`}>
+            {headers.map((header) => (
+              <div
+                className="truncate border-r border-b border-border/50 px-2 py-2 last:border-r-0"
+                key={header}
+              >
+                {formatPreviewValue(row[header])}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -151,7 +149,7 @@ export function DashboardImportForms({
     <div className="space-y-8">
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+          <h3 className="text-lg font-semibold text-foreground">
             Foundation imports
           </h3>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -185,7 +183,7 @@ export function DashboardImportForms({
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+          <h3 className="text-lg font-semibold text-foreground">
             Record imports
           </h3>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -213,7 +211,7 @@ export function DashboardImportForms({
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+          <h3 className="text-lg font-semibold text-foreground">
             Migration imports
           </h3>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -419,12 +417,12 @@ export function DashboardImportForm({
   }
 
   return (
-    <article className="rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm">
+    <article className="rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm">
       <Form {...form}>
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h4 className="text-lg font-semibold tracking-tight text-foreground">
+              <h4 className="text-lg font-semibold text-foreground">
                 {config.title}
               </h4>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -459,13 +457,13 @@ export function DashboardImportForm({
           </div>
 
           {isLocked ? (
-            <div className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
               <p className="font-medium">Import locked</p>
               <p className="mt-1">{availability.blockedReason}</p>
             </div>
           ) : null}
 
-          <details className="rounded-[1.25rem] border border-border/60 bg-muted/30 p-4">
+          <details className="rounded-md border border-border/60 bg-muted/30 p-4">
             <summary className="cursor-pointer list-none text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
               CSV template
             </summary>
@@ -510,7 +508,7 @@ export function DashboardImportForm({
             )}
           />
 
-          <div className="rounded-[1.25rem] border border-border/60 bg-muted/30 p-4">
+          <div className="rounded-md border border-border/60 bg-muted/30 p-4">
             <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
               <span>
                 {preview.headers.length > 0
@@ -582,7 +580,7 @@ export function DashboardImportForm({
           {preview.ok &&
           (reconciliation.existingMatchCount > 0 ||
             reconciliation.duplicateCount > 0) ? (
-            <div className="space-y-3 rounded-[1.25rem] border border-border/60 bg-background/80 p-4">
+            <div className="space-y-3 rounded-md border border-border/60 bg-background/80 p-4">
               <p className="text-sm font-medium text-foreground">
                 Import review gate
               </p>
@@ -640,7 +638,7 @@ export function DashboardImportForm({
           ) : null}
 
           {latestBatch ? (
-            <div className="rounded-[1.25rem] border border-border/60 bg-background/80 p-4 text-xs text-muted-foreground">
+            <div className="rounded-md border border-border/60 bg-background/80 p-4 text-xs text-muted-foreground">
               Latest staged batch: {latestBatch.status} ·{" "}
               {latestBatch.validRows}/{latestBatch._count.rows} rows ·{" "}
               {latestBatch.createdAt.toISOString().slice(0, 10)}

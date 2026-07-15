@@ -347,132 +347,96 @@ export function MemberBackfillActivityWindowsForm({
           </Button>
         ) : null}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0">
-          <colgroup>
-            <col className="w-[150px]" />
-            <col className="w-[150px]" />
-            <col />
-            <col className="w-8" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th
-                className="text-left text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                Month
-              </th>
-              <th
-                className="text-left text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                Status
-              </th>
-              <th
-                className="text-left text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                Reason
-              </th>
-              <th scope="col">
-                <span className="sr-only">Action</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, rowIndex) => {
-              const monthError = hasActivityWindowFieldError(
-                errors,
-                rowIndex,
-                "effectiveMonth"
-              )
-              const statusError = hasActivityWindowFieldError(
-                errors,
-                rowIndex,
-                "status"
-              )
+      <div className="grid gap-3">
+        {rows.map((row, rowIndex) => {
+          const monthError = hasActivityWindowFieldError(
+            errors,
+            rowIndex,
+            "effectiveMonth"
+          )
+          const statusError = hasActivityWindowFieldError(
+            errors,
+            rowIndex,
+            "status"
+          )
 
-              return (
-                <tr className="align-top" key={row.id}>
-                  <td>
-                    <input name="rowId" type="hidden" value={row.rowId} />
-                    <input name="notes" type="hidden" value={row.notes} />
-                    <Input
-                      aria-invalid={monthError}
-                      aria-label="Activity month"
-                      disabled={disabled}
-                      min={minMonth}
-                      name="effectiveMonth"
-                      onChange={(event) =>
-                        updateRow(row.id, {
-                          effectiveMonth: event.target.value,
-                        })
-                      }
-                      type="month"
-                      value={row.effectiveMonth}
-                    />
-                  </td>
-                  <td>
-                    <Select
-                      disabled={disabled}
-                      onValueChange={(status) =>
-                        updateRow(row.id, {
-                          status: status as ActivityWindowStatus,
-                        })
-                      }
-                      value={row.status}
-                    >
-                      <SelectTrigger
-                        aria-invalid={statusError}
-                        className="w-full"
-                      >
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="inactive">Inactive</SelectItem>
-                          <SelectItem value="active">Active again</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <input name="status" type="hidden" value={row.status} />
-                  </td>
-                  <td>
-                    <Input
-                      disabled={disabled}
-                      name="reason"
-                      onChange={(event) =>
-                        updateRow(row.id, { reason: event.target.value })
-                      }
-                      placeholder="Leave, defaulting, transfer"
-                      type="text"
-                      value={row.reason}
-                    />
-                  </td>
-                  <td>
-                    <DeleteActivityWindowRowButton
-                      disabled={
-                        disabled ||
-                        (rows.length === 1 && !activityWindowRowHasValue(row))
-                      }
-                      onDelete={() => deleteRow(row.id)}
-                    />
-                  </td>
-                </tr>
-              )
-            })}
-            <tr>
-              <td colSpan={4}>
-                <AddInlineRowButton
+          return (
+            <div
+              className="grid gap-3 border-t border-border/70 pt-3 sm:grid-cols-[9.5rem_9.5rem_minmax(0,1fr)_2rem] sm:items-start"
+              key={row.id}
+            >
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                Month
+                <input name="rowId" type="hidden" value={row.rowId} />
+                <input name="notes" type="hidden" value={row.notes} />
+                <Input
+                  aria-invalid={monthError}
+                  aria-label="Activity month"
                   disabled={disabled}
-                  label="Add Activity Window"
-                  onAdd={addActivityWindowRow}
+                  min={minMonth}
+                  name="effectiveMonth"
+                  onChange={(event) =>
+                    updateRow(row.id, {
+                      effectiveMonth: event.target.value,
+                    })
+                  }
+                  type="month"
+                  value={row.effectiveMonth}
                 />
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                Status
+                <Select
+                  disabled={disabled}
+                  onValueChange={(status) =>
+                    updateRow(row.id, {
+                      status: status as ActivityWindowStatus,
+                    })
+                  }
+                  value={row.status}
+                >
+                  <SelectTrigger aria-invalid={statusError} className="w-full">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="active">Active again</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <input name="status" type="hidden" value={row.status} />
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                Reason
+                <Input
+                  disabled={disabled}
+                  name="reason"
+                  onChange={(event) =>
+                    updateRow(row.id, { reason: event.target.value })
+                  }
+                  placeholder="Leave, defaulting, transfer"
+                  type="text"
+                  value={row.reason}
+                />
+              </label>
+              <div className="pt-6">
+                <DeleteActivityWindowRowButton
+                  disabled={
+                    disabled ||
+                    (rows.length === 1 && !activityWindowRowHasValue(row))
+                  }
+                  onDelete={() => deleteRow(row.id)}
+                />
+              </div>
+            </div>
+          )
+        })}
+        <AddInlineRowButton
+          disabled={disabled}
+          label="Add Activity Window"
+          onAdd={addActivityWindowRow}
+        />
       </div>
       {redirectTo && formId ? (
         <MemberBackfillFooterPortal>

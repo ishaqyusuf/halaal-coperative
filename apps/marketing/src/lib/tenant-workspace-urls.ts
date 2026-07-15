@@ -30,6 +30,7 @@ function getDashboardAppOrigin(currentOrigin?: string | null) {
 
   const current = parseOriginLike(currentOrigin)
   const hostname = current?.hostname ?? ""
+  const protocol = current?.protocol ?? "http:"
 
   if (
     hostname === "localhost" ||
@@ -37,10 +38,16 @@ function getDashboardAppOrigin(currentOrigin?: string | null) {
     hostname === "0.0.0.0"
   ) {
     const port = process.env.DASHBOARD_APP_PORT ?? "1441"
-    return `${current?.protocol ?? "http:"}//${hostname}:${port}`
+    return `${protocol}//${hostname}:${port}`
   }
 
-  return currentOrigin ?? "http://app.halaalvest.localhost:1441"
+  if (hostname.endsWith(".localhost")) {
+    return `${protocol}//${
+      process.env.DASHBOARD_ROOT_DOMAIN?.trim() || "halaalvest-dash.localhost"
+    }`
+  }
+
+  return currentOrigin ?? "http://halaalvest-dash.localhost"
 }
 
 function getTenantSiteOrigin(currentOrigin?: string | null) {
@@ -71,9 +78,7 @@ function getDashboardRootDomain() {
     ? process.env.DASHBOARD_ROOT_DOMAIN?.trim() ||
         process.env.PLATFORM_ROOT_DOMAIN?.trim() ||
         "halaalvest.com"
-    : process.env.DASHBOARD_ROOT_DOMAIN?.trim() ||
-        process.env.LOCAL_ROOT_DOMAIN?.trim() ||
-        "halaalvest.localhost"
+    : process.env.DASHBOARD_ROOT_DOMAIN?.trim() || "halaalvest-dash.localhost"
 }
 
 function getTenantRootDomain() {

@@ -5,6 +5,9 @@ import {
 } from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
+import { buttonVariants } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
+import { PublicAuthShell } from "@/components/public-auth-shell"
 import { verifyMemberOnboardingVerificationToken } from "@/lib/member-onboarding-token"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
@@ -66,20 +69,39 @@ export default async function MemberSignupVerificationPage({
   }
 
   return (
-    <main className="min-h-svh bg-[radial-gradient(circle_at_top,_rgba(17,94,89,0.12),_transparent_28%),linear-gradient(180deg,_rgba(250,250,249,0.96)_0%,_rgba(255,255,255,1)_38%,_rgba(245,245,244,1)_100%)] px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-2xl rounded-[2rem] border border-border/70 bg-card p-8 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Signup verification</p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-foreground">{title}</h1>
-        <p className="mt-4 text-sm leading-7 text-muted-foreground">{description}</p>
+    <PublicAuthShell
+      badge="Signup verification"
+      description="Confirm your email address before cooperative staff complete the membership approval."
+      title={title}
+    >
+      <div>
+        <p className="text-sm font-medium text-muted-foreground">
+          Signup verification
+        </p>
+        <h2 className="mt-2 text-2xl leading-tight font-semibold text-foreground">
+          {title}
+        </h2>
+        <p className="mt-4 text-sm leading-7 text-muted-foreground">
+          {description}
+        </p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <a className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground transition hover:bg-primary/80" href={loginHref}>
+          <a
+            className={cn(buttonVariants({ size: "lg" }), "flex-1")}
+            href={loginHref}
+          >
             {tone === "success" ? "Go to login" : "Back to login"}
           </a>
-          <a className="inline-flex h-8 items-center justify-center rounded-md border border-border px-4 text-xs font-medium text-foreground transition hover:bg-input/50" href={signupHref}>
+          <a
+            className={cn(
+              buttonVariants({ size: "lg", variant: "outline" }),
+              "flex-1"
+            )}
+            href={signupHref}
+          >
             Open signup
           </a>
         </div>
       </div>
-    </main>
+    </PublicAuthShell>
   )
 }

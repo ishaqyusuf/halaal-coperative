@@ -1,14 +1,12 @@
-import { TableSkeleton } from "@/components/dashboard/static-table"
-import {
-  contributionColumns,
-  type ContributionLedgerRow,
-} from "./columns"
+import { TableSkeleton } from "@/components/tables/core"
+import { columns, type ContributionLedgerRow } from "./columns"
 
 export function ContributionsSkeleton() {
   return (
     <TableSkeleton<ContributionLedgerRow>
-      columns={contributionColumns}
+      columns={columns}
       rowCount={8}
+      stickyColumnIds={["member"]}
     />
   )
 }

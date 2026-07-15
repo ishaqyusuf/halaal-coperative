@@ -19,6 +19,27 @@ export type ProjectFinancingRequestStatus =
   | "submitted"
   | "under_review"
 
+export type ProjectFinancingRequestSortField =
+  | "approvedAmount"
+  | "businessName"
+  | "disbursedAt"
+  | "estimatedMonthlyPayback"
+  | "memberName"
+  | "requestedAmount"
+  | "requestedAt"
+  | "status"
+
+export type ListProjectFinancingRequestPageFilters = {
+  cursor?: string | null
+  limit?: number
+  memberId?: string
+  page?: number
+  pageSize?: number
+  search?: string
+  sort?: [ProjectFinancingRequestSortField, "asc" | "desc"] | null
+  status?: ProjectFinancingRequestStatus
+}
+
 type UserPreview = {
   email: string
   fullName: string
@@ -361,6 +382,175 @@ export async function listProjectFinancingRequests(
   })
 
   return requests.map(normalizeProjectFinancingRequest)
+}
+
+export async function findProjectFinancingRequest(
+  input: {
+    memberId?: string
+    projectFinancingRequestId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<ProjectFinancingRequestRow | null> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) return null
+
+  if (typeof prisma.projectFinancingRequest?.findFirst !== "function") {
+    return null
+  }
+
+  const request = await prisma.projectFinancingRequest.findFirst({
+    include: projectFinancingInclude(),
+    where: {
+      id: input.projectFinancingRequestId,
+      ...(input.memberId ? { memberId: input.memberId } : {}),
+      tenantId: input.tenantId,
+    },
+  })
+
+  return request ? normalizeProjectFinancingRequest(request) : null
+}
+
+function getProjectFinancingRequestOrderBy(
+  sort?: [ProjectFinancingRequestSortField, "asc" | "desc"] | null
+) {
+  const [sortField, direction] = sort ?? ["requestedAt", "desc"]
+
+  if (sortField === "memberName") {
+    return [
+      { member: { fullName: direction } },
+      { requestedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "requestedAt") {
+    return [
+      { requestedAt: direction },
+      { createdAt: direction },
+      { id: direction },
+    ]
+  }
+
+  return [
+    { [sortField]: direction },
+    { requestedAt: "desc" as const },
+    { id: "desc" as const },
+  ]
+}
+
+function getProjectFinancingRequestWhere(
+  input: {
+    memberId?: string
+    search?: string
+    status?: ProjectFinancingRequestStatus
+    tenantId: string
+  }
+) {
+  return {
+    tenantId: input.tenantId,
+    ...(input.memberId ? { memberId: input.memberId } : {}),
+    ...(input.status ? { status: input.status } : {}),
+    ...(input.search && {
+      OR: [
+        {
+          businessName: {
+            contains: input.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          businessDescription: {
+            contains: input.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          projectPurpose: {
+            contains: input.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          member: {
+            is: {
+              OR: [
+                {
+                  fullName: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  memberNumber: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  email: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }),
+  }
+}
+
+export async function listProjectFinancingRequestPage(
+  input: {
+    tenantId: string
+  } & ListProjectFinancingRequestPageFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  if (typeof prisma.projectFinancingRequest?.findMany !== "function") {
+    return { data: [], meta: { cursor: undefined, total: 0 } }
+  }
+
+  if (input.status && !projectFinancingRequestStatuses.has(input.status)) {
+    throw new Error("Project financing request status is not supported.")
+  }
+
+  const page = input.page ?? 1
+  const pageSize = input.pageSize ?? input.limit ?? 50
+  if (!Number.isInteger(pageSize) || pageSize <= 0) {
+    throw new Error(
+      "Project financing request page size must be a positive whole number."
+    )
+  }
+
+  const where = getProjectFinancingRequestWhere(input)
+  const [requests, total] = await Promise.all([
+    prisma.projectFinancingRequest.findMany({
+      include: projectFinancingInclude(),
+      orderBy: getProjectFinancingRequestOrderBy(input.sort),
+      ...(input.cursor
+        ? { cursor: { id: input.cursor }, skip: 1 }
+        : { skip: (page - 1) * pageSize }),
+      take: pageSize,
+      where,
+    }),
+    prisma.projectFinancingRequest.count({ where }),
+  ])
+
+  return {
+    data: requests.map(normalizeProjectFinancingRequest),
+    meta: {
+      cursor:
+        requests.length === pageSize
+          ? (requests.at(-1)?.id as string | undefined)
+          : undefined,
+      total,
+    },
+  }
 }
 
 export async function getProjectFinancingSummary(

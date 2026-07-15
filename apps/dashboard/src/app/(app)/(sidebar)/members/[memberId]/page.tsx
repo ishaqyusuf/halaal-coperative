@@ -1,22 +1,25 @@
 import { notFound } from "next/navigation"
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { MemberDetailView } from "@/components/member-detail-view"
+import {
+  MemberDetailUnavailableView,
+  MemberDetailView,
+} from "@/components/member-detail-view"
+import { loadMemberDetailParams } from "@/hooks/use-member-detail-params"
 import { loadMemberDetailPageData } from "@/lib/members"
 
 export default async function MemberDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ memberId: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { memberId } = await params
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  loadMemberDetailParams(resolvedSearchParams)
   const data = await loadMemberDetailPageData(memberId)
 
   if (data.state === "unavailable") {
-    return (
-      <WorkspacePageShell eyebrow="Members" title="Member statement" description="Member finance and identity details are available when the database runtime is active.">
-        <WorkspaceEmptyState title="Member detail needs the database runtime." body="Once the database-backed environment is active, this route will show commitment, savings, loan, and repayment history for one member." />
-      </WorkspacePageShell>
-    )
+    return <MemberDetailUnavailableView />
   }
 
   if (data.state !== "ready") notFound()

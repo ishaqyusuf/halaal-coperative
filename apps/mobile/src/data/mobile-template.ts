@@ -1,25 +1,35 @@
 export const memberStats = [
   { label: "Commitment", value: "₦240k", detail: "72% funded" },
-  { label: "Savings", value: "₦860k", detail: "+₦45k this month" },
-  { label: "Financing", value: "₦120k", detail: "Next payment Jul 15" },
-] as const;
+  { label: "Savings total", value: "₦860k", detail: "Posted savings" },
+  { label: "Special savings", value: "₦45k", detail: "Voluntary savings" },
+  {
+    label: "Financing exposure",
+    value: "₦120k",
+    detail: "Next payment Jul 15",
+  },
+  { label: "Share capital", value: "₦75k", detail: "Ownership position" },
+] as const
 
 export const memberServices = [
   { icon: "BadgeCheck", label: "Commitments", tone: "accent" },
-  { icon: "Wallet", label: "Savings", tone: "success" },
   { icon: "HandCoins", label: "Financing", tone: "primary" },
   { icon: "PieChart", label: "Shares", tone: "accent" },
+  { icon: "ReceiptText", label: "Receipts", tone: "primary" },
   { icon: "FileText", label: "Statements", tone: "primary" },
-  { icon: "FolderOpen", label: "Documents", tone: "success" },
-  { icon: "Bell", label: "Notifications", tone: "accent" },
   { icon: "Headphones", label: "Support", tone: "primary" },
-] as const;
+  { icon: "PackageSearch", label: "Procurement", tone: "accent" },
+  { icon: "BriefcaseBusiness", label: "Project Financing", tone: "primary" },
+  { icon: "ShoppingBasket", label: "Foodstuff Purchase", tone: "success" },
+  { icon: "ShieldCheck", label: "Guarantor approvals", tone: "success" },
+  { icon: "Bell", label: "Notifications", tone: "accent" },
+  { icon: "RefreshCw", label: "Updates", tone: "accent" },
+] as const
 
 export const adminStats = [
   { label: "Members", value: "1,248", detail: "38 pending review" },
   { label: "Financing requests", value: "19", detail: "₦8.4m requested" },
   { label: "Collections", value: "₦42m", detail: "94% on schedule" },
-] as const;
+] as const
 
 export const adminExceptions = [
   {
@@ -37,7 +47,7 @@ export const adminExceptions = [
     value: "62 follow-ups",
     detail: "Members with missed or partial contribution records.",
   },
-] as const;
+] as const
 
 export const detailSections = {
   commitments: {
@@ -47,13 +57,18 @@ export const detailSections = {
   },
   financing: {
     title: "Financing",
-    subtitle: "Request, monitor, and repay interest-free cooperative financing.",
+    subtitle:
+      "Request, monitor, and repay interest-free cooperative financing.",
     rows: ["Eligible for ₦500k", "One active repayment", "Request draft saved"],
   },
   shares: {
     title: "Shares",
     subtitle: "Review share holdings and ownership movement.",
-    rows: ["120 units held", "Dividend profile complete", "Next update monthly"],
+    rows: [
+      "120 units held",
+      "Dividend profile complete",
+      "Next update monthly",
+    ],
   },
   members: {
     title: "Members",
@@ -70,4 +85,4 @@ export const detailSections = {
     subtitle: "Board-ready operational and member finance summaries.",
     rows: ["Monthly summary", "Financing portfolio", "Commitment variance"],
   },
-};
+}

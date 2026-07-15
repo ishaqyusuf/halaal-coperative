@@ -1,6 +1,10 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
 import { StatCard } from "@/components/app/stat-card"
+import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -124,6 +128,7 @@ export function ReceiptsScreen() {
   const [supportReceiptId, setSupportReceiptId] = useState<string | null>(null)
   const [supportDescription, setSupportDescription] = useState("")
   const [isCreatingSupport, setIsCreatingSupport] = useState(false)
+  const [isReviewingSubmit, setIsReviewingSubmit] = useState(false)
   const [allocations, setAllocations] = useState<DraftAllocation[]>(() => [
     createDraftAllocation(),
   ])
@@ -189,6 +194,40 @@ export function ReceiptsScreen() {
     parsePaidAt(paidAt) &&
     !hasStaleReceipts
   )
+  const hasReceiptDraft = Boolean(
+    totalAmount.trim() ||
+    paymentReference.trim() ||
+    proofDocumentUrl.trim() ||
+    memberNotes.trim() ||
+    supportDescription.trim() ||
+    allocations.some(
+      (allocation) => allocation.amount.trim() || allocation.notes.trim()
+    )
+  )
+  const reviewRows = [
+    {
+      detail: `${allocations.length} allocation${allocations.length === 1 ? "" : "s"} totaling ${formatCurrency(allocationTotal, currencyCode)}`,
+      icon: "ReceiptText",
+      label: "Receipt total",
+      value: receiptAmount
+        ? formatCurrency(receiptAmount, currencyCode)
+        : "Not set",
+    },
+    {
+      detail: paymentReference.trim() || "No reference entered",
+      icon: "CalendarClock",
+      label: "Paid date",
+      value: paidAt || "Not set",
+    },
+    {
+      detail: proofDocumentUrl.trim()
+        ? "Proof link will be submitted"
+        : "No proof link entered",
+      icon: "FileCheck",
+      label: "Proof",
+      value: proofDocumentUrl.trim() ? "Linked" : "Missing",
+    },
+  ]
   const stats = useMemo(
     () => [
       {
@@ -331,6 +370,7 @@ export function ReceiptsScreen() {
       setMemberNotes("")
       setAllocations([createDraftAllocation()])
       setSuccess("Receipt submitted for finance review.")
+      setIsReviewingSubmit(false)
       loadReceipts()
     } catch {
       setError("Receipt could not be submitted.")
@@ -378,181 +418,217 @@ export function ReceiptsScreen() {
             </View>
 
             {receipts?.canCreateReceipt ? (
-            <SectionCard icon="ReceiptText" title="Submit receipt">
-              <View className="gap-3">
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setTotalAmount}
-                  placeholder="Total amount"
-                  value={totalAmount}
-                />
-                <Input
-                  autoCapitalize="none"
-                  editable={!isSubmitting}
-                  onChangeText={setPaymentReference}
-                  placeholder="Payment reference"
-                  value={paymentReference}
-                />
-                <Input
-                  editable={!isSubmitting}
-                  onChangeText={setPaidAt}
-                  placeholder="Paid date (YYYY-MM-DD)"
-                  value={paidAt}
-                />
-                <Input
-                  autoCapitalize="none"
-                  editable={!isSubmitting}
-                  onChangeText={setProofDocumentUrl}
-                  placeholder="Proof link"
-                  value={proofDocumentUrl}
-                />
-
+              <SectionCard icon="ReceiptText" title="Submit receipt">
                 <View className="gap-3">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="font-semibold text-foreground">
-                      Allocations
+                  <FormStateBanner
+                    hasDraft={hasReceiptDraft}
+                    isStale={hasStaleReceipts}
+                  />
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Total amount
                     </Text>
-                    <Button
-                      className="h-9"
-                      onPress={() =>
-                        setAllocations((current) => [
-                          ...current,
-                          createDraftAllocation(),
-                        ])
-                      }
-                      variant="outline"
-                    >
-                      <Icon name="Plus" className="size-sm text-foreground" />
-                      <Text>Add split</Text>
-                    </Button>
+                    <Input
+                      accessibilityLabel="Receipt total amount"
+                      editable={!isSubmitting}
+                      keyboardType="numeric"
+                      onChangeText={setTotalAmount}
+                      placeholder="Total amount"
+                      value={totalAmount}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Payment reference
+                    </Text>
+                    <Input
+                      accessibilityLabel="Receipt payment reference"
+                      autoCapitalize="none"
+                      editable={!isSubmitting}
+                      onChangeText={setPaymentReference}
+                      placeholder="Payment reference"
+                      value={paymentReference}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Paid date
+                    </Text>
+                    <Input
+                      accessibilityLabel="Receipt paid date"
+                      editable={!isSubmitting}
+                      onChangeText={setPaidAt}
+                      placeholder="Paid date (YYYY-MM-DD)"
+                      value={paidAt}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Proof link
+                    </Text>
+                    <Input
+                      accessibilityLabel="Receipt proof link"
+                      autoCapitalize="none"
+                      editable={!isSubmitting}
+                      onChangeText={setProofDocumentUrl}
+                      placeholder="Proof link"
+                      value={proofDocumentUrl}
+                    />
                   </View>
 
-                  {allocations.map((allocation, index) => (
-                    <View
-                      className="gap-3 rounded-md border border-border p-3"
-                      key={allocation.id}
-                    >
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-sm font-semibold text-foreground">
-                          Allocation {index + 1}
-                        </Text>
-                        {allocations.length > 1 ? (
-                          <Button
-                            className="h-8 px-2"
-                            onPress={() =>
-                              setAllocations((current) =>
-                                current.filter(
-                                  (item) => item.id !== allocation.id
-                                )
-                              )
-                            }
-                            variant="ghost"
-                          >
-                            <Icon
-                              name="Trash2"
-                              className="size-sm text-destructive"
-                            />
-                          </Button>
-                        ) : null}
-                      </View>
-                      <View className="flex-row flex-wrap gap-2">
-                        {receiptCategories.map((item) => {
-                          const isActive = item.value === allocation.category
-
-                          return (
-                            <Button
-                              className="h-9"
-                              key={item.value}
-                              onPress={() =>
-                                updateAllocation(allocation.id, {
-                                  category: item.value,
-                                })
-                              }
-                              variant={isActive ? "secondary" : "outline"}
-                            >
-                              <Text>{item.label}</Text>
-                            </Button>
-                          )
-                        })}
-                      </View>
-                      <Input
-                        editable={!isSubmitting}
-                        keyboardType="numeric"
-                        onChangeText={(value) =>
-                          updateAllocation(allocation.id, { amount: value })
+                  <View className="gap-3">
+                    <View className="flex-row items-center justify-between">
+                      <Text className="font-semibold text-foreground">
+                        Allocations
+                      </Text>
+                      <Button
+                        className="h-9"
+                        onPress={() =>
+                          setAllocations((current) => [
+                            ...current,
+                            createDraftAllocation(),
+                          ])
                         }
-                        placeholder="Allocation amount"
-                        value={allocation.amount}
-                      />
-                      <View className="flex-row flex-wrap gap-2">
-                        {periodIntents.map((item) => {
-                          const isActive =
-                            item.value === allocation.periodIntent
-
-                          return (
-                            <Button
-                              className="h-9"
-                              key={item.value}
-                              onPress={() =>
-                                updateAllocation(allocation.id, {
-                                  periodIntent: item.value,
-                                })
-                              }
-                              variant={isActive ? "secondary" : "outline"}
-                            >
-                              <Text>{item.label}</Text>
-                            </Button>
-                          )
-                        })}
-                      </View>
-                      <Input
-                        editable={!isSubmitting}
-                        onChangeText={(value) =>
-                          updateAllocation(allocation.id, { notes: value })
-                        }
-                        placeholder="Allocation notes"
-                        value={allocation.notes}
-                      />
+                        variant="outline"
+                      >
+                        <Icon name="Plus" className="size-sm text-foreground" />
+                        <Text>Add split</Text>
+                      </Button>
                     </View>
-                  ))}
-                </View>
 
-                <Textarea
-                  editable={!isSubmitting}
-                  onChangeText={setMemberNotes}
-                  placeholder="Member notes"
-                  value={memberNotes}
-                />
-                <Text className="text-sm text-muted-foreground">
-                  Allocation total:{" "}
-                  {formatCurrency(allocationTotal, currencyCode)}
-                </Text>
-                {error ? (
-                  <Text className="text-sm font-medium text-destructive">
-                    {error}
+                    {allocations.map((allocation, index) => (
+                      <View
+                        className="gap-3 rounded-md border border-border p-3"
+                        key={allocation.id}
+                      >
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-sm font-semibold text-foreground">
+                            Allocation {index + 1}
+                          </Text>
+                          {allocations.length > 1 ? (
+                            <Button
+                              className="h-8 px-2"
+                              onPress={() =>
+                                setAllocations((current) =>
+                                  current.filter(
+                                    (item) => item.id !== allocation.id
+                                  )
+                                )
+                              }
+                              variant="ghost"
+                            >
+                              <Icon
+                                name="Trash2"
+                                className="size-sm text-destructive"
+                              />
+                            </Button>
+                          ) : null}
+                        </View>
+                        <View className="flex-row flex-wrap gap-2">
+                          {receiptCategories.map((item) => {
+                            const isActive = item.value === allocation.category
+
+                            return (
+                              <Button
+                                className="h-9"
+                                key={item.value}
+                                onPress={() =>
+                                  updateAllocation(allocation.id, {
+                                    category: item.value,
+                                  })
+                                }
+                                variant={isActive ? "secondary" : "outline"}
+                              >
+                                <Text>{item.label}</Text>
+                              </Button>
+                            )
+                          })}
+                        </View>
+                        <Input
+                          accessibilityLabel={`Allocation ${index + 1} amount`}
+                          editable={!isSubmitting}
+                          keyboardType="numeric"
+                          onChangeText={(value) =>
+                            updateAllocation(allocation.id, { amount: value })
+                          }
+                          placeholder="Allocation amount"
+                          value={allocation.amount}
+                        />
+                        <View className="flex-row flex-wrap gap-2">
+                          {periodIntents.map((item) => {
+                            const isActive =
+                              item.value === allocation.periodIntent
+
+                            return (
+                              <Button
+                                className="h-9"
+                                key={item.value}
+                                onPress={() =>
+                                  updateAllocation(allocation.id, {
+                                    periodIntent: item.value,
+                                  })
+                                }
+                                variant={isActive ? "secondary" : "outline"}
+                              >
+                                <Text>{item.label}</Text>
+                              </Button>
+                            )
+                          })}
+                        </View>
+                        <Input
+                          accessibilityLabel={`Allocation ${index + 1} notes`}
+                          editable={!isSubmitting}
+                          onChangeText={(value) =>
+                            updateAllocation(allocation.id, { notes: value })
+                          }
+                          placeholder="Allocation notes"
+                          value={allocation.notes}
+                        />
+                      </View>
+                    ))}
+                  </View>
+
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Member notes
+                    </Text>
+                    <Textarea
+                      accessibilityLabel="Receipt member notes"
+                      editable={!isSubmitting}
+                      onChangeText={setMemberNotes}
+                      placeholder="Member notes"
+                      value={memberNotes}
+                    />
+                  </View>
+                  <Text className="text-sm text-muted-foreground">
+                    Allocation total:{" "}
+                    {formatCurrency(allocationTotal, currencyCode)}
                   </Text>
-                ) : null}
-                {success ? (
-                  <Text className="text-success text-sm font-medium">
-                    {success}
-                  </Text>
-                ) : null}
-                <Button
-                  className="h-12"
-                  disabled={!canSubmit || isSubmitting}
-                  onPress={handleSubmit}
-                >
-                  <Icon
-                    name="Send"
-                    className="size-base text-primary-foreground"
-                  />
-                  <Text>
-                    {isSubmitting ? "Submitting" : "Submit for review"}
-                  </Text>
-                </Button>
-              </View>
-            </SectionCard>
+                  {error ? (
+                    <Text className="text-sm font-medium text-destructive">
+                      {error}
+                    </Text>
+                  ) : null}
+                  {success ? (
+                    <Text className="text-success text-sm font-medium">
+                      {success}
+                    </Text>
+                  ) : null}
+                  <Button
+                    className="h-12"
+                    disabled={!canSubmit || isSubmitting}
+                    onPress={() => setIsReviewingSubmit(true)}
+                  >
+                    <Icon
+                      name="Send"
+                      className="size-base text-primary-foreground"
+                    />
+                    <Text>
+                      {isSubmitting ? "Submitting" : "Submit for review"}
+                    </Text>
+                  </Button>
+                </View>
+              </SectionCard>
             ) : null}
 
             <SectionCard icon="ClipboardList" title="Recent receipts">
@@ -562,9 +638,11 @@ export function ReceiptsScreen() {
                 <VirtualizedCardList
                   data={receipts?.receipts ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No payment receipts yet.
-                    </Text>
+                    <EmptyState
+                      description="Submitted payment evidence will appear here before finance review."
+                      icon="ReceiptText"
+                      title="No payment receipts"
+                    />
                   }
                   estimatedItemSize={196}
                   keyExtractor={(receipt) => receipt.id}
@@ -578,9 +656,10 @@ export function ReceiptsScreen() {
                           {receipt.paymentReference ??
                             formatDate(receipt.paidAt)}
                         </Text>
-                        <Text className="text-xs font-medium text-muted-foreground">
-                          {formatStatus(receipt.status)}
-                        </Text>
+                        <StatusBadge
+                          label={formatStatus(receipt.status)}
+                          tone={getStatusBadgeTone(receipt.status)}
+                        />
                       </View>
                       <Text className="text-sm leading-5 text-muted-foreground">
                         {formatCurrency(receipt.totalAmount, currencyCode)} -{" "}
@@ -662,6 +741,15 @@ export function ReceiptsScreen() {
           </>
         ) : null}
       </ScrollView>
+      <SubmissionReviewSheet
+        description="Review this receipt before sending it to finance. Posted balances and receipt effects are confirmed by the server after review."
+        isSubmitting={isSubmitting}
+        onClose={() => setIsReviewingSubmit(false)}
+        onConfirm={handleSubmit}
+        rows={reviewRows}
+        title="Review receipt"
+        visible={isReviewingSubmit}
+      />
     </SafeArea>
   )
 }

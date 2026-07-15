@@ -5,88 +5,33 @@ import {
   listImportBatches,
 } from "@halaalvest/db"
 import {
-  DashboardActionLink,
-  DashboardSectionCard,
-  DashboardSectionHeader,
-  DashboardStatCard,
-  DashboardSurfaceCard,
-  ScrollableContent,
-  TrendPill,
-  WorkspaceEmptyState,
-} from "@/components/dashboard"
-import { ImportHeader } from "@/components/import-header"
-import { SecondaryMenu } from "@/components/secondary-menu"
-import { DataTable as ImportDataTable } from "@/components/tables/imports/data-table"
+  ImportsRuntimeUnavailable,
+  ImportsSettingsView,
+  type ImportSettingsSection,
+} from "@/components/imports-settings-view"
 import type { ImportBatchRow } from "@/components/tables/imports/data-table"
 import type { ImportAvailability } from "@/components/forms/import-forms"
 import { loadImportFilterParams } from "@/hooks/use-import-filter-params"
 import { loadImportParams } from "@/hooks/use-import-params"
-import type { DashboardImportKind } from "@/lib/import-csv"
+import { loadSortParams } from "@/hooks/use-sort-params"
 import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
+import {
+  getQueryClient,
+  getServerCaller,
+  HydrateClient,
+  trpc,
+} from "@/trpc/server"
+import { getInitialTableSettings } from "@/utils/columns"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
-export type ImportSettingsSection =
-  | "overview"
-  | DashboardImportKind
-  | "batches"
-
 type RawImportBatch = Awaited<ReturnType<typeof listImportBatches>>[number]
-
-const importMenuItems = [
-  { path: "/settings/imports", label: "Overview" },
-  { path: "/settings/imports/members", label: "Members" },
-  { path: "/settings/imports/deduction-sources", label: "Deduction sources" },
-  { path: "/settings/imports/loan-products", label: "Loan products" },
-  { path: "/settings/imports/contributions", label: "Contributions" },
-  { path: "/settings/imports/charges", label: "Charges" },
-  { path: "/settings/imports/loan-migrations", label: "Loan migrations" },
-  {
-    path: "/settings/imports/repayment-migrations",
-    label: "Repayments",
-  },
-  { path: "/settings/imports/batches", label: "Batches" },
-]
-
-const importPageCopy: Record<
-  DashboardImportKind,
-  { description: string; title: string }
-> = {
-  charges: {
-    description:
-      "Stage and review historical charge activity after member profiles and charge schedules are ready.",
-    title: "Charges",
-  },
-  contributions: {
-    description:
-      "Stage and review historical savings records after the base member registry is ready.",
-    title: "Contributions",
-  },
-  deduction_sources: {
-    description:
-      "Stage and review payroll, employer, or other deduction source registries.",
-    title: "Deduction sources",
-  },
-  loan_migrations: {
-    description:
-      "Stage and review legacy loan positions before member ledger backfill.",
-    title: "Loan migrations",
-  },
-  loan_products: {
-    description:
-      "Stage and review loan product definitions used by legacy loan records.",
-    title: "Loan products",
-  },
-  members: {
-    description:
-      "Stage and review member profiles before importing historical savings, charges, and loans.",
-    title: "Members",
-  },
-  repayment_migrations: {
-    description:
-      "Stage and review repayment history for migrated legacy loans.",
-    title: "Repayments",
-  },
-}
+type ImportSortField =
+  | "createdAt"
+  | "createdBy"
+  | "importType"
+  | "reviewCount"
+  | "status"
+  | "totalRows"
 
 function getMissingLabels(
   missingStepKeys: string[],
@@ -165,6 +110,30 @@ function mapBatch(batch: RawImportBatch): ImportBatchRow {
   }
 }
 
+function getImportSort(
+  sort?: string[] | null
+): [ImportSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const validFields = new Set<string>([
+    "createdAt",
+    "createdBy",
+    "importType",
+    "reviewCount",
+    "status",
+    "totalRows",
+  ])
+
+  if (!validFields.has(field)) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [field as ImportSortField, direction]
+}
+
 export async function ImportsSettingsRoute({
   searchParams,
   section = "overview",
@@ -173,8 +142,9 @@ export async function ImportsSettingsRoute({
   section?: ImportSettingsSection
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : {}
-  loadImportFilterParams(resolvedSearchParams)
+  const filter = loadImportFilterParams(resolvedSearchParams)
   loadImportParams(resolvedSearchParams)
+  const { sort } = loadSortParams(resolvedSearchParams)
 
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
@@ -185,24 +155,16 @@ export async function ImportsSettingsRoute({
   const quickFillEnabled = canShowQuickFill(context)
 
   if (!context.tenant || runtime.status !== "database-configured") {
-    return (
-      <ScrollableContent>
-        <div className="flex max-w-[980px] flex-col gap-6">
-          <SecondaryMenu items={importMenuItems} />
-          <WorkspaceEmptyState
-            body="Once the database-backed environment is active, this route will let staff preview CSV content and import members, historical records, and migration batches."
-            title="Imports need the database runtime."
-          />
-        </div>
-      </ScrollableContent>
-    )
+    return <ImportsRuntimeUnavailable />
   }
 
-  const [referenceData, rawBatches, migrationState] = await Promise.all([
-    getImportReferenceData(context.tenant.id),
-    listImportBatches(context.tenant.id),
-    getTenantInitialMigrationState(context.tenant.id),
-  ])
+  const [initialSettings, referenceData, rawBatches, migrationState] =
+    await Promise.all([
+      getInitialTableSettings("imports"),
+      getImportReferenceData(context.tenant.id),
+      listImportBatches(context.tenant.id),
+      getTenantInitialMigrationState(context.tenant.id),
+    ])
   const batches = rawBatches.map(mapBatch)
   const historicalSetupStepKeys = [
     "finance_start_date",
@@ -250,234 +212,50 @@ export async function ImportsSettingsRoute({
     migrationToolsLockedReason,
   })
   const isOverview = section === "overview"
-  const isBatches = section === "batches"
   const importKind =
     section !== "overview" && section !== "batches" ? section : undefined
-  const sectionCopy = importKind ? importPageCopy[importKind] : null
+  const shouldHydrateTable = canManageImports && !isOverview
+
+  if (shouldHydrateTable) {
+    const importInput = {
+      importType: importKind,
+      q: filter.q ?? undefined,
+      sort: getImportSort(sort),
+      status: filter.status ?? undefined,
+    }
+    const importOptions = trpc.imports.batches.infiniteQueryOptions(
+      importInput,
+      {
+        getNextPageParam: ({ meta }) => meta?.cursor,
+      }
+    )
+    const caller = await getServerCaller()
+    const initialImportPage = await caller.imports.batches(importInput)
+
+    getQueryClient().setQueryData(importOptions.queryKey, {
+      pageParams: [importOptions.initialPageParam],
+      pages: [initialImportPage],
+    })
+  }
 
   return (
-    <ScrollableContent>
-      <div className="flex max-w-[980px] flex-col gap-6">
-        <SecondaryMenu items={importMenuItems} />
-
-        <div>
-          <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-            Import settings
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-            {isOverview
-              ? "Imports and migrations"
-              : isBatches
-                ? "Batches"
-                : (sectionCopy?.title ?? "Imports")}
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {isOverview
-              ? "Use one structured import surface for member setup, historical records, and legacy migration batches."
-              : isBatches
-                ? "Review staged and applied import batches across every import type."
-                : (sectionCopy?.description ??
-                  "Stage and review import batches for this workspace.")}
-          </p>
-        </div>
-
-        {isOverview ? (
-          <>
-            <section className="grid gap-4 md:grid-cols-3">
-              <DashboardStatCard
-                detail="Import batches currently staged for review or apply."
-                label="Staged batches"
-                value={batches.length.toString()}
-              />
-              <DashboardStatCard
-                detail="Batches already applied into cooperative data."
-                label="Applied batches"
-                tone="positive"
-                value={batches
-                  .filter((batch) => batch.status === "applied")
-                  .length.toString()}
-              />
-              <DashboardStatCard
-                detail="Batches still waiting for operator action."
-                label="Pending review"
-                tone={
-                  batches.some((batch) => batch.status !== "applied")
-                    ? "warning"
-                    : "default"
-                }
-                value={batches
-                  .filter((batch) => batch.status !== "applied")
-                  .length.toString()}
-              />
-            </section>
-
-            <DashboardSectionCard>
-              <DashboardSectionHeader
-                description="Follow this sequence before member ledger backfill. Server-side gates enforce the same order when batches are staged or applied."
-                eyebrow="Migration import order"
-                title="One-time import sequence"
-              />
-              <div className="mt-5 grid gap-3 lg:grid-cols-4">
-                <DashboardSurfaceCard className="bg-background/70">
-                  <p className="text-sm font-semibold text-foreground">
-                    1. Historical finance setup
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Finance start date, dated charge schedules, business profit
-                    pools, and share capital plan.
-                  </p>
-                  <div className="mt-3">
-                    <TrendPill
-                      tone={historicalSetupReady ? "positive" : "warning"}
-                    >
-                      {historicalSetupReady ? "Ready" : "Required first"}
-                    </TrendPill>
-                  </div>
-                </DashboardSurfaceCard>
-                <DashboardSurfaceCard className="bg-background/70">
-                  <p className="text-sm font-semibold text-foreground">
-                    2. Members and registries
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Member profiles, deduction sources, and loan products used
-                    by later records.
-                  </p>
-                  <div className="mt-3">
-                    <TrendPill
-                      tone={memberProfilesReady ? "positive" : "neutral"}
-                    >
-                      {memberProfilesReady ? "Members loaded" : "Load members"}
-                    </TrendPill>
-                  </div>
-                </DashboardSurfaceCard>
-                <DashboardSurfaceCard className="bg-background/70">
-                  <p className="text-sm font-semibold text-foreground">
-                    3. Historical records
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Savings, charges, legacy loan positions, and repayment
-                    migrations.
-                  </p>
-                  <div className="mt-3">
-                    <TrendPill
-                      tone={historicalSetupReady ? "neutral" : "warning"}
-                    >
-                      {historicalSetupReady
-                        ? "Open after setup"
-                        : "Blocked by setup"}
-                    </TrendPill>
-                  </div>
-                </DashboardSurfaceCard>
-                <DashboardSurfaceCard className="bg-background/70">
-                  <p className="text-sm font-semibold text-foreground">
-                    4. Loan review then backfill
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Confirm legacy loan balances or mark no legacy loans before
-                    posting member ledger history.
-                  </p>
-                  <div className="mt-3">
-                    <TrendPill
-                      tone={legacyLoanReviewReady ? "positive" : "warning"}
-                    >
-                      {legacyLoanReviewReady ? "Reviewed" : "Review required"}
-                    </TrendPill>
-                  </div>
-                </DashboardSurfaceCard>
-              </div>
-            </DashboardSectionCard>
-
-            {migrationToolsLockedReason ||
-            backfillLockedReason ||
-            historicalSetupBlockingLabels.length ||
-            memberProfilesBlockingLabels.length ? (
-              <DashboardSectionCard>
-                <DashboardSectionHeader
-                  actions={
-                    <DashboardActionLink
-                      href="/settings/finance"
-                      variant="secondary"
-                    >
-                      Open finance setup
-                    </DashboardActionLink>
-                  }
-                  description="These are the active blockers that decide which import cards are available."
-                  eyebrow="Setup blockers"
-                  title="Imports currently need attention"
-                />
-                <div className="mt-5 grid gap-3 lg:grid-cols-2">
-                  {migrationToolsLockedReason ? (
-                    <DashboardSurfaceCard className="border-amber-200 bg-amber-50 text-amber-950">
-                      <p className="text-sm font-semibold">
-                        Migration tools locked
-                      </p>
-                      <p className="mt-2 text-sm leading-6">
-                        {migrationToolsLockedReason}
-                      </p>
-                    </DashboardSurfaceCard>
-                  ) : null}
-                  {backfillLockedReason ? (
-                    <DashboardSurfaceCard className="border-amber-200 bg-amber-50 text-amber-950">
-                      <p className="text-sm font-semibold">
-                        Historical imports locked
-                      </p>
-                      <p className="mt-2 text-sm leading-6">
-                        {backfillLockedReason}
-                      </p>
-                    </DashboardSurfaceCard>
-                  ) : null}
-                  {historicalSetupBlockingLabels.length ? (
-                    <DashboardSurfaceCard className="bg-background/70">
-                      <p className="text-sm font-semibold text-foreground">
-                        Historical finance setup
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        Complete {historicalSetupBlockingLabels.join(", ")}{" "}
-                        before member profiles, savings, loan, and repayment
-                        history are imported.
-                      </p>
-                    </DashboardSurfaceCard>
-                  ) : null}
-                  {memberProfilesBlockingLabels.length ? (
-                    <DashboardSurfaceCard className="bg-background/70">
-                      <p className="text-sm font-semibold text-foreground">
-                        Member profiles
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        Import members before savings, loan, and repayment
-                        records so every historical row has a canonical member
-                        record.
-                      </p>
-                    </DashboardSurfaceCard>
-                  ) : null}
-                </div>
-              </DashboardSectionCard>
-            ) : null}
-          </>
-        ) : canManageImports ? (
-          <>
-            <ImportHeader
-              canManageImports={canManageImports}
-              importKind={importKind}
-              isLocked={
-                importKind ? !importAvailability[importKind].isAvailable : false
-              }
-            />
-            <ImportDataTable
-              batches={batches}
-              devMode={quickFillEnabled}
-              importAvailability={importAvailability}
-              importKind={importKind}
-              referenceData={referenceData}
-            />
-          </>
-        ) : (
-          <WorkspaceEmptyState
-            body="Cooperative admins, finance officers, and operations officers can run imports and migration batches from this route."
-            title="Import access is limited to staff roles."
-          />
-        )}
-      </div>
-    </ScrollableContent>
+    <HydrateClient>
+      <ImportsSettingsView
+        backfillLockedReason={backfillLockedReason}
+        batches={batches}
+        canManageImports={canManageImports}
+        historicalSetupBlockingLabels={historicalSetupBlockingLabels}
+        historicalSetupReady={historicalSetupReady}
+        importAvailability={importAvailability}
+        initialSettings={initialSettings}
+        legacyLoanReviewReady={legacyLoanReviewReady}
+        memberProfilesBlockingLabels={memberProfilesBlockingLabels}
+        memberProfilesReady={memberProfilesReady}
+        migrationToolsLockedReason={migrationToolsLockedReason}
+        quickFillEnabled={quickFillEnabled}
+        referenceData={referenceData}
+        section={section}
+      />
+    </HydrateClient>
   )
 }

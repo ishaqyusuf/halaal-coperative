@@ -45,6 +45,27 @@ afterEach(() => {
 })
 
 describe("buildOnboardingWorkspaceUrls", () => {
+  test("separates local tenant site and dashboard roots by default", () => {
+    setEnv({
+      TENANT_SITE_APP_URL: "http://halaalvest.localhost",
+    })
+
+    const urls = buildOnboardingWorkspaceUrls({
+      currentOrigin: "http://halaalvest.localhost/api/onboarding",
+      tenantSlug: "mig-test-123",
+    })
+
+    expect(urls.dashboardUrl).toBe(
+      "http://mig-test-123.halaalvest-dash.localhost"
+    )
+    expect(urls.siteUrl).toBe("http://mig-test-123.halaalvest.localhost")
+    expect(urls.devDashboardUrlVariants.map((variant) => variant.url)).toEqual([
+      "http://mig-test-123.halaalvest-dash.localhost",
+      "http://mig-test-123.localhost:1441",
+      "http://localhost:1441/mig-test-123",
+    ])
+  })
+
   test("uses one local tenant host at the dashboard root", () => {
     setEnv({
       DASHBOARD_APP_URL: "http://app.halaalvest.localhost:1441",

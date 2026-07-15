@@ -6,7 +6,9 @@ const { sep } = require("node:path");
 const config = getDefaultConfig(__dirname);
 // config.resolver.unstable_enablePackageExports = true;
 
-const nativewindConfig = withNativewind(config);
+const nativewindConfig = withNativewind(config, {
+  input: "./src/styles/global.css",
+});
 const nativewindResolveRequest = nativewindConfig.resolver.resolveRequest;
 const singletonPackages = [
   "@expo/vector-icons",

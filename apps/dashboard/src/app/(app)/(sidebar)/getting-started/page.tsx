@@ -18,8 +18,10 @@ import {
   listMembers,
   recommendTenantMigrationSetupMode,
 } from "@halaalvest/db"
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { GettingStartedPageView } from "@/components/getting-started-page-view"
+import {
+  GettingStartedPageView,
+  GettingStartedUnavailableView,
+} from "@/components/getting-started-page-view"
 import {
   type GettingStartedStepKey,
   loadGettingStartedParams,
@@ -87,16 +89,11 @@ export default async function GettingStartedPage({
 
   if (!context.tenant) {
     return (
-      <WorkspacePageShell
-        eyebrow="Initial migration"
-        title="Getting started"
+      <GettingStartedUnavailableView
         description="Initial migration setup is available from a cooperative workspace."
-      >
-        <WorkspaceEmptyState
-          title="Choose a cooperative workspace first."
-          body="Open a cooperative workspace before running the first-admin migration setup."
-        />
-      </WorkspacePageShell>
+        title="Choose a cooperative workspace first."
+        body="Open a cooperative workspace before running the first-admin migration setup."
+      />
     )
   }
 
@@ -104,16 +101,11 @@ export default async function GettingStartedPage({
 
   if (runtime.status !== "database-configured") {
     return (
-      <WorkspacePageShell
-        eyebrow="Initial migration"
-        title="Getting started"
+      <GettingStartedUnavailableView
         description="Initial migration setup requires the database-backed workspace."
-      >
-        <WorkspaceEmptyState
-          title="Database is not configured."
-          body="The guided migration setup does not use demo content. Configure the database, then return to this page."
-        />
-      </WorkspacePageShell>
+        title="Database is not configured."
+        body="The guided migration setup does not use demo content. Configure the database, then return to this page."
+      />
     )
   }
 

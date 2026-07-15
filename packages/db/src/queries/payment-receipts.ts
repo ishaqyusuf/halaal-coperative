@@ -76,6 +76,27 @@ export type MemberPaymentReceiptSummary = {
   underReviewReceipts: number
 }
 
+export type MemberPaymentReceiptSortField =
+  | "memberName"
+  | "paidAt"
+  | "paymentReference"
+  | "status"
+  | "submittedAt"
+  | "totalAmount"
+
+export type ListMemberPaymentReceiptPageFilters = {
+  cursor?: string | null
+  limit?: number
+  memberId?: string
+  page?: number
+  pageSize?: number
+  search?: string
+  sort?: [MemberPaymentReceiptSortField, "asc" | "desc"] | null
+  status?: MemberPaymentReceiptStatus
+  submittedFrom?: Date
+  submittedTo?: Date
+}
+
 const receiptStatuses = new Set<MemberPaymentReceiptStatus>([
   "approved",
   "correction_requested",
@@ -1007,6 +1028,174 @@ export async function listMemberPaymentReceipts(
   })
 
   return rows.map(normalizeReceipt)
+}
+
+export async function getMemberPaymentReceipt(
+  tenantId: string,
+  receiptId: string,
+  filters?: {
+    memberId?: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const row = await prisma.memberPaymentReceipt.findFirst({
+    include: receiptInclude(),
+    where: {
+      id: receiptId,
+      tenantId,
+      ...(filters?.memberId ? { memberId: filters.memberId } : {}),
+    },
+  })
+
+  return row ? normalizeReceipt(row) : null
+}
+
+function getPaymentReceiptOrderBy(
+  sort?: [MemberPaymentReceiptSortField, "asc" | "desc"] | null
+) {
+  const [sortField, sortDirection] = sort ?? ["submittedAt", "desc"]
+
+  if (sortField === "memberName") {
+    return [
+      { member: { fullName: sortDirection } },
+      { submittedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "paymentReference") {
+    return [
+      { paymentReference: sortDirection },
+      { submittedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "paidAt") {
+    return [
+      { paidAt: sortDirection },
+      { submittedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "status") {
+    return [
+      { status: sortDirection },
+      { submittedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "totalAmount") {
+    return [
+      { totalAmount: sortDirection },
+      { submittedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  return [
+    { submittedAt: sortDirection },
+    { createdAt: sortDirection },
+    { id: sortDirection },
+  ]
+}
+
+function getPaymentReceiptWhere(
+  tenantId: string,
+  filters?: ListMemberPaymentReceiptPageFilters
+) {
+  return {
+    tenantId,
+    ...(filters?.memberId ? { memberId: filters.memberId } : {}),
+    ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.search && {
+      OR: [
+        {
+          paymentReference: {
+            contains: filters.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          member: {
+            is: {
+              OR: [
+                {
+                  fullName: {
+                    contains: filters.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  memberNumber: {
+                    contains: filters.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  email: {
+                    contains: filters.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }),
+    ...((filters?.submittedFrom || filters?.submittedTo) && {
+      submittedAt: {
+        ...(filters?.submittedFrom ? { gte: filters.submittedFrom } : {}),
+        ...(filters?.submittedTo ? { lte: filters.submittedTo } : {}),
+      },
+    }),
+  }
+}
+
+export async function listMemberPaymentReceiptPage(
+  tenantId: string,
+  filters?: ListMemberPaymentReceiptPageFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  if (filters?.status) {
+    assertReceiptStatus(filters.status)
+  }
+
+  const page = filters?.page ?? 1
+  const pageSize = filters?.pageSize ?? filters?.limit ?? 50
+  if (!Number.isInteger(pageSize) || pageSize <= 0) {
+    throw new Error("Receipt page size must be a positive whole number.")
+  }
+
+  const where = getPaymentReceiptWhere(tenantId, filters)
+  const [rows, total] = await Promise.all([
+    prisma.memberPaymentReceipt.findMany({
+      include: receiptInclude(),
+      orderBy: getPaymentReceiptOrderBy(filters?.sort),
+      ...(filters?.cursor
+        ? { cursor: { id: filters.cursor }, skip: 1 }
+        : { skip: (page - 1) * pageSize }),
+      take: pageSize,
+      where,
+    }),
+    prisma.memberPaymentReceipt.count({ where }),
+  ])
+
+  return {
+    items: rows.map(normalizeReceipt),
+    page,
+    pageSize,
+    total,
+  }
 }
 
 export async function getMemberPaymentReceiptSummary(

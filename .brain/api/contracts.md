@@ -76,6 +76,54 @@ This file captures payload shapes, response conventions, and contract assumption
   - paginated contribution result with joined member display fields.
 - `trpc.charges.listDefinitions`
   - array of tenant charge definitions with amount, kind, active state, and applicability flags.
+- `trpc.paymentReceipts.list`
+  - Request fields: optional `cursor`, `pageSize`, `q`, `status`, `sort`, `submittedFrom`, `submittedTo`, and staff-only `memberId` filter; tenant and member scoping are derived from authenticated context.
+  - Response fields: `data` array of `MemberPaymentReceiptRow` records plus `meta.cursor` for infinite loading and `meta.total` for the filtered tenant/member result count.
+  - Supported sort fields: `memberName`, `paidAt`, `paymentReference`, `status`, `submittedAt`, and `totalAmount`.
+- `trpc.paymentReceipts.get`
+  - Request fields: `receiptId`.
+  - Response fields: one `MemberPaymentReceiptRow` or `null` when the receipt is absent, outside the tenant, or outside the member's own profile scope.
+  - Used by URL-backed payment receipt sheets so filtered and infinite-loaded table rows can hydrate their review/support detail state independently of the first server-rendered list page.
+- `trpc.procurement.list`
+  - Request fields: optional `cursor`, `pageSize`, `q`, `status`, `sort`, and staff-only `memberId` filter; tenant and member scoping are derived from authenticated context.
+  - Response fields: `data` array of `ProcurementRequestRow` records plus `meta.cursor` for infinite loading and `meta.total` for the filtered tenant/member result count.
+  - Supported sort fields: `itemName`, `memberName`, `status`, `requestedCost`, `approvedCost`, `estimatedMonthlyRepayment`, `outstandingAmount`, `requestedAt`, and `vendorName`.
+- `trpc.procurement.get`
+  - Request fields: `procurementRequestId`.
+  - Response fields: one `ProcurementRequestRow` or `null` when the request is absent, outside the tenant, or outside the member's own profile scope.
+  - Used by URL-backed procurement review/purchase sheets so filtered and infinite-loaded table rows can hydrate their selected request independently of the first server-rendered list page.
+- `trpc.foodPurchase.list`
+  - Request fields: optional `cursor`, `pageSize`, `q`, `status`, `sort`, and staff-only `memberId` and `cycleId` filters; tenant and member scoping are derived from authenticated context.
+  - Response fields: `data` array of `FoodPurchaseApplicationRow` records plus `meta.cursor` for infinite loading and `meta.total` for the filtered tenant/member result count.
+  - Supported sort fields: `memberName`, `status`, `requestedAmount`, `approvedAmount`, `paidAmount`, `requestedAt`, and `itemDescription`.
+- `trpc.foodPurchase.get`
+  - Request fields: `foodPurchaseApplicationId`.
+  - Response fields: one `FoodPurchaseApplicationRow` or `null` when the application is absent, outside the tenant, or outside the member's own profile scope.
+  - Used by URL-backed Foodstuff Purchase application review sheets so filtered and infinite-loaded table rows can hydrate their selected application independently of the first server-rendered list page.
+- `trpc.projectFinancing.list`
+  - Request fields: optional `cursor`, `pageSize`, `q`, `status`, `sort`, and staff-only `memberId` filter; tenant and member scoping are derived from authenticated context.
+  - Response fields: `data` array of `ProjectFinancingRequestRow` records plus `meta.cursor` for infinite loading and `meta.total` for the filtered tenant/member result count.
+  - Supported sort fields: `businessName`, `memberName`, `status`, `requestedAmount`, `approvedAmount`, `estimatedMonthlyPayback`, `requestedAt`, and `disbursedAt`.
+- `trpc.projectFinancing.get`
+  - Request fields: `projectFinancingRequestId`.
+  - Response fields: one `ProjectFinancingRequestRow` or `null` when the request is absent, outside the tenant, or outside the member's own profile scope.
+  - Used by URL-backed project financing review/disbursement sheets so filtered and infinite-loaded table rows can hydrate their selected request independently of the first server-rendered list page.
+- `trpc.shareApplications.list`
+  - Request fields: optional `cursor`, `pageSize`, `q`, `status`, `sort`, and staff-only `memberId` filter; tenant and member scoping are derived from authenticated context.
+  - Response fields: `data` array of `MemberShareApplicationRow` records plus `meta.cursor` for infinite loading and `meta.total` for the filtered tenant/member result count.
+  - Supported sort fields: `memberName`, `status`, `requestedUnits`, `shareValueSnapshot`, `createdAt`, and `reviewedAt`.
+- `trpc.shareApplications.get`
+  - Request fields: `memberShareApplicationId`.
+  - Response fields: one `MemberShareApplicationRow` or `null` when the application is absent, outside the tenant, or outside the member's own profile scope.
+  - Used by URL-backed additional share application review sheets so filtered and infinite-loaded table rows can hydrate their selected application independently of the first server-rendered list page.
+- `trpc.support.list`
+  - Request fields: optional `cursor`, `pageSize`, `q`, `status`, `priority`, `sort`, and staff-only `memberId`, `assignedToUserId`, and `category` filters; tenant and member scoping are derived from authenticated context.
+  - Response fields: `data` array of `SupportCaseRow` records plus `meta.cursor` for infinite loading and `meta.total` for the filtered tenant/member result count.
+  - Supported sort fields: `subject`, `status`, `category`, `priority`, `assignedToUser`, `latestReply`, `linkedRecord`, `createdAt`, and `updatedAt`.
+- `trpc.support.get`
+  - Request fields: `supportCaseId`.
+  - Response fields: one `SupportCaseRow` or `null` when the case is absent, outside the tenant, or outside the member's own profile scope.
+  - Used by URL-backed support update/reply/financial-adjustment sheets so filtered and infinite-loaded table rows can hydrate their selected case independently of the first server-rendered list page.
 - `trpc.mobile.member.procurement.list`
   - Response includes `canCreateRequest`, derived from the tenant Operation Profile procurement service mode, so mobile clients can hide or disable member self-service procurement submission while still showing existing request history.
 - Dashboard procurement create actions

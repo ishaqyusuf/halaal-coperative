@@ -1,7 +1,10 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { ConfirmationRow } from "@/components/app/confirmation-row"
+import { EmptyState } from "@/components/app/empty-state"
 import { ProfileHeader } from "@/components/app/profile-header"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { StatusBadge } from "@/components/app/status-badge"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -26,6 +29,8 @@ import { isMockSessionToken } from "@/lib/session-store"
 import { useEffect, useMemo, useState } from "react"
 import { ScrollView, View } from "react-native"
 
+type AdminQueueItem = MobileAdminOverview["actionQueue"][number]
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
@@ -48,6 +53,54 @@ function formatMessageAuthor(input: {
   if (input.authorName) return input.authorName
 
   return formatStatus(input.authorType)
+}
+
+function getQueueTone(severity: AdminQueueItem["severity"]) {
+  if (severity === "critical") return "destructive"
+  if (severity === "warning") return "warning"
+
+  return "muted"
+}
+
+function getQueueIcon(key: string) {
+  if (key.includes("kyc") || key.includes("member")) return "UserRoundCheck"
+  if (key.includes("receipt")) return "ReceiptText"
+  if (key.includes("financing") || key.includes("loan")) return "HandCoins"
+  if (key.includes("procurement")) return "PackageSearch"
+  if (key.includes("food")) return "ShoppingBasket"
+  if (key.includes("project")) return "BriefcaseBusiness"
+  if (key.includes("support")) return "MessagesSquare"
+  if (key.includes("setup")) return "TriangleAlert"
+
+  return "ClipboardList"
+}
+
+function getQueueAction(item: AdminQueueItem) {
+  const key = item.key.toLowerCase()
+
+  if (key.includes("kyc")) return "Verify KYC"
+  if (key.includes("member")) return "Review members"
+  if (key.includes("receipt")) return "Review receipts"
+  if (key.includes("financing") || key.includes("loan")) {
+    return "Review financing"
+  }
+  if (key.includes("procurement")) return "Review procurement"
+  if (key.includes("food")) return "Review Foodstuff Purchase"
+  if (key.includes("project")) return "Review Project Financing"
+  if (key.includes("support")) return "Follow up support"
+
+  return "Review queue"
+}
+
+function AdminQueueRow({ item }: { item: AdminQueueItem }) {
+  return (
+    <ConfirmationRow
+      detail={`${item.detail}. ${getQueueAction(item)}.`}
+      icon={getQueueIcon(item.key)}
+      label={item.label}
+      value={`${item.count} waiting`}
+    />
+  )
 }
 
 function SupportCaseCard({
@@ -89,15 +142,18 @@ function SupportCaseCard({
             {supportCase.detail}
           </Text>
         </View>
-        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
-          {formatStatus(supportCase.priority)}
+        <StatusBadge
+          label={formatStatus(supportCase.priority)}
+          tone={supportCase.priority === "urgent" ? "destructive" : "warning"}
+        />
+      </View>
+      <View className="flex-row flex-wrap items-center gap-2">
+        <StatusBadge label={formatStatus(supportCase.status)} tone="muted" />
+        <Text className="text-xs font-medium text-muted-foreground">
+          {formatStatus(supportCase.category)} -{" "}
+          {formatDate(supportCase.lastActivityAt)}
         </Text>
       </View>
-      <Text className="text-xs font-medium text-muted-foreground">
-        {formatStatus(supportCase.status)} -{" "}
-        {formatStatus(supportCase.category)} -{" "}
-        {formatDate(supportCase.lastActivityAt)}
-      </Text>
       {supportCase.recentMessages.length ? (
         <View className="gap-2 border-l-2 border-border pl-3">
           {supportCase.recentMessages.map((message) => (
@@ -210,15 +266,6 @@ export function AdminHomeScreen() {
         ),
       })) ?? adminStats,
     [overview?.stats, profile?.tenant.currencyCode]
-  )
-  const exceptions = useMemo(
-    () =>
-      overview?.actionQueue.map((item) => ({
-        detail: item.detail,
-        label: item.label,
-        value: `${item.count} waiting`,
-      })) ?? adminExceptions,
-    [overview?.actionQueue]
   )
   const overviewCache = overview?.cache
   const hasStaleOverview = isMobileReadCacheStale(overviewCache)
@@ -342,15 +389,28 @@ export function AdminHomeScreen() {
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-4">
         <ProfileHeader profile={profile} />
 
+        <SectionCard icon="ShieldCheck" title="Workspace context">
+          <View className="gap-3">
+            <View className="flex-row flex-wrap gap-2">
+              <StatusBadge
+                label={formatStatus(profile.cooperativeRole ?? profile.role)}
+                tone="success"
+              />
+              <StatusBadge label={profile.tenant.currencyCode} tone="muted" />
+              {hasStaleOverview ? (
+                <StatusBadge label="Refresh before actions" tone="warning" />
+              ) : null}
+            </View>
+            <Text className="text-sm leading-5 text-muted-foreground">
+              {profile.tenant.name} admin operations are scoped to this signed
+              workspace. Privileged review actions use fresh server data only.
+            </Text>
+          </View>
+        </SectionCard>
+
         <CachedReadBanner cache={overviewCache} label="admin data" />
 
-        <View className="flex-row flex-wrap gap-3">
-          {stats.map((item) => (
-            <StatCard key={item.label} {...item} />
-          ))}
-        </View>
-
-        <SectionCard icon="CircleAlert" title="Admin attention">
+        <SectionCard icon="CircleAlert" title="Priority queue">
           {isLoadingOverview ? (
             <LoadingSpinner />
           ) : (
@@ -360,28 +420,50 @@ export function AdminHomeScreen() {
                   {overviewError}
                 </Text>
               ) : null}
-              {exceptions.map((item) => (
-                <View
-                  className="flex-row gap-3 rounded-md bg-secondary p-3"
-                  key={item.label}
-                >
-                  <Icon name="ArrowUpRight" className="size-base text-accent" />
-                  <View className="flex-1 gap-1">
-                    <Text className="font-semibold text-foreground">
-                      {item.label}
-                    </Text>
-                    <Text className="text-sm font-medium text-foreground">
-                      {item.value}
-                    </Text>
-                    <Text className="text-xs leading-5 text-muted-foreground">
-                      {item.detail}
-                    </Text>
+              {hasStaleOverview ? (
+                <Text className="text-warn text-sm leading-5">
+                  Refresh admin data before replying to support or changing
+                  queue state.
+                </Text>
+              ) : null}
+              {overview?.actionQueue.length ? (
+                overview.actionQueue.map((item) => (
+                  <View className="gap-2" key={item.key}>
+                    <View className="items-start">
+                      <StatusBadge
+                        label={formatStatus(item.severity)}
+                        tone={getQueueTone(item.severity)}
+                      />
+                    </View>
+                    <AdminQueueRow item={item} />
                   </View>
-                </View>
-              ))}
+                ))
+              ) : overview ? (
+                <EmptyState
+                  description="Pending approvals, KYC, receipts, financing, procurement, Foodstuff Purchase, Project Financing, support, and setup exceptions will appear here."
+                  icon="ShieldCheck"
+                  title="No priority queue"
+                />
+              ) : (
+                adminExceptions.map((item) => (
+                  <ConfirmationRow
+                    detail={item.detail}
+                    icon="ArrowUpRight"
+                    key={item.label}
+                    label={item.label}
+                    value={item.value}
+                  />
+                ))
+              )}
             </View>
           )}
         </SectionCard>
+
+        <View className="flex-row flex-wrap gap-3">
+          {stats.map((item) => (
+            <StatCard key={item.label} {...item} />
+          ))}
+        </View>
 
         <SectionCard icon="MessagesSquare" title="Support cases">
           {isLoadingOverview ? (
@@ -390,9 +472,11 @@ export function AdminHomeScreen() {
             <VirtualizedCardList
               data={overview?.supportCases ?? []}
               empty={
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No open support cases are visible in the mobile overview.
-                </Text>
+                <EmptyState
+                  description="Open support queues will appear here when members need staff attention."
+                  icon="MessagesSquare"
+                  title="No open support cases"
+                />
               }
               estimatedItemSize={220}
               keyExtractor={(supportCase) => supportCase.id}
@@ -434,30 +518,20 @@ export function AdminHomeScreen() {
           ) : overview?.warnings.length ? (
             <View className="gap-3">
               {overview.warnings.map((warning) => (
-                <View
-                  className="flex-row gap-3 rounded-md bg-secondary p-3"
+                <ConfirmationRow
+                  detail="Complete setup on the dashboard before relying on this workspace for live operations."
+                  icon="TriangleAlert"
                   key={warning.key}
-                >
-                  <Icon
-                    name="TriangleAlert"
-                    className="size-base text-accent"
-                  />
-                  <View className="flex-1 gap-1">
-                    <Text className="font-semibold text-foreground">
-                      {warning.label}
-                    </Text>
-                    <Text className="text-xs leading-5 text-muted-foreground">
-                      Complete setup on the dashboard before relying on this
-                      workspace for live operations.
-                    </Text>
-                  </View>
-                </View>
+                  label={warning.label}
+                />
               ))}
             </View>
           ) : (
-            <Text className="text-sm leading-5 text-muted-foreground">
-              No setup warnings are visible in the mobile overview.
-            </Text>
+            <EmptyState
+              description="Setup warnings will appear here before live operations need attention."
+              icon="ShieldCheck"
+              title="No setup warnings"
+            />
           )}
         </SectionCard>
       </ScrollView>

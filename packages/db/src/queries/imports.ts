@@ -287,13 +287,80 @@ export async function createImportBatch(
 
 export async function listImportBatches(
   tenantId: string,
+  filters: {
+    cursor?: string | null
+    importType?: ImportKind
+    pageSize?: number
+    search?: string | null
+    sort?: [
+      | "createdAt"
+      | "createdBy"
+      | "importType"
+      | "reviewCount"
+      | "status"
+      | "totalRows",
+      "asc" | "desc",
+    ] | null
+    status?: "draft" | "applied" | "failed" | null
+  } = {},
   prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+  const pageSize = filters.pageSize ?? 20
+  const search = filters.search?.trim()
+  const normalizedSearch = search?.replace(/\s+/g, "_")
+  const orderBy: Prisma.ImportBatchOrderByWithRelationInput[] = (() => {
+    if (!filters.sort) return [{ createdAt: "desc" }]
+
+    const [field, direction] = filters.sort
+    if (field === "createdBy") {
+      return [{ createdByUser: { fullName: direction } }, { createdAt: "desc" }]
+    }
+    if (
+      field === "createdAt" ||
+      field === "importType" ||
+      field === "status" ||
+      field === "totalRows"
+    ) {
+      return [{ [field]: direction }, { createdAt: "desc" }]
+    }
+    if (field === "reviewCount") {
+      return [
+        { existingMatchCount: direction },
+        { duplicateRowCount: direction },
+        { createdAt: "desc" },
+      ]
+    }
+
+    return [{ createdAt: "desc" }]
+  })()
 
   return prisma.importBatch.findMany({
-    where: { tenantId },
+    ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
+    where: {
+      tenantId,
+      ...(filters.importType ? { importType: filters.importType } : {}),
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(search
+        ? {
+            OR: [
+              { importType: { contains: normalizedSearch ?? search } },
+              { status: { contains: search } },
+              {
+                createdByUser: {
+                  fullName: { contains: search, mode: "insensitive" },
+                },
+              },
+              {
+                createdByUser: {
+                  email: { contains: search, mode: "insensitive" },
+                },
+              },
+            ],
+          }
+        : {}),
+    },
     include: {
       createdByUser: { select: { id: true, fullName: true, email: true } },
       rows: {
@@ -306,8 +373,8 @@ export async function listImportBatches(
         },
       },
     },
-    orderBy: { createdAt: "desc" },
-    take: 20,
+    orderBy,
+    take: pageSize,
   })
 }
 

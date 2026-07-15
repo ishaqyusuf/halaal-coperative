@@ -13,10 +13,13 @@ import {
   SharePolicyForm,
   ShareStructureVersionForm,
 } from "@/components/forms/tenant-finance-forms"
+import { OpenSharePolicySheet } from "@/components/open-share-sheet"
 import { ShareApplicationsPanel } from "@/components/share-applications-panel"
 import { ShareHeader } from "@/components/share-header"
+import { ShareSheet } from "@/components/sheets/share-sheet"
 import { DataTable as ShareHistoryDataTable } from "@/components/tables/shares/data-table"
 import type { Share } from "@/components/tables/shares/columns"
+import type { TableSettings } from "@/utils/table-settings"
 
 type ShareConfigurationMode = TenantSharePolicySettings["configurationMode"]
 type ShareStructureVersions = ComponentProps<
@@ -156,61 +159,79 @@ export function GettingStartedShareModelPanel({
 export function ShareSettingsModelWorkspace({
   applications,
   financeStartDate,
+  initialShareTableSettings,
+  initialShareApplicationTableSettings,
   isLocked,
   memberOptions,
+  remoteRows = true,
   rows,
   sharePolicy,
 }: {
   applications: MemberShareApplicationRow[]
   financeStartDate?: string | null
+  initialShareTableSettings?: Partial<TableSettings>
+  initialShareApplicationTableSettings?: Partial<TableSettings>
   isLocked: boolean
   memberOptions: MemberOption[]
+  remoteRows?: boolean
   rows: Share[]
   sharePolicy: TenantSharePolicySettings
 }) {
-  const { hasUnsavedModeChange, selectedMode, setSelectedMode } =
-    useSelectedShareMode(sharePolicy)
+  const selectedMode = sharePolicy.configurationMode
 
   return (
     <>
       <div className="rounded-lg border border-border bg-card p-4">
-        <div className="mb-4">
-          <p className="text-sm font-medium text-foreground">
-            Active share model
-          </p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Select either dated monthly share history or unit-based
-            shareholding. The two models are not used side by side.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Active share model
+            </p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {sharePolicy.configurationMode === "monthly_history"
+                ? "Dated monthly share history is active."
+                : "Unit-based shareholding is active."}
+            </p>
+          </div>
+          <OpenSharePolicySheet />
         </div>
-        <SharePolicyForm
-          defaultPolicy={sharePolicy}
-          onConfigurationModeChange={setSelectedMode}
-        />
+        <div className="mt-4 flex flex-wrap gap-2">
+          <TrendPill>{shareModeLabel(sharePolicy.configurationMode)}</TrendPill>
+          <TrendPill tone="neutral">
+            Maximum {sharePolicy.maximumSharesPerMember} shares
+          </TrendPill>
+        </div>
       </div>
 
-      {hasUnsavedModeChange ? (
-        <UnsavedShareModelNotice
-          savedMode={sharePolicy.configurationMode}
-          selectedMode={selectedMode}
-        />
-      ) : selectedMode === "monthly_history" ? (
+      {selectedMode === "monthly_history" ? (
         <>
-          <ShareHeader financeStartDate={financeStartDate} isLocked={isLocked} />
+          <ShareHeader isLocked={isLocked} />
           <ShareHistoryDataTable
             financeStartDate={financeStartDate}
             hasSourceRows={rows.length > 0}
+            initialSettings={initialShareTableSettings}
             isLocked={isLocked}
-            rows={rows}
+            remoteRows={remoteRows}
+            renderSheet={false}
+            sheetRows={rows}
+            sharePolicy={sharePolicy}
           />
         </>
       ) : (
         <ShareApplicationsPanel
           applications={applications}
+          initialSettings={initialShareApplicationTableSettings}
           memberOptions={memberOptions}
           policy={sharePolicy}
+          remoteRows={remoteRows}
         />
       )}
+      <ShareSheet
+        financeStartDate={financeStartDate}
+        isLocked={isLocked}
+        rows={rows}
+        sharePolicy={sharePolicy}
+      />
     </>
   )
 }
@@ -218,6 +239,8 @@ export function ShareSettingsModelWorkspace({
 export function FinanceShareModelWorkspace({
   currentShareAmount,
   historicalSetupLocked,
+  initialShareTableSettings,
+  remoteRows = true,
   rows,
   sharePolicy,
   tenantStartDate,
@@ -227,12 +250,13 @@ export function FinanceShareModelWorkspace({
     valueType: "fixed_amount" | "percentage"
   } | null
   historicalSetupLocked: boolean
+  initialShareTableSettings?: Partial<TableSettings>
+  remoteRows?: boolean
   rows: Share[]
   sharePolicy: TenantSharePolicySettings
   tenantStartDate?: string | null
 }) {
-  const { hasUnsavedModeChange, selectedMode, setSelectedMode } =
-    useSelectedShareMode(sharePolicy)
+  const selectedMode = sharePolicy.configurationMode
 
   return (
     <>
@@ -254,20 +278,10 @@ export function FinanceShareModelWorkspace({
               : `${sharePolicy.compulsoryShareUnits}-${sharePolicy.maximumShareUnits} units`}
           </TrendPill>
         </div>
-        <SharePolicyForm
-          defaultPolicy={sharePolicy}
-          onConfigurationModeChange={setSelectedMode}
-        />
+        <OpenSharePolicySheet />
       </DashboardSurfaceCard>
 
-      {hasUnsavedModeChange ? (
-        <div className="mt-5">
-          <UnsavedShareModelNotice
-            savedMode={sharePolicy.configurationMode}
-            selectedMode={selectedMode}
-          />
-        </div>
-      ) : selectedMode === "monthly_history" ? (
+      {selectedMode === "monthly_history" ? (
         <>
           {historicalSetupLocked ? (
             <div className="mt-5">
@@ -277,8 +291,12 @@ export function FinanceShareModelWorkspace({
           <div className="mt-1">
             <ShareHistoryDataTable
               financeStartDate={tenantStartDate}
+              initialSettings={initialShareTableSettings}
               isLocked={historicalSetupLocked}
-              rows={rows}
+              remoteRows={remoteRows}
+              renderSheet={false}
+              sheetRows={rows}
+              sharePolicy={sharePolicy}
             />
           </div>
           {currentShareAmount ? (
@@ -297,6 +315,12 @@ export function FinanceShareModelWorkspace({
           <ActiveUnitShareNotice />
         </div>
       )}
+      <ShareSheet
+        financeStartDate={tenantStartDate}
+        isLocked={historicalSetupLocked}
+        rows={rows}
+        sharePolicy={sharePolicy}
+      />
     </>
   )
 }

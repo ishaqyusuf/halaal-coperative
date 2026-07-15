@@ -1,6 +1,8 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -71,13 +73,6 @@ function formatNotificationType(value: string) {
 }
 
 function DeliveryRow({ delivery }: { delivery: MobileNotificationDelivery }) {
-  const tone =
-    delivery.status === "failed"
-      ? "text-destructive"
-      : delivery.status === "sent"
-        ? "text-accent"
-        : "text-muted-foreground"
-
   return (
     <View className="gap-2 border-b border-border pb-3 last:border-b-0 last:pb-0">
       <View className="flex-row items-start gap-3">
@@ -89,9 +84,10 @@ function DeliveryRow({ delivery }: { delivery: MobileNotificationDelivery }) {
             <Text className="flex-1 text-sm font-semibold text-foreground">
               {delivery.safeTitle}
             </Text>
-            <Text className={`text-xs font-medium ${tone}`}>
-              {delivery.status}
-            </Text>
+            <StatusBadge
+              label={delivery.status}
+              tone={getStatusBadgeTone(delivery.status)}
+            />
           </View>
           <Text className="text-sm leading-5 text-muted-foreground">
             {delivery.safeSummary}
@@ -125,9 +121,10 @@ function PreferenceRow({
           {preference.role} - {preference.channel}
         </Text>
       </View>
-      <Text className="text-xs font-medium text-muted-foreground">
-        {preference.enabled ? "on" : "off"}
-      </Text>
+      <StatusBadge
+        label={preference.enabled ? "On" : "Off"}
+        tone={preference.enabled ? "success" : "muted"}
+      />
     </View>
   )
 }
@@ -250,10 +247,11 @@ export function NotificationsScreen() {
                 <VirtualizedCardList
                   data={notifications?.deliveries ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No notification deliveries are recorded for this account
-                      yet.
-                    </Text>
+                    <EmptyState
+                      description="Account notification delivery history will appear here."
+                      icon="Bell"
+                      title="No notification deliveries"
+                    />
                   }
                   estimatedItemSize={112}
                   keyExtractor={(delivery) => delivery.id}
@@ -269,9 +267,11 @@ export function NotificationsScreen() {
                 <VirtualizedCardList
                   data={notifications?.preferences ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      Default cooperative notification routing is active.
-                    </Text>
+                    <EmptyState
+                      description="Default cooperative notification routing is active."
+                      icon="SlidersHorizontal"
+                      title="No custom preferences"
+                    />
                   }
                   estimatedItemSize={72}
                   keyExtractor={(preference) =>

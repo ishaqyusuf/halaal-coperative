@@ -17,6 +17,7 @@ import {
 } from "@halaalvest/db"
 import { TenantFinancePageView } from "@/components/tenant-finance-page-view"
 import type { TenantFinanceSection } from "@/components/tenant-finance-page-view"
+import { loadTenantFinanceSettingsParams } from "@/hooks/use-tenant-finance-settings-params"
 import {
   canShowQuickFill,
   getDashboardServerContext,
@@ -301,6 +302,7 @@ export async function FinanceSettingsRoute({
   section?: TenantFinanceSection
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : {}
+  loadTenantFinanceSettingsParams(resolvedSearchParams)
   const requestedMigrationMemberId =
     migrationMemberId ??
     (typeof resolvedSearchParams.migrationMemberId === "string"

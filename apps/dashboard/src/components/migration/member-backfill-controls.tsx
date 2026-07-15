@@ -1,16 +1,18 @@
+"use client"
+
+import { useState, type ComponentProps, type ReactNode } from "react"
 import type { MemberLedgerBackfillRow } from "@halaalvest/backfill"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@halaalvest/ui/components/dialog"
 import { Input } from "@halaalvest/ui/components/input"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@halaalvest/ui/components/sheet"
 import { formatCurrency } from "@halaalvest/utils"
 import { MissedMonthsRangeGrid } from "@/components/migration/missed-months-range-grid"
 import {
@@ -18,7 +20,68 @@ import {
   upsertMigrationBackfillAdjustmentAction,
 } from "@/lib/dashboard-actions"
 
-export function MemberBackfillAdjustmentDialog({
+function BackfillControlSheet({
+  bodyClassName,
+  children,
+  description,
+  disabled,
+  eyebrow,
+  onClose,
+  onOpen,
+  open,
+  title,
+  triggerClassName,
+  triggerLabel,
+  triggerSize,
+  variant,
+  widthClassName,
+}: {
+  bodyClassName: string
+  children: ReactNode
+  description: string
+  disabled?: boolean
+  eyebrow?: string
+  onClose: () => void
+  onOpen: () => void
+  open: boolean
+  title: string
+  triggerClassName?: string
+  triggerLabel: string
+  triggerSize: ComponentProps<typeof Button>["size"]
+  variant: ComponentProps<typeof Button>["variant"]
+  widthClassName: string
+}) {
+  return (
+    <>
+      <Button
+        className={triggerClassName}
+        disabled={disabled}
+        onClick={onOpen}
+        size={triggerSize}
+        type="button"
+        variant={variant}
+      >
+        {triggerLabel}
+      </Button>
+      <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+        <SheetContent className={widthClassName}>
+          <SheetHeader>
+            {eyebrow ? (
+              <p className="text-xs font-medium text-muted-foreground uppercase">
+                {eyebrow}
+              </p>
+            ) : null}
+            <SheetTitle>{title}</SheetTitle>
+            <SheetDescription>{description}</SheetDescription>
+          </SheetHeader>
+          <div className={bodyClassName}>{children}</div>
+        </SheetContent>
+      </Sheet>
+    </>
+  )
+}
+
+export function MemberBackfillAdjustmentSheet({
   disabled,
   loan,
   loans,
@@ -49,124 +112,111 @@ export function MemberBackfillAdjustmentDialog({
       : "-"
     : formatCurrency(savingsContribution)
   const isDisabled = disabled || !memberId || !month || (isRepayment && !loan)
+  const [open, setOpen] = useState(false)
 
   return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button
-            className="h-auto rounded-md px-2 py-1 text-right font-medium text-primary underline-offset-4 hover:underline disabled:text-muted-foreground disabled:no-underline"
-            disabled={isDisabled}
-            size="sm"
-            variant="ghost"
-          />
-        }
-      >
-        {triggerLabel}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-            One-time migration adjustment
+    <BackfillControlSheet
+      bodyClassName="grid gap-3 px-6 pb-6"
+      description="Save a month-specific override. The generated ledger will recompute segments from this month while preserving the saved migration history."
+      disabled={isDisabled}
+      eyebrow="One-time migration adjustment"
+      onClose={() => setOpen(false)}
+      onOpen={() => setOpen(true)}
+      open={open}
+      title={`${isRepayment ? "Edit loan repayment" : "Edit savings"} for ${period}`}
+      triggerClassName="h-auto rounded-md px-2 py-1 text-right font-medium text-primary underline-offset-4 hover:underline disabled:text-muted-foreground disabled:no-underline"
+      triggerLabel={triggerLabel}
+      triggerSize="sm"
+      variant="ghost"
+      widthClassName="sm:max-w-lg"
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+          <p className="text-xs text-muted-foreground">Current savings</p>
+          <p className="mt-1 text-sm font-semibold text-foreground">
+            {formatCurrency(savingsContribution)}
           </p>
-          <DialogTitle>
-            {isRepayment ? "Edit loan repayment" : "Edit savings"} for {period}
-          </DialogTitle>
-          <DialogDescription>
-            Save a month-specific override. The generated ledger will recompute
-            segments from this month while preserving the saved migration
-            history.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-            <p className="text-xs text-muted-foreground">Current savings</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {formatCurrency(savingsContribution)}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-            <p className="text-xs text-muted-foreground">
-              {activeLoans.length > 1 ? "Total loan balance" : "Loan balance"}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {activeLoans.length > 0
-                ? formatCurrency(activeLoanBalance)
-                : "No active loan"}
-            </p>
-            {activeLoans.length > 1 ? (
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {activeLoans.length} active loans in this period
-              </p>
-            ) : null}
-          </div>
         </div>
+        <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+          <p className="text-xs text-muted-foreground">
+            {activeLoans.length > 1 ? "Total loan balance" : "Loan balance"}
+          </p>
+          <p className="mt-1 text-sm font-semibold text-foreground">
+            {activeLoans.length > 0
+              ? formatCurrency(activeLoanBalance)
+              : "No active loan"}
+          </p>
+          {activeLoans.length > 1 ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {activeLoans.length} active loans in this period
+            </p>
+          ) : null}
+        </div>
+      </div>
 
-        <form
-          action={upsertMigrationBackfillAdjustmentAction}
-          className="grid gap-3"
-        >
-          <input name="memberId" type="hidden" value={memberId ?? ""} />
-          <input name="month" type="hidden" value={month ?? ""} />
-          {isRepayment ? (
-            <>
-              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-                Actual principal repayment
-                <CurrencyPrefixInput
-                  defaultValue={loan?.repaymentAmount ?? ""}
-                  disabled={isDisabled}
-                  min="0"
-                  name="loanRepaymentAmount"
-                  required
-                  step="0.01"
-                  type="number"
-                />
-              </label>
-              <label className="flex h-9 items-center gap-2 border border-border/70 bg-background px-3 text-sm text-foreground">
-                <Checkbox
-                  defaultChecked={loan?.repaymentOnTime ?? false}
-                  disabled={isDisabled}
-                  name="loanRepaymentOnTime"
-                />
-                Mark repayment as on-time
-              </label>
-            </>
-          ) : (
+      <form
+        action={upsertMigrationBackfillAdjustmentAction}
+        className="grid gap-3"
+      >
+        <input name="memberId" type="hidden" value={memberId ?? ""} />
+        <input name="month" type="hidden" value={month ?? ""} />
+        {isRepayment ? (
+          <>
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Actual savings contribution
+              Actual principal repayment
               <CurrencyPrefixInput
-                defaultValue={savingsContribution}
+                defaultValue={loan?.repaymentAmount ?? ""}
                 disabled={isDisabled}
                 min="0"
-                name="savingsContribution"
+                name="loanRepaymentAmount"
                 required
                 step="0.01"
                 type="number"
               />
             </label>
-          )}
+            <label className="flex h-9 items-center gap-2 border border-border/70 bg-background px-3 text-sm text-foreground">
+              <Checkbox
+                defaultChecked={loan?.repaymentOnTime ?? false}
+                disabled={isDisabled}
+                name="loanRepaymentOnTime"
+              />
+              Mark repayment as on-time
+            </label>
+          </>
+        ) : (
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            Notes
-            <Input
+            Actual savings contribution
+            <CurrencyPrefixInput
+              defaultValue={savingsContribution}
               disabled={isDisabled}
-              name="notes"
-              placeholder="Receipt, board note, or source file reference"
-              type="text"
+              min="0"
+              name="savingsContribution"
+              required
+              step="0.01"
+              type="number"
             />
           </label>
-          <div className="flex justify-end">
-            <Button disabled={isDisabled} size="sm" type="submit">
-              Save adjustment
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        )}
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+          Notes
+          <Input
+            disabled={isDisabled}
+            name="notes"
+            placeholder="Receipt, board note, or source file reference"
+            type="text"
+          />
+        </label>
+        <div className="flex justify-end">
+          <Button disabled={isDisabled} size="sm" type="submit">
+            Save adjustment
+          </Button>
+        </div>
+      </form>
+    </BackfillControlSheet>
   )
 }
 
-export function DefaultingMonthsDialog({
+export function DefaultingMonthsSheet({
   disabled,
   memberId,
   rows,
@@ -182,55 +232,44 @@ export function DefaultingMonthsDialog({
   triggerVariant?: "default" | "ghost"
 }) {
   const usableRows = rows.filter((row) => row.month)
+  const [open, setOpen] = useState(false)
 
   return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button
-            disabled={disabled || !memberId}
-            size="xs"
-            type="button"
-            variant={triggerVariant}
-          />
-        }
+    <BackfillControlSheet
+      bodyClassName="space-y-4 px-6 pb-6"
+      description="Toggle months where this member made no commitment during migration. These months will not add savings, share capital, or charges."
+      disabled={disabled || !memberId}
+      onClose={() => setOpen(false)}
+      onOpen={() => setOpen(true)}
+      open={open}
+      title="Missed commitment months"
+      triggerLabel={triggerLabel}
+      triggerSize="xs"
+      variant={triggerVariant}
+      widthClassName="w-[calc(100vw-2rem)] max-w-none sm:w-[min(96vw,96rem)] sm:max-w-none"
+    >
+      <form
+        action={setMigrationBackfillDefaultingMonthsAction}
+        className="space-y-4"
       >
-        {triggerLabel}
-      </DialogTrigger>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-none sm:w-[min(96vw,96rem)] sm:max-w-none">
-        <DialogHeader>
-          <div>
-            <DialogTitle>Missed commitment months</DialogTitle>
-            <DialogDescription>
-              Toggle months where this member made no commitment during
-              migration. These months will not add savings, share capital, or
-              charges.
-            </DialogDescription>
-          </div>
-        </DialogHeader>
-        <form
-          action={setMigrationBackfillDefaultingMonthsAction}
-          className="space-y-4"
-        >
-          <input name="memberId" type="hidden" value={memberId ?? ""} />
-          <MissedMonthsRangeGrid
-            disabled={disabled}
-            rows={usableRows.map((row) => ({
-              month: row.month ?? "",
-              period: row.period,
-              savingsContribution: row.savingsContribution,
-              status: row.status,
-            }))}
-            selectedMonth={selectedMonth}
-          />
-          <div className="flex justify-end">
-            <Button disabled={disabled || !memberId} size="sm" type="submit">
-              Save missed months
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <input name="memberId" type="hidden" value={memberId ?? ""} />
+        <MissedMonthsRangeGrid
+          disabled={disabled}
+          rows={usableRows.map((row) => ({
+            month: row.month ?? "",
+            period: row.period,
+            savingsContribution: row.savingsContribution,
+            status: row.status,
+          }))}
+          selectedMonth={selectedMonth}
+        />
+        <div className="flex justify-end">
+          <Button disabled={disabled || !memberId} size="sm" type="submit">
+            Save missed months
+          </Button>
+        </div>
+      </form>
+    </BackfillControlSheet>
   )
 }
 

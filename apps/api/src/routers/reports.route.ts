@@ -1,7 +1,12 @@
-import { getReportsSummary } from "@halaalvest/db"
+import {
+  countAuditLogs,
+  getReportsSummary,
+  listActivityReportEvents,
+} from "@halaalvest/db"
 import { z } from "zod"
 
 import { createTRPCRouter, minRoleProcedure } from "../lib.trpc"
+import { listAuditEventsSchema } from "../schemas/reports"
 
 function parseDateInput(value: string | undefined, endOfDay = false) {
   const normalized = value?.trim()
@@ -18,6 +23,41 @@ function parseDateInput(value: string | undefined, endOfDay = false) {
 }
 
 export const reportsRouter = createTRPCRouter({
+  auditEvents: minRoleProcedure("tenant_admin")
+    .input(listAuditEventsSchema)
+    .query(async ({ ctx, input }) => {
+      const pageSize = input?.pageSize ?? 50
+      const filters = {
+        action: input?.action || undefined,
+        cursor: input?.cursor ?? undefined,
+        fromDate: input?.from,
+        limit: pageSize + 1,
+        search: input?.q || undefined,
+        sort: input?.sort ?? null,
+        toDate: input?.to,
+      }
+      const [events, total, userCount] = await Promise.all([
+        listActivityReportEvents(ctx.tenant.current.id, filters),
+        countAuditLogs(ctx.tenant.current.id, filters),
+        countAuditLogs(ctx.tenant.current.id, {
+          ...filters,
+          actorType: "user",
+          cursor: undefined,
+        }),
+      ])
+      const data = events.slice(0, pageSize)
+
+      return {
+        data,
+        meta: {
+          cursor: events.length > pageSize ? data.at(-1)?.id : undefined,
+          systemCount: total - userCount,
+          total,
+          userCount,
+        },
+      }
+    }),
+
   summary: minRoleProcedure("tenant_admin")
     .input(
       z

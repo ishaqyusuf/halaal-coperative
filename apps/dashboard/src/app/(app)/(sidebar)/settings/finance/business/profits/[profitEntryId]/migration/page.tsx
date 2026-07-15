@@ -8,24 +8,13 @@ import {
 } from "@halaalvest/db"
 import {
   type BusinessProfitMigrationWorksheetData,
-  BusinessProfitMigrationWorksheet,
 } from "@/components/business-profit-migration-worksheet"
-import { ScrollableContent } from "@/components/dashboard"
-import { SecondaryMenu } from "@/components/secondary-menu"
+import { FinanceBusinessProfitMigrationView } from "@/components/finance-business-profit-migration-view"
 import { getDashboardServerContext } from "@/lib/server-context"
 
 export const metadata: Metadata = {
   title: "Migrate Business Profit | Finance Settings",
 }
-
-const financeMenuItems = [
-  { path: "/settings/finance", label: "Overview" },
-  { path: "/settings/finance/shares", label: "Shares" },
-  { path: "/settings/finance/charges", label: "Charges" },
-  { path: "/settings/finance/business", label: "Business" },
-  { path: "/settings/finance/loan", label: "Loan" },
-  { path: "/settings/finance/migration", label: "Migration" },
-]
 
 function toDateString(value: Date | string) {
   return typeof value === "string"
@@ -111,14 +100,9 @@ export default async function BusinessProfitMigrationPage({
     worksheet.profitEntry.hasPublishedAllocations
 
   return (
-    <ScrollableContent>
-      <div className="flex max-w-[1180px] flex-col gap-6">
-        <SecondaryMenu items={financeMenuItems} />
-        <BusinessProfitMigrationWorksheet
-          isLocked={isLocked}
-          worksheet={serializeWorksheet(worksheet)}
-        />
-      </div>
-    </ScrollableContent>
+    <FinanceBusinessProfitMigrationView
+      isLocked={isLocked}
+      worksheet={serializeWorksheet(worksheet)}
+    />
   )
 }

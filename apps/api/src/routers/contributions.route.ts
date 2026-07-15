@@ -7,7 +7,66 @@ import {
   getMemberSavingsTotal,
 } from "@halaalvest/db"
 
+const contributionSortFieldSchema = z.enum([
+  "amount",
+  "committedAmount",
+  "extraSavingsAmount",
+  "memberName",
+  "postedAt",
+])
+
+const listContributionsLedgerSchema = z
+  .object({
+    channel: z.enum(["payroll", "transfer", "cash", "manual"]).optional(),
+    cursor: z.string().nullable().optional(),
+    from: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value ? new Date(`${value}T00:00:00.000Z`) : undefined
+      ),
+    memberId: z.string().uuid().optional(),
+    pageSize: z.coerce.number().int().min(1).max(100).optional(),
+    q: z.string().nullable().optional(),
+    sort: z
+      .tuple([contributionSortFieldSchema, z.enum(["asc", "desc"])])
+      .nullable()
+      .optional(),
+    to: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value ? new Date(`${value}T23:59:59.999Z`) : undefined
+      ),
+  })
+  .optional()
+
 export const contributionsRouter = createTRPCRouter({
+  ledger: tenantProcedure
+    .input(listContributionsLedgerSchema)
+    .query(async ({ ctx, input }) => {
+      const pageSize = input?.pageSize ?? 50
+      const result = await listContributions(ctx.tenant.current.id, {
+        channel: input?.channel,
+        cursor: input?.cursor ?? undefined,
+        fromDate: input?.from,
+        memberId: input?.memberId,
+        pageSize: pageSize + 1,
+        search: input?.q || undefined,
+        sort: input?.sort ?? null,
+        toDate: input?.to,
+      })
+      const data = result.items.slice(0, pageSize)
+
+      return {
+        data,
+        meta: {
+          cursor: result.items.length > pageSize ? data.at(-1)?.id : undefined,
+          total: result.total,
+        },
+      }
+    }),
+
   list: tenantProcedure
     .input(
       z

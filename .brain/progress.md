@@ -1,5 +1,25 @@
 # Progress
 
+## 2026-07-14
+
+### Mobile NativeWind Tailwind Palette Variables
+
+- Source mode: Follow-up after the same `bg-red-*` Tailwind stock palette runtime failure was confirmed and fixed in EwaTrade.
+- Changed source files: `apps/mobile/src/lib/nativewind-theme-vars.ts`, `apps/mobile/scripts/check-nativewind-theme-vars.mjs`, `.brain/product/mobile-ui-template-direction.md`, `.brain/progress.md`.
+- Brain files updated: `.brain/product/mobile-ui-template-direction.md`, `.brain/progress.md`.
+- Current status: Extended the mobile root NativeWind variable map with RN-safe Tailwind stock palette variables so classes such as `bg-red-500`, `bg-red-500/10`, `text-red-500`, and `text-red-500/5` resolve at runtime alongside semantic theme tokens. Strengthened `bun run check:nativewind-theme-vars` to guard Metro input wiring, root provider wiring, semantic token coverage, stock palette samples, and Tailwind compile output for palette plus semantic opacity classes.
+- Checks run: `bun run check:nativewind-theme-vars`; `bun run typecheck`; `bun run check:native-imports`; `bun run check:smoke`; `bun run lint` from `apps/mobile`.
+- Residual risks: `bun run lint` passes with one existing generated `.expo/types/router.d.ts` unused eslint-disable warning. No Halaalvest emulator visual walkthrough was run for this provider-only palette fix.
+
+### Mobile Root NativeWind Theme Variable Provider
+
+- Source mode: Direct user request after the same NativeWind 5 token-provider failure was found and fixed in EwaTrade.
+- Changed source files: `apps/mobile/src/app/_layout.tsx`, `apps/mobile/src/lib/nativewind-theme-vars.ts`, `apps/mobile/scripts/check-nativewind-theme-vars.mjs`, `apps/mobile/metro.config.js`, `apps/mobile/package.json`, `.brain/product/mobile-ui-template-direction.md`, `.brain/progress.md`.
+- Brain files updated: `.brain/product/mobile-ui-template-direction.md`, `.brain/progress.md`.
+- Current status: Fixed the mobile root so semantic NativeWind color classes resolve app theme CSS variables through `VariableContextProvider`, and aligned Metro with the EwaTrade setup by passing `input: "./src/styles/global.css"` to `withNativewind`. The root now derives a light/dark `--token` map from `THEME`, wraps the app with NativeWind's variable context, and keeps visual surfaces using semantic classes such as `bg-background`, `text-foreground`, and `text-primary-foreground`. Added `bun run check:nativewind-theme-vars` to guard against removing the provider, token map, or NativeWind CSS input.
+- Checks run: `bun run check:nativewind-theme-vars`; `bun run typecheck`; `bun run check:native-imports`; `bun run check:smoke`; `bun run lint` from `apps/mobile`.
+- Residual risks: `bun run lint` passes with one existing generated `.expo/types/router.d.ts` unused eslint-disable warning. No Android emulator visual walkthrough was run for this provider-only fix.
+
 ## 2026-07-12
 
 ### Cooperative Operation Profile

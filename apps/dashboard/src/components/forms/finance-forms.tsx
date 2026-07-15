@@ -112,12 +112,12 @@ export function ContributionPlanForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 md:col-span-2">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            <h3 className="text-lg font-semibold text-foreground">
               Set monthly commitment
             </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -296,12 +296,12 @@ export function MemberPaymentForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 md:col-span-2">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            <h3 className="text-lg font-semibold text-foreground">
               Record member payment
             </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -555,11 +555,11 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 md:col-span-2">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+          <h3 className="text-lg font-semibold text-foreground">
             Create charge definition
           </h3>
           {devMode ? (
@@ -771,11 +771,11 @@ export function ChargeApplicationForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 md:col-span-2">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+          <h3 className="text-lg font-semibold text-foreground">
             Apply charge
           </h3>
           {devMode ? (
@@ -980,12 +980,12 @@ export function LoanRequestForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-6"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-6"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 xl:col-span-6">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            <h3 className="text-lg font-semibold text-foreground">
               Submit loan request
             </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -1245,11 +1245,11 @@ export function RepaymentPostForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-4"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-4"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 xl:col-span-4">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+          <h3 className="text-lg font-semibold text-foreground">
             Post repayment
           </h3>
           {devMode ? (
@@ -1386,7 +1386,7 @@ export function MemberPaymentPreferenceForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-3 rounded-2xl border border-border/60 p-4 md:grid-cols-[minmax(0,1fr)_220px_auto]"
+        className="grid gap-3 rounded-lg border border-border/60 p-4 md:grid-cols-[minmax(0,1fr)_220px_auto]"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div>
@@ -1740,7 +1740,7 @@ export function LoanDisbursementForm({ loanId }: { loanId: string }) {
           name="firstRepaymentDueAt"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+              <FormLabel className="text-xs text-muted-foreground uppercase">
                 First repayment due
               </FormLabel>
               <FormControl>

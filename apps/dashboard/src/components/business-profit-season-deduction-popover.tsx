@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
@@ -278,7 +278,7 @@ export function BusinessProfitSeasonDeductionPopover({
   )
 }
 
-export function BusinessProfitSeasonDeductionCells({
+export function BusinessProfitSeasonDeductionFields({
   initialAmount,
   initialReason,
   maxAmount,
@@ -295,8 +295,11 @@ export function BusinessProfitSeasonDeductionCells({
   const distributableAmount = Math.max(0, maxAmount - deductionAmount)
 
   return (
-    <Fragment>
-      <td>
+    <>
+      <div>
+        <p className="mb-1 text-xs font-medium text-muted-foreground sm:text-right">
+          Season deduct.
+        </p>
         <BusinessProfitSeasonDeductionPopover
           initialAmount={initialAmount}
           initialReason={initialReason}
@@ -305,10 +308,13 @@ export function BusinessProfitSeasonDeductionCells({
           preserveDraftKey={preserveDraftKey}
           seasonKey={seasonKey}
         />
-      </td>
-      <td className="pt-2 text-right text-sm">
-        {formatCurrency(distributableAmount)}
-      </td>
-    </Fragment>
+      </div>
+      <div className="sm:text-right">
+        <p className="text-xs font-medium text-muted-foreground">
+          Distributable
+        </p>
+        <p className="mt-1 text-sm">{formatCurrency(distributableAmount)}</p>
+      </div>
+    </>
   )
 }

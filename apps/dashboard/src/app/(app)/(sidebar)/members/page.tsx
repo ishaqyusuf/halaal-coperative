@@ -1,21 +1,4 @@
-import { Suspense } from "react"
-import {
-  CollapsibleSummary,
-  DashboardActionLink,
-  DashboardEmptyState,
-  ScrollableContent,
-} from "@/components/dashboard"
-import { MemberImportPanel } from "@/components/member-import-panel"
-import {
-  MembersActive,
-  MembersAll,
-  MembersKycPending,
-  MembersLinkedUsers,
-  MembersPageHeader,
-} from "@/components/members"
-import { MemberCreateModal } from "@/components/modals/member-create-modal"
-import { MembersDataTable } from "@/components/tables/members/data-table"
-import { MembersSkeleton } from "@/components/tables/members/skeleton"
+import { MembersPageView } from "@/components/members/members-page-view"
 import {
   loadMembersFilterParams,
   type MembersFilterParams,
@@ -23,7 +6,12 @@ import {
 import { loadSortParams } from "@/hooks/use-sort-params"
 import { getInitialMemberImportColumnSettings } from "@/lib/member-import-column-settings.server"
 import { loadMembersPageData } from "@/lib/members"
-import { getQueryClient, getServerCaller, HydrateClient, trpc } from "@/trpc/server"
+import {
+  getQueryClient,
+  getServerCaller,
+  HydrateClient,
+  trpc,
+} from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
 
 type SearchParams = Record<string, string | string[] | undefined>
@@ -36,7 +24,9 @@ type MembersSortField =
   | "kycStatus"
   | "joinedAt"
 
-function getSort(sort?: string[] | null): [MembersSortField, "asc" | "desc"] | null {
+function getSort(
+  sort?: string[] | null
+): [MembersSortField, "asc" | "desc"] | null {
   if (!sort || sort.length !== 2) return null
 
   const field = sort[0]
@@ -104,44 +94,21 @@ export default async function MembersPage({
   const filters = loadMembersFilterParams(params)
   const { sort } = loadSortParams(params)
   const startWithImportPanelOpen = params.import === "1"
-  const [initialSettings, initialImportColumnSettings, data] = await Promise.all([
-    getInitialTableSettings("members"),
-    getInitialMemberImportColumnSettings(),
-    loadMembersPageData(filters),
-  ])
+  const [initialSettings, initialImportColumnSettings, data] =
+    await Promise.all([
+      getInitialTableSettings("members"),
+      getInitialMemberImportColumnSettings(),
+      loadMembersPageData(filters),
+    ])
 
   if (data.state !== "ready") {
     return (
-      <ScrollableContent>
-        <div className="flex flex-col gap-6">
-          <MembersPageHeader
-            createAction={
-              data.canManageMembers ? (
-                <MemberCreateModal
-                  canManageCollectionSources={data.canManageCollectionSources}
-                  collectionSourceOptions={data.collectionSourceOptions}
-                  cooperativeStartDate={data.tenant?.startDate}
-                  devMode={data.quickFillEnabled}
-                  memberNumberPrefix={data.tenant?.memberNumberPrefix}
-                  migrationSetupMode={data.tenant?.migrationSetupMode}
-                />
-              ) : undefined
-            }
-            secondaryActions={
-              data.canManageMembers ? (
-                <DashboardActionLink className="px-4" href="/member-signup-links">
-                  Open link generator
-                </DashboardActionLink>
-              ) : undefined
-            }
-          />
-
-          <DashboardEmptyState
-            body="The member registry could not load from the cooperative database right now. If you still open the create form, submissions will fail until the database connection is restored."
-            title="Database-backed member records are not available yet."
-          />
-        </div>
-      </ScrollableContent>
+      <MembersPageView
+        data={data}
+        initialImportColumnSettings={initialImportColumnSettings}
+        initialSettings={initialSettings}
+        startWithImportPanelOpen={startWithImportPanelOpen}
+      />
     )
   }
 
@@ -162,62 +129,12 @@ export default async function MembersPage({
 
   return (
     <HydrateClient>
-      <ScrollableContent>
-        <div className="flex flex-col gap-6">
-          <CollapsibleSummary>
-            <section className="grid grid-cols-1 gap-4 pt-6 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-              <MembersAll filters={data.filters} totalCount={data.summary.totalCount} />
-              <MembersActive activeCount={data.summary.activeCount} filters={data.filters} />
-              <MembersKycPending
-                filters={data.filters}
-                kycPendingCount={data.summary.kycPendingCount}
-              />
-              <MembersLinkedUsers linkedUsersCount={data.summary.linkedUsersCount} />
-            </section>
-          </CollapsibleSummary>
-
-          <MembersPageHeader
-            createAction={
-              data.canManageMembers ? (
-                <MemberCreateModal
-                  canManageCollectionSources={data.canManageCollectionSources}
-                  collectionSourceOptions={data.collectionSourceOptions}
-                  cooperativeStartDate={data.tenant?.startDate}
-                  devMode={data.quickFillEnabled}
-                  memberNumberPrefix={data.tenant?.memberNumberPrefix}
-                  migrationSetupMode={data.tenant?.migrationSetupMode}
-                />
-              ) : undefined
-            }
-            importPanel={
-              data.canManageImports && data.referenceData ? (
-                <MemberImportPanel
-                  batches={data.batches}
-                  devMode={data.quickFillEnabled}
-                  initialColumnSettings={initialImportColumnSettings}
-                  referenceData={data.referenceData}
-                />
-              ) : undefined
-            }
-            secondaryActions={
-              data.canManageMembers &&
-              data.signupSettings.memberSignupAccessMode !== "public" ? (
-                <DashboardActionLink className="px-4" href="/member-signup-links">
-                  Open link generator
-                </DashboardActionLink>
-              ) : undefined
-            }
-            startWithImportPanelOpen={startWithImportPanelOpen}
-          />
-
-          <Suspense fallback={<MembersSkeleton />}>
-            <MembersDataTable
-              canManageMembers={data.canManageMembers}
-              initialSettings={initialSettings}
-            />
-          </Suspense>
-        </div>
-      </ScrollableContent>
+      <MembersPageView
+        data={data}
+        initialImportColumnSettings={initialImportColumnSettings}
+        initialSettings={initialSettings}
+        startWithImportPanelOpen={startWithImportPanelOpen}
+      />
     </HydrateClient>
   )
 }

@@ -106,6 +106,33 @@ export type SupportCaseSummary = {
   urgentOpenCases: number
 }
 
+export type SupportCaseSortField =
+  | "assignedToUser"
+  | "category"
+  | "createdAt"
+  | "latestReply"
+  | "linkedRecord"
+  | "priority"
+  | "status"
+  | "subject"
+  | "updatedAt"
+
+export type ListSupportCasePageFilters = {
+  assignedToUserId?: string
+  category?: SupportCaseCategory
+  cursor?: string | null
+  fromDate?: Date
+  limit?: number
+  memberId?: string
+  page?: number
+  pageSize?: number
+  priority?: SupportCasePriority
+  search?: string
+  sort?: [SupportCaseSortField, "asc" | "desc"] | null
+  status?: SupportCaseStatus
+  toDate?: Date
+}
+
 const supportCaseStatuses = new Set([
   "open",
   "in_progress",
@@ -408,6 +435,29 @@ export async function getSupportCase(
   return normalizeSupportCase(await readSupportCase(input, prisma))
 }
 
+export async function findSupportCase(
+  input: {
+    memberId?: string
+    supportCaseId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<SupportCaseRow | null> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) return null
+
+  const supportCase = await prisma.supportCase.findFirst({
+    include: supportCaseInclude(),
+    where: {
+      id: input.supportCaseId,
+      ...(input.memberId ? { memberId: input.memberId } : {}),
+      tenantId: input.tenantId,
+    },
+  })
+
+  return supportCase ? normalizeSupportCase(supportCase) : null
+}
+
 export async function listSupportCases(
   input: {
     assignedToUserId?: string
@@ -448,6 +498,186 @@ export async function listSupportCases(
   })
 
   return supportCases.map(normalizeSupportCase)
+}
+
+function getSupportCaseOrderBy(
+  sort?: [SupportCaseSortField, "asc" | "desc"] | null
+) {
+  const [sortField, direction] = sort ?? ["updatedAt", "desc"]
+
+  if (sortField === "assignedToUser") {
+    return [
+      { assignedToUser: { fullName: direction } },
+      { updatedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "latestReply") {
+    return [
+      { updatedAt: direction },
+      { createdAt: direction },
+      { id: direction },
+    ]
+  }
+
+  if (sortField === "linkedRecord") {
+    return [
+      { linkedRecordType: direction },
+      { updatedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "updatedAt") {
+    return [
+      { updatedAt: direction },
+      { createdAt: direction },
+      { id: direction },
+    ]
+  }
+
+  return [
+    { [sortField]: direction },
+    { updatedAt: "desc" as const },
+    { id: "desc" as const },
+  ]
+}
+
+function getSupportCaseWhere(
+  input: {
+    assignedToUserId?: string
+    category?: SupportCaseCategory
+    fromDate?: Date
+    memberId?: string
+    priority?: SupportCasePriority
+    search?: string
+    status?: SupportCaseStatus
+    tenantId: string
+    toDate?: Date
+  }
+) {
+  return {
+    tenantId: input.tenantId,
+    ...(input.fromDate || input.toDate
+      ? {
+          createdAt: {
+            ...(input.fromDate ? { gte: input.fromDate } : {}),
+            ...(input.toDate ? { lte: input.toDate } : {}),
+          },
+        }
+      : {}),
+    ...(input.assignedToUserId
+      ? { assignedToUserId: input.assignedToUserId }
+      : {}),
+    ...(input.category ? { category: input.category } : {}),
+    ...(input.memberId ? { memberId: input.memberId } : {}),
+    ...(input.priority ? { priority: input.priority } : {}),
+    ...(input.status ? { status: input.status } : {}),
+    ...(input.search && {
+      OR: [
+        {
+          subject: {
+            contains: input.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          description: {
+            contains: input.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          member: {
+            is: {
+              OR: [
+                {
+                  fullName: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  memberNumber: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  email: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ],
+            },
+          },
+        },
+        {
+          assignedToUser: {
+            is: {
+              OR: [
+                {
+                  fullName: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  email: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }),
+  }
+}
+
+export async function listSupportCasePage(
+  input: {
+    tenantId: string
+  } & ListSupportCasePageFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const page = input.page ?? 1
+  const pageSize = input.pageSize ?? input.limit ?? 50
+  if (!Number.isInteger(pageSize) || pageSize <= 0) {
+    throw new Error("Support case page size must be a positive whole number.")
+  }
+
+  const where = getSupportCaseWhere(input)
+  const [supportCases, total] = await Promise.all([
+    prisma.supportCase.findMany({
+      include: supportCaseInclude(),
+      orderBy: getSupportCaseOrderBy(input.sort),
+      ...(input.cursor
+        ? { cursor: { id: input.cursor }, skip: 1 }
+        : { skip: (page - 1) * pageSize }),
+      take: pageSize,
+      where,
+    }),
+    prisma.supportCase.count({ where }),
+  ])
+
+  return {
+    data: supportCases.map(normalizeSupportCase),
+    meta: {
+      cursor:
+        supportCases.length === pageSize
+          ? (supportCases.at(-1)?.id as string | undefined)
+          : undefined,
+      total,
+    },
+  }
 }
 
 export async function getSupportCaseSummary(

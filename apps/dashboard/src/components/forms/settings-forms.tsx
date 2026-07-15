@@ -94,12 +94,12 @@ export function CooperativeProfileForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 md:col-span-2">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            <h3 className="text-lg font-semibold text-foreground">
               Update cooperative profile
             </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -363,7 +363,7 @@ export function TenantTrustProfileForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <FormField
@@ -530,12 +530,12 @@ export function RoleAssignmentForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 md:col-span-2">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            <h3 className="text-lg font-semibold text-foreground">
               Assign workspace role
             </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">

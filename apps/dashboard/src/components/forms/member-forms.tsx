@@ -344,7 +344,7 @@ export function MemberCreateForm({
   collectionSourceOptions = [],
   cooperativeStartDate,
   devMode,
-  inModal = false,
+  inSheet = false,
   initialValues,
   memberNumberPrefix,
   onSuccess,
@@ -353,7 +353,7 @@ export function MemberCreateForm({
   collectionSourceOptions?: MemberCollectionSourceOption[]
   cooperativeStartDate?: string | null
   devMode: boolean
-  inModal?: boolean
+  inSheet?: boolean
   initialValues?: Partial<MemberCreateValues>
   memberNumberPrefix?: string | null
   onSuccess?: (member: CreatedMemberSummary) => void
@@ -423,13 +423,13 @@ export function MemberCreateForm({
     <Form {...form}>
       <form
         className={
-          inModal
+          inSheet
             ? "mt-6 flex flex-col gap-4"
-            : "grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5"
+            : "grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5"
         }
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        {inModal ? (
+        {inSheet ? (
           devMode ? (
             <div className="flex justify-end">
               <Button
@@ -446,7 +446,7 @@ export function MemberCreateForm({
         ) : (
           <div className="flex items-start justify-between gap-4 xl:col-span-5">
             <div>
-              <h3 className="text-lg font-semibold tracking-tight text-foreground">
+              <h3 className="text-lg font-semibold text-foreground">
                 New member
               </h3>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -468,9 +468,9 @@ export function MemberCreateForm({
           </div>
         )}
 
-        <div
-          className={
-            inModal
+          <div
+            className={
+            inSheet
               ? "grid gap-4 sm:grid-cols-4"
               : "grid gap-4 md:grid-cols-2 xl:col-span-5 xl:grid-cols-5"
           }
@@ -479,7 +479,7 @@ export function MemberCreateForm({
             control={form.control}
             name="fullName"
             render={({ field }) => (
-              <FormItem className={inModal ? "sm:col-span-3" : "xl:col-span-2"}>
+              <FormItem className={inSheet ? "sm:col-span-3" : "xl:col-span-2"}>
                 <FormLabel>Full name</FormLabel>
                 <FormControl>
                   <Input {...field} placeholder="Amina Yusuf" />
@@ -492,7 +492,7 @@ export function MemberCreateForm({
             control={form.control}
             name="memberNumber"
             render={({ field }) => (
-              <FormItem className={inModal ? "sm:col-span-1" : undefined}>
+              <FormItem className={inSheet ? "sm:col-span-1" : undefined}>
                 <FormLabel>Member No.</FormLabel>
                 <FormControl>
                   {memberNumberPrefix ? (
@@ -514,7 +514,7 @@ export function MemberCreateForm({
             control={form.control}
             name="memberType"
             render={({ field }) => (
-              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
                 <FormLabel>Member type</FormLabel>
                 <FormControl>
                   <SelectFormInput
@@ -532,7 +532,7 @@ export function MemberCreateForm({
               control={form.control}
               name="deductionSourceId"
               render={({ field }) => (
-                <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+                <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
                   <FormLabel>Collection source</FormLabel>
                   <FormControl>
                     <SelectFormInput
@@ -556,7 +556,7 @@ export function MemberCreateForm({
             control={form.control}
             name="joinedAt"
             render={({ field }) => (
-              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
                 <FormLabel>Joined date</FormLabel>
                 <FormControl>
                   <DatePickerInput
@@ -574,7 +574,7 @@ export function MemberCreateForm({
             control={form.control}
             name="monthlyCommitment"
             render={({ field }) => (
-              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
                 <FormLabel>Starting commitment</FormLabel>
                 <FormControl>
                   <CurrencyFormInput {...field} placeholder="25000" />
@@ -587,7 +587,7 @@ export function MemberCreateForm({
             control={form.control}
             name="occupation"
             render={({ field }) => (
-              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
                 <FormLabel>Occupation</FormLabel>
                 <FormControl>
                   <Input {...field} placeholder="Trader" />
@@ -600,7 +600,7 @@ export function MemberCreateForm({
             control={form.control}
             name="phoneNumber"
             render={({ field }) => (
-              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
                 <FormLabel>Phone number</FormLabel>
                 <FormControl>
                   <Input {...field} placeholder="+234 800 000 0000" />
@@ -613,7 +613,7 @@ export function MemberCreateForm({
             control={form.control}
             name="email"
             render={({ field }) => (
-              <FormItem className={inModal ? "sm:col-span-2" : undefined}>
+              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
                   <Input
@@ -630,7 +630,7 @@ export function MemberCreateForm({
             control={form.control}
             name="address"
             render={({ field }) => (
-              <FormItem className={inModal ? "sm:col-span-4" : "xl:col-span-2"}>
+              <FormItem className={inSheet ? "sm:col-span-4" : "xl:col-span-2"}>
                 <FormLabel>Address</FormLabel>
                 <FormControl>
                   <Input {...field} placeholder="No. 12 Cooperative Road" />
@@ -643,7 +643,7 @@ export function MemberCreateForm({
 
         <div
           className={
-            inModal
+            inSheet
               ? "flex justify-end border-t border-border/70 pt-4"
               : "xl:col-span-5"
           }
@@ -651,7 +651,7 @@ export function MemberCreateForm({
           <Button
             disabled={isPending}
             type="submit"
-            className={inModal ? "rounded-full px-5" : undefined}
+            className={inSheet ? "rounded-full px-5" : undefined}
           >
             Add member
           </Button>
@@ -700,12 +700,12 @@ export function MemberKycForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-4"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-4"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 md:col-span-4">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            <h3 className="text-lg font-semibold text-foreground">
               KYC details
             </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -882,12 +882,12 @@ export function MemberDocumentForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-4"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-4"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="flex items-start justify-between gap-4 md:col-span-4">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            <h3 className="text-lg font-semibold text-foreground">
               Add KYC document
             </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">

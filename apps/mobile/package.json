@@ -6,6 +6,7 @@
   "scripts": {
     "android": "bun run with-env node ./scripts/run-expo-cli.cjs run:android",
     "check:native-imports": "node ./scripts/check-native-imports.mjs",
+    "check:nativewind-theme-vars": "node ./scripts/check-nativewind-theme-vars.mjs",
     "check:smoke": "node ./scripts/check-smoke-coverage.mjs",
     "dev": "bun run with-env node ./scripts/run-expo-cli.cjs start --port ${EXPO_PORT:-3002}",
     "eas-build:dev": "BUN_AUTO_INSTALL=0 bun run with-env eas build --profile development --platform android",

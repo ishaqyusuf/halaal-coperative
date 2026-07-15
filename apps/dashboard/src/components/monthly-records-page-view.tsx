@@ -1,8 +1,5 @@
 import Link from "next/link"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button } from "@halaalvest/ui/components/button"
-import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
-import { Input } from "@halaalvest/ui/components/input"
 import {
   Item,
   ItemActions,
@@ -11,22 +8,9 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@halaalvest/ui/components/item"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@halaalvest/ui/components/native-select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@halaalvest/ui/components/table"
 import type {
   MonthlyRecordDetail,
   MonthlyRecordChargeBreakdown,
-  MonthlyRecordMemberRow,
   MonthlyRecordSettingView,
   MonthlyRecordSummary,
 } from "@halaalvest/db"
@@ -37,14 +21,19 @@ import {
   DashboardStatCard,
   DashboardSurfaceCard,
   TrendPill,
+  WorkspaceEmptyState,
+  WorkspacePageShell,
 } from "@/components/dashboard"
 import {
-  applyMonthlyRecordMemberAction,
-  cancelMonthlyRecordMemberAction,
-  createMonthlyRecordAction,
-  generateMonthlyRecordsNowAction,
-  updateMonthlyRecordSettingsAction,
-} from "@/lib/dashboard-actions"
+  OpenMonthlyRecordCreateSheet,
+  OpenMonthlyRecordGenerateSheet,
+  OpenMonthlyRecordSettingsSheet,
+} from "@/components/open-monthly-record-sheet"
+import { MonthlyRecordYearControl } from "@/components/monthly-record-year-control"
+import { MonthlyRecordColumnVisibility } from "@/components/monthly-record-column-visibility"
+import { MonthlyRecordSheet } from "@/components/sheets/monthly-record-sheet"
+import { MonthlyRecordsDataTable } from "@/components/tables/monthly-records/data-table"
+import type { TableSettings } from "@/utils/table-settings"
 
 const months = [
   "January",
@@ -61,18 +50,40 @@ const months = [
   "December",
 ]
 
+export function MonthlyRecordsRuntimeUnavailableView() {
+  return (
+    <WorkspacePageShell
+      eyebrow="Monthly records"
+      title="Monthly records"
+      description="Review monthly member payments, apply received amounts, and keep contribution and loan servicing records in sync."
+    >
+      <WorkspaceEmptyState
+        title="Monthly records need the database runtime."
+        body="Once the database-backed environment is active, this route will create monthly batches and record member payments."
+      />
+    </WorkspacePageShell>
+  )
+}
+
+export function MonthlyRecordsAccessUnavailableView() {
+  return (
+    <WorkspacePageShell
+      eyebrow="Monthly records"
+      title="Monthly records"
+      description="Review monthly member payments, apply received amounts, and keep contribution and loan servicing records in sync."
+    >
+      <WorkspaceEmptyState
+        title="You do not have access to monthly records."
+        body="A finance officer, cooperative admin, or super admin role is required to manage monthly records."
+      />
+    </WorkspacePageShell>
+  )
+}
+
 function statusVariant(status: string) {
   if (status === "applied" || status === "open") return "default"
   if (status === "cancelled" || status === "closed") return "destructive"
   return "secondary"
-}
-
-function loanStatusLabel(status: string) {
-  return status === "none" ? "No loan" : status.replace(/_/g, " ")
-}
-
-function monthlyRecordMemberStatusLabel(status: string) {
-  return status === "pending" ? "staged" : status
 }
 
 function AmountWithCalculatedDifference({
@@ -96,32 +107,7 @@ function AmountWithCalculatedDifference({
   )
 }
 
-function YearSelectForm({ selectedYear }: { selectedYear: number }) {
-  const currentYear = new Date().getUTCFullYear()
-  const startYear = Math.min(selectedYear, currentYear) - 3
-  const years = Array.from({ length: 8 }, (_, index) => startYear + index)
-
-  return (
-    <form className="flex w-full items-center gap-2">
-      <NativeSelect
-        name="year"
-        defaultValue={String(selectedYear)}
-        className="w-full"
-      >
-        {years.map((year) => (
-          <NativeSelectOption key={year} value={String(year)}>
-            {year}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
-      <Button type="submit" size="sm" variant="outline">
-        View
-      </Button>
-    </form>
-  )
-}
-
-function MonthlyRecordSettingsForm({
+function MonthlyRecordAutomationSummary({
   settings,
 }: {
   settings: MonthlyRecordSettingView
@@ -133,39 +119,18 @@ function MonthlyRecordSettingsForm({
         title="Monthly record generation"
         description="Choose when this workspace should create the month’s pending commitment roll."
       />
-      <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-        <form
-          action={updateMonthlyRecordSettingsAction}
-          className="grid gap-3 sm:grid-cols-[auto_minmax(10rem,14rem)_auto] sm:items-end"
-        >
-          <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-            <input
-              className="size-4"
-              defaultChecked={settings.autoGenerateEnabled}
-              name="autoGenerateEnabled"
-              type="checkbox"
-            />
-            Auto-generate
-          </label>
-          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-            Day of month
-            <Input
-              defaultValue={settings.generationDayOfMonth}
-              max={28}
-              min={1}
-              name="generationDayOfMonth"
-              type="number"
-            />
-          </label>
-          <Button size="sm" type="submit">
-            Save settings
-          </Button>
-        </form>
-        <form action={generateMonthlyRecordsNowAction}>
-          <Button size="sm" type="submit" variant="outline">
-            Generate due records now
-          </Button>
-        </form>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-muted-foreground">
+          Auto-generate is{" "}
+          <span className="font-medium text-foreground">
+            {settings.autoGenerateEnabled ? "enabled" : "disabled"}
+          </span>{" "}
+          for day {settings.generationDayOfMonth}.
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <OpenMonthlyRecordSettingsSheet />
+          <OpenMonthlyRecordGenerateSheet />
+        </div>
       </div>
     </DashboardSectionCard>
   )
@@ -245,149 +210,16 @@ function MonthlyRecordSideList({
             {content}
           </Link>
         ) : (
-          <form
+          <OpenMonthlyRecordCreateSheet
             key={`${selectedYear}-${monthNumber}`}
-            action={createMonthlyRecordAction}
+            month={monthNumber}
+            year={selectedYear}
           >
-            <input type="hidden" name="year" value={selectedYear} />
-            <input type="hidden" name="month" value={monthNumber} />
-            <button type="submit" className="block w-full text-left">
-              {content}
-            </button>
-          </form>
+            {content}
+          </OpenMonthlyRecordCreateSheet>
         )
       })}
     </ItemGroup>
-  )
-}
-
-function MonthlyRecordMembersTable({
-  rows,
-}: {
-  rows: MonthlyRecordMemberRow[]
-}) {
-  if (rows.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No members were found for this monthly record.
-      </p>
-    )
-  }
-
-  return (
-    <div className="w-full overflow-hidden rounded-xl border border-border/70">
-      <Table className="min-w-[1360px]">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Member ID</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Current balance</TableHead>
-            <TableHead>Loan status</TableHead>
-            <TableHead>Savings due</TableHead>
-            <TableHead>Share charge</TableHead>
-            <TableHead>Loan due</TableHead>
-            <TableHead>Total payable</TableHead>
-            <TableHead>Total paid</TableHead>
-            <TableHead>All charges</TableHead>
-            <TableHead>Final income</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => {
-            const formId = `apply-monthly-record-${row.id}`
-            const canApply = row.status !== "applied"
-            const canEditPaidAmount = row.status !== "applied"
-            const canCancel = row.status !== "cancelled"
-
-            return (
-              <TableRow key={row.id}>
-                <TableCell className="font-medium">
-                  {row.memberNumber}
-                </TableCell>
-                <TableCell>{row.memberName}</TableCell>
-                <TableCell>{formatCurrency(row.currentBalance)}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      row.loanStatus === "none" ? "secondary" : "outline"
-                    }
-                  >
-                    {loanStatusLabel(row.loanStatus)}
-                  </Badge>
-                </TableCell>
-                <TableCell>{formatCurrency(row.contributionAmount)}</TableCell>
-                <TableCell>{formatCurrency(row.shareChargeAmount)}</TableCell>
-                <TableCell>{formatCurrency(row.loanRepaymentAmount)}</TableCell>
-                <TableCell>{formatCurrency(row.totalPayableAmount)}</TableCell>
-                <TableCell>
-                  <CurrencyPrefixInput
-                    aria-label={`Total paid for ${row.memberName}`}
-                    className="w-32"
-                    defaultValue={row.totalPaidAmount.toFixed(2)}
-                    disabled={!canEditPaidAmount}
-                    form={formId}
-                    min="0"
-                    name="totalPaidAmount"
-                    step="0.01"
-                    type="number"
-                  />
-                </TableCell>
-                <TableCell>
-                  <AmountWithCalculatedDifference
-                    actual={row.allChargesAmount}
-                    calculated={row.calculatedChargesAmount}
-                    hasDifference={row.hasChargeDifference}
-                  />
-                </TableCell>
-                <TableCell>
-                  <AmountWithCalculatedDifference
-                    actual={row.finalIncomeAmount}
-                    calculated={row.calculatedFinalIncomeAmount}
-                    hasDifference={row.hasFinalIncomeDifference}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Badge variant={statusVariant(row.status)}>
-                    {monthlyRecordMemberStatusLabel(row.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-2">
-                    <form id={formId} action={applyMonthlyRecordMemberAction}>
-                      <input
-                        name="monthlyRecordMemberId"
-                        type="hidden"
-                        value={row.id}
-                      />
-                      <Button type="submit" size="sm" disabled={!canApply}>
-                        Apply
-                      </Button>
-                    </form>
-                    <form action={cancelMonthlyRecordMemberAction}>
-                      <input
-                        name="monthlyRecordMemberId"
-                        type="hidden"
-                        value={row.id}
-                      />
-                      <Button
-                        type="submit"
-                        size="sm"
-                        variant="outline"
-                        disabled={!canCancel}
-                      >
-                        Cancel
-                      </Button>
-                    </form>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </div>
   )
 }
 
@@ -453,11 +285,13 @@ function ChargeBreakdown({
 }
 
 export function MonthlyRecordsPageView({
+  monthlyRecordTableSettings,
   records,
   selectedRecord,
   selectedYear,
   settings,
 }: {
+  monthlyRecordTableSettings?: Partial<TableSettings>
   records: MonthlyRecordSummary[]
   selectedRecord: MonthlyRecordDetail | null
   selectedYear: number
@@ -465,7 +299,7 @@ export function MonthlyRecordsPageView({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <MonthlyRecordSettingsForm settings={settings} />
+      <MonthlyRecordAutomationSummary settings={settings} />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <DashboardStatCard
@@ -499,7 +333,7 @@ export function MonthlyRecordsPageView({
             actions={<TrendPill>{selectedYear}</TrendPill>}
           />
           <div className="mt-5 flex flex-col gap-4">
-            <YearSelectForm selectedYear={selectedYear} />
+            <MonthlyRecordYearControl selectedYear={selectedYear} />
             <div className="max-h-[36rem] overflow-y-auto pr-1">
               <MonthlyRecordSideList
                 records={records}
@@ -517,7 +351,12 @@ export function MonthlyRecordsPageView({
             description="Edit the total paid amount before applying a staged member row. Cancel is available while the row is still staged."
             actions={
               selectedRecord ? (
-                <TrendPill>{selectedRecord.cancelledCount} cancelled</TrendPill>
+                <div className="flex items-center gap-2">
+                  <TrendPill>
+                    {selectedRecord.cancelledCount} cancelled
+                  </TrendPill>
+                  <MonthlyRecordColumnVisibility />
+                </div>
               ) : undefined
             }
           />
@@ -528,10 +367,18 @@ export function MonthlyRecordsPageView({
                 totalChargeAmount={selectedRecord?.totalChargeAmount ?? 0}
               />
             </div>
-            <MonthlyRecordMembersTable rows={selectedRecord?.rows ?? []} />
+            <MonthlyRecordsDataTable
+              initialSettings={monthlyRecordTableSettings}
+              monthlyRecordId={selectedRecord?.id}
+            />
           </div>
         </DashboardSectionCard>
       </section>
+
+      <MonthlyRecordSheet
+        rows={selectedRecord?.rows ?? []}
+        settings={settings}
+      />
     </div>
   )
 }

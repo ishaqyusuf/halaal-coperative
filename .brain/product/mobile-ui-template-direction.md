@@ -155,6 +155,7 @@ Tenant branding can override accent and logo, but financial semantic colors shou
 - Keep member balances distinct: savings, share capital, financing principal, charges, repayments, and profit allocation.
 - Use accessible contrast for all text and controls.
 - Preserve tenant isolation and role boundaries in every screen.
+- NativeWind semantic theme classes and built-in palette utilities must enter Metro through `withNativewind(config, { input: "./src/styles/global.css" })` and resolve variables through the app root `VariableContextProvider`, with the active light/dark semantic token map from `THEME` plus RN-safe Tailwind stock palette variables such as `--color-red-500`. Do not rely on a `vars()` style object on a plain React Native wrapper for root theme tokens, because token classes can compile correctly but resolve as missing variables at runtime.
 
 ## Open Design Questions
 - Confirm whether the shared Halaalvest brand should keep black/gold as the default app theme.

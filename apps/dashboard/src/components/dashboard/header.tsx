@@ -20,7 +20,7 @@ export function DashboardPageHeader({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             {eyebrow ? (
-              <p className="text-[11px] font-medium tracking-[0.22em] text-muted-foreground uppercase">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase">
                 {eyebrow}
               </p>
             ) : null}

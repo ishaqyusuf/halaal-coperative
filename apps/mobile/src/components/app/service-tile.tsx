@@ -1,44 +1,56 @@
-import { Icon } from "@/components/ui/icon";
-import { Pressable } from "@/components/ui/pressable";
-import { Text } from "@/components/ui/text";
-import { View } from "react-native";
+import { Icon } from "@/components/ui/icon"
+import { Pressable } from "@/components/ui/pressable"
+import { Text } from "@/components/ui/text"
+import type { LinkProps } from "expo-router"
+import { View } from "react-native"
 
 const toneClass = {
   accent: "bg-accent",
   primary: "bg-primary",
   success: "bg-success",
-};
+}
 
 const iconClass = {
   accent: "text-accent-foreground",
   primary: "text-primary-foreground",
   success: "text-success-foreground",
-};
+}
 
 export function ServiceTile({
+  accessibilityLabel,
+  href,
   icon,
   label,
   tone,
 }: {
-  icon: string;
-  label: string;
-  tone: keyof typeof toneClass;
+  accessibilityLabel?: string
+  href?: LinkProps["href"]
+  icon: string
+  label: string
+  tone: keyof typeof toneClass
 }) {
   return (
     <Pressable
+      accessibilityLabel={accessibilityLabel ?? `Open ${label}`}
       accessibilityRole="button"
-      className="w-[23%] min-w-[76px] items-center gap-2 rounded-md p-2"
+      className="min-h-[112px] w-[23%] min-w-[78px] items-center justify-start gap-2 rounded-md border border-transparent p-2 active:border-border active:bg-secondary/70"
+      href={href}
       haptic
       transition
     >
       <View
-        className={`h-14 w-14 items-center justify-center rounded-md ${toneClass[tone]}`}
+        className={`h-14 w-14 shrink-0 items-center justify-center rounded-md ${toneClass[tone]}`}
       >
         <Icon name={icon} className={`size-md ${iconClass[tone]}`} />
       </View>
-      <Text className="text-center text-xs font-medium leading-4 text-foreground">
+      <Text
+        adjustsFontSizeToFit
+        className="min-h-8 text-center text-xs leading-4 font-medium text-foreground"
+        minimumFontScale={0.82}
+        numberOfLines={2}
+      >
         {label}
       </Text>
     </Pressable>
-  );
+  )
 }

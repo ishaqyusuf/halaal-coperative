@@ -4,11 +4,41 @@ import {
   getTenantInitialMigrationState,
   listInitialMigrationMemberReview,
 } from "@halaalvest/db"
-import type {
-  Business,
-  DividendPeriodOption,
-} from "@/components/tables/business/columns"
 import { getDashboardServerContext } from "@/lib/server-context"
+
+type DividendPeriodOption = {
+  id: string
+  label: string
+}
+
+type BusinessProfitEntry = {
+  allocatedProfitAmount: number
+  allocationCount: number
+  allocatableProfitAmount: number
+  expenseAmount: number
+  hasPublishedAllocations: boolean
+  id: string
+  linkedDividendPeriod?: RawLinkedDividendPeriod | null
+  notes?: string | null
+  profitAmount: number
+  profitDate: string
+  reason?: string | null
+  sourceType: string
+  status: string
+}
+
+type Business = {
+  capitalAmount: number
+  endDate: string | null
+  id: string
+  linkedDividendPeriod?: RawLinkedDividendPeriod | null
+  name: string
+  notes?: string | null
+  profitAmount: number
+  profitEntries: BusinessProfitEntry[]
+  startDate: string
+  status: string
+}
 
 type RawLinkedDividendPeriod = {
   id: string

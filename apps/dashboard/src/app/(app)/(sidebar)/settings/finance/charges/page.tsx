@@ -6,27 +6,23 @@ import {
   getTenantInitialMigrationState,
   listInitialMigrationMemberReview,
 } from "@halaalvest/db"
-import { ChargeHeader } from "@/components/charge-header"
-import { ScrollableContent } from "@/components/dashboard"
-import { SecondaryMenu } from "@/components/secondary-menu"
-import { DataTable } from "@/components/tables/charges/data-table"
+import { FinanceChargeSettingsView } from "@/components/finance-charge-settings-view"
 import type { Charge, ChargeVersion } from "@/components/tables/charges/columns"
 import { loadChargeFilterParams } from "@/hooks/use-charge-filter-params"
 import { loadChargeParams } from "@/hooks/use-charge-params"
+import { loadSortParams } from "@/hooks/use-sort-params"
 import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
+import {
+  getQueryClient,
+  getServerCaller,
+  HydrateClient,
+  trpc,
+} from "@/trpc/server"
+import { getInitialTableSettings } from "@/utils/columns"
 
 export const metadata: Metadata = {
   title: "Charges | Finance Settings",
 }
-
-const financeMenuItems = [
-  { path: "/settings/finance", label: "Overview" },
-  { path: "/settings/finance/shares", label: "Shares" },
-  { path: "/settings/finance/charges", label: "Charges" },
-  { path: "/settings/finance/business", label: "Business" },
-  { path: "/settings/finance/loan", label: "Loan" },
-  { path: "/settings/finance/migration", label: "Migration" },
-]
 
 const demoChargeDefinitions = [
   {
@@ -76,6 +72,38 @@ const demoChargeDefinitions = [
     ],
   },
 ]
+
+type ChargeSortField =
+  | "chargeFrequency"
+  | "chargeValueType"
+  | "currentAmount"
+  | "isActive"
+  | "name"
+  | "versionCount"
+
+function getChargeSort(
+  sort?: string[] | null
+): [ChargeSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const validFields = new Set<string>([
+    "chargeFrequency",
+    "chargeValueType",
+    "currentAmount",
+    "isActive",
+    "name",
+    "versionCount",
+  ])
+
+  if (!validFields.has(field)) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [field as ChargeSortField, direction]
+}
 
 function withCurrentVersion(rows: Omit<Charge, "currentVersion">[]): Charge[] {
   return rows.map((row) => ({
@@ -182,9 +210,13 @@ async function FinanceChargesPageContent({
   searchParams: Promise<SearchParams>
 }) {
   const resolvedSearchParams = await searchParams
-  loadChargeFilterParams(resolvedSearchParams)
+  const filter = loadChargeFilterParams(resolvedSearchParams)
   loadChargeParams(resolvedSearchParams)
-  const context = await getDashboardServerContext()
+  const { sort } = loadSortParams(resolvedSearchParams)
+  const [context, initialChargeTableSettings] = await Promise.all([
+    getDashboardServerContext(),
+    getInitialTableSettings("charges"),
+  ])
   const runtime = createDbRuntime()
   const quickFillEnabled = canShowQuickFill(context)
 
@@ -192,8 +224,10 @@ async function FinanceChargesPageContent({
   let rows = withCurrentVersion(demoChargeDefinitions)
   let financeStartDate = context.tenant?.startDate ?? "2024-01-01"
   let tenantName = context.tenant?.name ?? "Demo cooperative"
+  const remoteRows =
+    Boolean(context.tenant) && runtime.status === "database-configured"
 
-  if (context.tenant && runtime.status === "database-configured") {
+  if (remoteRows && context.tenant) {
     const [data, migrationState, migrationMemberReview] = await Promise.all([
       getTenantFinanceSetup(context.tenant.id),
       getTenantInitialMigrationState(context.tenant.id),
@@ -214,36 +248,40 @@ async function FinanceChargesPageContent({
     rows = mapChargeRows(data.chargeDefinitions)
   }
 
+  if (remoteRows) {
+    const chargeInput = {
+      frequency: filter.frequency ?? undefined,
+      q: filter.q ?? undefined,
+      sort: getChargeSort(sort),
+      status: filter.status ?? undefined,
+      valueType: filter.valueType ?? undefined,
+    }
+    const chargeOptions = trpc.charges.financeCharges.infiniteQueryOptions(
+      chargeInput,
+      {
+        getNextPageParam: ({ meta }) => meta?.cursor,
+      }
+    )
+    const caller = await getServerCaller()
+    const initialChargePage = await caller.charges.financeCharges(chargeInput)
+
+    getQueryClient().setQueryData(chargeOptions.queryKey, {
+      pageParams: [chargeOptions.initialPageParam],
+      pages: [initialChargePage],
+    })
+  }
+
   return (
-    <ScrollableContent>
-      <div className="flex max-w-[900px] flex-col gap-6">
-        <SecondaryMenu items={financeMenuItems} />
-
-        <div>
-          <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-            Finance settings
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-            Charges
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Manage the dated charge definitions and amount history for{" "}
-            {tenantName} before member ledger backfill starts.
-          </p>
-        </div>
-
-        <ChargeHeader
-          financeStartDate={financeStartDate}
-          isLocked={isLocked}
-          quickFillEnabled={quickFillEnabled}
-        />
-        <DataTable
-          financeStartDate={financeStartDate}
-          hasSourceRows={rows.length > 0}
-          isLocked={isLocked}
-          rows={rows}
-        />
-      </div>
-    </ScrollableContent>
+    <HydrateClient>
+      <FinanceChargeSettingsView
+        financeStartDate={financeStartDate}
+        initialChargeTableSettings={initialChargeTableSettings}
+        isLocked={isLocked}
+        quickFillEnabled={quickFillEnabled}
+        remoteRows={remoteRows}
+        rows={rows}
+        tenantName={tenantName}
+      />
+    </HydrateClient>
   )
 }

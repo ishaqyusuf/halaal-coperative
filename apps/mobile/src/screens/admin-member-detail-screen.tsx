@@ -1,6 +1,8 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -107,9 +109,12 @@ function DetailSection({
                 ) : null}
               </View>
               {row.status ? (
-                <Text className="mt-1 text-xs font-medium text-muted-foreground">
-                  {row.status}
-                </Text>
+                <View className="mt-2 items-start">
+                  <StatusBadge
+                    label={row.status}
+                    tone={getStatusBadgeTone(row.status)}
+                  />
+                </View>
               ) : null}
             </View>
           )
@@ -284,6 +289,24 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
             {detail?.member ? (
               <SectionCard icon="BadgeCheck" title={detail.member.fullName}>
                 <View className="gap-3">
+                  <View className="flex-row flex-wrap gap-2">
+                    <StatusBadge
+                      label={formatStatus(detail.member.status)}
+                      tone={getStatusBadgeTone(detail.member.status)}
+                    />
+                    <StatusBadge
+                      label={`${formatStatus(detail.member.kycStatus)} KYC`}
+                      tone={getStatusBadgeTone(detail.member.kycStatus)}
+                    />
+                    <StatusBadge
+                      label={
+                        detail.member.linkedUserEmail
+                          ? "Login linked"
+                          : "Login unlinked"
+                      }
+                      tone={detail.member.linkedUserEmail ? "success" : "muted"}
+                    />
+                  </View>
                   <View className="gap-1">
                     <Text className="text-sm leading-5 text-muted-foreground">
                       {detail.member.memberNumber} -{" "}
@@ -295,12 +318,11 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
                         ? ` - Exited ${formatDate(detail.member.exitedAt)}`
                         : ""}
                     </Text>
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      {formatStatus(detail.member.kycStatus)} KYC
-                      {detail.member.deductionSourceName
-                        ? ` - ${detail.member.deductionSourceName}`
-                        : ""}
-                    </Text>
+                    {detail.member.deductionSourceName ? (
+                      <Text className="text-sm leading-5 text-muted-foreground">
+                        {detail.member.deductionSourceName}
+                      </Text>
+                    ) : null}
                     <Text className="text-xs font-medium text-muted-foreground">
                       {detail.member.linkedUserEmail
                         ? `Linked login ${detail.member.linkedUserEmail}`
@@ -409,9 +431,11 @@ export function AdminMemberDetailScreen({ memberId }: { memberId: string }) {
               ))
             ) : (
               <SectionCard icon="FileText" title="Member detail">
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No detail is available for this member profile.
-                </Text>
+                <EmptyState
+                  description="Grouped member sections will appear here when records are available."
+                  icon="FileText"
+                  title="No member detail"
+                />
               </SectionCard>
             )}
 

@@ -168,7 +168,9 @@ The target flow should be:
 
 ## Further Notes
 
-- Triage label: ready-for-agent.
+- Triage label: done.
+- Implementation completed on 2026-07-15 across `.scratch/mobile-ui-flow-refresh/issues/01-09`: shared app primitives, auth/bootstrap/tabs, member home and service flows, member form review sheets, admin exception queues, member/admin review surfaces, reports/More polish, and final mobile QA gates.
+- Validation completed with mobile typecheck, native import guard, NativeWind token guard, mobile smoke coverage, mobile API router tests, lint, Prettier checks, and a NativeWind `className`/`style` collision scan. Lint passes with the existing generated `.expo/types/router.d.ts` unused eslint-disable warning.
 - This spec should be handed to Gemini as a focused UI implementation guide.
 - The selected source references were checked on July 12, 2026.
 - Direct Pinterest pin capture was not reliable in the browsing environment. Use Pinterest as a search/moodboard source with the supplied query terms instead of relying on specific pin URLs.

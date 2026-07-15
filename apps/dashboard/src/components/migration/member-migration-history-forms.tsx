@@ -42,8 +42,8 @@ import { ChevronsUpDownIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import type { FieldErrors, FieldPath } from "react-hook-form"
 import { z } from "zod"
 import { DatePickerInput } from "@/components/date-picker-input"
+import { MemberCreateSheet } from "@/components/sheets/member-create-sheet"
 import { MemberBackfillFooterPortal } from "@/components/members/member-backfill-footer-slot"
-import { MemberCreateModal } from "@/components/modals/member-create-modal"
 import { useCreateMemberParams } from "@/hooks/use-create-member-params"
 import {
   createLegacyLoanMigrationDraftAction,
@@ -1255,101 +1255,74 @@ export function CommitmentHistoryEntryForm({
             Clear
           </Button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="ml-auto w-full max-w-[520px] min-w-[420px] table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0">
-            <colgroup>
-              <col className="w-[220px]" />
-              <col className="w-[140px]" />
-              <col className="w-8" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  Date
-                </th>
-                <th
-                  className="text-left text-xs font-medium text-muted-foreground"
-                  scope="col"
-                >
-                  Amount
-                </th>
-                <th scope="col">
-                  <span className="sr-only">Action</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIndex) => {
-                const effectiveFromError = getCommitmentRowFieldError(
-                  form.formState.errors,
-                  rowIndex,
-                  "effectiveFrom"
-                )
-                const amountError = getCommitmentRowFieldError(
-                  form.formState.errors,
-                  rowIndex,
-                  "amount"
-                )
+        <div className="ml-auto grid w-full max-w-[520px] gap-3">
+          {rows.map((row, rowIndex) => {
+            const effectiveFromError = getCommitmentRowFieldError(
+              form.formState.errors,
+              rowIndex,
+              "effectiveFrom"
+            )
+            const amountError = getCommitmentRowFieldError(
+              form.formState.errors,
+              rowIndex,
+              "amount"
+            )
 
-                return (
-                  <tr className="align-top" key={row.id}>
-                    <td>
-                      <input name="rowId" type="hidden" value={row.rowId} />
-                      <DatePickerInput
-                        allowClear={false}
-                        aria-invalid={Boolean(effectiveFromError)}
-                        aria-label="Commitment date"
-                        disabled={disabled || !memberId}
-                        min={memberJoinedAt ?? undefined}
-                        name="effectiveFrom"
-                        onChange={(effectiveFrom) =>
-                          updateRow(row.id, { effectiveFrom })
-                        }
-                        placeholder="Select commitment date"
-                        value={row.effectiveFrom}
-                      />
-                      <input name="notes" type="hidden" value={row.notes} />
-                    </td>
-                    <td>
-                      <CurrencyInput
-                        allowNegative={false}
-                        aria-invalid={Boolean(amountError)}
-                        aria-label="Commitment amount"
-                        decimalScale={2}
-                        disabled={disabled || !memberId}
-                        inputMode="decimal"
-                        onValueChange={(values) =>
-                          updateRow(row.id, { amount: values.value })
-                        }
-                        placeholder="Enter commitment amount"
-                        value={row.amount}
-                        valueIsNumericString
-                      />
-                      <input name="amount" type="hidden" value={row.amount} />
-                    </td>
-                    <td>
-                      <DeleteCommitmentHistoryRowButton
-                        disabled={disabled || !memberId}
-                        onDelete={() => deleteRow(row.id)}
-                      />
-                    </td>
-                  </tr>
-                )
-              })}
-              <tr>
-                <td colSpan={3}>
-                  <AddInlineRowButton
+            return (
+              <div
+                className="grid gap-3 border-t border-border/70 pt-3 sm:grid-cols-[minmax(0,1fr)_9rem_2rem] sm:items-start"
+                key={row.id}
+              >
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                  Date
+                  <input name="rowId" type="hidden" value={row.rowId} />
+                  <DatePickerInput
+                    allowClear={false}
+                    aria-invalid={Boolean(effectiveFromError)}
+                    aria-label="Commitment date"
                     disabled={disabled || !memberId}
-                    label="Add Commitment"
-                    onAdd={addCommitmentRow}
+                    min={memberJoinedAt ?? undefined}
+                    name="effectiveFrom"
+                    onChange={(effectiveFrom) =>
+                      updateRow(row.id, { effectiveFrom })
+                    }
+                    placeholder="Select commitment date"
+                    value={row.effectiveFrom}
                   />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  <input name="notes" type="hidden" value={row.notes} />
+                </label>
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                  Amount
+                  <CurrencyInput
+                    allowNegative={false}
+                    aria-invalid={Boolean(amountError)}
+                    aria-label="Commitment amount"
+                    decimalScale={2}
+                    disabled={disabled || !memberId}
+                    inputMode="decimal"
+                    onValueChange={(values) =>
+                      updateRow(row.id, { amount: values.value })
+                    }
+                    placeholder="Enter commitment amount"
+                    value={row.amount}
+                    valueIsNumericString
+                  />
+                  <input name="amount" type="hidden" value={row.amount} />
+                </label>
+                <div className="pt-6">
+                  <DeleteCommitmentHistoryRowButton
+                    disabled={disabled || !memberId}
+                    onDelete={() => deleteRow(row.id)}
+                  />
+                </div>
+              </div>
+            )
+          })}
+          <AddInlineRowButton
+            disabled={disabled || !memberId}
+            label="Add Commitment"
+            onAdd={addCommitmentRow}
+          />
         </div>
         {showSubmitButton ? (
           <div className="flex justify-end">
@@ -1657,271 +1630,203 @@ export function LoanHistoryEntryForm({
               Clear
             </Button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[780px] table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0">
-              <colgroup>
-                <col className="w-[112px]" />
-                <col className="w-[116px]" />
-                <col />
-                <col />
-                <col className="w-[116px]" />
-                <col className="w-[116px]" />
-                <col className="w-8" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th
-                    className="text-left text-xs font-medium text-muted-foreground"
-                    scope="col"
-                  >
-                    Date
-                  </th>
-                  <th
-                    className="text-left text-xs font-medium text-muted-foreground"
-                    scope="col"
-                  >
-                    Amount
-                  </th>
-                  <th
-                    className="text-left text-xs font-medium text-muted-foreground"
-                    scope="col"
-                  >
-                    G1
-                  </th>
-                  <th
-                    className="text-left text-xs font-medium text-muted-foreground"
-                    scope="col"
-                  >
-                    G2
-                  </th>
-                  <th
-                    className="text-left text-xs font-medium text-muted-foreground"
-                    scope="col"
-                  >
-                    Repayment
-                  </th>
-                  <th
-                    className="text-left text-xs font-medium text-muted-foreground"
-                    scope="col"
-                  >
-                    Commitment
-                  </th>
-                  <th scope="col">
-                    <span className="sr-only">Action</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, rowIndex) => {
-                  const openedAtError = getLoanRowFieldError(
-                    form.formState.errors,
-                    rowIndex,
-                    "openedAt"
-                  )
-                  const principalAmountError = getLoanRowFieldError(
-                    form.formState.errors,
-                    rowIndex,
-                    "principalAmount"
-                  )
-                  const guarantorTwoError = getLoanRowFieldError(
-                    form.formState.errors,
-                    rowIndex,
-                    "guarantorTwoMemberId"
-                  )
-                  const repaymentError = getLoanRowFieldError(
-                    form.formState.errors,
-                    rowIndex,
-                    "scheduledMonthlyPrincipalRepayment"
-                  )
-                  const savingsDuringLoanError = getLoanRowFieldError(
-                    form.formState.errors,
-                    rowIndex,
-                    "savingsDuringLoan"
-                  )
+          <div className="grid gap-3">
+            {rows.map((row, rowIndex) => {
+              const openedAtError = getLoanRowFieldError(
+                form.formState.errors,
+                rowIndex,
+                "openedAt"
+              )
+              const principalAmountError = getLoanRowFieldError(
+                form.formState.errors,
+                rowIndex,
+                "principalAmount"
+              )
+              const guarantorTwoError = getLoanRowFieldError(
+                form.formState.errors,
+                rowIndex,
+                "guarantorTwoMemberId"
+              )
+              const repaymentError = getLoanRowFieldError(
+                form.formState.errors,
+                rowIndex,
+                "scheduledMonthlyPrincipalRepayment"
+              )
+              const savingsDuringLoanError = getLoanRowFieldError(
+                form.formState.errors,
+                rowIndex,
+                "savingsDuringLoan"
+              )
 
-                  return (
-                    <tr
-                      className={cn(
-                        "align-top [&_td]:transition-colors [&_td]:duration-700",
-                        flashRowId === row.id && "[&_td]:bg-muted/70"
-                      )}
-                      key={row.id}
-                    >
-                      <td>
-                        <DatePickerInput
-                          allowClear={false}
-                          aria-invalid={Boolean(openedAtError)}
-                          aria-label="Loan date"
-                          disabled={disabled || !memberId}
-                          min={memberJoinedAt ?? undefined}
-                          name="openedAt"
-                          onChange={(openedAt) =>
-                            updateLoanDate(row.id, openedAt)
-                          }
-                          placeholder="Select loan date"
-                          value={row.openedAt}
-                        />
-                        <input
-                          name="draftId"
-                          type="hidden"
-                          value={row.draftId}
-                        />
-                        <input
-                          name="closedAt"
-                          type="hidden"
-                          value={row.closedAt}
-                        />
-                        <input
-                          name="loanLabel"
-                          type="hidden"
-                          value={row.loanLabel}
-                        />
-                        <input name="notes" type="hidden" value={row.notes} />
-                        <input
-                          name="outstandingPrincipalBalance"
-                          type="hidden"
-                          value={row.outstandingPrincipalBalance}
-                        />
-                      </td>
-                      <td>
-                        <CurrencyInput
-                          allowNegative={false}
-                          aria-invalid={Boolean(principalAmountError)}
-                          aria-label="Loan amount"
-                          decimalScale={2}
-                          disabled={disabled || !memberId}
-                          inputMode="decimal"
-                          onValueChange={(values) =>
-                            updateRow(row.id, {
-                              principalAmount: values.value,
-                            })
-                          }
-                          placeholder="Enter loan amount"
-                          value={row.principalAmount}
-                          valueIsNumericString
-                        />
-                        <input
-                          name="principalAmount"
-                          type="hidden"
-                          value={row.principalAmount}
-                        />
-                      </td>
-                      <td>
-                        <GuarantorMemberInput
-                          disabled={disabled || !memberId}
-                          fieldPrefix="guarantorOne"
-                          label="G1"
-                          onCreateMember={handleCreateGuarantor}
-                          options={guarantorOptions}
-                          promotedOptionIds={promotedGuarantorIds}
-                          row={row}
-                          updateRow={(patch) =>
-                            updateRow(row.id, {
-                              ...patch,
-                              ...(patch.guarantorOneMemberId &&
-                              patch.guarantorOneMemberId ===
-                                row.guarantorTwoMemberId
-                                ? { guarantorTwoMemberId: "" }
-                                : {}),
-                            })
-                          }
-                        />
-                        <div className="mt-1 flex justify-end">
-                          <Button
-                            disabled={disabled || !memberId}
-                            onClick={() => quickFillGuarantors(row)}
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                          >
-                            Quick fill
-                          </Button>
-                        </div>
-                      </td>
-                      <td>
-                        <GuarantorMemberInput
-                          disabled={disabled || !memberId}
-                          disabledOptionIds={
-                            row.guarantorOneMemberId
-                              ? [row.guarantorOneMemberId]
-                              : []
-                          }
-                          fieldPrefix="guarantorTwo"
-                          invalid={Boolean(guarantorTwoError)}
-                          label="G2"
-                          onCreateMember={handleCreateGuarantor}
-                          options={guarantorOptions}
-                          promotedOptionIds={promotedGuarantorIds}
-                          row={row}
-                          updateRow={(patch) => updateRow(row.id, patch)}
-                        />
-                      </td>
-                      <td>
-                        <CurrencyInput
-                          allowNegative={false}
-                          aria-invalid={Boolean(repaymentError)}
-                          aria-label="Monthly repayment"
-                          decimalScale={2}
-                          disabled={disabled || !memberId}
-                          inputMode="decimal"
-                          onValueChange={(values) =>
-                            updateRow(row.id, {
-                              scheduledMonthlyPrincipalRepayment: values.value,
-                            })
-                          }
-                          placeholder="Enter monthly repayment"
-                          value={row.scheduledMonthlyPrincipalRepayment}
-                          valueIsNumericString
-                        />
-                        <input
-                          name="scheduledMonthlyPrincipalRepayment"
-                          type="hidden"
-                          value={row.scheduledMonthlyPrincipalRepayment}
-                        />
-                      </td>
-                      <td>
-                        <CurrencyInput
-                          allowNegative={false}
-                          aria-invalid={Boolean(savingsDuringLoanError)}
-                          aria-label="Savings commitment during loan"
-                          decimalScale={2}
-                          disabled={disabled || !memberId}
-                          inputMode="decimal"
-                          onValueChange={(values) =>
-                            updateRow(row.id, {
-                              savingsDuringLoan: values.value,
-                            })
-                          }
-                          placeholder="Enter savings commitment"
-                          value={row.savingsDuringLoan}
-                          valueIsNumericString
-                        />
-                        <input
-                          name="savingsDuringLoan"
-                          type="hidden"
-                          value={row.savingsDuringLoan}
-                        />
-                      </td>
-                      <td>
-                        <DeleteLoanHistoryRowButton
-                          disabled={disabled || !memberId}
-                          onDelete={() => deleteRow(row.id)}
-                        />
-                      </td>
-                    </tr>
-                  )
-                })}
-                <tr>
-                  <td colSpan={7}>
-                    <AddInlineRowButton
+              return (
+                <div
+                  className={cn(
+                    "grid gap-3 border-t border-border/70 pt-3 transition-colors duration-700 sm:grid-cols-2 xl:grid-cols-[7rem_8rem_minmax(0,1fr)_minmax(0,1fr)_8rem_8rem_2rem] xl:items-start",
+                    flashRowId === row.id && "bg-muted/70"
+                  )}
+                  key={row.id}
+                >
+                  <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                    Date
+                    <DatePickerInput
+                      allowClear={false}
+                      aria-invalid={Boolean(openedAtError)}
+                      aria-label="Loan date"
                       disabled={disabled || !memberId}
-                      label="Add Loan"
-                      onAdd={addLoanRow}
+                      min={memberJoinedAt ?? undefined}
+                      name="openedAt"
+                      onChange={(openedAt) => updateLoanDate(row.id, openedAt)}
+                      placeholder="Select loan date"
+                      value={row.openedAt}
                     />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    <input name="draftId" type="hidden" value={row.draftId} />
+                    <input name="closedAt" type="hidden" value={row.closedAt} />
+                    <input
+                      name="loanLabel"
+                      type="hidden"
+                      value={row.loanLabel}
+                    />
+                    <input name="notes" type="hidden" value={row.notes} />
+                    <input
+                      name="outstandingPrincipalBalance"
+                      type="hidden"
+                      value={row.outstandingPrincipalBalance}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                    Amount
+                    <CurrencyInput
+                      allowNegative={false}
+                      aria-invalid={Boolean(principalAmountError)}
+                      aria-label="Loan amount"
+                      decimalScale={2}
+                      disabled={disabled || !memberId}
+                      inputMode="decimal"
+                      onValueChange={(values) =>
+                        updateRow(row.id, {
+                          principalAmount: values.value,
+                        })
+                      }
+                      placeholder="Enter loan amount"
+                      value={row.principalAmount}
+                      valueIsNumericString
+                    />
+                    <input
+                      name="principalAmount"
+                      type="hidden"
+                      value={row.principalAmount}
+                    />
+                  </label>
+                  <div>
+                    <GuarantorMemberInput
+                      disabled={disabled || !memberId}
+                      fieldPrefix="guarantorOne"
+                      label="G1"
+                      onCreateMember={handleCreateGuarantor}
+                      options={guarantorOptions}
+                      promotedOptionIds={promotedGuarantorIds}
+                      row={row}
+                      updateRow={(patch) =>
+                        updateRow(row.id, {
+                          ...patch,
+                          ...(patch.guarantorOneMemberId &&
+                          patch.guarantorOneMemberId ===
+                            row.guarantorTwoMemberId
+                            ? { guarantorTwoMemberId: "" }
+                            : {}),
+                        })
+                      }
+                    />
+                    <div className="mt-1 flex justify-end">
+                      <Button
+                        disabled={disabled || !memberId}
+                        onClick={() => quickFillGuarantors(row)}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Quick fill
+                      </Button>
+                    </div>
+                  </div>
+                  <GuarantorMemberInput
+                    disabled={disabled || !memberId}
+                    disabledOptionIds={
+                      row.guarantorOneMemberId
+                        ? [row.guarantorOneMemberId]
+                        : []
+                    }
+                    fieldPrefix="guarantorTwo"
+                    invalid={Boolean(guarantorTwoError)}
+                    label="G2"
+                    onCreateMember={handleCreateGuarantor}
+                    options={guarantorOptions}
+                    promotedOptionIds={promotedGuarantorIds}
+                    row={row}
+                    updateRow={(patch) => updateRow(row.id, patch)}
+                  />
+                  <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                    Repayment
+                    <CurrencyInput
+                      allowNegative={false}
+                      aria-invalid={Boolean(repaymentError)}
+                      aria-label="Monthly repayment"
+                      decimalScale={2}
+                      disabled={disabled || !memberId}
+                      inputMode="decimal"
+                      onValueChange={(values) =>
+                        updateRow(row.id, {
+                          scheduledMonthlyPrincipalRepayment: values.value,
+                        })
+                      }
+                      placeholder="Enter monthly repayment"
+                      value={row.scheduledMonthlyPrincipalRepayment}
+                      valueIsNumericString
+                    />
+                    <input
+                      name="scheduledMonthlyPrincipalRepayment"
+                      type="hidden"
+                      value={row.scheduledMonthlyPrincipalRepayment}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                    Commitment
+                    <CurrencyInput
+                      allowNegative={false}
+                      aria-invalid={Boolean(savingsDuringLoanError)}
+                      aria-label="Savings commitment during loan"
+                      decimalScale={2}
+                      disabled={disabled || !memberId}
+                      inputMode="decimal"
+                      onValueChange={(values) =>
+                        updateRow(row.id, {
+                          savingsDuringLoan: values.value,
+                        })
+                      }
+                      placeholder="Enter savings commitment"
+                      value={row.savingsDuringLoan}
+                      valueIsNumericString
+                    />
+                    <input
+                      name="savingsDuringLoan"
+                      type="hidden"
+                      value={row.savingsDuringLoan}
+                    />
+                  </label>
+                  <div className="pt-6">
+                    <DeleteLoanHistoryRowButton
+                      disabled={disabled || !memberId}
+                      onDelete={() => deleteRow(row.id)}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+            <AddInlineRowButton
+              disabled={disabled || !memberId}
+              label="Add Loan"
+              onAdd={addLoanRow}
+            />
           </div>
           {showSubmitButton ? (
             <div className="flex justify-end">
@@ -1944,7 +1849,7 @@ export function LoanHistoryEntryForm({
         </form>
       </Form>
 
-      <MemberCreateModal
+      <MemberCreateSheet
         cooperativeStartDate={cooperativeStartDate}
         description="Create a member profile and select them as guarantor."
         devMode={quickFillEnabled}

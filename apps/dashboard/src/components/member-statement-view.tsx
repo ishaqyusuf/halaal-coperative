@@ -1,18 +1,10 @@
 import Link from "next/link"
 import { formatCurrency } from "@halaalvest/utils"
 import {
-  DashboardDataTable,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
-} from "@/components/dashboard/static-table"
-import {
   DashboardSectionCard,
   DashboardSectionHeader,
   DashboardStatCard,
+  DashboardSurfaceCard,
   TrendPill,
 } from "@/components/dashboard"
 import { loadMemberDetailPageData } from "@/lib/members"
@@ -50,16 +42,24 @@ function formatChargeSource(
   )
 }
 
+function EmptyStatementRows({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+      {label}
+    </div>
+  )
+}
+
 export function MemberStatementView({ detail }: MemberDetailPageData) {
   return (
     <section className="mx-auto max-w-6xl space-y-6 px-6 py-10 print:px-0">
-      <div className="rounded-[28px] border border-border/70 bg-card px-6 py-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <div className="rounded-lg border border-border/70 bg-card px-6 py-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-[11px] font-medium tracking-[0.22em] text-muted-foreground uppercase">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase">
               Member statement
             </p>
-            <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.04em] text-foreground">
+            <h1 className="mt-3 text-[32px] font-semibold text-foreground">
               {detail.member.fullName}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -115,35 +115,40 @@ export function MemberStatementView({ detail }: MemberDetailPageData) {
           eyebrow="Dividends"
           title="Published dividend allocations"
         />
-        <div className="mt-5">
-          <DashboardDataTable>
-            <DashboardTable>
-              <DashboardTableHead>
-                <DashboardTableHeaderCell>Period</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Published</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Basis</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Allocation</DashboardTableHeaderCell>
-              </DashboardTableHead>
-              <DashboardTableBody>
-                {detail.dividendAllocations.slice(0, 20).map((allocation) => (
-                  <DashboardTableRow key={allocation.id}>
-                    <DashboardTableCell>
+        <div className="mt-5 space-y-3">
+          {detail.dividendAllocations.length ? (
+            detail.dividendAllocations.slice(0, 20).map((allocation) => (
+              <DashboardSurfaceCard
+                as="article"
+                className="rounded-lg"
+                key={allocation.id}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">
                       {allocation.dividendPeriod.name}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      {formatIsoDate(allocation.dividendPeriod.publishedAt)}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Published{" "}
+                      {formatIsoDate(allocation.dividendPeriod.publishedAt) ??
+                        "not dated"}
+                    </p>
+                  </div>
+                  <div className="text-sm sm:text-right">
+                    <p className="text-muted-foreground">
+                      Basis{" "}
                       {formatCurrency(Number(allocation.savingsBasisAmount))}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
+                    </p>
+                    <p className="mt-1 font-medium text-foreground">
                       {formatCurrency(Number(allocation.allocationAmount))}
-                    </DashboardTableCell>
-                  </DashboardTableRow>
-                ))}
-              </DashboardTableBody>
-            </DashboardTable>
-          </DashboardDataTable>
+                    </p>
+                  </div>
+                </div>
+              </DashboardSurfaceCard>
+            ))
+          ) : (
+            <EmptyStatementRows label="No dividend allocations published yet." />
+          )}
         </div>
       </DashboardSectionCard>
 
@@ -155,39 +160,36 @@ export function MemberStatementView({ detail }: MemberDetailPageData) {
           eyebrow="Charges"
           title="Workflow and manual charges"
         />
-        <div className="mt-5">
-          <DashboardDataTable>
-            <DashboardTable>
-              <DashboardTableHead>
-                <DashboardTableHeaderCell>Charge</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Source</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Collection</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Amount</DashboardTableHeaderCell>
-              </DashboardTableHead>
-              <DashboardTableBody>
-                {detail.chargeApplications.slice(0, 20).map((charge: any) => (
-                  <DashboardTableRow key={charge.id}>
-                    <DashboardTableCell>
+        <div className="mt-5 space-y-3">
+          {detail.chargeApplications.length ? (
+            detail.chargeApplications.slice(0, 20).map((charge: any) => (
+              <DashboardSurfaceCard
+                as="article"
+                className="rounded-lg"
+                key={charge.id}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">
                       {charge.chargeDefinition.name}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {formatChargeSource(charge)}
-                    </DashboardTableCell>
-                    <DashboardTableCell className="capitalize">
-                      {charge.status}
-                    </DashboardTableCell>
-                    <DashboardTableCell className="capitalize">
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground capitalize">
+                      {charge.status} ·{" "}
                       {charge.collectionMode.replace(/_/g, " ")}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      {formatCurrency(Number(charge.amount))}
-                    </DashboardTableCell>
-                  </DashboardTableRow>
-                ))}
-              </DashboardTableBody>
-            </DashboardTable>
-          </DashboardDataTable>
+                    </p>
+                  </div>
+                  <p className="font-medium text-foreground">
+                    {formatCurrency(Number(charge.amount))}
+                  </p>
+                </div>
+              </DashboardSurfaceCard>
+            ))
+          ) : (
+            <EmptyStatementRows label="No workflow or manual charges recorded yet." />
+          )}
         </div>
       </DashboardSectionCard>
 
@@ -201,45 +203,41 @@ export function MemberStatementView({ detail }: MemberDetailPageData) {
           eyebrow="Ledger"
           title="Ledger timeline"
         />
-        <div className="mt-5">
-          <DashboardDataTable>
-            <DashboardTable>
-              <DashboardTableHead>
-                <DashboardTableHeaderCell>Narration</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Type</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Posted</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Entries</DashboardTableHeaderCell>
-              </DashboardTableHead>
-              <DashboardTableBody>
-                {detail.ledgerTransactions.slice(0, 20).map((transaction) => (
-                  <DashboardTableRow key={transaction.id}>
-                    <DashboardTableCell>
+        <div className="mt-5 space-y-3">
+          {detail.ledgerTransactions.length ? (
+            detail.ledgerTransactions.slice(0, 20).map((transaction) => (
+              <DashboardSurfaceCard
+                as="article"
+                className="rounded-lg"
+                key={transaction.id}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">
                       {transaction.narration ?? transaction.transactionType}
-                    </DashboardTableCell>
-                    <DashboardTableCell className="capitalize">
-                      {transaction.transactionType}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      {formatIsoDate(transaction.postedAt)}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      <div className="space-y-1">
-                        {transaction.entries.map((entry) => (
-                          <p
-                            key={entry.id}
-                            className="text-xs text-muted-foreground"
-                          >
-                            {entry.ledgerAccount.name} · {entry.direction} ·{" "}
-                            {formatCurrency(Number(entry.amount))}
-                          </p>
-                        ))}
-                      </div>
-                    </DashboardTableCell>
-                  </DashboardTableRow>
-                ))}
-              </DashboardTableBody>
-            </DashboardTable>
-          </DashboardDataTable>
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground capitalize">
+                      {transaction.transactionType} ·{" "}
+                      {formatIsoDate(transaction.postedAt) ?? "not dated"}
+                    </p>
+                  </div>
+                  <div className="space-y-1 sm:text-right">
+                    {transaction.entries.map((entry) => (
+                      <p
+                        className="text-xs text-muted-foreground"
+                        key={entry.id}
+                      >
+                        {entry.ledgerAccount.name} · {entry.direction} ·{" "}
+                        {formatCurrency(Number(entry.amount))}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </DashboardSurfaceCard>
+            ))
+          ) : (
+            <EmptyStatementRows label="No ledger transactions recorded yet." />
+          )}
         </div>
       </DashboardSectionCard>
     </section>

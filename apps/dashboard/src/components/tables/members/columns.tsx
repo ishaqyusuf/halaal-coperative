@@ -14,7 +14,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { memo, useCallback } from "react"
-import { updateMemberStatusAction } from "@/lib/dashboard-actions"
+import { OpenMemberStatusSheet } from "@/components/open-member-sheet"
 
 export type Member = RouterOutputs["members"]["list"]["data"][number]
 
@@ -127,39 +127,29 @@ const ActionsCell = memo(
             <DropdownMenuItem onClick={goToMember}>View details</DropdownMenuItem>
 
             {canManageMembers ? (
-              <form action={updateMemberStatusAction}>
-                <input name="memberId" type="hidden" value={member.id} />
+              <>
                 {member.status !== "active" ? (
-                  <button
-                    className="flex w-full cursor-default items-center gap-2 px-2 py-2 text-left text-xs outline-hidden hover:bg-foreground/10"
-                    name="status"
-                    type="submit"
-                    value="active"
-                  >
-                    Activate
-                  </button>
+                  <OpenMemberStatusSheet
+                    label="Activate"
+                    memberId={member.id}
+                    status="active"
+                  />
                 ) : null}
                 {member.status !== "suspended" ? (
-                  <button
-                    className="flex w-full cursor-default items-center gap-2 px-2 py-2 text-left text-xs outline-hidden hover:bg-foreground/10"
-                    name="status"
-                    type="submit"
-                    value="suspended"
-                  >
-                    Suspend
-                  </button>
+                  <OpenMemberStatusSheet
+                    label="Suspend"
+                    memberId={member.id}
+                    status="suspended"
+                  />
                 ) : null}
                 {member.status !== "inactive" ? (
-                  <button
-                    className="flex w-full cursor-default items-center gap-2 px-2 py-2 text-left text-xs outline-hidden hover:bg-foreground/10"
-                    name="status"
-                    type="submit"
-                    value="inactive"
-                  >
-                    Mark inactive
-                  </button>
+                  <OpenMemberStatusSheet
+                    label="Mark inactive"
+                    memberId={member.id}
+                    status="inactive"
+                  />
                 ) : null}
-              </form>
+              </>
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>

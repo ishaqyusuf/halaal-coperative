@@ -13,7 +13,11 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import { InputGroup, InputGroupInput, InputGroupText } from "@halaalvest/ui/components/input-group"
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupText,
+} from "@halaalvest/ui/components/input-group"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import { objectToFormData } from "@/lib/form-submit"
@@ -89,18 +93,21 @@ export function MemberSignupForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[2rem] border border-border/70 bg-background/92 p-6 shadow-sm md:grid-cols-2"
+        className="grid gap-4 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div className="md:col-span-2">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-xs uppercase text-muted-foreground">
                 {signupToken ? "Invited member onboarding" : "Member onboarding"}
               </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Start your membership signup</h2>
+              <h2 className="mt-2 text-2xl font-semibold text-foreground">
+                Start your membership signup
+              </h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Submit your personal details, verify your email, and wait for cooperative approval before your dashboard access is activated.
+                Submit your personal details, verify your email, and wait for
+                cooperative approval before your dashboard access is activated.
               </p>
             </div>
             {devMode ? (
@@ -123,7 +130,11 @@ export function MemberSignupForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Full name</FormLabel>
               <FormControl>
-                <Input {...field} disabled={isLocked} placeholder="Amina Yusuf" />
+                <Input
+                  {...field}
+                  disabled={isLocked}
+                  placeholder="Amina Yusuf"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -231,12 +242,15 @@ export function MemberSignupForm({
         />
 
         <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-2">
-          <Button disabled={isLocked} type="submit" size="lg" className="rounded-full px-5">
+          <Button disabled={isLocked} type="submit" size="lg">
             {isSubmitted
               ? "Verification email sent"
               : "Create account and send verification"}
           </Button>
-          <p className="text-sm text-muted-foreground">Your dashboard access will remain pending until cooperative approval.</p>
+          <p className="text-sm text-muted-foreground">
+            Your dashboard access will remain pending until cooperative
+            approval.
+          </p>
         </div>
       </form>
     </Form>

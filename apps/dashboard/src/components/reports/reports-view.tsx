@@ -3,7 +3,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { formatCurrency, formatPercent } from "@halaalvest/utils"
 import { ReportsHeader } from "@/components/reports-header"
-import { WorkspacePageShell } from "@/components/dashboard"
+import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { useTRPC } from "@/trpc/client"
 import type { ReportsFilterParams } from "@/hooks/use-reports-filter-params"
 import {
@@ -19,6 +19,24 @@ import {
   withReportFilters,
   type ReportsSummary,
 } from "./reports-utils"
+
+export function ReportsUnavailableView({
+  body,
+  title,
+}: {
+  body: string
+  title: string
+}) {
+  return (
+    <WorkspacePageShell
+      description="Operational reporting and audit visibility for cooperative admins."
+      eyebrow="Reports"
+      title="Audit and reporting"
+    >
+      <WorkspaceEmptyState body={body} title={title} />
+    </WorkspacePageShell>
+  )
+}
 
 function MetricLink({
   detail,

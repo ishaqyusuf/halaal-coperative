@@ -6,8 +6,8 @@ import type { ReactNode } from "react"
 interface EmptyStateProps {
   title: string
   description: ReactNode
-  actionLabel: string
-  onAction: () => void
+  actionLabel?: string
+  onAction?: () => void
 }
 
 export function EmptyState({
@@ -24,9 +24,11 @@ export function EmptyState({
           <p className="text-sm text-[#606060]">{description}</p>
         </div>
 
-        <Button variant="outline" onClick={onAction}>
-          {actionLabel}
-        </Button>
+        {actionLabel && onAction ? (
+          <Button variant="outline" onClick={onAction}>
+            {actionLabel}
+          </Button>
+        ) : null}
       </div>
     </div>
   )

@@ -1,6 +1,8 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Button } from "@/components/ui/button"
@@ -102,9 +104,12 @@ function StatementSection({
                 ) : null}
               </View>
               {row.status ? (
-                <Text className="mt-1 text-xs font-medium text-muted-foreground">
-                  {row.status}
-                </Text>
+                <View className="mt-2 items-start">
+                  <StatusBadge
+                    label={row.status}
+                    tone={getStatusBadgeTone(row.status)}
+                  />
+                </View>
               ) : null}
             </View>
           )
@@ -214,16 +219,25 @@ export function StatementScreen() {
 
             {statement?.member ? (
               <SectionCard icon="BadgeCheck" title={statement.member.name}>
-                <View className="gap-1">
+                <View className="gap-3">
                   <Text className="text-sm leading-5 text-muted-foreground">
                     Joined {formatDate(statement.member.joinedAt)}
                   </Text>
-                  <Text className="text-sm leading-5 text-muted-foreground">
-                    {formatStatus(statement.member.kycStatus)} KYC
-                    {statement.member.deductionSourceName
-                      ? ` - ${statement.member.deductionSourceName}`
-                      : ""}
-                  </Text>
+                  <View className="flex-row flex-wrap items-center gap-2">
+                    <StatusBadge
+                      label={`${formatStatus(statement.member.status)} member`}
+                      tone={getStatusBadgeTone(statement.member.status)}
+                    />
+                    <StatusBadge
+                      label={`${formatStatus(statement.member.kycStatus)} KYC`}
+                      tone={getStatusBadgeTone(statement.member.kycStatus)}
+                    />
+                  </View>
+                  {statement.member.deductionSourceName ? (
+                    <Text className="text-sm leading-5 text-muted-foreground">
+                      {statement.member.deductionSourceName}
+                    </Text>
+                  ) : null}
                 </View>
               </SectionCard>
             ) : null}
@@ -256,9 +270,11 @@ export function StatementScreen() {
               ))
             ) : (
               <SectionCard icon="FileText" title="Statement">
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No statement detail is available for this member profile.
-                </Text>
+                <EmptyState
+                  description="Statement sections will appear here when member records are available."
+                  icon="FileText"
+                  title="No statement detail"
+                />
               </SectionCard>
             )}
 

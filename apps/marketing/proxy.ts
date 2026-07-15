@@ -1,9 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-const localRootDomain =
-  process.env.LOCAL_ROOT_DOMAIN?.trim() || "halaalvest.localhost"
 const dashboardRootDomain =
-  process.env.DASHBOARD_ROOT_DOMAIN?.trim() || localRootDomain
+  process.env.DASHBOARD_ROOT_DOMAIN?.trim() || "halaalvest-dash.localhost"
 const dashboardProxyTarget =
   process.env.LOCAL_DASHBOARD_PROXY_TARGET?.trim() ||
   `http://127.0.0.1:${process.env.DASHBOARD_APP_PORT?.trim() || "1441"}`

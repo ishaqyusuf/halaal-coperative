@@ -1,5 +1,8 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
+import { StatusBadge } from "@/components/app/status-badge"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -186,6 +189,9 @@ export function MoreScreen() {
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
   const hasStaleAdminAccess = isMobileReadCacheStale(adminAccess?.cache)
+  const hasInviteDraft = Boolean(
+    inviteFullName.trim() || inviteEmail.trim() || inviteMakeDefault
+  )
   const adminInviteDraft = useMemo(
     () => ({
       inviteEmail,
@@ -332,13 +338,24 @@ export function MoreScreen() {
         </View>
 
         {profile && canSwitchWorkspace ? (
-          <View className="gap-3 rounded-md border border-border bg-card p-4">
-            <View className="gap-1">
-              <Text className="text-lg font-semibold text-foreground">
-                Workspace
-              </Text>
-              <Text className="text-sm text-muted-foreground">
-                {profile.tenant.name}
+          <SectionCard icon="PanelsTopLeft" title="Workspace">
+            <View className="gap-3">
+              <View className="flex-row flex-wrap items-center gap-2">
+                <StatusBadge
+                  label={
+                    profile.role === "admin"
+                      ? "Admin workspace"
+                      : "Member workspace"
+                  }
+                  tone={profile.role === "admin" ? "warning" : "success"}
+                />
+                <Text className="text-sm leading-5 text-muted-foreground">
+                  {profile.tenant.name}
+                </Text>
+              </View>
+              <Text className="text-sm leading-5 text-muted-foreground">
+                Switch only changes your active mobile workspace. Tenant and
+                role access stay server-scoped.
               </Text>
             </View>
             <View className="gap-2">
@@ -348,6 +365,7 @@ export function MoreScreen() {
 
                 return (
                   <Button
+                    accessibilityLabel={`Switch to ${formatRoleLabel(role.role)} workspace`}
                     className="h-11 justify-start"
                     disabled={isActive || Boolean(switchingMembershipId)}
                     key={role.id}
@@ -372,13 +390,16 @@ export function MoreScreen() {
                       }
                       className="size-base text-foreground"
                     />
-                    <Text>
+                    <Text className="flex-1">
                       {isSwitching
                         ? "Switching"
                         : isActive
                           ? `${formatRoleLabel(role.role)} active`
                           : formatRoleLabel(role.role)}
                     </Text>
+                    {isActive ? (
+                      <StatusBadge label="Active" tone="muted" />
+                    ) : null}
                   </Button>
                 )
               })}
@@ -388,7 +409,7 @@ export function MoreScreen() {
                 </Text>
               ) : null}
             </View>
-          </View>
+          </SectionCard>
         ) : null}
 
         {canUseServerMemberHub ? (
@@ -591,16 +612,22 @@ export function MoreScreen() {
 
                   <SectionCard icon="UserPlus" title="Invite user">
                     <View className="gap-3">
+                      <FormStateBanner
+                        hasDraft={hasInviteDraft}
+                        isStale={hasStaleAdminAccess}
+                      />
                       <Text className="text-sm leading-5 text-muted-foreground">
                         {profile?.tenant.name}
                       </Text>
                       <Input
+                        accessibilityLabel="Invite full name"
                         editable={!isInviting}
                         onChangeText={setInviteFullName}
                         placeholder="Full name"
                         value={inviteFullName}
                       />
                       <Input
+                        accessibilityLabel="Invite email address"
                         autoCapitalize="none"
                         editable={!isInviting}
                         keyboardType="email-address"
@@ -675,9 +702,11 @@ export function MoreScreen() {
                     <VirtualizedCardList
                       data={adminAccess.users}
                       empty={
-                        <Text className="text-sm text-muted-foreground">
-                          No workspace users are available.
-                        </Text>
+                        <EmptyState
+                          description="Workspace users with member or staff access will appear here."
+                          icon="Users"
+                          title="No workspace users"
+                        />
                       }
                       estimatedItemSize={112}
                       keyExtractor={(user) => user.id}
@@ -689,9 +718,11 @@ export function MoreScreen() {
                     <VirtualizedCardList
                       data={adminAccess.roles}
                       empty={
-                        <Text className="text-sm text-muted-foreground">
-                          No workspace roles are available.
-                        </Text>
+                        <EmptyState
+                          description="Role coverage appears here when workspace access can be loaded."
+                          icon="KeyRound"
+                          title="No workspace roles"
+                        />
                       }
                       estimatedItemSize={88}
                       keyExtractor={(role) => role.role}

@@ -5,6 +5,7 @@ const businessParamsSchema = {
   businessId: parseAsString,
   businessType: parseAsStringEnum([
     "create",
+    "details",
     "profit",
     "edit",
     "editProfit",

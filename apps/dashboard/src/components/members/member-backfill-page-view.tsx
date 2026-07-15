@@ -1,6 +1,6 @@
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button, buttonVariants } from "@halaalvest/ui/components/button"
+import { buttonVariants } from "@halaalvest/ui/components/button"
 import { Separator } from "@halaalvest/ui/components/separator"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
@@ -10,11 +10,12 @@ import {
   DashboardSectionHeader,
   DashboardSurfaceCard,
   TrendPill,
+  WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
 import {
-  DefaultingMonthsDialog,
-  MemberBackfillAdjustmentDialog,
+  DefaultingMonthsSheet,
+  MemberBackfillAdjustmentSheet,
   MonthStatusControl,
 } from "@/components/migration/member-backfill-controls"
 import { MemberLedgerBackfillTable } from "@/components/migration/member-ledger-backfill-table"
@@ -22,55 +23,47 @@ import {
   CommitmentHistoryEntryForm,
   LoanHistoryEntryForm,
 } from "@/components/migration/member-migration-history-forms"
-import {
-  applyMemberOpeningBalanceAction,
-  createHistoricalMemberSharePurchaseAction,
-  createMemberOpeningBalanceAction,
-  generateHistoricalBackfillShareProfitAllocationsAction,
-  queueBackfillDraftAction,
-  reviewMemberOpeningBalanceAction,
-  reverseMemberOpeningBalanceAction,
-  saveMemberProfitSeasonAdjustmentsAction,
-} from "@/lib/dashboard-actions"
+import { MemberBackfillActionSheet } from "@/components/sheets/member-backfill-action-sheet"
+import { MemberBackfillBaselineEditSheet } from "@/components/sheets/member-backfill-baseline-edit-sheet"
 import type { loadMemberBackfillWorkflowData } from "@/lib/members"
+import {
+  GenerateBackfillDividendsContent,
+  HistoricalSharePurchaseContent,
+  OpeningBalanceApplyContent,
+  OpeningBalanceCreateContent,
+  OpeningBalanceReviewContent,
+  OpeningBalanceReverseContent,
+  ProfitSeasonAdjustmentContent,
+  SaveBackfillDraftContent,
+} from "./member-backfill-content"
 import { MemberBackfillActivityWindowsForm } from "./member-backfill-activity-windows-form"
 import { MemberBackfillApplyForm } from "./member-backfill-apply-form"
-import {
-  MemberBackfillFooterActionsSlot,
-  MemberBackfillFooterPortal,
-} from "./member-backfill-footer-slot"
-import {
-  MemberProfitSeasonAdjustmentTable,
-  type MemberProfitSeasonAdjustmentSeason,
-} from "./member-profit-season-adjustment-table"
+import { MemberBackfillFooterActionsSlot } from "./member-backfill-footer-slot"
 import {
   getMemberBackfillAdjacentSteps,
   getMemberBackfillStepsForMode,
   memberBackfillStepHref,
   type MemberBackfillStepKey,
 } from "./member-backfill-steps"
-import { MemberBackfillBaselineEditDialog } from "./member-backfill-baseline-edit-dialog"
-import { MemberOpeningSharePositionFields } from "./member-opening-share-position-fields"
-import { OpeningSourceDocumentFields } from "./opening-source-document-fields"
 
 type MemberBackfillData = Extract<
   Awaited<ReturnType<typeof loadMemberBackfillWorkflowData>>,
   { state: "ready" }
 >
 
-type ProfitMigrationOption = {
-  businessName: string
-  editableAvailableAmount: number
-  id: string
-  memberMigrationAdjustmentAmount: number
-  memberMigrationAdjustmentSharePercentage?: number | null
-  profitDate: string
-  profitAmount: number
-  seasonKey: string
-  seasonLabel?: string | null
-  seasonPeriodStart?: string | null
-  seasonPeriodEnd?: string | null
-  seasonStatus?: string | null
+export function MemberBackfillUnavailableView() {
+  return (
+    <WorkspacePageShell
+      eyebrow="Member backfill"
+      title="Member backfill"
+      description="Member historical setup is available when the database runtime is active."
+    >
+      <WorkspaceEmptyState
+        title="Member backfill needs the database runtime."
+        body="Once the database-backed environment is active, this page will guide one member through historical setup and ledger backfill."
+      />
+    </WorkspacePageShell>
+  )
 }
 
 const memberBackfillLoanHistoryFormId = "member-backfill-loan-history-form"
@@ -92,77 +85,6 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
   }).format(new Date(`${value}T00:00:00.000Z`))
-}
-
-function getFallbackSeasonLabel(option: ProfitMigrationOption) {
-  return option.seasonLabel ?? `Dividend season (${formatDate(option.profitDate)})`
-}
-
-function getSeasonSharePercentage(
-  entries: ProfitMigrationOption[]
-): number | null {
-  const sharePercentages = entries
-    .map((entry) => entry.memberMigrationAdjustmentSharePercentage)
-    .filter((value): value is number => value != null)
-
-  if (sharePercentages.length !== entries.length) {
-    return null
-  }
-
-  const [firstSharePercentage] = sharePercentages
-
-  if (firstSharePercentage === undefined) {
-    return null
-  }
-
-  return sharePercentages.every((value) => value === firstSharePercentage)
-    ? firstSharePercentage
-    : null
-}
-
-function groupProfitMigrationOptionsBySeason(
-  options: ProfitMigrationOption[]
-) {
-  const seasonsByKey = new Map<string, ProfitMigrationOption[]>()
-
-  for (const option of options) {
-    const seasonEntries = seasonsByKey.get(option.seasonKey) ?? []
-    seasonEntries.push(option)
-    seasonsByKey.set(option.seasonKey, seasonEntries)
-  }
-
-  return Array.from(seasonsByKey.entries())
-    .map(([key, entries]): MemberProfitSeasonAdjustmentSeason => {
-      const firstEntry = entries[0]!
-
-      return {
-        businessNames: Array.from(
-          new Set(entries.map((entry) => entry.businessName))
-        ).sort((a, b) => a.localeCompare(b)),
-        editableAvailableAmount: entries.reduce(
-          (total, entry) => total + entry.editableAvailableAmount,
-          0
-        ),
-        entries,
-        key,
-        label: getFallbackSeasonLabel(firstEntry),
-        memberMigrationAdjustmentAmount: entries.reduce(
-          (total, entry) => total + entry.memberMigrationAdjustmentAmount,
-          0
-        ),
-        memberMigrationAdjustmentSharePercentage:
-          getSeasonSharePercentage(entries),
-        periodEnd: firstEntry.seasonPeriodEnd,
-        periodStart: firstEntry.seasonPeriodStart,
-        status: firstEntry.seasonStatus,
-      }
-    })
-    .sort((a, b) => {
-      const aDate = a.periodStart ?? a.entries[0]?.profitDate ?? ""
-      const bDate = b.periodStart ?? b.entries[0]?.profitDate ?? ""
-
-      return aDate.localeCompare(bDate) || a.label.localeCompare(b.label)
-    })
 }
 
 function statusTone(status: MemberBackfillData["review"]["status"]) {
@@ -214,297 +136,6 @@ function openingBalanceStatusTone(
   if (status === "approved" || status === "applied") return "positive"
   if (status === "pending_review") return "warning"
   return "neutral"
-}
-
-function OpeningAmountInput({
-  disabled,
-  label,
-  name,
-  required = false,
-  step = "0.01",
-}: {
-  disabled?: boolean
-  label: string
-  name: string
-  required?: boolean
-  step?: string
-}) {
-  return (
-    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      <input
-        className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-        disabled={disabled}
-        min="0"
-        name={name}
-        placeholder="0"
-        required={required}
-        step={step}
-        type="number"
-      />
-    </label>
-  )
-}
-
-function OpeningBalanceCreateForm({
-  data,
-  disabled,
-}: {
-  data: MemberBackfillData
-  disabled: boolean
-}) {
-  const sharePolicy = data.tenantSharePolicy
-  const isUnitBasedShare = sharePolicy.configurationMode === "unit_based"
-  const guarantorOptions = data.memberOptions.filter(
-    (option) => option.id !== data.member.id
-  )
-
-  return (
-    <form
-      action={createMemberOpeningBalanceAction}
-      className="mt-4 grid gap-3"
-      id={memberOpeningBalanceFormId}
-    >
-      <input name="memberId" type="hidden" value={data.member.id} />
-      <p className="text-xs font-medium text-muted-foreground">
-        Required current position
-      </p>
-      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-        Opening date
-        <input
-          className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-          defaultValue={data.tenantStartDate ?? data.member.joinedAt}
-          disabled={disabled}
-          name="openingDate"
-          required
-          type="date"
-        />
-      </label>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <OpeningAmountInput
-          disabled={disabled}
-          label="Commitment savings"
-          name="commitmentSavingsBalance"
-          required
-        />
-        <OpeningAmountInput
-          disabled={disabled}
-          label="Special savings"
-          name="specialSavingsBalance"
-          required
-        />
-        {isUnitBasedShare ? (
-          <MemberOpeningSharePositionFields
-            disabled={disabled}
-            unitAmount={sharePolicy.unitAmount}
-          />
-        ) : (
-          <OpeningAmountInput
-            disabled={disabled}
-            label="Share capital"
-            name="shareCapitalBalance"
-            required
-          />
-        )}
-      </div>
-      <div className="grid gap-3 lg:grid-cols-3">
-        <details className="border border-border/70 bg-muted/20 p-3">
-          <summary className="cursor-pointer text-sm font-semibold text-foreground">
-            Add active financing
-          </summary>
-          <div className="mt-3 grid gap-3">
-            <OpeningAmountInput
-              disabled={disabled}
-              label="Outstanding principal"
-              name="activeFinancingOutstanding"
-            />
-            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-              Financing start date
-              <input
-                className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-                disabled={disabled}
-                name="activeFinancingOpenedAt"
-                type="date"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-              Guarantor 1
-              <select
-                className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-                disabled={disabled}
-                name="activeFinancingGuarantorOneMemberId"
-              >
-                <option value="">No guarantor</option>
-                {guarantorOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-              Guarantor 2
-              <select
-                className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-                disabled={disabled}
-                name="activeFinancingGuarantorTwoMemberId"
-              >
-                <option value="">No guarantor</option>
-                {guarantorOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </details>
-        <details className="border border-border/70 bg-muted/20 p-3">
-          <summary className="cursor-pointer text-sm font-semibold text-foreground">
-            Add procurement
-          </summary>
-          <div className="mt-3">
-            <OpeningAmountInput
-              disabled={disabled}
-              label="Outstanding procurement"
-              name="procurementOutstanding"
-            />
-          </div>
-        </details>
-        <details className="border border-border/70 bg-muted/20 p-3">
-          <summary className="cursor-pointer text-sm font-semibold text-foreground">
-            Add Food Purchase
-          </summary>
-          <div className="mt-3">
-            <OpeningAmountInput
-              disabled={disabled}
-              label="Outstanding Food Purchase"
-              name="foodPurchaseOutstanding"
-            />
-          </div>
-        </details>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <OpeningSourceDocumentFields disabled={disabled} />
-      </div>
-      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-        Notes
-        <textarea
-          className="min-h-20 border border-border bg-background px-3 py-2 text-sm text-foreground"
-          disabled={disabled}
-          name="notes"
-          placeholder="Current book position and source note"
-        />
-      </label>
-      <div className="flex justify-end">
-        <Button disabled={disabled} size="sm" type="submit">
-          Stage opening position
-        </Button>
-      </div>
-    </form>
-  )
-}
-
-function OpeningBalanceReviewForm({
-  disabled,
-  memberId,
-  openingBalanceId,
-}: {
-  disabled: boolean
-  memberId: string
-  openingBalanceId: string
-}) {
-  return (
-    <form
-      action={reviewMemberOpeningBalanceAction}
-      className="mt-3 grid gap-2"
-    >
-      <input name="memberId" type="hidden" value={memberId} />
-      <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
-      <textarea
-        className="min-h-16 border border-border bg-background px-3 py-2 text-sm text-foreground"
-        disabled={disabled}
-        name="reviewNotes"
-        placeholder="Review note"
-      />
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          disabled={disabled}
-          name="decision"
-          size="sm"
-          type="submit"
-          value="rejected"
-          variant="outline"
-        >
-          Reject
-        </Button>
-        <Button
-          disabled={disabled}
-          name="decision"
-          size="sm"
-          type="submit"
-          value="approved"
-        >
-          Approve
-        </Button>
-      </div>
-    </form>
-  )
-}
-
-function OpeningBalanceApplyForm({
-  disabled,
-  memberId,
-  openingBalanceId,
-}: {
-  disabled: boolean
-  memberId: string
-  openingBalanceId: string
-}) {
-  return (
-    <form
-      action={applyMemberOpeningBalanceAction}
-      className="mt-3 flex justify-end border-t border-border/70 pt-3"
-    >
-      <input name="memberId" type="hidden" value={memberId} />
-      <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
-      <Button disabled={disabled} size="sm" type="submit">
-        Apply
-      </Button>
-    </form>
-  )
-}
-
-function OpeningBalanceReverseForm({
-  disabled,
-  memberId,
-  openingBalanceId,
-}: {
-  disabled: boolean
-  memberId: string
-  openingBalanceId: string
-}) {
-  return (
-    <form
-      action={reverseMemberOpeningBalanceAction}
-      className="mt-3 grid gap-2 border-t border-border/70 pt-3"
-    >
-      <input name="memberId" type="hidden" value={memberId} />
-      <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
-      <textarea
-        className="min-h-16 border border-border bg-background px-3 py-2 text-sm text-foreground"
-        disabled={disabled}
-        name="reversalNotes"
-        placeholder="Reversal note"
-        required
-      />
-      <div className="flex justify-end">
-        <Button disabled={disabled} size="sm" type="submit" variant="outline">
-          Reverse
-        </Button>
-      </div>
-    </form>
-  )
 }
 
 function OpeningBalanceRow({
@@ -623,23 +254,54 @@ function OpeningBalanceRow({
         </div>
       ) : null}
       {pending ? (
-        <OpeningBalanceReviewForm
-          disabled={disabled}
-          memberId={memberId}
-          openingBalanceId={row.id}
-        />
+        <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
+          <MemberBackfillActionSheet
+            description="Approve or reject this staged opening position after reviewing the evidence."
+            disabled={disabled}
+            sheetId={`opening-balance-review:${row.id}`}
+            title="Review opening position"
+            triggerLabel="Review"
+          >
+            <OpeningBalanceReviewContent
+              disabled={disabled}
+              memberId={memberId}
+              openingBalanceId={row.id}
+            />
+          </MemberBackfillActionSheet>
+        </div>
       ) : approved ? (
-        <OpeningBalanceApplyForm
-          disabled={disabled}
-          memberId={memberId}
-          openingBalanceId={row.id}
-        />
+        <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
+          <MemberBackfillActionSheet
+            description="Apply the approved opening position to the member ledger and related opening obligations."
+            disabled={disabled}
+            sheetId={`opening-balance-apply:${row.id}`}
+            title="Apply opening position"
+            triggerLabel="Apply"
+            variant="default"
+          >
+            <OpeningBalanceApplyContent
+              disabled={disabled}
+              memberId={memberId}
+              openingBalanceId={row.id}
+            />
+          </MemberBackfillActionSheet>
+        </div>
       ) : applied ? (
-        <OpeningBalanceReverseForm
-          disabled={disabled}
-          memberId={memberId}
-          openingBalanceId={row.id}
-        />
+        <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
+          <MemberBackfillActionSheet
+            description="Reverse a previously applied opening position with an audit note."
+            disabled={disabled}
+            sheetId={`opening-balance-reverse:${row.id}`}
+            title="Reverse opening position"
+            triggerLabel="Reverse"
+          >
+            <OpeningBalanceReverseContent
+              disabled={disabled}
+              memberId={memberId}
+              openingBalanceId={row.id}
+            />
+          </MemberBackfillActionSheet>
+        </div>
       ) : row.status === "reversed" && row.reversalNotes ? (
         <p className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
           Reversal note: {row.reversalNotes}
@@ -671,7 +333,22 @@ function OpeningPositionPanel({ data }: { data: MemberBackfillData }) {
         </div>
         <TrendPill tone="neutral">Review/apply</TrendPill>
       </div>
-      <OpeningBalanceCreateForm data={data} disabled={disabled} />
+      <div className="mt-4">
+        <MemberBackfillActionSheet
+          description="Capture current balances and active obligations as staged brought-forward evidence."
+          disabled={disabled}
+          sheetId="opening-position"
+          title="Stage opening position"
+          triggerLabel="Stage opening position"
+          variant="default"
+        >
+          <OpeningBalanceCreateContent
+            data={data}
+            disabled={disabled}
+            formId={memberOpeningBalanceFormId}
+          />
+        </MemberBackfillActionSheet>
+      </div>
       <div className="mt-5 grid gap-3">
         {data.memberOpeningBalances.length > 0 ? (
           data.memberOpeningBalances.map((row) => (
@@ -722,52 +399,19 @@ function HistoricalSharePurchasesPanel({ data }: { data: MemberBackfillData }) {
           {formatCurrency(sharePolicy.unitAmount)} per unit
         </TrendPill>
       </div>
-      <form
-        action={createHistoricalMemberSharePurchaseAction}
-        className="mt-4 grid gap-3"
-      >
-        <input name="memberId" type="hidden" value={data.member.id} />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-            Share units
-            <input
-              className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-              disabled={disabled}
-              min="1"
-              name="shareUnits"
-              required
-              step="1"
-              type="number"
-            />
-          </label>
-          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-            Paid date
-            <input
-              className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-              defaultValue={data.member.joinedAt}
-              disabled={disabled}
-              name="paidAt"
-              required
-              type="date"
-            />
-          </label>
-          <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-2 xl:col-span-1">
-            Notes
-            <input
-              className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-              disabled={disabled}
-              name="notes"
-              placeholder="Receipt or source note"
-              type="text"
-            />
-          </label>
-        </div>
-        <div className="flex justify-end">
-          <Button disabled={disabled} size="sm" type="submit">
-            Add share purchase
-          </Button>
-        </div>
-      </form>
+      <div className="mt-4">
+        <MemberBackfillActionSheet
+          description="Record historical unit share purchases for this member."
+          disabled={disabled}
+          sheetId="historical-share-purchase"
+          title="Add historical share purchase"
+          triggerLabel="Add share purchase"
+          variant="default"
+        >
+          <HistoricalSharePurchaseContent data={data} disabled={disabled} />
+        </MemberBackfillActionSheet>
+      </div>
+
       <div className="mt-4 grid gap-2">
         {data.memberSharePurchases.length > 0 ? (
           data.memberSharePurchases.map((purchase) => (
@@ -911,7 +555,7 @@ function BaselineStep({ data }: { data: MemberBackfillData }) {
         description="Check the member identity, joined date, current commitment, and opening position before choosing full history or brought-forward migration."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <MemberBackfillBaselineEditDialog
+            <MemberBackfillBaselineEditSheet
               canManageCollectionSources={data.canManageCollectionSources}
               collectionSourceOptions={data.collectionSourceOptions}
               disabled={
@@ -1074,7 +718,7 @@ function ActivityStep({ data }: { data: MemberBackfillData }) {
         description="Record inactive and resumed months that affect generated monthly rows."
         actions={
           data.generatedLedgerRows.length > 0 ? (
-            <DefaultingMonthsDialog
+            <DefaultingMonthsSheet
               disabled={disabled}
               memberId={data.member.id}
               rows={data.generatedLedgerRows}
@@ -1135,11 +779,6 @@ function LoansStep({ data }: { data: MemberBackfillData }) {
 function ProfitStep({ data }: { data: MemberBackfillData }) {
   const disabled =
     !data.canEditBackfill || data.review.status === "backfill_applied"
-  const profitMigrationOptions =
-    data.profitMigrationOptions as ProfitMigrationOption[]
-  const profitMigrationSeasons = groupProfitMigrationOptionsBySeason(
-    profitMigrationOptions
-  )
   const nextHref = disabled
     ? undefined
     : memberBackfillStepHref(data.member.id, "review")
@@ -1155,47 +794,24 @@ function ProfitStep({ data }: { data: MemberBackfillData }) {
         description="Capture member-specific historical profit adjustments by dividend season."
         actions={
           canCalculateBackfillDividends ? (
-            <form action={generateHistoricalBackfillShareProfitAllocationsAction}>
-              <Button disabled={disabled} size="sm" type="submit" variant="outline">
-                Calculate backfill dividends
-              </Button>
-            </form>
+            <MemberBackfillActionSheet
+              description="Generate member backfill dividend allocations from the current historical share and profit season data."
+              disabled={disabled}
+              sheetId="calculate-backfill-dividends"
+              title="Calculate backfill dividends"
+              triggerLabel="Calculate dividends"
+            >
+              <GenerateBackfillDividendsContent disabled={disabled} />
+            </MemberBackfillActionSheet>
           ) : null
         }
       />
-      <form
-        action={saveMemberProfitSeasonAdjustmentsAction}
-        className="mt-5 grid gap-4"
-        id={memberBackfillProfitAdjustmentFormId}
-      >
-        <input name="memberId" type="hidden" value={data.member.id} />
-        {nextHref ? (
-          <input name="redirectTo" type="hidden" value={nextHref} />
-        ) : null}
-        {profitMigrationSeasons.length > 0 ? (
-          <MemberProfitSeasonAdjustmentTable
-            disabled={disabled}
-            seasons={profitMigrationSeasons}
-          />
-        ) : (
-          <DashboardSurfaceCard>
-            <p className="text-sm font-medium text-foreground">
-              No profit seasons available.
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Continue to review if this member has no season-specific
-              historical profit adjustment.
-            </p>
-          </DashboardSurfaceCard>
-        )}
-        {nextHref ? (
-          <MemberBackfillFooterPortal>
-            <Button form={memberBackfillProfitAdjustmentFormId} type="submit">
-              Next
-            </Button>
-          </MemberBackfillFooterPortal>
-        ) : null}
-      </form>
+      <ProfitSeasonAdjustmentContent
+        data={data}
+        disabled={disabled}
+        formId={memberBackfillProfitAdjustmentFormId}
+        nextHref={nextHref}
+      />
     </DashboardSectionCard>
   )
 }
@@ -1212,12 +828,14 @@ function ReviewStep({ data }: { data: MemberBackfillData }) {
         description="Review the generated rows for this member and save a draft before applying."
         actions={
           !applied && data.generatedLedgerRows.length > 0 ? (
-            <form action={queueBackfillDraftAction}>
-              <input name="memberId" type="hidden" value={data.member.id} />
-              <Button size="sm" type="submit" variant="outline">
-                Save draft
-              </Button>
-            </form>
+            <MemberBackfillActionSheet
+              description="Save the generated ledger preview as a backfill draft for this member."
+              sheetId="save-backfill-draft"
+              title="Save backfill draft"
+              triggerLabel="Save draft"
+            >
+              <SaveBackfillDraftContent memberId={data.member.id} />
+            </MemberBackfillActionSheet>
           ) : null
         }
       />
@@ -1235,7 +853,7 @@ function ReviewStep({ data }: { data: MemberBackfillData }) {
         <MemberLedgerBackfillTable
           isRowAdjustmentDisabled={(row) => controlsDisabled || !row.month}
           renderDefaultingControl={(row, disabled, triggerLabel) => (
-            <DefaultingMonthsDialog
+            <DefaultingMonthsSheet
               disabled={disabled}
               memberId={data.member.id}
               rows={data.generatedLedgerRows}
@@ -1252,7 +870,7 @@ function ReviewStep({ data }: { data: MemberBackfillData }) {
             />
           )}
           renderRepaymentControl={(row, loan, disabled) => (
-            <MemberBackfillAdjustmentDialog
+            <MemberBackfillAdjustmentSheet
               disabled={disabled}
               loan={loan}
               memberId={data.member.id}
@@ -1263,7 +881,7 @@ function ReviewStep({ data }: { data: MemberBackfillData }) {
             />
           )}
           renderSavingsControl={(row, loans, disabled) => (
-            <MemberBackfillAdjustmentDialog
+            <MemberBackfillAdjustmentSheet
               disabled={disabled}
               loans={loans}
               memberId={data.member.id}
@@ -1312,7 +930,21 @@ function ApplyStep({ data }: { data: MemberBackfillData }) {
           value={data.review.appliedBackfillMonths}
         />
       </div>
-      <MemberBackfillApplyForm disabled={disabled} memberId={data.member.id} />
+      <div className="mt-5">
+        <MemberBackfillActionSheet
+          description="Confirm and post the reviewed historical rows for this member. Applied backfill locks migration edits for the member."
+          disabled={disabled}
+          sheetId="apply-backfill"
+          title="Apply member backfill"
+          triggerLabel="Apply backfill"
+          variant="default"
+        >
+          <MemberBackfillApplyForm
+            disabled={disabled}
+            memberId={data.member.id}
+          />
+        </MemberBackfillActionSheet>
+      </div>
     </DashboardSectionCard>
   )
 }

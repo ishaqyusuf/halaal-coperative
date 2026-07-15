@@ -2,6 +2,7 @@
   "name": "@halaalvest/tenant-url",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "sideEffects": false,
   "main": "src/index.ts",
   "scripts": {
@@ -18,6 +19,9 @@
   "peerDependencies": {
     "next": "^16.0.0",
     "react": "^19.0.0"
+  },
+  "dependencies": {
+    "@halaalvest/ui": "workspace:*"
   },
   "devDependencies": {
     "@halaalvest/eslint-config": "workspace:*",

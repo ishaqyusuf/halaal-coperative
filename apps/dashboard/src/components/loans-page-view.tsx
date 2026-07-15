@@ -5,17 +5,41 @@ import {
   DashboardStatCard,
   DashboardSurfaceCard,
   TrendPill,
+  WorkspaceEmptyState,
 } from "@/components/dashboard"
-import { LoanRequestForm } from "@/components/forms/finance-forms"
+import { LoanColumnVisibility } from "@/components/loan-column-visibility"
+import { OpenLoanRequestSheet } from "@/components/open-loan-sheet"
+import { LoanSheet } from "@/components/sheets/loan-sheet"
 import { WorkspacePageShell } from "@/components/dashboard"
 import { LoanPortfolioTable } from "@/components/tables/loans/portfolio-table"
 import { LoanRequestsTable } from "@/components/tables/loans/requests-table"
 import { loadLoansPageData } from "@/lib/loans"
+import type { TableSettings } from "@/utils/table-settings"
 
 type LoansPageData = Extract<
   Awaited<ReturnType<typeof loadLoansPageData>>,
   { state: "ready" }
 >
+
+type LoansPageViewProps = LoansPageData & {
+  loanPortfolioTableSettings?: Partial<TableSettings>
+  loanRequestTableSettings?: Partial<TableSettings>
+}
+
+export function LoansUnavailableView() {
+  return (
+    <WorkspacePageShell
+      eyebrow="Loans"
+      title="Loan operations"
+      description="The loan workspace is staged for request review, approval sequencing, and liquidity-aware disbursement."
+    >
+      <WorkspaceEmptyState
+        title="Loan workflows need the database runtime."
+        body="Once the database-backed environment is active, this route will manage requests, approvals, disbursement, and repayment setup."
+      />
+    </WorkspacePageShell>
+  )
+}
 
 export function LoansPageView({
   canReview,
@@ -28,8 +52,10 @@ export function LoansPageView({
   loans,
   members,
   isMemberView,
+  loanPortfolioTableSettings,
+  loanRequestTableSettings,
   quickFillEnabled,
-}: LoansPageData) {
+}: LoansPageViewProps) {
   const intakeDisabledReason =
     financingCycle.intakeStatus === "open"
       ? null
@@ -40,6 +66,28 @@ export function LoansPageView({
     normal: financingCycle.normal,
     quick: financingCycle.quick,
   }
+  const loanProductOptions = loanProducts.map((product) => {
+    const codePrefix = product.code ? `${product.code} - ` : ""
+    const remainingAmount = formatCurrency(
+      productUsageByType[product.loanType].remainingAmount
+    )
+
+    return {
+      id: product.id,
+      label: `${codePrefix}${product.name} (up to ${product.termMonths} months, ${remainingAmount} remaining)`,
+    }
+  })
+  const memberOptions = members.items.map((member) => ({
+    id: member.id,
+    label: `${member.fullName} (${member.memberNumber})`,
+  }))
+  const fixedMember =
+    isMemberView && members.items[0]
+      ? {
+          id: members.items[0].id,
+          label: `${members.items[0].fullName} (${members.items[0].memberNumber})`,
+        }
+      : undefined
 
   return (
     <WorkspacePageShell
@@ -54,6 +102,9 @@ export function LoansPageView({
       {canSubmit ? (
         <DashboardSectionCard>
           <DashboardSectionHeader
+            actions={
+              <OpenLoanRequestSheet disabled={Boolean(intakeDisabledReason)} />
+            }
             description={
               isMemberView
                 ? "Choose the product, amount, term, and any extra monthly savings you want to keep while servicing the loan."
@@ -64,36 +115,10 @@ export function LoansPageView({
               isMemberView ? "Request a loan" : "Submit a new loan request"
             }
           />
-          <div className="mt-5">
-            <LoanRequestForm
-              devMode={quickFillEnabled}
-              disabledReason={intakeDisabledReason}
-              loanRequestCharges={loanRequestCharges}
-              loanProducts={loanProducts.map((product) => {
-                const codePrefix = product.code ? `${product.code} - ` : ""
-                const remainingAmount = formatCurrency(
-                  productUsageByType[product.loanType].remainingAmount
-                )
-
-                return {
-                  id: product.id,
-                  label: `${codePrefix}${product.name} (up to ${product.termMonths} months, ${remainingAmount} remaining)`,
-                }
-              })}
-              members={members.items.map((member) => ({
-                id: member.id,
-                label: `${member.fullName} (${member.memberNumber})`,
-              }))}
-              fixedMember={
-                isMemberView && members.items[0]
-                  ? {
-                      id: members.items[0].id,
-                      label: `${members.items[0].fullName} (${members.items[0].memberNumber})`,
-                    }
-                  : undefined
-              }
-            />
-          </div>
+          <p className="mt-5 text-sm leading-6 text-muted-foreground">
+            Submit loan requests from a focused sheet so the page stays
+            dedicated to capacity, review, and portfolio status.
+          </p>
         </DashboardSectionCard>
       ) : null}
 
@@ -200,7 +225,12 @@ export function LoansPageView({
 
       <DashboardSectionCard>
         <DashboardSectionHeader
-          actions={<TrendPill>{loanRequests.length} requests</TrendPill>}
+          actions={
+            <div className="flex items-center gap-2">
+              <LoanColumnVisibility tableType="requests" />
+              <TrendPill>{loanRequests.length} requests</TrendPill>
+            </div>
+          }
           description={
             isMemberView
               ? "Track requests you have submitted and their approval progress."
@@ -210,13 +240,22 @@ export function LoansPageView({
           title={isMemberView ? "My loan requests" : "Loan requests queue"}
         />
         <div className="mt-5">
-          <LoanRequestsTable canReview={canReview} items={loanRequests} />
+          <LoanRequestsTable
+            canReview={canReview}
+            initialSettings={loanRequestTableSettings}
+            memberId={fixedMember?.id}
+          />
         </div>
       </DashboardSectionCard>
 
       <DashboardSectionCard>
         <DashboardSectionHeader
-          actions={<TrendPill>{loans.length} loans</TrendPill>}
+          actions={
+            <div className="flex items-center gap-2">
+              <LoanColumnVisibility tableType="portfolio" />
+              <TrendPill>{loans.length} loans</TrendPill>
+            </div>
+          }
           description={
             isMemberView
               ? "Review your approved principal, outstanding balance, and repayment status."
@@ -231,10 +270,20 @@ export function LoansPageView({
           <LoanPortfolioTable
             availablePool={financingCycle.deployableFunds.deployableFunds}
             canReview={canReview}
-            items={loans}
+            initialSettings={loanPortfolioTableSettings}
+            memberId={fixedMember?.id}
           />
         </div>
       </DashboardSectionCard>
+
+      <LoanSheet
+        devMode={quickFillEnabled}
+        disabledReason={intakeDisabledReason}
+        fixedMember={fixedMember}
+        loanProducts={loanProductOptions}
+        loanRequestCharges={loanRequestCharges}
+        members={memberOptions}
+      />
     </WorkspacePageShell>
   )
 }

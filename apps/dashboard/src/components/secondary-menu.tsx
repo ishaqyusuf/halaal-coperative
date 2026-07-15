@@ -10,7 +10,7 @@ type Item = {
 }
 
 type Props = {
-  items: Item[]
+  items: readonly Item[]
 }
 
 export function SecondaryMenu({ items }: Props) {

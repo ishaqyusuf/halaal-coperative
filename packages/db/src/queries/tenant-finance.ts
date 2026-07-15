@@ -1,4 +1,10 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import type {
+  Prisma,
+  PrismaClient,
+  ProfitEntrySourceType,
+  ProfitEntryStatus,
+  ShareBusinessStatus,
+} from "../../generated/prisma/client"
 import { allocateBusinessProfitByShare } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
 import { isPrismaMissingColumnError } from "../prisma-errors"
@@ -36,6 +42,27 @@ export type TenantBusinessProfitPolicySettings = {
 }
 
 type BusinessProfitSourceType = "manual" | "backfill" | "import"
+
+export type ShareBusinessTableSortField =
+  | "name"
+  | "startDate"
+  | "capitalAmount"
+  | "profitAmount"
+  | "status"
+
+export type ListShareBusinessesTableFilters = {
+  cursor?: string | null
+  dividendPeriodId?: string
+  hasProfitEntries?: boolean
+  pageSize?: number
+  profitStatus?: ProfitEntryStatus
+  q?: string | null
+  sort?: [ShareBusinessTableSortField, "asc" | "desc"] | null
+  sourceType?: ProfitEntrySourceType
+  startFrom?: Date
+  startTo?: Date
+  status?: ShareBusinessStatus
+}
 
 export type BusinessProfitSeasonReviewRow = {
   businessNames: string[]
@@ -171,6 +198,24 @@ export type MemberShareApplicationRow = {
   shareValueSnapshot: number
   status: MemberShareApplicationStatus
   unitAmountSnapshot: number
+}
+
+export type MemberShareApplicationSortField =
+  | "createdAt"
+  | "memberName"
+  | "requestedUnits"
+  | "reviewedAt"
+  | "shareValueSnapshot"
+  | "status"
+
+export type ListMemberShareApplicationPageFilters = {
+  cursor?: string | null
+  memberId?: string
+  pageSize?: number
+  search?: string | null
+  sort?: [MemberShareApplicationSortField, "asc" | "desc"] | null
+  status?: MemberShareApplicationStatus
+  tenantId: string
 }
 
 export type MemberUnitSharePosition = {
@@ -1647,6 +1692,134 @@ export async function listMemberShareApplications(
   return applications.map(normalizeMemberShareApplication)
 }
 
+export async function findMemberShareApplication(
+  input: {
+    memberId?: string
+    memberShareApplicationId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MemberShareApplicationRow | null> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) return null
+
+  const application = await prisma.memberShareApplication.findFirst({
+    include: {
+      member: {
+        select: {
+          email: true,
+          fullName: true,
+          memberNumber: true,
+        },
+      },
+    },
+    where: {
+      id: input.memberShareApplicationId,
+      tenantId: input.tenantId,
+      ...(input.memberId ? { memberId: input.memberId } : {}),
+    },
+  })
+
+  return application ? normalizeMemberShareApplication(application) : null
+}
+
+function getMemberShareApplicationOrderBy(
+  sort?: [MemberShareApplicationSortField, "asc" | "desc"] | null
+): Prisma.MemberShareApplicationOrderByWithRelationInput[] {
+  if (!sort) {
+    return [{ createdAt: "desc" }, { id: "desc" }]
+  }
+
+  const [field, direction] = sort
+
+  if (field === "memberName") {
+    return [
+      { member: { fullName: direction } },
+      { createdAt: "desc" },
+      { id: "desc" },
+    ]
+  }
+
+  return [{ [field]: direction }, { createdAt: "desc" }, { id: "desc" }]
+}
+
+function getMemberShareApplicationWhere(
+  input: ListMemberShareApplicationPageFilters
+): Prisma.MemberShareApplicationWhereInput {
+  const query = input.search?.trim()
+
+  return {
+    tenantId: input.tenantId,
+    ...(input.memberId ? { memberId: input.memberId } : {}),
+    ...(input.status ? { status: input.status } : {}),
+    ...(query
+      ? {
+          OR: [
+            { notes: { contains: query, mode: "insensitive" } },
+            { reviewNotes: { contains: query, mode: "insensitive" } },
+            {
+              member: {
+                fullName: { contains: query, mode: "insensitive" },
+              },
+            },
+            {
+              member: {
+                memberNumber: { contains: query, mode: "insensitive" },
+              },
+            },
+            {
+              member: {
+                email: { contains: query, mode: "insensitive" },
+              },
+            },
+          ],
+        }
+      : {}),
+  }
+}
+
+export async function listMemberShareApplicationPage(
+  input: ListMemberShareApplicationPageFilters,
+  prismaOverride?: PrismaClient
+): Promise<{
+  data: MemberShareApplicationRow[]
+  meta: { cursor?: string; total: number }
+}> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) return { data: [], meta: { total: 0 } }
+
+  const pageSize = input.pageSize ?? 50
+  const where = getMemberShareApplicationWhere(input)
+  const [applications, total] = await Promise.all([
+    prisma.memberShareApplication.findMany({
+      cursor: input.cursor ? { id: input.cursor } : undefined,
+      include: {
+        member: {
+          select: {
+            email: true,
+            fullName: true,
+            memberNumber: true,
+          },
+        },
+      },
+      orderBy: getMemberShareApplicationOrderBy(input.sort),
+      skip: input.cursor ? 1 : 0,
+      take: pageSize,
+      where,
+    }),
+    prisma.memberShareApplication.count({ where }),
+  ])
+
+  return {
+    data: applications.map(normalizeMemberShareApplication),
+    meta: {
+      cursor:
+        applications.length === pageSize ? applications.at(-1)?.id : undefined,
+      total,
+    },
+  }
+}
+
 export async function createMemberShareApplication(
   input: {
     memberId: string
@@ -2221,6 +2394,200 @@ export async function listShareBusinesses(
     },
     orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
   })
+}
+
+const shareBusinessTableInclude = {
+  linkedDividendPeriod: {
+    select: {
+      id: true,
+      name: true,
+      status: true,
+    },
+  },
+  profitEntries: {
+    include: {
+      allocations: true,
+      linkedDividendPeriod: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+        },
+      },
+    },
+    orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
+  },
+} satisfies Prisma.ShareBusinessInclude
+
+function buildShareBusinessTableWhere(
+  tenantId: string,
+  filters?: ListShareBusinessesTableFilters
+): Prisma.ShareBusinessWhereInput {
+  const profitEntryFilters: Prisma.ShareBusinessProfitEntryWhereInput = {
+    ...(filters?.dividendPeriodId && {
+      linkedDividendPeriodId: filters.dividendPeriodId,
+    }),
+    ...(filters?.profitStatus && { status: filters.profitStatus }),
+    ...(filters?.sourceType && { sourceType: filters.sourceType }),
+  }
+  const hasProfitEntryFilters = Object.keys(profitEntryFilters).length > 0
+
+  return {
+    tenantId,
+    ...(filters?.status && { status: filters.status }),
+    ...((filters?.startFrom || filters?.startTo) && {
+      startDate: {
+        ...(filters.startFrom && { gte: filters.startFrom }),
+        ...(filters.startTo && { lte: filters.startTo }),
+      },
+    }),
+    ...(filters?.hasProfitEntries === true && {
+      profitEntries: hasProfitEntryFilters
+        ? { some: profitEntryFilters }
+        : { some: {} },
+    }),
+    ...(filters?.hasProfitEntries === false && {
+      profitEntries: { none: {} },
+    }),
+    ...(hasProfitEntryFilters &&
+      filters?.hasProfitEntries !== false && {
+        profitEntries: { some: profitEntryFilters },
+      }),
+    ...(filters?.q && {
+      OR: [
+        { name: { contains: filters.q, mode: "insensitive" as const } },
+        { notes: { contains: filters.q, mode: "insensitive" as const } },
+      ],
+    }),
+  }
+}
+
+function getShareBusinessTableOrderBy(
+  sort?: ListShareBusinessesTableFilters["sort"]
+): Prisma.ShareBusinessOrderByWithRelationInput[] {
+  if (!sort) {
+    return [{ startDate: "desc" }, { createdAt: "desc" }]
+  }
+
+  const [field, direction] = sort
+
+  return [{ [field]: direction }, { createdAt: "desc" }]
+}
+
+function serializeShareBusinessTableRow<
+  TBusiness extends {
+    capitalAmount: unknown
+    endDate: Date | null
+    profitAmount: unknown
+    profitEntries?: Array<{
+      allocatableProfitAmount?: unknown
+      allocations?: Array<{ allocatedProfitAmount: unknown; status: string }>
+      expenseAmount?: unknown
+      id?: string
+      linkedDividendPeriod?: {
+        id: string
+        name: string
+        status: string
+      } | null
+      notes?: string | null
+      profitAmount?: unknown
+      profitDate: Date
+      reason?: string | null
+      sourceType?: string
+      status?: string
+    }>
+    startDate: Date
+  },
+>(business: TBusiness) {
+  return {
+    ...business,
+    capitalAmount: Number(business.capitalAmount ?? 0),
+    endDate: business.endDate
+      ? business.endDate.toISOString().slice(0, 10)
+      : null,
+    profitAmount: Number(business.profitAmount ?? 0),
+    profitEntries: (business.profitEntries ?? []).map((entry) => ({
+      ...entry,
+      allocatedProfitAmount: (entry.allocations ?? []).reduce(
+        (total, allocation) =>
+          total + Number(allocation.allocatedProfitAmount ?? 0),
+        0
+      ),
+      allocatableProfitAmount: Number(
+        entry.allocatableProfitAmount ?? entry.profitAmount ?? 0
+      ),
+      expenseAmount: Number(entry.expenseAmount ?? 0),
+      hasPublishedAllocations: (entry.allocations ?? []).some(
+        (allocation) => allocation.status === "published"
+      ),
+      profitAmount: Number(entry.profitAmount ?? 0),
+      profitDate: entry.profitDate.toISOString().slice(0, 10),
+    })),
+    startDate: business.startDate.toISOString().slice(0, 10),
+  }
+}
+
+export async function listShareBusinessesTable(
+  tenantId: string,
+  filters?: ListShareBusinessesTableFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const pageSize = filters?.pageSize ?? 25
+  const offset = filters?.cursor ? Number.parseInt(filters.cursor, 10) : 0
+  const safeOffset = Number.isFinite(offset) && offset > 0 ? offset : 0
+  const where = buildShareBusinessTableWhere(tenantId, filters)
+
+  const data = await prisma.shareBusiness.findMany({
+    where,
+    include: shareBusinessTableInclude,
+    orderBy: getShareBusinessTableOrderBy(filters?.sort),
+    skip: safeOffset,
+    take: pageSize,
+  })
+
+  return {
+    data: data.map(serializeShareBusinessTableRow),
+    meta: {
+      cursor: data.length === pageSize ? String(safeOffset + pageSize) : null,
+      hasNextPage: data.length === pageSize,
+      hasPreviousPage: safeOffset > 0,
+    },
+  }
+}
+
+export async function listShareBusinessesForTableSummary(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const data = await prisma.shareBusiness.findMany({
+    where: { tenantId },
+    include: shareBusinessTableInclude,
+    orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
+  })
+
+  return data.map(serializeShareBusinessTableRow)
+}
+
+export async function getShareBusinessById(
+  tenantId: string,
+  shareBusinessId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const business = await prisma.shareBusiness.findFirst({
+    where: { id: shareBusinessId, tenantId },
+    include: shareBusinessTableInclude,
+  })
+
+  return business ? serializeShareBusinessTableRow(business) : null
 }
 
 export async function createShareBusiness(

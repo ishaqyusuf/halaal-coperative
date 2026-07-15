@@ -39,7 +39,11 @@ export function parseOptionalDateInput(value: string | string[] | undefined, end
     return null
   }
 
-  return new Date(`${normalized}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`)
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(normalized)
+    ? new Date(`${normalized}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`)
+    : new Date(normalized)
+
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 export function getReportsDateFilters(

@@ -51,10 +51,10 @@ export function DashboardTopbar({
           <MenuIcon className="size-3.5" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">
             {currentModuleSubtitle ?? "Cooperative workspace"}
           </p>
-          <h1 className="mt-1 truncate text-2xl font-semibold tracking-[-0.04em] text-foreground">
+          <h1 className="mt-1 truncate text-2xl font-semibold text-foreground">
             {title}
           </h1>
         </div>

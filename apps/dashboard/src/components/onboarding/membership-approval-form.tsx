@@ -284,7 +284,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
   return (
     <Form {...form}>
       <form className="space-y-6" onSubmit={form.handleSubmit(onApprove)}>
-        <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4">
+        <div className="rounded-md border border-border/70 bg-muted/20 p-4">
           <div className="mb-4">
             <h3 className="text-base font-semibold text-foreground">
               Approval metadata
@@ -325,7 +325,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-border/70 bg-background/80 p-4">
+        <div className="rounded-md border border-border/70 bg-background/80 p-4">
           <FormField
             control={form.control}
             name="hasServingLoan"
@@ -470,9 +470,9 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
                 )}
               />
 
-              <div className="grid gap-3 rounded-[1.25rem] border border-border/60 bg-muted/25 p-4 sm:grid-cols-3 md:col-span-2 xl:col-span-5">
+              <div className="grid gap-3 rounded-md border border-border/60 bg-muted/25 p-4 sm:grid-cols-3 md:col-span-2 xl:col-span-5">
                 <div>
-                  <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">
                     Pending
                   </p>
                   <p className="mt-2 text-lg font-semibold text-foreground">
@@ -482,7 +482,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">
                     Total monthly
                   </p>
                   <p className="mt-2 text-lg font-semibold text-foreground">
@@ -495,7 +495,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">
                     Estimated end month
                   </p>
                   <p className="mt-2 text-lg font-semibold text-foreground">
@@ -507,7 +507,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
           ) : null}
         </div>
 
-        <div className="rounded-[1.5rem] border border-border/70 bg-background/80 p-4">
+        <div className="rounded-md border border-border/70 bg-background/80 p-4">
           <FormField
             control={form.control}
             name="reason"

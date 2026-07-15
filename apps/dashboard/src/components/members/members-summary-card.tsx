@@ -27,7 +27,7 @@ export function MembersSummaryCard({
       <div className="flex flex-col gap-1.5">
         <div
           className={cn(
-            "text-2xl font-medium tracking-tight text-foreground",
+            "text-2xl font-medium text-foreground",
             tone === "positive" && "text-emerald-700 dark:text-emerald-400",
             tone === "warning" && "text-amber-700 dark:text-amber-400",
           )}

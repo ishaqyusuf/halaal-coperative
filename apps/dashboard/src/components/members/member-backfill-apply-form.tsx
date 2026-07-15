@@ -43,7 +43,7 @@ export function MemberBackfillApplyForm({
 
   return (
     <form
-      className="mt-5 grid gap-3 border border-border/70 bg-muted/20 p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+      className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
       onSubmit={onSubmit}
     >
       <input name="memberId" type="hidden" value={memberId} />

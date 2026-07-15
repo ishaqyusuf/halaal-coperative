@@ -20,6 +20,8 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - Favor pure functions for calculation logic where possible.
 - Keep authorization checks close to entry points and service boundaries.
 - Import browser-safe role metadata from `@halaalvest/auth/roles`; reserve `@halaalvest/auth` for server-side session, cookie, and token helpers.
+- `bun run kill:ports` discovers numeric env variables ending in `_PORT` and ignores names containing `PORTLESS`. Keep every project-owned dev port declared as an individual `*_PORT` env variable instead of adding aggregate kill lists.
+- For mobile styling or NativeWind issues that do not resolve after normal debugging, use the working GRD project as the fallback reference and align this project to its theme configuration, styling implementation, NativeWind version, and mobile UI setup.
 
 ## Financial Safety Rules
 - Never trust client-supplied balances.

@@ -1,6 +1,9 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -293,9 +296,15 @@ function FinanceRecentItemCard({
           <Text className="text-sm leading-5 text-muted-foreground">
             {item.subtitle}
           </Text>
-          <Text className="text-xs font-medium text-muted-foreground">
-            {formatStatus(item.status)} - {formatDate(item.requestedAt)}
-          </Text>
+          <View className="flex-row flex-wrap items-center gap-2">
+            <StatusBadge
+              label={formatStatus(item.status)}
+              tone={getStatusBadgeTone(item.status)}
+            />
+            <Text className="text-xs font-medium text-muted-foreground">
+              Requested {formatDate(item.requestedAt)}
+            </Text>
+          </View>
           {isFoodPurchaseReviewing ? (
             <View className="gap-2 pt-2">
               <Textarea
@@ -776,12 +785,27 @@ function CollectionFollowUpCard({
           <Text className="text-sm leading-5 text-muted-foreground">
             {followUp.loanProductName} - {followUp.note}
           </Text>
-          <Text className="text-xs font-medium text-muted-foreground">
-            {formatStatus(followUp.status)} - {formatStatus(followUp.priority)}
-            {followUp.nextActionAt
-              ? ` - Next ${formatDate(followUp.nextActionAt)}`
-              : ""}
-          </Text>
+          <View className="flex-row flex-wrap items-center gap-2">
+            <StatusBadge
+              label={formatStatus(followUp.status)}
+              tone={getStatusBadgeTone(followUp.status)}
+            />
+            <StatusBadge
+              label={formatStatus(followUp.priority)}
+              tone={
+                followUp.priority === "urgent"
+                  ? "destructive"
+                  : followUp.priority === "high"
+                    ? "warning"
+                    : "muted"
+              }
+            />
+            {followUp.nextActionAt ? (
+              <Text className="text-xs font-medium text-muted-foreground">
+                Next {formatDate(followUp.nextActionAt)}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </View>
       {isRecording ? (
@@ -945,6 +969,20 @@ export function AdminFinanceScreen() {
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
   const hasStaleFinance = isMobileReadCacheStale(finance?.cache)
+  const hasAdminFinanceDraft = Boolean(
+    financingReviewNotes.trim() ||
+    foodPurchaseReviewNotes.trim() ||
+    procurementReviewNotes.trim() ||
+    procurementApprovedCost.trim() ||
+    procurementApprovedRepaymentMonths.trim() ||
+    projectFinancingReviewNotes.trim() ||
+    projectFinancingApprovedAmount.trim() ||
+    projectFinancingApprovedPaybackMonths.trim() ||
+    receiptReviewNotes.trim() ||
+    shareReviewNotes.trim() ||
+    collectionFollowUpNote.trim() ||
+    collectionFollowUpNextActionAt.trim()
+  )
   const adminFinanceDraft = useMemo(
     () => ({
       collectionFollowUpItemId,
@@ -1517,6 +1555,11 @@ export function AdminFinanceScreen() {
           <>
             <CachedReadBanner cache={finance?.cache} label="finance data" />
 
+            <FormStateBanner
+              hasDraft={hasAdminFinanceDraft}
+              isStale={hasStaleFinance}
+            />
+
             <View className="flex-row flex-wrap gap-3">
               {stats.map((item) => (
                 <StatCard key={item.label} {...item} />
@@ -1558,9 +1601,11 @@ export function AdminFinanceScreen() {
                       </View>
                     ))
                   ) : (
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No finance queues need review right now.
-                    </Text>
+                    <EmptyState
+                      description="Receipt, financing, procurement, Foodstuff Purchase, Project Financing, share, and collection queues will appear here."
+                      icon="ShieldCheck"
+                      title="No finance queues"
+                    />
                   )}
                 </View>
               )}
@@ -1573,10 +1618,11 @@ export function AdminFinanceScreen() {
                 <VirtualizedCardList
                   data={finance?.recentItems ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No pending finance requests are visible in the mobile
-                      queue.
-                    </Text>
+                    <EmptyState
+                      description="Pending finance review records will appear here with member, status, age, and amount context."
+                      icon="ClipboardList"
+                      title="No pending finance requests"
+                    />
                   }
                   estimatedItemSize={320}
                   keyExtractor={(item) => `${item.queueKey}-${item.id}`}
@@ -1782,10 +1828,11 @@ export function AdminFinanceScreen() {
                 <VirtualizedCardList
                   data={finance?.collectionFollowUps ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No open collection follow-ups are visible in the mobile
-                      queue.
-                    </Text>
+                    <EmptyState
+                      description="Open collection follow-ups will appear here for field-ready reminders, promises, and next actions."
+                      icon="MessageSquareText"
+                      title="No collection follow-ups"
+                    />
                   }
                   estimatedItemSize={260}
                   keyExtractor={(followUp) => followUp.id}

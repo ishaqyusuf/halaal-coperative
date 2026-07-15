@@ -1,96 +1,160 @@
 "use client"
 
-import { TenantLink as Link } from "@halaalvest/tenant-url/next"
+import type { RouterOutputs } from "@halaalvest/api/trpc/routers/_app"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button, buttonVariants } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { formatCurrency } from "@halaalvest/utils"
 import type { ColumnDef } from "@tanstack/react-table"
+import { memo } from "react"
+import { BusinessActionsMenu } from "./actions-menu"
 
-export type DividendPeriodOption = {
-  id: string
-  label: string
+export type Business = RouterOutputs["business"]["list"]["data"][number]
+export type BusinessProfitEntry = Business["profitEntries"][number]
+export type DividendPeriodOption =
+  RouterOutputs["business"]["setup"]["dividendPeriods"][number]
+
+type BusinessTableMeta = {
+  isLocked: boolean
 }
 
-export type BusinessProfitEntry = {
-  allocatedProfitAmount: number
-  allocationCount: number
-  allocatableProfitAmount: number
-  expenseAmount: number
-  hasPublishedAllocations: boolean
-  id: string
-  linkedDividendPeriod?: {
-    id: string
-    name: string
-    status: string
-  } | null
-  notes?: string | null
-  profitAmount: number
-  profitDate: string
-  reason?: string | null
-  sourceType: string
-  status: string
-}
-
-export type Business = {
-  capitalAmount: number
-  endDate: string | null
-  id: string
-  linkedDividendPeriod?: {
-    id: string
-    name: string
-    status: string
-  } | null
-  name: string
-  notes?: string | null
-  profitAmount: number
-  profitEntries: BusinessProfitEntry[]
-  startDate: string
-  status: string
+function displayEnum(value: string) {
+  return value.replaceAll("_", " ")
 }
 
 function latestProfitEntry(business: Business) {
   return business.profitEntries[0] ?? null
 }
 
+const BusinessCell = memo(
+  ({ name, notes }: { name: string; notes?: string | null }) => (
+    <div>
+      <p className="truncate font-medium text-foreground">{name}</p>
+      <p className="mt-1 truncate text-xs text-muted-foreground">
+        {notes ?? "No note"}
+      </p>
+    </div>
+  )
+)
+
+BusinessCell.displayName = "BusinessCell"
+
+const StatusBadge = memo(({ status }: { status: string }) => (
+  <Badge
+    className={
+      status === "active"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : status === "completed"
+          ? "border-sky-200 bg-sky-50 text-sky-700"
+          : "border-amber-200 bg-amber-50 text-amber-700"
+    }
+    variant="outline"
+  >
+    {displayEnum(status)}
+  </Badge>
+))
+
+StatusBadge.displayName = "StatusBadge"
+
 export const columns: ColumnDef<Business>[] = [
+  {
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label={`Select ${row.original.name}`}
+        checked={row.getIsSelected()}
+        onCheckedChange={(checked) => row.toggleSelected(checked === true)}
+      />
+    ),
+    enableHiding: false,
+    enableResizing: false,
+    enableSorting: false,
+    id: "select",
+    maxSize: 50,
+    meta: {
+      className:
+        "w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20 justify-center",
+      skeleton: { type: "checkbox" },
+      sticky: true,
+    },
+    minSize: 50,
+    size: 50,
+  },
   {
     accessorKey: "name",
     cell: ({ row }) => (
-      <div>
-        <p className="font-medium text-foreground">{row.original.name}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {row.original.notes ?? "No note"}
-        </p>
-      </div>
+      <BusinessCell name={row.original.name} notes={row.original.notes} />
     ),
+    enableResizing: true,
     header: "Business",
+    id: "business",
+    maxSize: 520,
+    meta: {
+      className:
+        "w-[320px] min-w-[240px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
+      headerLabel: "Business",
+      skeleton: { type: "avatar-text", width: "w-36" },
+      sticky: true,
+    },
+    minSize: 240,
+    size: 320,
   },
   {
     accessorKey: "startDate",
-    cell: ({ row }) =>
-      `${row.original.startDate} -> ${row.original.endDate ?? "Ongoing"}`,
+    cell: ({ row }) => (
+      <span>
+        {row.original.startDate} to {row.original.endDate ?? "Ongoing"}
+      </span>
+    ),
+    enableResizing: true,
     header: "Period",
+    id: "period",
+    maxSize: 280,
+    meta: {
+      className: "w-[220px] min-w-[180px]",
+      headerLabel: "Period",
+      skeleton: { type: "text", width: "w-28" },
+    },
+    minSize: 180,
+    size: 220,
   },
   {
     accessorKey: "capitalAmount",
     cell: ({ row }) => formatCurrency(row.original.capitalAmount),
+    enableResizing: true,
     header: "Capital",
+    id: "capital",
+    maxSize: 220,
+    meta: {
+      className: "w-[170px] min-w-[140px]",
+      headerLabel: "Capital",
+      skeleton: { type: "text", width: "w-24" },
+    },
+    minSize: 140,
+    size: 170,
   },
   {
     accessorKey: "profitAmount",
     cell: ({ row }) => {
       const total =
         row.original.profitEntries.reduce(
-          (sum, entry) => sum + entry.allocatableProfitAmount,
+          (sum, entry) => sum + Number(entry.allocatableProfitAmount ?? 0),
           0
         ) || row.original.profitAmount
 
       return <span className="font-medium">{formatCurrency(total)}</span>
     },
+    enableResizing: true,
     header: "Allocatable profit",
+    id: "profit",
+    maxSize: 240,
+    meta: {
+      className: "w-[190px] min-w-[150px]",
+      headerLabel: "Allocatable profit",
+      skeleton: { type: "text", width: "w-24" },
+    },
+    minSize: 150,
+    size: 190,
   },
   {
-    id: "latestProfitEntry",
     cell: ({ row }) => {
       const latest = latestProfitEntry(row.original)
 
@@ -100,92 +164,67 @@ export const columns: ColumnDef<Business>[] = [
 
       return (
         <div>
-          <p className="font-medium text-foreground">
+          <p className="truncate font-medium text-foreground">
             {formatCurrency(latest.allocatableProfitAmount)}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {latest.profitDate} · {latest.status}
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {latest.profitDate} · {displayEnum(latest.status)}
           </p>
         </div>
       )
     },
-    header: "Latest profit entry",
+    enableResizing: true,
+    header: "Latest profit",
+    id: "latestProfitEntry",
+    maxSize: 260,
+    meta: {
+      className: "w-[210px] min-w-[170px]",
+      headerLabel: "Latest profit",
+      skeleton: { type: "text", width: "w-28" },
+    },
+    minSize: 170,
+    size: 210,
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <Badge variant="outline">{row.original.status}</Badge>,
+    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    enableResizing: true,
     header: "Status",
+    id: "status",
+    maxSize: 180,
+    meta: {
+      className: "w-[140px] min-w-[120px]",
+      headerLabel: "Status",
+      skeleton: { type: "badge" },
+    },
+    minSize: 120,
+    size: 140,
   },
   {
-    id: "actions",
     cell: ({ row, table }) => {
-      const meta = table.options.meta as {
-        isLocked: boolean
-        onAddProfit: (id: string) => void
-        onEditBusiness: (id: string) => void
-        onEditProfit: (businessId: string, profitEntryId: string) => void
-      }
-      const latest = latestProfitEntry(row.original)
+      const meta = table.options.meta as BusinessTableMeta
 
       return (
-        <div className="flex justify-end gap-2">
-          <Button
-            disabled={meta.isLocked}
-            onClick={(event) => {
-              event.stopPropagation()
-              meta.onAddProfit(row.original.id)
-            }}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Profit
-          </Button>
-          <Button
-            disabled={meta.isLocked}
-            onClick={(event) => {
-              event.stopPropagation()
-              meta.onEditBusiness(row.original.id)
-            }}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Edit
-          </Button>
-          <Button
-            disabled={
-              meta.isLocked || !latest?.id || latest.hasPublishedAllocations
-            }
-            onClick={(event) => {
-              event.stopPropagation()
-              if (latest?.id) {
-                meta.onEditProfit(row.original.id, latest.id)
-              }
-            }}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Entry
-          </Button>
-          {latest?.id ? (
-            <Link
-              className={buttonVariants({ size: "sm", variant: "outline" })}
-              href={`/settings/finance/business/profits/${latest.id}/migration`}
-              onClick={(event) => {
-                event.stopPropagation()
-              }}
-            >
-              Migrate
-            </Link>
-          ) : (
-            <Button disabled size="sm" type="button" variant="outline">
-              Migrate
-            </Button>
-          )}
-        </div>
+        <BusinessActionsMenu
+          business={row.original}
+          isLocked={meta.isLocked}
+        />
       )
     },
+    enableHiding: false,
+    enableResizing: false,
+    enableSorting: false,
+    header: "Actions",
+    id: "actions",
+    maxSize: 110,
+    meta: {
+      className:
+        "text-right sticky right-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-30 justify-center !border-l !border-border",
+      headerLabel: "Actions",
+      skeleton: { type: "icon" },
+      sticky: true,
+    },
+    minSize: 90,
+    size: 90,
   },
 ]

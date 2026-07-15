@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState } from "react"
+import { useState } from "react"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import {
@@ -167,154 +167,119 @@ export function MemberProfitSeasonAdjustmentTable({
           Quick fill
         </Button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] table-fixed border-separate border-spacing-x-2 border-spacing-y-2 border-0 [&_td]:border-0 [&_td]:p-0 [&_th]:border-0 [&_th]:p-0 [&_tr]:border-0">
-          <colgroup>
-            <col />
-            <col className="w-[104px]" />
-            <col className="w-[116px]" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th
-                className="text-left text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                Season
-              </th>
-              <th
-                className="text-right text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                Available
-              </th>
-              <th
-                className="text-right text-xs font-medium text-muted-foreground"
-                scope="col"
-              >
-                Amount
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {seasons.map((season) => {
-              const visibleBusinessNames = season.businessNames.slice(0, 1)
-              const hiddenBusinessCount =
-                season.businessNames.length - visibleBusinessNames.length
-              const value =
-                adjustments[season.key] ?? createInitialAdjustment(season)
+      <div className="grid gap-3">
+        {seasons.map((season) => {
+          const visibleBusinessNames = season.businessNames.slice(0, 1)
+          const hiddenBusinessCount =
+            season.businessNames.length - visibleBusinessNames.length
+          const value =
+            adjustments[season.key] ?? createInitialAdjustment(season)
 
-              return (
-                <Fragment key={season.key}>
-                  <tr aria-hidden="true">
-                    <td colSpan={3}>
-                      <div className="border-t border-border/70" />
-                    </td>
-                  </tr>
-                  <tr className="align-top">
-                    <td>
-                      <input
-                        name="seasonKey"
-                        type="hidden"
-                        value={season.key}
-                      />
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger
-                            render={
-                              <button
-                                className="text-left font-medium underline-offset-4 hover:underline"
-                                type="button"
-                              />
-                            }
-                          >
-                            {season.label}
-                          </TooltipTrigger>
-                          <TooltipContent
-                            align="start"
-                            className="grid max-w-[460px] gap-2 rounded-sm border border-border bg-popover p-3 text-popover-foreground shadow-xl [&>*:last-child]:bg-popover [&>*:last-child]:fill-popover"
-                            side="right"
-                            sideOffset={12}
-                          >
-                            <div className="border-b border-border/70 pb-2">
-                              <p className="text-sm font-semibold">
-                                Profit entries
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {season.periodStart && season.periodEnd
-                                  ? `${formatDate(season.periodStart)} - ${formatDate(season.periodEnd)}`
-                                  : season.label}
-                              </p>
-                            </div>
-                            <div className="grid gap-2">
-                              {season.entries.map((entry) => (
-                                <div
-                                  className="grid gap-1 border-b border-border/70 pb-2 last:border-b-0 last:pb-0"
-                                  key={entry.id}
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <span className="font-medium">
-                                      {entry.businessName}
-                                    </span>
-                                    <span className="tabular-nums">
-                                      {formatCurrency(entry.profitAmount)}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center justify-between gap-3 text-muted-foreground">
-                                    <span>{formatDate(entry.profitDate)}</span>
-                                    <span>
-                                      available{" "}
-                                      {formatCurrency(
-                                        entry.editableAvailableAmount
-                                      )}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {visibleBusinessNames.map((businessName) => (
-                          <Badge
-                            key={`${season.key}-${businessName}`}
-                            variant="secondary"
-                          >
-                            {businessName}
-                          </Badge>
-                        ))}
-                        {hiddenBusinessCount > 0 ? (
-                          <Badge variant="outline">
-                            +{hiddenBusinessCount}
-                          </Badge>
-                        ) : null}
-                        {season.status ? (
-                          <Badge variant="outline">
-                            {displayEnum(season.status)}
-                          </Badge>
-                        ) : null}
+          return (
+            <div
+              className="grid gap-3 border-t border-border/70 pt-3 sm:grid-cols-[minmax(0,1fr)_7rem_8rem] sm:items-start"
+              key={season.key}
+            >
+              <div>
+                <input name="seasonKey" type="hidden" value={season.key} />
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          className="text-left font-medium underline-offset-4 hover:underline"
+                          type="button"
+                        />
+                      }
+                    >
+                      {season.label}
+                    </TooltipTrigger>
+                    <TooltipContent
+                      align="start"
+                      className="grid max-w-[460px] gap-2 rounded-sm border border-border bg-popover p-3 text-popover-foreground shadow-xl [&>*:last-child]:bg-popover [&>*:last-child]:fill-popover"
+                      side="right"
+                      sideOffset={12}
+                    >
+                      <div className="border-b border-border/70 pb-2">
+                        <p className="text-sm font-semibold">
+                          Profit entries
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {season.periodStart && season.periodEnd
+                            ? `${formatDate(season.periodStart)} - ${formatDate(season.periodEnd)}`
+                            : season.label}
+                        </p>
                       </div>
-                    </td>
-                    <td className="pt-2 text-right text-sm">
-                      {formatCurrency(season.editableAvailableAmount)}
-                    </td>
-                    <td>
-                      <MemberProfitSeasonAdjustmentPopover
-                        disabled={disabled}
-                        onChange={(nextValue) =>
-                          updateAdjustment(season.key, nextValue)
-                        }
-                        seasonKey={season.key}
-                        value={value}
-                      />
-                    </td>
-                  </tr>
-                </Fragment>
-              )
-            })}
-          </tbody>
-        </table>
+                      <div className="grid gap-2">
+                        {season.entries.map((entry) => (
+                          <div
+                            className="grid gap-1 border-b border-border/70 pb-2 last:border-b-0 last:pb-0"
+                            key={entry.id}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-medium">
+                                {entry.businessName}
+                              </span>
+                              <span className="tabular-nums">
+                                {formatCurrency(entry.profitAmount)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 text-muted-foreground">
+                              <span>{formatDate(entry.profitDate)}</span>
+                              <span>
+                                available{" "}
+                                {formatCurrency(entry.editableAvailableAmount)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {visibleBusinessNames.map((businessName) => (
+                    <Badge
+                      key={`${season.key}-${businessName}`}
+                      variant="secondary"
+                    >
+                      {businessName}
+                    </Badge>
+                  ))}
+                  {hiddenBusinessCount > 0 ? (
+                    <Badge variant="outline">+{hiddenBusinessCount}</Badge>
+                  ) : null}
+                  {season.status ? (
+                    <Badge variant="outline">
+                      {displayEnum(season.status)}
+                    </Badge>
+                  ) : null}
+                </div>
+              </div>
+              <div className="sm:text-right">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Available
+                </p>
+                <p className="mt-1 text-sm">
+                  {formatCurrency(season.editableAvailableAmount)}
+                </p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground sm:text-right">
+                  Amount
+                </p>
+                <MemberProfitSeasonAdjustmentPopover
+                  disabled={disabled}
+                  onChange={(nextValue) =>
+                    updateAdjustment(season.key, nextValue)
+                  }
+                  seasonKey={season.key}
+                  value={value}
+                />
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

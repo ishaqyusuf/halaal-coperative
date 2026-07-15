@@ -9,6 +9,8 @@ export type TenantUrlStyle =
 export type TenantUrlConfig = {
   internalPrefix?: string
   appRootDomain: string
+  additionalRootDomains?: string[]
+  urlVariantPathHosts?: string[]
   projectSlug?: string
   headerPrefix?: string
   pathStyleHosts?: string[]
@@ -58,6 +60,24 @@ export type TenantUrlHeaderNames = {
   accountId: string
 }
 
+export type TenantUrlVariantStyle = "subdomain" | "path"
+
+export type TenantUrlVariant = {
+  id: string
+  label: string
+  description: string
+  style: TenantUrlVariantStyle
+  url: string
+  isCurrent: boolean
+}
+
+export type BuildTenantUrlVariantsOptions = {
+  config: TenantUrlConfig
+  context: TenantUrlContext
+  currentUrl?: string | URL | null
+  defaultProtocol?: "http" | "https"
+}
+
 const defaultReservedPaths = [
   "api",
   "_next",
@@ -95,7 +115,7 @@ function normalizeProjectSlug(slug?: string | null) {
 }
 
 export function getTenantUrlHeaderPrefix(
-  config?: Pick<TenantUrlConfig, "projectSlug" | "headerPrefix">,
+  config?: Pick<TenantUrlConfig, "projectSlug" | "headerPrefix">
 ) {
   if (config?.headerPrefix) {
     const normalized = config.headerPrefix
@@ -111,7 +131,7 @@ export function getTenantUrlHeaderPrefix(
 }
 
 export function getTenantUrlHeaderNames(
-  config?: Pick<TenantUrlConfig, "projectSlug" | "headerPrefix">,
+  config?: Pick<TenantUrlConfig, "projectSlug" | "headerPrefix">
 ): TenantUrlHeaderNames {
   const prefix = getTenantUrlHeaderPrefix(config)
 
@@ -155,6 +175,12 @@ function normalizePrefix(prefix: string) {
   return trimmed ? (trimmed.startsWith("/") ? trimmed : `/${trimmed}`) : ""
 }
 
+function uniqueValues(values: Array<string | null | undefined>) {
+  return [
+    ...new Set(values.map((value) => value?.trim()).filter(Boolean)),
+  ] as string[]
+}
+
 function normalizePath(pathname?: string | null) {
   const raw = pathname?.trim() || "/"
   const withoutUrl = raw.includes("://") ? new URL(raw).pathname : raw
@@ -167,25 +193,29 @@ function splitPath(pathname: string) {
 }
 
 function joinPath(...parts: (string | null | undefined)[]) {
-  const path = parts
-    .filter(Boolean)
-    .join("/")
-    .replace(/\/+/g, "/")
+  const path = parts.filter(Boolean).join("/").replace(/\/+/g, "/")
   return path.startsWith("/") ? path : `/${path}`
 }
 
-function getRootDomainCandidates(appRootDomain: string) {
-  const normalizedRootDomain = normalizeHost(appRootDomain)
-  const rootCandidates = new Set<string>([
-    normalizedRootDomain,
-    stripPort(normalizedRootDomain),
-  ])
+function getRootDomainCandidates(
+  appRootDomain: string,
+  additionalRootDomains: string[] = []
+) {
+  const rootCandidates = new Set<string>()
 
-  if (normalizedRootDomain.includes(".localhost")) {
-    rootCandidates.add("localhost")
+  for (const domain of [appRootDomain, ...additionalRootDomains]) {
+    const normalizedRootDomain = normalizeHost(domain)
+    if (!normalizedRootDomain) continue
+
+    rootCandidates.add(normalizedRootDomain)
+    rootCandidates.add(stripPort(normalizedRootDomain))
+
+    if (normalizedRootDomain.includes(".localhost")) {
+      rootCandidates.add("localhost")
+    }
   }
 
-  return [...rootCandidates].filter(Boolean)
+  return [...rootCandidates].filter(Boolean).sort((a, b) => b.length - a.length)
 }
 
 function hostCandidates(host: string) {
@@ -193,15 +223,23 @@ function hostCandidates(host: string) {
   return [normalizedHost, stripPort(normalizedHost)].filter(Boolean)
 }
 
-export function isAppRootDomainHost(host: string, appRootDomain: string) {
-  const roots = getRootDomainCandidates(appRootDomain)
+export function isAppRootDomainHost(
+  host: string,
+  appRootDomain: string,
+  additionalRootDomains: string[] = []
+) {
+  const roots = getRootDomainCandidates(appRootDomain, additionalRootDomains)
   return hostCandidates(host).some((candidateHost) =>
-    roots.some((root) => candidateHost === root),
+    roots.some((root) => candidateHost === root)
   )
 }
 
-export function extractTenantSubdomain(host: string, appRootDomain: string) {
-  const roots = getRootDomainCandidates(appRootDomain)
+export function extractTenantSubdomain(
+  host: string,
+  appRootDomain: string,
+  additionalRootDomains: string[] = []
+) {
+  const roots = getRootDomainCandidates(appRootDomain, additionalRootDomains)
 
   for (const candidateHost of hostCandidates(host)) {
     for (const root of roots) {
@@ -221,14 +259,14 @@ export function stripDashboardPrefix(subdomain: string) {
 
   if (normalizedSubdomain.startsWith(DASHBOARD_SUBDOMAIN_PREFIX)) {
     normalizedSubdomain = normalizedSubdomain.slice(
-      DASHBOARD_SUBDOMAIN_PREFIX.length,
+      DASHBOARD_SUBDOMAIN_PREFIX.length
     )
   }
 
   if (normalizedSubdomain.endsWith(DASHBOARD_SUBDOMAIN_SUFFIX)) {
     normalizedSubdomain = normalizedSubdomain.slice(
       0,
-      -DASHBOARD_SUBDOMAIN_SUFFIX.length,
+      -DASHBOARD_SUBDOMAIN_SUFFIX.length
     )
   }
 
@@ -248,8 +286,11 @@ export function getCustomDomainLookupHost(host: string) {
 export function getCanonicalTenantSlugFromHost(
   host: string,
   appRootDomain: string,
+  additionalRootDomains: string[] = []
 ) {
-  return stripDashboardPrefix(extractTenantSubdomain(host, appRootDomain))
+  return stripDashboardPrefix(
+    extractTenantSubdomain(host, appRootDomain, additionalRootDomains)
+  )
 }
 
 function isIpHost(host: string) {
@@ -279,6 +320,16 @@ function withPort(host: string, port?: number | string | null) {
   return `${normalizedHost}:${normalizedPort}`
 }
 
+function getProtocolForHost(
+  host: string,
+  preferredProtocol: "http" | "https" | "",
+  defaultProtocol: "http" | "https"
+) {
+  return stripPort(host).endsWith(".localhost")
+    ? "http"
+    : preferredProtocol || defaultProtocol
+}
+
 function isPathStyleHost(host: string, config: TenantUrlConfig) {
   if (config.enablePathStyleHosts === false) return false
 
@@ -287,7 +338,7 @@ function isPathStyleHost(host: string, config: TenantUrlConfig) {
   const configured = new Set(
     (config.pathStyleHosts ?? ["localhost", "127.0.0.1"])
       .map((candidate) => stripPort(normalizeHost(candidate)))
-      .filter(Boolean),
+      .filter(Boolean)
   )
 
   return (
@@ -300,7 +351,7 @@ function isPathStyleHost(host: string, config: TenantUrlConfig) {
 function isReservedPathSegment(segment: string, config: TenantUrlConfig) {
   const internalPrefix = normalizePrefix(config.internalPrefix ?? "").replace(
     /^\//,
-    "",
+    ""
   )
   const reserved = new Set([
     ...defaultReservedPaths,
@@ -334,7 +385,7 @@ function parseInternalPath(pathname: string, config: TenantUrlConfig) {
 
 export function isTenantInternalPath(
   pathname: string,
-  config: Pick<TenantUrlConfig, "internalPrefix"> = {},
+  config: Pick<TenantUrlConfig, "internalPrefix"> = {}
 ) {
   return parseInternalPath(normalizePath(pathname), {
     internalPrefix: config.internalPrefix ?? "",
@@ -345,27 +396,32 @@ export function isTenantInternalPath(
 export function toInternalTenantPath(
   context: Pick<TenantUrlContext, "tenantSlug">,
   productPath = "/",
-  config: Pick<TenantUrlConfig, "internalPrefix"> = {},
+  config: Pick<TenantUrlConfig, "internalPrefix"> = {}
 ) {
   const normalizedProductPath = normalizePath(productPath)
   if (!context.tenantSlug) return normalizedProductPath
   return joinPath(
     normalizePrefix(config.internalPrefix ?? ""),
     context.tenantSlug,
-    normalizedProductPath === "/" ? "" : normalizedProductPath,
+    normalizedProductPath === "/" ? "" : normalizedProductPath
   )
 }
 
 export function resolveTenantUrlContext(
   input: TenantUrlInput,
-  config: TenantUrlConfig,
+  config: TenantUrlConfig
 ): TenantUrlContext {
   const host = normalizeHost(input.host)
   const pathname = normalizePath(input.pathname)
   const protocol = normalizeProtocol(input.protocol)
   const appRootDomain = normalizeHost(config.appRootDomain)
+  const additionalRootDomains = config.additionalRootDomains ?? []
   const internal = parseInternalPath(pathname, config)
-  const appRootHost = isAppRootDomainHost(host, appRootDomain)
+  const appRootHost = isAppRootDomainHost(
+    host,
+    appRootDomain,
+    additionalRootDomains
+  )
   const pathHost = isPathStyleHost(host, config)
 
   if (internal && isValidTenantSlug(internal.tenantSlug, config)) {
@@ -412,7 +468,7 @@ export function resolveTenantUrlContext(
         internalPath: toInternalTenantPath(
           { tenantSlug: tenantSegment },
           productPath,
-          config,
+          config
         ),
         isAppRootHost: appRootHost,
         isPathStyleHost: true,
@@ -421,7 +477,11 @@ export function resolveTenantUrlContext(
     }
   }
 
-  const canonicalSlug = getCanonicalTenantSlugFromHost(host, appRootDomain)
+  const canonicalSlug = getCanonicalTenantSlugFromHost(
+    host,
+    appRootDomain,
+    additionalRootDomains
+  )
 
   if (canonicalSlug && isValidTenantSlug(canonicalSlug, config)) {
     return {
@@ -435,7 +495,7 @@ export function resolveTenantUrlContext(
       internalPath: toInternalTenantPath(
         { tenantSlug: canonicalSlug },
         pathname,
-        config,
+        config
       ),
       isAppRootHost: appRootHost,
       isPathStyleHost: false,
@@ -481,7 +541,7 @@ function isExternalHref(href: string) {
 export function buildTenantHref(
   context: TenantUrlContext,
   href: string,
-  options: Pick<TenantUrlConfig, "internalPrefix"> = {},
+  options: Pick<TenantUrlConfig, "internalPrefix"> = {}
 ) {
   if (!href) return href
   if (isExternalHref(href)) return href
@@ -517,7 +577,7 @@ export function buildTenantRedirectUrl(
   context: TenantUrlContext,
   href: string,
   requestUrl: string | URL,
-  options: Pick<TenantUrlConfig, "internalPrefix"> = {},
+  options: Pick<TenantUrlConfig, "internalPrefix"> = {}
 ) {
   return new URL(buildTenantHref(context, href, options), requestUrl)
 }
@@ -550,7 +610,7 @@ export function buildTenantAppUrl({
   if (enablePathStyleHosts && isBareLocalhostHost(normalizedCurrentHost)) {
     const localhostRootHost = withPort(
       "localhost",
-      targetPort ?? getPort(normalizedCurrentHost),
+      targetPort ?? getPort(normalizedCurrentHost)
     )
     return `${protocol}://${tenantSlug}.${localhostRootHost}${appPath}`
   }
@@ -563,17 +623,113 @@ export function buildTenantAppUrl({
   return `${protocol}://${tenantSlug}.${targetRootHost}${appPath}`
 }
 
+export function buildTenantUrlVariants({
+  config,
+  context,
+  currentUrl,
+  defaultProtocol = "http",
+}: BuildTenantUrlVariantsOptions): TenantUrlVariant[] {
+  const current = currentUrl ? new URL(currentUrl) : null
+  const currentContext = current
+    ? resolveTenantUrlContext(
+        {
+          host: current.host,
+          pathname: current.pathname,
+          protocol: current.protocol,
+        },
+        config
+      )
+    : context
+  const tenantSlug = currentContext.tenantSlug ?? context.tenantSlug
+
+  if (!tenantSlug) return []
+
+  const productPath = currentContext.tenantSlug
+    ? currentContext.productPath
+    : context.productPath
+  const normalizedProductPath = normalizePath(productPath || "/")
+  const suffix = `${normalizedProductPath === "/" ? "" : normalizedProductPath}${
+    current?.search ?? ""
+  }${current?.hash ?? ""}`
+  const currentHref = current?.href ?? ""
+  const preferredProtocol =
+    normalizeProtocol(current?.protocol) || context.protocol || defaultProtocol
+  const rootDomains = uniqueValues([
+    config.appRootDomain,
+    ...(config.additionalRootDomains ?? []),
+  ])
+  const pathHosts = uniqueValues(config.urlVariantPathHosts ?? [])
+  const variants: TenantUrlVariant[] = []
+
+  for (const rootDomain of rootDomains) {
+    const rootHost = stripPort(normalizeHost(rootDomain))
+    if (!rootHost) continue
+
+    const protocol = getProtocolForHost(
+      rootHost,
+      preferredProtocol,
+      defaultProtocol
+    )
+    const url = `${protocol}://${tenantSlug}.${rootHost}${suffix}`
+
+    variants.push({
+      id: `subdomain:${rootHost}`,
+      label:
+        rootHost === stripPort(normalizeHost(config.appRootDomain))
+          ? "Portless subdomain"
+          : "Alternate subdomain",
+      description: rootHost,
+      style: "subdomain",
+      url,
+      isCurrent: currentHref === url,
+    })
+  }
+
+  for (const host of pathHosts) {
+    const normalizedHost = normalizeHost(host)
+    if (!normalizedHost) continue
+
+    const protocol = getProtocolForHost(
+      normalizedHost,
+      preferredProtocol,
+      defaultProtocol
+    )
+    const url = `${protocol}://${normalizedHost}${joinPath(
+      tenantSlug,
+      normalizedProductPath === "/" ? "" : normalizedProductPath
+    )}${current?.search ?? ""}${current?.hash ?? ""}`
+
+    variants.push({
+      id: `path:${normalizedHost}`,
+      label:
+        stripPort(normalizedHost) === "localhost"
+          ? "Localhost path"
+          : isIpHost(normalizedHost)
+            ? "IP address path"
+            : "Path-style host",
+      description: normalizedHost,
+      style: "path",
+      url,
+      isCurrent: currentHref === url,
+    })
+  }
+
+  return variants
+}
+
 export function createTenantLinkAdapter<LinkComponent>(
   context: TenantUrlContext,
   Link: LinkComponent,
-  options: Pick<TenantUrlConfig, "internalPrefix"> = {},
+  options: Pick<TenantUrlConfig, "internalPrefix"> = {}
 ) {
   return function TenantLinkAdapter(props: Record<string, unknown>) {
     const href = props.href
     const nextProps = {
       ...props,
       href:
-        typeof href === "string" ? buildTenantHref(context, href, options) : href,
+        typeof href === "string"
+          ? buildTenantHref(context, href, options)
+          : href,
     }
 
     return (Link as (props: Record<string, unknown>) => unknown)(nextProps)

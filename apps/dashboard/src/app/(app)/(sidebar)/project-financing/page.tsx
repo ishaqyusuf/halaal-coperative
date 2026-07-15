@@ -1,103 +1,124 @@
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import {
-  MemberProjectFinancingRequestsView,
-  ProjectFinancingRequestsView,
-} from "@/components/project-financing-requests-view"
+import type { SearchParams } from "nuqs"
+import { ProjectFinancingPageView } from "@/components/project-financing-page-view"
+import { loadProjectFinancingFilterParams } from "@/hooks/use-project-financing-filter-params"
+import { loadSortParams } from "@/hooks/use-sort-params"
 import { loadProjectFinancingPageData } from "@/lib/project-financing/load-project-financing-page"
+import {
+  getQueryClient,
+  getServerCaller,
+  HydrateClient,
+  trpc,
+} from "@/trpc/server"
+import { getInitialTableSettings } from "@/utils/columns"
 
-export default async function ProjectFinancingPage() {
-  const data = await loadProjectFinancingPageData()
+type ProjectFinancingSortField =
+  | "approvedAmount"
+  | "businessName"
+  | "disbursedAt"
+  | "estimatedMonthlyPayback"
+  | "memberName"
+  | "requestedAmount"
+  | "requestedAt"
+  | "status"
 
-  if (data.state === "restricted") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Project financing"
-        title="Project financing"
-        description="Track member business funding requests before accounting decisions are posted."
-      >
-        <WorkspaceEmptyState
-          body="Project financing is available to cooperative staff and linked members."
-          title="Project financing access is restricted."
-        />
-      </WorkspacePageShell>
-    )
+type ProjectFinancingStatus =
+  | "active"
+  | "approved"
+  | "cancelled"
+  | "completed"
+  | "rejected"
+  | "submitted"
+  | "under_review"
+
+function getProjectFinancingSort(
+  sort?: string[] | null
+): [ProjectFinancingSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const fieldMap: Record<string, ProjectFinancingSortField> = {
+    approved: "approvedAmount",
+    approvedAmount: "approvedAmount",
+    businessName: "businessName",
+    disbursed: "disbursedAt",
+    disbursedAt: "disbursedAt",
+    estimatedMonthlyPayback: "estimatedMonthlyPayback",
+    monthly: "estimatedMonthlyPayback",
+    requested: "requestedAmount",
+    requestedAmount: "requestedAmount",
+    requestedAt: "requestedAt",
+    request: "businessName",
+    status: "status",
   }
+  const sortField = fieldMap[field]
 
-  if (data.state === "unavailable") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Project financing"
-        title="Project financing"
-        description="Track member business funding requests before accounting decisions are posted."
-      >
-        <WorkspaceEmptyState
-          body="Once the database-backed environment is active, this route will show project financing requests, review status, and approved structure evidence."
-          title="Project financing needs the database runtime."
-        />
-      </WorkspacePageShell>
-    )
+  if (!sortField) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [sortField, direction]
+}
+
+function getProjectFinancingStatus(
+  value: string | null
+): ProjectFinancingStatus | undefined {
+  const validStatuses = new Set<ProjectFinancingStatus>([
+    "active",
+    "approved",
+    "cancelled",
+    "completed",
+    "rejected",
+    "submitted",
+    "under_review",
+  ])
+
+  return validStatuses.has(value as ProjectFinancingStatus)
+    ? (value as ProjectFinancingStatus)
+    : undefined
+}
+
+export default async function ProjectFinancingPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const resolvedSearchParams = await searchParams
+  const filter = loadProjectFinancingFilterParams(resolvedSearchParams)
+  const { sort } = loadSortParams(resolvedSearchParams)
+  const [data, initialSettings, caller] = await Promise.all([
+    loadProjectFinancingPageData(),
+    getInitialTableSettings("projectFinancing"),
+    getServerCaller(),
+  ])
+  const queryInput = {
+    q: filter.q || undefined,
+    sort: getProjectFinancingSort(sort),
+    status: getProjectFinancingStatus(filter.status),
   }
+  const listOptions = trpc.projectFinancing.list.infiniteQueryOptions(
+    queryInput,
+    {
+      getNextPageParam: ({ meta }) => meta?.cursor,
+    }
+  )
 
-  if (data.state === "member-sign-in-required") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Project financing"
-        title="My project financing"
-        description="Request cooperative business funding and track finance review."
-      >
-        <WorkspaceEmptyState
-          body="Sign in with your member account to request project financing."
-          title="Member sign-in required."
-        />
-      </WorkspacePageShell>
-    )
-  }
+  if (data.state === "staff-ready" || data.state === "member-ready") {
+    const initialPage = await caller.projectFinancing.list(queryInput)
 
-  if (data.state === "member-profile-missing") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Project financing"
-        title="My project financing"
-        description="Request cooperative business funding and track finance review."
-      >
-        <WorkspaceEmptyState
-          body="Your user account is not linked to a member profile in this cooperative."
-          title="Member profile not linked."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-ready") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Project financing"
-        title="My project financing"
-        description="Request cooperative business funding and track finance review."
-      >
-        <MemberProjectFinancingRequestsView
-          chargeOptions={data.chargeOptions}
-          member={data.member}
-          requests={data.requests}
-        />
-      </WorkspacePageShell>
-    )
+    getQueryClient().setQueryData(listOptions.queryKey, {
+      pageParams: [listOptions.initialPageParam],
+      pages: [initialPage],
+    })
   }
 
   return (
-    <WorkspacePageShell
-      eyebrow="Project financing"
-      title="Project financing"
-      description="Stage and review member business funding requests without posting disbursements or profit allocations."
-    >
-      <ProjectFinancingRequestsView
-        approvalChargeOptions={data.approvalChargeOptions}
-        canReview={data.canReview}
-        memberOptions={data.memberOptions}
-        requests={data.requests}
-        submissionChargeOptions={data.submissionChargeOptions}
-        summary={data.summary}
+    <HydrateClient>
+      <ProjectFinancingPageView
+        data={data}
+        projectFinancingInitialSettings={initialSettings}
       />
-    </WorkspacePageShell>
+    </HydrateClient>
   )
 }

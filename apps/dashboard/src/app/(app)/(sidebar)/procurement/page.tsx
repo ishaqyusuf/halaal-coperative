@@ -1,120 +1,126 @@
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import {
-  MemberProcurementRequestsView,
-  ProcurementRequestsView,
-} from "@/components/procurement-requests-view"
+import type { SearchParams } from "nuqs"
+import { ProcurementPageView } from "@/components/procurement-page-view"
+import { loadProcurementFilterParams } from "@/hooks/use-procurement-filter-params"
+import { loadSortParams } from "@/hooks/use-sort-params"
 import { loadProcurementPageData } from "@/lib/procurement/load-procurement-page"
+import {
+  getQueryClient,
+  getServerCaller,
+  HydrateClient,
+  trpc,
+} from "@/trpc/server"
+import { getInitialTableSettings } from "@/utils/columns"
 
-export default async function ProcurementPage() {
-  const data = await loadProcurementPageData()
+type ProcurementSortField =
+  | "approvedCost"
+  | "estimatedMonthlyRepayment"
+  | "itemName"
+  | "memberName"
+  | "outstandingAmount"
+  | "requestedAt"
+  | "requestedCost"
+  | "status"
+  | "vendorName"
 
-  if (data.state === "restricted") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Procurement"
-        title="Procurement"
-        description="Track cooperative-purchased member items and repayment plans."
-      >
-        <WorkspaceEmptyState
-          body="Procurement is available to cooperative staff and linked members."
-          title="Procurement access is restricted."
-        />
-      </WorkspacePageShell>
-    )
+type ProcurementStatus =
+  | "active"
+  | "approved"
+  | "cancelled"
+  | "completed"
+  | "purchased"
+  | "rejected"
+  | "submitted"
+  | "under_review"
+
+function getProcurementSort(
+  sort?: string[] | null
+): [ProcurementSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const fieldMap: Record<string, ProcurementSortField> = {
+    approved: "approvedCost",
+    approvedCost: "approvedCost",
+    estimatedMonthlyRepayment: "estimatedMonthlyRepayment",
+    itemName: "itemName",
+    monthly: "estimatedMonthlyRepayment",
+    outstandingAmount: "outstandingAmount",
+    requested: "requestedCost",
+    requestedAt: "requestedAt",
+    requestedCost: "requestedCost",
+    request: "itemName",
+    schedule: "outstandingAmount",
+    status: "status",
+    vendor: "vendorName",
+    vendorName: "vendorName",
   }
+  const sortField = fieldMap[field]
 
-  if (data.state === "unavailable") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Procurement"
-        title="Procurement"
-        description="Track cooperative-purchased member items and repayment plans."
-      >
-        <WorkspaceEmptyState
-          body="Once the database-backed environment is active, this route will show procurement requests, review status, and repayment estimates."
-          title="Procurement needs the database runtime."
-        />
-      </WorkspacePageShell>
-    )
+  if (!sortField) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [sortField, direction]
+}
+
+function getProcurementStatus(
+  value: string | null
+): ProcurementStatus | undefined {
+  const validStatuses = new Set<ProcurementStatus>([
+    "active",
+    "approved",
+    "cancelled",
+    "completed",
+    "purchased",
+    "rejected",
+    "submitted",
+    "under_review",
+  ])
+
+  return validStatuses.has(value as ProcurementStatus)
+    ? (value as ProcurementStatus)
+    : undefined
+}
+
+export default async function ProcurementPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const resolvedSearchParams = await searchParams
+  const filter = loadProcurementFilterParams(resolvedSearchParams)
+  const { sort } = loadSortParams(resolvedSearchParams)
+  const [data, initialSettings, caller] = await Promise.all([
+    loadProcurementPageData(),
+    getInitialTableSettings("procurement"),
+    getServerCaller(),
+  ])
+  const queryInput = {
+    q: filter.q || undefined,
+    sort: getProcurementSort(sort),
+    status: getProcurementStatus(filter.status),
   }
+  const listOptions = trpc.procurement.list.infiniteQueryOptions(queryInput, {
+    getNextPageParam: ({ meta }) => meta?.cursor,
+  })
 
-  if (data.state === "service-disabled") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Procurement"
-        title="Procurement"
-        description="Track cooperative-purchased member items and repayment plans."
-      >
-        <WorkspaceEmptyState
-          body="This cooperative has not enabled procurement. Admins can enable it from Settings > Operation Profile."
-          title="Procurement is not enabled."
-        />
-      </WorkspacePageShell>
-    )
-  }
+  if (data.state === "staff-ready" || data.state === "member-ready") {
+    const initialPage = await caller.procurement.list(queryInput)
 
-  if (data.state === "member-sign-in-required") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Procurement"
-        title="My procurement"
-        description="Request a cooperative-purchased item and track finance review."
-      >
-        <WorkspaceEmptyState
-          body="Sign in with your member account to request procurement."
-          title="Member sign-in required."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-profile-missing") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Procurement"
-        title="My procurement"
-        description="Request a cooperative-purchased item and track finance review."
-      >
-        <WorkspaceEmptyState
-          body="Your user account is not linked to a member profile in this cooperative."
-          title="Member profile not linked."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-ready") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Procurement"
-        title="My procurement"
-        description="Request a cooperative-purchased item and track finance review."
-      >
-        <MemberProcurementRequestsView
-          chargeOptions={data.chargeOptions}
-          canCreate={data.canCreate}
-          member={data.member}
-          requests={data.requests}
-        />
-      </WorkspacePageShell>
-    )
+    getQueryClient().setQueryData(listOptions.queryKey, {
+      pageParams: [listOptions.initialPageParam],
+      pages: [initialPage],
+    })
   }
 
   return (
-    <WorkspacePageShell
-      eyebrow="Procurement"
-      title="Procurement"
-      description="Stage and review member item-purchase requests before the cooperative commits funds."
-    >
-      <ProcurementRequestsView
-        approvalChargeOptions={data.approvalChargeOptions}
-        canCreate={data.canCreate}
-        canReview={data.canReview}
-        memberOptions={data.memberOptions}
-        requests={data.requests}
-        submissionChargeOptions={data.submissionChargeOptions}
-        summary={data.summary}
+    <HydrateClient>
+      <ProcurementPageView
+        data={data}
+        procurementInitialSettings={initialSettings}
       />
-    </WorkspacePageShell>
+    </HydrateClient>
   )
 }

@@ -3,7 +3,7 @@ import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 const shareParamsSchema = {
   shareId: parseAsString,
-  shareType: parseAsStringEnum(["create", "edit", "details"]),
+  shareType: parseAsStringEnum(["create", "details", "edit", "policy"]),
 }
 
 export function useShareParams() {

@@ -11,10 +11,18 @@ export type TableId =
   | "charges"
   | "shares"
   | "business"
+  | "shareApplications"
+  | "procurement"
+  | "foodPurchase"
+  | "projectFinancing"
+  | "support"
+  | "paymentReceipts"
+  | "chargeLibrary"
   | "imports"
   | "loanPortfolio"
   | "loanRequests"
   | "membershipApprovals"
+  | "monthlyRecords"
   | "notifications"
   | "audit"
 
@@ -36,10 +44,18 @@ export const defaultHiddenColumns: Record<TableId, string[]> = {
   charges: ["versions"],
   shares: ["notes"],
   business: [],
+  shareApplications: ["reviewNotes"],
+  procurement: ["vendor"],
+  foodPurchase: ["item"],
+  projectFinancing: ["disbursed"],
+  support: ["linkedRecord"],
+  paymentReceipts: ["reference"],
+  chargeLibrary: [],
   imports: [],
   loanPortfolio: [],
   loanRequests: [],
   membershipApprovals: [],
+  monthlyRecords: [],
   notifications: [],
   audit: [],
 }

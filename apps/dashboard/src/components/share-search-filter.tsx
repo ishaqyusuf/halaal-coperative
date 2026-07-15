@@ -33,9 +33,9 @@ const statusFilters = [
 
 export function ShareSearchFilter() {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [input, setInput] = useState("")
-  const [isOpen, setIsOpen] = useState(false)
   const { filter, setFilter } = useShareFilterParams()
+  const [input, setInput] = useState(filter.q ?? "")
+  const [isOpen, setIsOpen] = useState(false)
 
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value

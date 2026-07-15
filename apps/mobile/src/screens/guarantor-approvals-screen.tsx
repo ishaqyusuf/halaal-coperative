@@ -1,6 +1,10 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
+import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -80,9 +84,10 @@ function ApprovalCard({
             {approval.loanRequest.loanProductName}
           </Text>
         </View>
-        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
-          {formatStatus(approval.status)}
-        </Text>
+        <StatusBadge
+          label={formatStatus(approval.status)}
+          tone={getStatusBadgeTone(approval.status)}
+        />
       </View>
 
       <View className="flex-row flex-wrap gap-2">
@@ -138,6 +143,7 @@ function ApprovalCard({
       {isPending ? (
         <View className="gap-3 border-t border-border pt-3">
           <Textarea
+            accessibilityLabel="Guarantor response note"
             editable={!isActionBlocked && !isSubmitting}
             onChangeText={onChangeNotes}
             placeholder="Optional response note"
@@ -184,6 +190,10 @@ export function GuarantorApprovalsScreen() {
   const [notesByApprovalId, setNotesByApprovalId] = useState<
     Record<string, string>
   >({})
+  const [pendingDecision, setPendingDecision] = useState<{
+    approvalId: string
+    decision: MobileGuarantorApprovalDecision
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const canUseServerApprovals = Boolean(
@@ -193,6 +203,32 @@ export function GuarantorApprovalsScreen() {
   )
   const currencyCode = profile?.tenant.currencyCode ?? "NGN"
   const hasStaleApprovals = isMobileReadCacheStale(approvals?.cache)
+  const pendingApproval = approvals?.approvals.find(
+    (approval) => approval.id === pendingDecision?.approvalId
+  )
+  const hasGuarantorDraft = Object.values(notesByApprovalId).some((note) =>
+    note.trim()
+  )
+  const reviewRows = pendingApproval
+    ? [
+        {
+          detail: pendingApproval.loanRequest.loanProductName,
+          icon: "UserRoundCheck",
+          label: pendingApproval.loanRequest.borrowerName,
+          value:
+            pendingDecision?.decision === "approved" ? "Approve" : "Reject",
+        },
+        {
+          detail: `${pendingApproval.loanRequest.requestedTermMonths} month term`,
+          icon: "CircleDollarSign",
+          label: "Requested amount",
+          value: formatCurrency(
+            pendingApproval.loanRequest.requestedAmount,
+            currencyCode
+          ),
+        },
+      ]
+    : []
   const guarantorDraft = useMemo(
     () => ({
       notesByApprovalId,
@@ -295,6 +331,7 @@ export function GuarantorApprovalsScreen() {
       })
       await clearGuarantorDraft()
       setSuccess(`Guarantor request ${status}.`)
+      setPendingDecision(null)
       setNotesByApprovalId((current) => ({
         ...current,
         [approvalId]: "",
@@ -366,39 +403,69 @@ export function GuarantorApprovalsScreen() {
               {isLoading ? (
                 <LoadingSpinner />
               ) : (
-                <VirtualizedCardList
-                  data={approvals?.approvals ?? []}
-                  empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No financing request currently lists you as guarantor.
-                    </Text>
-                  }
-                  estimatedItemSize={240}
-                  keyExtractor={(approval) => approval.id}
-                  renderItem={({ item: approval }) => (
-                    <ApprovalCard
-                      approval={approval}
-                      currencyCode={currencyCode}
-                      isActionBlocked={hasStaleApprovals}
-                      isSubmitting={submittingApprovalId === approval.id}
-                      notes={notesByApprovalId[approval.id] ?? ""}
-                      onChangeNotes={(value) =>
-                        setNotesByApprovalId((current) => ({
-                          ...current,
-                          [approval.id]: value,
-                        }))
-                      }
-                      onRespond={(decision) =>
-                        handleRespond(approval.id, decision)
-                      }
-                    />
-                  )}
-                />
+                <View className="gap-3">
+                  <FormStateBanner
+                    hasDraft={hasGuarantorDraft}
+                    isStale={hasStaleApprovals}
+                  />
+                  <VirtualizedCardList
+                    data={approvals?.approvals ?? []}
+                    empty={
+                      <EmptyState
+                        description="Financing requests that list you as guarantor will appear here."
+                        icon="ShieldCheck"
+                        title="No guarantor requests"
+                      />
+                    }
+                    estimatedItemSize={240}
+                    keyExtractor={(approval) => approval.id}
+                    renderItem={({ item: approval }) => (
+                      <ApprovalCard
+                        approval={approval}
+                        currencyCode={currencyCode}
+                        isActionBlocked={hasStaleApprovals}
+                        isSubmitting={submittingApprovalId === approval.id}
+                        notes={notesByApprovalId[approval.id] ?? ""}
+                        onChangeNotes={(value) =>
+                          setNotesByApprovalId((current) => ({
+                            ...current,
+                            [approval.id]: value,
+                          }))
+                        }
+                        onRespond={(decision) =>
+                          setPendingDecision({
+                            approvalId: approval.id,
+                            decision,
+                          })
+                        }
+                      />
+                    )}
+                  />
+                </View>
               )}
             </SectionCard>
           </>
         ) : null}
       </ScrollView>
+      <SubmissionReviewSheet
+        confirmLabel={
+          pendingDecision?.decision === "approved" ? "Approve" : "Reject"
+        }
+        description="Review your guarantor response before saving it. This decision becomes part of the financing review trail."
+        isSubmitting={Boolean(submittingApprovalId)}
+        onClose={() => setPendingDecision(null)}
+        onConfirm={() => {
+          if (pendingDecision) {
+            void handleRespond(
+              pendingDecision.approvalId,
+              pendingDecision.decision
+            )
+          }
+        }}
+        rows={reviewRows}
+        title="Review guarantor response"
+        visible={Boolean(pendingDecision)}
+      />
     </SafeArea>
   )
 }

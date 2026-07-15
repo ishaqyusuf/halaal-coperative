@@ -54,6 +54,24 @@ This file tracks the public and internal API surface of the platform.
   - Purpose: list and post contributions plus retrieve member savings history.
 - `TRPC /trpc/charges.listDefinitions|createDefinition|updateDefinition`
   - Purpose: manage tenant charge definitions.
+- `TRPC /trpc/paymentReceipts.list|get`
+  - Purpose: list tenant/member payment receipts for the Midday-style dashboard table and hydrate the URL-selected receipt sheet.
+  - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member.
+- `TRPC /trpc/procurement.list|get`
+  - Purpose: list tenant/member procurement requests for the Midday-style dashboard table and hydrate the URL-selected review/purchase sheet.
+  - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member.
+- `TRPC /trpc/foodPurchase.list|get`
+  - Purpose: list tenant/member Foodstuff Purchase applications for the Midday-style dashboard table and hydrate the URL-selected application review sheet.
+  - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member, cycle, status, and search text.
+- `TRPC /trpc/projectFinancing.list|get`
+  - Purpose: list tenant/member project financing requests for the Midday-style dashboard table and hydrate URL-selected review/disbursement sheets.
+  - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member, status, and search text.
+- `TRPC /trpc/shareApplications.list|get`
+  - Purpose: list tenant/member additional share applications for the Midday-style dashboard table and hydrate URL-selected review sheets.
+  - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member, status, and search text.
+- `TRPC /trpc/support.list|get`
+  - Purpose: list tenant/member support cases for the Midday-style dashboard table and hydrate URL-selected update/reply/financial-adjustment sheets.
+  - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member, assignee, status, and priority.
 
 ## Near-Term Route Targets
 - `TRPC /trpc/auth.*`: session and membership actions.

@@ -20,6 +20,27 @@ export type FoodPurchaseApplicationStatus =
   | "submitted"
   | "under_review"
 
+export type FoodPurchaseApplicationSortField =
+  | "approvedAmount"
+  | "itemDescription"
+  | "memberName"
+  | "paidAmount"
+  | "requestedAmount"
+  | "requestedAt"
+  | "status"
+
+export type ListFoodPurchaseApplicationPageFilters = {
+  cursor?: string | null
+  cycleId?: string
+  limit?: number
+  memberId?: string
+  page?: number
+  pageSize?: number
+  search?: string
+  sort?: [FoodPurchaseApplicationSortField, "asc" | "desc"] | null
+  status?: FoodPurchaseApplicationStatus
+}
+
 export type FoodPurchaseRequestSource =
   | "member_self_service"
   | "staff"
@@ -634,6 +655,165 @@ export async function listFoodPurchaseApplications(
   })
 
   return applications.map(normalizeFoodPurchaseApplication)
+}
+
+export async function findFoodPurchaseApplication(
+  input: {
+    applicationId: string
+    memberId?: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<FoodPurchaseApplicationRow | null> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) return null
+
+  if (typeof prisma.foodPurchaseApplication?.findFirst !== "function") {
+    return null
+  }
+
+  const application = await prisma.foodPurchaseApplication.findFirst({
+    include: applicationInclude(),
+    where: {
+      id: input.applicationId,
+      ...(input.memberId ? { memberId: input.memberId } : {}),
+      tenantId: input.tenantId,
+    },
+  })
+
+  return application ? normalizeFoodPurchaseApplication(application) : null
+}
+
+function getFoodPurchaseApplicationOrderBy(
+  sort?: [FoodPurchaseApplicationSortField, "asc" | "desc"] | null
+) {
+  const [sortField, direction] = sort ?? ["requestedAt", "desc"]
+
+  if (sortField === "memberName") {
+    return [
+      { member: { fullName: direction } },
+      { requestedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "requestedAt") {
+    return [
+      { requestedAt: direction },
+      { createdAt: direction },
+      { id: direction },
+    ]
+  }
+
+  return [
+    { [sortField]: direction },
+    { requestedAt: "desc" as const },
+    { id: "desc" as const },
+  ]
+}
+
+function getFoodPurchaseApplicationWhere(
+  input: {
+    cycleId?: string
+    memberId?: string
+    search?: string
+    status?: FoodPurchaseApplicationStatus
+    tenantId: string
+  }
+) {
+  return {
+    tenantId: input.tenantId,
+    ...(input.cycleId ? { cycleId: input.cycleId } : {}),
+    ...(input.memberId ? { memberId: input.memberId } : {}),
+    ...(input.status ? { status: input.status } : {}),
+    ...(input.search && {
+      OR: [
+        {
+          itemDescription: {
+            contains: input.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          member: {
+            is: {
+              OR: [
+                {
+                  fullName: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  memberNumber: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  email: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }),
+  }
+}
+
+export async function listFoodPurchaseApplicationPage(
+  input: {
+    tenantId: string
+  } & ListFoodPurchaseApplicationPageFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  if (typeof prisma.foodPurchaseApplication?.findMany !== "function") {
+    return { data: [], meta: { cursor: undefined, total: 0 } }
+  }
+
+  if (input.status && !foodPurchaseApplicationStatuses.has(input.status)) {
+    throw new Error("Foodstuff Purchase application status is not supported.")
+  }
+
+  const page = input.page ?? 1
+  const pageSize = input.pageSize ?? input.limit ?? 50
+  if (!Number.isInteger(pageSize) || pageSize <= 0) {
+    throw new Error(
+      "Foodstuff Purchase application page size must be a positive whole number."
+    )
+  }
+
+  const where = getFoodPurchaseApplicationWhere(input)
+  const [applications, total] = await Promise.all([
+    prisma.foodPurchaseApplication.findMany({
+      include: applicationInclude(),
+      orderBy: getFoodPurchaseApplicationOrderBy(input.sort),
+      ...(input.cursor
+        ? { cursor: { id: input.cursor }, skip: 1 }
+        : { skip: (page - 1) * pageSize }),
+      take: pageSize,
+      where,
+    }),
+    prisma.foodPurchaseApplication.count({ where }),
+  ])
+
+  return {
+    data: applications.map(normalizeFoodPurchaseApplication),
+    meta: {
+      cursor:
+        applications.length === pageSize
+          ? (applications.at(-1)?.id as string | undefined)
+          : undefined,
+      total,
+    },
+  }
 }
 
 export async function submitFoodPurchaseApplication(

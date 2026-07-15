@@ -39,6 +39,12 @@ This file documents who can do what across the platform.
   - `disabled` and `read_only` block new Foodstuff Purchase cycles and applications while preserving existing cycles, applications, payments, and accounting evidence.
 - Collection Source batch posting requires a finance-management dashboard role, live financial writes, and `collection_source_batch_posting` Operation Profile staff create access. Disabled/read-only modes hide the dashboard workflow and block staging, row updates, and posting in the DB layer.
 - Member payment receipt submission requires `payment_receipts` Operation Profile member create access. Staff office capture remains staff-role gated through the dashboard action.
+- `trpc.paymentReceipts.list` and `trpc.paymentReceipts.get` require an active tenant session; member-role users are forced to their linked member profile, while staff roles can inspect tenant-scoped receipts and optionally filter by member.
+- `trpc.procurement.list` and `trpc.procurement.get` require an active tenant session; member-role users are forced to their linked member profile, while staff roles can inspect tenant-scoped procurement requests and optionally filter by member.
+- `trpc.foodPurchase.list` and `trpc.foodPurchase.get` require an active tenant session; member-role users are forced to their linked member profile, while staff roles can inspect tenant-scoped Foodstuff Purchase applications and optional staff filters.
+- `trpc.projectFinancing.list` and `trpc.projectFinancing.get` require an active tenant session; member-role users are forced to their linked member profile, while staff roles can inspect tenant-scoped project financing requests and optional staff filters.
+- `trpc.shareApplications.list` and `trpc.shareApplications.get` require an active tenant session; member-role users are forced to their linked member profile, while staff roles can inspect tenant-scoped additional share applications and optional staff filters.
+- `trpc.support.list` and `trpc.support.get` require an active tenant session; member-role users are forced to their linked member profile, while staff roles can inspect tenant-scoped support cases and optional staff filters.
 - Dashboard navigation, mobile member tiles, overview queues, and report export cards hide disabled service surfaces when there are no records or pending work to preserve.
 - Highly sensitive actions should be audit logged.
 - HTTP health routes are public.

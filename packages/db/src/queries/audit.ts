@@ -12,6 +12,24 @@ export type CreateAuditLogEntryInput = {
   actorUserId?: string | null
 }
 
+export type AuditLogSortField =
+  | "action"
+  | "actor"
+  | "entityType"
+  | "occurredAt"
+
+export type ListAuditLogsInput = {
+  action?: string
+  actorType?: "integration" | "system" | "user"
+  cursor?: string | null
+  entityType?: string
+  fromDate?: Date
+  limit?: number
+  search?: string
+  sort?: [AuditLogSortField, "asc" | "desc"] | null
+  toDate?: Date
+}
+
 export async function createAuditLogEntry(
   input: CreateAuditLogEntryInput,
   prismaOverride?: PrismaClient,
@@ -36,17 +54,109 @@ export async function createAuditLogEntry(
   })
 }
 
+function getAuditLogWhere(tenantId: string, input?: ListAuditLogsInput) {
+  return {
+    tenantId,
+    ...(input?.action
+      ? {
+          action: {
+            contains: input.action,
+            mode: "insensitive" as const,
+          },
+        }
+      : {}),
+    ...(input?.actorType ? { actorType: input.actorType } : {}),
+    ...(input?.entityType
+      ? {
+          entityType: {
+            contains: input.entityType,
+            mode: "insensitive" as const,
+          },
+        }
+      : {}),
+    ...((input?.fromDate || input?.toDate)
+      ? {
+          occurredAt: {
+            ...(input?.fromDate ? { gte: input.fromDate } : {}),
+            ...(input?.toDate ? { lte: input.toDate } : {}),
+          },
+        }
+      : {}),
+    ...(input?.search
+      ? {
+          OR: [
+            { action: { contains: input.search, mode: "insensitive" as const } },
+            {
+              entityType: {
+                contains: input.search,
+                mode: "insensitive" as const,
+              },
+            },
+            {
+              entityId: {
+                contains: input.search,
+                mode: "insensitive" as const,
+              },
+            },
+            {
+              actorUser: {
+                fullName: {
+                  contains: input.search,
+                  mode: "insensitive" as const,
+                },
+              },
+            },
+            {
+              actorUser: {
+                email: {
+                  contains: input.search,
+                  mode: "insensitive" as const,
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+  } satisfies Prisma.AuditLogWhereInput
+}
+
+function getAuditLogOrderBy(input?: ListAuditLogsInput) {
+  const [field, direction] = input?.sort ?? ["occurredAt", "desc"]
+
+  if (field === "action") {
+    return [
+      { action: direction },
+      { occurredAt: "desc" },
+      { id: "desc" },
+    ] satisfies Prisma.AuditLogOrderByWithRelationInput[]
+  }
+
+  if (field === "actor") {
+    return [
+      { actorUser: { fullName: direction } },
+      { actorType: direction },
+      { occurredAt: "desc" },
+      { id: "desc" },
+    ] satisfies Prisma.AuditLogOrderByWithRelationInput[]
+  }
+
+  if (field === "entityType") {
+    return [
+      { entityType: direction },
+      { occurredAt: "desc" },
+      { id: "desc" },
+    ] satisfies Prisma.AuditLogOrderByWithRelationInput[]
+  }
+
+  return [
+    { occurredAt: direction },
+    { id: direction },
+  ] satisfies Prisma.AuditLogOrderByWithRelationInput[]
+}
+
 export async function listAuditLogs(
   tenantId: string,
-  input?: {
-    action?: string
-    actorType?: "integration" | "system" | "user"
-    entityType?: string
-    fromDate?: Date
-    limit?: number
-    search?: string
-    toDate?: Date
-  },
+  input?: ListAuditLogsInput,
   prismaOverride?: PrismaClient,
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -56,59 +166,7 @@ export async function listAuditLogs(
   }
 
   return prisma.auditLog.findMany({
-    where: {
-      tenantId,
-      ...(input?.action
-        ? {
-            action: {
-              contains: input.action,
-              mode: "insensitive",
-            },
-          }
-        : {}),
-      ...(input?.actorType ? { actorType: input.actorType } : {}),
-      ...(input?.entityType
-        ? {
-            entityType: {
-              contains: input.entityType,
-              mode: "insensitive",
-            },
-          }
-        : {}),
-      ...((input?.fromDate || input?.toDate)
-        ? {
-            occurredAt: {
-              ...(input?.fromDate ? { gte: input.fromDate } : {}),
-              ...(input?.toDate ? { lte: input.toDate } : {}),
-            },
-          }
-        : {}),
-      ...(input?.search
-        ? {
-            OR: [
-              { action: { contains: input.search, mode: "insensitive" } },
-              { entityType: { contains: input.search, mode: "insensitive" } },
-              { entityId: { contains: input.search, mode: "insensitive" } },
-              {
-                actorUser: {
-                  fullName: {
-                    contains: input.search,
-                    mode: "insensitive",
-                  },
-                },
-              },
-              {
-                actorUser: {
-                  email: {
-                    contains: input.search,
-                    mode: "insensitive",
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
-    },
+    ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
     include: {
       actorUser: {
         select: {
@@ -118,10 +176,25 @@ export async function listAuditLogs(
         },
       },
     },
-    orderBy: {
-      occurredAt: "desc",
-    },
+    orderBy: getAuditLogOrderBy(input),
     take: input?.limit ?? 25,
+    where: getAuditLogWhere(tenantId, input),
+  })
+}
+
+export async function countAuditLogs(
+  tenantId: string,
+  input?: ListAuditLogsInput,
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+
+  if (!prisma) {
+    return 0
+  }
+
+  return prisma.auditLog.count({
+    where: getAuditLogWhere(tenantId, input),
   })
 }
 

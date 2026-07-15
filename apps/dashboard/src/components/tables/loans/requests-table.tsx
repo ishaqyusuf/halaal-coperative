@@ -1,21 +1,32 @@
-import { formatCurrency } from "@halaalvest/utils"
-import {
-  DashboardDataTable,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
-  TableEmptyState,
-} from "@/components/dashboard/static-table"
-import { DashboardSurfaceCard } from "@/components/dashboard"
-import {
-  LoanGuarantorReviewForm,
-  LoanReviewForm,
-} from "@/components/forms/finance-forms"
+"use client"
 
-type LoanRequestRow = {
+import { closestCenter, DndContext } from "@dnd-kit/core"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+} from "@halaalvest/ui/components/table"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
+import { useEffect, useMemo, useRef } from "react"
+import { EmptyState, VirtualRow } from "@/components/tables/core"
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
+import { useSortParams } from "@/hooks/use-sort-params"
+import { useStickyColumns } from "@/hooks/use-sticky-columns"
+import { useTableDnd } from "@/hooks/use-table-dnd"
+import { useTableScroll } from "@/hooks/use-table-scroll"
+import { useTableSettings } from "@/hooks/use-table-settings"
+import { useLoanTableStore } from "@/store/loans"
+import { useTRPC } from "@/trpc/client"
+import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
+import { getColumnIds, type TableSettings } from "@/utils/table-settings"
+import { requestColumns } from "./request-columns"
+import { LoanRequestsSkeleton } from "./skeleton"
+import { LoanTableHeader } from "./table-header"
+
+export type LoanRequestRow = {
   approvals: Array<{
     action: string
     actedAt: Date
@@ -48,148 +59,244 @@ type LoanRequestRow = {
   status: string
 }
 
+type LoanRequestSortField =
+  | "memberName"
+  | "requestedAt"
+  | "reviewStatus"
+  | "status"
+
+const NON_CLICKABLE_COLUMNS = new Set(["actions", "review"])
+const COLUMN_IDS = getColumnIds(requestColumns)
+
+function getSort(
+  sort?: string[] | null
+): [LoanRequestSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const validFields = new Set<string>([
+    "memberName",
+    "requestedAt",
+    "reviewStatus",
+    "status",
+  ])
+
+  if (!validFields.has(field)) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [field as LoanRequestSortField, direction]
+}
+
 export function LoanRequestsTable({
   canReview,
-  items,
+  initialSettings,
+  memberId,
 }: {
   canReview: boolean
-  items: LoanRequestRow[]
+  initialSettings?: Partial<TableSettings>
+  memberId?: string
 }) {
-  if (!items.length) {
+  const trpc = useTRPC()
+  const { params } = useSortParams()
+  const parentRef = useRef<HTMLDivElement>(null)
+  const { setRequestColumns } = useLoanTableStore()
+  const queryInput = useMemo(
+    () => ({
+      memberId,
+      sort: getSort(params.sort),
+    }),
+    [memberId, params.sort]
+  )
+  const infiniteQueryOptions = trpc.loans.requests.infiniteQueryOptions(
+    queryInput,
+    {
+      getNextPageParam: ({ meta }) => meta?.cursor,
+      refetchInterval: 5000,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
+    }
+  )
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    isPending,
+  } = useInfiniteQuery(infiniteQueryOptions)
+  const tableData = useMemo(
+    () => data?.pages.flatMap((page) => page.data) ?? [],
+    [data]
+  )
+
+  const {
+    columnOrder,
+    columnSizing,
+    columnVisibility,
+    setColumnOrder,
+    setColumnSizing,
+    setColumnVisibility,
+  } = useTableSettings({
+    columnIds: COLUMN_IDS,
+    initialSettings,
+    tableId: "loanRequests",
+  })
+
+  const table = useReactTable({
+    columnResizeMode: "onChange",
+    columns: requestColumns,
+    data: tableData,
+    enableColumnResizing: true,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id,
+    meta: {
+      canReview,
+    },
+    onColumnOrderChange: setColumnOrder,
+    onColumnSizingChange: setColumnSizing,
+    onColumnVisibilityChange: setColumnVisibility,
+    state: {
+      columnOrder,
+      columnSizing,
+      columnVisibility,
+    },
+  })
+
+  const { sensors, handleDragEnd } = useTableDnd(table)
+
+  useEffect(() => {
+    setRequestColumns(table.getAllLeafColumns())
+  }, [columnVisibility, setRequestColumns, table])
+
+  const { getStickyClassName, getStickyStyle } = useStickyColumns({
+    columnVisibility,
+    stickyColumns: STICKY_COLUMNS.loanRequests,
+    table,
+  })
+
+  const tableScroll = useTableScroll({
+    startFromColumn: 1,
+    useColumnWidths: true,
+  })
+
+  const rows = table.getRowModel().rows
+  const rowHeight = ROW_HEIGHTS.loanRequests
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    estimateSize: () => rowHeight,
+    getScrollElement: () => parentRef.current,
+    overscan: 10,
+  })
+
+  useInfiniteScroll<HTMLDivElement>({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    rowCount: rows.length,
+    rowVirtualizer,
+    scrollRef: parentRef,
+    threshold: 50,
+  })
+
+  if (isPending) {
+    return <LoanRequestsSkeleton />
+  }
+
+  if (isError) {
     return (
-      <TableEmptyState
-        title="No loan requests yet"
-        body="Submitted member loan requests will appear here for review and approval."
+      <EmptyState
+        description="Reload the page before reviewing loan requests again."
+        title="Loan requests could not load."
       />
     )
   }
 
+  if (!tableData.length) {
+    return (
+      <EmptyState
+        description="Submitted member loan requests will appear here for review and approval."
+        title="No loan requests yet"
+      />
+    )
+  }
+
+  const virtualItems = rowVirtualizer.getVirtualItems()
+
   return (
-    <DashboardDataTable>
-      <DashboardTable>
-        <DashboardTableHead>
-          <DashboardTableHeaderCell>Member</DashboardTableHeaderCell>
-          <DashboardTableHeaderCell>Request</DashboardTableHeaderCell>
-          <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
-          <DashboardTableHeaderCell>Review</DashboardTableHeaderCell>
-        </DashboardTableHead>
-        <DashboardTableBody>
-          {items.map((request) => (
-            <DashboardTableRow key={request.id}>
-              <DashboardTableCell>
-                <p className="font-medium text-foreground">{request.member.fullName}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {request.requestedTermMonths} months
-                </p>
-              </DashboardTableCell>
-              <DashboardTableCell>
-                <p className="text-sm text-foreground">
-                  {request.loanProduct.name} · {formatCurrency(Number(request.requestedAmount))}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Monthly servicing {formatCurrency(Number(request.estimatedMonthlyServicing))} · extra savings{" "}
-                  {formatCurrency(Number(request.extraMonthlySavingsAmount))}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Eligible snapshot {formatCurrency(Number(request.eligibleAmountSnapshot))}
-                  {request.reviewNotes ? ` · ${request.reviewNotes}` : ""}
-                </p>
-                {request.approvals.length ? (
-                  <DashboardSurfaceCard className="mt-3 bg-card p-3 text-xs text-muted-foreground">
-                    {request.approvals.map((approval) => (
-                      <p key={approval.id}>
-                        {approval.action} · {approval.actorUser.fullName} · {approval.actedAt.toISOString().slice(0, 10)}
-                        {approval.notes ? ` · ${approval.notes}` : ""}
-                      </p>
-                    ))}
-                  </DashboardSurfaceCard>
-                ) : null}
-                {request.guarantorApprovals.length ? (
-                  <DashboardSurfaceCard className="mt-3 space-y-3 bg-card p-3 text-xs text-muted-foreground">
-                    {request.guarantorApprovals.map((approval) => (
-                      <div key={approval.id} className="space-y-2">
-                        <p>
-                          Guarantor · {approval.guarantorMember.fullName} ·{" "}
-                          <span className="capitalize">
-                            {approval.status.replace(/_/g, " ")}
-                          </span>
-                          {approval.respondedByUser
-                            ? ` · recorded by ${approval.respondedByUser.fullName}`
-                            : ""}
-                          {approval.responseNotes
-                            ? ` · ${approval.responseNotes}`
-                            : ""}
-                        </p>
-                        {canReview && approval.status === "pending" ? (
-                          <div className="flex flex-wrap gap-2">
-                            <LoanGuarantorReviewForm
-                              defaultValues={{
-                                guarantorApprovalId: approval.id,
-                                notes: "",
-                                status: "approved",
-                              }}
-                              label="Guarantor approved"
-                            />
-                            <LoanGuarantorReviewForm
-                              defaultValues={{
-                                guarantorApprovalId: approval.id,
-                                notes: "",
-                                status: "rejected",
-                              }}
-                              label="Guarantor rejected"
-                              variant="outline"
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </DashboardSurfaceCard>
-                ) : null}
-                {request.purpose ? (
-                  <p className="mt-2 text-sm text-muted-foreground">{request.purpose}</p>
-                ) : null}
-              </DashboardTableCell>
-              <DashboardTableCell>
-                <span className="capitalize text-muted-foreground">
-                  {request.status.replace(/_/g, " ")}
-                </span>
-              </DashboardTableCell>
-              <DashboardTableCell>
-                {canReview ? (
-                  <div className="flex flex-wrap gap-2">
-                    {request.status !== "approved" ? (
-                      <LoanReviewForm
-                        defaultValues={{ loanRequestId: request.id, notes: "", status: "approved" }}
-                        label="Approve"
+    <div className="relative">
+      <div className="w-full">
+        <div
+          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          ref={(element) => {
+            parentRef.current = element
+            tableScroll.containerRef.current = element
+          }}
+          style={{
+            height: "calc(100vh - 350px + var(--header-offset, 0px))",
+          }}
+        >
+          <DndContext
+            collisionDetection={closestCenter}
+            id="loan-requests-table-dnd"
+            onDragEnd={handleDragEnd}
+            sensors={sensors}
+          >
+            <Table className="w-full min-w-full">
+              <LoanTableHeader
+                table={table}
+                tableId="loanRequests"
+                tableScroll={tableScroll}
+              />
+
+              <TableBody
+                className="block border-x-0"
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  position: "relative",
+                }}
+              >
+                {virtualItems.length > 0 ? (
+                  virtualItems.map((virtualRow: VirtualItem) => {
+                    const row = rows[virtualRow.index]
+                    if (!row) return null
+
+                    return (
+                      <VirtualRow
+                        columnOrder={columnOrder}
+                        columnSizing={columnSizing}
+                        columnVisibility={columnVisibility}
+                        getStickyClassName={getStickyClassName}
+                        getStickyStyle={getStickyStyle}
+                        key={row.id}
+                        nonClickableColumns={NON_CLICKABLE_COLUMNS}
+                        row={row}
+                        rowHeight={rowHeight}
+                        virtualStart={virtualRow.start}
                       />
-                    ) : null}
-                    {request.status !== "rejected" ? (
-                      <LoanReviewForm
-                        defaultValues={{ loanRequestId: request.id, notes: "", status: "rejected" }}
-                        label="Reject"
-                        variant="outline"
-                      />
-                    ) : null}
-                    {request.status === "submitted" ? (
-                      <LoanReviewForm
-                        defaultValues={{
-                          loanRequestId: request.id,
-                          notes: "",
-                          status: "under_review",
-                        }}
-                        label="Mark under review"
-                        variant="outline"
-                      />
-                    ) : null}
-                  </div>
+                    )
+                  })
                 ) : (
-                  <span className="text-sm text-muted-foreground">View only</span>
+                  <TableRow>
+                    <TableCell
+                      className="h-24 text-center"
+                      colSpan={requestColumns.length}
+                    >
+                      No results.
+                    </TableCell>
+                  </TableRow>
                 )}
-              </DashboardTableCell>
-            </DashboardTableRow>
-          ))}
-        </DashboardTableBody>
-      </DashboardTable>
-    </DashboardDataTable>
+              </TableBody>
+            </Table>
+          </DndContext>
+          <div
+            aria-hidden
+            style={{ flexShrink: 0, height: "var(--header-offset, 0px)" }}
+          />
+        </div>
+      </div>
+    </div>
   )
 }

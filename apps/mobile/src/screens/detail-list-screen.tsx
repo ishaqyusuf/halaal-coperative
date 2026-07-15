@@ -1,6 +1,8 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
-import { StatCard } from "@/components/app/stat-card"
+import { EmptyState } from "@/components/app/empty-state"
 import { SectionCard } from "@/components/app/section-card"
+import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Icon } from "@/components/ui/icon"
@@ -155,7 +157,7 @@ export function DetailListScreen({ detailKey }: { detailKey: DetailKey }) {
 
                 return (
                   <View className="flex-row items-start gap-3" key={row.key}>
-                    <View className="h-8 w-8 items-center justify-center rounded-md bg-secondary">
+                    <View className="h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
                       <Icon
                         name={formattedValue ? "CircleDollarSign" : "Check"}
                         className="size-sm text-success"
@@ -176,9 +178,12 @@ export function DetailListScreen({ detailKey }: { detailKey: DetailKey }) {
                         {row.detail}
                       </Text>
                       {row.status ? (
-                        <Text className="text-xs font-medium text-muted-foreground">
-                          {row.status}
-                        </Text>
+                        <View className="items-start">
+                          <StatusBadge
+                            label={row.status}
+                            tone={getStatusBadgeTone(row.status)}
+                          />
+                        </View>
                       ) : null}
                     </View>
                   </View>
@@ -186,17 +191,11 @@ export function DetailListScreen({ detailKey }: { detailKey: DetailKey }) {
               })}
 
               {sectionError ? (
-                <View className="flex-row items-start gap-3">
-                  <View className="h-8 w-8 items-center justify-center rounded-md bg-secondary">
-                    <Icon
-                      name="CircleAlert"
-                      className="size-sm text-destructive"
-                    />
-                  </View>
-                  <Text className="flex-1 text-sm font-medium text-destructive">
-                    {sectionError}
-                  </Text>
-                </View>
+                <EmptyState
+                  description={sectionError}
+                  icon="CircleAlert"
+                  title="Section unavailable"
+                />
               ) : null}
             </View>
           )}

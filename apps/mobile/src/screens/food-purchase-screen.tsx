@@ -1,6 +1,10 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
+import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -187,9 +191,10 @@ function FoodPurchaseApplicationCard({
             {formatMonth(application.cycle.periodMonth)} cycle
           </Text>
         </View>
-        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
-          {formatStatus(application.status)}
-        </Text>
+        <StatusBadge
+          label={formatStatus(application.status)}
+          tone={getStatusBadgeTone(application.status)}
+        />
       </View>
 
       <View className="flex-row flex-wrap gap-2">
@@ -258,6 +263,7 @@ export function FoodPurchaseScreen() {
   const [requestNotes, setRequestNotes] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isReviewingSubmit, setIsReviewingSubmit] = useState(false)
   const canUseServerFoodPurchase = Boolean(
     profile?.role === "member" &&
     profile?.token &&
@@ -307,6 +313,31 @@ export function FoodPurchaseScreen() {
     !hasStaleFoodPurchase &&
     !isSubmitting
   )
+  const selectedCycle = foodPurchase?.cycles.find(
+    (cycle) => cycle.id === cycleId
+  )
+  const hasFoodPurchaseDraft = Boolean(
+    requestedAmount.trim() ||
+    requestedPaybackMonths.trim() !== "1" ||
+    itemDescription.trim() ||
+    requestNotes.trim()
+  )
+  const reviewRows = [
+    {
+      detail: selectedCycle
+        ? `${formatMonth(selectedCycle.periodMonth)} cycle`
+        : "No open cycle selected",
+      icon: "ShoppingBasket",
+      label: "Foodstuff Purchase",
+      value: amount ? formatCurrency(amount, currencyCode) : "Not set",
+    },
+    {
+      detail: "Requested repayment duration",
+      icon: "CalendarClock",
+      label: "Payback months",
+      value: paybackMonths ? String(paybackMonths) : "Not set",
+    },
+  ]
   const stats = useMemo(
     () => [
       {
@@ -418,6 +449,7 @@ export function FoodPurchaseScreen() {
       setItemDescription("")
       setRequestNotes("")
       setSuccess("Foodstuff Purchase application submitted.")
+      setIsReviewingSubmit(false)
       loadFoodPurchase()
     } catch (submissionError) {
       setError(
@@ -479,6 +511,10 @@ export function FoodPurchaseScreen() {
             {foodPurchase?.canCreateApplication ? (
               <SectionCard icon="ShoppingBasket" title="New application">
                 <View className="gap-3">
+                  <FormStateBanner
+                    hasDraft={hasFoodPurchaseDraft}
+                    isStale={hasStaleFoodPurchase}
+                  />
                   {isLoading ? (
                     <LoadingSpinner />
                   ) : openCycles.length ? (
@@ -494,37 +530,62 @@ export function FoodPurchaseScreen() {
                       ))}
                     </View>
                   ) : (
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No Foodstuff Purchase cycle is currently open for
-                      applications.
-                    </Text>
+                    <EmptyState
+                      description="The cooperative office has not opened a Foodstuff Purchase cycle for applications."
+                      icon="CalendarClock"
+                      title="No open cycle"
+                    />
                   )}
-                  <Input
-                    editable={!isSubmitting}
-                    keyboardType="numeric"
-                    onChangeText={setRequestedAmount}
-                    placeholder="Requested amount"
-                    value={requestedAmount}
-                  />
-                  <Input
-                    editable={!isSubmitting}
-                    keyboardType="numeric"
-                    onChangeText={setRequestedPaybackMonths}
-                    placeholder="Payback months"
-                    value={requestedPaybackMonths}
-                  />
-                  <Textarea
-                    editable={!isSubmitting}
-                    onChangeText={setItemDescription}
-                    placeholder="Items requested"
-                    value={itemDescription}
-                  />
-                  <Textarea
-                    editable={!isSubmitting}
-                    onChangeText={setRequestNotes}
-                    placeholder="Notes"
-                    value={requestNotes}
-                  />
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Requested amount
+                    </Text>
+                    <Input
+                      accessibilityLabel="Foodstuff Purchase requested amount"
+                      editable={!isSubmitting}
+                      keyboardType="numeric"
+                      onChangeText={setRequestedAmount}
+                      placeholder="Requested amount"
+                      value={requestedAmount}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Payback months
+                    </Text>
+                    <Input
+                      accessibilityLabel="Foodstuff Purchase payback months"
+                      editable={!isSubmitting}
+                      keyboardType="numeric"
+                      onChangeText={setRequestedPaybackMonths}
+                      placeholder="Payback months"
+                      value={requestedPaybackMonths}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Items requested
+                    </Text>
+                    <Textarea
+                      accessibilityLabel="Foodstuff Purchase items requested"
+                      editable={!isSubmitting}
+                      onChangeText={setItemDescription}
+                      placeholder="Items requested"
+                      value={itemDescription}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Notes
+                    </Text>
+                    <Textarea
+                      accessibilityLabel="Foodstuff Purchase notes"
+                      editable={!isSubmitting}
+                      onChangeText={setRequestNotes}
+                      placeholder="Notes"
+                      value={requestNotes}
+                    />
+                  </View>
                   <MobileChargeSummary
                     basisAmount={amount}
                     charges={foodPurchase?.chargeOptions ?? []}
@@ -533,7 +594,7 @@ export function FoodPurchaseScreen() {
                   <Button
                     className="h-12"
                     disabled={!canSubmit}
-                    onPress={handleSubmit}
+                    onPress={() => setIsReviewingSubmit(true)}
                   >
                     <Icon
                       name="Send"
@@ -561,10 +622,11 @@ export function FoodPurchaseScreen() {
                 <VirtualizedCardList
                   data={foodPurchase?.applications ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No Foodstuff Purchase applications have been submitted
-                      from this member profile.
-                    </Text>
+                    <EmptyState
+                      description="Submitted Foodstuff Purchase applications will appear here."
+                      icon="ShoppingBasket"
+                      title="No Foodstuff Purchase applications"
+                    />
                   }
                   estimatedItemSize={176}
                   keyExtractor={(application) => application.id}
@@ -581,6 +643,15 @@ export function FoodPurchaseScreen() {
           </>
         ) : null}
       </ScrollView>
+      <SubmissionReviewSheet
+        description="Review this Foodstuff Purchase application before sending it to the cooperative office."
+        isSubmitting={isSubmitting}
+        onClose={() => setIsReviewingSubmit(false)}
+        onConfirm={handleSubmit}
+        rows={reviewRows}
+        title="Review Foodstuff Purchase"
+        visible={isReviewingSubmit}
+      />
     </SafeArea>
   )
 }

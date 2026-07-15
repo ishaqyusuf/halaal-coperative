@@ -1,9 +1,50 @@
 import { getContributionFilterMetadata } from "@halaalvest/db"
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { ContributionsPageView } from "@/components/contributions-page-view"
+import {
+  ContributionsPageView,
+  ContributionsUnavailableView,
+} from "@/components/contributions-page-view"
+import { loadContributionParams } from "@/hooks/use-contribution-params"
 import { loadContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
+import { loadSortParams } from "@/hooks/use-sort-params"
 import { loadContributionsPageData } from "@/lib/contributions"
 import { getDashboardServerContext } from "@/lib/server-context"
+import {
+  getQueryClient,
+  getServerCaller,
+  HydrateClient,
+  trpc,
+} from "@/trpc/server"
+import { getInitialTableSettings } from "@/utils/columns"
+
+type ContributionSortField =
+  | "amount"
+  | "committedAmount"
+  | "extraSavingsAmount"
+  | "memberName"
+  | "postedAt"
+
+function getSort(
+  sort?: string[] | null
+): [ContributionSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const validFields = new Set<string>([
+    "amount",
+    "committedAmount",
+    "extraSavingsAmount",
+    "memberName",
+    "postedAt",
+  ])
+
+  if (!validFields.has(field)) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [field as ContributionSortField, direction]
+}
 
 export default async function ContributionsPage({
   searchParams,
@@ -12,24 +53,58 @@ export default async function ContributionsPage({
 }) {
   const params = await searchParams
   const filters = loadContributionsFilterParams(params)
+  loadContributionParams(params)
+  const { sort } = loadSortParams(params)
   const selectedBatchId =
     typeof params.batchId === "string" ? params.batchId : undefined
   const context = await getDashboardServerContext()
-  const [data, filterList] = await Promise.all([
+  const [data, filterList, contributionTableSettings, caller] = await Promise.all([
     loadContributionsPageData(filters, { selectedBatchId }),
-    context.tenant ? getContributionFilterMetadata(context.tenant.id) : Promise.resolve([]),
+    context.tenant
+      ? getContributionFilterMetadata(context.tenant.id)
+      : Promise.resolve([]),
+    getInitialTableSettings("contributions"),
+    getServerCaller(),
   ])
 
   if (data.state !== "ready") {
-    return (
-      <WorkspacePageShell eyebrow="Contributions" title="Contribution ledger" description="Contribution collection and posting activity for the active cooperative.">
-        <WorkspaceEmptyState
-          title="Contribution history is waiting for the database runtime."
-          body="Once the database-backed environment is active, this route will show posted contributions, member attribution, commitment plans, and collection channels."
-        />
-      </WorkspacePageShell>
-    )
+    return <ContributionsUnavailableView />
   }
 
-  return <ContributionsPageView {...data} filterList={filterList} />
+  const ledgerInput = {
+    channel:
+      filters.channel === "payroll" ||
+      filters.channel === "transfer" ||
+      filters.channel === "cash" ||
+      filters.channel === "manual"
+        ? filters.channel
+        : undefined,
+    from: filters.from ?? undefined,
+    memberId: filters.memberId ?? undefined,
+    q: filters.search ?? undefined,
+    sort: getSort(sort),
+    to: filters.to ?? undefined,
+  }
+  const ledgerOptions = trpc.contributions.ledger.infiniteQueryOptions(
+    ledgerInput,
+    {
+      getNextPageParam: ({ meta }) => meta?.cursor,
+    }
+  )
+  const initialLedgerPage = await caller.contributions.ledger(ledgerInput)
+
+  getQueryClient().setQueryData(ledgerOptions.queryKey, {
+    pageParams: [ledgerOptions.initialPageParam],
+    pages: [initialLedgerPage],
+  })
+
+  return (
+    <HydrateClient>
+      <ContributionsPageView
+        {...data}
+        contributionTableSettings={contributionTableSettings}
+        filterList={filterList}
+      />
+    </HydrateClient>
+  )
 }

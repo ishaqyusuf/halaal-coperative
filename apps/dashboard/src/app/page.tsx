@@ -1,6 +1,9 @@
 import { headers } from "next/headers"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
-import { TenantUrlProvider } from "@halaalvest/tenant-url/react"
+import {
+  TenantUrlProvider,
+  TenantUrlVariantSwitcher,
+} from "@halaalvest/tenant-url/react"
 import { DashboardPageFrame, WorkspaceEmptyState } from "@/components/dashboard"
 import { DashboardShellClient } from "@/components/dashboard-shell"
 import { MemberPortalOverview } from "@/components/member-portal-overview"
@@ -78,6 +81,7 @@ export default async function TenantHomePage() {
         >
           {memberPortalContent}
         </DashboardShellClient>
+        <TenantUrlVariantSwitcher />
       </TenantUrlProvider>
     )
   }
@@ -96,6 +100,7 @@ export default async function TenantHomePage() {
           <OverviewView />
         </HydrateClient>
       </DashboardShellClient>
+      <TenantUrlVariantSwitcher />
     </TenantUrlProvider>
   )
 }

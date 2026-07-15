@@ -20,7 +20,7 @@ export function DashboardStatCard({
         tone === "warning" && "border-amber-200"
       )}
     >
-      <p className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
+      <p className="text-[11px] font-medium text-muted-foreground uppercase">
         {label}
       </p>
       <p className="mt-3 text-2xl font-semibold tracking-normal text-foreground">

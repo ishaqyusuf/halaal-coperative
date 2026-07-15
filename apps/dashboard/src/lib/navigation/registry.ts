@@ -3,17 +3,42 @@ import {
   createNavLink,
   createNavModule,
   createNavSection,
+  createNavSubLink,
   initRoleAccess,
   type NavModule,
 } from "@halaalvest/site-nav"
 import {
+  AnalyticsIcon,
+  BusinessIcon,
+  ChargesIcon,
+  ContributionsIcon,
+  CooperativeProfileIcon,
+  DashboardIcon,
+  DomainsIcon,
   ExperienceIcon,
   FinanceIcon,
+  FinanceSetupIcon,
+  FoodPurchaseIcon,
+  ImportsIcon,
   HomeIcon,
+  LoansIcon,
+  MemberRegistryIcon,
   MembersIcon,
+  MembershipApprovalsIcon,
+  MonthlyRecordsIcon,
   NotificationIcon,
+  OperationProfileIcon,
+  PaymentReceiptsIcon,
+  ProcurementIcon,
+  ProjectFinancingIcon,
   ReportsIcon,
+  RepaymentsIcon,
+  RolesIcon,
   SettingsIcon,
+  SharesIcon,
+  SignupLinksIcon,
+  SupportIcon,
+  TrustReadinessIcon,
 } from "./icons"
 
 const adminRoles: CooperativeRole[] = ["super_admin", "tenant_admin"]
@@ -39,12 +64,12 @@ const role = initRoleAccess<CooperativeRole>()
 export const dashboardNavRegistry: NavModule[] = [
   createNavModule("Home", HomeIcon, "Workspace overview", [
     createNavSection("general", "General", [
-      createNavLink("Dashboard", HomeIcon, "/", [], [])
+      createNavLink("Dashboard", DashboardIcon, "/", [], [])
         .level(1)
         .title("Dashboard").data,
       createNavLink(
         "Analytics",
-        ReportsIcon,
+        AnalyticsIcon,
         "/analytics",
         [],
         [role.in(...allStaffRoles)]
@@ -68,7 +93,10 @@ export const dashboardNavRegistry: NavModule[] = [
         "Reports",
         ReportsIcon,
         "/reports",
-        [],
+        [
+          createNavSubLink("Activity report", "/reports/audit")
+            .title("Activity report").data,
+        ],
         [role.in(...adminRoles)]
       )
         .childPaths("/reports/audit")
@@ -79,7 +107,7 @@ export const dashboardNavRegistry: NavModule[] = [
     createNavSection("membership", "Membership", [
       createNavLink(
         "Member Registry",
-        MembersIcon,
+        MemberRegistryIcon,
         "/members",
         [],
         [role.in(...operationsRoles)]
@@ -88,7 +116,7 @@ export const dashboardNavRegistry: NavModule[] = [
         .title("Member registry").data,
       createNavLink(
         "Membership Approvals",
-        MembersIcon,
+        MembershipApprovalsIcon,
         "/membership-approvals",
         [],
         [role.in(...operationsRoles)]
@@ -97,14 +125,14 @@ export const dashboardNavRegistry: NavModule[] = [
         .title("Membership approvals").data,
       createNavLink(
         "Signup Links",
-        MembersIcon,
+        SignupLinksIcon,
         "/member-signup-links",
         [],
         [role.in(...operationsRoles)]
       ).title("Member signup links").data,
       createNavLink(
         "Support",
-        MembersIcon,
+        SupportIcon,
         "/support",
         [],
         [role.in(...allStaffRoles, "member")]
@@ -115,35 +143,35 @@ export const dashboardNavRegistry: NavModule[] = [
     createNavSection("collections", "Collections", [
       createNavLink(
         "Contributions",
-        FinanceIcon,
+        ContributionsIcon,
         "/contributions",
         [],
         [role.in(...allStaffRoles)]
       ).title("Contributions").data,
       createNavLink(
         "Payment Receipts",
-        FinanceIcon,
+        PaymentReceiptsIcon,
         "/payment-receipts",
         [],
         [role.in(...allStaffRoles, "member")]
       ).title("Payment receipts").data,
       createNavLink(
         "Shares",
-        FinanceIcon,
+        SharesIcon,
         "/shares",
         [],
         [role.in("member")]
       ).title("My shares").data,
       createNavLink(
         "Charges",
-        FinanceIcon,
+        ChargesIcon,
         "/charges",
         [],
         [role.in(...financeRoles)]
       ).title("Charges").data,
       createNavLink(
         "Monthly Records",
-        FinanceIcon,
+        MonthlyRecordsIcon,
         "/monthly-records",
         [],
         [role.in(...financeRoles)]
@@ -152,28 +180,28 @@ export const dashboardNavRegistry: NavModule[] = [
     createNavSection("credit", "Credit", [
       createNavLink(
         "Loans",
-        FinanceIcon,
+        LoansIcon,
         "/loans",
         [],
         [role.in(...allStaffRoles, "member")]
       ).title("Loans").data,
       createNavLink(
         "Procurement",
-        FinanceIcon,
+        ProcurementIcon,
         "/procurement",
         [],
         [role.in(...allStaffRoles, "member")]
       ).title("Procurement").data,
       createNavLink(
         "Project Financing",
-        FinanceIcon,
+        ProjectFinancingIcon,
         "/project-financing",
         [],
         [role.in(...allStaffRoles, "member")]
       ).title("Project financing").data,
       createNavLink(
         "Repayments",
-        FinanceIcon,
+        RepaymentsIcon,
         "/repayments",
         [],
         [role.in(...financeRoles)]
@@ -182,7 +210,7 @@ export const dashboardNavRegistry: NavModule[] = [
     createNavSection("business", "Business", [
       createNavLink(
         "Business",
-        FinanceIcon,
+        BusinessIcon,
         "/business",
         [],
         [role.in(...financeRoles)]
@@ -191,7 +219,7 @@ export const dashboardNavRegistry: NavModule[] = [
         .title("Business").data,
       createNavLink(
         "Foodstuff Purchase",
-        FinanceIcon,
+        FoodPurchaseIcon,
         "/food-purchase",
         [],
         [role.in(...allStaffRoles, "member")]
@@ -202,7 +230,7 @@ export const dashboardNavRegistry: NavModule[] = [
     createNavSection("workspace", "Workspace", [
       createNavLink(
         "Domains",
-        ExperienceIcon,
+        DomainsIcon,
         "/domains",
         [],
         [role.in(...adminRoles)]
@@ -213,46 +241,78 @@ export const dashboardNavRegistry: NavModule[] = [
     createNavSection("configuration", "Configuration", [
       createNavLink(
         "Cooperative Profile",
-        SettingsIcon,
+        CooperativeProfileIcon,
         "/settings/profile",
         [],
         [role.in(...adminRoles)]
       ).title("Cooperative profile").data,
       createNavLink(
         "Finance Setup",
-        SettingsIcon,
+        FinanceSetupIcon,
         "/settings/finance",
-        [],
+        [
+          createNavSubLink("Overview", "/settings/finance").data,
+          createNavSubLink("Business", "/settings/finance/business").data,
+          createNavSubLink("Charges", "/settings/finance/charges").data,
+          createNavSubLink("Loan", "/settings/finance/loan").data,
+          createNavSubLink("Migration", "/settings/finance/migration").data,
+          createNavSubLink("Shares", "/settings/finance/shares").data,
+        ],
         [role.in("super_admin", "tenant_admin", "finance_officer")]
       )
         .childPaths("/settings/finance")
         .title("Finance setup").data,
       createNavLink(
         "Operation Profile",
-        SettingsIcon,
+        OperationProfileIcon,
         "/settings/operation-profile",
         [],
         [role.in(...adminRoles)]
       ).title("Operation profile").data,
       createNavLink(
         "Roles",
-        SettingsIcon,
+        RolesIcon,
         "/settings/roles",
         [],
         [role.in(...adminRoles)]
       ).title("Roles").data,
       createNavLink(
         "Trust Readiness",
-        SettingsIcon,
+        TrustReadinessIcon,
         "/settings/trust",
         [],
         [role.in(...adminRoles)]
       ).title("Trust readiness").data,
       createNavLink(
         "Imports",
-        SettingsIcon,
+        ImportsIcon,
         "/settings/imports",
-        [],
+        [
+          createNavSubLink("Overview", "/settings/imports").data,
+          createNavSubLink("Batches", "/settings/imports/batches").data,
+          createNavSubLink("Members", "/settings/imports/members").data,
+          createNavSubLink(
+            "Contributions",
+            "/settings/imports/contributions"
+          ).data,
+          createNavSubLink("Charges", "/settings/imports/charges").data,
+          createNavSubLink(
+            "Deduction sources",
+            "/settings/imports/deduction-sources"
+          ).data,
+          createNavSubLink(
+            "Loan products",
+            "/settings/imports/loan-products"
+          ).data,
+          createNavSubLink(
+            "Loan migrations",
+            "/settings/imports/loan-migrations"
+          ).data,
+          createNavSubLink(
+            "Repayment migrations",
+            "/settings/imports/repayment-migrations"
+          ).data,
+        ],
         [
           role.in(
             "super_admin",

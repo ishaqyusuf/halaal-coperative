@@ -1,17 +1,32 @@
-import { formatCurrency } from "@halaalvest/utils"
-import {
-  DashboardDataTable,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
-  TableEmptyState,
-} from "@/components/dashboard/static-table"
-import { LoanDisbursementForm } from "@/components/forms/finance-forms"
+"use client"
 
-type LoanPortfolioRow = {
+import { closestCenter, DndContext } from "@dnd-kit/core"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+} from "@halaalvest/ui/components/table"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
+import { useEffect, useMemo, useRef } from "react"
+import { EmptyState, VirtualRow } from "@/components/tables/core"
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
+import { useSortParams } from "@/hooks/use-sort-params"
+import { useStickyColumns } from "@/hooks/use-sticky-columns"
+import { useTableDnd } from "@/hooks/use-table-dnd"
+import { useTableScroll } from "@/hooks/use-table-scroll"
+import { useTableSettings } from "@/hooks/use-table-settings"
+import { useLoanTableStore } from "@/store/loans"
+import { useTRPC } from "@/trpc/client"
+import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
+import { getColumnIds, type TableSettings } from "@/utils/table-settings"
+import { portfolioColumns } from "./portfolio-columns"
+import { LoanPortfolioSkeleton } from "./skeleton"
+import { LoanTableHeader } from "./table-header"
+
+export type LoanPortfolioRow = {
   estimatedMonthlyServicing: number | string | { toString(): string }
   extraMonthlySavingsAmount: number | string | { toString(): string }
   id: string
@@ -23,82 +38,247 @@ type LoanPortfolioRow = {
   termMonths: number
 }
 
+type LoanPortfolioSortField =
+  | "estimatedMonthlyServicing"
+  | "loanProductName"
+  | "memberName"
+  | "status"
+
+const NON_CLICKABLE_COLUMNS = new Set(["actions"])
+const COLUMN_IDS = getColumnIds(portfolioColumns)
+
+function getSort(
+  sort?: string[] | null
+): [LoanPortfolioSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const validFields = new Set<string>([
+    "estimatedMonthlyServicing",
+    "loanProductName",
+    "memberName",
+    "status",
+  ])
+
+  if (!validFields.has(field)) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [field as LoanPortfolioSortField, direction]
+}
+
 export function LoanPortfolioTable({
   availablePool,
   canReview,
-  items,
+  initialSettings,
+  memberId,
 }: {
   availablePool: number
   canReview: boolean
-  items: LoanPortfolioRow[]
+  initialSettings?: Partial<TableSettings>
+  memberId?: string
 }) {
-  if (!items.length) {
+  const trpc = useTRPC()
+  const { params } = useSortParams()
+  const parentRef = useRef<HTMLDivElement>(null)
+  const { setPortfolioColumns } = useLoanTableStore()
+  const queryInput = useMemo(
+    () => ({
+      memberId,
+      sort: getSort(params.sort),
+    }),
+    [memberId, params.sort]
+  )
+  const infiniteQueryOptions = trpc.loans.portfolio.infiniteQueryOptions(
+    queryInput,
+    {
+      getNextPageParam: ({ meta }) => meta?.cursor,
+      refetchInterval: 5000,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
+    }
+  )
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    isPending,
+  } = useInfiniteQuery(infiniteQueryOptions)
+  const tableData = useMemo(
+    () => data?.pages.flatMap((page) => page.data) ?? [],
+    [data]
+  )
+
+  const {
+    columnOrder,
+    columnSizing,
+    columnVisibility,
+    setColumnOrder,
+    setColumnSizing,
+    setColumnVisibility,
+  } = useTableSettings({
+    columnIds: COLUMN_IDS,
+    initialSettings,
+    tableId: "loanPortfolio",
+  })
+
+  const table = useReactTable({
+    columnResizeMode: "onChange",
+    columns: portfolioColumns,
+    data: tableData,
+    enableColumnResizing: true,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id,
+    meta: {
+      availablePool,
+      canReview,
+    },
+    onColumnOrderChange: setColumnOrder,
+    onColumnSizingChange: setColumnSizing,
+    onColumnVisibilityChange: setColumnVisibility,
+    state: {
+      columnOrder,
+      columnSizing,
+      columnVisibility,
+    },
+  })
+
+  const { sensors, handleDragEnd } = useTableDnd(table)
+
+  useEffect(() => {
+    setPortfolioColumns(table.getAllLeafColumns())
+  }, [columnVisibility, setPortfolioColumns, table])
+
+  const { getStickyClassName, getStickyStyle } = useStickyColumns({
+    columnVisibility,
+    stickyColumns: STICKY_COLUMNS.loanPortfolio,
+    table,
+  })
+
+  const tableScroll = useTableScroll({
+    startFromColumn: 1,
+    useColumnWidths: true,
+  })
+
+  const rows = table.getRowModel().rows
+  const rowHeight = ROW_HEIGHTS.loanPortfolio
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    estimateSize: () => rowHeight,
+    getScrollElement: () => parentRef.current,
+    overscan: 10,
+  })
+
+  useInfiniteScroll<HTMLDivElement>({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    rowCount: rows.length,
+    rowVirtualizer,
+    scrollRef: parentRef,
+    threshold: 50,
+  })
+
+  if (isPending) {
+    return <LoanPortfolioSkeleton />
+  }
+
+  if (isError) {
     return (
-      <TableEmptyState
-        title="No approved or active loans"
-        body="Approved and live cooperative loans will appear here once requests move into servicing."
+      <EmptyState
+        description="Reload the page before reviewing approved loans again."
+        title="Loan portfolio could not load."
       />
     )
   }
 
+  if (!tableData.length) {
+    return (
+      <EmptyState
+        description="Approved and live cooperative loans will appear here once requests move into servicing."
+        title="No approved or active loans"
+      />
+    )
+  }
+
+  const virtualItems = rowVirtualizer.getVirtualItems()
+
   return (
-    <DashboardDataTable>
-      <DashboardTable>
-        <DashboardTableHead>
-          <DashboardTableHeaderCell>Member</DashboardTableHeaderCell>
-          <DashboardTableHeaderCell>Loan</DashboardTableHeaderCell>
-          <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
-          <DashboardTableHeaderCell>Servicing</DashboardTableHeaderCell>
-        </DashboardTableHead>
-        <DashboardTableBody>
-          {items.map((loan) => (
-            <DashboardTableRow key={loan.id}>
-              <DashboardTableCell>
-                <p className="font-medium text-foreground">{loan.member.fullName}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {loan.termMonths} months
-                </p>
-              </DashboardTableCell>
-              <DashboardTableCell>
-                <p className="text-sm text-foreground">
-                  {loan.loanProduct.name} · principal {formatCurrency(Number(loan.principalAmount))}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Outstanding {formatCurrency(Number(loan.outstandingPrincipal))}
-                </p>
-              </DashboardTableCell>
-              <DashboardTableCell>
-                <span className="capitalize text-muted-foreground">{loan.status}</span>
-                {loan.status === "approved" &&
-                Number(loan.principalAmount) > Number(availablePool) ? (
-                  <p className="mt-2 text-xs text-destructive">
-                    Liquidity warning
-                  </p>
-                ) : null}
-              </DashboardTableCell>
-              <DashboardTableCell>
-                <p className="text-sm text-foreground">
-                  {formatCurrency(Number(loan.estimatedMonthlyServicing))} monthly
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Extra savings {formatCurrency(Number(loan.extraMonthlySavingsAmount))}
-                </p>
-                {loan.status === "approved" ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Projected pool after disbursement:{" "}
-                    {formatCurrency(Number(availablePool) - Number(loan.principalAmount))}
-                  </p>
-                ) : null}
-                {canReview && loan.status === "approved" ? (
-                  <div className="mt-3">
-                    <LoanDisbursementForm loanId={loan.id} />
-                  </div>
-                ) : null}
-              </DashboardTableCell>
-            </DashboardTableRow>
-          ))}
-        </DashboardTableBody>
-      </DashboardTable>
-    </DashboardDataTable>
+    <div className="relative">
+      <div className="w-full">
+        <div
+          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          ref={(element) => {
+            parentRef.current = element
+            tableScroll.containerRef.current = element
+          }}
+          style={{
+            height: "calc(100vh - 350px + var(--header-offset, 0px))",
+          }}
+        >
+          <DndContext
+            collisionDetection={closestCenter}
+            id="loan-portfolio-table-dnd"
+            onDragEnd={handleDragEnd}
+            sensors={sensors}
+          >
+            <Table className="w-full min-w-full">
+              <LoanTableHeader
+                table={table}
+                tableId="loanPortfolio"
+                tableScroll={tableScroll}
+              />
+
+              <TableBody
+                className="block border-x-0"
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  position: "relative",
+                }}
+              >
+                {virtualItems.length > 0 ? (
+                  virtualItems.map((virtualRow: VirtualItem) => {
+                    const row = rows[virtualRow.index]
+                    if (!row) return null
+
+                    return (
+                      <VirtualRow
+                        columnOrder={columnOrder}
+                        columnSizing={columnSizing}
+                        columnVisibility={columnVisibility}
+                        getStickyClassName={getStickyClassName}
+                        getStickyStyle={getStickyStyle}
+                        key={row.id}
+                        nonClickableColumns={NON_CLICKABLE_COLUMNS}
+                        row={row}
+                        rowHeight={rowHeight}
+                        virtualStart={virtualRow.start}
+                      />
+                    )
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      className="h-24 text-center"
+                      colSpan={portfolioColumns.length}
+                    >
+                      No results.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </DndContext>
+          <div
+            aria-hidden
+            style={{ flexShrink: 0, height: "var(--header-offset, 0px)" }}
+          />
+        </div>
+      </div>
+    </div>
   )
 }

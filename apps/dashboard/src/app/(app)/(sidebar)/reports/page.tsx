@@ -1,6 +1,8 @@
 import { createDbRuntime } from "@halaalvest/db"
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { ReportsView } from "@/components/reports/reports-view"
+import {
+  ReportsUnavailableView,
+  ReportsView,
+} from "@/components/reports/reports-view"
 import { loadReportsFilterParams } from "@/hooks/use-reports-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
@@ -17,31 +19,19 @@ export default async function ReportsPage({
 
   if (!context.tenant || runtime.status !== "database-configured") {
     return (
-      <WorkspacePageShell
-        description="Operational reporting and audit visibility for cooperative admins."
-        eyebrow="Reports"
-        title="Audit and reporting"
-      >
-        <WorkspaceEmptyState
-          body="Once the database-backed environment is active, this route will surface audit activity, notification delivery stats, and finance snapshots."
-          title="Reporting needs the database runtime."
-        />
-      </WorkspacePageShell>
+      <ReportsUnavailableView
+        body="Once the database-backed environment is active, this route will surface audit activity, notification delivery stats, and finance snapshots."
+        title="Reporting needs the database runtime."
+      />
     )
   }
 
   if (!hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)) {
     return (
-      <WorkspacePageShell
-        description="Operational reporting and audit visibility for cooperative admins."
-        eyebrow="Reports"
-        title="Audit and reporting"
-      >
-        <WorkspaceEmptyState
-          body="Cooperative admins and super admins can access audit and reporting surfaces."
-          title="Report access is limited."
-        />
-      </WorkspacePageShell>
+      <ReportsUnavailableView
+        body="Cooperative admins and super admins can access audit and reporting surfaces."
+        title="Report access is limited."
+      />
     )
   }
 

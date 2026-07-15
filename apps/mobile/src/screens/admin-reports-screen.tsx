@@ -1,6 +1,8 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -131,12 +133,11 @@ function ActivityEventRow({
           {event.metadataSummary.length ? (
             <View className="flex-row flex-wrap gap-2">
               {event.metadataSummary.map((item, index) => (
-                <View
-                  className="rounded-md bg-secondary px-2 py-1"
+                <StatusBadge
                   key={`${event.id}-${index}`}
-                >
-                  <Text className="text-xs text-muted-foreground">{item}</Text>
-                </View>
+                  label={item}
+                  tone="muted"
+                />
               ))}
             </View>
           ) : null}
@@ -164,9 +165,10 @@ function CollectionFollowUpRow({
             <Text className="flex-1 text-sm font-semibold text-foreground">
               {followUp.memberName}
             </Text>
-            <Text className="text-xs font-medium text-muted-foreground">
-              {followUp.priority}
-            </Text>
+            <StatusBadge
+              label={followUp.priority}
+              tone={getStatusBadgeTone(followUp.priority)}
+            />
           </View>
           <Text className="text-sm leading-5 text-muted-foreground">
             {followUp.memberNumber} - {followUp.loanProductName}
@@ -379,9 +381,11 @@ export function AdminReportsScreen() {
                 <VirtualizedCardList
                   data={reportCards}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No report previews are available for this workspace.
-                    </Text>
+                    <EmptyState
+                      description="Mobile-safe report previews will appear here when this workspace has report cards available."
+                      icon="FileText"
+                      title="No report previews"
+                    />
                   }
                   estimatedItemSize={148}
                   keyExtractor={(report) => report.key}
@@ -405,9 +409,11 @@ export function AdminReportsScreen() {
                 <VirtualizedCardList
                   data={activityEvents}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No recent audit events are available for this workspace.
-                    </Text>
+                    <EmptyState
+                      description="Recent governed admin activity will appear here as audit evidence."
+                      icon="History"
+                      title="No recent audit events"
+                    />
                   }
                   estimatedItemSize={120}
                   keyExtractor={(event) => event.id}
@@ -425,10 +431,11 @@ export function AdminReportsScreen() {
                 <VirtualizedCardList
                   data={collectionFollowUps}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No collections follow-up activity is available for this
-                      workspace.
-                    </Text>
+                    <EmptyState
+                      description="Collection follow-up evidence will appear here when field activity is recorded."
+                      icon="CalendarClock"
+                      title="No collection evidence"
+                    />
                   }
                   estimatedItemSize={108}
                   keyExtractor={(followUp) => followUp.id}

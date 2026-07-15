@@ -8,6 +8,7 @@ import {
 } from "react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { useTenantRouter } from "@halaalvest/tenant-url/next"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   Form,
   FormControl,
@@ -258,6 +259,55 @@ export function OperationProfileButtonGroup({
               </RadioGroup>
             </FormControl>
             <FormMessage />
+          </FormItem>
+        )
+      }}
+    />
+  )
+}
+
+export function OperationProfileCheckboxField({
+  defaultChecked,
+  description,
+  name,
+  title,
+}: {
+  defaultChecked: boolean
+  description: string
+  name: keyof OperationProfileWizardValues
+  title: string
+}) {
+  return (
+    <FormField
+      name={name}
+      render={({ field }) => {
+        const checked =
+          typeof field.value === "string"
+            ? field.value === "true"
+            : defaultChecked
+
+        return (
+          <FormItem className="flex gap-3 border border-border/70 bg-muted/20 p-3 text-sm">
+            <FormControl>
+              <Checkbox
+                checked={checked}
+                className="mt-1"
+                onCheckedChange={(nextChecked) =>
+                  field.onChange(nextChecked === true ? "true" : "false")
+                }
+              />
+            </FormControl>
+            <input
+              name={name}
+              type="hidden"
+              value={checked ? "true" : "false"}
+            />
+            <span>
+              <span className="block font-medium text-foreground">{title}</span>
+              <span className="mt-1 block text-muted-foreground">
+                {description}
+              </span>
+            </span>
           </FormItem>
         )
       }}

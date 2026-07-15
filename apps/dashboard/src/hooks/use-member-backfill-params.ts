@@ -1,8 +1,9 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsStringEnum } from "nuqs/server"
+import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 import { memberBackfillStepKeys } from "@/components/members/member-backfill-steps"
 
 const memberBackfillParamsSchema = {
+  memberBackfillSheetType: parseAsString,
   step: parseAsStringEnum([...memberBackfillStepKeys]),
 }
 

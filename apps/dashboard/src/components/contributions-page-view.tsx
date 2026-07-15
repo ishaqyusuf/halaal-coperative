@@ -10,27 +10,44 @@ import {
   DashboardStatCard,
   DashboardSurfaceCard,
   TrendPill,
+  WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
 import {
-  ContributionPlanCloseForm,
-  ContributionPlanForm,
-  ContributionPlanUpdateForm,
-  MemberPaymentForm,
-  MemberPaymentPreferenceForm,
-} from "@/components/forms/finance-forms"
+  OpenContributionBatchPostSheet,
+  OpenContributionBatchRowCollectedSheet,
+  OpenContributionBatchRowExceptionSheet,
+  OpenContributionBatchRowPostSheet,
+  OpenContributionBatchStageSheet,
+  OpenContributionPlanEditSheet,
+  OpenContributionPlanSheet,
+  OpenMemberPaymentPreferenceSheet,
+  OpenMemberPaymentSheet,
+} from "@/components/open-contribution-sheet"
+import { ContributionSheet } from "@/components/sheets/contribution-sheet"
 import { ContributionsDataTable } from "@/components/tables/contributions/data-table"
 import { loadContributionsPageData } from "@/lib/contributions"
-import {
-  postCollectionSourceContributionBatchRowsAction,
-  stageCollectionSourceContributionBatchAction,
-  updateCollectionSourceContributionBatchRowsAction,
-} from "@/lib/dashboard-actions"
+import type { TableSettings } from "@/utils/table-settings"
 
 type ContributionsPageData = Extract<
   Awaited<ReturnType<typeof loadContributionsPageData>>,
   { state: "ready" }
 >
+
+export function ContributionsUnavailableView() {
+  return (
+    <WorkspacePageShell
+      eyebrow="Contributions"
+      title="Contribution ledger"
+      description="Contribution collection and posting activity for the active cooperative."
+    >
+      <WorkspaceEmptyState
+        title="Contribution history is waiting for the database runtime."
+        body="Once the database-backed environment is active, this route will show posted contributions, member attribution, commitment plans, and collection channels."
+      />
+    </WorkspacePageShell>
+  )
+}
 
 function formatIsoDate(value: Date) {
   return value.toISOString().slice(0, 10)
@@ -50,7 +67,11 @@ export function ContributionsPageView({
   quickFillEnabled,
   selectedCollectionSourceBatch,
   stagedContributions,
-}: ContributionsPageData & { filterList?: PageFilterData[] }) {
+  contributionTableSettings,
+}: ContributionsPageData & {
+  contributionTableSettings?: Partial<TableSettings>
+  filterList?: PageFilterData[]
+}) {
   const activeCommitmentPlans = commitmentPlans.filter((plan) => plan.isActive)
   const activeLoans = loans.filter((loan) =>
     ["approved", "disbursed", "active"].includes(loan.status),
@@ -64,9 +85,6 @@ export function ContributionsPageView({
     id: member.id,
     label: `${member.fullName} (${member.memberNumber})`,
   }))
-  const now = new Date()
-  const currentBatchYear = now.getUTCFullYear()
-  const currentBatchMonth = now.getUTCMonth() + 1
   const collectedRows =
     selectedCollectionSourceBatch?.rows.filter((row) => row.status === "collected") ?? []
 
@@ -197,9 +215,15 @@ export function ContributionsPageView({
           <DashboardSectionHeader
             actions={
               selectedCollectionSourceBatch ? (
-                <TrendPill tone="warning">
-                  {selectedCollectionSourceBatch.totals.collectedRows} ready
-                </TrendPill>
+                <div className="flex flex-wrap items-center gap-2">
+                  <TrendPill tone="warning">
+                    {selectedCollectionSourceBatch.totals.collectedRows} ready
+                  </TrendPill>
+                  <OpenContributionBatchPostSheet
+                    batchId={selectedCollectionSourceBatch.id}
+                    disabled={collectedRows.length === 0}
+                  />
+                </div>
               ) : null
             }
             description="Stage ministry, employer, payroll, or other source deductions before posting them into member commitments."
@@ -208,75 +232,22 @@ export function ContributionsPageView({
           />
           <div className="mt-5 grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
             <DashboardSurfaceCard>
-              <form
-                action={stageCollectionSourceContributionBatchAction}
-                className="grid gap-3"
-              >
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    <span className="font-medium text-foreground">Year</span>
-                    <input
-                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      defaultValue={currentBatchYear}
-                      name="year"
-                      required
-                      type="number"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    <span className="font-medium text-foreground">Month</span>
-                    <input
-                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      defaultValue={currentBatchMonth}
-                      max={12}
-                      min={1}
-                      name="month"
-                      required
-                      type="number"
-                    />
-                  </label>
+              <div className="grid gap-3">
+                <div>
+                  <p className="font-medium text-foreground">
+                    Stage a collection source batch
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Start a payroll, ministry, employer, or other source
+                    deduction batch from a focused sheet.
+                  </p>
                 </div>
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-foreground">Source</span>
-                  <select
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    name="deductionSourceId"
-                    required
-                  >
-                    <option value="">Select source</option>
-                    {collectionSourceBatchOptions.map((source) => (
-                      <option key={source.id} value={source.id}>
-                        {source.label}
-                        {source.externalReference
-                          ? ` · ${source.externalReference}`
-                          : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-foreground">Reference</span>
-                  <input
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    name="reference"
-                    placeholder="MIN-EDU-JUN-2026"
+                <div>
+                  <OpenContributionBatchStageSheet
+                    disabled={collectionSourceBatchOptions.length === 0}
                   />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-foreground">Note</span>
-                  <textarea
-                    className="min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    name="notes"
-                  />
-                </label>
-                <button
-                  className={buttonVariants({ size: "sm" })}
-                  disabled={collectionSourceBatchOptions.length === 0}
-                  type="submit"
-                >
-                  Stage batch
-                </button>
-              </form>
+                </div>
+              </div>
               <div className="mt-5 grid gap-2">
                 {collectionSourceBatches.map((batch) => (
                   <Link
@@ -344,37 +315,6 @@ export function ContributionsPageView({
                       </p>
                     </div>
                   </div>
-                  {collectedRows.length ? (
-                    <form
-                      action={postCollectionSourceContributionBatchRowsAction}
-                      className="flex flex-wrap items-end gap-2"
-                    >
-                      <input
-                        name="batchId"
-                        type="hidden"
-                        value={selectedCollectionSourceBatch.id}
-                      />
-                      {collectedRows.map((row) => (
-                        <input
-                          key={row.id}
-                          name="rowId"
-                          type="hidden"
-                          value={row.id}
-                        />
-                      ))}
-                      <input
-                        className="h-9 min-w-52 rounded-md border border-input bg-background px-3 text-sm"
-                        name="reference"
-                        placeholder="Posting reference"
-                      />
-                      <button
-                        className={buttonVariants({ size: "sm" })}
-                        type="submit"
-                      >
-                        Post collected rows
-                      </button>
-                    </form>
-                  ) : null}
                   <div className="space-y-3">
                     {selectedCollectionSourceBatch.rows.map((row) => (
                       <div
@@ -426,101 +366,20 @@ export function ContributionsPageView({
                           </div>
                         </div>
                         {row.status !== "posted" && row.status !== "blocked" ? (
-                          <div className="mt-4 grid gap-2 lg:grid-cols-[1fr_auto_auto]">
-                            <form
-                              action={
-                                updateCollectionSourceContributionBatchRowsAction
-                              }
-                              className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
-                            >
-                              <input
-                                name="batchId"
-                                type="hidden"
-                                value={selectedCollectionSourceBatch.id}
-                              />
-                              <input name="rowId" type="hidden" value={row.id} />
-                              <input
-                                name="status"
-                                type="hidden"
-                                value="collected"
-                              />
-                              <input
-                                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                                defaultValue={row.expectedAmount || ""}
-                                name="paidAmount"
-                                placeholder="Paid amount"
-                              />
-                              <input
-                                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                                name="exceptionReason"
-                                placeholder="Variance note"
-                              />
-                              <button
-                                className={buttonVariants({
-                                  size: "sm",
-                                  variant: "outline",
-                                })}
-                                type="submit"
-                              >
-                                Mark collected
-                              </button>
-                            </form>
-                            <form
-                              action={
-                                updateCollectionSourceContributionBatchRowsAction
-                              }
-                              className="flex gap-2"
-                            >
-                              <input
-                                name="batchId"
-                                type="hidden"
-                                value={selectedCollectionSourceBatch.id}
-                              />
-                              <input name="rowId" type="hidden" value={row.id} />
-                              <input
-                                name="status"
-                                type="hidden"
-                                value="exception"
-                              />
-                              <input
-                                className="h-9 w-40 rounded-md border border-input bg-background px-3 text-sm"
-                                name="exceptionReason"
-                                placeholder="Reason"
-                                required
-                              />
-                              <button
-                                className={buttonVariants({
-                                  size: "sm",
-                                  variant: "outline",
-                                })}
-                                type="submit"
-                              >
-                                Exception
-                              </button>
-                            </form>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <OpenContributionBatchRowCollectedSheet
+                              batchId={selectedCollectionSourceBatch.id}
+                              rowId={row.id}
+                            />
+                            <OpenContributionBatchRowExceptionSheet
+                              batchId={selectedCollectionSourceBatch.id}
+                              rowId={row.id}
+                            />
                             {row.status === "collected" ? (
-                              <form
-                                action={postCollectionSourceContributionBatchRowsAction}
-                              >
-                                <input
-                                  name="batchId"
-                                  type="hidden"
-                                  value={selectedCollectionSourceBatch.id}
-                                />
-                                <input
-                                  name="rowId"
-                                  type="hidden"
-                                  value={row.id}
-                                />
-                                <button
-                                  className={buttonVariants({
-                                    size: "sm",
-                                  })}
-                                  type="submit"
-                                >
-                                  Post row
-                                </button>
-                              </form>
+                              <OpenContributionBatchRowPostSheet
+                                batchId={selectedCollectionSourceBatch.id}
+                                rowId={row.id}
+                              />
                             ) : null}
                           </div>
                         ) : null}
@@ -543,37 +402,27 @@ export function ContributionsPageView({
           <DashboardSectionCard>
             <DashboardSectionHeader
               description="Set the member’s recurring target and keep the plan history explicit."
+              actions={<OpenContributionPlanSheet />}
               eyebrow="Commitments"
               title="Create or revise a member plan"
             />
-            <div className="mt-5">
-              <ContributionPlanForm
-                devMode={quickFillEnabled}
-                members={memberOptions}
-              />
-            </div>
+            <p className="mt-5 text-sm leading-6 text-muted-foreground">
+              Create monthly commitments in a focused sheet so this page stays
+              centered on review and ledger activity.
+            </p>
           </DashboardSectionCard>
 
           <DashboardSectionCard>
             <DashboardSectionHeader
               description="Apply one payment across savings, committed amount, extra savings, and active loan servicing."
+              actions={<OpenMemberPaymentSheet />}
               eyebrow="Posting"
               title="Record member payment"
             />
-            <div className="mt-5">
-              <MemberPaymentForm
-                commitmentPlans={activeCommitmentPlans.map((plan) => ({
-                  id: plan.id,
-                  label: `${plan.member.fullName} · ${formatCurrency(Number(plan.amount))}`,
-                }))}
-                devMode={quickFillEnabled}
-                loans={activeLoans.map((loan) => ({
-                  id: loan.id,
-                  label: `${loan.member.fullName} · ${loan.loanProduct.name}`,
-                }))}
-                members={memberOptions}
-              />
-            </div>
+            <p className="mt-5 text-sm leading-6 text-muted-foreground">
+              Post manual payments from a dedicated sheet, including savings,
+              extra savings, and active loan servicing.
+            </p>
           </DashboardSectionCard>
         </section>
       ) : null}
@@ -587,14 +436,21 @@ export function ContributionsPageView({
           />
           <div className="mt-5 space-y-3">
             {members.items.map((member) => (
-              <MemberPaymentPreferenceForm
+              <DashboardSurfaceCard
+                className="flex items-center justify-between gap-3 rounded-lg"
                 key={member.id}
-                defaultValues={{
-                  memberId: member.id,
-                  preference: member.paymentAllocationPreference,
-                }}
-                title={`${member.fullName} · ${member.memberNumber}`}
-              />
+              >
+                <div>
+                  <p className="font-medium text-foreground">
+                    {member.fullName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {member.memberNumber} ·{" "}
+                    {member.paymentAllocationPreference.replace(/_/g, " ")}
+                  </p>
+                </div>
+                <OpenMemberPaymentPreferenceSheet memberId={member.id} />
+              </DashboardSurfaceCard>
             ))}
           </div>
         </DashboardSectionCard>
@@ -618,14 +474,9 @@ export function ContributionsPageView({
                     </div>
                     <TrendPill tone="positive">Active</TrendPill>
                   </div>
-                  <ContributionPlanUpdateForm
-                    defaultValues={{
-                      amount: String(Number(plan.amount)),
-                      name: plan.name ?? "",
-                      planId: plan.id,
-                    }}
-                  />
-                  <ContributionPlanCloseForm planId={plan.id} />
+                  <div className="mt-4 flex justify-end">
+                    <OpenContributionPlanEditSheet planId={plan.id} />
+                  </div>
                 </DashboardSurfaceCard>
               ))
             ) : (
@@ -643,9 +494,22 @@ export function ContributionsPageView({
           title="Recent contribution activity"
         />
         <div className="mt-5">
-          <ContributionsDataTable items={contributions.items} />
+          <ContributionsDataTable initialSettings={contributionTableSettings} />
         </div>
       </DashboardSectionCard>
+
+      <ContributionSheet
+        activeCommitmentPlans={activeCommitmentPlans}
+        activeLoans={activeLoans}
+        collectionSourceBatchOptions={collectionSourceBatchOptions}
+        devMode={quickFillEnabled}
+        members={members.items.map((member) => ({
+          id: member.id,
+          label: `${member.fullName} (${member.memberNumber})`,
+          paymentAllocationPreference: member.paymentAllocationPreference,
+        }))}
+        selectedCollectionSourceBatch={selectedCollectionSourceBatch}
+      />
     </WorkspacePageShell>
   )
 }

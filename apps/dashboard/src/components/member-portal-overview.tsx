@@ -123,7 +123,7 @@ export function MemberPortalOverview({
   return (
     <DashboardPageFrame>
       <section className="space-y-2">
-        <p className="text-[11px] font-medium tracking-[0.22em] text-muted-foreground uppercase">
+        <p className="text-[11px] font-medium text-muted-foreground uppercase">
           Member dashboard
         </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

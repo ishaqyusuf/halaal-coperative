@@ -1,6 +1,10 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
+import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -146,9 +150,10 @@ function ProcurementRequestCard({
             {request.requestedRepaymentMonths} months
           </Text>
         </View>
-        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
-          {formatStatus(request.status)}
-        </Text>
+        <StatusBadge
+          label={formatStatus(request.status)}
+          tone={getStatusBadgeTone(request.status)}
+        />
       </View>
 
       <View className="flex-row flex-wrap gap-2">
@@ -224,6 +229,7 @@ export function ProcurementScreen() {
   const [itemDescription, setItemDescription] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isReviewingSubmit, setIsReviewingSubmit] = useState(false)
   const canUseServerProcurement = Boolean(
     profile?.role === "member" &&
     profile?.token &&
@@ -269,6 +275,27 @@ export function ProcurementScreen() {
     !hasStaleProcurement &&
     !isSubmitting
   )
+  const hasProcurementDraft = Boolean(
+    itemName.trim() ||
+    vendorName.trim() ||
+    requestedCost.trim() ||
+    requestedRepaymentMonths.trim() ||
+    itemDescription.trim()
+  )
+  const reviewRows = [
+    {
+      detail: vendorName.trim() || "Vendor not specified",
+      icon: "PackageSearch",
+      label: itemName.trim() || "Item request",
+      value: cost ? formatCurrency(cost, currencyCode) : "Not set",
+    },
+    {
+      detail: "Requested repayment duration",
+      icon: "CalendarClock",
+      label: "Repayment months",
+      value: repaymentMonths ? String(repaymentMonths) : "Not set",
+    },
+  ]
   const stats = useMemo(
     () => [
       {
@@ -370,6 +397,7 @@ export function ProcurementScreen() {
       setRequestedRepaymentMonths("")
       setItemDescription("")
       setSuccess("Procurement request submitted.")
+      setIsReviewingSubmit(false)
       loadProcurement()
     } catch (submissionError) {
       setError(
@@ -430,38 +458,72 @@ export function ProcurementScreen() {
             {procurement?.canCreateRequest ? (
               <SectionCard icon="PackagePlus" title="New item request">
                 <View className="gap-3">
-                  <Input
-                    editable={!isSubmitting}
-                    onChangeText={setItemName}
-                    placeholder="Item name"
-                    value={itemName}
+                  <FormStateBanner
+                    hasDraft={hasProcurementDraft}
+                    isStale={hasStaleProcurement}
                   />
-                  <Input
-                    editable={!isSubmitting}
-                    onChangeText={setVendorName}
-                    placeholder="Vendor"
-                    value={vendorName}
-                  />
-                  <Input
-                    editable={!isSubmitting}
-                    keyboardType="numeric"
-                    onChangeText={setRequestedCost}
-                    placeholder="Requested cost"
-                    value={requestedCost}
-                  />
-                  <Input
-                    editable={!isSubmitting}
-                    keyboardType="numeric"
-                    onChangeText={setRequestedRepaymentMonths}
-                    placeholder="Repayment months"
-                    value={requestedRepaymentMonths}
-                  />
-                  <Textarea
-                    editable={!isSubmitting}
-                    onChangeText={setItemDescription}
-                    placeholder="Description"
-                    value={itemDescription}
-                  />
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Item name
+                    </Text>
+                    <Input
+                      accessibilityLabel="Procurement item name"
+                      editable={!isSubmitting}
+                      onChangeText={setItemName}
+                      placeholder="Item name"
+                      value={itemName}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Vendor
+                    </Text>
+                    <Input
+                      accessibilityLabel="Procurement vendor"
+                      editable={!isSubmitting}
+                      onChangeText={setVendorName}
+                      placeholder="Vendor"
+                      value={vendorName}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Requested cost
+                    </Text>
+                    <Input
+                      accessibilityLabel="Procurement requested cost"
+                      editable={!isSubmitting}
+                      keyboardType="numeric"
+                      onChangeText={setRequestedCost}
+                      placeholder="Requested cost"
+                      value={requestedCost}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Repayment months
+                    </Text>
+                    <Input
+                      accessibilityLabel="Procurement repayment months"
+                      editable={!isSubmitting}
+                      keyboardType="numeric"
+                      onChangeText={setRequestedRepaymentMonths}
+                      placeholder="Repayment months"
+                      value={requestedRepaymentMonths}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Description
+                    </Text>
+                    <Textarea
+                      accessibilityLabel="Procurement item description"
+                      editable={!isSubmitting}
+                      onChangeText={setItemDescription}
+                      placeholder="Description"
+                      value={itemDescription}
+                    />
+                  </View>
                   <MobileChargeSummary
                     basisAmount={cost}
                     charges={procurement?.chargeOptions ?? []}
@@ -470,7 +532,7 @@ export function ProcurementScreen() {
                   <Button
                     className="h-12"
                     disabled={!canSubmit}
-                    onPress={handleSubmit}
+                    onPress={() => setIsReviewingSubmit(true)}
                   >
                     <Icon
                       name="Send"
@@ -497,10 +559,11 @@ export function ProcurementScreen() {
                 <VirtualizedCardList
                   data={procurement?.requests ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No procurement requests have been submitted from this
-                      member profile.
-                    </Text>
+                    <EmptyState
+                      description="Submitted cooperative item purchase requests will appear here."
+                      icon="PackageSearch"
+                      title="No procurement requests"
+                    />
                   }
                   estimatedItemSize={190}
                   keyExtractor={(request) => request.id}
@@ -517,6 +580,15 @@ export function ProcurementScreen() {
           </>
         ) : null}
       </ScrollView>
+      <SubmissionReviewSheet
+        description="Review this procurement request before sending it to the cooperative office."
+        isSubmitting={isSubmitting}
+        onClose={() => setIsReviewingSubmit(false)}
+        onConfirm={handleSubmit}
+        rows={reviewRows}
+        title="Review procurement request"
+        visible={isReviewingSubmit}
+      />
     </SafeArea>
   )
 }

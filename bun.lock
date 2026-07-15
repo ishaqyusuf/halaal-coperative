@@ -373,6 +373,9 @@
     "packages/tenant-url": {
       "name": "@halaalvest/tenant-url",
       "version": "1.0.0",
+      "dependencies": {
+        "@halaalvest/ui": "workspace:*",
+      },
       "devDependencies": {
         "@halaalvest/eslint-config": "workspace:*",
         "@halaalvest/tsconfig": "workspace:*",

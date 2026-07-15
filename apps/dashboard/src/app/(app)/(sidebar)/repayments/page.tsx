@@ -1,6 +1,9 @@
 import { createDbRuntime, getRepaymentFilterMetadata, listLoans, listRepaymentScheduleItems, listRepayments, listTenantUsersWithMemberships } from "@halaalvest/db"
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import { RepaymentsPageView } from "@/components/repayments-page-view"
+import {
+  RepaymentsPageView,
+  RepaymentsUnavailableView,
+} from "@/components/repayments-page-view"
+import { loadRepaymentParams } from "@/hooks/use-repayment-params"
 import { loadRepaymentsFilterParams } from "@/hooks/use-repayments-filter-params"
 import {
   canShowQuickFill,
@@ -14,7 +17,9 @@ export default async function RepaymentsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const params = loadRepaymentsFilterParams(await searchParams)
+  const resolvedSearchParams = await searchParams
+  const params = loadRepaymentsFilterParams(resolvedSearchParams)
+  loadRepaymentParams(resolvedSearchParams)
   const { dashboard } = await getDashboardPageData()
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
@@ -27,11 +32,7 @@ export default async function RepaymentsPage({
   const to = params.to ?? ""
 
   if (!context.tenant || runtime.status !== "database-configured") {
-    return (
-      <WorkspacePageShell eyebrow="Repayments" title="Repayment tracking" description="Track overdue exposure, repayment progress, and the collections workflow from one route.">
-        <WorkspaceEmptyState title="Repayment workflows need the database runtime." body="Once the database-backed environment is active, this route will manage schedule items, repayment posting, and collections follow-up." />
-      </WorkspacePageShell>
-    )
+    return <RepaymentsUnavailableView />
   }
 
   const [filterList, loans, scheduleItems, repayments, tenantUsers] = await Promise.all([

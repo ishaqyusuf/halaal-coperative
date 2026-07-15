@@ -1,6 +1,10 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
+import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -103,9 +107,10 @@ function ApplicationRow({
             unit
           </Text>
         </View>
-        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
-          {formatStatus(application.status)}
-        </Text>
+        <StatusBadge
+          label={formatStatus(application.status)}
+          tone={getStatusBadgeTone(application.status)}
+        />
       </View>
       <Text className="text-xs font-medium text-muted-foreground">
         Requested {formatDate(application.createdAt)}
@@ -139,6 +144,7 @@ export function SharesScreen() {
   const [success, setSuccess] = useState<string | null>(null)
   const [requestedUnits, setRequestedUnits] = useState("1")
   const [notes, setNotes] = useState("")
+  const [isReviewingSubmit, setIsReviewingSubmit] = useState(false)
   const canUseServerShares = Boolean(
     profile?.role === "member" &&
     profile?.token &&
@@ -181,6 +187,23 @@ export function SharesScreen() {
     canSubmit && shares?.policy
       ? requestedUnitCount * shares.policy.unitAmount
       : 0
+  const hasShareDraft = Boolean(requestedUnits.trim() !== "1" || notes.trim())
+  const reviewRows = [
+    {
+      detail: "Optional share units",
+      icon: "PieChart",
+      label: "Requested units",
+      value: Number.isInteger(requestedUnitCount)
+        ? String(requestedUnitCount)
+        : "Not set",
+    },
+    {
+      detail: "Calculated from server-provided unit amount",
+      icon: "CircleDollarSign",
+      label: "Request value",
+      value: formatCurrency(requestedValue, currencyCode),
+    },
+  ]
   const stats = useMemo(
     () =>
       shares?.section.stats.map((metric) => ({
@@ -253,6 +276,7 @@ export function SharesScreen() {
       setRequestedUnits("")
       setNotes("")
       setSuccess("Share request submitted for review.")
+      setIsReviewingSubmit(false)
       loadShares()
     } catch {
       setError("Share request could not be submitted.")
@@ -343,6 +367,10 @@ export function SharesScreen() {
         {shares?.state === "available" && shares.position && shares.policy ? (
           <SectionCard icon="PlusCircle" title="Request optional shares">
             <View className="gap-3">
+              <FormStateBanner
+                hasDraft={hasShareDraft}
+                isStale={hasStaleShares}
+              />
               <View className="gap-1 rounded-md bg-secondary p-3">
                 <Text className="text-sm font-semibold text-foreground">
                   {remainingOptionalUnits} optional unit
@@ -354,13 +382,19 @@ export function SharesScreen() {
                 </Text>
               </View>
 
-              <Input
-                editable={!isSubmitting && remainingOptionalUnits > 0}
-                keyboardType="number-pad"
-                onChangeText={setRequestedUnits}
-                placeholder="Units"
-                value={requestedUnits}
-              />
+              <View className="gap-2">
+                <Text className="text-sm font-semibold text-foreground">
+                  Units
+                </Text>
+                <Input
+                  accessibilityLabel="Optional share units"
+                  editable={!isSubmitting && remainingOptionalUnits > 0}
+                  keyboardType="number-pad"
+                  onChangeText={setRequestedUnits}
+                  placeholder="Units"
+                  value={requestedUnits}
+                />
+              </View>
 
               <View className="gap-1 rounded-md border border-border p-3">
                 <Text className="text-xs font-medium text-muted-foreground">
@@ -371,12 +405,18 @@ export function SharesScreen() {
                 </Text>
               </View>
 
-              <Textarea
-                editable={!isSubmitting && remainingOptionalUnits > 0}
-                onChangeText={setNotes}
-                placeholder="Optional request context"
-                value={notes}
-              />
+              <View className="gap-2">
+                <Text className="text-sm font-semibold text-foreground">
+                  Request context
+                </Text>
+                <Textarea
+                  accessibilityLabel="Optional share request context"
+                  editable={!isSubmitting && remainingOptionalUnits > 0}
+                  onChangeText={setNotes}
+                  placeholder="Optional request context"
+                  value={notes}
+                />
+              </View>
 
               {error ? (
                 <Text className="text-sm font-medium text-destructive">
@@ -392,7 +432,7 @@ export function SharesScreen() {
               <Button
                 className="h-12"
                 disabled={!canSubmit || isSubmitting}
-                onPress={handleSubmit}
+                onPress={() => setIsReviewingSubmit(true)}
               >
                 <Icon
                   name="Send"
@@ -408,10 +448,11 @@ export function SharesScreen() {
           <VirtualizedCardList
             data={shares?.applications ?? []}
             empty={
-              <Text className="text-sm leading-5 text-muted-foreground">
-                No optional share requests have been submitted from this member
-                profile.
-              </Text>
+              <EmptyState
+                description="Optional share applications will appear here after submission."
+                icon="PieChart"
+                title="No optional share requests"
+              />
             }
             estimatedItemSize={124}
             keyExtractor={(application) => application.id}
@@ -424,6 +465,15 @@ export function SharesScreen() {
           />
         </SectionCard>
       </ScrollView>
+      <SubmissionReviewSheet
+        description="Review this optional share request before sending it for finance review."
+        isSubmitting={isSubmitting}
+        onClose={() => setIsReviewingSubmit(false)}
+        onConfirm={handleSubmit}
+        rows={reviewRows}
+        title="Review share request"
+        visible={isReviewingSubmit}
+      />
     </SafeArea>
   )
 }

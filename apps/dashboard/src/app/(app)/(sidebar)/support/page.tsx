@@ -1,129 +1,128 @@
-import {
-  WorkspaceEmptyState,
-  WorkspacePageShell,
-} from "@/components/dashboard"
-import {
-  MemberSupportCasesView,
-  SupportCasesView,
-} from "@/components/support-cases-view"
+import type { SearchParams } from "nuqs"
+import { SupportPageView } from "@/components/support-page-view"
+import { loadSortParams } from "@/hooks/use-sort-params"
+import { loadSupportFilterParams } from "@/hooks/use-support-filter-params"
 import { loadSupportPageData } from "@/lib/support/load-support-page"
+import {
+  getQueryClient,
+  getServerCaller,
+  HydrateClient,
+  trpc,
+} from "@/trpc/server"
+import { getInitialTableSettings } from "@/utils/columns"
+
+type SupportSortField =
+  | "assignedToUser"
+  | "category"
+  | "createdAt"
+  | "latestReply"
+  | "linkedRecord"
+  | "priority"
+  | "status"
+  | "subject"
+  | "updatedAt"
+
+type SupportStatus =
+  | "closed"
+  | "in_progress"
+  | "open"
+  | "resolved"
+  | "waiting_on_member"
+
+type SupportPriority = "high" | "low" | "normal" | "urgent"
+
+function getSupportSort(
+  sort?: string[] | null
+): [SupportSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const fieldMap: Record<string, SupportSortField> = {
+    assignedToUser: "assignedToUser",
+    assignee: "assignedToUser",
+    case: "subject",
+    category: "category",
+    createdAt: "createdAt",
+    latestReply: "latestReply",
+    linkedRecord: "linkedRecord",
+    priority: "priority",
+    status: "status",
+    subject: "subject",
+    updatedAt: "updatedAt",
+  }
+  const sortField = fieldMap[field]
+
+  if (!sortField) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [sortField, direction]
+}
+
+function getSupportStatus(value: string | null): SupportStatus | undefined {
+  const validStatuses = new Set<SupportStatus>([
+    "closed",
+    "in_progress",
+    "open",
+    "resolved",
+    "waiting_on_member",
+  ])
+
+  return validStatuses.has(value as SupportStatus)
+    ? (value as SupportStatus)
+    : undefined
+}
+
+function getSupportPriority(value: string | null): SupportPriority | undefined {
+  const validPriorities = new Set<SupportPriority>([
+    "high",
+    "low",
+    "normal",
+    "urgent",
+  ])
+
+  return validPriorities.has(value as SupportPriority)
+    ? (value as SupportPriority)
+    : undefined
+}
 
 export default async function SupportPage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>
+  searchParams?: Promise<SearchParams>
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : {}
-  const data = await loadSupportPageData(resolvedSearchParams)
-
-  if (data.state === "restricted") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Support"
-        title="Member support"
-        description={
-          "Track member service issues, feature requests, and resolution " +
-          "history."
-        }
-      >
-        <WorkspaceEmptyState
-          body="Support case management is available to cooperative staff."
-          title="Support access is restricted."
-        />
-      </WorkspacePageShell>
-    )
+  const filter = loadSupportFilterParams(resolvedSearchParams)
+  const { sort } = loadSortParams(resolvedSearchParams)
+  const [data, initialSettings, caller] = await Promise.all([
+    loadSupportPageData(resolvedSearchParams),
+    getInitialTableSettings("support"),
+    getServerCaller(),
+  ])
+  const queryInput = {
+    priority: getSupportPriority(filter.priority),
+    q: filter.q || undefined,
+    sort: getSupportSort(sort),
+    status: getSupportStatus(filter.status),
   }
+  const listOptions = trpc.support.list.infiniteQueryOptions(queryInput, {
+    getNextPageParam: ({ meta }) => meta?.cursor,
+  })
 
-  if (data.state === "unavailable") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Support"
-        title="Member support"
-        description={
-          "Track member service issues, feature requests, and resolution " +
-          "history."
-        }
-      >
-        <WorkspaceEmptyState
-          body="Once the database-backed environment is active, this route will show support cases, replies, assignments, and resolution notes."
-          title="Support cases need the database runtime."
-        />
-      </WorkspacePageShell>
-    )
-  }
+  if (data.state === "staff-ready" || data.state === "member-ready") {
+    const initialPage = await caller.support.list(queryInput)
 
-  if (data.state === "member-sign-in-required") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Support"
-        title="Member support"
-        description={
-          "Open support or feature requests and track replies from " +
-          "cooperative staff."
-        }
-      >
-        <WorkspaceEmptyState
-          body="Sign in with your member account to open and track support cases."
-          title="Member sign-in required."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-profile-missing") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Support"
-        title="Member support"
-        description={
-          "Open support or feature requests and track replies from " +
-          "staff."
-        }
-      >
-        <WorkspaceEmptyState
-          body="Your user account is not linked to a member profile in this cooperative."
-          title="Member profile not linked."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-ready") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Support"
-        title="My support cases"
-        description={
-          "Open support or feature requests and track replies from cooperative " +
-          "staff."
-        }
-      >
-        <MemberSupportCasesView
-          cases={data.cases}
-          initialCase={data.initialCase}
-          member={data.member}
-          summary={data.summary}
-        />
-      </WorkspacePageShell>
-    )
+    getQueryClient().setQueryData(listOptions.queryKey, {
+      pageParams: [listOptions.initialPageParam],
+      pages: [initialPage],
+    })
   }
 
   return (
-    <WorkspacePageShell
-      eyebrow="Support"
-      title="Member support"
-      description={
-        "Document member issues, feature requests, replies, assignments, and " +
-        "resolution evidence without changing posted financial records."
-      }
-    >
-      <SupportCasesView
-        assignees={data.assignees}
-        canReviewFinancialAdjustments={data.canReviewFinancialAdjustments}
-        cases={data.cases}
-        memberOptions={data.memberOptions}
-        summary={data.summary}
-      />
-    </WorkspacePageShell>
+    <HydrateClient>
+      <SupportPageView data={data} supportInitialSettings={initialSettings} />
+    </HydrateClient>
   )
 }

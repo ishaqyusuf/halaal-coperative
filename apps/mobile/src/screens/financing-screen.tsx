@@ -1,6 +1,10 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
+import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -127,9 +131,10 @@ function RequestCard({
             {request.requestedTermMonths} months
           </Text>
         </View>
-        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
-          {formatStatus(request.status)}
-        </Text>
+        <StatusBadge
+          label={formatStatus(request.status)}
+          tone={getStatusBadgeTone(request.status)}
+        />
       </View>
 
       <View className="flex-row flex-wrap gap-2">
@@ -213,6 +218,7 @@ export function FinancingScreen() {
   const [purpose, setPurpose] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isReviewingSubmit, setIsReviewingSubmit] = useState(false)
   const canUseServerFinancing = Boolean(
     profile?.role === "member" &&
     profile?.token &&
@@ -274,6 +280,32 @@ export function FinancingScreen() {
     !hasStaleFinancing &&
     !isSubmitting
   )
+  const hasFinancingDraft = Boolean(
+    requestedAmount.trim() ||
+    requestedTermMonths.trim() ||
+    extraMonthlySavingsAmount.trim() ||
+    purpose.trim()
+  )
+  const reviewRows = [
+    {
+      detail: selectedProduct?.name ?? "No product selected",
+      icon: "WalletCards",
+      label: "Product",
+      value: selectedProduct ? formatStatus(selectedProduct.loanType) : "",
+    },
+    {
+      detail: `${termMonths || 0} month term`,
+      icon: "CircleDollarSign",
+      label: "Requested amount",
+      value: amount ? formatCurrency(amount, currencyCode) : "Not set",
+    },
+    {
+      detail: "From server-provided request charge policy",
+      icon: "ReceiptText",
+      label: "Charges",
+      value: formatCurrency(estimatedRequestChargeTotal, currencyCode),
+    },
+  ]
   const stats = useMemo(
     () =>
       financing?.section.stats.map((metric) => ({
@@ -352,6 +384,7 @@ export function FinancingScreen() {
       setExtraMonthlySavingsAmount("")
       setPurpose("")
       setSuccess("Financing request submitted.")
+      setIsReviewingSubmit(false)
       loadFinancing()
     } catch (submissionError) {
       setError(
@@ -429,37 +462,65 @@ export function FinancingScreen() {
 
             <SectionCard icon="Send" title="New request">
               <View className="gap-3">
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setRequestedAmount}
-                  placeholder="Requested amount"
-                  value={requestedAmount}
+                <FormStateBanner
+                  hasDraft={hasFinancingDraft}
+                  isStale={hasStaleFinancing}
                 />
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setRequestedTermMonths}
-                  placeholder={
-                    selectedProduct
-                      ? `Repayment months, max ${selectedProduct.termMonths}`
-                      : "Repayment months"
-                  }
-                  value={requestedTermMonths}
-                />
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setExtraMonthlySavingsAmount}
-                  placeholder="Extra monthly savings"
-                  value={extraMonthlySavingsAmount}
-                />
-                <Textarea
-                  editable={!isSubmitting}
-                  onChangeText={setPurpose}
-                  placeholder="Purpose note"
-                  value={purpose}
-                />
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Requested amount
+                  </Text>
+                  <Input
+                    accessibilityLabel="Requested financing amount"
+                    editable={!isSubmitting}
+                    keyboardType="numeric"
+                    onChangeText={setRequestedAmount}
+                    placeholder="Requested amount"
+                    value={requestedAmount}
+                  />
+                </View>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Repayment months
+                  </Text>
+                  <Input
+                    accessibilityLabel="Financing repayment months"
+                    editable={!isSubmitting}
+                    keyboardType="numeric"
+                    onChangeText={setRequestedTermMonths}
+                    placeholder={
+                      selectedProduct
+                        ? `Repayment months, max ${selectedProduct.termMonths}`
+                        : "Repayment months"
+                    }
+                    value={requestedTermMonths}
+                  />
+                </View>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Extra monthly savings
+                  </Text>
+                  <Input
+                    accessibilityLabel="Extra monthly savings amount"
+                    editable={!isSubmitting}
+                    keyboardType="numeric"
+                    onChangeText={setExtraMonthlySavingsAmount}
+                    placeholder="Extra monthly savings"
+                    value={extraMonthlySavingsAmount}
+                  />
+                </View>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Purpose note
+                  </Text>
+                  <Textarea
+                    accessibilityLabel="Financing purpose note"
+                    editable={!isSubmitting}
+                    onChangeText={setPurpose}
+                    placeholder="Purpose note"
+                    value={purpose}
+                  />
+                </View>
                 {estimatedRequestCharges.length > 0 ? (
                   <View className="gap-2 rounded-md bg-secondary p-3">
                     <View className="flex-row items-center justify-between gap-3">
@@ -491,7 +552,7 @@ export function FinancingScreen() {
                 <Button
                   className="h-12"
                   disabled={!canSubmit}
-                  onPress={handleSubmit}
+                  onPress={() => setIsReviewingSubmit(true)}
                 >
                   <Icon
                     name="Send"
@@ -546,9 +607,11 @@ export function FinancingScreen() {
                   })}
                 </View>
               ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No financing records are available.
-                </Text>
+                <EmptyState
+                  description="Active financing and repayment records will appear here when available."
+                  icon="HandCoins"
+                  title="No financing records"
+                />
               )}
             </SectionCard>
 
@@ -559,10 +622,11 @@ export function FinancingScreen() {
                 <VirtualizedCardList
                   data={financing?.requests ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No financing requests have been submitted from this member
-                      profile.
-                    </Text>
+                    <EmptyState
+                      description="Submitted interest-free financing requests will appear here."
+                      icon="ClipboardList"
+                      title="No financing requests"
+                    />
                   }
                   estimatedItemSize={220}
                   keyExtractor={(request) => request.id}
@@ -579,6 +643,15 @@ export function FinancingScreen() {
           </>
         ) : null}
       </ScrollView>
+      <SubmissionReviewSheet
+        description="Review this financing request before sending it for cooperative review. Drafts are local until the server confirms submission."
+        isSubmitting={isSubmitting}
+        onClose={() => setIsReviewingSubmit(false)}
+        onConfirm={handleSubmit}
+        rows={reviewRows}
+        title="Review financing request"
+        visible={isReviewingSubmit}
+      />
     </SafeArea>
   )
 }

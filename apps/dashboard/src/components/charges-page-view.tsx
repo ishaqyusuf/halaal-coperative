@@ -1,31 +1,42 @@
-import { Button } from "@halaalvest/ui/components/button"
-import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { formatCurrency } from "@halaalvest/utils"
 import {
-  DashboardDataTable,
   DashboardSectionCard,
   DashboardSectionHeader,
   DashboardStatCard,
   DashboardSurfaceCard,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
   TrendPill,
+  WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
-import { DatePickerInput } from "@/components/date-picker-input"
+import { ChargeLibraryColumnVisibility } from "@/components/charge-library-column-visibility"
 import {
-  ChargeApplicationForm,
-  ChargeDefinitionForm,
-} from "@/components/forms/finance-forms"
+  OpenChargeApplicationSheet,
+  OpenChargeDefinitionSheet,
+  OpenChargeReverseSheet,
+  OpenChargeVersionSheet,
+  OpenChargeWaiveSheet,
+} from "@/components/open-charge-operation-sheet"
+import { ChargeOperationSheet } from "@/components/sheets/charge-operation-sheet"
 import {
-  reverseChargeApplicationAction,
-  updateChargeDefinitionAction,
-  waiveChargeApplicationAction,
-} from "@/lib/dashboard-actions"
+  ChargeLibraryDataTable,
+  type ChargeLibraryRow,
+} from "@/components/tables/charge-library/data-table"
+import type { TableSettings } from "@/utils/table-settings"
+
+export function ChargesUnavailableView() {
+  return (
+    <WorkspacePageShell
+      eyebrow="Charges"
+      title="Charge definitions"
+      description="Standard cooperative levies and charge rules for onboarding, contributions, lending, and corrective finance actions."
+    >
+      <WorkspaceEmptyState
+        title="Charge definitions need the database runtime."
+        body="This workspace is wired into the new dashboard shell and will show cooperative charge definitions once the database-backed environment is active."
+      />
+    </WorkspacePageShell>
+  )
+}
 
 function formatChargeApplicationSource(application: {
   chargeApplicability?: {
@@ -62,6 +73,7 @@ export function ChargesPageView({
   activeCharges,
   canManageCharges,
   chargeApplications,
+  chargeLibraryTableSettings,
   charges,
   members,
   monthlyLevies,
@@ -91,24 +103,8 @@ export function ChargesPageView({
     projectFinancingRequest?: { businessName: string; status: string } | null
     status: string
   }>
-  charges: Array<{
-    amount: number | string | { toString(): string }
-    code: string
-    currentEffectiveFrom: string | null
-    chargeValueType: "fixed_amount" | "percentage"
-    id: string
-    isActive: boolean
-    isMonthlyLevy: boolean
-    kind: "fixed" | "percentage"
-    name: string
-    versions: Array<{
-      amount: number
-      effectiveFrom: string
-      id: string
-      notes?: string | null
-      status: "current" | "historical" | "scheduled"
-    }>
-  }>
+  chargeLibraryTableSettings?: Partial<TableSettings>
+  charges: ChargeLibraryRow[]
   members: {
     items: Array<{ fullName: string; id: string; memberNumber: string }>
   }
@@ -151,34 +147,28 @@ export function ChargesPageView({
         <section className="grid gap-4 xl:grid-cols-2">
           <DashboardSectionCard>
             <DashboardSectionHeader
+              actions={<OpenChargeDefinitionSheet />}
               eyebrow="Create"
               title="New charge definition"
               description="Configure a reusable cooperative charge and keep the posting rules centralized."
             />
-            <div className="mt-5">
-              <ChargeDefinitionForm devMode={quickFillEnabled} />
-            </div>
+            <p className="mt-5 text-sm leading-6 text-muted-foreground">
+              Create charge definitions from a focused sheet so the definitions
+              table remains easy to scan.
+            </p>
           </DashboardSectionCard>
 
           <DashboardSectionCard>
             <DashboardSectionHeader
+              actions={<OpenChargeApplicationSheet />}
               eyebrow="Apply"
               title="Post charge to a member"
               description="Assign an active charge to a member and push it into the recent activity lane."
             />
-            <div className="mt-5">
-              <ChargeApplicationForm
-                chargeDefinitions={activeCharges.map((charge) => ({
-                  id: charge.id,
-                  label: `${charge.name} (${charge.code})`,
-                }))}
-                devMode={quickFillEnabled}
-                members={members.items.map((member) => ({
-                  id: member.id,
-                  label: `${member.fullName} (${member.memberNumber})`,
-                }))}
-              />
-            </div>
+            <p className="mt-5 text-sm leading-6 text-muted-foreground">
+              Apply an active charge to a member from the same sheet workflow as
+              the other finance actions.
+            </p>
           </DashboardSectionCard>
         </section>
       ) : null}
@@ -188,97 +178,19 @@ export function ChargesPageView({
           eyebrow="Definitions"
           title="Charge library"
           description="Every configured charge, its current dated amount, posting kind, and full update history."
-          actions={<TrendPill>{charges.length} configured</TrendPill>}
+          actions={
+            <div className="flex items-center gap-2">
+              <TrendPill>{charges.length} configured</TrendPill>
+              <ChargeLibraryColumnVisibility />
+            </div>
+          }
         />
 
         <div className="mt-5 space-y-4">
-          <DashboardDataTable>
-            <DashboardTable>
-              <DashboardTableHead>
-                <DashboardTableHeaderCell>Charge</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Status</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Kind</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>
-                  Current date
-                </DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">
-                  Current amount
-                </DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">
-                  Action
-                </DashboardTableHeaderCell>
-              </DashboardTableHead>
-              <DashboardTableBody>
-                {charges.map((charge) => (
-                  <DashboardTableRow key={charge.id}>
-                    <DashboardTableCell>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {charge.name}
-                        </p>
-                        <p className="mt-1 text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                          {charge.code}
-                        </p>
-                      </div>
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      <div className="flex flex-wrap gap-2">
-                        <TrendPill
-                          tone={charge.isActive ? "positive" : "warning"}
-                        >
-                          {charge.isActive ? "Active" : "Inactive"}
-                        </TrendPill>
-                        {charge.isMonthlyLevy ? (
-                          <TrendPill>Monthly levy</TrendPill>
-                        ) : null}
-                      </div>
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      <span className="text-muted-foreground capitalize">
-                        {charge.kind.replace(/_/g, " ")}
-                      </span>
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      <span className="text-muted-foreground">
-                        {charge.currentEffectiveFrom ?? "No dated version"}
-                      </span>
-                    </DashboardTableCell>
-                    <DashboardTableCell align="right" className="font-medium">
-                      {formatCurrency(Number(charge.amount))}
-                    </DashboardTableCell>
-                    <DashboardTableCell align="right">
-                      {canManageCharges ? (
-                        <form
-                          action={updateChargeDefinitionAction}
-                          className="inline-flex"
-                        >
-                          <input
-                            type="hidden"
-                            name="chargeDefinitionId"
-                            value={charge.id}
-                          />
-                          <Button
-                            size="sm"
-                            type="submit"
-                            name="isActive"
-                            value={charge.isActive ? "false" : "true"}
-                            variant="outline"
-                            className="rounded-full"
-                          >
-                            {charge.isActive ? "Deactivate" : "Activate"}
-                          </Button>
-                        </form>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">
-                          View only
-                        </span>
-                      )}
-                    </DashboardTableCell>
-                  </DashboardTableRow>
-                ))}
-              </DashboardTableBody>
-            </DashboardTable>
-          </DashboardDataTable>
+          <ChargeLibraryDataTable
+            canManageCharges={canManageCharges}
+            initialSettings={chargeLibraryTableSettings}
+          />
 
           {charges.map((charge) => (
             <DashboardSurfaceCard as="article" key={`${charge.id}-history`}>
@@ -310,7 +222,7 @@ export function ChargesPageView({
                       {charge.versions.map((version) => (
                         <div
                           key={version.id}
-                          className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/80 px-4 py-3"
+                          className="flex items-center justify-between rounded-lg border border-border/70 bg-background/80 px-4 py-3"
                         >
                           <div>
                             <p className="text-sm font-medium text-foreground">
@@ -346,53 +258,13 @@ export function ChargesPageView({
                         Schedule a live charge amount change from today or a
                         future effective date.
                       </p>
-                      <form
-                        action={updateChargeDefinitionAction}
-                        className="mt-4 grid gap-3 rounded-lg border border-border/70 bg-background p-4"
-                      >
-                        <input
-                          type="hidden"
-                          name="chargeDefinitionId"
-                          value={charge.id}
+                      <div className="mt-4">
+                        <OpenChargeVersionSheet
+                          chargeDefinitionId={charge.id}
+                          chargeKind={charge.kind}
+                          chargeValueType={charge.chargeValueType}
                         />
-                        <input type="hidden" name="kind" value={charge.kind} />
-                        <input
-                          type="hidden"
-                          name="chargeValueType"
-                          value={charge.chargeValueType}
-                        />
-                        <label className="space-y-1 text-xs font-medium text-muted-foreground">
-                          Effective date
-                          <DatePickerInput
-                            name="effectiveFrom"
-                            placeholder="Select effective date"
-                            required
-                          />
-                        </label>
-                        <label className="space-y-1 text-xs font-medium text-muted-foreground">
-                          New amount
-                          <CurrencyPrefixInput
-                            min="0"
-                            name="amount"
-                            placeholder="0.00"
-                            required
-                            step="0.01"
-                            type="number"
-                          />
-                        </label>
-                        <label className="space-y-1 text-xs font-medium text-muted-foreground">
-                          Notes
-                          <input
-                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                            name="notes"
-                            placeholder="Reason or board reference"
-                            type="text"
-                          />
-                        </label>
-                        <Button size="sm" type="submit" variant="outline">
-                          Save live update
-                        </Button>
-                      </form>
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -441,36 +313,12 @@ export function ChargesPageView({
                   </TrendPill>
                   {canManageCharges && application.status === "posted" ? (
                     <>
-                      <form action={waiveChargeApplicationAction}>
-                        <input
-                          type="hidden"
-                          name="chargeApplicationId"
-                          value={application.id}
-                        />
-                        <Button
-                          size="sm"
-                          type="submit"
-                          variant="outline"
-                          className="rounded-full"
-                        >
-                          Waive
-                        </Button>
-                      </form>
-                      <form action={reverseChargeApplicationAction}>
-                        <input
-                          type="hidden"
-                          name="chargeApplicationId"
-                          value={application.id}
-                        />
-                        <Button
-                          size="sm"
-                          type="submit"
-                          variant="outline"
-                          className="rounded-full"
-                        >
-                          Reverse
-                        </Button>
-                      </form>
+                      <OpenChargeWaiveSheet
+                        chargeApplicationId={application.id}
+                      />
+                      <OpenChargeReverseSheet
+                        chargeApplicationId={application.id}
+                      />
                     </>
                   ) : null}
                 </div>
@@ -479,6 +327,12 @@ export function ChargesPageView({
           ))}
         </div>
       </DashboardSectionCard>
+
+      <ChargeOperationSheet
+        activeCharges={activeCharges}
+        devMode={quickFillEnabled}
+        members={members.items}
+      />
     </WorkspacePageShell>
   )
 }

@@ -141,7 +141,7 @@ export function MissedMonthsRangeGrid({
         <div className="space-y-4">
           {yearGroups.map((group) => (
             <section className="space-y-2" key={group.year}>
-              <p className="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase">
                 {group.year}
               </p>
               <div className="grid grid-cols-3 gap-2 md:grid-cols-6">

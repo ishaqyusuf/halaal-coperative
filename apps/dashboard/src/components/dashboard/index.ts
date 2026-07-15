@@ -1,19 +1,6 @@
 export { DashboardShellClient } from "./client-shell"
 export { CollapsibleSummary } from "./collapsible-summary"
 export {
-  DashboardDataTable,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
-  TableEmptyState,
-  TableNoResults,
-  TableSkeleton,
-  type TableColumn,
-} from "./static-table"
-export {
   DASHBOARD_MOBILE_SIDEBAR_WIDTH,
   DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,
   DASHBOARD_SIDEBAR_EXPANDED_WIDTH,

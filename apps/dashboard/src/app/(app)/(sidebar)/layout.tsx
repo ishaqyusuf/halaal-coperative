@@ -1,7 +1,10 @@
 import { normalizeRole } from "@halaalvest/auth/roles"
 import { getTenantFirstRunOnboardingState } from "@halaalvest/db"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
-import { TenantUrlProvider } from "@halaalvest/tenant-url/react"
+import {
+  TenantUrlProvider,
+  TenantUrlVariantSwitcher,
+} from "@halaalvest/tenant-url/react"
 import { headers } from "next/headers"
 import { DashboardShellClient } from "@/components/dashboard-shell"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
@@ -79,7 +82,7 @@ export default async function SidebarLayout({
           >
             <main className="mx-auto flex min-h-[60vh] w-full max-w-3xl flex-col justify-center px-6 py-12">
               <div className="rounded-lg border border-border/70 bg-card p-6">
-                <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                <p className="text-xs font-semibold text-muted-foreground uppercase">
                   Initial migration required
                 </p>
                 <h1 className="mt-3 text-2xl font-semibold text-foreground">
@@ -116,6 +119,7 @@ export default async function SidebarLayout({
               </div>
             </main>
           </DashboardShellClient>
+          <TenantUrlVariantSwitcher />
         </TenantUrlProvider>
       )
     }
@@ -151,6 +155,7 @@ export default async function SidebarLayout({
       >
         {children}
       </DashboardShellClient>
+      <TenantUrlVariantSwitcher />
     </TenantUrlProvider>
   )
 }

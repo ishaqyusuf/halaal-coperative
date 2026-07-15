@@ -10,7 +10,7 @@ export const dashboardSubdomainLabel = "dashboard"
 export const dashboardRootDomain =
   process.env.DASHBOARD_ROOT_DOMAIN?.trim() || platformRootDomain
 export const localDashboardRootDomain =
-  process.env.DASHBOARD_ROOT_DOMAIN?.trim() || localTenantRootDomain
+  process.env.DASHBOARD_ROOT_DOMAIN?.trim() || "halaalvest-dash.localhost"
 export const platformAppHostname =
   process.env.PLATFORM_APP_HOSTNAME?.trim() || `app.${platformRootDomain}`
 
@@ -108,7 +108,9 @@ export function buildLocalTenantSiteHostname(subdomain: string) {
 
 export function buildDashboardHostname(subdomain: string) {
   const normalizedSubdomain = normalizeSubdomainLabel(subdomain)
-  return normalizedSubdomain ? `${normalizedSubdomain}.${dashboardRootDomain}` : ""
+  return normalizedSubdomain
+    ? `${normalizedSubdomain}.${dashboardRootDomain}`
+    : ""
 }
 
 export function buildLocalDashboardHostname(subdomain: string) {
@@ -365,9 +367,12 @@ export function extractDashboardHostname(host: string) {
     )
     const parts = withoutRoot.split(".")
 
-    return parts.length === 2 &&
-      parts[0] === dashboardSubdomainLabel &&
-      Boolean(parts[1])
+    return (parts.length === 1 &&
+      Boolean(parts[0]) &&
+      !reservedTenantLabels.has(parts[0]!)) ||
+      (parts.length === 2 &&
+        parts[0] === dashboardSubdomainLabel &&
+        Boolean(parts[1]))
       ? hostname
       : null
   }
@@ -399,6 +404,10 @@ export function extractDashboardTenantSlug(host: string) {
       -(localDashboardRootDomain.length + 1)
     )
     const parts = withoutRoot.split(".")
+    if (parts.length === 1 && parts[0] && !reservedTenantLabels.has(parts[0])) {
+      return parts[0]
+    }
+
     return parts.length === 2 && parts[0] === dashboardSubdomainLabel
       ? (parts[1] ?? null)
       : null
@@ -455,7 +464,8 @@ export function resolveTenantSiteHostContext(host: string): {
     hostname === localTenantRootDomain ||
     hostname === localDashboardRootDomain ||
     hostname === platformAppHostname ||
-    hostname.startsWith(`${dashboardSubdomainLabel}.`)
+    hostname.startsWith(`${dashboardSubdomainLabel}.`) ||
+    extractDashboardHostname(hostname)
   ) {
     return { tenantHostname: null, tenantSubdomain: null }
   }

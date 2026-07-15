@@ -8,7 +8,6 @@ This file tracks confirmed work that is not yet in progress.
 - Move items to `in-progress.md` when active.
 
 ## Current Backlog
-- Halaalvest Mobile UI Flow Refresh - Triage: ready-for-agent. Spec: `brain/specs/2026-07-12-halaalvest-mobile-ui-flow-refresh.md`. Refresh the completed mobile MVP UI flow using the selected Dribbble/Pinterest-inspired direction while preserving the accepted EwaTrade-aligned Expo/tRPC/NativeWind architecture and server-owned finance behavior.
 - Generate the first Prisma migration for the grouped cooperative schema.
 - Replace seed-backed repository scaffolding in `packages/db/src/queries/` with real Prisma client access and queries.
 - Implement DB-backed tenant-domain onboarding, custom-domain management, and hostname verification flows.

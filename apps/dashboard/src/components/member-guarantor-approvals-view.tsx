@@ -1,4 +1,3 @@
-import { Button } from "@halaalvest/ui/components/button"
 import { formatCurrency } from "@halaalvest/utils"
 import type { listMemberLoanGuarantorApprovals } from "@halaalvest/db"
 import {
@@ -7,7 +6,7 @@ import {
   TrendPill,
   WorkspaceEmptyState,
 } from "@/components/dashboard"
-import { respondMemberLoanGuarantorApprovalAction } from "@/lib/dashboard-actions"
+import { OpenGuarantorApprovalSheet } from "@/components/open-guarantor-approval-sheet"
 
 type GuarantorApproval = Awaited<
   ReturnType<typeof listMemberLoanGuarantorApprovals>
@@ -33,31 +32,6 @@ function statusTone(status: string): "neutral" | "positive" | "warning" {
 
 function displayStatus(status: string) {
   return status.replace(/_/g, " ")
-}
-
-function GuarantorResponseForm({
-  approvalId,
-  disabled,
-  status,
-}: {
-  approvalId: string
-  disabled: boolean
-  status: "approved" | "rejected"
-}) {
-  return (
-    <form action={respondMemberLoanGuarantorApprovalAction}>
-      <input name="guarantorApprovalId" type="hidden" value={approvalId} />
-      <input name="status" type="hidden" value={status} />
-      <Button
-        disabled={disabled}
-        size="sm"
-        type="submit"
-        variant={status === "approved" ? "default" : "outline"}
-      >
-        {status === "approved" ? "Approve" : "Reject"}
-      </Button>
-    </form>
-  )
 }
 
 function GuarantorApprovalRow({
@@ -111,14 +85,12 @@ function GuarantorApprovalRow({
       ) : null}
       {pending ? (
         <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border/70 pt-3">
-          <GuarantorResponseForm
+          <OpenGuarantorApprovalSheet
             approvalId={approval.id}
-            disabled={false}
             status="rejected"
           />
-          <GuarantorResponseForm
+          <OpenGuarantorApprovalSheet
             approvalId={approval.id}
-            disabled={false}
             status="approved"
           />
         </div>

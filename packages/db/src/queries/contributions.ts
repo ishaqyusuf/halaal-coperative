@@ -97,15 +97,24 @@ async function assertCommitmentReductionAllowed(input: {
 export type ListContributionsFilters = {
   channel?: ContributionChannel
   contributionPlanId?: string
+  cursor?: string | null
   search?: string
   memberId?: string
   specialSavingsOnly?: boolean
+  sort?: [ContributionSortField, "asc" | "desc"] | null
   status?: ContributionStatus
   fromDate?: Date
   toDate?: Date
   page?: number
   pageSize?: number
 }
+
+export type ContributionSortField =
+  | "amount"
+  | "committedAmount"
+  | "extraSavingsAmount"
+  | "memberName"
+  | "postedAt"
 
 export async function listContributions(
   tenantId: string,
@@ -117,6 +126,17 @@ export async function listContributions(
 
   const page = filters?.page ?? 1
   const pageSize = filters?.pageSize ?? 25
+  const [sortField, sortDirection] = filters?.sort ?? ["postedAt", "desc"]
+  const orderBy =
+    sortField === "amount"
+      ? [{ amount: sortDirection }, { postedAt: "desc" as const }]
+      : sortField === "committedAmount"
+        ? [{ committedAmount: sortDirection }, { postedAt: "desc" as const }]
+        : sortField === "extraSavingsAmount"
+          ? [{ extraSavingsAmount: sortDirection }, { postedAt: "desc" as const }]
+          : sortField === "memberName"
+            ? [{ member: { fullName: sortDirection } }, { postedAt: "desc" as const }]
+            : [{ postedAt: sortDirection }, { id: sortDirection }]
 
   const where = {
     tenantId,
@@ -144,8 +164,10 @@ export async function listContributions(
   const [items, total] = await Promise.all([
     prisma.contribution.findMany({
       where,
-      orderBy: { postedAt: "desc" },
-      skip: (page - 1) * pageSize,
+      orderBy,
+      ...(filters?.cursor
+        ? { cursor: { id: filters.cursor }, skip: 1 }
+        : { skip: (page - 1) * pageSize }),
       take: pageSize,
       include: {
         member: { select: { id: true, fullName: true, memberNumber: true } },

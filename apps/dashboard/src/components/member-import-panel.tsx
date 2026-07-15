@@ -1,1 +1,1 @@
-export { MemberImportModal as MemberImportPanel } from "@/components/modals/member-import-modal"
+export { MemberImportSheet as MemberImportPanel } from "@/components/sheets/member-import-sheet"

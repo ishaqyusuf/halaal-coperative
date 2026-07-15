@@ -44,7 +44,7 @@ export function CustomDomainForm({ devMode }: { devMode: boolean }) {
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-[1.75rem] border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-[minmax(0,1fr)_auto_auto]"
+        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-[minmax(0,1fr)_auto_auto]"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <FormField

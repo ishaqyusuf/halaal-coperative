@@ -1,10 +1,10 @@
-import { TableEmptyState } from "@/components/dashboard/static-table"
+import { EmptyState } from "@/components/tables/core"
 
 export function ContributionsEmptyState() {
   return (
-    <TableEmptyState
+    <EmptyState
+      description="Posted member payments will appear here once the cooperative starts recording contribution entries."
       title="No contribution activity yet"
-      body="Posted member payments will appear here once the cooperative starts recording contribution entries."
     />
   )
 }

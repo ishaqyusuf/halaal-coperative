@@ -1,11 +1,10 @@
 import { ShareSearchFilter } from "@/components/share-search-filter"
 import { OpenShareSheet } from "@/components/open-share-sheet"
+import { ShareColumnVisibility } from "@/components/share-column-visibility"
 
 export function ShareHeader({
-  financeStartDate,
   isLocked,
 }: {
-  financeStartDate?: string | null
   isLocked: boolean
 }) {
   return (
@@ -13,10 +12,8 @@ export function ShareHeader({
       <ShareSearchFilter />
 
       <div className="flex space-x-2">
-        <OpenShareSheet
-          disabled={isLocked}
-          financeStartDate={financeStartDate}
-        />
+        <ShareColumnVisibility />
+        <OpenShareSheet disabled={isLocked} />
       </div>
     </div>
   )

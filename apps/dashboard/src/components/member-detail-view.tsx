@@ -1,35 +1,43 @@
 import { formatCurrency } from "@halaalvest/utils"
 import {
-  DashboardDataTable,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
-} from "@/components/dashboard/static-table"
-import {
   DashboardActionLink,
   DashboardSectionCard,
   DashboardSectionHeader,
   DashboardStatCard,
   DashboardSurfaceCard,
   TrendPill,
+  WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
 import {
-  MemberCommitmentForm,
-  MemberDocumentForm,
-  MemberDocumentReviewForm,
-  MemberPortalAccessForm,
-  MemberKycForm,
-} from "@/components/forms/member-forms"
+  OpenMemberDetailCommitmentSheet,
+  OpenMemberDetailDocumentReviewSheet,
+  OpenMemberDetailDocumentSheet,
+  OpenMemberDetailKycSheet,
+  OpenMemberDetailPortalAccessSheet,
+} from "@/components/open-member-detail-sheet"
+import { MemberDetailSheet } from "@/components/sheets/member-detail-sheet"
 import { loadMemberDetailPageData } from "@/lib/members"
 
 type MemberDetailPageData = Extract<
   Awaited<ReturnType<typeof loadMemberDetailPageData>>,
   { state: "ready" }
 >
+
+export function MemberDetailUnavailableView() {
+  return (
+    <WorkspacePageShell
+      eyebrow="Members"
+      title="Member statement"
+      description="Member finance and identity details are available when the database runtime is active."
+    >
+      <WorkspaceEmptyState
+        title="Member detail needs the database runtime."
+        body="Once the database-backed environment is active, this route will show commitment, savings, loan, and repayment history for one member."
+      />
+    </WorkspacePageShell>
+  )
+}
 
 function formatIsoDate(value: Date | null | undefined) {
   return value ? value.toISOString().slice(0, 10) : null
@@ -70,9 +78,7 @@ export function MemberDetailView({
         >
           Download member statement
         </a>
-        {canManageMembers ? (
-          <MemberPortalAccessForm memberId={detail.member.id} />
-        ) : null}
+        {canManageMembers ? <OpenMemberDetailPortalAccessSheet /> : null}
       </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -243,90 +249,59 @@ export function MemberDetailView({
                     {detail.member.contributionPlans.length} dated updates
                   </TrendPill>
                   <TrendPill tone="neutral">View history</TrendPill>
+                  {canManageCommitments ? (
+                    <OpenMemberDetailCommitmentSheet />
+                  ) : null}
                 </div>
               </summary>
 
-              <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Commitment update history
-                  </p>
-                  <div className="mt-4 space-y-3">
-                    {detail.member.contributionPlans.length ? (
-                      detail.member.contributionPlans.map((plan) => {
-                        const startsAt = formatIsoDate(plan.startsAt)
-                        const endsAt = formatIsoDate(plan.endsAt)
-                        const isScheduled = plan.startsAt > today
-                        const statusLabel = plan.isActive
-                          ? isScheduled
-                            ? "Scheduled commitment"
-                            : "Current commitment"
-                          : "Historical commitment"
+              <div className="mt-5">
+                <p className="text-sm font-medium text-foreground">
+                  Commitment update history
+                </p>
+                <div className="mt-4 space-y-3">
+                  {detail.member.contributionPlans.length ? (
+                    detail.member.contributionPlans.map((plan) => {
+                      const startsAt = formatIsoDate(plan.startsAt)
+                      const endsAt = formatIsoDate(plan.endsAt)
+                      const isScheduled = plan.startsAt > today
+                      const statusLabel = plan.isActive
+                        ? isScheduled
+                          ? "Scheduled commitment"
+                          : "Current commitment"
+                        : "Historical commitment"
 
-                        return (
-                          <div
-                            key={plan.id}
-                            className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/80 px-4 py-3"
-                          >
-                            <div>
-                              <p className="text-sm font-medium text-foreground">
-                                {startsAt}
-                                {endsAt ? ` to ${endsAt}` : ""}
-                              </p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {plan.name}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium text-foreground">
-                                {formatCurrency(Number(plan.amount))}
-                              </p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {statusLabel}
-                              </p>
-                            </div>
+                      return (
+                        <div
+                          key={plan.id}
+                          className="flex items-center justify-between rounded-lg border border-border/70 bg-background/80 px-4 py-3"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-foreground">
+                              {startsAt}
+                              {endsAt ? ` to ${endsAt}` : ""}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {plan.name}
+                            </p>
                           </div>
-                        )
-                      })
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No commitment has been recorded for this member yet.
-                      </p>
-                    )}
-                  </div>
+                          <div className="text-right">
+                            <p className="font-medium text-foreground">
+                              {formatCurrency(Number(plan.amount))}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {statusLabel}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No commitment has been recorded for this member yet.
+                    </p>
+                  )}
                 </div>
-
-                {canManageCommitments ? (
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      New commitment version
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                      Add the member’s next monthly commitment and the date it
-                      starts.
-                    </p>
-                    <div className="mt-5">
-                      <MemberCommitmentForm
-                        defaultAmount={
-                          activePlan
-                            ? String(Number(activePlan.amount))
-                            : undefined
-                        }
-                        defaultStartDate={
-                          activePlan
-                            ? undefined
-                            : (formatIsoDate(detail.member.joinedAt) ??
-                              undefined)
-                        }
-                        memberId={detail.member.id}
-                      />
-                    </div>
-                    <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                      Saving closes the existing active commitment from the
-                      selected effective date.
-                    </p>
-                  </div>
-                ) : null}
               </div>
             </details>
           </DashboardSurfaceCard>
@@ -337,34 +312,25 @@ export function MemberDetailView({
         <section className="grid gap-4 xl:grid-cols-2">
           <DashboardSectionCard>
             <DashboardSectionHeader
+              actions={<OpenMemberDetailKycSheet />}
               eyebrow="Review"
               title="Update KYC details"
             />
-            <div className="mt-5">
-              <MemberKycForm
-                defaultValues={{
-                  governmentIdNumber: detail.member.governmentIdNumber ?? "",
-                  kycDocumentType: detail.member.kycDocumentType ?? "",
-                  kycDocumentUrl: detail.member.kycDocumentUrl ?? "",
-                  kycReviewNotes: detail.member.kycReviewNotes ?? "",
-                  kycStatus: detail.member.kycStatus,
-                  memberId: detail.member.id,
-                }}
-                devMode={quickFillEnabled}
-              />
-            </div>
+            <p className="mt-5 text-sm leading-6 text-muted-foreground">
+              Review and update identity fields from a focused sheet while the
+              profile summary remains visible.
+            </p>
           </DashboardSectionCard>
           <DashboardSectionCard>
             <DashboardSectionHeader
+              actions={<OpenMemberDetailDocumentSheet />}
               eyebrow="Documents"
               title="Attach supporting document"
             />
-            <div className="mt-5">
-              <MemberDocumentForm
-                defaultMemberId={detail.member.id}
-                devMode={quickFillEnabled}
-              />
-            </div>
+            <p className="mt-5 text-sm leading-6 text-muted-foreground">
+              Add identity, compliance, or supporting files from a sheet so the
+              page remains a review workspace.
+            </p>
           </DashboardSectionCard>
         </section>
       ) : null}
@@ -418,16 +384,8 @@ export function MemberDetailView({
                 </p>
                 {canManageMembers ? (
                   <div className="mt-4">
-                    <MemberDocumentReviewForm
-                      defaultValues={{
-                        documentId: document.id,
-                        reviewNotes: document.reviewNotes ?? "",
-                        reviewStatus:
-                          (document.reviewStatus as
-                            | "pending"
-                            | "verified"
-                            | "rejected") ?? "pending",
-                      }}
+                    <OpenMemberDetailDocumentReviewSheet
+                      documentId={document.id}
                     />
                   </div>
                 ) : null}
@@ -536,45 +494,43 @@ export function MemberDetailView({
           eyebrow="Ledger"
           title="Ledger timeline"
         />
-        <div className="mt-5">
-          <DashboardDataTable>
-            <DashboardTable>
-              <DashboardTableHead>
-                <DashboardTableHeaderCell>Narration</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Type</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Posted</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Entries</DashboardTableHeaderCell>
-              </DashboardTableHead>
-              <DashboardTableBody>
-                {detail.ledgerTransactions.slice(0, 20).map((transaction) => (
-                  <DashboardTableRow key={transaction.id}>
-                    <DashboardTableCell>
+        <div className="mt-5 space-y-3">
+          {detail.ledgerTransactions.length ? (
+            detail.ledgerTransactions.slice(0, 20).map((transaction) => (
+              <DashboardSurfaceCard
+                as="article"
+                className="rounded-lg"
+                key={transaction.id}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">
                       {transaction.narration ?? transaction.transactionType}
-                    </DashboardTableCell>
-                    <DashboardTableCell className="capitalize">
-                      {transaction.transactionType}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      {formatIsoDate(transaction.postedAt)}
-                    </DashboardTableCell>
-                    <DashboardTableCell>
-                      <div className="space-y-1">
-                        {transaction.entries.map((entry) => (
-                          <p
-                            key={entry.id}
-                            className="text-xs text-muted-foreground"
-                          >
-                            {entry.ledgerAccount.name} · {entry.direction} ·{" "}
-                            {formatCurrency(Number(entry.amount))}
-                          </p>
-                        ))}
-                      </div>
-                    </DashboardTableCell>
-                  </DashboardTableRow>
-                ))}
-              </DashboardTableBody>
-            </DashboardTable>
-          </DashboardDataTable>
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground capitalize">
+                      {transaction.transactionType} ·{" "}
+                      {formatIsoDate(transaction.postedAt) ?? "not dated"}
+                    </p>
+                  </div>
+                  <div className="space-y-1 sm:text-right">
+                    {transaction.entries.map((entry) => (
+                      <p
+                        className="text-xs text-muted-foreground"
+                        key={entry.id}
+                      >
+                        {entry.ledgerAccount.name} · {entry.direction} ·{" "}
+                        {formatCurrency(Number(entry.amount))}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </DashboardSurfaceCard>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No ledger transactions recorded yet.
+            </p>
+          )}
         </div>
       </DashboardSectionCard>
 
@@ -656,6 +612,13 @@ export function MemberDetailView({
           )}
         </div>
       </DashboardSectionCard>
+
+      <MemberDetailSheet
+        activePlan={activePlan}
+        devMode={quickFillEnabled}
+        documents={detail.member.documents}
+        member={detail.member}
+      />
     </WorkspacePageShell>
   )
 }

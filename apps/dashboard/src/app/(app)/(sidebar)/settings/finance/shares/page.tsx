@@ -10,26 +10,24 @@ import {
   type MemberShareApplicationRow,
   type TenantSharePolicySettings,
 } from "@halaalvest/db"
-import { ScrollableContent } from "@/components/dashboard"
-import { SecondaryMenu } from "@/components/secondary-menu"
-import { ShareSettingsModelWorkspace } from "@/components/share-model-workspace"
+import { FinanceShareSettingsView } from "@/components/finance-share-settings-view"
 import type { Share } from "@/components/tables/shares/columns"
+import { loadShareApplicationFilterParams } from "@/hooks/use-share-application-filter-params"
 import { loadShareFilterParams } from "@/hooks/use-share-filter-params"
 import { loadShareParams } from "@/hooks/use-share-params"
+import { loadSortParams } from "@/hooks/use-sort-params"
 import { getDashboardServerContext } from "@/lib/server-context"
+import {
+  getQueryClient,
+  getServerCaller,
+  HydrateClient,
+  trpc,
+} from "@/trpc/server"
+import { getInitialTableSettings } from "@/utils/columns"
 
 export const metadata: Metadata = {
   title: "Shares | Finance Settings",
 }
-
-const financeMenuItems = [
-  { path: "/settings/finance", label: "Overview" },
-  { path: "/settings/finance/shares", label: "Shares" },
-  { path: "/settings/finance/charges", label: "Charges" },
-  { path: "/settings/finance/business", label: "Business" },
-  { path: "/settings/finance/loan", label: "Loan" },
-  { path: "/settings/finance/migration", label: "Migration" },
-]
 
 const demoShareVersions = [
   {
@@ -62,6 +60,94 @@ const demoMemberOptions = [
   { id: "member-1", label: "Aisha Bello (M-001)" },
   { id: "member-2", label: "Musa Ibrahim (M-002)" },
 ]
+
+type ShareSortField =
+  | "amount"
+  | "effectiveFrom"
+  | "isCurrent"
+  | "notes"
+  | "valueType"
+
+type ShareApplicationSortField =
+  | "createdAt"
+  | "memberName"
+  | "requestedUnits"
+  | "reviewedAt"
+  | "shareValueSnapshot"
+  | "status"
+
+type ShareApplicationStatus =
+  | "approved"
+  | "cancelled"
+  | "pending"
+  | "rejected"
+
+function getShareSort(
+  sort?: string[] | null
+): [ShareSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const validFields = new Set<string>([
+    "amount",
+    "effectiveFrom",
+    "isCurrent",
+    "notes",
+    "valueType",
+  ])
+
+  if (!validFields.has(field)) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [field as ShareSortField, direction]
+}
+
+function getShareApplicationSort(
+  sort?: string[] | null
+): [ShareApplicationSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const fieldMap: Record<string, ShareApplicationSortField> = {
+    application: "memberName",
+    createdAt: "createdAt",
+    memberName: "memberName",
+    requestedAt: "createdAt",
+    requestedUnits: "requestedUnits",
+    reviewedAt: "reviewedAt",
+    shareValueSnapshot: "shareValueSnapshot",
+    status: "status",
+    units: "requestedUnits",
+    value: "shareValueSnapshot",
+  }
+  const sortField = fieldMap[field]
+
+  if (!sortField) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [sortField, direction]
+}
+
+function getShareApplicationStatus(
+  value: string | null
+): ShareApplicationStatus | undefined {
+  const validStatuses = new Set<ShareApplicationStatus>([
+    "approved",
+    "cancelled",
+    "pending",
+    "rejected",
+  ])
+
+  return validStatuses.has(value as ShareApplicationStatus)
+    ? (value as ShareApplicationStatus)
+    : undefined
+}
 
 function toShareRows(
   rows: Array<{
@@ -102,9 +188,21 @@ async function ShareSettingsPageContent({
   searchParams: Promise<SearchParams>
 }) {
   const resolvedSearchParams = await searchParams
-  loadShareFilterParams(resolvedSearchParams)
+  const filter = loadShareFilterParams(resolvedSearchParams)
+  const shareApplicationFilter = loadShareApplicationFilterParams(
+    resolvedSearchParams
+  )
   loadShareParams(resolvedSearchParams)
-  const context = await getDashboardServerContext()
+  const { sort } = loadSortParams(resolvedSearchParams)
+  const [
+    context,
+    initialShareTableSettings,
+    initialShareApplicationTableSettings,
+  ] = await Promise.all([
+    getDashboardServerContext(),
+    getInitialTableSettings("shares"),
+    getInitialTableSettings("shareApplications"),
+  ])
   const runtime = createDbRuntime()
 
   let isLocked = false
@@ -114,8 +212,10 @@ async function ShareSettingsPageContent({
   let shareApplications: MemberShareApplicationRow[] = []
   let sharePolicy: TenantSharePolicySettings = demoSharePolicy
   let tenantName = context.tenant?.name ?? "Demo cooperative"
+  const remoteRows =
+    Boolean(context.tenant) && runtime.status === "database-configured"
 
-  if (context.tenant && runtime.status === "database-configured") {
+  if (remoteRows && context.tenant) {
     const [
       data,
       migrationState,
@@ -158,33 +258,68 @@ async function ShareSettingsPageContent({
       }))
     )
   }
+
+  if (remoteRows) {
+    const shareInput = {
+      effectiveFrom: filter.effectiveFrom ?? undefined,
+      effectiveTo: filter.effectiveTo ?? undefined,
+      q: filter.q ?? undefined,
+      sort: getShareSort(sort),
+      status: filter.status ?? undefined,
+      valueType: filter.valueType ?? undefined,
+    }
+    const shareApplicationInput = {
+      q: shareApplicationFilter.shareApplicationQ ?? undefined,
+      sort: getShareApplicationSort(sort),
+      status: getShareApplicationStatus(
+        shareApplicationFilter.shareApplicationStatus
+      ),
+    }
+    const shareOptions = trpc.charges.financeShares.infiniteQueryOptions(
+      shareInput,
+      {
+        getNextPageParam: ({ meta }) => meta?.cursor,
+      }
+    )
+    const shareApplicationOptions =
+      trpc.shareApplications.list.infiniteQueryOptions(
+        shareApplicationInput,
+        {
+          getNextPageParam: ({ meta }) => meta?.cursor,
+        }
+      )
+    const caller = await getServerCaller()
+    const [initialSharePage, initialShareApplicationPage] = await Promise.all([
+      caller.charges.financeShares(shareInput),
+      caller.shareApplications.list(shareApplicationInput),
+    ])
+
+    getQueryClient().setQueryData(shareOptions.queryKey, {
+      pageParams: [shareOptions.initialPageParam],
+      pages: [initialSharePage],
+    })
+    getQueryClient().setQueryData(shareApplicationOptions.queryKey, {
+      pageParams: [shareApplicationOptions.initialPageParam],
+      pages: [initialShareApplicationPage],
+    })
+  }
+
   return (
-    <ScrollableContent>
-      <div className="flex max-w-[800px] flex-col gap-6">
-        <SecondaryMenu items={financeMenuItems} />
-
-        <div>
-          <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-            Finance settings
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-            Shares
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Choose the active share model for {tenantName}. Member share setup
-            uses only the selected model.
-          </p>
-        </div>
-
-        <ShareSettingsModelWorkspace
-          applications={shareApplications}
-          financeStartDate={financeStartDate}
-          isLocked={isLocked}
-          memberOptions={memberOptions}
-          rows={rows}
-          sharePolicy={sharePolicy}
-        />
-      </div>
-    </ScrollableContent>
+    <HydrateClient>
+      <FinanceShareSettingsView
+        financeStartDate={financeStartDate}
+        initialShareTableSettings={initialShareTableSettings}
+        initialShareApplicationTableSettings={
+          initialShareApplicationTableSettings
+        }
+        isLocked={isLocked}
+        memberOptions={memberOptions}
+        remoteRows={remoteRows}
+        rows={rows}
+        shareApplications={shareApplications}
+        sharePolicy={sharePolicy}
+        tenantName={tenantName}
+      />
+    </HydrateClient>
   )
 }

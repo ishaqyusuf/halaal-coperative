@@ -1,6 +1,7 @@
 import type { DashboardImportKind } from "@/lib/import-csv"
+import { ImportColumnVisibility } from "@/components/import-column-visibility"
 import { ImportSearchFilter } from "@/components/import-search-filter"
-import { OpenImportSheet } from "@/components/sheets/import-sheet"
+import { OpenImportSheet } from "@/components/open-import-sheet"
 
 export function ImportHeader({
   canManageImports,
@@ -15,14 +16,15 @@ export function ImportHeader({
     <div className="flex items-center justify-between gap-3">
       <ImportSearchFilter />
 
-      {importKind ? (
-        <div className="flex space-x-2">
+      <div className="flex shrink-0 items-center gap-2">
+        <ImportColumnVisibility />
+        {importKind ? (
           <OpenImportSheet
             disabled={!canManageImports || isLocked}
             importKind={importKind}
           />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   )
 }

@@ -4,15 +4,6 @@ import { useState } from "react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@halaalvest/ui/components/dialog"
 import { Field, FieldLabel } from "@halaalvest/ui/components/field"
 import { Input } from "@halaalvest/ui/components/input"
 import {
@@ -20,6 +11,13 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@halaalvest/ui/components/input-group"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@halaalvest/ui/components/sheet"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import {
@@ -420,75 +418,78 @@ export function QuickFill<Name extends QuickFillName>({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            disabled={parsedArgs.disabled}
-            size="sm"
-            type="button"
-            variant="ghost"
-          />
-        }
+    <>
+      <Button
+        disabled={parsedArgs.disabled}
+        onClick={() => setOpen(true)}
+        size="sm"
+        type="button"
+        variant="ghost"
       >
         {label}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{quickFill.title}</DialogTitle>
-          <DialogDescription>
-            Generate dated history rows inside the current form, then review
-            before saving.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field>
-            <FieldLabel>Start date *</FieldLabel>
-            <DatePickerInput
-              allowClear={false}
-              min={parsedArgs.minDate ?? undefined}
-              onChange={setStartDate}
-              placeholder="Start date"
-              value={startDate}
-            />
-          </Field>
-          <Field>
-            <FieldLabel>End date *</FieldLabel>
-            <DatePickerInput
-              allowClear={false}
-              min={startDate || parsedArgs.minDate || undefined}
-              onChange={setEndDate}
-              placeholder="End date"
-              value={endDate}
-            />
-          </Field>
-          <Field>
-            <FieldLabel>Interval</FieldLabel>
-            <LabeledSelectInput
-              onValueChange={(value) => setInterval(value as QuickFillInterval)}
-              options={[
-                { label: "Monthly", value: "monthly" },
-                { label: "Yearly", value: "yearly" },
-              ]}
-              value={interval}
-            />
-          </Field>
-          {renderTemplateFields({
-            name,
-            setTemplate,
-            template,
-          })}
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={parsedArgs.disabled}
-            onClick={fillRows}
-            type="button"
-          >
-            Fill rows
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </Button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent className="sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>{quickFill.title}</SheetTitle>
+            <SheetDescription>
+              Generate dated history rows inside the current form, then review
+              before saving.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-4 px-6 pb-6">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field>
+                <FieldLabel>Start date *</FieldLabel>
+                <DatePickerInput
+                  allowClear={false}
+                  min={parsedArgs.minDate ?? undefined}
+                  onChange={setStartDate}
+                  placeholder="Start date"
+                  value={startDate}
+                />
+              </Field>
+              <Field>
+                <FieldLabel>End date *</FieldLabel>
+                <DatePickerInput
+                  allowClear={false}
+                  min={startDate || parsedArgs.minDate || undefined}
+                  onChange={setEndDate}
+                  placeholder="End date"
+                  value={endDate}
+                />
+              </Field>
+              <Field>
+                <FieldLabel>Interval</FieldLabel>
+                <LabeledSelectInput
+                  onValueChange={(value) =>
+                    setInterval(value as QuickFillInterval)
+                  }
+                  options={[
+                    { label: "Monthly", value: "monthly" },
+                    { label: "Yearly", value: "yearly" },
+                  ]}
+                  value={interval}
+                />
+              </Field>
+              {renderTemplateFields({
+                name,
+                setTemplate,
+                template,
+              })}
+            </div>
+            <div className="flex justify-end">
+              <Button
+                disabled={parsedArgs.disabled}
+                onClick={fillRows}
+                type="button"
+              >
+                Fill rows
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }

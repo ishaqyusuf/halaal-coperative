@@ -1,6 +1,9 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -153,17 +156,21 @@ function MemberCard({
             {member.memberNumber} - {formatStatus(member.memberType)}
           </Text>
         </View>
-        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
-          {formatStatus(member.status)}
-        </Text>
+        <StatusBadge
+          label={formatStatus(member.status)}
+          tone={getStatusBadgeTone(member.status)}
+        />
       </View>
 
       <View className="flex-row flex-wrap gap-2">
         <View className="min-w-[120px] flex-1 rounded-md bg-secondary p-3">
           <Text className="text-xs font-medium text-muted-foreground">KYC</Text>
-          <Text className="mt-1 text-sm font-semibold text-foreground">
-            {formatStatus(member.kycStatus)}
-          </Text>
+          <View className="mt-1 items-start">
+            <StatusBadge
+              label={formatStatus(member.kycStatus)}
+              tone={getStatusBadgeTone(member.kycStatus)}
+            />
+          </View>
         </View>
         <View className="min-w-[120px] flex-1 rounded-md bg-secondary p-3">
           <Text className="text-xs font-medium text-muted-foreground">
@@ -205,6 +212,7 @@ function MemberCard({
       {isReviewingKyc ? (
         <View className="gap-3">
           <Textarea
+            accessibilityLabel="KYC review notes"
             editable={actionState !== "pending"}
             onChangeText={setKycReviewNotes}
             placeholder="KYC review notes"
@@ -337,9 +345,10 @@ function OnboardingRequestCard({
             {request.memberNumber} - {request.email}
           </Text>
         </View>
-        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
-          {formatStatus(request.status)}
-        </Text>
+        <StatusBadge
+          label={formatStatus(request.status)}
+          tone={getStatusBadgeTone(request.status)}
+        />
       </View>
       <Text className="text-xs font-medium text-muted-foreground">
         {request.emailVerifiedAt
@@ -350,6 +359,7 @@ function OnboardingRequestCard({
       {isReviewing ? (
         <View className="gap-3 pt-1">
           <Textarea
+            accessibilityLabel="Onboarding review notes"
             editable={actionState !== "pending"}
             onChangeText={setOnboardingReviewNotes}
             placeholder="Onboarding review notes"
@@ -444,6 +454,15 @@ export function AdminMembersScreen() {
     members && members.page * members.pageSize < members.total
   )
   const hasStaleMembers = isMobileReadCacheStale(members?.cache)
+  const hasAdminMembersDraft = Boolean(
+    createFullName.trim() ||
+    createMemberNumber.trim() ||
+    createEmail.trim() ||
+    createPhoneNumber.trim() ||
+    createMonthlyCommitment.trim() ||
+    onboardingReviewNotes.trim() ||
+    kycReviewNotes.trim()
+  )
   const adminMembersDraft = useMemo(
     () => ({
       createEmail,
@@ -753,147 +772,11 @@ export function AdminMembersScreen() {
               label="member directory data"
             />
 
-            <View className="flex-row flex-wrap gap-3">
-              {stats.map((item) => (
-                <StatCard key={item.label} {...item} />
-              ))}
-            </View>
-
-            <SectionCard icon="UserCheck" title="Review queues">
-              {isLoading ? (
-                <LoadingSpinner />
-              ) : members?.reviewQueues.length ? (
-                <View className="gap-3">
-                  {members.reviewQueues.map((queue) => (
-                    <ReviewQueueCard key={queue.key} queue={queue} />
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No onboarding or KYC review queues need attention right now.
-                </Text>
-              )}
-            </SectionCard>
-
-            <SectionCard icon="UserPlus" title="Pending onboarding">
-              {isLoading ? (
-                <LoadingSpinner />
-              ) : (
-                <VirtualizedCardList
-                  data={members?.onboardingRequests ?? []}
-                  empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No pending member onboarding requests are visible in
-                      mobile.
-                    </Text>
-                  }
-                  estimatedItemSize={188}
-                  keyExtractor={(request) => request.id}
-                  renderItem={({ index, item: request }) => (
-                    <OnboardingRequestCard
-                      actionState={
-                        hasStaleMembers ||
-                        actionKey === `onboarding-${request.id}`
-                          ? "pending"
-                          : "idle"
-                      }
-                      isFirst={index === 0}
-                      onOpenReview={(selectedRequest) => {
-                        setOnboardingReviewRequestId(
-                          selectedRequest?.id ?? null
-                        )
-                        setOnboardingReviewNotes("")
-                        setKycReviewMemberId(null)
-                        setKycReviewNotes("")
-                        setError(null)
-                      }}
-                      onReview={handleReviewOnboarding}
-                      onboardingReviewNotes={onboardingReviewNotes}
-                      onboardingReviewRequestId={onboardingReviewRequestId}
-                      request={request}
-                      setOnboardingReviewNotes={setOnboardingReviewNotes}
-                    />
-                  )}
-                />
-              )}
-            </SectionCard>
-
-            <SectionCard icon="UserRoundPlus" title="Create member">
-              <View className="gap-3">
-                <Input
-                  editable={!isCreating}
-                  onChangeText={setCreateFullName}
-                  placeholder="Full name"
-                  value={createFullName}
-                />
-                <Input
-                  editable={!isCreating}
-                  onChangeText={setCreateMemberNumber}
-                  placeholder="Member number"
-                  value={createMemberNumber}
-                />
-                <View className="flex-row flex-wrap gap-2">
-                  {(["individual", "civil_servant", "business"] as const).map(
-                    (memberType) => (
-                      <FilterButton
-                        isSelected={createMemberType === memberType}
-                        key={memberType}
-                        label={formatStatus(memberType)}
-                        onPress={() => setCreateMemberType(memberType)}
-                      />
-                    )
-                  )}
-                </View>
-                <Input
-                  editable={!isCreating}
-                  onChangeText={setCreateJoinedAt}
-                  placeholder="Joined date YYYY-MM-DD"
-                  value={createJoinedAt}
-                />
-                <Input
-                  editable={!isCreating}
-                  keyboardType="email-address"
-                  onChangeText={setCreateEmail}
-                  placeholder="Email"
-                  value={createEmail}
-                />
-                <Input
-                  editable={!isCreating}
-                  keyboardType="phone-pad"
-                  onChangeText={setCreatePhoneNumber}
-                  placeholder="Phone"
-                  value={createPhoneNumber}
-                />
-                <Input
-                  editable={!isCreating}
-                  keyboardType="numeric"
-                  onChangeText={setCreateMonthlyCommitment}
-                  placeholder="Starting commitment"
-                  value={createMonthlyCommitment}
-                />
-                <Button
-                  className="h-11"
-                  disabled={hasStaleMembers || isCreating}
-                  onPress={handleCreateMember}
-                >
-                  <Icon
-                    name="UserPlus"
-                    className="size-base text-primary-foreground"
-                  />
-                  <Text>{isCreating ? "Creating..." : "Create member"}</Text>
-                </Button>
-                {createMessage ? (
-                  <Text className="text-sm font-medium text-muted-foreground">
-                    {createMessage}
-                  </Text>
-                ) : null}
-              </View>
-            </SectionCard>
-
             <SectionCard icon="Search" title="Find members">
               <View className="gap-3">
                 <View className="flex-row gap-2">
                   <Input
+                    accessibilityLabel="Search members"
                     className="flex-1"
                     editable={!isLoading}
                     onChangeText={setSearchDraft}
@@ -942,6 +825,156 @@ export function AdminMembersScreen() {
               </View>
             </SectionCard>
 
+            <View className="flex-row flex-wrap gap-3">
+              {stats.map((item) => (
+                <StatCard key={item.label} {...item} />
+              ))}
+            </View>
+
+            <SectionCard icon="UserCheck" title="Review queues">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : members?.reviewQueues.length ? (
+                <View className="gap-3">
+                  {members.reviewQueues.map((queue) => (
+                    <ReviewQueueCard key={queue.key} queue={queue} />
+                  ))}
+                </View>
+              ) : (
+                <EmptyState
+                  description="Onboarding and KYC review queues will appear here when records need staff attention."
+                  icon="ShieldCheck"
+                  title="No review queues"
+                />
+              )}
+            </SectionCard>
+
+            <SectionCard icon="UserPlus" title="Pending onboarding">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : (
+                <VirtualizedCardList
+                  data={members?.onboardingRequests ?? []}
+                  empty={
+                    <EmptyState
+                      description="Pending member onboarding requests will appear here after signup."
+                      icon="UserPlus"
+                      title="No pending onboarding"
+                    />
+                  }
+                  estimatedItemSize={188}
+                  keyExtractor={(request) => request.id}
+                  renderItem={({ index, item: request }) => (
+                    <OnboardingRequestCard
+                      actionState={
+                        hasStaleMembers ||
+                        actionKey === `onboarding-${request.id}`
+                          ? "pending"
+                          : "idle"
+                      }
+                      isFirst={index === 0}
+                      onOpenReview={(selectedRequest) => {
+                        setOnboardingReviewRequestId(
+                          selectedRequest?.id ?? null
+                        )
+                        setOnboardingReviewNotes("")
+                        setKycReviewMemberId(null)
+                        setKycReviewNotes("")
+                        setError(null)
+                      }}
+                      onReview={handleReviewOnboarding}
+                      onboardingReviewNotes={onboardingReviewNotes}
+                      onboardingReviewRequestId={onboardingReviewRequestId}
+                      request={request}
+                      setOnboardingReviewNotes={setOnboardingReviewNotes}
+                    />
+                  )}
+                />
+              )}
+            </SectionCard>
+
+            <SectionCard icon="UserRoundPlus" title="Create member">
+              <View className="gap-3">
+                <FormStateBanner
+                  hasDraft={hasAdminMembersDraft}
+                  isStale={hasStaleMembers}
+                />
+                <Input
+                  accessibilityLabel="Create member full name"
+                  editable={!isCreating}
+                  onChangeText={setCreateFullName}
+                  placeholder="Full name"
+                  value={createFullName}
+                />
+                <Input
+                  accessibilityLabel="Create member number"
+                  editable={!isCreating}
+                  onChangeText={setCreateMemberNumber}
+                  placeholder="Member number"
+                  value={createMemberNumber}
+                />
+                <View className="flex-row flex-wrap gap-2">
+                  {(["individual", "civil_servant", "business"] as const).map(
+                    (memberType) => (
+                      <FilterButton
+                        isSelected={createMemberType === memberType}
+                        key={memberType}
+                        label={formatStatus(memberType)}
+                        onPress={() => setCreateMemberType(memberType)}
+                      />
+                    )
+                  )}
+                </View>
+                <Input
+                  accessibilityLabel="Create member joined date"
+                  editable={!isCreating}
+                  onChangeText={setCreateJoinedAt}
+                  placeholder="Joined date YYYY-MM-DD"
+                  value={createJoinedAt}
+                />
+                <Input
+                  accessibilityLabel="Create member email"
+                  editable={!isCreating}
+                  keyboardType="email-address"
+                  onChangeText={setCreateEmail}
+                  placeholder="Email"
+                  value={createEmail}
+                />
+                <Input
+                  accessibilityLabel="Create member phone"
+                  editable={!isCreating}
+                  keyboardType="phone-pad"
+                  onChangeText={setCreatePhoneNumber}
+                  placeholder="Phone"
+                  value={createPhoneNumber}
+                />
+                <Input
+                  accessibilityLabel="Create member starting commitment"
+                  editable={!isCreating}
+                  keyboardType="numeric"
+                  onChangeText={setCreateMonthlyCommitment}
+                  placeholder="Starting commitment"
+                  value={createMonthlyCommitment}
+                />
+                <Button
+                  className="h-11"
+                  disabled={hasStaleMembers || isCreating}
+                  onPress={handleCreateMember}
+                >
+                  <Icon
+                    name="UserPlus"
+                    className="size-base text-primary-foreground"
+                  />
+                  <Text>{isCreating ? "Creating..." : "Create member"}</Text>
+                </Button>
+                {createMessage ? (
+                  <Text className="text-sm font-medium text-muted-foreground">
+                    {createMessage}
+                  </Text>
+                ) : null}
+              </View>
+            </SectionCard>
+
             {error ? (
               <Text className="text-sm font-medium text-destructive">
                 {error}
@@ -955,9 +988,11 @@ export function AdminMembersScreen() {
                 <VirtualizedCardList
                   data={members?.members ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No members match the current directory filters.
-                    </Text>
+                    <EmptyState
+                      description="Try a different name, member number, status, or KYC filter."
+                      icon="UsersRound"
+                      title="No members found"
+                    />
                   }
                   estimatedItemSize={176}
                   keyExtractor={(member) => member.id}

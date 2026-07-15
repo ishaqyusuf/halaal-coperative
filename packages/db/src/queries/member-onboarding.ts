@@ -7,11 +7,21 @@ import { createMemberWithState, type CreateMemberInput } from "./members"
 import { getTenantInitialMigrationState } from "./migration"
 
 export type ListMemberOnboardingFilters = {
+  cursor?: string | null
   page?: number
   pageSize?: number
   search?: string
+  sort?: [MemberOnboardingSortField, "asc" | "desc"] | null
   status?: MemberOnboardingStatus
 }
+
+export type MemberOnboardingSortField =
+  | "emailVerifiedAt"
+  | "fullName"
+  | "memberNumber"
+  | "phoneNumber"
+  | "status"
+  | "submittedAt"
 
 async function assertMemberOnboardingWritesOpen(
   tenantId: string,
@@ -313,11 +323,27 @@ export async function listMemberOnboardingRequests(
       : {}),
   }
 
+  const [sortField, sortDirection] = filters?.sort ?? ["submittedAt", "desc"]
+  const orderBy =
+    sortField === "submittedAt"
+      ? [{ createdAt: sortDirection }, { id: sortDirection }]
+      : sortField === "emailVerifiedAt"
+        ? [{ emailVerifiedAt: sortDirection }, { createdAt: "desc" as const }]
+        : sortField === "fullName"
+          ? [{ fullName: sortDirection }, { createdAt: "desc" as const }]
+          : sortField === "memberNumber"
+            ? [{ memberNumber: sortDirection }, { createdAt: "desc" as const }]
+            : sortField === "phoneNumber"
+              ? [{ phoneNumber: sortDirection }, { createdAt: "desc" as const }]
+              : [{ status: sortDirection }, { createdAt: "desc" as const }]
+
   const [items, total] = await Promise.all([
     prisma.memberOnboardingRequest.findMany({
       where,
-      orderBy: [{ createdAt: "desc" }],
-      skip: (page - 1) * pageSize,
+      orderBy,
+      ...(filters?.cursor
+        ? { cursor: { id: filters.cursor }, skip: 1 }
+        : { skip: (page - 1) * pageSize }),
       take: pageSize,
       include: {
         user: {

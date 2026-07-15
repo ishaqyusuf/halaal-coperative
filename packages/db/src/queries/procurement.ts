@@ -86,6 +86,28 @@ export type ProcurementRequestSource =
   | "staff"
   | "system"
 
+export type ProcurementRequestSortField =
+  | "approvedCost"
+  | "estimatedMonthlyRepayment"
+  | "itemName"
+  | "memberName"
+  | "outstandingAmount"
+  | "requestedAt"
+  | "requestedCost"
+  | "status"
+  | "vendorName"
+
+export type ListProcurementRequestPageFilters = {
+  cursor?: string | null
+  limit?: number
+  memberId?: string
+  page?: number
+  pageSize?: number
+  search?: string
+  sort?: [ProcurementRequestSortField, "asc" | "desc"] | null
+  status?: ProcurementRequestStatus
+}
+
 const procurementRequestStatuses = new Set([
   "active",
   "approved",
@@ -403,6 +425,171 @@ export async function listProcurementRequests(
   })
 
   return requests.map((request: any) => normalizeProcurementRequest(request))
+}
+
+export async function getProcurementRequest(
+  input: {
+    memberId?: string
+    procurementRequestId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<ProcurementRequestRow | null> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) return null
+
+  const request = await prisma.procurementRequest.findFirst({
+    include: procurementInclude(),
+    where: {
+      id: input.procurementRequestId,
+      tenantId: input.tenantId,
+      ...(input.memberId ? { memberId: input.memberId } : {}),
+    },
+  })
+
+  return request ? normalizeProcurementRequest(request) : null
+}
+
+function getProcurementRequestOrderBy(
+  sort?: [ProcurementRequestSortField, "asc" | "desc"] | null
+) {
+  const [sortField, direction] = sort ?? ["requestedAt", "desc"]
+
+  if (sortField === "memberName") {
+    return [
+      { member: { fullName: direction } },
+      { requestedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "vendorName") {
+    return [
+      { vendorName: direction },
+      { requestedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
+  if (sortField === "outstandingAmount") {
+    return [{ requestedAt: direction }, { id: direction }]
+  }
+
+  if (sortField === "requestedAt") {
+    return [
+      { requestedAt: direction },
+      { createdAt: direction },
+      { id: direction },
+    ]
+  }
+
+  return [
+    { [sortField]: direction },
+    { requestedAt: "desc" as const },
+    { id: "desc" as const },
+  ]
+}
+
+function getProcurementRequestWhere(
+  input: {
+    memberId?: string
+    search?: string
+    status?: ProcurementRequestStatus
+    tenantId: string
+  }
+) {
+  return {
+    tenantId: input.tenantId,
+    ...(input.memberId ? { memberId: input.memberId } : {}),
+    ...(input.status ? { status: input.status } : {}),
+    ...(input.search && {
+      OR: [
+        {
+          itemName: {
+            contains: input.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          vendorName: {
+            contains: input.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          member: {
+            is: {
+              OR: [
+                {
+                  fullName: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  memberNumber: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  email: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }),
+  }
+}
+
+export async function listProcurementRequestPage(
+  input: {
+    tenantId: string
+  } & ListProcurementRequestPageFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  if (input.status && !procurementRequestStatuses.has(input.status)) {
+    throw new Error("Procurement request status is not supported.")
+  }
+
+  const page = input.page ?? 1
+  const pageSize = input.pageSize ?? input.limit ?? 50
+  if (!Number.isInteger(pageSize) || pageSize <= 0) {
+    throw new Error("Procurement page size must be a positive whole number.")
+  }
+
+  const where = getProcurementRequestWhere(input)
+  const [requests, total] = await Promise.all([
+    prisma.procurementRequest.findMany({
+      include: procurementInclude(),
+      orderBy: getProcurementRequestOrderBy(input.sort),
+      ...(input.cursor
+        ? { cursor: { id: input.cursor }, skip: 1 }
+        : { skip: (page - 1) * pageSize }),
+      take: pageSize,
+      where,
+    }),
+    prisma.procurementRequest.count({ where }),
+  ])
+
+  return {
+    data: requests.map((request: any) => normalizeProcurementRequest(request)),
+    meta: {
+      cursor:
+        requests.length === pageSize
+          ? (requests.at(-1)?.id as string | undefined)
+          : undefined,
+      total,
+    },
+  }
 }
 
 export async function getProcurementSummary(

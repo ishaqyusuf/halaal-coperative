@@ -8,19 +8,16 @@ import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { formatCurrency } from "@halaalvest/utils"
 import {
-  DashboardDataTable,
   DashboardStatCard,
-  DashboardTable,
-  DashboardTableBody,
-  DashboardTableCell,
-  DashboardTableHead,
-  DashboardTableHeaderCell,
-  DashboardTableRow,
+  DashboardSurfaceCard,
   TrendPill,
 } from "@/components/dashboard"
 import { DatePickerInput } from "@/components/date-picker-input"
-import { PublishShareProfitAllocationsButton } from "@/components/forms/tenant-finance-forms"
-import { saveBusinessProfitMigrationWorksheetAction } from "@/lib/dashboard-actions"
+import {
+  publishShareProfitAllocationsAction,
+  saveBusinessProfitMigrationWorksheetAction,
+} from "@/lib/dashboard-actions"
+import { objectToFormData } from "@/lib/form-submit"
 
 type AllocationMode = "percentage" | "value"
 
@@ -93,6 +90,48 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(`${value}T00:00:00.000Z`))
+}
+
+function PublishShareProfitAllocationsButton({
+  disabled,
+  profitEntryId,
+}: {
+  disabled?: boolean
+  profitEntryId: string
+}) {
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+
+  function onClick() {
+    startTransition(async () => {
+      try {
+        await publishShareProfitAllocationsAction(
+          objectToFormData({ profitEntryId })
+        )
+        showSuccess(
+          "Allocations published",
+          "Share profit allocations were pushed to the linked dividend period."
+        )
+      } catch (error) {
+        showError(
+          "Could not publish allocations",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <Button
+      className="rounded-full"
+      disabled={disabled || isPending}
+      onClick={onClick}
+      type="button"
+      variant="outline"
+    >
+      Publish
+    </Button>
+  )
 }
 
 export function BusinessProfitMigrationWorksheet({
@@ -241,10 +280,10 @@ export function BusinessProfitMigrationWorksheet({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+          <p className="text-xs font-medium text-muted-foreground uppercase">
             Business profit migration
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+          <h1 className="mt-2 text-2xl font-semibold text-foreground">
             {worksheet.shareBusiness.name}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -385,60 +424,55 @@ export function BusinessProfitMigrationWorksheet({
             </Button>
           </div>
 
-          <DashboardDataTable className="rounded-none">
-            <DashboardTable>
-              <DashboardTableHead>
-                <DashboardTableHeaderCell>Charge reason</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">
-                  Amount
-                </DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">
-                  Action
-                </DashboardTableHeaderCell>
-              </DashboardTableHead>
-              <DashboardTableBody>
-                {expenseLines.map((line, index) => (
-                  <DashboardTableRow key={line.id}>
-                    <DashboardTableCell>
-                      <Input
-                        disabled={isLocked}
-                        name={`expenseReason-${index}`}
-                        onChange={(event) =>
-                          updateExpenseLine(index, "reason", event.target.value)
-                        }
-                        placeholder="Charge reason"
-                        value={line.reason}
-                      />
-                    </DashboardTableCell>
-                    <DashboardTableCell align="right">
-                      <CurrencyPrefixInput
-                        disabled={isLocked}
-                        min="0"
-                        name={`expenseAmount-${index}`}
-                        onChange={(event) =>
-                          updateExpenseLine(index, "amount", event.target.value)
-                        }
-                        step="0.01"
-                        type="number"
-                        value={line.amount}
-                      />
-                    </DashboardTableCell>
-                    <DashboardTableCell align="right">
-                      <Button
-                        disabled={isLocked}
-                        onClick={() => removeExpenseLine(index)}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        Remove
-                      </Button>
-                    </DashboardTableCell>
-                  </DashboardTableRow>
-                ))}
-              </DashboardTableBody>
-            </DashboardTable>
-          </DashboardDataTable>
+          <div className="space-y-3">
+            {expenseLines.map((line, index) => (
+              <DashboardSurfaceCard
+                as="article"
+                className="rounded-lg"
+                key={line.id}
+              >
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_auto] md:items-end">
+                  <label className="space-y-1 text-sm">
+                    <span className="font-medium text-foreground">
+                      Charge reason
+                    </span>
+                    <Input
+                      disabled={isLocked}
+                      name={`expenseReason-${index}`}
+                      onChange={(event) =>
+                        updateExpenseLine(index, "reason", event.target.value)
+                      }
+                      placeholder="Charge reason"
+                      value={line.reason}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm">
+                    <span className="font-medium text-foreground">Amount</span>
+                    <CurrencyPrefixInput
+                      disabled={isLocked}
+                      min="0"
+                      name={`expenseAmount-${index}`}
+                      onChange={(event) =>
+                        updateExpenseLine(index, "amount", event.target.value)
+                      }
+                      step="0.01"
+                      type="number"
+                      value={line.amount}
+                    />
+                  </label>
+                  <Button
+                    disabled={isLocked}
+                    onClick={() => removeExpenseLine(index)}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </DashboardSurfaceCard>
+            ))}
+          </div>
         </section>
 
         <section className="space-y-2">
@@ -457,109 +491,107 @@ export function BusinessProfitMigrationWorksheet({
             </TrendPill>
           </div>
 
-          <DashboardDataTable className="rounded-none">
-            <DashboardTable className="table-fixed text-xs">
-              <colgroup>
-                <col className="w-52" />
-                <col className="w-28" />
-                <col className="w-28" />
-                <col className="w-32" />
-                <col className="w-36" />
-              </colgroup>
-              <DashboardTableHead>
-                <DashboardTableHeaderCell>Member</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell>Joined</DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">
-                  Share at date
-                </DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">
-                  Business %
-                </DashboardTableHeaderCell>
-                <DashboardTableHeaderCell align="right">
-                  Dividend
-                </DashboardTableHeaderCell>
-              </DashboardTableHead>
-              <DashboardTableBody>
-                {worksheet.allocations.map((allocation) => {
-                  const percentageValue =
-                    allocationPercentages[allocation.memberId] ?? ""
-                  const dividendValue =
-                    allocationValues[allocation.memberId] ?? ""
-                  const computedDividend = roundCurrency(
-                    totals.shareableDividend *
-                      (parseAmount(percentageValue) / 100)
-                  )
-                  const computedPercentage =
-                    totals.shareableDividend > 0
-                      ? (parseAmount(dividendValue) /
-                          totals.shareableDividend) *
-                        100
-                      : 0
+          <div className="space-y-3">
+            {worksheet.allocations.map((allocation) => {
+              const percentageValue =
+                allocationPercentages[allocation.memberId] ?? ""
+              const dividendValue =
+                allocationValues[allocation.memberId] ?? ""
+              const computedDividend = roundCurrency(
+                totals.shareableDividend *
+                  (parseAmount(percentageValue) / 100)
+              )
+              const computedPercentage =
+                totals.shareableDividend > 0
+                  ? (parseAmount(dividendValue) / totals.shareableDividend) *
+                    100
+                  : 0
 
-                  return (
-                    <DashboardTableRow key={allocation.memberId}>
-                      <DashboardTableCell>
-                        <p className="font-medium text-foreground">
-                          {allocation.memberName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {allocation.memberNumber}
-                        </p>
-                      </DashboardTableCell>
-                      <DashboardTableCell>
+              return (
+                <DashboardSurfaceCard
+                  as="article"
+                  className="rounded-lg"
+                  key={allocation.memberId}
+                >
+                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_8rem_10rem_10rem_11rem] xl:items-center">
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {allocation.memberName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {allocation.memberNumber}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Joined</p>
+                      <p className="text-sm text-foreground">
                         {formatDate(allocation.joinedAt)}
-                      </DashboardTableCell>
-                      <DashboardTableCell align="right">
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Share at date
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
                         {formatCurrency(allocation.shareBalance)}
-                      </DashboardTableCell>
-                      <DashboardTableCell align="right">
-                        {allocationMode === "percentage" ? (
-                          <Input
-                            className="text-right"
-                            disabled={isLocked}
-                            max="100"
-                            min="0"
-                            name={`allocationPercent-${allocation.memberId}`}
-                            onChange={(event) =>
-                              setAllocationPercentages((values) => ({
-                                ...values,
-                                [allocation.memberId]: event.target.value,
-                              }))
-                            }
-                            step="0.0001"
-                            type="number"
-                            value={percentageValue}
-                          />
-                        ) : (
-                          `${computedPercentage.toFixed(4)}%`
-                        )}
-                      </DashboardTableCell>
-                      <DashboardTableCell align="right">
-                        {allocationMode === "value" ? (
-                          <CurrencyPrefixInput
-                            disabled={isLocked}
-                            min="0"
-                            name={`allocationValue-${allocation.memberId}`}
-                            onChange={(event) =>
-                              setAllocationValues((values) => ({
-                                ...values,
-                                [allocation.memberId]: event.target.value,
-                              }))
-                            }
-                            step="0.01"
-                            type="number"
-                            value={dividendValue}
-                          />
-                        ) : (
-                          formatCurrency(computedDividend)
-                        )}
-                      </DashboardTableCell>
-                    </DashboardTableRow>
-                  )
-                })}
-              </DashboardTableBody>
-            </DashboardTable>
-          </DashboardDataTable>
+                      </p>
+                    </div>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-foreground">
+                        Business %
+                      </span>
+                      {allocationMode === "percentage" ? (
+                        <Input
+                          disabled={isLocked}
+                          max="100"
+                          min="0"
+                          name={`allocationPercent-${allocation.memberId}`}
+                          onChange={(event) =>
+                            setAllocationPercentages((values) => ({
+                              ...values,
+                              [allocation.memberId]: event.target.value,
+                            }))
+                          }
+                          step="0.0001"
+                          type="number"
+                          value={percentageValue}
+                        />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {computedPercentage.toFixed(4)}%
+                        </p>
+                      )}
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-foreground">
+                        Dividend
+                      </span>
+                      {allocationMode === "value" ? (
+                        <CurrencyPrefixInput
+                          disabled={isLocked}
+                          min="0"
+                          name={`allocationValue-${allocation.memberId}`}
+                          onChange={(event) =>
+                            setAllocationValues((values) => ({
+                              ...values,
+                              [allocation.memberId]: event.target.value,
+                            }))
+                          }
+                          step="0.01"
+                          type="number"
+                          value={dividendValue}
+                        />
+                      ) : (
+                        <p className="text-sm font-medium text-foreground">
+                          {formatCurrency(computedDividend)}
+                        </p>
+                      )}
+                    </label>
+                  </div>
+                </DashboardSurfaceCard>
+              )
+            })}
+          </div>
         </section>
 
         <div className="sticky bottom-0 flex flex-col gap-3 border-t border-border bg-background/95 py-3 backdrop-blur md:flex-row md:items-center md:justify-between">

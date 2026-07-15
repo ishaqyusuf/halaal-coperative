@@ -1,113 +1,97 @@
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
-import {
-  MemberPaymentReceiptsView,
-  PaymentReceiptsView,
-} from "@/components/payment-receipts-view"
+import type { SearchParams } from "nuqs"
+import { PaymentReceiptsPageView } from "@/components/payment-receipts-page-view"
+import { loadPaymentReceiptFilterParams } from "@/hooks/use-payment-receipt-filter-params"
+import { loadSortParams } from "@/hooks/use-sort-params"
 import { loadPaymentReceiptsPageData } from "@/lib/payment-receipts/load-payment-receipts-page"
+import {
+  getQueryClient,
+  getServerCaller,
+  HydrateClient,
+  trpc,
+} from "@/trpc/server"
+import { getInitialTableSettings } from "@/utils/columns"
 
-export default async function PaymentReceiptsPage() {
-  const data = await loadPaymentReceiptsPageData()
+type PaymentReceiptSortField =
+  | "memberName"
+  | "paidAt"
+  | "paymentReference"
+  | "status"
+  | "submittedAt"
+  | "totalAmount"
 
-  if (data.state === "restricted") {
-    return (
-      <WorkspacePageShell
-        description="Receipt review is available to cooperative staff."
-        eyebrow="Payments"
-        title="Payment receipts"
-      >
-        <WorkspaceEmptyState
-          body="Your current role does not include access to receipt review."
-          title="Receipt workspace unavailable"
-        />
-      </WorkspacePageShell>
-    )
+function getPaymentReceiptSort(
+  sort?: string[] | null
+): [PaymentReceiptSortField, "asc" | "desc"] | null {
+  if (!sort || sort.length !== 2) return null
+
+  const field = sort[0]
+  const direction = sort[1]
+  if (!field || !direction) return null
+
+  const fieldMap: Record<string, PaymentReceiptSortField> = {
+    amount: "totalAmount",
+    paidAt: "paidAt",
+    receipt: "memberName",
+    reference: "paymentReference",
+    status: "status",
+    submittedAt: "submittedAt",
+    totalAmount: "totalAmount",
   }
+  const sortField = fieldMap[field]
 
-  if (data.state === "unavailable") {
-    return (
-      <WorkspacePageShell
-        description="Stage transfer proofs and review allocation before posting."
-        eyebrow="Payments"
-        title="Payment receipts"
-      >
-        <WorkspaceEmptyState
-          body="Once the database-backed environment is active, receipt submissions and review status will appear here."
-          title="Receipt review is waiting for the database runtime."
-        />
-      </WorkspacePageShell>
-    )
+  if (!sortField) return null
+  if (direction !== "asc" && direction !== "desc") return null
+
+  return [sortField, direction]
+}
+
+export default async function PaymentReceiptsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const resolvedSearchParams = await searchParams
+  const filter = loadPaymentReceiptFilterParams(resolvedSearchParams)
+  const { sort } = loadSortParams(resolvedSearchParams)
+  const [data, initialSettings, caller] = await Promise.all([
+    loadPaymentReceiptsPageData(),
+    getInitialTableSettings("paymentReceipts"),
+    getServerCaller(),
+  ])
+  const queryInput = {
+    q: filter.q || undefined,
+    sort: getPaymentReceiptSort(sort),
+    status:
+      filter.status === "approved" ||
+      filter.status === "correction_requested" ||
+      filter.status === "rejected" ||
+      filter.status === "submitted" ||
+      filter.status === "under_review"
+        ? filter.status
+        : undefined,
   }
+  const listOptions = trpc.paymentReceipts.list.infiniteQueryOptions(
+    queryInput,
+    {
+      getNextPageParam: ({ meta }) => meta?.cursor,
+    }
+  )
 
-  if (data.state === "member-sign-in-required") {
-    return (
-      <WorkspacePageShell
-        description="Submit transfer proofs and track finance review status."
-        eyebrow="Payments"
-        title="My payment receipts"
-      >
-        <WorkspaceEmptyState
-          body="Sign in with your member account to submit and track payment receipts."
-          title="Member sign-in required."
-        />
-      </WorkspacePageShell>
-    )
-  }
+  if (data.state === "staff-ready" || data.state === "member-ready") {
+    const initialPage = await caller.paymentReceipts.list(queryInput)
 
-  if (data.state === "member-profile-missing") {
-    return (
-      <WorkspacePageShell
-        description="Submit transfer proofs and track finance review status."
-        eyebrow="Payments"
-        title="My payment receipts"
-      >
-        <WorkspaceEmptyState
-          body="Your user account is not linked to a member profile in this cooperative."
-          title="Member profile not linked."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-ready") {
-    return (
-      <WorkspacePageShell
-        description="Submit transfer proofs and track finance review status."
-        eyebrow="Payments"
-        title="My payment receipts"
-      >
-        <MemberPaymentReceiptsView
-          canCreateReceipt={data.canCreateReceipt}
-          categoryOptions={data.categoryOptions}
-          commitmentPlans={data.commitmentPlans}
-          foodPurchaseApplications={data.foodPurchaseApplications}
-          loans={data.loans}
-          member={data.member}
-          procurementSchedules={data.procurementSchedules}
-          projectFinancingRequests={data.projectFinancingRequests}
-          receipts={data.receipts}
-          summary={data.summary}
-        />
-      </WorkspacePageShell>
-    )
+    getQueryClient().setQueryData(listOptions.queryKey, {
+      pageParams: [listOptions.initialPageParam],
+      pages: [initialPage],
+    })
   }
 
   return (
-    <WorkspacePageShell
-      description="Review staged transfer proofs, allocate payments by category and period, then post supported savings and loan-servicing rows through the existing ledgers."
-      eyebrow="Payments"
-      title="Payment receipts"
-    >
-      <PaymentReceiptsView
-        categoryOptions={data.categoryOptions}
-        commitmentPlans={data.commitmentPlans}
-        foodPurchaseApplications={data.foodPurchaseApplications}
-        loans={data.loans}
-        members={data.members}
-        procurementSchedules={data.procurementSchedules}
-        projectFinancingRequests={data.projectFinancingRequests}
-        receipts={data.receipts}
-        summary={data.summary}
+    <HydrateClient>
+      <PaymentReceiptsPageView
+        data={data}
+        paymentReceiptsInitialSettings={initialSettings}
       />
-    </WorkspacePageShell>
+    </HydrateClient>
   )
 }

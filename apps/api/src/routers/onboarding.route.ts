@@ -1,10 +1,53 @@
-import { createTenantWorkspaceBootstrap, getTenantOnboardingState } from "@halaalvest/db"
+import {
+  createTenantWorkspaceBootstrap,
+  getTenantOnboardingState,
+  listMemberOnboardingRequests,
+} from "@halaalvest/db"
 import { isCooperativeCountry } from "@halaalvest/domain"
 import { z } from "zod"
 
 import { authenticatedProcedure, createTRPCRouter, tenantProcedure } from "../lib.trpc"
+import { listMembershipApprovalsSchema } from "../schemas/onboarding"
 
 export const onboardingRouter = createTRPCRouter({
+  membershipApprovals: tenantProcedure
+    .input(listMembershipApprovalsSchema)
+    .query(async ({ ctx, input }) => {
+      const pageSize = input?.pageSize ?? 50
+      const requests = await listMemberOnboardingRequests(
+        ctx.tenant.current.id,
+        {
+          cursor: input?.cursor ?? undefined,
+          pageSize: pageSize + 1,
+          search: input?.q || undefined,
+          sort: input?.sort ?? null,
+          status: input?.status ?? undefined,
+        }
+      )
+      const items = requests.items.slice(0, pageSize)
+
+      return {
+        data: items,
+        meta: {
+          approvedCount: requests.items.filter(
+            (item) => item.status === "approved"
+          ).length,
+          awaitingVerificationCount: requests.items.filter(
+            (item) => item.status === "pending_email_verification"
+          ).length,
+          cursor:
+            requests.items.length > pageSize ? items.at(-1)?.id : undefined,
+          pendingApprovalCount: requests.items.filter(
+            (item) => item.status === "pending_approval"
+          ).length,
+          rejectedCount: requests.items.filter(
+            (item) => item.status === "rejected"
+          ).length,
+          total: requests.total,
+        },
+      }
+    }),
+
   status: tenantProcedure.query(async ({ ctx }) => {
     return getTenantOnboardingState(ctx.tenant.current.id)
   }),

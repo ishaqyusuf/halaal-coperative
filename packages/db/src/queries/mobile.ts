@@ -2666,309 +2666,316 @@ async function buildMemberMore(input: {
       name: input.member.fullName,
       status: input.member.status,
     },
-    sections: ([
-      {
-        icon: "UserRound",
-        key: "profile",
-        rows: [
-          moreRow({
-            detail: `${humanizeStatus(input.member.status) ?? "Member"} membership`,
-            format: null,
-            key: "member-number",
-            label: input.member.memberNumber,
-            status: humanizeStatus(input.member.kycStatus),
-            value: null,
-          }),
-          moreRow({
-            detail:
-              input.detail.member.documents.length > 0
-                ? `${verifiedDocuments} verified document(s)`
-                : "No uploaded member documents",
-            format: "count",
-            key: "documents",
-            label: "Documents",
-            status:
-              input.detail.member.documents.length > 0
-                ? "Available"
-                : "Needs upload",
-            value: input.detail.member.documents.length,
-          }),
-        ],
-        title: "Profile",
-      },
-      {
-        icon: "FileText",
-        key: "statement",
-        rows: [
-          moreRow({
-            detail:
-              (summary?.contributionsCount ?? 0) > 0
-                ? `${summary?.contributionsCount ?? 0} posted contribution entries`
-                : "No posted contribution entries",
-            format: "currency",
-            key: "savings",
-            label: "Savings snapshot",
-            status: latestDateLabel(summary?.lastContributionAt),
-            value: summary?.totalSavingsSnapshot ?? 0,
-          }),
-          moreRow({
-            detail:
-              (summary?.activeLoanCount ?? 0) > 0
-                ? `${summary?.activeLoanCount ?? 0} active financing record(s)`
-                : "No active financing",
-            format: "currency",
-            key: "financing",
-            label: "Financing exposure",
-            status: latestDateLabel(summary?.lastRepaymentAt),
-            value: summary?.totalOutstandingPrincipal ?? 0,
-          }),
-          moreRow({
-            detail:
-              (summary?.dividendAllocationCount ?? 0) > 0
-                ? `${summary?.dividendAllocationCount ?? 0} published allocation(s)`
-                : "No published dividend allocations",
-            format: "currency",
-            key: "dividends",
-            label: "Published dividends",
-            status: latestDateLabel(summary?.lastDividendAllocatedAt),
-            value: summary?.totalDividendAllocations ?? 0,
-          }),
-        ],
-        title: "Statement",
-      },
-      {
-        icon: "ReceiptText",
-        key: "receipts",
-        rows: [
-          moreRow({
-            detail:
-              receiptSummary.pendingReviewReceipts > 0
-                ? "Submitted or under review"
-                : "No receipts waiting on finance",
-            format: "count",
-            key: "pending-receipts",
-            label: "Pending review",
-            status: receiptSummary.pendingReviewReceipts > 0 ? "Open" : "Clear",
-            value: receiptSummary.pendingReviewReceipts,
-          }),
-          moreRow({
-            detail:
-              receiptSummary.correctionRequestedReceipts > 0
-                ? "Finance requested a correction"
-                : "No correction requests",
-            format: "count",
-            key: "correction-receipts",
-            label: "Corrections requested",
-            status:
-              receiptSummary.correctionRequestedReceipts > 0
-                ? "Needs action"
-                : "Clear",
-            value: receiptSummary.correctionRequestedReceipts,
-          }),
-          ...(latestReceipt
-            ? [
-                moreRow({
-                  detail: latestReceipt.paymentReference
-                    ? `Ref ${latestReceipt.paymentReference}`
-                    : `Submitted ${formatDateLabel(latestReceipt.submittedAt)}`,
-                  format: "currency" as const,
-                  key: `receipt-${latestReceipt.id}`,
-                  label: "Latest receipt",
-                  status: humanizeStatus(latestReceipt.status),
-                  value: latestReceipt.totalAmount,
-                }),
-              ]
-            : []),
-        ],
-        title: "Receipts",
-      },
-      {
-        icon: "PackageSearch",
-        key: "procurement",
-        rows: [
-          moreRow({
-            detail:
-              pendingProcurementCount > 0
-                ? "Waiting for cooperative review"
-                : "No procurement requests waiting on review",
-            format: "count",
-            key: "pending-procurement",
-            label: "Pending procurement",
-            status: pendingProcurementCount > 0 ? "Open" : "Clear",
-            value: pendingProcurementCount,
-          }),
-          ...(latestProcurementRequest
-            ? [
-                moreRow({
-                  detail: latestProcurementRequest.vendorName
-                    ? `${latestProcurementRequest.itemName} - ${latestProcurementRequest.vendorName}`
-                    : latestProcurementRequest.itemName,
-                  format: "currency" as const,
-                  key: `procurement-${latestProcurementRequest.id}`,
-                  label: "Latest request",
-                  status: humanizeStatus(latestProcurementRequest.status),
-                  value: latestProcurementRequest.requestedCost,
-                }),
-              ]
-            : []),
-        ],
-        title: "Procurement",
-      },
-      {
-        icon: "BriefcaseBusiness",
-        key: "projectFinancing",
-        rows: [
-          moreRow({
-            detail:
-              pendingProjectFinancingCount > 0
-                ? "Waiting for finance review"
-                : "No project financing requests waiting on review",
-            format: "count",
-            key: "pending-project-financing",
-            label: "Pending project requests",
-            status: pendingProjectFinancingCount > 0 ? "Open" : "Clear",
-            value: pendingProjectFinancingCount,
-          }),
-          ...(latestProjectFinancingRequest
-            ? [
-                moreRow({
-                  detail:
-                    latestProjectFinancingRequest.projectPurpose ??
-                    humanizeStatus(
-                      latestProjectFinancingRequest.proposedStructure
-                    ) ??
-                    "Project financing request",
-                  format: "currency" as const,
-                  key: `project-financing-${latestProjectFinancingRequest.id}`,
-                  label: latestProjectFinancingRequest.businessName,
-                  status: humanizeStatus(latestProjectFinancingRequest.status),
-                  value: latestProjectFinancingRequest.requestedAmount,
-                }),
-              ]
-            : []),
-        ],
-        title: "Project financing",
-      },
-      {
-        icon: "ShoppingBasket",
-        key: "foodPurchase",
-        rows: [
-          moreRow({
-            detail:
-              foodPurchaseCycles.length > 0
-                ? "Monthly purchase cycle accepting applications"
-                : "No open Foodstuff Purchase cycle",
-            format: "count",
-            key: "open-food-purchase-cycles",
-            label: "Open cycles",
-            status: foodPurchaseCycles.length > 0 ? "Open" : "Closed",
-            value: foodPurchaseCycles.length,
-          }),
-          moreRow({
-            detail:
-              pendingFoodPurchaseCount > 0
-                ? "Waiting for committee review"
-                : "No pending Foodstuff Purchase applications",
-            format: "count",
-            key: "pending-food-purchase",
-            label: "Pending applications",
-            status: pendingFoodPurchaseCount > 0 ? "Open" : "Clear",
-            value: pendingFoodPurchaseCount,
-          }),
-          ...(latestFoodPurchaseApplication
-            ? [
-                moreRow({
-                  detail: latestFoodPurchaseApplication.itemDescription
-                    ? latestFoodPurchaseApplication.itemDescription
-                    : `Cycle ${formatDateLabel(latestFoodPurchaseApplication.cycle.periodMonth)}`,
-                  format: "currency" as const,
-                  key: `food-purchase-${latestFoodPurchaseApplication.id}`,
-                  label: "Latest application",
-                  status: humanizeStatus(latestFoodPurchaseApplication.status),
-                  value: latestFoodPurchaseApplication.requestedAmount,
-                }),
-              ]
-            : []),
-        ],
-        title: "Foodstuff Purchase",
-      },
-      {
-        icon: "ShieldCheck",
-        key: "guarantors",
-        rows: [
-          moreRow({
-            detail:
-              pendingGuarantorCount > 0
-                ? "Waiting for your response"
-                : "No pending guarantor response",
-            format: "count",
-            key: "pending-guarantors",
-            label: "Pending guarantor requests",
-            status: pendingGuarantorCount > 0 ? "Needs action" : "Clear",
-            value: pendingGuarantorCount,
-          }),
-          ...(latestGuarantorApproval
-            ? [
-                moreRow({
-                  detail: `${latestGuarantorApproval.loanRequest.member.fullName} - ${latestGuarantorApproval.loanRequest.loanProduct.name}`,
-                  format: "currency" as const,
-                  key: `guarantor-${latestGuarantorApproval.id}`,
-                  label: "Latest request",
-                  status: humanizeStatus(latestGuarantorApproval.status),
-                  value: Number(
-                    latestGuarantorApproval.loanRequest.requestedAmount ?? 0
-                  ),
-                }),
-              ]
-            : []),
-        ],
-        title: "Guarantor approvals",
-      },
-      {
-        icon: "Headphones",
-        key: "support",
-        rows: [
-          moreRow({
-            detail:
-              supportSummary.openCases > 0
-                ? "Open, in progress, or waiting on member"
-                : "No open support cases",
-            format: "count",
-            key: "open-support",
-            label: "Open cases",
-            status: supportSummary.openCases > 0 ? "Open" : "Clear",
-            value: supportSummary.openCases,
-          }),
-          moreRow({
-            detail:
-              supportSummary.highPriorityOpenCases > 0
-                ? "High or urgent priority"
-                : "No high priority open cases",
-            format: "count",
-            key: "priority-support",
-            label: "Priority cases",
-            status:
-              supportSummary.highPriorityOpenCases > 0
-                ? "Needs attention"
-                : "Clear",
-            value: supportSummary.highPriorityOpenCases,
-          }),
-          ...(latestSupportCase
-            ? [
-                moreRow({
-                  detail: latestSupportCase.subject,
-                  format: null,
-                  key: `support-${latestSupportCase.id}`,
-                  label: "Latest support case",
-                  status: humanizeStatus(latestSupportCase.status),
-                  value: null,
-                }),
-              ]
-            : []),
-        ],
-        title: "Support",
-      },
-    ] satisfies MobileMemberMoreSection[]).filter((section) => {
+    sections: (
+      [
+        {
+          icon: "UserRound",
+          key: "profile",
+          rows: [
+            moreRow({
+              detail: `${humanizeStatus(input.member.status) ?? "Member"} membership`,
+              format: null,
+              key: "member-number",
+              label: input.member.memberNumber,
+              status: humanizeStatus(input.member.kycStatus),
+              value: null,
+            }),
+            moreRow({
+              detail:
+                input.detail.member.documents.length > 0
+                  ? `${verifiedDocuments} verified document(s)`
+                  : "No uploaded member documents",
+              format: "count",
+              key: "documents",
+              label: "Documents",
+              status:
+                input.detail.member.documents.length > 0
+                  ? "Available"
+                  : "Needs upload",
+              value: input.detail.member.documents.length,
+            }),
+          ],
+          title: "Profile",
+        },
+        {
+          icon: "FileText",
+          key: "statement",
+          rows: [
+            moreRow({
+              detail:
+                (summary?.contributionsCount ?? 0) > 0
+                  ? `${summary?.contributionsCount ?? 0} posted contribution entries`
+                  : "No posted contribution entries",
+              format: "currency",
+              key: "savings",
+              label: "Savings snapshot",
+              status: latestDateLabel(summary?.lastContributionAt),
+              value: summary?.totalSavingsSnapshot ?? 0,
+            }),
+            moreRow({
+              detail:
+                (summary?.activeLoanCount ?? 0) > 0
+                  ? `${summary?.activeLoanCount ?? 0} active financing record(s)`
+                  : "No active financing",
+              format: "currency",
+              key: "financing",
+              label: "Financing exposure",
+              status: latestDateLabel(summary?.lastRepaymentAt),
+              value: summary?.totalOutstandingPrincipal ?? 0,
+            }),
+            moreRow({
+              detail:
+                (summary?.dividendAllocationCount ?? 0) > 0
+                  ? `${summary?.dividendAllocationCount ?? 0} published allocation(s)`
+                  : "No published dividend allocations",
+              format: "currency",
+              key: "dividends",
+              label: "Published dividends",
+              status: latestDateLabel(summary?.lastDividendAllocatedAt),
+              value: summary?.totalDividendAllocations ?? 0,
+            }),
+          ],
+          title: "Statement",
+        },
+        {
+          icon: "ReceiptText",
+          key: "receipts",
+          rows: [
+            moreRow({
+              detail:
+                receiptSummary.pendingReviewReceipts > 0
+                  ? "Submitted or under review"
+                  : "No receipts waiting on finance",
+              format: "count",
+              key: "pending-receipts",
+              label: "Pending review",
+              status:
+                receiptSummary.pendingReviewReceipts > 0 ? "Open" : "Clear",
+              value: receiptSummary.pendingReviewReceipts,
+            }),
+            moreRow({
+              detail:
+                receiptSummary.correctionRequestedReceipts > 0
+                  ? "Finance requested a correction"
+                  : "No correction requests",
+              format: "count",
+              key: "correction-receipts",
+              label: "Corrections requested",
+              status:
+                receiptSummary.correctionRequestedReceipts > 0
+                  ? "Needs action"
+                  : "Clear",
+              value: receiptSummary.correctionRequestedReceipts,
+            }),
+            ...(latestReceipt
+              ? [
+                  moreRow({
+                    detail: latestReceipt.paymentReference
+                      ? `Ref ${latestReceipt.paymentReference}`
+                      : `Submitted ${formatDateLabel(latestReceipt.submittedAt)}`,
+                    format: "currency" as const,
+                    key: `receipt-${latestReceipt.id}`,
+                    label: "Latest receipt",
+                    status: humanizeStatus(latestReceipt.status),
+                    value: latestReceipt.totalAmount,
+                  }),
+                ]
+              : []),
+          ],
+          title: "Receipts",
+        },
+        {
+          icon: "PackageSearch",
+          key: "procurement",
+          rows: [
+            moreRow({
+              detail:
+                pendingProcurementCount > 0
+                  ? "Waiting for cooperative review"
+                  : "No procurement requests waiting on review",
+              format: "count",
+              key: "pending-procurement",
+              label: "Pending procurement",
+              status: pendingProcurementCount > 0 ? "Open" : "Clear",
+              value: pendingProcurementCount,
+            }),
+            ...(latestProcurementRequest
+              ? [
+                  moreRow({
+                    detail: latestProcurementRequest.vendorName
+                      ? `${latestProcurementRequest.itemName} - ${latestProcurementRequest.vendorName}`
+                      : latestProcurementRequest.itemName,
+                    format: "currency" as const,
+                    key: `procurement-${latestProcurementRequest.id}`,
+                    label: "Latest request",
+                    status: humanizeStatus(latestProcurementRequest.status),
+                    value: latestProcurementRequest.requestedCost,
+                  }),
+                ]
+              : []),
+          ],
+          title: "Procurement",
+        },
+        {
+          icon: "BriefcaseBusiness",
+          key: "projectFinancing",
+          rows: [
+            moreRow({
+              detail:
+                pendingProjectFinancingCount > 0
+                  ? "Waiting for finance review"
+                  : "No project financing requests waiting on review",
+              format: "count",
+              key: "pending-project-financing",
+              label: "Pending project requests",
+              status: pendingProjectFinancingCount > 0 ? "Open" : "Clear",
+              value: pendingProjectFinancingCount,
+            }),
+            ...(latestProjectFinancingRequest
+              ? [
+                  moreRow({
+                    detail:
+                      latestProjectFinancingRequest.projectPurpose ??
+                      humanizeStatus(
+                        latestProjectFinancingRequest.proposedStructure
+                      ) ??
+                      "Project financing request",
+                    format: "currency" as const,
+                    key: `project-financing-${latestProjectFinancingRequest.id}`,
+                    label: latestProjectFinancingRequest.businessName,
+                    status: humanizeStatus(
+                      latestProjectFinancingRequest.status
+                    ),
+                    value: latestProjectFinancingRequest.requestedAmount,
+                  }),
+                ]
+              : []),
+          ],
+          title: "Project financing",
+        },
+        {
+          icon: "ShoppingBasket",
+          key: "foodPurchase",
+          rows: [
+            moreRow({
+              detail:
+                foodPurchaseCycles.length > 0
+                  ? "Monthly purchase cycle accepting applications"
+                  : "No open Foodstuff Purchase cycle",
+              format: "count",
+              key: "open-food-purchase-cycles",
+              label: "Open cycles",
+              status: foodPurchaseCycles.length > 0 ? "Open" : "Closed",
+              value: foodPurchaseCycles.length,
+            }),
+            moreRow({
+              detail:
+                pendingFoodPurchaseCount > 0
+                  ? "Waiting for committee review"
+                  : "No pending Foodstuff Purchase applications",
+              format: "count",
+              key: "pending-food-purchase",
+              label: "Pending applications",
+              status: pendingFoodPurchaseCount > 0 ? "Open" : "Clear",
+              value: pendingFoodPurchaseCount,
+            }),
+            ...(latestFoodPurchaseApplication
+              ? [
+                  moreRow({
+                    detail: latestFoodPurchaseApplication.itemDescription
+                      ? latestFoodPurchaseApplication.itemDescription
+                      : `Cycle ${formatDateLabel(latestFoodPurchaseApplication.cycle.periodMonth)}`,
+                    format: "currency" as const,
+                    key: `food-purchase-${latestFoodPurchaseApplication.id}`,
+                    label: "Latest application",
+                    status: humanizeStatus(
+                      latestFoodPurchaseApplication.status
+                    ),
+                    value: latestFoodPurchaseApplication.requestedAmount,
+                  }),
+                ]
+              : []),
+          ],
+          title: "Foodstuff Purchase",
+        },
+        {
+          icon: "ShieldCheck",
+          key: "guarantors",
+          rows: [
+            moreRow({
+              detail:
+                pendingGuarantorCount > 0
+                  ? "Waiting for your response"
+                  : "No pending guarantor response",
+              format: "count",
+              key: "pending-guarantors",
+              label: "Pending guarantor requests",
+              status: pendingGuarantorCount > 0 ? "Needs action" : "Clear",
+              value: pendingGuarantorCount,
+            }),
+            ...(latestGuarantorApproval
+              ? [
+                  moreRow({
+                    detail: `${latestGuarantorApproval.loanRequest.member.fullName} - ${latestGuarantorApproval.loanRequest.loanProduct.name}`,
+                    format: "currency" as const,
+                    key: `guarantor-${latestGuarantorApproval.id}`,
+                    label: "Latest request",
+                    status: humanizeStatus(latestGuarantorApproval.status),
+                    value: Number(
+                      latestGuarantorApproval.loanRequest.requestedAmount ?? 0
+                    ),
+                  }),
+                ]
+              : []),
+          ],
+          title: "Guarantor approvals",
+        },
+        {
+          icon: "Headphones",
+          key: "support",
+          rows: [
+            moreRow({
+              detail:
+                supportSummary.openCases > 0
+                  ? "Open, in progress, or waiting on member"
+                  : "No open support cases",
+              format: "count",
+              key: "open-support",
+              label: "Open cases",
+              status: supportSummary.openCases > 0 ? "Open" : "Clear",
+              value: supportSummary.openCases,
+            }),
+            moreRow({
+              detail:
+                supportSummary.highPriorityOpenCases > 0
+                  ? "High or urgent priority"
+                  : "No high priority open cases",
+              format: "count",
+              key: "priority-support",
+              label: "Priority cases",
+              status:
+                supportSummary.highPriorityOpenCases > 0
+                  ? "Needs attention"
+                  : "Clear",
+              value: supportSummary.highPriorityOpenCases,
+            }),
+            ...(latestSupportCase
+              ? [
+                  moreRow({
+                    detail: latestSupportCase.subject,
+                    format: null,
+                    key: `support-${latestSupportCase.id}`,
+                    label: "Latest support case",
+                    status: humanizeStatus(latestSupportCase.status),
+                    value: null,
+                  }),
+                ]
+              : []),
+          ],
+          title: "Support",
+        },
+      ] satisfies MobileMemberMoreSection[]
+    ).filter((section) => {
       if (section.key === "receipts") {
         return (
           operationProfile.services.payment_receipts.shouldShowInMemberNav ||
@@ -3039,7 +3046,8 @@ export async function getMobileMemberReceipts(input: {
   ])
 
   return {
-    canCreateReceipt: operationProfile.services.payment_receipts.canMemberCreate,
+    canCreateReceipt:
+      operationProfile.services.payment_receipts.canMemberCreate,
     generatedAt: new Date().toISOString(),
     member: {
       id: member.id,
@@ -3672,10 +3680,15 @@ export async function createMobileMemberReceipt(input: {
     throw new Error("Member profile needs linking before submitting receipts.")
   }
 
-  const operationProfile = await getTenantOperationProfile(input.tenantId, prisma)
+  const operationProfile = await getTenantOperationProfile(
+    input.tenantId,
+    prisma
+  )
 
   if (!operationProfile.services.payment_receipts.canMemberCreate) {
-    throw new Error("Payment receipt self-service is not enabled for this cooperative.")
+    throw new Error(
+      "Payment receipt self-service is not enabled for this cooperative."
+    )
   }
 
   const receipt = await createMemberPaymentReceipt(
@@ -5144,17 +5157,54 @@ function getMobileMemberHomeServices(input: {
   supportRecords: number
 }) {
   const services: MobileMemberHome["services"] = [
-    { icon: "BadgeCheck", key: "commitments", label: "Commitments", tone: "accent" },
+    {
+      icon: "BadgeCheck",
+      key: "commitments",
+      label: "Commitments",
+      tone: "accent",
+    },
     { icon: "Wallet", key: "savings", label: "Savings", tone: "success" },
-    { icon: "HandCoins", key: "financing", label: "Financing", tone: "primary" },
+    {
+      icon: "HandCoins",
+      key: "financing",
+      label: "Financing",
+      tone: "primary",
+    },
     { icon: "PieChart", key: "shares", label: "Shares", tone: "accent" },
-    { icon: "FileText", key: "statements", label: "Statements", tone: "primary" },
-    { icon: "FolderOpen", key: "documents", label: "Documents", tone: "success" },
-    { icon: "Bell", key: "notifications", label: "Notifications", tone: "accent" },
+    {
+      icon: "FileText",
+      key: "statements",
+      label: "Statements",
+      tone: "primary",
+    },
+    {
+      icon: "Bell",
+      key: "notifications",
+      label: "Notifications",
+      tone: "accent",
+    },
+    { icon: "RefreshCw", key: "updates", label: "Updates", tone: "accent" },
+    {
+      icon: "BriefcaseBusiness",
+      key: "projectFinancing",
+      label: "Project Financing",
+      tone: "primary",
+    },
+    {
+      icon: "ShieldCheck",
+      key: "guarantors",
+      label: "Guarantor approvals",
+      tone: "success",
+    },
   ]
 
   if (!input.operationProfile) {
-    services.push({ icon: "Headphones", key: "support", label: "Support", tone: "primary" })
+    services.push({
+      icon: "Headphones",
+      key: "support",
+      label: "Support",
+      tone: "primary",
+    })
 
     return services
   }
@@ -5165,28 +5215,48 @@ function getMobileMemberHomeServices(input: {
     profileServices.payment_receipts.shouldShowInMemberNav ||
     input.receiptRecords > 0
   ) {
-    services.push({ icon: "ReceiptText", key: "receipts", label: "Receipts", tone: "primary" })
+    services.push({
+      icon: "ReceiptText",
+      key: "receipts",
+      label: "Receipts",
+      tone: "primary",
+    })
   }
 
   if (
     profileServices.procurement.shouldShowInMemberNav ||
     input.procurementRecords > 0
   ) {
-    services.push({ icon: "PackageSearch", key: "procurement", label: "Procurement", tone: "accent" })
+    services.push({
+      icon: "PackageSearch",
+      key: "procurement",
+      label: "Procurement",
+      tone: "accent",
+    })
   }
 
   if (
     profileServices.food_purchase.shouldShowInMemberNav ||
     input.foodPurchaseRecords > 0
   ) {
-    services.push({ icon: "ShoppingBasket", key: "foodPurchase", label: "Foodstuff", tone: "success" })
+    services.push({
+      icon: "ShoppingBasket",
+      key: "foodPurchase",
+      label: "Foodstuff Purchase",
+      tone: "success",
+    })
   }
 
   if (
     profileServices.support_cases.shouldShowInMemberNav ||
     input.supportRecords > 0
   ) {
-    services.push({ icon: "Headphones", key: "support", label: "Support", tone: "primary" })
+    services.push({
+      icon: "Headphones",
+      key: "support",
+      label: "Support",
+      tone: "primary",
+    })
   }
 
   return services
@@ -5210,27 +5280,37 @@ export async function getMobileMemberHome(input: {
 
   const summaries = await listMemberStatementSummaries(input.tenantId, prisma)
   const summary = summaries.find((item) => item.memberId === member.id) ?? null
-  const [operationProfile, receipts, procurementRequests, foodPurchaseApplications, supportCases] =
-    await Promise.all([
-      getTenantOperationProfile(input.tenantId, prisma),
-      listMemberPaymentReceipts(
-        input.tenantId,
-        { limit: 1, memberId: member.id },
-        prisma
-      ),
-      listProcurementRequests(
-        { limit: 1, memberId: member.id, tenantId: input.tenantId },
-        prisma
-      ),
-      listFoodPurchaseApplications(
-        { limit: 1, memberId: member.id, tenantId: input.tenantId },
-        prisma
-      ),
-      listSupportCases(
-        { limit: 1, memberId: member.id, tenantId: input.tenantId },
-        prisma
-      ),
-    ])
+  const [
+    operationProfile,
+    receipts,
+    procurementRequests,
+    foodPurchaseApplications,
+    supportCases,
+    shareBalances,
+  ] = await Promise.all([
+    getTenantOperationProfile(input.tenantId, prisma),
+    listMemberPaymentReceipts(
+      input.tenantId,
+      { limit: 1, memberId: member.id },
+      prisma
+    ),
+    listProcurementRequests(
+      { limit: 1, memberId: member.id, tenantId: input.tenantId },
+      prisma
+    ),
+    listFoodPurchaseApplications(
+      { limit: 1, memberId: member.id, tenantId: input.tenantId },
+      prisma
+    ),
+    listSupportCases(
+      { limit: 1, memberId: member.id, tenantId: input.tenantId },
+      prisma
+    ),
+    getMemberShareBalancesAtDate(input.tenantId, new Date(), prisma),
+  ])
+  const shareCapital =
+    shareBalances.find((balance) => balance.memberId === member.id)
+      ?.shareBalance ?? 0
   const readiness = getReadiness({
     kycStatus: member.kycStatus,
     memberStatus: member.status,
@@ -5299,8 +5379,18 @@ export async function getMobileMemberHome(input: {
             : "No posted contribution entries",
         format: "currency",
         key: "savings",
-        label: "Savings",
+        label: "Savings total",
         value: summary?.totalSavingsSnapshot ?? 0,
+      },
+      {
+        detail:
+          (summary?.totalExtraSavingsContributions ?? 0) > 0
+            ? "Voluntary savings posted"
+            : "No special savings posted",
+        format: "currency",
+        key: "special-savings",
+        label: "Special savings",
+        value: summary?.totalExtraSavingsContributions ?? 0,
       },
       {
         detail:
@@ -5309,8 +5399,18 @@ export async function getMobileMemberHome(input: {
             : "No active financing",
         format: "currency",
         key: "financing",
-        label: "Financing",
+        label: "Financing exposure",
         value: summary?.totalOutstandingPrincipal ?? 0,
+      },
+      {
+        detail:
+          shareCapital > 0
+            ? "Ledger balance as of today"
+            : "No share capital posted",
+        format: "currency",
+        key: "share-capital",
+        label: "Share capital",
+        value: shareCapital,
       },
     ],
   }
@@ -5452,7 +5552,7 @@ export async function getMobileAdminOverview(
   ])
   const topQueue = summary.actionQueue
     .filter((item) => item.count > 0)
-    .slice(0, 5)
+    .slice(0, 8)
   const openSupportCases = supportCases
     .filter((supportCase) =>
       ["open", "in_progress", "waiting_on_member"].includes(supportCase.status)

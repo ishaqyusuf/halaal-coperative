@@ -1,6 +1,10 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
+import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -80,6 +84,7 @@ export function SupportScreen() {
   const [subject, setSubject] = useState("")
   const [description, setDescription] = useState("")
   const [moneyImpactRequested, setMoneyImpactRequested] = useState(false)
+  const [isReviewingSubmit, setIsReviewingSubmit] = useState(false)
   const canUseServerSupport = Boolean(
     profile?.role === "member" &&
     profile?.token &&
@@ -149,6 +154,28 @@ export function SupportScreen() {
   const canReply = Boolean(
     replyCaseId && replyMessage.trim().length >= 2 && !hasStaleSupport
   )
+  const hasSupportDraft = Boolean(
+    subject.trim() ||
+    description.trim() ||
+    moneyImpactRequested ||
+    replyMessage.trim()
+  )
+  const reviewRows = [
+    {
+      detail:
+        supportCategories.find((item) => item.value === category)?.label ??
+        "Support",
+      icon: "Headphones",
+      label: subject.trim() || "Support case",
+      value: moneyImpactRequested ? "Finance review" : "General",
+    },
+    {
+      detail: "Support can route review, not silently change balances.",
+      icon: "BadgeDollarSign",
+      label: "Money impact",
+      value: moneyImpactRequested ? "Requested" : "Not requested",
+    },
+  ]
 
   const loadSupport = useCallback(() => {
     let mounted = true
@@ -214,6 +241,7 @@ export function SupportScreen() {
       setDescription("")
       setMoneyImpactRequested(false)
       setSuccess("Support case submitted.")
+      setIsReviewingSubmit(false)
       loadSupport()
     } catch {
       setError("Support case could not be submitted.")
@@ -291,6 +319,10 @@ export function SupportScreen() {
 
             <SectionCard icon="MessageCirclePlus" title="New support case">
               <View className="gap-3">
+                <FormStateBanner
+                  hasDraft={hasSupportDraft}
+                  isStale={hasStaleSupport}
+                />
                 <View className="flex-row flex-wrap gap-2">
                   {supportCategories.map((item) => {
                     const isActive = item.value === category
@@ -307,18 +339,30 @@ export function SupportScreen() {
                     )
                   })}
                 </View>
-                <Input
-                  editable={!isSubmitting}
-                  onChangeText={setSubject}
-                  placeholder="Subject"
-                  value={subject}
-                />
-                <Textarea
-                  editable={!isSubmitting}
-                  onChangeText={setDescription}
-                  placeholder="Describe what you need help with"
-                  value={description}
-                />
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Subject
+                  </Text>
+                  <Input
+                    accessibilityLabel="Support case subject"
+                    editable={!isSubmitting}
+                    onChangeText={setSubject}
+                    placeholder="Subject"
+                    value={subject}
+                  />
+                </View>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Description
+                  </Text>
+                  <Textarea
+                    accessibilityLabel="Support case description"
+                    editable={!isSubmitting}
+                    onChangeText={setDescription}
+                    placeholder="Describe what you need help with"
+                    value={description}
+                  />
+                </View>
                 <Button
                   className="h-11 justify-start"
                   disabled={isSubmitting}
@@ -345,7 +389,7 @@ export function SupportScreen() {
                 <Button
                   className="h-12"
                   disabled={!canSubmit || isSubmitting}
-                  onPress={handleCreateCase}
+                  onPress={() => setIsReviewingSubmit(true)}
                 >
                   <Icon
                     name="Send"
@@ -363,9 +407,11 @@ export function SupportScreen() {
                 <VirtualizedCardList
                   data={support?.cases ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No support cases yet.
-                    </Text>
+                    <EmptyState
+                      description="Questions, receipt issues, and finance-boundary support cases will appear here."
+                      icon="Headphones"
+                      title="No support cases"
+                    />
                   }
                   estimatedItemSize={240}
                   keyExtractor={(supportCase) => supportCase.id}
@@ -380,9 +426,10 @@ export function SupportScreen() {
                           <Text className="flex-1 font-semibold text-foreground">
                             {supportCase.subject}
                           </Text>
-                          <Text className="text-xs font-medium text-muted-foreground">
-                            {formatStatus(supportCase.status)}
-                          </Text>
+                          <StatusBadge
+                            label={formatStatus(supportCase.status)}
+                            tone={getStatusBadgeTone(supportCase.status)}
+                          />
                         </View>
                         <Text className="text-sm leading-5 text-muted-foreground">
                           {supportCase.detail}
@@ -480,6 +527,15 @@ export function SupportScreen() {
           </>
         ) : null}
       </ScrollView>
+      <SubmissionReviewSheet
+        description="Review this support case before sending it. Money-impact requests create a review trail; support does not silently mutate finance records."
+        isSubmitting={isSubmitting}
+        onClose={() => setIsReviewingSubmit(false)}
+        onConfirm={handleCreateCase}
+        rows={reviewRows}
+        title="Review support case"
+        visible={isReviewingSubmit}
+      />
     </SafeArea>
   )
 }

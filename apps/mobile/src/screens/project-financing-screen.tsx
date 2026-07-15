@@ -1,6 +1,10 @@
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { EmptyState } from "@/components/app/empty-state"
+import { FormStateBanner } from "@/components/app/form-state-banner"
 import { SectionCard } from "@/components/app/section-card"
 import { StatCard } from "@/components/app/stat-card"
+import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
+import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
 import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
@@ -204,9 +208,10 @@ function ProjectFinancingRequestCard({
             {formatStatus(request.proposedStructure)}
           </Text>
         </View>
-        <Text className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground">
-          {formatStatus(request.status)}
-        </Text>
+        <StatusBadge
+          label={formatStatus(request.status)}
+          tone={getStatusBadgeTone(request.status)}
+        />
       </View>
 
       <View className="flex-row flex-wrap gap-2">
@@ -305,6 +310,7 @@ export function ProjectFinancingScreen() {
   const [businessDescription, setBusinessDescription] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isReviewingSubmit, setIsReviewingSubmit] = useState(false)
   const canUseServerProjectFinancing = Boolean(
     profile?.role === "member" &&
     profile?.token &&
@@ -356,6 +362,28 @@ export function ProjectFinancingScreen() {
     !hasStaleProjectFinancing &&
     !isSubmitting
   )
+  const hasProjectFinancingDraft = Boolean(
+    businessName.trim() ||
+    requestedAmount.trim() ||
+    requestedPaybackMonths.trim() ||
+    proposedStructure !== "undecided" ||
+    projectPurpose.trim() ||
+    businessDescription.trim()
+  )
+  const reviewRows = [
+    {
+      detail: formatStatus(proposedStructure),
+      icon: "BriefcaseBusiness",
+      label: businessName.trim() || "Project request",
+      value: amount ? formatCurrency(amount, currencyCode) : "Not set",
+    },
+    {
+      detail: "Optional repayable structure detail",
+      icon: "CalendarClock",
+      label: "Payback months",
+      value: paybackMonths ? String(paybackMonths) : "Not set",
+    },
+  ]
   const stats = useMemo(
     () => [
       {
@@ -459,6 +487,7 @@ export function ProjectFinancingScreen() {
       setProjectPurpose("")
       setBusinessDescription("")
       setSuccess("Project financing request submitted.")
+      setIsReviewingSubmit(false)
       loadProjectFinancing()
     } catch (submissionError) {
       setError(
@@ -519,27 +548,52 @@ export function ProjectFinancingScreen() {
 
             <SectionCard icon="BriefcaseBusiness" title="New project request">
               <View className="gap-3">
-                <Input
-                  editable={!isSubmitting}
-                  onChangeText={setBusinessName}
-                  placeholder="Business name"
-                  value={businessName}
-                />
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setRequestedAmount}
-                  placeholder="Requested amount"
-                  value={requestedAmount}
-                />
-                <Input
-                  editable={!isSubmitting}
-                  keyboardType="numeric"
-                  onChangeText={setRequestedPaybackMonths}
-                  placeholder="Payback months, if repayable"
-                  value={requestedPaybackMonths}
+                <FormStateBanner
+                  hasDraft={hasProjectFinancingDraft}
+                  isStale={hasStaleProjectFinancing}
                 />
                 <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Business name
+                  </Text>
+                  <Input
+                    accessibilityLabel="Project financing business name"
+                    editable={!isSubmitting}
+                    onChangeText={setBusinessName}
+                    placeholder="Business name"
+                    value={businessName}
+                  />
+                </View>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Requested amount
+                  </Text>
+                  <Input
+                    accessibilityLabel="Project financing requested amount"
+                    editable={!isSubmitting}
+                    keyboardType="numeric"
+                    onChangeText={setRequestedAmount}
+                    placeholder="Requested amount"
+                    value={requestedAmount}
+                  />
+                </View>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Payback months
+                  </Text>
+                  <Input
+                    accessibilityLabel="Project financing payback months"
+                    editable={!isSubmitting}
+                    keyboardType="numeric"
+                    onChangeText={setRequestedPaybackMonths}
+                    placeholder="Payback months, if repayable"
+                    value={requestedPaybackMonths}
+                  />
+                </View>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Proposed structure
+                  </Text>
                   {projectFinancingStructures.map((structure) => (
                     <StructureButton
                       isSelected={structure.value === proposedStructure}
@@ -549,18 +603,30 @@ export function ProjectFinancingScreen() {
                     />
                   ))}
                 </View>
-                <Textarea
-                  editable={!isSubmitting}
-                  onChangeText={setProjectPurpose}
-                  placeholder="Project purpose"
-                  value={projectPurpose}
-                />
-                <Textarea
-                  editable={!isSubmitting}
-                  onChangeText={setBusinessDescription}
-                  placeholder="Business description"
-                  value={businessDescription}
-                />
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Project purpose
+                  </Text>
+                  <Textarea
+                    accessibilityLabel="Project financing purpose"
+                    editable={!isSubmitting}
+                    onChangeText={setProjectPurpose}
+                    placeholder="Project purpose"
+                    value={projectPurpose}
+                  />
+                </View>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Business description
+                  </Text>
+                  <Textarea
+                    accessibilityLabel="Project financing business description"
+                    editable={!isSubmitting}
+                    onChangeText={setBusinessDescription}
+                    placeholder="Business description"
+                    value={businessDescription}
+                  />
+                </View>
                 <MobileChargeSummary
                   basisAmount={amount}
                   charges={projectFinancing?.chargeOptions ?? []}
@@ -569,7 +635,7 @@ export function ProjectFinancingScreen() {
                 <Button
                   className="h-12"
                   disabled={!canSubmit}
-                  onPress={handleSubmit}
+                  onPress={() => setIsReviewingSubmit(true)}
                 >
                   <Icon
                     name="Send"
@@ -587,10 +653,11 @@ export function ProjectFinancingScreen() {
                 <VirtualizedCardList
                   data={projectFinancing?.requests ?? []}
                   empty={
-                    <Text className="text-sm leading-5 text-muted-foreground">
-                      No project financing requests have been submitted from
-                      this member profile.
-                    </Text>
+                    <EmptyState
+                      description="Submitted business funding requests will appear here."
+                      icon="BriefcaseBusiness"
+                      title="No project financing requests"
+                    />
                   }
                   estimatedItemSize={200}
                   keyExtractor={(request) => request.id}
@@ -607,6 +674,15 @@ export function ProjectFinancingScreen() {
           </>
         ) : null}
       </ScrollView>
+      <SubmissionReviewSheet
+        description="Review this Project Financing request before sending it for structure and accounting review."
+        isSubmitting={isSubmitting}
+        onClose={() => setIsReviewingSubmit(false)}
+        onConfirm={handleSubmit}
+        rows={reviewRows}
+        title="Review project request"
+        visible={isReviewingSubmit}
+      />
     </SafeArea>
   )
 }

@@ -25,18 +25,20 @@ export function VirtualizedCardList<T>({
   )
 
   return (
-    <View style={{ height }}>
-      <LegendList
-        data={data}
-        drawDistance={360}
-        estimatedItemSize={estimatedItemSize}
-        keyExtractor={keyExtractor}
-        maintainVisibleContentPosition
-        recycleItems
-        renderItem={({ index, item }) =>
-          renderItem({ index, isFirst: index === 0, item })
-        }
-      />
+    <View className="overflow-hidden rounded-md">
+      <View style={{ height }}>
+        <LegendList
+          data={data}
+          drawDistance={360}
+          estimatedItemSize={estimatedItemSize}
+          keyExtractor={keyExtractor}
+          maintainVisibleContentPosition
+          recycleItems
+          renderItem={({ index, item }) =>
+            renderItem({ index, isFirst: index === 0, item })
+          }
+        />
+      </View>
     </View>
   )
 }

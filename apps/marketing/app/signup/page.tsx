@@ -10,6 +10,9 @@ import { SignupShell } from "@/components/signup/signup-shell"
 import { verifySignedSignupApprovalToken } from "@/lib/early-access"
 import { getMarketingConfig } from "@/lib/marketing-config"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 function parseDomainLike(value: string | undefined) {
   const trimmed = value?.trim()
 

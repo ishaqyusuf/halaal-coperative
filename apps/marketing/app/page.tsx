@@ -6,6 +6,9 @@ import { PrelaunchLanding } from "@/components/marketing/prelaunch-landing"
 import { getMarketingConfig } from "@/lib/marketing-config"
 import { getSignupHref } from "@/lib/runtime-url"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export default async function Page() {
   const marketing = getMarketingConfig()
 

@@ -7,21 +7,24 @@ import { spawnSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, "..");
-const versionFile = resolve(appRoot, "app.config.ts");
+const configFile = resolve(appRoot, "app.config.ts");
 const versionPattern =
-	/export\s+const\s+UPDATE_VERSION\s*=\s*"(\d{4}\.\d{2}\.\d{2}(?:\.\d{2})?)";/;
+	/export\s+const\s+UPDATE_VERSION\s*=\s*"(\d{4}\.\d{2}\.\d{2}(?:\.\d{2})?)"/;
 
 function parseArgs(argv) {
 	const args = {
 		current: null,
 		date: null,
 		dryRun: false,
+		skipPublish: false,
 	};
 
 	for (let index = 0; index < argv.length; index += 1) {
 		const arg = argv[index];
 		if (arg === "--dry-run") {
 			args.dryRun = true;
+		} else if (arg === "--skip-publish") {
+			args.skipPublish = true;
 		} else if (arg === "--current") {
 			args.current = argv[index + 1];
 			if (!args.current) {
@@ -57,11 +60,11 @@ function normalizeDateArg(dateArg) {
 }
 
 function readCurrentVersion() {
-	const source = readFileSync(versionFile, "utf8");
+	const source = readFileSync(configFile, "utf8");
 	const match = source.match(versionPattern);
 
 	if (!match) {
-		throw new Error(`Could not find UPDATE_VERSION in ${versionFile}.`);
+		throw new Error(`Could not find UPDATE_VERSION in ${configFile}.`);
 	}
 
 	return {
@@ -95,10 +98,10 @@ function getNextUpdateVersion(currentVersion, today = formatLocalDate()) {
 function updateVersionFile(source, nextVersion) {
 	const nextSource = source.replace(
 		versionPattern,
-		`export const UPDATE_VERSION = "${nextVersion}";`,
+		`export const UPDATE_VERSION = "${nextVersion}"`,
 	);
 
-	writeFileSync(versionFile, nextSource);
+	writeFileSync(configFile, nextSource);
 }
 
 function publishUpdate(nextVersion) {
@@ -147,7 +150,11 @@ function main() {
 	}
 
 	updateVersionFile(fileState.source, nextVersion);
-	publishUpdate(nextVersion);
+	console.log(`UPDATE_VERSION ${currentVersion} -> ${nextVersion}`);
+
+	if (!args.skipPublish) {
+		publishUpdate(nextVersion);
+	}
 }
 
 try {

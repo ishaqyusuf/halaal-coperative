@@ -178,7 +178,7 @@ export function OnboardingForm({
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <Progress value={100}>
-            <ProgressLabel>Signup progress</ProgressLabel>
+            <ProgressLabel>Setup progress</ProgressLabel>
             <ProgressValue>Complete</ProgressValue>
           </Progress>
 
@@ -319,7 +319,7 @@ export function OnboardingForm({
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <Progress value={75}>
-            <ProgressLabel>Signup progress</ProgressLabel>
+            <ProgressLabel>Setup progress</ProgressLabel>
             <ProgressValue>Step 2 of 2</ProgressValue>
           </Progress>
 

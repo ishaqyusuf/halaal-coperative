@@ -13,12 +13,12 @@ const iconDarkUrl = `/brand/${iconName}-dark.svg`
 
 export const metadata = {
   title: !marketing.showHomePage
-    ? "halaalvest | Signup"
+    ? "halaalvest | Early Access"
     : marketing.isLaunchReady
       ? "halaalvest"
       : "halaalvest | Pre-Launch",
   description: !marketing.showHomePage
-    ? "Public signup entry for halaalvest, the interest-free cooperative operations platform."
+    ? "Early access request entry for halaalvest, the interest-free cooperative operations platform."
     : marketing.isLaunchReady
       ? "Launch marketing site for halaalvest, the interest-free cooperative operations platform."
       : "Pre-launch landing page for halaalvest. Join early access before the cooperative platform goes live.",

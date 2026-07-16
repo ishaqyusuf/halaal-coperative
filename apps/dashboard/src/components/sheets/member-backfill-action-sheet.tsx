@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react"
 import { Button } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
 import {
   Sheet,
   SheetContent,
@@ -16,6 +17,7 @@ export function MemberBackfillActionSheet({
   description,
   disabled,
   sheetId,
+  size = "default",
   title,
   triggerLabel,
   variant = "outline",
@@ -24,6 +26,7 @@ export function MemberBackfillActionSheet({
   description: string
   disabled?: boolean
   sheetId: string
+  size?: "default" | "wide"
   title: string
   triggerLabel: string
   variant?: "default" | "outline"
@@ -51,7 +54,14 @@ export function MemberBackfillActionSheet({
         {triggerLabel}
       </Button>
       <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+        <SheetContent
+          className={cn(
+            "w-full overflow-y-auto",
+            size === "wide"
+              ? "!w-[92vw] sm:!max-w-4xl lg:!max-w-6xl"
+              : "sm:!max-w-2xl"
+          )}
+        >
           <SheetHeader>
             <SheetTitle>{title}</SheetTitle>
             <SheetDescription>{description}</SheetDescription>

@@ -3,6 +3,7 @@ import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { Separator } from "@halaalvest/ui/components/separator"
 import Link from "next/link"
+import { EarlyAccessForm } from "./early-access-form"
 import { PricingSection } from "./pricing-section"
 
 const pillars = [
@@ -19,14 +20,14 @@ const pillars = [
   {
     label: "Cooperative rollout",
     description:
-      "Public signup, branded cooperative surfaces, and protected workspaces on one shared platform.",
+      "Early access approval, branded cooperative surfaces, and protected workspaces on one shared platform.",
   },
 ] as const
 
 const readiness = [
   ["Built for", "Governed funds"],
   ["Designed for", "Audit-ready ops"],
-  ["Launch path", "Guided signup"],
+  ["Launch path", "Guided setup"],
 ] as const
 
 const contactTeamHref =
@@ -60,8 +61,8 @@ export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
               finance.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-              Halaalvest is building the public signup, cooperative workspace, and
-              governed finance layer cooperative teams need before serious
+              Halaalvest is building the approval-led setup path, cooperative workspace,
+              and governed finance layer cooperative teams need before serious
               growth arrives.
             </p>
 
@@ -141,14 +142,33 @@ export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
 
       <PricingSection signupHref={signupHref} />
 
+      <section id="early-access" className="border-b border-border bg-card">
+        <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8 lg:py-18">
+          <div className="max-w-xl">
+            <Badge variant="outline" className="h-6 rounded-md px-2.5">
+              Early access
+            </Badge>
+            <h2 className="mt-5 font-heading text-3xl font-semibold sm:text-4xl">
+              Request approval before cooperative setup.
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-muted-foreground">
+              Production setup is private. Once the request is approved, the
+              primary contact receives a secure link to start setup.
+            </p>
+          </div>
+
+          <EarlyAccessForm />
+        </div>
+      </section>
+
       <section>
         <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8 lg:py-16">
           <div className="max-w-xl">
             <h2 className="font-heading text-3xl font-semibold tracking-tight">
-              Start with the cooperative setup flow.
+              Start with an early access request.
             </h2>
             <p className="mt-3 text-sm leading-7 text-muted-foreground">
-              Early access teams can move directly into signup while the public
+              Approved teams receive the private setup link while the public
               launch story stays clean and credible.
             </p>
           </div>
@@ -159,7 +179,7 @@ export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
             })}
             href={signupHref}
           >
-            Start signup
+            Request early access
           </Link>
         </div>
       </section>

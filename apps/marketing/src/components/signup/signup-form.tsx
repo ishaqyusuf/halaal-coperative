@@ -105,18 +105,23 @@ function formatExpiry(value: string) {
 }
 
 export function SignupForm({
+  approvalToken,
+  defaultValues,
   devMode,
   workspaceUrlSuffix,
 }: {
+  approvalToken?: string | null
+  defaultValues?: Partial<SignupIntentInput>
   devMode: boolean
   workspaceUrlSuffix: string
 }) {
+  const approvalLocked = Boolean(approvalToken)
   const form = useZodForm<SignupIntentInput>(signupIntentSchema, {
     defaultValues: {
-      cooperativeName: "",
+      cooperativeName: defaultValues?.cooperativeName ?? "",
       memberNumberPrefix: "",
-      primaryContactEmail: "",
-      primaryContactFullName: "",
+      primaryContactEmail: defaultValues?.primaryContactEmail ?? "",
+      primaryContactFullName: defaultValues?.primaryContactFullName ?? "",
       primaryContactMemberNumber: "",
       workspaceSlug: "",
     },
@@ -213,7 +218,7 @@ export function SignupForm({
         !availability.workspaceSlug.available)
     ) {
       showError(
-        "Signup could not continue",
+        "Setup could not continue",
         "Choose an available name and subdomain."
       )
       return
@@ -227,7 +232,10 @@ export function SignupForm({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          approvalToken: approvalToken ?? undefined,
+        }),
       })
 
       const payload = (await response.json()) as
@@ -252,7 +260,7 @@ export function SignupForm({
       )
     } catch (error) {
       showError(
-        "Signup could not continue",
+        "Setup could not continue",
         error instanceof Error ? error.message : "Something went wrong."
       )
     } finally {
@@ -267,23 +275,23 @@ export function SignupForm({
       ? "Verification email sent"
       : emailFailed
         ? "Verification link created"
-      : result.emailDeliveryConfigured
-        ? "Verification email ready"
-        : "Verification link ready"
+        : result.emailDeliveryConfigured
+          ? "Verification email ready"
+          : "Verification link ready"
     const successDescription = emailWasSent
       ? "Ask the admin to open the email and continue setup from the secure link."
       : emailFailed
         ? "The email could not be delivered, but the secure verification link was created."
-      : result.emailDeliveryConfigured
-        ? "The email is prepared and ready for the configured delivery service."
-        : "Email delivery is not configured here, so use the secure link to continue."
+        : result.emailDeliveryConfigured
+          ? "The email is prepared and ready for the configured delivery service."
+          : "Email delivery is not configured here, so use the secure link to continue."
     const deliveryLabel = emailWasSent
       ? "Sent to inbox"
       : emailFailed
         ? "Send failed"
-      : result.emailDeliveryConfigured
-        ? "Prepared"
-        : "Local only"
+        : result.emailDeliveryConfigured
+          ? "Prepared"
+          : "Local only"
     const showSecureLink = result.devMode || !result.emailDeliveryConfigured
 
     return (
@@ -299,7 +307,7 @@ export function SignupForm({
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <Progress value={50}>
-            <ProgressLabel>Signup progress</ProgressLabel>
+            <ProgressLabel>Setup progress</ProgressLabel>
             <ProgressValue>Step 1 of 2</ProgressValue>
           </Progress>
 
@@ -382,13 +390,13 @@ export function SignupForm({
             Open the verification step.
           </CardTitle>
           <CardDescription>
-            Capture the accountable admin, reserve the cooperative URL, and send the
-            secure email link before any workspace is created.
+            Capture the accountable admin, reserve the cooperative URL, and send
+            the secure email link before any workspace is created.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <Progress value={25}>
-            <ProgressLabel>Signup progress</ProgressLabel>
+            <ProgressLabel>Setup progress</ProgressLabel>
             <ProgressValue>Step 1 of 2</ProgressValue>
           </Progress>
 
@@ -404,7 +412,11 @@ export function SignupForm({
                   <FormItem className="md:col-span-2">
                     <FormLabel>Cooperative name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter cooperative name" {...field} />
+                      <Input
+                        placeholder="Enter cooperative name"
+                        readOnly={approvalLocked}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -418,7 +430,11 @@ export function SignupForm({
                   <FormItem>
                     <FormLabel>Admin full name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your name" {...field} />
+                      <Input
+                        placeholder="Enter your name"
+                        readOnly={approvalLocked}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -435,6 +451,7 @@ export function SignupForm({
                       <Input
                         type="email"
                         placeholder="Enter admin email"
+                        readOnly={approvalLocked}
                         {...field}
                       />
                     </FormControl>

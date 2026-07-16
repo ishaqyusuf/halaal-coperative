@@ -22,8 +22,8 @@ This file documents the intended high-level architecture, service boundaries, an
 
 - Bun workspace monorepo orchestrated with Turbo.
 - App layout now centers on `apps/marketing`, `apps/dashboard`, and `apps/api`, with `apps/dashboard` absorbing the former tenant-site responsibility into one host-aware tenant app.
-- `apps/marketing` now uses a server-driven marketing-state switch so the main landing route can render either a pre-launch page or the full launch landing experience from environment configuration.
-- `apps/marketing` and `apps/dashboard` now share one env-driven homepage visibility config through `packages/domain/src/modules/marketing.ts`, allowing the platform marketing root to redirect to `/signup` and tenant roots to redirect to `/login` when `SHOW_HOME_PAGE` is disabled.
+- `apps/marketing` now uses a server-driven marketing-state switch so the main landing route can render either a pre-launch page or the full launch landing experience from environment configuration. `MARKETING_EARLY_ACCESS_ENABLED` controls whether public CTAs route through early access and whether `/signup` requires an approved token before setup can begin.
+- `apps/marketing` and `apps/dashboard` now share one env-driven homepage visibility config through `packages/domain/src/modules/marketing.ts`, allowing non-production platform marketing roots to redirect to `/signup` and tenant roots to redirect to `/login` when `SHOW_HOME_PAGE` is disabled; production marketing keeps the homepage available so visitors use the early access form.
 - `apps/marketing` now also uses a `src/` layout so route files, marketing sections, and server-side config helpers are separated more cleanly in the same direction as the reference applications.
 - `apps/api` now uses a Hono + tRPC foundation with grouped routers and shared request context.
 - Shared packages are split by responsibility: `auth`, `db`, `domain`, `notifications`, `notifications-react`, `ui`, `utils`, `eslint-config`, and `tsconfig`.

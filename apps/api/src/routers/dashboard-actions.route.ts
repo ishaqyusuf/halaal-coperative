@@ -3757,6 +3757,8 @@ export async function createMemberOpeningBalanceAction(formData: FormData) {
     actorUserId: actor.user.id,
     activeFinancingOutstanding:
       getOptionalNumber(formData, "activeFinancingOutstanding") ?? 0,
+    activeFinancingOriginalAmount:
+      getOptionalNumber(formData, "activeFinancingOriginalAmount") ?? 0,
     activeFinancingGuarantorOneMemberId: getOptionalTrimmedString(
       formData,
       "activeFinancingGuarantorOneMemberId"
@@ -3773,10 +3775,36 @@ export async function createMemberOpeningBalanceAction(formData: FormData) {
           `${getOptionalTrimmedString(formData, "activeFinancingOpenedAt")}T00:00:00.000Z`
         )
       : null,
+    activeFinancingRepaymentMonths:
+      getOptionalNumber(formData, "activeFinancingRepaymentMonths") ?? null,
+    activeFinancingInstallmentAmount:
+      getOptionalNumber(formData, "activeFinancingInstallmentAmount") ?? 0,
+    activeFinancingInstallmentsPaid:
+      getOptionalNumber(formData, "activeFinancingInstallmentsPaid") ?? null,
     commitmentSavingsBalance:
       getOptionalNumber(formData, "commitmentSavingsBalance") ?? 0,
     foodPurchaseOutstanding:
       getOptionalNumber(formData, "foodPurchaseOutstanding") ?? 0,
+    foodPurchaseItemName: getOptionalTrimmedString(
+      formData,
+      "foodPurchaseItemName"
+    ),
+    foodPurchaseOpenedAt: getOptionalTrimmedString(
+      formData,
+      "foodPurchaseOpenedAt"
+    )
+      ? new Date(
+          `${getOptionalTrimmedString(formData, "foodPurchaseOpenedAt")}T00:00:00.000Z`
+        )
+      : null,
+    foodPurchaseOriginalAmount:
+      getOptionalNumber(formData, "foodPurchaseOriginalAmount") ?? 0,
+    foodPurchaseRepaymentMonths:
+      getOptionalNumber(formData, "foodPurchaseRepaymentMonths") ?? null,
+    foodPurchaseInstallmentAmount:
+      getOptionalNumber(formData, "foodPurchaseInstallmentAmount") ?? 0,
+    foodPurchaseInstallmentsPaid:
+      getOptionalNumber(formData, "foodPurchaseInstallmentsPaid") ?? null,
     memberId,
     notes: getOptionalTrimmedString(formData, "notes"),
     openingDate: new Date(
@@ -3784,6 +3812,26 @@ export async function createMemberOpeningBalanceAction(formData: FormData) {
     ),
     procurementOutstanding:
       getOptionalNumber(formData, "procurementOutstanding") ?? 0,
+    procurementItemName: getOptionalTrimmedString(
+      formData,
+      "procurementItemName"
+    ),
+    procurementOpenedAt: getOptionalTrimmedString(
+      formData,
+      "procurementOpenedAt"
+    )
+      ? new Date(
+          `${getOptionalTrimmedString(formData, "procurementOpenedAt")}T00:00:00.000Z`
+        )
+      : null,
+    procurementOriginalAmount:
+      getOptionalNumber(formData, "procurementOriginalAmount") ?? 0,
+    procurementRepaymentMonths:
+      getOptionalNumber(formData, "procurementRepaymentMonths") ?? null,
+    procurementInstallmentAmount:
+      getOptionalNumber(formData, "procurementInstallmentAmount") ?? 0,
+    procurementInstallmentsPaid:
+      getOptionalNumber(formData, "procurementInstallmentsPaid") ?? null,
     shareCapitalBalance:
       getOptionalNumber(formData, "shareCapitalBalance") ?? 0,
     shareUnits: getOptionalNumber(formData, "shareUnits") ?? null,

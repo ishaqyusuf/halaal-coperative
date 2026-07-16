@@ -16,12 +16,12 @@ type SignupEmailVerificationPayload = z.infer<
 >
 
 function buildSignupEmailVerificationBody(
-  payload: SignupEmailVerificationPayload,
+  payload: SignupEmailVerificationPayload
 ) {
   return [
     `Hello ${payload.recipientName},`,
     "",
-    `Your HalaalVest signup for ${payload.tenantName} is almost ready.`,
+    `Your HalaalVest setup for ${payload.tenantName} is almost ready.`,
     "Confirm this email address to continue setting up the cooperative workspace.",
     "",
     `This verification link expires on ${payload.expiresAt}.`,
@@ -36,12 +36,12 @@ export const signupEmailVerification = defineHalaalNotification({
     bodyText: buildSignupEmailVerificationBody(payload),
     previewText: `Verify ${payload.recipientEmail} to continue setup for ${payload.tenantName}.`,
     recipient: createDirectRecipient(payload),
-    subject: `Verify your HalaalVest signup for ${payload.tenantName}`,
+    subject: `Verify your HalaalVest setup for ${payload.tenantName}`,
   }),
   buildLink: (payload) => payload.verificationUrl,
   channels: channelHelpers.email(),
   schema: signupEmailVerificationSchema,
-  title: () => "Signup email verification",
+  title: () => "Setup email verification",
   variant: "info",
 })
 
@@ -106,5 +106,92 @@ export const workspaceInvitation = defineHalaalNotification({
   channels: channelHelpers.email(),
   schema: workspaceInvitationSchema,
   title: (payload) => `Invitation ready for ${payload.recipientName}`,
+  variant: "success",
+})
+
+const marketingEarlyAccessRequestSchema = directEmailSchema.extend({
+  approvalUrl: z.string().min(1),
+  contactEmail: z.email(),
+  contactName: z.string().min(1),
+  message: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  requestedAt: z.string().min(1),
+})
+
+type MarketingEarlyAccessRequestPayload = z.infer<
+  typeof marketingEarlyAccessRequestSchema
+>
+
+function buildMarketingEarlyAccessRequestBody(
+  payload: MarketingEarlyAccessRequestPayload
+) {
+  return [
+    `New early access request for ${payload.tenantName}.`,
+    "",
+    `Contact: ${payload.contactName}`,
+    `Email: ${payload.contactEmail}`,
+    payload.phone ? `Phone: ${payload.phone}` : null,
+    payload.message ? `Note: ${payload.message}` : null,
+    `Requested: ${payload.requestedAt}`,
+    "",
+    "Open the approval link to send the cooperative a secure setup link.",
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
+export const marketingEarlyAccessRequest = defineHalaalNotification({
+  buildBody: buildMarketingEarlyAccessRequestBody,
+  buildEmailDraft: (payload) => ({
+    actionLabel: "Approve early access",
+    actionUrl: payload.approvalUrl,
+    bodyText: buildMarketingEarlyAccessRequestBody(payload),
+    previewText: `${payload.contactName} requested Halaalvest early access for ${payload.tenantName}.`,
+    recipient: createDirectRecipient(payload),
+    subject: `Approve Halaalvest early access for ${payload.tenantName}`,
+  }),
+  buildLink: (payload) => payload.approvalUrl,
+  channels: channelHelpers.email(),
+  schema: marketingEarlyAccessRequestSchema,
+  title: () => "Marketing early access request",
+  variant: "info",
+})
+
+const marketingEarlyAccessApprovedSchema = directEmailSchema.extend({
+  expiresAt: z.string().min(1),
+  signupUrl: z.string().min(1),
+})
+
+type MarketingEarlyAccessApprovedPayload = z.infer<
+  typeof marketingEarlyAccessApprovedSchema
+>
+
+function buildMarketingEarlyAccessApprovedBody(
+  payload: MarketingEarlyAccessApprovedPayload
+) {
+  return [
+    `Hello ${payload.recipientName},`,
+    "",
+    `Your Halaalvest early access request for ${payload.tenantName} has been approved.`,
+    "Use the secure setup link below to start the cooperative setup flow.",
+    "",
+    `This approval link expires on ${payload.expiresAt}.`,
+  ].join("\n")
+}
+
+export const marketingEarlyAccessApproved = defineHalaalNotification({
+  buildBody: buildMarketingEarlyAccessApprovedBody,
+  buildEmailDraft: (payload) => ({
+    actionLabel: "Start cooperative setup",
+    actionUrl: payload.signupUrl,
+    bodyText: buildMarketingEarlyAccessApprovedBody(payload),
+    previewText: `Start the approved Halaalvest setup for ${payload.tenantName}.`,
+    recipient: createDirectRecipient(payload),
+    subject: `Your Halaalvest early access is approved`,
+  }),
+  buildLink: (payload) => payload.signupUrl,
+  channels: channelHelpers.email(),
+  schema: marketingEarlyAccessApprovedSchema,
+  title: () => "Marketing early access approved",
   variant: "success",
 })

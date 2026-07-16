@@ -9,13 +9,15 @@ import { getSignupHref } from "@/lib/runtime-url"
 export default async function Page() {
   const marketing = getMarketingConfig()
 
-  if (!marketing.showHomePage) {
+  if (!marketing.showHomePage && process.env.NODE_ENV !== "production") {
     redirect("/signup")
   }
 
   const tenants =
     process.env.NODE_ENV !== "production" ? await listTenants() : []
-  const signupHref = await getSignupHref()
+  const signupHref = marketing.earlyAccessModeEnabled
+    ? "#early-access"
+    : await getSignupHref()
 
   return (
     <>

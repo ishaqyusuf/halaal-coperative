@@ -18,6 +18,11 @@ const appVariant =
 const normalizedAppVariant = (appVariant ?? "production").toLowerCase()
 const isDevelopmentBuild =
   normalizedAppVariant === "development" || normalizedAppVariant === "dev"
+const autoUpdateOnForeground =
+  process.env.EXPO_PUBLIC_AUTO_UPDATE_ON_FOREGROUND !== "false"
+const autoUpdateForegroundCooldownMs = Number(
+  process.env.EXPO_PUBLIC_AUTO_UPDATE_FOREGROUND_COOLDOWN_MS ?? 5 * 60 * 1000
+)
 
 const variantConfig = isDevelopmentBuild
   ? {
@@ -25,9 +30,9 @@ const variantConfig = isDevelopmentBuild
       scheme: "halaalvest-dev",
       iosBundleIdentifier: "com.halaalvest.mobile.dev",
       androidPackage: "com.halaalvest.mobile.dev",
-      iconBackgroundColor: "#E7F6F0",
-      splashBackgroundColor: "#E7F6F0",
-      splashDarkBackgroundColor: "#0B2B21",
+      iconBackgroundColor: "#FFF2C7",
+      splashBackgroundColor: "#FFF2C7",
+      splashDarkBackgroundColor: "#2A240E",
       icons: {
         app: "./assets/icons/dev-app-icon.png",
         adaptive: "./assets/icons/dev-adaptive-icon.png",
@@ -42,9 +47,9 @@ const variantConfig = isDevelopmentBuild
       scheme: "halaalvest",
       iosBundleIdentifier: "com.halaalvest.mobile",
       androidPackage: "com.halaalvest.mobile",
-      iconBackgroundColor: "#F7F1E6",
-      splashBackgroundColor: "#F7F1E6",
-      splashDarkBackgroundColor: "#111111",
+      iconBackgroundColor: "#F7FAF7",
+      splashBackgroundColor: "#F7FAF7",
+      splashDarkBackgroundColor: "#071B2C",
       icons: {
         app: "./assets/icons/app-icon.png",
         adaptive: "./assets/icons/adaptive-icon.png",
@@ -115,6 +120,12 @@ const config: ExpoConfig = {
   },
   extra: {
     appVariant: normalizedAppVariant,
+    autoUpdateOnForeground,
+    autoUpdateForegroundCooldownMs: Number.isFinite(
+      autoUpdateForegroundCooldownMs
+    )
+      ? autoUpdateForegroundCooldownMs
+      : 5 * 60 * 1000,
     updateVersion: UPDATE_VERSION,
     ...(EXPO_OWNER
       ? {

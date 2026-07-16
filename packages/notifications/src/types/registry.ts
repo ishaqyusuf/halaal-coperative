@@ -1,6 +1,9 @@
 import type { z } from "zod"
 import { createNotificationInputFromType } from "../notification-types"
-import type { NotificationEmailDraft, NotificationRecipient } from "../core-types"
+import type {
+  NotificationEmailDraft,
+  NotificationRecipient,
+} from "../core-types"
 import {
   chargeApplied,
   chargeReversed,
@@ -30,6 +33,8 @@ import {
   memberStatusChanged,
 } from "./member"
 import {
+  marketingEarlyAccessApproved,
+  marketingEarlyAccessRequest,
   signupEmailVerification,
   workspaceInvitation,
   workspaceReady,
@@ -78,9 +83,13 @@ export const halaalVestNotificationTypes = {
   "member.kyc_updated": memberKycUpdated,
   "member.onboarding_approved": memberOnboardingApproved,
   "member.onboarding_rejected": memberOnboardingRejected,
-  "member.onboarding_verification_requested": memberOnboardingVerificationRequested,
+  "member.onboarding_verification_requested":
+    memberOnboardingVerificationRequested,
   "member.status_changed": memberStatusChanged,
-  "member_share_application.status_changed": memberShareApplicationStatusChanged,
+  "marketing.early_access_approved": marketingEarlyAccessApproved,
+  "marketing.early_access_requested": marketingEarlyAccessRequest,
+  "member_share_application.status_changed":
+    memberShareApplicationStatusChanged,
   "member_payment_receipt.status_changed": memberPaymentReceiptStatusChanged,
   "migration.backfill_applied": migrationBackfillApplied,
   "migration.backfill_initialized": migrationBackfillInitialized,
@@ -103,23 +112,30 @@ export const halaalVestNotificationTypes = {
 export type HalaalVestNotificationType =
   keyof typeof halaalVestNotificationTypes & string
 
-export type HalaalVestNotificationPayload<TType extends HalaalVestNotificationType> =
-  z.infer<(typeof halaalVestNotificationTypes)[TType]["schema"]>
+export type HalaalVestNotificationPayload<
+  TType extends HalaalVestNotificationType,
+> = z.infer<(typeof halaalVestNotificationTypes)[TType]["schema"]>
 
 export const halaalVestNotificationTypeList = Object.keys(
-  halaalVestNotificationTypes,
+  halaalVestNotificationTypes
 ) as HalaalVestNotificationType[]
 
 export function createHalaalVestNotificationFromType<
   TType extends HalaalVestNotificationType,
 >(type: TType, payload: HalaalVestNotificationPayload<TType>) {
-  return createNotificationInputFromType(halaalVestNotificationTypes, type, payload)
+  return createNotificationInputFromType(
+    halaalVestNotificationTypes,
+    type,
+    payload
+  )
 }
 
-export function createEmailDraftFromType<TType extends HalaalVestNotificationType>(
+export function createEmailDraftFromType<
+  TType extends HalaalVestNotificationType,
+>(
   type: TType,
   payload: HalaalVestNotificationPayload<TType>,
-  recipientOverride?: NotificationRecipient,
+  recipientOverride?: NotificationRecipient
 ): NotificationEmailDraft {
   const definition = halaalVestNotificationTypes[
     type

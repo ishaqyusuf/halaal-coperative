@@ -16,7 +16,7 @@ const pricingPlans = [
       "Contributions, charges, and statements",
       "Admin-only beta workspace",
     ],
-    cta: "Join beta",
+    cta: "Request access",
     featured: true,
   },
   {
@@ -32,7 +32,7 @@ const pricingPlans = [
       "Email notifications for admins",
       "Member login as paid add-on",
     ],
-    cta: "Start setup",
+    cta: "Request access",
     featured: false,
   },
   {
@@ -48,7 +48,7 @@ const pricingPlans = [
       "Email notifications for members",
       "Audit history",
     ],
-    cta: "Start setup",
+    cta: "Request access",
     featured: false,
   },
   {
@@ -64,7 +64,7 @@ const pricingPlans = [
       "Bulk operations and exports",
       "White label app as add-on",
     ],
-    cta: "Start setup",
+    cta: "Request access",
     featured: false,
   },
   {
@@ -143,7 +143,7 @@ export function PricingSection({ signupHref }: { signupHref: string }) {
                 })}
                 href={signupHref}
               >
-                Join beta
+                Request access
                 <span aria-hidden="true">-&gt;</span>
               </Link>
             </div>

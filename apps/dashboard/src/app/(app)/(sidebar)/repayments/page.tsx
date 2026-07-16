@@ -1,4 +1,11 @@
-import { createDbRuntime, getRepaymentFilterMetadata, listLoans, listRepaymentScheduleItems, listRepayments, listTenantUsersWithMemberships } from "@halaalvest/db"
+import {
+  createDbRuntime,
+  getRepaymentFilterMetadata,
+  listLoans,
+  listRepaymentScheduleItems,
+  listRepayments,
+  listTenantUsersWithMemberships,
+} from "@halaalvest/db"
 import {
   RepaymentsPageView,
   RepaymentsUnavailableView,
@@ -11,6 +18,42 @@ import {
   getDashboardServerContext,
 } from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
+
+function isDecimalLike(value: unknown): value is { toNumber: () => number } {
+  const constructorName = (value as { constructor?: { name?: string } } | null)
+    ?.constructor?.name
+
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { toNumber?: unknown }).toNumber === "function" &&
+    typeof (value as { toFixed?: unknown }).toFixed === "function" &&
+    typeof constructorName === "string" &&
+    constructorName.startsWith("Decimal")
+  )
+}
+
+function toClientValue<T>(value: T): T {
+  if (isDecimalLike(value)) {
+    return value.toNumber() as T
+  }
+
+  if (value instanceof Date) {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => toClientValue(item)) as T
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, toClientValue(item)])
+    ) as T
+  }
+
+  return value
+}
 
 export default async function RepaymentsPage({
   searchParams,
@@ -35,7 +78,13 @@ export default async function RepaymentsPage({
     return <RepaymentsUnavailableView />
   }
 
-  const [filterList, loans, scheduleItems, repayments, tenantUsers] = await Promise.all([
+  const [
+    filterList,
+    rawLoans,
+    rawScheduleItems,
+    rawRepayments,
+    tenantUsers,
+  ] = await Promise.all([
     getRepaymentFilterMetadata(context.tenant.id),
     listLoans(context.tenant.id),
     listRepaymentScheduleItems(context.tenant.id, {
@@ -50,6 +99,9 @@ export default async function RepaymentsPage({
     listRepayments(context.tenant.id),
     listTenantUsersWithMemberships(context.tenant.id),
   ])
+  const loans = toClientValue(rawLoans)
+  const scheduleItems = toClientValue(rawScheduleItems)
+  const repayments = toClientValue(rawRepayments)
 
   const uniqueMembers = Array.from(new Map(loans.map((loan) => [loan.member.id, loan.member])).values())
   const assignees = tenantUsers

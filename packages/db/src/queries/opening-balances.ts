@@ -15,9 +15,13 @@ export type MemberOpeningBalanceStatus =
 
 export type MemberOpeningBalanceRow = {
   activeFinancingOutstanding: number
+  activeFinancingOriginalAmount: number
   activeFinancingGuarantorOneMemberId: string | null
   activeFinancingGuarantorTwoMemberId: string | null
+  activeFinancingInstallmentAmount: number
+  activeFinancingInstallmentsPaid: number | null
   activeFinancingOpenedAt: Date | null
+  activeFinancingRepaymentMonths: number | null
   appliedAt: Date | null
   appliedFoodPurchaseApplicationId: string | null
   appliedByUserId: string | null
@@ -27,6 +31,12 @@ export type MemberOpeningBalanceRow = {
   createdAt: Date
   createdByUserId: string | null
   foodPurchaseOutstanding: number
+  foodPurchaseInstallmentAmount: number
+  foodPurchaseInstallmentsPaid: number | null
+  foodPurchaseItemName: string | null
+  foodPurchaseOpenedAt: Date | null
+  foodPurchaseOriginalAmount: number
+  foodPurchaseRepaymentMonths: number | null
   id: string
   member: {
     fullName: string
@@ -36,6 +46,12 @@ export type MemberOpeningBalanceRow = {
   notes: string | null
   openingDate: Date
   procurementOutstanding: number
+  procurementInstallmentAmount: number
+  procurementInstallmentsPaid: number | null
+  procurementItemName: string | null
+  procurementOpenedAt: Date | null
+  procurementOriginalAmount: number
+  procurementRepaymentMonths: number | null
   reviewedAt: Date | null
   reviewedByUserId: string | null
   reviewNotes: string | null
@@ -53,15 +69,31 @@ export type MemberOpeningBalanceRow = {
 
 type MemberOpeningBalanceInput = {
   activeFinancingOutstanding?: number
+  activeFinancingOriginalAmount?: number
   activeFinancingGuarantorOneMemberId?: string | null
   activeFinancingGuarantorTwoMemberId?: string | null
+  activeFinancingInstallmentAmount?: number
+  activeFinancingInstallmentsPaid?: number | null
   activeFinancingOpenedAt?: Date | null
+  activeFinancingRepaymentMonths?: number | null
   commitmentSavingsBalance?: number
   foodPurchaseOutstanding?: number
+  foodPurchaseInstallmentAmount?: number
+  foodPurchaseInstallmentsPaid?: number | null
+  foodPurchaseItemName?: string | null
+  foodPurchaseOpenedAt?: Date | null
+  foodPurchaseOriginalAmount?: number
+  foodPurchaseRepaymentMonths?: number | null
   memberId: string
   notes?: string | null
   openingDate: Date
   procurementOutstanding?: number
+  procurementInstallmentAmount?: number
+  procurementInstallmentsPaid?: number | null
+  procurementItemName?: string | null
+  procurementOpenedAt?: Date | null
+  procurementOriginalAmount?: number
+  procurementRepaymentMonths?: number | null
   shareCapitalBalance?: number
   shareUnits?: number | null
   sourceDocumentName?: string | null
@@ -95,11 +127,25 @@ function requireLedgerAccountId(
 function normalizeOpeningBalance(row: any): MemberOpeningBalanceRow {
   return {
     activeFinancingOutstanding: Number(row.activeFinancingOutstanding ?? 0),
+    activeFinancingOriginalAmount: Number(
+      row.activeFinancingOriginalAmount ?? 0
+    ),
     activeFinancingGuarantorOneMemberId:
       row.activeFinancingGuarantorOneMemberId ?? null,
     activeFinancingGuarantorTwoMemberId:
       row.activeFinancingGuarantorTwoMemberId ?? null,
+    activeFinancingInstallmentAmount: Number(
+      row.activeFinancingInstallmentAmount ?? 0
+    ),
+    activeFinancingInstallmentsPaid:
+      row.activeFinancingInstallmentsPaid == null
+        ? null
+        : Number(row.activeFinancingInstallmentsPaid),
     activeFinancingOpenedAt: row.activeFinancingOpenedAt ?? null,
+    activeFinancingRepaymentMonths:
+      row.activeFinancingRepaymentMonths == null
+        ? null
+        : Number(row.activeFinancingRepaymentMonths),
     appliedAt: row.appliedAt ?? null,
     appliedFoodPurchaseApplicationId:
       row.appliedFoodPurchaseApplicationId ?? null,
@@ -110,6 +156,20 @@ function normalizeOpeningBalance(row: any): MemberOpeningBalanceRow {
     createdAt: row.createdAt,
     createdByUserId: row.createdByUserId ?? null,
     foodPurchaseOutstanding: Number(row.foodPurchaseOutstanding ?? 0),
+    foodPurchaseInstallmentAmount: Number(
+      row.foodPurchaseInstallmentAmount ?? 0
+    ),
+    foodPurchaseInstallmentsPaid:
+      row.foodPurchaseInstallmentsPaid == null
+        ? null
+        : Number(row.foodPurchaseInstallmentsPaid),
+    foodPurchaseItemName: row.foodPurchaseItemName ?? null,
+    foodPurchaseOpenedAt: row.foodPurchaseOpenedAt ?? null,
+    foodPurchaseOriginalAmount: Number(row.foodPurchaseOriginalAmount ?? 0),
+    foodPurchaseRepaymentMonths:
+      row.foodPurchaseRepaymentMonths == null
+        ? null
+        : Number(row.foodPurchaseRepaymentMonths),
     id: row.id,
     member: {
       fullName: row.member?.fullName ?? "Member",
@@ -119,6 +179,18 @@ function normalizeOpeningBalance(row: any): MemberOpeningBalanceRow {
     notes: row.notes ?? null,
     openingDate: row.openingDate,
     procurementOutstanding: Number(row.procurementOutstanding ?? 0),
+    procurementInstallmentAmount: Number(row.procurementInstallmentAmount ?? 0),
+    procurementInstallmentsPaid:
+      row.procurementInstallmentsPaid == null
+        ? null
+        : Number(row.procurementInstallmentsPaid),
+    procurementItemName: row.procurementItemName ?? null,
+    procurementOpenedAt: row.procurementOpenedAt ?? null,
+    procurementOriginalAmount: Number(row.procurementOriginalAmount ?? 0),
+    procurementRepaymentMonths:
+      row.procurementRepaymentMonths == null
+        ? null
+        : Number(row.procurementRepaymentMonths),
     reviewedAt: row.reviewedAt ?? null,
     reviewedByUserId: row.reviewedByUserId ?? null,
     reviewNotes: row.reviewNotes ?? null,
@@ -159,6 +231,121 @@ function assertNonNegativeAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0) {
     throw new Error(`${label} cannot be negative.`)
   }
+}
+
+function assertWholeNumberOrNull(value: number | null | undefined, label: string) {
+  if (value == null) {
+    return
+  }
+
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} must be a whole number 0 or greater.`)
+  }
+}
+
+function validateOpeningObligationPlan({
+  installmentsPaid,
+  label,
+  originalAmount,
+  repaymentMonths,
+  outstandingAmount,
+}: {
+  installmentsPaid?: number | null
+  label: string
+  originalAmount?: number
+  outstandingAmount?: number
+  repaymentMonths?: number | null
+}) {
+  assertNonNegativeAmount(originalAmount ?? 0, `${label} original amount`)
+  assertNonNegativeAmount(outstandingAmount ?? 0, `${label} outstanding amount`)
+  assertWholeNumberOrNull(repaymentMonths, `${label} repayment months`)
+  assertWholeNumberOrNull(installmentsPaid, `${label} installments paid`)
+
+  if (
+    originalAmount != null &&
+    originalAmount > 0 &&
+    outstandingAmount != null &&
+    outstandingAmount > originalAmount
+  ) {
+    throw new Error(`${label} outstanding amount cannot exceed original amount.`)
+  }
+
+  if (
+    repaymentMonths != null &&
+    repaymentMonths > 0 &&
+    installmentsPaid != null &&
+    installmentsPaid > repaymentMonths
+  ) {
+    throw new Error(`${label} paid installments cannot exceed repayment months.`)
+  }
+}
+
+function addUtcMonths(date: Date, months: number) {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate())
+  )
+}
+
+function getRemainingInstallmentCount({
+  installmentsPaid,
+  outstandingAmount,
+  repaymentMonths,
+}: {
+  installmentsPaid?: number | null
+  outstandingAmount: number
+  repaymentMonths?: number | null
+}) {
+  if (outstandingAmount <= 0) {
+    return 0
+  }
+
+  if (!repaymentMonths || repaymentMonths <= 0) {
+    return 1
+  }
+
+  return Math.max(1, repaymentMonths - (installmentsPaid ?? 0))
+}
+
+function buildRemainingInstallments({
+  installmentAmount,
+  installmentsPaid,
+  openingDate,
+  outstandingAmount,
+  repaymentMonths,
+}: {
+  installmentAmount?: number
+  installmentsPaid?: number | null
+  openingDate: Date
+  outstandingAmount: number
+  repaymentMonths?: number | null
+}) {
+  const count = getRemainingInstallmentCount({
+    installmentsPaid,
+    outstandingAmount,
+    repaymentMonths,
+  })
+
+  if (count === 0) {
+    return []
+  }
+
+  const regularAmount =
+    installmentAmount && installmentAmount > 0
+      ? installmentAmount
+      : outstandingAmount / count
+  let remaining = outstandingAmount
+
+  return Array.from({ length: count }, (_, index) => {
+    const amount =
+      index === count - 1 ? remaining : Math.min(regularAmount, remaining)
+    remaining = Math.max(0, remaining - amount)
+
+    return {
+      amount,
+      dueAt: addUtcMonths(openingDate, index),
+      installmentNumber: (installmentsPaid ?? 0) + index + 1,
+    }
+  })
 }
 
 async function createOpeningFinancingObligation(
@@ -203,6 +390,31 @@ async function createOpeningFinancingObligation(
   const openingDate = input.openingBalance.openingDate
   const financingOpenedAt =
     input.openingBalance.activeFinancingOpenedAt ?? openingDate
+  const originalAmount =
+    Number(input.openingBalance.activeFinancingOriginalAmount ?? 0) ||
+    activeFinancingOutstanding
+  const repaymentMonths =
+    input.openingBalance.activeFinancingRepaymentMonths == null
+      ? 1
+      : Number(input.openingBalance.activeFinancingRepaymentMonths)
+  const installmentsPaid =
+    input.openingBalance.activeFinancingInstallmentsPaid == null
+      ? 0
+      : Number(input.openingBalance.activeFinancingInstallmentsPaid)
+  const installmentAmount = Number(
+    input.openingBalance.activeFinancingInstallmentAmount ?? 0
+  )
+  const remainingInstallments = buildRemainingInstallments({
+    installmentAmount,
+    installmentsPaid,
+    openingDate,
+    outstandingAmount: activeFinancingOutstanding,
+    repaymentMonths,
+  })
+  const monthlyServicing =
+    installmentAmount > 0
+      ? installmentAmount
+      : remainingInstallments[0]?.amount ?? activeFinancingOutstanding
   const guarantorMemberIds = Array.from(
     new Set(
       [
@@ -221,13 +433,13 @@ async function createOpeningFinancingObligation(
       maxSavingsMultiple: 2,
       name: "Brought-forward opening financing",
       tenantId: input.tenantId,
-      termMonths: 1,
+      termMonths: repaymentMonths || 1,
     },
     update: {
       isActive: true,
       loanType: "normal",
       maxSavingsMultiple: 2,
-      termMonths: 1,
+      termMonths: repaymentMonths || 1,
     },
     where: {
       tenantId_name: {
@@ -242,14 +454,14 @@ async function createOpeningFinancingObligation(
       availablePoolSnapshot: 0,
       createdByUserId: input.actorUserId,
       eligibleAmountSnapshot: 0,
-      estimatedMonthlyServicing: activeFinancingOutstanding,
+      estimatedMonthlyServicing: monthlyServicing,
       extraMonthlySavingsAmount: 0,
       loanProductId: product.id,
       memberId: input.openingBalance.memberId,
       purpose: "Brought-forward active financing balance",
-      requestedAmount: activeFinancingOutstanding,
+      requestedAmount: originalAmount,
       requestedAt: financingOpenedAt,
-      requestedTermMonths: 1,
+      requestedTermMonths: repaymentMonths || 1,
       reviewNotes: "Approved as part of brought-forward opening balance.",
       status: "approved",
       tenantId: input.tenantId,
@@ -297,33 +509,37 @@ async function createOpeningFinancingObligation(
   const loan = await prisma.loan.create({
     data: {
       disbursedAt: financingOpenedAt,
-      estimatedMonthlyServicing: activeFinancingOutstanding,
+      estimatedMonthlyServicing: monthlyServicing,
       extraMonthlySavingsAmount: 0,
       firstRepaymentDueAt: financingOpenedAt,
       loanProductId: product.id,
       loanRequestId: request.id,
       memberId: input.openingBalance.memberId,
       outstandingPrincipal: activeFinancingOutstanding,
-      principalAmount: activeFinancingOutstanding,
+      principalAmount: originalAmount,
       status: "active",
       tenantId: input.tenantId,
-      termMonths: 1,
+      termMonths: repaymentMonths || remainingInstallments.length || 1,
     },
   })
 
-  const scheduleItem = await prisma.repaymentScheduleItem.create({
-    data: {
-      amountPaid: 0,
-      chargeDue: 0,
-      dueAt: financingOpenedAt,
-      installmentNumber: 1,
-      loanId: loan.id,
-      principalDue: activeFinancingOutstanding,
-      status: "pending",
-      tenantId: input.tenantId,
-      totalDue: activeFinancingOutstanding,
-    },
-  })
+  let firstScheduleItemId: string | null = null
+  for (const installment of remainingInstallments) {
+    const scheduleItem = await prisma.repaymentScheduleItem.create({
+      data: {
+        amountPaid: 0,
+        chargeDue: 0,
+        dueAt: installment.dueAt,
+        installmentNumber: installment.installmentNumber,
+        loanId: loan.id,
+        principalDue: installment.amount,
+        status: "pending",
+        tenantId: input.tenantId,
+        totalDue: installment.amount,
+      },
+    })
+    firstScheduleItemId ??= scheduleItem.id ?? null
+  }
 
   await createAuditLogEntry(
     {
@@ -337,10 +553,15 @@ async function createOpeningFinancingObligation(
         dueAt: financingOpenedAt.toISOString(),
         guarantorApprovalIds,
         guarantorMemberIds,
+        installmentAmount,
+        installmentsPaid,
         loanRequestId: request.id,
         memberId: input.openingBalance.memberId,
         openingBalanceId: input.openingBalance.id,
-        scheduleItemId: scheduleItem.id ?? null,
+        originalAmount,
+        remainingInstallmentCount: remainingInstallments.length,
+        repaymentMonths,
+        scheduleItemId: firstScheduleItemId,
       },
       tenantId: input.tenantId,
     },
@@ -351,7 +572,7 @@ async function createOpeningFinancingObligation(
     guarantorApprovalIds,
     loanId: loan.id,
     loanRequestId: request.id,
-    scheduleItemId: scheduleItem.id ?? null,
+    scheduleItemId: firstScheduleItemId,
   }
 }
 
@@ -537,28 +758,60 @@ async function createOpeningProcurementObligation(
   }
 
   const policy = await readOpeningProcurementPolicy(input.tenantId, prisma)
+  const openedAt =
+    input.openingBalance.procurementOpenedAt ??
+    input.openingBalance.openingDate
+  const originalAmount =
+    Number(input.openingBalance.procurementOriginalAmount ?? 0) ||
+    procurementOutstanding
+  const repaymentMonths =
+    input.openingBalance.procurementRepaymentMonths == null
+      ? 1
+      : Number(input.openingBalance.procurementRepaymentMonths)
+  const installmentsPaid =
+    input.openingBalance.procurementInstallmentsPaid == null
+      ? 0
+      : Number(input.openingBalance.procurementInstallmentsPaid)
+  const installmentAmount = Number(
+    input.openingBalance.procurementInstallmentAmount ?? 0
+  )
+  const remainingInstallments = buildRemainingInstallments({
+    installmentAmount,
+    installmentsPaid,
+    openingDate: input.openingBalance.openingDate,
+    outstandingAmount: procurementOutstanding,
+    repaymentMonths,
+  })
+  const monthlyRepayment =
+    installmentAmount > 0
+      ? installmentAmount
+      : remainingInstallments[0]?.amount ?? procurementOutstanding
+  const itemName =
+    input.openingBalance.procurementItemName?.trim() ||
+    "Brought-forward procurement balance"
+
   const request = await prisma.procurementRequest.create({
     data: {
       allowsCommitmentReductionDuringPayback:
         policy.allowsCommitmentReductionDuringPayback,
-      approvedCost: procurementOutstanding,
-      approvedMonthlyRepayment: procurementOutstanding,
-      approvedRepaymentMonths: 1,
+      approvedCost: originalAmount,
+      approvedMonthlyRepayment: monthlyRepayment,
+      approvedRepaymentMonths: repaymentMonths || 1,
       createdByUserId: input.actorUserId,
-      estimatedMonthlyRepayment: procurementOutstanding,
+      estimatedMonthlyRepayment: monthlyRepayment,
       itemDescription:
         input.openingBalance.notes?.trim() ||
         "Opening procurement obligation imported from cooperative records.",
-      itemName: "Brought-forward procurement balance",
+      itemName,
       memberId: input.openingBalance.memberId,
       policyMaximumPaybackMonths: policy.policyMaximumPaybackMonths,
       purchaseNotes: "Brought-forward opening procurement obligation.",
       purchaseReference: `opening-balance:${input.openingBalance.id}:procurement`,
-      purchasedAt: input.openingBalance.openingDate,
+      purchasedAt: openedAt,
       purchasedByUserId: input.actorUserId,
-      requestedAt: input.openingBalance.openingDate,
-      requestedCost: procurementOutstanding,
-      requestedRepaymentMonths: 1,
+      requestedAt: openedAt,
+      requestedCost: originalAmount,
+      requestedRepaymentMonths: repaymentMonths || 1,
       reviewedAt: input.appliedAt,
       reviewedByUserId: input.actorUserId,
       reviewNotes: "Approved as part of brought-forward opening balance.",
@@ -567,18 +820,22 @@ async function createOpeningProcurementObligation(
     },
   })
 
-  const scheduleItem = await prisma.procurementRepaymentScheduleItem.create({
-    data: {
-      amount: procurementOutstanding,
-      dueDate: input.openingBalance.openingDate,
-      installmentNumber: 1,
-      memberId: input.openingBalance.memberId,
-      paidAmount: 0,
-      procurementRequestId: request.id,
-      status: "pending",
-      tenantId: input.tenantId,
-    },
-  })
+  let firstScheduleItemId: string | null = null
+  for (const installment of remainingInstallments) {
+    const scheduleItem = await prisma.procurementRepaymentScheduleItem.create({
+      data: {
+        amount: installment.amount,
+        dueDate: installment.dueAt,
+        installmentNumber: installment.installmentNumber,
+        memberId: input.openingBalance.memberId,
+        paidAmount: 0,
+        procurementRequestId: request.id,
+        status: "pending",
+        tenantId: input.tenantId,
+      },
+    })
+    firstScheduleItemId ??= scheduleItem.id ?? null
+  }
 
   await createAuditLogEntry(
     {
@@ -590,10 +847,16 @@ async function createOpeningProcurementObligation(
       metadata: {
         amount: procurementOutstanding,
         dueDate: input.openingBalance.openingDate.toISOString(),
+        installmentAmount,
+        installmentsPaid,
+        itemName,
         memberId: input.openingBalance.memberId,
         openingBalanceId: input.openingBalance.id,
+        originalAmount,
         policyMaximumPaybackMonths: policy.policyMaximumPaybackMonths,
-        scheduleItemId: scheduleItem.id ?? null,
+        remainingInstallmentCount: remainingInstallments.length,
+        repaymentMonths,
+        scheduleItemId: firstScheduleItemId,
       },
       tenantId: input.tenantId,
     },
@@ -602,7 +865,7 @@ async function createOpeningProcurementObligation(
 
   return {
     procurementRequestId: request.id,
-    scheduleItemId: scheduleItem.id ?? null,
+    scheduleItemId: firstScheduleItemId,
   }
 }
 
@@ -639,6 +902,21 @@ async function createOpeningFoodPurchaseObligation(
   }
 
   const openingDate = input.openingBalance.openingDate
+  const openedAt = input.openingBalance.foodPurchaseOpenedAt ?? openingDate
+  const originalAmount =
+    Number(input.openingBalance.foodPurchaseOriginalAmount ?? 0) ||
+    foodPurchaseOutstanding
+  const repaymentMonths =
+    input.openingBalance.foodPurchaseRepaymentMonths == null
+      ? 1
+      : Number(input.openingBalance.foodPurchaseRepaymentMonths)
+  const installmentAmount = Number(
+    input.openingBalance.foodPurchaseInstallmentAmount ?? 0
+  )
+  const paidAmount = Math.max(0, originalAmount - foodPurchaseOutstanding)
+  const itemName =
+    input.openingBalance.foodPurchaseItemName?.trim() ||
+    "Brought-forward Food Purchase balance"
   const periodMonth = new Date(
     Date.UTC(openingDate.getUTCFullYear(), openingDate.getUTCMonth(), 1)
   )
@@ -676,16 +954,16 @@ async function createOpeningFoodPurchaseObligation(
     data: {
       allowsCommitmentReductionDuringPayback:
         policy?.foodPurchaseAllowsCommitmentReductionDuringPayback ?? false,
-      approvedAmount: foodPurchaseOutstanding,
-      approvedPaybackMonths: 1,
+      approvedAmount: originalAmount,
+      approvedPaybackMonths: repaymentMonths || 1,
       cycleId: cycle.id,
-      itemDescription: "Brought-forward Food Purchase balance",
+      itemDescription: itemName,
       memberId: input.openingBalance.memberId,
-      paidAmount: 0,
+      paidAmount,
       policyMaximumPaybackMonths,
-      requestedAmount: foodPurchaseOutstanding,
-      requestedAt: openingDate,
-      requestedPaybackMonths: 1,
+      requestedAmount: originalAmount,
+      requestedAt: openedAt,
+      requestedPaybackMonths: repaymentMonths || 1,
       requestNotes:
         input.openingBalance.notes?.trim() ||
         "Opening Food Purchase obligation imported from cooperative records.",
@@ -708,9 +986,15 @@ async function createOpeningFoodPurchaseObligation(
       metadata: {
         amount: foodPurchaseOutstanding,
         cycleId: cycle.id,
+        installmentAmount,
+        installmentsPaid: input.openingBalance.foodPurchaseInstallmentsPaid,
+        itemName,
         memberId: input.openingBalance.memberId,
         openingBalanceId: input.openingBalance.id,
+        originalAmount,
+        paidAmount,
         policyMaximumPaybackMonths,
+        repaymentMonths,
       },
       tenantId: input.tenantId,
     },
@@ -939,13 +1223,46 @@ function validateOpeningBalanceInput(input: MemberOpeningBalanceInput) {
     "Active financing outstanding"
   )
   assertNonNegativeAmount(
+    input.activeFinancingInstallmentAmount ?? 0,
+    "Active financing installment amount"
+  )
+  assertNonNegativeAmount(
     input.procurementOutstanding ?? 0,
     "Procurement outstanding"
+  )
+  assertNonNegativeAmount(
+    input.procurementInstallmentAmount ?? 0,
+    "Procurement installment amount"
   )
   assertNonNegativeAmount(
     input.foodPurchaseOutstanding ?? 0,
     "Food Purchase outstanding"
   )
+  assertNonNegativeAmount(
+    input.foodPurchaseInstallmentAmount ?? 0,
+    "Food Purchase installment amount"
+  )
+  validateOpeningObligationPlan({
+    installmentsPaid: input.activeFinancingInstallmentsPaid,
+    label: "Active financing",
+    originalAmount: input.activeFinancingOriginalAmount,
+    outstandingAmount: input.activeFinancingOutstanding,
+    repaymentMonths: input.activeFinancingRepaymentMonths,
+  })
+  validateOpeningObligationPlan({
+    installmentsPaid: input.procurementInstallmentsPaid,
+    label: "Procurement",
+    originalAmount: input.procurementOriginalAmount,
+    outstandingAmount: input.procurementOutstanding,
+    repaymentMonths: input.procurementRepaymentMonths,
+  })
+  validateOpeningObligationPlan({
+    installmentsPaid: input.foodPurchaseInstallmentsPaid,
+    label: "Food Purchase",
+    originalAmount: input.foodPurchaseOriginalAmount,
+    outstandingAmount: input.foodPurchaseOutstanding,
+    repaymentMonths: input.foodPurchaseRepaymentMonths,
+  })
 
   if (
     input.shareUnits != null &&
@@ -961,6 +1278,105 @@ function validateOpeningBalanceInput(input: MemberOpeningBalanceInput) {
       input.activeFinancingGuarantorTwoMemberId
   ) {
     throw new Error("Opening financing guarantors must be different members.")
+  }
+}
+
+function buildOpeningBalanceMutationData(
+  input: MemberOpeningBalanceInput & {
+    actorUserId: string
+  },
+  openingDate: Date
+) {
+  return {
+    activeFinancingOutstanding: input.activeFinancingOutstanding ?? 0,
+    activeFinancingOriginalAmount: input.activeFinancingOriginalAmount ?? 0,
+    activeFinancingGuarantorOneMemberId:
+      input.activeFinancingGuarantorOneMemberId?.trim() || null,
+    activeFinancingGuarantorTwoMemberId:
+      input.activeFinancingGuarantorTwoMemberId?.trim() || null,
+    activeFinancingInstallmentAmount:
+      input.activeFinancingInstallmentAmount ?? 0,
+    activeFinancingInstallmentsPaid:
+      input.activeFinancingInstallmentsPaid ?? null,
+    activeFinancingOpenedAt: input.activeFinancingOpenedAt
+      ? startOfDay(input.activeFinancingOpenedAt)
+      : null,
+    activeFinancingRepaymentMonths:
+      input.activeFinancingRepaymentMonths ?? null,
+    commitmentSavingsBalance: input.commitmentSavingsBalance ?? 0,
+    foodPurchaseOutstanding: input.foodPurchaseOutstanding ?? 0,
+    foodPurchaseInstallmentAmount: input.foodPurchaseInstallmentAmount ?? 0,
+    foodPurchaseInstallmentsPaid: input.foodPurchaseInstallmentsPaid ?? null,
+    foodPurchaseItemName: input.foodPurchaseItemName?.trim() || null,
+    foodPurchaseOpenedAt: input.foodPurchaseOpenedAt
+      ? startOfDay(input.foodPurchaseOpenedAt)
+      : null,
+    foodPurchaseOriginalAmount: input.foodPurchaseOriginalAmount ?? 0,
+    foodPurchaseRepaymentMonths: input.foodPurchaseRepaymentMonths ?? null,
+    notes: input.notes?.trim() || null,
+    openingDate,
+    procurementOutstanding: input.procurementOutstanding ?? 0,
+    procurementInstallmentAmount: input.procurementInstallmentAmount ?? 0,
+    procurementInstallmentsPaid: input.procurementInstallmentsPaid ?? null,
+    procurementItemName: input.procurementItemName?.trim() || null,
+    procurementOpenedAt: input.procurementOpenedAt
+      ? startOfDay(input.procurementOpenedAt)
+      : null,
+    procurementOriginalAmount: input.procurementOriginalAmount ?? 0,
+    procurementRepaymentMonths: input.procurementRepaymentMonths ?? null,
+    shareCapitalBalance: input.shareCapitalBalance ?? 0,
+    shareUnits: input.shareUnits ?? null,
+    sourceDocumentName: input.sourceDocumentName?.trim() || null,
+    sourceDocumentUrl: input.sourceDocumentUrl?.trim() || null,
+    specialSavingsBalance: input.specialSavingsBalance ?? 0,
+  }
+}
+
+function buildOpeningBalanceAuditMetadata(
+  input: MemberOpeningBalanceInput,
+  openingDate: Date
+) {
+  return {
+    activeFinancingOutstanding: input.activeFinancingOutstanding ?? 0,
+    activeFinancingOriginalAmount: input.activeFinancingOriginalAmount ?? 0,
+    activeFinancingGuarantorOneMemberId:
+      input.activeFinancingGuarantorOneMemberId?.trim() || null,
+    activeFinancingGuarantorTwoMemberId:
+      input.activeFinancingGuarantorTwoMemberId?.trim() || null,
+    activeFinancingInstallmentAmount:
+      input.activeFinancingInstallmentAmount ?? 0,
+    activeFinancingInstallmentsPaid:
+      input.activeFinancingInstallmentsPaid ?? null,
+    activeFinancingOpenedAt: input.activeFinancingOpenedAt
+      ? startOfDay(input.activeFinancingOpenedAt).toISOString()
+      : null,
+    activeFinancingRepaymentMonths:
+      input.activeFinancingRepaymentMonths ?? null,
+    commitmentSavingsBalance: input.commitmentSavingsBalance ?? 0,
+    foodPurchaseOutstanding: input.foodPurchaseOutstanding ?? 0,
+    foodPurchaseInstallmentAmount: input.foodPurchaseInstallmentAmount ?? 0,
+    foodPurchaseInstallmentsPaid: input.foodPurchaseInstallmentsPaid ?? null,
+    foodPurchaseItemName: input.foodPurchaseItemName?.trim() || null,
+    foodPurchaseOpenedAt: input.foodPurchaseOpenedAt
+      ? startOfDay(input.foodPurchaseOpenedAt).toISOString()
+      : null,
+    foodPurchaseOriginalAmount: input.foodPurchaseOriginalAmount ?? 0,
+    foodPurchaseRepaymentMonths: input.foodPurchaseRepaymentMonths ?? null,
+    hasSourceDocument: Boolean(input.sourceDocumentUrl),
+    memberId: input.memberId,
+    openingDate: openingDate.toISOString(),
+    procurementOutstanding: input.procurementOutstanding ?? 0,
+    procurementInstallmentAmount: input.procurementInstallmentAmount ?? 0,
+    procurementInstallmentsPaid: input.procurementInstallmentsPaid ?? null,
+    procurementItemName: input.procurementItemName?.trim() || null,
+    procurementOpenedAt: input.procurementOpenedAt
+      ? startOfDay(input.procurementOpenedAt).toISOString()
+      : null,
+    procurementOriginalAmount: input.procurementOriginalAmount ?? 0,
+    procurementRepaymentMonths: input.procurementRepaymentMonths ?? null,
+    shareCapitalBalance: input.shareCapitalBalance ?? 0,
+    shareUnits: input.shareUnits ?? null,
+    specialSavingsBalance: input.specialSavingsBalance ?? 0,
   }
 }
 
@@ -1163,32 +1579,75 @@ export async function createMemberOpeningBalance(
   await assertOpeningBalanceMutationOpen(input, prisma)
 
   const openingDate = startOfDay(input.openingDate)
-  const created = await prisma.memberOpeningBalance.create({
-    data: {
-      activeFinancingOutstanding: input.activeFinancingOutstanding ?? 0,
-      activeFinancingGuarantorOneMemberId:
-        input.activeFinancingGuarantorOneMemberId?.trim() || null,
-      activeFinancingGuarantorTwoMemberId:
-        input.activeFinancingGuarantorTwoMemberId?.trim() || null,
-      activeFinancingOpenedAt: input.activeFinancingOpenedAt
-        ? startOfDay(input.activeFinancingOpenedAt)
-        : null,
-      commitmentSavingsBalance: input.commitmentSavingsBalance ?? 0,
-      createdByUserId: input.actorUserId,
-      foodPurchaseOutstanding: input.foodPurchaseOutstanding ?? 0,
+  const mutationData = buildOpeningBalanceMutationData(input, openingDate)
+  const auditMetadata = buildOpeningBalanceAuditMetadata(input, openingDate)
+
+  const existing = await prisma.memberOpeningBalance.findFirst({
+    where: {
       memberId: input.memberId,
-      notes: input.notes?.trim() || null,
       openingDate,
-      procurementOutstanding: input.procurementOutstanding ?? 0,
-      shareCapitalBalance: input.shareCapitalBalance ?? 0,
-      shareUnits: input.shareUnits ?? null,
-      sourceDocumentName: input.sourceDocumentName?.trim() || null,
-      sourceDocumentUrl: input.sourceDocumentUrl?.trim() || null,
-      specialSavingsBalance: input.specialSavingsBalance ?? 0,
       tenantId: input.tenantId,
     },
-    include: openingBalanceInclude(),
   })
+
+  if (existing) {
+    if (
+      !["pending_review", "rejected", "cancelled"].includes(existing.status)
+    ) {
+      throw new Error(
+        "An opening position already exists for this member and date. Review or reverse the existing position before staging another one."
+      )
+    }
+
+    const updated = await prisma.memberOpeningBalance.update({
+      data: {
+        ...mutationData,
+        reviewedAt: null,
+        reviewedByUserId: null,
+        reviewNotes: null,
+        status: "pending_review",
+      },
+      include: openingBalanceInclude(),
+      where: { id: existing.id },
+    })
+
+    await createAuditLogEntry(
+      {
+        action: "migration.opening_balance.updated",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: updated.id,
+        entityType: "MemberOpeningBalance",
+        metadata: auditMetadata,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+
+    return normalizeOpeningBalance(updated)
+  }
+
+  let created
+
+  try {
+    created = await prisma.memberOpeningBalance.create({
+      data: {
+        ...mutationData,
+        createdByUserId: input.actorUserId,
+        memberId: input.memberId,
+        tenantId: input.tenantId,
+      },
+      include: openingBalanceInclude(),
+    })
+  } catch (error) {
+    if ((error as { code?: unknown }).code === "P2002") {
+      throw new Error(
+        "An opening position already exists for this member and date. Refresh the page and edit the existing staged position."
+      )
+    }
+
+    throw error
+  }
 
   await createAuditLogEntry(
     {
@@ -1197,25 +1656,7 @@ export async function createMemberOpeningBalance(
       actorUserId: input.actorUserId,
       entityId: created.id,
       entityType: "MemberOpeningBalance",
-      metadata: {
-        activeFinancingOutstanding: input.activeFinancingOutstanding ?? 0,
-        activeFinancingGuarantorOneMemberId:
-          input.activeFinancingGuarantorOneMemberId?.trim() || null,
-        activeFinancingGuarantorTwoMemberId:
-          input.activeFinancingGuarantorTwoMemberId?.trim() || null,
-        activeFinancingOpenedAt: input.activeFinancingOpenedAt
-          ? startOfDay(input.activeFinancingOpenedAt).toISOString()
-          : null,
-        commitmentSavingsBalance: input.commitmentSavingsBalance ?? 0,
-        foodPurchaseOutstanding: input.foodPurchaseOutstanding ?? 0,
-        hasSourceDocument: Boolean(input.sourceDocumentUrl),
-        memberId: input.memberId,
-        openingDate: openingDate.toISOString(),
-        procurementOutstanding: input.procurementOutstanding ?? 0,
-        shareCapitalBalance: input.shareCapitalBalance ?? 0,
-        shareUnits: input.shareUnits ?? null,
-        specialSavingsBalance: input.specialSavingsBalance ?? 0,
-      },
+      metadata: auditMetadata,
       tenantId: input.tenantId,
     },
     prisma

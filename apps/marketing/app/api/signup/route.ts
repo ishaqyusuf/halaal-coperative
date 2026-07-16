@@ -8,12 +8,48 @@ import {
 import { createSignedSignupToken } from "@/lib/signup-token"
 import {
   createSignupVerificationPayload,
-  signupIntentSchema,
+  signupRequestSchema,
 } from "@/lib/signup-flow"
+import { verifySignedSignupApprovalToken } from "@/lib/early-access"
+import { getMarketingConfig } from "@/lib/marketing-config"
+import { getMarketingAppOrigin } from "@/lib/runtime-url"
+
+function normalizeComparableText(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase()
+}
+
+function verifyEarlyAccessApproval(input: {
+  approvalToken?: string
+  cooperativeName: string
+  primaryContactEmail: string
+}) {
+  if (!getMarketingConfig().earlyAccessModeEnabled) {
+    return
+  }
+
+  if (!input.approvalToken) {
+    throw new Error("Early access approval is required before setup.")
+  }
+
+  const approval = verifySignedSignupApprovalToken(input.approvalToken)
+  const emailMatches =
+    approval.primaryContactEmail.toLowerCase() ===
+    input.primaryContactEmail.trim().toLowerCase()
+  const cooperativeMatches =
+    normalizeComparableText(approval.cooperativeName) ===
+    normalizeComparableText(input.cooperativeName)
+
+  if (!emailMatches || !cooperativeMatches) {
+    throw new Error(
+      "This setup request does not match the approved early access request."
+    )
+  }
+}
 
 export async function POST(request: Request) {
   try {
-    const input = signupIntentSchema.parse(await request.json())
+    const input = signupRequestSchema.parse(await request.json())
+    verifyEarlyAccessApproval(input)
     const emailDeliveryConfigured = isServerEmailDeliveryConfigured()
     const availability = await checkTenantSignupAvailability({
       cooperativeName: input.cooperativeName,
@@ -39,7 +75,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Email delivery is not configured. Set RESEND_API_KEY and EMAIL_FROM_ADDRESS before enabling public signup.",
+            "Email delivery is not configured. Set RESEND_API_KEY and EMAIL_FROM_ADDRESS before enabling approved setup.",
         },
         { status: 503 }
       )
@@ -47,7 +83,10 @@ export async function POST(request: Request) {
 
     const payload = createSignupVerificationPayload(input)
     const token = createSignedSignupToken(payload)
-    const onboardingUrl = new URL("/onboarding", request.url)
+    const onboardingUrl = new URL(
+      "/onboarding",
+      getMarketingAppOrigin(request.url)
+    )
     onboardingUrl.searchParams.set("token", token)
     const verificationEmail = createSignupVerificationEmail({
       expiresAt: payload.expiresAt,
@@ -84,7 +123,7 @@ export async function POST(request: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "We could not prepare signup verification.",
+            : "We could not prepare setup verification.",
       },
       { status: 400 }
     )

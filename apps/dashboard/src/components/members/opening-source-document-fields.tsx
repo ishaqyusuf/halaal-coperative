@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { Field, FieldLabel } from "@halaalvest/ui/components/field"
+import { Input } from "@halaalvest/ui/components/input"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 
 export function OpeningSourceDocumentFields({
@@ -13,19 +15,23 @@ export function OpeningSourceDocumentFields({
 
   return (
     <>
-      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-        Source document name
-        <input
-          className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+      <Field data-disabled={disabled ? true : undefined}>
+        <FieldLabel htmlFor="member-opening-source-document-name">
+          Source document name
+        </FieldLabel>
+        <Input
           disabled={disabled}
+          id="member-opening-source-document-name"
           name="sourceDocumentName"
           onChange={(event) => setSourceDocumentName(event.target.value)}
           placeholder="Opening ledger scan"
           value={sourceDocumentName}
         />
-      </label>
-      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-        Source document URL
+      </Field>
+      <Field data-disabled={disabled ? true : undefined}>
+        <FieldLabel htmlFor="member-opening-source-document-url">
+          Source document URL
+        </FieldLabel>
         <UploadEvidenceInput
           disabled={disabled}
           fileName={sourceDocumentName}
@@ -36,15 +42,15 @@ export function OpeningSourceDocumentFields({
           purpose="opening_balance_source"
           value={sourceDocumentUrl}
         />
-        <input
-          className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+        <Input
           disabled={disabled}
+          id="member-opening-source-document-url"
           name="sourceDocumentUrl"
           onChange={(event) => setSourceDocumentUrl(event.target.value)}
           placeholder="https://..."
           value={sourceDocumentUrl}
         />
-      </label>
+      </Field>
     </>
   )
 }

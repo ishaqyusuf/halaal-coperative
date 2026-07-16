@@ -142,11 +142,27 @@ model MemberOpeningBalance {
   shareCapitalBalance           Decimal                    @default(0) @map("share_capital_balance") @db.Decimal(18, 2)
   shareUnits                    Int?                       @map("share_units")
   activeFinancingOutstanding    Decimal                    @default(0) @map("active_financing_outstanding") @db.Decimal(18, 2)
+  activeFinancingOriginalAmount Decimal                    @default(0) @map("active_financing_original_amount") @db.Decimal(18, 2)
   activeFinancingOpenedAt       DateTime?                  @map("active_financing_opened_at") @db.Date
+  activeFinancingRepaymentMonths Int?                      @map("active_financing_repayment_months")
+  activeFinancingInstallmentAmount Decimal                 @default(0) @map("active_financing_installment_amount") @db.Decimal(18, 2)
+  activeFinancingInstallmentsPaid Int?                     @map("active_financing_installments_paid")
   activeFinancingGuarantorOneMemberId String?              @map("active_financing_guarantor_one_member_id") @db.Uuid
   activeFinancingGuarantorTwoMemberId String?              @map("active_financing_guarantor_two_member_id") @db.Uuid
   procurementOutstanding        Decimal                    @default(0) @map("procurement_outstanding") @db.Decimal(18, 2)
+  procurementItemName           String?                    @map("procurement_item_name")
+  procurementOpenedAt           DateTime?                  @map("procurement_opened_at") @db.Date
+  procurementOriginalAmount     Decimal                    @default(0) @map("procurement_original_amount") @db.Decimal(18, 2)
+  procurementRepaymentMonths    Int?                       @map("procurement_repayment_months")
+  procurementInstallmentAmount  Decimal                    @default(0) @map("procurement_installment_amount") @db.Decimal(18, 2)
+  procurementInstallmentsPaid   Int?                       @map("procurement_installments_paid")
   foodPurchaseOutstanding       Decimal                    @default(0) @map("food_purchase_outstanding") @db.Decimal(18, 2)
+  foodPurchaseItemName          String?                    @map("food_purchase_item_name")
+  foodPurchaseOpenedAt          DateTime?                  @map("food_purchase_opened_at") @db.Date
+  foodPurchaseOriginalAmount    Decimal                    @default(0) @map("food_purchase_original_amount") @db.Decimal(18, 2)
+  foodPurchaseRepaymentMonths   Int?                       @map("food_purchase_repayment_months")
+  foodPurchaseInstallmentAmount Decimal                    @default(0) @map("food_purchase_installment_amount") @db.Decimal(18, 2)
+  foodPurchaseInstallmentsPaid  Int?                       @map("food_purchase_installments_paid")
   appliedLoanId                 String?                    @unique(map: "member_opening_balances_applied_loan_key") @map("applied_loan_id") @db.Uuid
   appliedProcurementRequestId   String?                    @unique(map: "member_opening_balances_applied_procurement_request_key") @map("applied_procurement_request_id") @db.Uuid
   appliedFoodPurchaseApplicationId String?                  @unique(map: "member_opening_balances_applied_food_purchase_application_key") @map("applied_food_purchase_application_id") @db.Uuid

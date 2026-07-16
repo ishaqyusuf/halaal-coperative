@@ -40,10 +40,10 @@ export default async function OnboardingPage({
       <SignupShell
         eyebrow="Verified setup"
         title="Open onboarding from a secure verification link."
-        description="Signup sends the primary admin a time-limited link before a workspace can be created."
+        description="Setup sends the primary admin a time-limited link before a workspace can be created."
       >
-        <Link className={buttonVariants({ size: "lg" })} href="/signup">
-          Go to signup
+        <Link className={buttonVariants({ size: "lg" })} href="/#early-access">
+          Request early access
         </Link>
       </SignupShell>
     )

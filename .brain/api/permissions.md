@@ -1,13 +1,16 @@
 # API Permissions
 
 ## Purpose
+
 This file documents who can do what across the platform.
 
 ## How To Use
+
 - Update when roles or protected actions change.
 - Keep permissions aligned with real enforcement in code.
 
 ## Initial Roles
+
 - Super admin.
 - Tenant admin.
 - Finance officer.
@@ -15,6 +18,7 @@ This file documents who can do what across the platform.
 - Member.
 
 ## Sensitive Actions
+
 - Create or update charge definitions.
 - Approve or reject loan requests.
 - Mark repayments received.
@@ -24,6 +28,11 @@ This file documents who can do what across the platform.
 - Resolve offline sync conflicts.
 
 ## Rules
+
+- Marketing early access request submission is public.
+- Marketing admin approval links are signed bearer links sent to configured platform admins; possession of the unexpired link can trigger the cooperative approval email.
+- Early-access-gated cooperative setup requires a signed early access approval token matching the cooperative name and primary contact email.
+- Tenant onboarding still requires the signed email-verification token generated after approved setup.
 - Members can view only their own financial records.
 - Super admins can oversee platform-wide setup and tenant support workflows.
 - Tenant admins and finance officers operate only within their tenant.

@@ -1,4 +1,15 @@
 import { Button } from "@halaalvest/ui/components/button"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@halaalvest/ui/components/field"
+import { Input } from "@halaalvest/ui/components/input"
+import { Separator } from "@halaalvest/ui/components/separator"
+import { DatePickerInput } from "@/components/date-picker-input"
 import { DashboardSurfaceCard } from "@/components/dashboard"
 import {
   applyMemberOpeningBalanceAction,
@@ -17,7 +28,8 @@ import {
   type MemberProfitSeasonAdjustmentSeason,
 } from "./member-profit-season-adjustment-table"
 import { MemberOpeningSharePositionFields } from "./member-opening-share-position-fields"
-import { OpeningSourceDocumentFields } from "./opening-source-document-fields"
+import { OpeningBalanceOptionalSections } from "./opening-balance-optional-sections"
+import { OpeningBalanceQuickFillButton } from "./opening-balance-quick-fill-button"
 
 type MemberBackfillData = Extract<
   Awaited<ReturnType<typeof loadMemberBackfillWorkflowData>>,
@@ -48,7 +60,9 @@ function formatDate(value: string | null | undefined) {
 }
 
 function getFallbackSeasonLabel(option: ProfitMigrationOption) {
-  return option.seasonLabel ?? `Dividend season (${formatDate(option.profitDate)})`
+  return (
+    option.seasonLabel ?? `Dividend season (${formatDate(option.profitDate)})`
+  )
 }
 
 function getSeasonSharePercentage(
@@ -131,12 +145,14 @@ function OpeningAmountInput({
   required?: boolean
   step?: string
 }) {
+  const id = `member-opening-${name}`
+
   return (
-    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      <input
-        className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+    <Field data-disabled={disabled ? true : undefined}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Input
         disabled={disabled}
+        id={id}
         min="0"
         name={name}
         placeholder="0"
@@ -144,7 +160,38 @@ function OpeningAmountInput({
         step={step}
         type="number"
       />
-    </label>
+    </Field>
+  )
+}
+
+function OpeningDateInput({
+  defaultValue,
+  disabled,
+  label,
+  name,
+  required = false,
+}: {
+  defaultValue?: string | null
+  disabled?: boolean
+  label: string
+  name: string
+  required?: boolean
+}) {
+  const id = `member-opening-${name}`
+
+  return (
+    <Field data-disabled={disabled ? true : undefined}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <DatePickerInput
+        allowClear={!required}
+        defaultValue={defaultValue ?? undefined}
+        disabled={disabled}
+        id={id}
+        name={name}
+        placeholder="Select date"
+        required={required}
+      />
+    </Field>
   )
 }
 
@@ -162,144 +209,91 @@ export function OpeningBalanceCreateContent({
   const guarantorOptions = data.memberOptions.filter(
     (option) => option.id !== data.member.id
   )
+  const openingDate = data.tenantStartDate ?? data.member.joinedAt
+  const shareCapitalQuickFillValue = isUnitBasedShare
+    ? String(sharePolicy.unitAmount)
+    : "10000"
 
   return (
     <form
       action={createMemberOpeningBalanceAction}
-      className="grid gap-3"
+      className="flex flex-col gap-6"
       id={formId}
     >
       <input name="memberId" type="hidden" value={data.member.id} />
-      <p className="text-xs font-medium text-muted-foreground">
-        Required current position
-      </p>
-      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-        Opening date
-        <input
-          className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-          defaultValue={data.tenantStartDate ?? data.member.joinedAt}
-          disabled={disabled}
-          name="openingDate"
-          required
-          type="date"
-        />
-      </label>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <OpeningAmountInput
-          disabled={disabled}
-          label="Commitment savings"
-          name="commitmentSavingsBalance"
-          required
-        />
-        <OpeningAmountInput
-          disabled={disabled}
-          label="Special savings"
-          name="specialSavingsBalance"
-          required
-        />
-        {isUnitBasedShare ? (
-          <MemberOpeningSharePositionFields
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="max-w-2xl">
+          <p className="text-sm font-semibold text-foreground">
+            Opening position
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Stage the balances and active obligations that already exist before
+            the member starts using the system.
+          </p>
+        </div>
+        {data.quickFillEnabled ? (
+          <OpeningBalanceQuickFillButton
             disabled={disabled}
-            unitAmount={sharePolicy.unitAmount}
+            formId={formId}
+            values={{
+              activeFinancingGuarantorOneMemberId: guarantorOptions[0]?.id,
+              activeFinancingGuarantorTwoMemberId: guarantorOptions[1]?.id,
+              openingDate,
+              shareCapitalBalance: shareCapitalQuickFillValue,
+            }}
           />
-        ) : (
-          <OpeningAmountInput
+        ) : null}
+      </div>
+
+      <FieldSet>
+        <FieldLegend>Current balances</FieldLegend>
+        <FieldDescription>
+          Required current book position for savings, special savings, and share
+          capital.
+        </FieldDescription>
+        <FieldGroup className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <OpeningDateInput
+            defaultValue={openingDate}
             disabled={disabled}
-            label="Share capital"
-            name="shareCapitalBalance"
+            label="Opening date"
+            name="openingDate"
             required
           />
-        )}
-      </div>
-      <div className="grid gap-3 lg:grid-cols-3">
-        <details className="border border-border/70 bg-muted/20 p-3">
-          <summary className="cursor-pointer text-sm font-semibold text-foreground">
-            Add active financing
-          </summary>
-          <div className="mt-3 grid gap-3">
+          <OpeningAmountInput
+            disabled={disabled}
+            label="Commitment savings"
+            name="commitmentSavingsBalance"
+            required
+          />
+          <OpeningAmountInput
+            disabled={disabled}
+            label="Special savings"
+            name="specialSavingsBalance"
+            required
+          />
+          {isUnitBasedShare ? (
+            <MemberOpeningSharePositionFields
+              disabled={disabled}
+              unitAmount={sharePolicy.unitAmount}
+            />
+          ) : (
             <OpeningAmountInput
               disabled={disabled}
-              label="Outstanding principal"
-              name="activeFinancingOutstanding"
+              label="Share capital"
+              name="shareCapitalBalance"
+              required
             />
-            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-              Financing start date
-              <input
-                className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-                disabled={disabled}
-                name="activeFinancingOpenedAt"
-                type="date"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-              Guarantor 1
-              <select
-                className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-                disabled={disabled}
-                name="activeFinancingGuarantorOneMemberId"
-              >
-                <option value="">No guarantor</option>
-                {guarantorOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-              Guarantor 2
-              <select
-                className="h-9 border border-border bg-background px-3 text-sm text-foreground"
-                disabled={disabled}
-                name="activeFinancingGuarantorTwoMemberId"
-              >
-                <option value="">No guarantor</option>
-                {guarantorOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </details>
-        <details className="border border-border/70 bg-muted/20 p-3">
-          <summary className="cursor-pointer text-sm font-semibold text-foreground">
-            Add procurement
-          </summary>
-          <div className="mt-3">
-            <OpeningAmountInput
-              disabled={disabled}
-              label="Outstanding procurement"
-              name="procurementOutstanding"
-            />
-          </div>
-        </details>
-        <details className="border border-border/70 bg-muted/20 p-3">
-          <summary className="cursor-pointer text-sm font-semibold text-foreground">
-            Add Food Purchase
-          </summary>
-          <div className="mt-3">
-            <OpeningAmountInput
-              disabled={disabled}
-              label="Outstanding Food Purchase"
-              name="foodPurchaseOutstanding"
-            />
-          </div>
-        </details>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <OpeningSourceDocumentFields disabled={disabled} />
-      </div>
-      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-        Notes
-        <textarea
-          className="min-h-20 border border-border bg-background px-3 py-2 text-sm text-foreground"
-          disabled={disabled}
-          name="notes"
-          placeholder="Current book position and source note"
-        />
-      </label>
+          )}
+        </FieldGroup>
+      </FieldSet>
+
+      <Separator />
+
+      <OpeningBalanceOptionalSections
+        disabled={disabled}
+        guarantorOptions={guarantorOptions}
+      />
+
       <div className="flex justify-end">
         <Button disabled={disabled} size="sm" type="submit">
           Stage opening position
@@ -511,8 +505,8 @@ export function ProfitSeasonAdjustmentContent({
             No profit seasons available.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Continue to review if this member has no season-specific
-            historical profit adjustment.
+            Continue to review if this member has no season-specific historical
+            profit adjustment.
           </p>
         </DashboardSurfaceCard>
       )}

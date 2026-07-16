@@ -28,9 +28,11 @@
 - Applied brought-forward opening positions count as member ledger migration evidence for brought-forward setup mode. Full historical backfill mode still requires applied historical backfill evidence and does not count opening balances as a substitute.
 - Admin share setup surfaces must present the two share models as mutually exclusive. When staff select a different active model, inactive model workflows should be hidden until the selected model is saved, so monthly share history and unit-based shareholding are never treated as side-by-side setup paths.
 - The brought-forward path now has a staged opening-position data model for current book balances and active obligations.
-- The member backfill baseline step now lets finance staff stage, review, and apply approved brought-forward opening positions for one member when the row contains savings, share-capital balances, active financing outstanding, and procurement outstanding.
-- Applying an approved opening position posts commitment/special savings as a brought-forward ledger adjustment, increments the member savings snapshot, posts share capital through the member share ledger, converts any active financing outstanding amount into an active brought-forward loan with one opening repayment schedule item, converts any procurement outstanding amount into an active brought-forward procurement request with one opening repayment schedule item, marks the opening balance as applied, and writes audit evidence.
+- The member backfill baseline step now lets finance staff stage, review, and apply approved brought-forward opening positions for one member when the row contains savings, share-capital balances, and optional active loan, procurement, and Foodstuff Purchase obligations.
+- Opening-position obligation capture includes the current outstanding amount plus original amount, start/purchase date, repayment months, monthly installment, paid-installment count, and item label where applicable, so staff can record the last/current loan, procurement item, or Foodstuff Purchase being serviced instead of only a flat balance.
+- Applying an approved opening position posts commitment/special savings as a brought-forward ledger adjustment, increments the member savings snapshot, posts share capital through the member share ledger, converts any active financing outstanding amount into a linked active brought-forward loan with remaining repayment schedule rows, converts any procurement outstanding amount into a linked active brought-forward procurement request with remaining repayment schedule rows, converts any Foodstuff Purchase outstanding amount into an approved opening Foodstuff Purchase application with paid amount inferred from original minus outstanding, marks the opening balance as applied, and writes audit evidence.
 - Finance staff can reverse an applied opening position with required notes. Reversal posts opposite brought-forward savings ledger entries, decrements the member savings snapshot, posts a negative brought-forward share ledger entry, closes the linked opening loan and cancels the linked opening procurement obligation when they have no repayment activity, marks the opening balance as reversed, and writes audit evidence.
+- Restaging an opening position for the same tenant, member, and opening date updates the existing pending/rejected/cancelled staged row and returns it to pending review. Reviewed/applied/reversed rows remain protected and must be handled through review/reversal workflows instead of duplicate staging.
 - Workspace admins can export brought-forward opening positions from `/reports/opening-balances-export`, including source documents, savings/share balances, unresolved financing/procurement amounts, linked applied loan id, linked applied procurement request id, review evidence, apply evidence, and reversal evidence.
 - A staff user launches backfill from the members list or member overview instead of navigating to a standalone finance route.
 - The backfill CTA opens a full-screen modal scoped to one member.
@@ -208,7 +210,25 @@
       - `shareCapitalBalance`
       - `shareUnits`
       - `activeFinancingOutstanding`
+      - `activeFinancingOriginalAmount`
+      - `activeFinancingOpenedAt`
+      - `activeFinancingRepaymentMonths`
+      - `activeFinancingInstallmentAmount`
+      - `activeFinancingInstallmentsPaid`
       - `procurementOutstanding`
+      - `procurementItemName`
+      - `procurementOpenedAt`
+      - `procurementOriginalAmount`
+      - `procurementRepaymentMonths`
+      - `procurementInstallmentAmount`
+      - `procurementInstallmentsPaid`
+      - `foodPurchaseOutstanding`
+      - `foodPurchaseItemName`
+      - `foodPurchaseOpenedAt`
+      - `foodPurchaseOriginalAmount`
+      - `foodPurchaseRepaymentMonths`
+      - `foodPurchaseInstallmentAmount`
+      - `foodPurchaseInstallmentsPaid`
       - `appliedLoanId`
       - `appliedProcurementRequestId`
       - `sourceDocumentUrl`
@@ -226,7 +246,7 @@
       - `createdAt`
       - `updatedAt`
     - Notes:
-      - Opening balances are review evidence and migration inputs until explicitly applied. The apply workflow posts savings and share capital through audited ledgers, converts active financing outstanding into a linked active loan with one opening schedule row, and can convert procurement outstanding into a linked active procurement obligation with one opening schedule row.
+      - Opening balances are review evidence and migration inputs until explicitly applied. The apply workflow posts savings and share capital through audited ledgers, converts active financing outstanding into a linked active loan with remaining schedule rows, converts procurement outstanding into a linked active procurement obligation with remaining schedule rows, and converts Foodstuff Purchase outstanding into an approved opening application while preserving original amount, paid amount, item/date, and repayment plan evidence.
       - Mutations are blocked once the member's historical ledger has already been applied, so opening positions cannot silently rewrite posted history.
       - Dashboard actions for the member baseline step create pending opening positions and approve/reject pending rows through the same tenant/member migration lock rules.
 - Recommended enums:
@@ -482,7 +502,7 @@
 ## Remaining Work
 - Tighten repayment replay when multiple concurrent loans exist for one member.
 - Add draft reopen/resume UX using persisted batches instead of always hydrating the latest preview.
-- Add richer opening-obligation capture if cooperatives later need original loan labels, original procurement item details, or month-by-month opening repayment schedules instead of the current one-row outstanding-balance posting.
+- Add full historical obligation timelines only if cooperatives later need every past repayment row before the opening date; the current opening-position path stores the current/last obligation details and generates the remaining live schedule from the opening date onward.
 - Connect applied backfill rows into the live share system beyond `totalSavingsSnapshot`, including downstream reporting surfaces.
 - Add member-facing dividend statement/export surfaces for published period allocation summaries.
 - Add migration and Prisma client regeneration so the new backfill/share-business columns are first-class typed models everywhere.

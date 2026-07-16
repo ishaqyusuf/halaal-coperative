@@ -16,9 +16,7 @@ export function normalizeWorkspaceSlug(value: string) {
 
 export function createWorkspaceSlugSuggestion(value: string) {
   return normalizeWorkspaceSlug(
-    value
-      .replace(/\bco[-\s]?operative\b/gi, " ")
-      .replace(/\bcoop\b/gi, " "),
+    value.replace(/\bco[-\s]?operative\b/gi, " ").replace(/\bcoop\b/gi, " ")
   )
 }
 
@@ -31,8 +29,14 @@ const workspaceSlugSchema = z
   .trim()
   .min(2, "Choose a workspace subdomain.")
   .max(63, "Keep the workspace subdomain under 63 characters.")
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers, and hyphens only.")
-  .refine((value) => !isReservedWorkspaceSlug(value), "That workspace subdomain is reserved.")
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "Use lowercase letters, numbers, and hyphens only."
+  )
+  .refine(
+    (value) => !isReservedWorkspaceSlug(value),
+    "That workspace subdomain is reserved."
+  )
 
 const memberNumberPrefixSchema = z
   .string()
@@ -71,9 +75,16 @@ export const signupIntentSchema = z.object({
   cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
   memberNumberPrefix: memberNumberPrefixSchema.optional().default(""),
   primaryContactEmail: z.email("Enter a valid email address."),
-  primaryContactFullName: z.string().trim().min(2, "Enter the primary contact name."),
+  primaryContactFullName: z
+    .string()
+    .trim()
+    .min(2, "Enter the primary contact name."),
   primaryContactMemberNumber: memberNumberSchema,
   workspaceSlug: workspaceSlugSchema,
+})
+
+export const signupRequestSchema = signupIntentSchema.extend({
+  approvalToken: z.string().optional(),
 })
 
 export const signupVerificationPayloadSchema = z.object({
@@ -87,34 +98,45 @@ export const signupVerificationPayloadSchema = z.object({
   workspaceSlug: workspaceSlugSchema,
 })
 
-export const onboardingFormSchema = z.object({
-  city: requiredProfileTextField("Enter the cooperative city."),
-  confirmPassword: z.string().min(8, "Confirm your password."),
-  country: requiredProfileTextField("Select the cooperative country.").refine(
-    isCooperativeCountry,
-    "Select a valid cooperative country.",
-  ),
-  cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
-  currentSize: cooperativeSizeRangeField,
-  memberNumberPrefix: memberNumberPrefixSchema.optional().default(""),
-  officeAddress: z.string().trim().min(10, "Enter the cooperative office address."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
-  primaryContactEmail: z.email("Enter a valid email address."),
-  primaryContactFullName: z.string().trim().min(2, "Enter the primary contact name."),
-  primaryContactMemberNumber: memberNumberSchema,
-  state: requiredProfileTextField("Enter the cooperative state."),
-  startDate: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the cooperative start date."),
-  token: z.string().min(1, "A verification token is required."),
-}).refine((values) => values.password === values.confirmPassword, {
-  message: "Passwords do not match.",
-  path: ["confirmPassword"],
-})
+export const onboardingFormSchema = z
+  .object({
+    city: requiredProfileTextField("Enter the cooperative city."),
+    confirmPassword: z.string().min(8, "Confirm your password."),
+    country: requiredProfileTextField("Select the cooperative country.").refine(
+      isCooperativeCountry,
+      "Select a valid cooperative country."
+    ),
+    cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
+    currentSize: cooperativeSizeRangeField,
+    memberNumberPrefix: memberNumberPrefixSchema.optional().default(""),
+    officeAddress: z
+      .string()
+      .trim()
+      .min(10, "Enter the cooperative office address."),
+    password: z.string().min(8, "Password must be at least 8 characters."),
+    primaryContactEmail: z.email("Enter a valid email address."),
+    primaryContactFullName: z
+      .string()
+      .trim()
+      .min(2, "Enter the primary contact name."),
+    primaryContactMemberNumber: memberNumberSchema,
+    state: requiredProfileTextField("Enter the cooperative state."),
+    startDate: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the cooperative start date."),
+    token: z.string().min(1, "A verification token is required."),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  })
 
 export type SignupIntentInput = z.infer<typeof signupIntentSchema>
-export type SignupVerificationPayload = z.infer<typeof signupVerificationPayloadSchema>
+export type SignupRequestInput = z.infer<typeof signupRequestSchema>
+export type SignupVerificationPayload = z.infer<
+  typeof signupVerificationPayloadSchema
+>
 export type OnboardingFormInput = Omit<
   z.infer<typeof onboardingFormSchema>,
   "currentSize"
@@ -127,7 +149,10 @@ export function normalizeMemberNumberPrefix(value: string | null | undefined) {
   return trimmed.length > 0 ? trimmed.toUpperCase() : null
 }
 
-export function composeMemberNumber(prefix: string | null | undefined, suffix: string) {
+export function composeMemberNumber(
+  prefix: string | null | undefined,
+  suffix: string
+) {
   const normalizedPrefix = normalizeMemberNumberPrefix(prefix)
   const normalizedSuffix = suffix.trim().toUpperCase()
 
@@ -156,10 +181,13 @@ export function getMemberNumberSuffix(
     : normalizedMemberNumber
 }
 
-export function createSignupVerificationPayload(input: SignupIntentInput): SignupVerificationPayload {
+export function createSignupVerificationPayload(
+  input: SignupIntentInput
+): SignupVerificationPayload {
   const issuedAt = new Date()
   const expiresAt = new Date(issuedAt.getTime() + 1000 * 60 * 60 * 24)
-  const memberNumberPrefix = normalizeMemberNumberPrefix(input.memberNumberPrefix) ?? ""
+  const memberNumberPrefix =
+    normalizeMemberNumberPrefix(input.memberNumberPrefix) ?? ""
 
   return {
     expiresAt: expiresAt.toISOString(),
@@ -176,7 +204,9 @@ export function createSignupVerificationPayload(input: SignupIntentInput): Signu
   }
 }
 
-export function getOnboardingDefaultsFromVerification(payload: SignupVerificationPayload) {
+export function getOnboardingDefaultsFromVerification(
+  payload: SignupVerificationPayload
+) {
   return {
     city: "",
     cooperativeName: payload.cooperativeName,

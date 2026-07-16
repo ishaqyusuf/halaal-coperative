@@ -1,5 +1,5 @@
-import { DetailListScreen } from "@/screens/detail-list-screen";
+import { UpdatesScreen } from "@/screens/updates-screen";
 
 export default function UpdatesRoute() {
-  return <DetailListScreen detailKey="reports" />;
+  return <UpdatesScreen />;
 }

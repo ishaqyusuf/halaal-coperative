@@ -19,7 +19,9 @@ export type {
 } from "./core-types"
 
 export type NotificationEmailTransport = {
-  send: (draft: NotificationEmailDraft) => NotificationEmailDelivery | Promise<NotificationEmailDelivery>
+  send: (
+    draft: NotificationEmailDraft
+  ) => NotificationEmailDelivery | Promise<NotificationEmailDelivery>
 }
 
 export type ResendEmailTransportOptions = {
@@ -88,10 +90,12 @@ export const platformNotificationTypes: Record<
   },
 }
 
-export function createNotificationFromType<TType extends PlatformNotificationType>(
+export function createNotificationFromType<
+  TType extends PlatformNotificationType,
+>(
   registry: typeof platformNotificationTypes,
   type: TType,
-  payload: Record<string, string | number>,
+  payload: Record<string, string | number>
 ): NotificationInput {
   const definition = registry[type]
 
@@ -132,7 +136,7 @@ export function createMemoryNotificationStore(): NotificationStore {
                 ...notification,
                 status: "dismissed",
               }
-            : notification,
+            : notification
         ),
       }
       emit()
@@ -168,7 +172,7 @@ export function createMemoryNotificationStore(): NotificationStore {
 export class NotificationService {
   constructor(
     private readonly sendNotification: (input: NotificationInput) => string,
-    private readonly emailTransport?: NotificationEmailTransport,
+    private readonly emailTransport?: NotificationEmailTransport
   ) {}
 
   notify(input: NotificationInput) {
@@ -195,7 +199,10 @@ export class NotificationService {
       return {
         attempts: 1,
         draft,
-        errorMessage: error instanceof Error ? error.message : "Unknown email delivery failure.",
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : "Unknown email delivery failure.",
         messageId: `email-${Date.now()}-${Math.random()}`,
         status: "failed",
       } satisfies NotificationEmailDelivery
@@ -220,8 +227,8 @@ export function createConsoleEmailTransport(): NotificationEmailTransport {
             actionUrl: draft.actionUrl,
           },
           null,
-          2,
-        ),
+          2
+        )
       )
 
       return {
@@ -235,7 +242,7 @@ export function createConsoleEmailTransport(): NotificationEmailTransport {
 }
 
 export function createResendEmailTransport(
-  options: ResendEmailTransportOptions,
+  options: ResendEmailTransportOptions
 ): NotificationEmailTransport {
   return {
     async send(draft) {
@@ -286,7 +293,9 @@ export function createResendEmailTransport(
       if (!response.ok) {
         const errorBody = await response.text()
 
-        throw new Error(`Resend email delivery failed: ${response.status} ${errorBody}`)
+        throw new Error(
+          `Resend email delivery failed: ${response.status} ${errorBody}`
+        )
       }
 
       const payload = (await response.json()) as { id?: string }
@@ -303,7 +312,7 @@ export function createResendEmailTransport(
 
 export function createRetryingEmailTransport(
   transport: NotificationEmailTransport,
-  options: RetryingEmailTransportOptions,
+  options: RetryingEmailTransportOptions
 ): NotificationEmailTransport {
   return {
     async send(draft) {
@@ -328,7 +337,9 @@ export function createRetryingEmailTransport(
         }
       }
 
-      throw lastError instanceof Error ? lastError : new Error("Email delivery failed.")
+      throw lastError instanceof Error
+        ? lastError
+        : new Error("Email delivery failed.")
     },
   }
 }
@@ -351,6 +362,30 @@ export function createWorkspaceReadyEmail(input: {
   tenantName: string
 }): NotificationEmailDraft {
   return createEmailDraftFromType("workspace_ready", input)
+}
+
+export function createMarketingEarlyAccessRequestEmail(input: {
+  approvalUrl: string
+  contactEmail: string
+  contactName: string
+  message?: string | null
+  phone?: string | null
+  recipientEmail: string
+  recipientName: string
+  requestedAt: string
+  tenantName: string
+}): NotificationEmailDraft {
+  return createEmailDraftFromType("marketing.early_access_requested", input)
+}
+
+export function createMarketingEarlyAccessApprovedEmail(input: {
+  expiresAt: string
+  recipientEmail: string
+  recipientName: string
+  signupUrl: string
+  tenantName: string
+}): NotificationEmailDraft {
+  return createEmailDraftFromType("marketing.early_access_approved", input)
 }
 
 export * from "./actions"

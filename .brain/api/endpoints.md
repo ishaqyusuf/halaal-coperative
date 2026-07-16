@@ -1,13 +1,16 @@
 # API Endpoints
 
 ## Purpose
+
 This file tracks the public and internal API surface of the platform.
 
 ## How To Use
+
 - Add or update entries when routes or actions change.
 - Keep descriptions short and behavior-focused.
 
 ## Proposed Endpoint Areas
+
 - Auth and session.
 - Tenant onboarding.
 - Member management.
@@ -19,6 +22,7 @@ This file tracks the public and internal API surface of the platform.
 - Dashboard summaries.
 
 ## Current Scaffold Endpoints
+
 - `GET /`
   - Purpose: basic API status message.
 - `GET /health`
@@ -41,8 +45,14 @@ This file tracks the public and internal API surface of the platform.
 - `TRPC /trpc/onboarding.bootstrap`
   - Purpose: create a new tenant workspace with primary domains, tenant-admin contact, default policy, and baseline ledger accounts.
 - `POST /api/signup`
-  - Purpose: validate the public signup intent, mint a signed onboarding token, and build the verification email draft for the cooperative primary contact.
+  - Purpose: validate the private cooperative setup intent, verify early access approval when `MARKETING_EARLY_ACCESS_ENABLED=true`, mint a signed onboarding token, and build the verification email draft for the cooperative primary contact.
   - Notes: implemented as `apps/marketing/app/api/signup/route.ts` because the full auth/session stack is not in place yet.
+- `POST /api/early-access`
+  - Purpose: capture a marketing early access request and email configured platform admins a signed approval API link.
+  - Notes: production requires email delivery plus `MARKETING_ADMIN_EMAILS`.
+- `GET /api/early-access/approve?token=...`
+  - Purpose: verify the signed admin approval token and send the cooperative primary contact an approved setup link.
+  - Notes: the link is bearer-style and sends the approval email when opened. Local development links should use the configured marketing host, e.g. `http://halaalvest.localhost/api/early-access/approve?...`.
 - `POST /api/onboarding`
   - Purpose: verify the signed signup token and provision the tenant workspace from a simplified cooperative profile payload.
   - Notes: implemented as `apps/marketing/app/api/onboarding/route.ts` and backed directly by `createTenantWorkspaceBootstrap`.
@@ -74,12 +84,14 @@ This file tracks the public and internal API surface of the platform.
   - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member, assignee, status, and priority.
 
 ## Near-Term Route Targets
+
 - `TRPC /trpc/auth.*`: session and membership actions.
 - `TRPC /trpc/members.*`: tenant-scoped member listing and management.
 - `TRPC /trpc/loanRequests.*`: submit and review new loan requests.
 - `TRPC /trpc/contributions.*`: contribution posting and reporting.
 
 ## Starter Endpoint Template
+
 - Method:
 - Path:
 - Purpose:

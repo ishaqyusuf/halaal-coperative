@@ -220,17 +220,18 @@ function OpeningBalanceRow({
         />
       </div>
       {row.appliedLoanId ? (
-        <p className="mt-3 break-all border-t border-border/70 pt-3 text-xs text-muted-foreground">
+        <p className="mt-3 border-t border-border/70 pt-3 text-xs break-all text-muted-foreground">
           Active financing opening posted as loan {row.appliedLoanId}.
         </p>
       ) : null}
       {row.appliedProcurementRequestId ? (
-        <p className="mt-3 break-all border-t border-border/70 pt-3 text-xs text-muted-foreground">
-          Procurement opening posted as request {row.appliedProcurementRequestId}.
+        <p className="mt-3 border-t border-border/70 pt-3 text-xs break-all text-muted-foreground">
+          Procurement opening posted as request{" "}
+          {row.appliedProcurementRequestId}.
         </p>
       ) : null}
       {row.appliedFoodPurchaseApplicationId ? (
-        <p className="mt-3 break-all border-t border-border/70 pt-3 text-xs text-muted-foreground">
+        <p className="mt-3 border-t border-border/70 pt-3 text-xs break-all text-muted-foreground">
           Food Purchase opening posted as application{" "}
           {row.appliedFoodPurchaseApplicationId}.
         </p>
@@ -338,6 +339,7 @@ function OpeningPositionPanel({ data }: { data: MemberBackfillData }) {
           description="Capture current balances and active obligations as staged brought-forward evidence."
           disabled={disabled}
           sheetId="opening-position"
+          size="wide"
           title="Stage opening position"
           triggerLabel="Stage opening position"
           variant="default"
@@ -419,7 +421,10 @@ function HistoricalSharePurchasesPanel({ data }: { data: MemberBackfillData }) {
               className="grid gap-2 border border-border/70 bg-muted/20 p-3 text-sm sm:grid-cols-4"
               key={purchase.id}
             >
-              <MetricBlock label="Paid date" value={formatDate(purchase.paidAt)} />
+              <MetricBlock
+                label="Paid date"
+                value={formatDate(purchase.paidAt)}
+              />
               <MetricBlock label="Units" value={purchase.shareUnits} />
               <MetricBlock
                 label="Unit amount"

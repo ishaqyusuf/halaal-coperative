@@ -1,19 +1,23 @@
 # API Contracts
 
 ## Purpose
+
 This file captures payload shapes, response conventions, and contract assumptions.
 
 ## How To Use
+
 - Update when request/response schemas or validation rules change.
 - Prefer examples and concise field lists.
 
 ## Contract Principles
+
 - Include tenant context implicitly from auth, not from untrusted client input alone.
 - Return authoritative balances from backend services only.
 - Use explicit workflow statuses for requests, approvals, and repayments.
 - Keep money fields consistent across endpoints.
 
 ## Current Scaffold Contracts
+
 - `GET /health`
   - `api`: `"ok"`.
   - `auth`: `"session-present"` or `"anonymous"`.
@@ -62,8 +66,18 @@ This file captures payload shapes, response conventions, and contract assumption
   - Request creates tenant name, slug, primary admin identity, optional city/state/country profile fields, default policy values, and base routing hostnames.
   - Response returns the created tenant record, owner user id, primary hostnames, and refreshed onboarding state.
 - `POST /api/signup`
-  - Request validates `cooperativeName`, `primaryContactFullName`, and `primaryContactEmail`.
+  - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, `primaryContactMemberNumber`, `memberNumberPrefix`, `workspaceSlug`, and optional `approvalToken`.
+  - When `MARKETING_EARLY_ACCESS_ENABLED=true`, `approvalToken` is required and must verify to the same cooperative name and primary contact email before the route sends verification email.
   - Response returns `expiresAt`, `onboardingUrl`, delivery metadata, and the verification email draft.
+- `POST /api/early-access`
+  - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, optional `phone`, and optional `message`.
+  - Response returns a received message, email delivery metadata, and in development only the generated approval URL.
+  - Production error cases: email delivery is not configured, `MARKETING_ADMIN_EMAILS` is missing, or all admin email deliveries fail.
+- `GET /api/early-access/approve?token=...`
+  - Request validates a signed early access request token from the query string.
+  - Successful response sends an approved setup email to the cooperative primary contact and renders a small browser confirmation page.
+  - The approved setup URL includes `approvalToken`, which expires after 7 days and is required by `POST /api/signup` whenever early access mode is enabled.
+  - Generated development URLs use the configured marketing origin such as `http://halaalvest.localhost` rather than the fallback `localhost:1440` host when portless is configured.
 - `POST /api/onboarding`
   - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, selected cooperative size range in `currentSize`, `officeAddress`, required `city`, `state`, `country`, `startDate`, and the signed `token`.
   - The route derives the slug from `cooperativeName` and applies server-side tenant policy defaults instead of asking for public policy fields.
@@ -148,6 +162,7 @@ This file captures payload shapes, response conventions, and contract assumption
   - `trpc.mobile.member.receipts.list` includes `canCreateReceipt`; mobile and web member receipt submission mutations reject when payment receipt self-service is not enabled.
 
 ## Starter Contract Template
+
 - Endpoint:
 - Request fields:
 - Response fields:

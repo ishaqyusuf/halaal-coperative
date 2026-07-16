@@ -2,6 +2,7 @@ import { Badge } from "@halaalvest/ui/components/badge"
 import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import Link from "next/link"
+import { EarlyAccessForm } from "./early-access-form"
 import { PricingSection } from "./pricing-section"
 
 const proofMetrics = [
@@ -21,15 +22,15 @@ const operatingPillars = [
   },
   {
     label: "Cooperative rollout",
-    body: "Launch each cooperative with its own public presence, signup path, roles, and workspace on shared infrastructure.",
+    body: "Launch each approved cooperative with its own public presence, private setup path, roles, and workspace on shared infrastructure.",
   },
 ] as const
 
 const workflowRows = [
   [
     "01",
-    "Public signup",
-    "Primary contact starts a verified cooperative setup.",
+    "Early access request",
+    "Primary contact requests approval before setup opens.",
   ],
   [
     "02",
@@ -50,7 +51,7 @@ const workflowRows = [
 
 const productSignals = [
   ["Monthly records", "Staged", "Review before posting"],
-  ["Signup", "Controlled", "Admin approval required"],
+  ["Setup access", "Controlled", "Admin approval required"],
   ["Onboarding", "Guided", "Setup before operations"],
 ] as const
 
@@ -102,7 +103,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
             })}
             href={signupHref}
           >
-            Start signup
+            Request early access
           </Link>
         </div>
       </header>
@@ -121,7 +122,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
               <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
                 A premium cooperative management platform for interest-free
                 savings and financing, staged monthly contributions,
-                approval-controlled member signup, charges, and trustworthy
+                approval-controlled member entry, charges, and trustworthy
                 member records.
               </p>
             </div>
@@ -134,7 +135,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
                 })}
                 href={signupHref}
               >
-                Start cooperative setup
+                Request early access
               </Link>
               <Link
                 className={buttonVariants({
@@ -305,6 +306,25 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
 
       <PricingSection signupHref={signupHref} />
 
+      <section id="early-access" className="border-b border-border bg-card">
+        <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8 lg:py-18">
+          <div className="max-w-xl">
+            <Badge variant="outline" className="h-6 rounded-md px-2.5">
+              Early access
+            </Badge>
+            <h2 className="mt-5 font-heading text-3xl font-semibold sm:text-4xl">
+              Approved cooperatives move into setup by private link.
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-muted-foreground">
+              Submit the accountable cooperative contact. We review the request,
+              then send an approved setup link to begin setup.
+            </p>
+          </div>
+
+          <EarlyAccessForm />
+        </div>
+      </section>
+
       <section id="proof" className="bg-foreground text-background">
         <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-end lg:px-8 lg:py-16">
           <div className="max-w-2xl">
@@ -316,8 +336,8 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
               clarity of a premium SaaS company.
             </h2>
             <p className="mt-4 text-sm leading-7 text-background/70">
-              Route visitors into cooperative signup, workspace login, or the
-              guided first-run setup without filler content or disconnected
+              Route visitors into early access, workspace login, or the guided
+              first-run setup without filler content or disconnected
               claims.
             </p>
           </div>
@@ -331,7 +351,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
               })}
               href={signupHref}
             >
-              Start signup
+              Request early access
             </Link>
             <Link
               className={buttonVariants({

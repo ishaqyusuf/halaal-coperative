@@ -2,6 +2,30 @@ import { Badge } from "@halaalvest/ui/components/badge"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import Link from "next/link"
 
+const planRateRange = {
+  low: 50,
+  high: 75,
+} as const
+
+function formatPlanPrice(memberCap: number) {
+  const formatValue = (value: number) => {
+    if (value >= 1000) {
+      const thousands = value / 1000
+      const formattedThousands = Number.isInteger(thousands)
+        ? `${thousands}`
+        : thousands.toFixed(2).replace(/\.?0+$/, "")
+
+      return `${formattedThousands}k`
+    }
+
+    return value.toLocaleString("en-NG")
+  }
+
+  return `NGN ${formatValue(memberCap * planRateRange.low)}-${formatValue(
+    memberCap * planRateRange.high,
+  )}`
+}
+
 const pricingPlans = [
   {
     name: "Free Beta",
@@ -21,7 +45,7 @@ const pricingPlans = [
   },
   {
     name: "Starter",
-    price: "NGN 50k-75k",
+    price: formatPlanPrice(250),
     cadence: "per month",
     members: "Up to 250 active members",
     description:
@@ -37,7 +61,7 @@ const pricingPlans = [
   },
   {
     name: "Standard",
-    price: "NGN 120k-180k",
+    price: formatPlanPrice(1000),
     cadence: "per month",
     members: "Up to 1,000 active members",
     description:
@@ -53,7 +77,7 @@ const pricingPlans = [
   },
   {
     name: "Growth",
-    price: "NGN 250k-350k",
+    price: formatPlanPrice(3000),
     cadence: "per month",
     members: "Up to 3,000 active members",
     description:
@@ -70,7 +94,7 @@ const pricingPlans = [
   {
     name: "Enterprise",
     price: "Custom",
-    cadence: "NGN 600k+ typical",
+    cadence: "quoted monthly",
     members: "Custom active-member band",
     description:
       "For multi-branch, integration-heavy, or SLA-backed cooperative deployments.",

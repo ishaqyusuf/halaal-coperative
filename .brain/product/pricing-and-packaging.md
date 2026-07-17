@@ -6,6 +6,8 @@
 
 ## Pricing Principle
 - Use tenant subscription tiers with active-member bands.
+- Internally calculate paid plan bands from the included active-member cap using NGN 50-75 per active member per month.
+- Public pricing should show only the resulting monthly subscription range and included active-member band, not per-seat or per-member billing language.
 - Do not charge a percentage of member savings, financing volume, repayments, dividends, or cooperative profits.
 - Keep vendor revenue visibly separate from member funds and cooperative business profit.
 - Make subscription fees, setup fees, add-ons, and pass-through provider costs explicit before signup.
@@ -16,13 +18,13 @@
 | Plan | Monthly price | Included active members | Best fit |
 | --- | ---: | ---: | --- |
 | Free Beta | NGN 0 while beta is active | Up to 100 | Pilot cooperatives validating setup and live workflows |
-| Starter | NGN 50k-75k | Up to 250 | Small cooperatives leaving spreadsheets |
-| Standard | NGN 120k-180k | Up to 1,000 | Established societies running monthly operations |
-| Growth | NGN 250k-350k | Up to 3,000 | Larger employer, civil-service, or multi-group cooperatives |
-| Enterprise | Custom, usually NGN 600k+ | Custom | Multi-branch, integration-heavy, or SLA-backed deployments |
+| Starter | NGN 12.5k-18.75k | Up to 250 | Small cooperatives leaving spreadsheets |
+| Standard | NGN 50k-75k | Up to 1,000 | Established societies running monthly operations |
+| Growth | NGN 150k-225k | Up to 3,000 | Larger employer, civil-service, or multi-group cooperatives |
+| Enterprise | Custom quote | Custom | Multi-branch, integration-heavy, or SLA-backed deployments |
 
 ## Overage And Add-Ons
-- Active-member overage should step down by scale, roughly NGN 50-150 per active member per month.
+- Active-member overage should normally use the same NGN 50-75 internal pricing range unless an enterprise contract sets a custom band.
 - One-time setup and migration can be charged separately, roughly NGN 150k-500k for standard onboarding and NGN 1m+ for enterprise migration.
 - Paid add-ons can include white-label mobile app, custom domain support, CBA/ERP integrations, dedicated support, advanced audit exports, and premium training.
 - Annual prepayment can offer a modest discount, such as 10%, without hiding monthly equivalent pricing.
@@ -58,6 +60,7 @@
 
 ## Public Messaging
 - Lead with predictable software subscription pricing.
+- Do not describe paid plans publicly as per-seat or per-member pricing; show the monthly subscription range and included active-member capacity.
 - Emphasize that Halaalvest does not take a percentage of member funds, financing, repayments, or dividends.
 - Present member login, custom domain, WhatsApp notifications, email notifications, and white label apps as plan/packaging decisions rather than finance charges.
 - Pair pricing with setup support so cooperatives understand the path from signup to first live month.

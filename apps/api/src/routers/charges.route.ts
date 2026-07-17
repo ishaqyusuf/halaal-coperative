@@ -51,6 +51,76 @@ type FinanceShareSortField =
   | "notes"
   | "valueType"
 
+type ChargeValueType = "fixed_amount" | "percentage"
+type ChargeVersionStatus = "current" | "historical" | "scheduled"
+type ChargeFrequency =
+  | "manual"
+  | "one_time"
+  | "per_contribution"
+  | "recurring_monthly"
+type ChargePurpose =
+  | "general"
+  | "loan_fee"
+  | "member_share"
+  | "membership_fee"
+  | "penalty"
+
+type ChargeLibraryVersionRow = {
+  amount: number
+  effectiveFrom: string
+  id: string
+  notes: string | null
+  status: ChargeVersionStatus
+}
+
+type ChargeLibraryRow = {
+  amount: number
+  chargeValueType: ChargeValueType
+  code: string
+  currentEffectiveFrom: string | null
+  id: string
+  isActive: boolean
+  isMonthlyLevy: boolean
+  kind: string
+  name: string
+  versions: ChargeLibraryVersionRow[]
+}
+
+type FinanceChargeVersionRow = {
+  amount: number
+  chargeValueType: ChargeValueType
+  effectiveFrom: string
+  id: string
+  notes: string | null
+  status: ChargeVersionStatus
+}
+
+type FinanceChargeRow = {
+  appliesToLoanRequests: boolean
+  appliesToLoans: boolean
+  appliesToMembers: boolean
+  chargeFrequency: ChargeFrequency
+  chargeValueType: ChargeValueType
+  code: string
+  currentVersion: FinanceChargeVersionRow | null
+  id: string
+  isActive: boolean
+  kind: string
+  name: string
+  purpose: ChargePurpose
+  versions: FinanceChargeVersionRow[]
+}
+
+type FinanceShareRow = {
+  amount: number
+  basis: "after_charge_deductions"
+  effectiveFrom: string
+  id: string
+  isCurrent: boolean
+  notes?: string | null
+  valueType: ChargeValueType
+}
+
 type ListFinanceChargesInput = NonNullable<
   z.infer<typeof listFinanceChargesSchema>
 >
@@ -60,10 +130,10 @@ type ListFinanceSharesInput = NonNullable<
 
 function mapChargeLibraryRows(
   charges: Awaited<ReturnType<typeof listChargeDefinitions>>
-) {
+): ChargeLibraryRow[] {
   const today = new Date()
 
-  return charges.map((charge: any) => {
+  return charges.map((charge: any): ChargeLibraryRow => {
     const sortedVersions = [...(charge.versions ?? [])].sort(
       (left, right) =>
         new Date(right.effectiveFrom).getTime() -
@@ -91,18 +161,20 @@ function mapChargeLibraryRows(
       isMonthlyLevy: charge.isMonthlyLevy,
       kind: charge.kind,
       name: charge.name,
-      versions: sortedVersions.map((version: any) => ({
-        amount: Number(version.amount),
-        effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
-        id: version.id,
-        notes: version.notes ?? null,
-        status:
-          currentVersion?.id === version.id
-            ? "current"
-            : new Date(version.effectiveFrom).getTime() > today.getTime()
-              ? "scheduled"
-              : "historical",
-      })),
+      versions: sortedVersions.map(
+        (version: any): ChargeLibraryVersionRow => ({
+          amount: Number(version.amount),
+          effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
+          id: version.id,
+          notes: version.notes ?? null,
+          status:
+            currentVersion?.id === version.id
+              ? "current"
+              : new Date(version.effectiveFrom).getTime() > today.getTime()
+                ? "scheduled"
+                : "historical",
+        })
+      ),
     }
   })
 }
@@ -141,10 +213,10 @@ function sortChargeLibraryRows(
 
 function mapFinanceChargeRows(
   rows: Awaited<ReturnType<typeof getTenantFinanceSetup>>["chargeDefinitions"]
-) {
+): FinanceChargeRow[] {
   const today = new Date()
 
-  return rows.map((charge: any) => {
+  return rows.map((charge: any): FinanceChargeRow => {
     const currentVersion =
       [...(charge.versions ?? [])]
         .reverse()
@@ -152,21 +224,23 @@ function mapFinanceChargeRows(
           (version) =>
             new Date(version.effectiveFrom).getTime() <= today.getTime()
         ) ?? null
-    const versions = (charge.versions ?? []).map((version: any) => ({
-      amount: Number(version.amount),
-      chargeValueType:
-        version.chargeValueType ??
-        (version.kind === "percentage" ? "percentage" : "fixed_amount"),
-      effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
-      id: version.id,
-      notes: version.notes ?? null,
-      status:
-        currentVersion?.id === version.id
-          ? "current"
-          : new Date(version.effectiveFrom).getTime() > today.getTime()
-            ? "scheduled"
-            : "historical",
-    }))
+    const versions: FinanceChargeVersionRow[] = (charge.versions ?? []).map(
+      (version: any): FinanceChargeVersionRow => ({
+        amount: Number(version.amount),
+        chargeValueType:
+          version.chargeValueType ??
+          (version.kind === "percentage" ? "percentage" : "fixed_amount"),
+        effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
+        id: version.id,
+        notes: version.notes ?? null,
+        status:
+          currentVersion?.id === version.id
+            ? "current"
+            : new Date(version.effectiveFrom).getTime() > today.getTime()
+              ? "scheduled"
+              : "historical",
+      })
+    )
 
     return {
       appliesToLoanRequests: charge.appliesToLoanRequests ?? false,
@@ -265,8 +339,8 @@ function mapFinanceShareRows(
   rows: Awaited<
     ReturnType<typeof getTenantFinanceSetup>
   >["shareStructureVersions"]
-) {
-  return rows.map((version: any, index) => ({
+): FinanceShareRow[] {
+  return rows.map((version: any, index: number): FinanceShareRow => ({
     amount: Number(version.amount),
     basis: version.basis ?? "after_charge_deductions",
     effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),

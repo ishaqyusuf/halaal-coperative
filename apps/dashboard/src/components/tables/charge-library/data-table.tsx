@@ -27,20 +27,20 @@ import { ChargeLibrarySkeleton } from "./skeleton"
 import { ChargeLibraryTableHeader } from "./table-header"
 
 export type ChargeLibraryRow = {
-  amount: number | string | { toString(): string }
+  amount: number
   chargeValueType: "fixed_amount" | "percentage"
   code: string
   currentEffectiveFrom: string | null
   id: string
   isActive: boolean
   isMonthlyLevy: boolean
-  kind: "fixed" | "percentage"
+  kind: string
   name: string
   versions: Array<{
     amount: number
     effectiveFrom: string
     id: string
-    notes?: string | null
+    notes: string | null
     status: "current" | "historical" | "scheduled"
   }>
 }

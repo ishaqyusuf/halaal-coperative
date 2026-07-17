@@ -28,6 +28,7 @@ import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useMembershipApprovalTableStore } from "@/store/membership-approvals"
 import { useTRPC } from "@/trpc/client"
+import { getEnumValue } from "@/utils/enum"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { columns } from "./columns"
@@ -96,14 +97,13 @@ export function MembershipApprovalsDataTable({
     () => ({
       q: deferredSearch || undefined,
       sort: getSort(params.sort),
-      status:
-        filters.status === "pending_email_verification" ||
-        filters.status === "pending_approval" ||
-        filters.status === "approved" ||
-        filters.status === "rejected" ||
-        filters.status === "cancelled"
-          ? filters.status
-          : undefined,
+      status: getEnumValue(filters.status, [
+        "approved",
+        "cancelled",
+        "pending_approval",
+        "pending_email_verification",
+        "rejected",
+      ] as const),
     }),
     [deferredSearch, filters, params.sort]
   )

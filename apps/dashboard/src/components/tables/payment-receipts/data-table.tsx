@@ -25,6 +25,7 @@ import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { usePaymentReceiptsStore } from "@/store/payment-receipts"
 import { useTRPC } from "@/trpc/client"
+import { getEnumValue } from "@/utils/enum"
 import {
   ROW_HEIGHTS,
   STICKY_COLUMNS,
@@ -95,14 +96,13 @@ export function PaymentReceiptsDataTable({
     () => ({
       q: filter.q || undefined,
       sort: getSort(params.sort),
-      status:
-        filter.status === "approved" ||
-        filter.status === "correction_requested" ||
-        filter.status === "rejected" ||
-        filter.status === "submitted" ||
-        filter.status === "under_review"
-          ? filter.status
-          : undefined,
+      status: getEnumValue(filter.status, [
+        "approved",
+        "correction_requested",
+        "rejected",
+        "submitted",
+        "under_review",
+      ] as const),
     }),
     [filter.q, filter.status, params.sort]
   )

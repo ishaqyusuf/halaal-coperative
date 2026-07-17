@@ -49,8 +49,14 @@ export function MemberDetailView({
   detail,
   quickFillEnabled,
 }: MemberDetailPageData) {
-  const activePlan =
+  const rawActivePlan =
     detail.member.contributionPlans.find((plan) => plan.isActive) ?? null
+  const activePlan = rawActivePlan
+    ? {
+        ...rawActivePlan,
+        amount: Number(rawActivePlan.amount),
+      }
+    : null
   const today = new Date()
 
   return (

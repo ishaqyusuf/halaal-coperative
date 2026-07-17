@@ -16,6 +16,7 @@ import {
   trpc,
 } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
+import { getEnumValue } from "@/utils/enum"
 
 const managedNotificationTypes = halaalVestNotificationTypeList
 
@@ -65,10 +66,7 @@ export default async function NotificationsPage({
   const deliveryHistoryInput = {
     q: search || undefined,
     sort: getSort(sort),
-    status:
-      status === "queued" || status === "sent" || status === "failed"
-        ? status
-        : undefined,
+    status: getEnumValue(status, ["failed", "queued", "sent"] as const),
     type: type || undefined,
   }
 

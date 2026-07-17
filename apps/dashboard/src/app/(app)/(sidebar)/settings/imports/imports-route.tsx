@@ -22,6 +22,7 @@ import {
   trpc,
 } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
+import { getEnumValue } from "@/utils/enum"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
 type RawImportBatch = Awaited<ReturnType<typeof listImportBatches>>[number]
@@ -221,7 +222,11 @@ export async function ImportsSettingsRoute({
       importType: importKind,
       q: filter.q ?? undefined,
       sort: getImportSort(sort),
-      status: filter.status ?? undefined,
+      status: getEnumValue(filter.status, [
+        "applied",
+        "draft",
+        "failed",
+      ] as const),
     }
     const importOptions = trpc.imports.batches.infiniteQueryOptions(
       importInput,

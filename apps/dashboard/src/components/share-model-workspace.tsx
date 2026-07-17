@@ -198,7 +198,7 @@ export function ShareSettingsModelWorkspace({
         <div className="mt-4 flex flex-wrap gap-2">
           <TrendPill>{shareModeLabel(sharePolicy.configurationMode)}</TrendPill>
           <TrendPill tone="neutral">
-            Maximum {sharePolicy.maximumSharesPerMember} shares
+            Maximum {sharePolicy.maximumShareUnits} units
           </TrendPill>
         </div>
       </div>

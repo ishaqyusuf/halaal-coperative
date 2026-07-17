@@ -21,6 +21,7 @@ import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useNotificationTableStore } from "@/store/notifications"
 import { useTRPC } from "@/trpc/client"
+import { getEnumValue } from "@/utils/enum"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { columns } from "./columns"
@@ -83,12 +84,11 @@ export function NotificationsDataTable({
     () => ({
       q: deferredSearch || undefined,
       sort: getSort(params.sort),
-      status:
-        filters.status === "queued" ||
-        filters.status === "sent" ||
-        filters.status === "failed"
-          ? filters.status
-          : undefined,
+      status: getEnumValue(filters.status, [
+        "failed",
+        "queued",
+        "sent",
+      ] as const),
       type: filters.type || undefined,
     }),
     [deferredSearch, filters, params.sort]

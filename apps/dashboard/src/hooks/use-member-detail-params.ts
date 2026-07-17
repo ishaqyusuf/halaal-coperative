@@ -13,7 +13,7 @@ export type MemberDetailSheetType = (typeof memberDetailSheetTypes)[number]
 
 const memberDetailParamsSchema = {
   memberDetailDocumentId: parseAsString,
-  memberDetailSheetType: parseAsStringEnum(memberDetailSheetTypes),
+  memberDetailSheetType: parseAsStringEnum([...memberDetailSheetTypes]),
 }
 
 export function useMemberDetailParams() {

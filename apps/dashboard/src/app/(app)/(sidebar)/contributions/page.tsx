@@ -15,6 +15,7 @@ import {
   trpc,
 } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
+import { getEnumValue } from "@/utils/enum"
 
 type ContributionSortField =
   | "amount"
@@ -72,13 +73,12 @@ export default async function ContributionsPage({
   }
 
   const ledgerInput = {
-    channel:
-      filters.channel === "payroll" ||
-      filters.channel === "transfer" ||
-      filters.channel === "cash" ||
-      filters.channel === "manual"
-        ? filters.channel
-        : undefined,
+    channel: getEnumValue(filters.channel, [
+      "cash",
+      "manual",
+      "payroll",
+      "transfer",
+    ] as const),
     from: filters.from ?? undefined,
     memberId: filters.memberId ?? undefined,
     q: filters.search ?? undefined,

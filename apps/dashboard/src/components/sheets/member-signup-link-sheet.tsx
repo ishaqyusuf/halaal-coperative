@@ -20,7 +20,7 @@ export function MemberSignupLinkSheet({
     useMemberSignupLinkParams()
   const selectedLink =
     signupLinkSheetType === "edit"
-      ? links.find((link) => link.id === signupLinkId)
+      ? (links.find((link) => link.id === signupLinkId) ?? null)
       : null
   const title =
     signupLinkSheetType === "access"

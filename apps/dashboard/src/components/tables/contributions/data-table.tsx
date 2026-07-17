@@ -21,9 +21,10 @@ import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useContributionsTableStore } from "@/store/contributions"
 import { useTRPC } from "@/trpc/client"
+import { getEnumValue } from "@/utils/enum"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
-import { columns, type ContributionLedgerRow } from "./columns"
+import { columns } from "./columns"
 import { ContributionsEmptyState } from "./empty-states"
 import { ContributionsSkeleton } from "./skeleton"
 import { ContributionsTableHeader } from "./table-header"
@@ -73,13 +74,12 @@ export function ContributionsDataTable({
   const deferredSearch = useDeferredValue(filters.search)
   const queryInput = useMemo(
     () => ({
-      channel:
-        filters.channel === "payroll" ||
-        filters.channel === "transfer" ||
-        filters.channel === "cash" ||
-        filters.channel === "manual"
-          ? filters.channel
-          : undefined,
+      channel: getEnumValue(filters.channel, [
+        "cash",
+        "manual",
+        "payroll",
+        "transfer",
+      ] as const),
       from: filters.from ?? undefined,
       memberId: filters.memberId ?? undefined,
       q: deferredSearch || undefined,

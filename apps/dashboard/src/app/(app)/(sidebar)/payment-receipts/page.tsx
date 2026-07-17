@@ -10,6 +10,7 @@ import {
   trpc,
 } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
+import { getEnumValue } from "@/utils/enum"
 
 type PaymentReceiptSortField =
   | "memberName"
@@ -61,14 +62,13 @@ export default async function PaymentReceiptsPage({
   const queryInput = {
     q: filter.q || undefined,
     sort: getPaymentReceiptSort(sort),
-    status:
-      filter.status === "approved" ||
-      filter.status === "correction_requested" ||
-      filter.status === "rejected" ||
-      filter.status === "submitted" ||
-      filter.status === "under_review"
-        ? filter.status
-        : undefined,
+    status: getEnumValue(filter.status, [
+      "approved",
+      "correction_requested",
+      "rejected",
+      "submitted",
+      "under_review",
+    ] as const),
   }
   const listOptions = trpc.paymentReceipts.list.infiniteQueryOptions(
     queryInput,

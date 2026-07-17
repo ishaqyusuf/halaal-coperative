@@ -23,6 +23,7 @@ import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useImportStore } from "@/store/imports"
 import { useTRPC } from "@/trpc/client"
+import { getEnumValue } from "@/utils/enum"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import {
@@ -160,7 +161,11 @@ export function DataTable({
       importType: importKind,
       q: deferredSearch || undefined,
       sort: getSort(params.sort),
-      status: filter.status ?? undefined,
+      status: getEnumValue(filter.status, [
+        "applied",
+        "draft",
+        "failed",
+      ] as const),
     }),
     [deferredSearch, filter.status, importKind, params.sort]
   )

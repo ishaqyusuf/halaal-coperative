@@ -55,6 +55,7 @@ import {
 import { getMemberMigrationStartHref } from "@/lib/members/member-migration-routing"
 import {
   ArrowRightIcon,
+  CheckCircle2Icon,
   ClipboardListIcon,
   HistoryIcon,
   UsersIcon,

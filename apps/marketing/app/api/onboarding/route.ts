@@ -109,10 +109,12 @@ export async function POST(request: Request) {
 
     await recordNotificationDeliveryAudit({
       attempts: workspaceReadyDelivery.attempts,
+      deliveredRecipients: workspaceReadyDelivery.routing?.deliveredRecipients,
       errorMessage: workspaceReadyDelivery.errorMessage,
       messageId: workspaceReadyDelivery.messageId,
       notificationType: workspaceReadyDelivery.draft.notificationType,
       recipient: workspaceReadyDelivery.draft.recipient.value,
+      routingMode: workspaceReadyDelivery.routing?.mode,
       source: "apps/marketing/app/api/onboarding",
       status: workspaceReadyDelivery.status,
       tenantId: result.tenant.id,

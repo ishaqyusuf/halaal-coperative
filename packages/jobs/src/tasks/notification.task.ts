@@ -31,9 +31,11 @@ export const emailSmokeTestTask = task({
     })
 
     return {
+      deliveredRecipients: delivery.routing?.deliveredRecipients,
       errorMessage: delivery.errorMessage,
       messageId: delivery.messageId,
       recipient: delivery.draft.recipient.value,
+      routingMode: delivery.routing?.mode,
       status: delivery.status,
     }
   },

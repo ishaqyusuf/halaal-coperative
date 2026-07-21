@@ -18,10 +18,12 @@ export async function sendEmailDraftWithAudit(input: {
 
   await recordNotificationDeliveryAudit({
     attempts: delivery.attempts,
+    deliveredRecipients: delivery.routing?.deliveredRecipients,
     errorMessage: delivery.errorMessage,
     messageId: delivery.messageId,
     notificationType: delivery.draft.notificationType,
     recipient: delivery.draft.recipient.value,
+    routingMode: delivery.routing?.mode,
     source: input.source,
     status: delivery.status,
     tenantId: input.tenantId,

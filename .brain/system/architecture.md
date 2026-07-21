@@ -33,6 +33,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - Dashboard auth now uses signed, expiring, host-scoped session tokens; server context derives the user only from the verified session payload and ignores client-supplied auth headers.
 - Domain logic is intended to flow from `packages/domain` into apps, not the reverse.
 - Notification behavior is intended to flow from `packages/notifications` into web surfaces through `packages/notifications-react`, not be recreated per app.
+- Shared server notification delivery now uses explicit `console`, opt-in `qa_routed`, and production-default `live` modes. QA routing is supported in every runtime, including production; it maps exact reserved `.test` recipient domains to tester inboxes at the provider-envelope boundary, blocks unmatched recipients, preserves application identity, and records original/delivered recipient metadata.
 - Tenant host resolution and proxy-based header injection are handled in shared utilities plus the dashboard app's Next `proxy.ts` entry point, which sanitizes internal auth/tenant headers before setting trusted tenant context.
 - Dashboard public and protected pages now consume tenant resolution through app-level server context loaders rather than hardcoded sample-only page state.
 - Dashboard workspace modules now use server-rendered loaders to surface onboarding progress plus members, recent contributions, and charge setup without introducing a separate client-side data layer.
@@ -80,6 +81,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - Role-filtered dashboard navigation registry adopted for operational route scaling. See `brain/decisions/ADR-005-adopt-role-filtered-dashboard-navigation-registry.md`.
 - Dashboard UI primitive layer adopted for authenticated workspace consistency. See `brain/decisions/ADR-006-adopt-dashboard-ui-primitives-layer.md`.
 - Midday-style dashboard `src` architecture adopted for authenticated workspace routes and components. See `brain/decisions/ADR-007-adopt-midday-style-dashboard-src-architecture.md`.
+- Explicit all-environment QA email domain routing adopted at the shared notification transport boundary. See `brain/decisions/ADR-010-adopt-explicit-qa-email-domain-routing.md`.
 - Payment and disbursement integrations strategy.
 - Exact ledger model and posting rules.
 - TODO: define offline sync conflict-resolution strategy for money-related events.

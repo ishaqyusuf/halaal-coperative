@@ -73,6 +73,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/domain/src/modules/marketing.ts`: shared env-driven homepage visibility and launch-stage config consumed by both `apps/marketing` and `apps/dashboard`.
 - `packages/notifications/`: shared notification types, in-memory store, and service primitives.
 - `packages/notifications/src/index.ts`: notification registry, delivery service, console email transport, and shared email-draft builders for signup verification and workspace-ready follow-up.
+- `packages/notifications/src/email-routing.ts`: validated environment-aware email delivery modes plus explicit, fail-closed `.test` domain routing supported in every runtime.
 - `packages/notifications-react/`: React adapter for rendering shared notification events in web surfaces.
 - `packages/site-nav/`: shared reusable sidebar-navigation package modeled on the `gnd` package boundary, including nav builders, access helpers, path matching, and shell components for app surfaces.
 - `scripts/with-workspace-env.mjs`: shared environment bootstrap for root and workspace commands, including portless-based dev flows.

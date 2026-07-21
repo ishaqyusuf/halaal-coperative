@@ -47,6 +47,7 @@
 - `packages/notifications/src/index.ts` now owns the email-delivery path through `NotificationService.email(...)`, plus shared email-draft builders for signup verification and workspace-ready follow-up.
 - `apps/marketing/src/lib/server-notifications.ts` creates the server-side notification service used by the marketing signup and onboarding routes.
 - When `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` are configured, notification emails are delivered through Resend; otherwise the system falls back to console delivery for local development.
+- Email delivery mode is explicit: local development defaults to `console`, production defaults to `live`, and any environment may explicitly enable validated `.test` domain routing so verification and workspace-ready links reach designated testers without changing the synthetic contact identity stored in tokens or tenant data.
 - Notification email delivery now retries provider-backed sends and returns structured failure metadata. Verification email failure blocks signup continuation, while workspace-ready email failure is surfaced as a non-blocking warning after tenant creation.
 - Signup verification and onboarding workspace emails are now persisted in `notification_outbox`, which supports nullable `tenantId` so pre-tenant verification delivery can be tracked durably.
 - Tenant-scoped workspace-ready email outcomes are still mirrored into `audit_logs` using `notification.email_sent|queued|failed` actions for operational history inside the tenant workspace.

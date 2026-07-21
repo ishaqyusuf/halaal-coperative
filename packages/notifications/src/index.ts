@@ -1,15 +1,17 @@
 import { createEmailDraftFromType } from "./types/registry"
+import { resolveEmailRouting, type EmailDeliveryMode } from "./email-routing"
 import type {
+  EmailRoutingMetadata,
   NotificationEmailDelivery,
   NotificationEmailDraft,
   NotificationInput,
   NotificationRecord,
-  NotificationRecipient,
   NotificationVariant,
 } from "./core-types"
 
 export type {
   NotificationActionDescriptor as NotificationAction,
+  EmailRoutingMetadata,
   NotificationEmailDelivery,
   NotificationEmailDraft,
   NotificationInput,
@@ -27,7 +29,9 @@ export type NotificationEmailTransport = {
 export type ResendEmailTransportOptions = {
   apiKey: string
   copyRecipient?: string
+  deliveryMode?: EmailDeliveryMode
   from: string
+  qaDomainRoutes?: ReadonlyMap<string, string>
   replyTo?: string
   testRecipient?: string
 }
@@ -204,6 +208,7 @@ export class NotificationService {
             ? error.message
             : "Unknown email delivery failure.",
         messageId: `email-${Date.now()}-${Math.random()}`,
+        routing: getEmailRoutingFromError(error),
         status: "failed",
       } satisfies NotificationEmailDelivery
     }
@@ -235,6 +240,11 @@ export function createConsoleEmailTransport(): NotificationEmailTransport {
         attempts: 1,
         draft,
         messageId,
+        routing: {
+          deliveredRecipients: [draft.recipient.value.trim()],
+          mode: "console",
+          originalRecipient: draft.recipient.value.trim(),
+        },
         status: "sent",
       } satisfies NotificationEmailDelivery
     },
@@ -246,66 +256,107 @@ export function createResendEmailTransport(
 ): NotificationEmailTransport {
   return {
     async send(draft) {
-      const originalRecipient = draft.recipient.value.trim()
-      const copyRecipient = options.copyRecipient?.trim()
-      const testRecipient = options.testRecipient?.trim()
-      const recipients = testRecipient ? [testRecipient] : [originalRecipient]
+      const deliveryMode = options.deliveryMode ?? "live"
+      let routing: EmailRoutingMetadata
 
-      if (!recipients[0]) {
-        throw new Error("Email delivery requires a recipient.")
+      try {
+        routing = resolveEmailRouting(draft.recipient.value, {
+          deliveryMode,
+          qaDomainRoutes: options.qaDomainRoutes ?? new Map<string, string>(),
+          testRecipient: options.testRecipient,
+        })
+      } catch (error) {
+        if (deliveryMode === "qa_routed") {
+          throw createEmailTransportError(error, {
+            deliveredRecipients: [],
+            mode: "qa_domain",
+            originalRecipient: draft.recipient.value.trim(),
+          })
+        }
+
+        throw error
       }
 
+      const originalRecipient = routing.originalRecipient
+      const copyRecipient = options.copyRecipient?.trim()
+      const isQaDomainRoute = routing.mode === "qa_domain"
+
       const bccRecipients =
-        copyRecipient && !testRecipient && copyRecipient !== originalRecipient
+        copyRecipient &&
+        routing.mode === "live" &&
+        copyRecipient !== originalRecipient
           ? [copyRecipient]
           : undefined
 
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${options.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          bcc: bccRecipients,
-          from: options.from,
-          reply_to: options.replyTo,
-          subject: draft.subject,
-          tags: [
-            {
-              name: "notification_type",
-              value: draft.notificationType,
-            },
-          ],
-          html: draft.bodyHtml,
-          text: [
-            draft.bodyText,
-            "",
-            `${draft.actionLabel}: ${draft.actionUrl}`,
-            ...(testRecipient
-              ? ["", `Original recipient: ${originalRecipient}`]
-              : []),
-          ].join("\n"),
-          to: recipients,
-        }),
-      })
+      try {
+        const response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${options.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            bcc: bccRecipients,
+            from: options.from,
+            headers: isQaDomainRoute
+              ? {
+                  "X-HalaalVest-Email-Routing": routing.mode,
+                  "X-HalaalVest-Original-Recipient": originalRecipient,
+                }
+              : undefined,
+            reply_to: options.replyTo,
+            subject: isQaDomainRoute
+              ? `[QA: ${originalRecipient}] ${draft.subject}`
+              : draft.subject,
+            tags: [
+              {
+                name: "notification_type",
+                value: draft.notificationType,
+              },
+            ],
+            html:
+              isQaDomainRoute && draft.bodyHtml
+                ? `${createQaEmailHtmlBanner(originalRecipient)}${draft.bodyHtml}`
+                : draft.bodyHtml,
+            text: [
+              ...(isQaDomainRoute
+                ? [
+                    "QA ROUTED EMAIL",
+                    `Original recipient: ${originalRecipient}`,
+                    "",
+                  ]
+                : []),
+              draft.bodyText,
+              "",
+              `${draft.actionLabel}: ${draft.actionUrl}`,
+              ...(routing.mode === "global_test_override"
+                ? ["", `Original recipient: ${originalRecipient}`]
+                : []),
+            ].join("\n"),
+            to: routing.deliveredRecipients,
+          }),
+        })
 
-      if (!response.ok) {
-        const errorBody = await response.text()
+        if (!response.ok) {
+          const errorBody = await response.text()
 
-        throw new Error(
-          `Resend email delivery failed: ${response.status} ${errorBody}`
-        )
+          throw new Error(
+            `Resend email delivery failed: ${response.status} ${errorBody}`
+          )
+        }
+
+        const payload = (await response.json()) as { id?: string }
+
+        return {
+          attempts: 1,
+          draft,
+          messageId: payload.id ?? `email-${Date.now()}-${Math.random()}`,
+          routing,
+          status: "sent",
+        } satisfies NotificationEmailDelivery
+      } catch (error) {
+        throw createEmailTransportError(error, routing)
       }
-
-      const payload = (await response.json()) as { id?: string }
-
-      return {
-        attempts: 1,
-        draft,
-        messageId: payload.id ?? `email-${Date.now()}-${Math.random()}`,
-        status: "sent",
-      } satisfies NotificationEmailDelivery
     },
   }
 }
@@ -342,6 +393,47 @@ export function createRetryingEmailTransport(
         : new Error("Email delivery failed.")
     },
   }
+}
+
+function createEmailTransportError(
+  error: unknown,
+  routing: EmailRoutingMetadata
+) {
+  const wrappedError = new Error(
+    error instanceof Error
+      ? error.message
+      : "Email provider rejected the request."
+  ) as Error & { emailRouting?: EmailRoutingMetadata }
+
+  wrappedError.emailRouting = routing
+
+  return wrappedError
+}
+
+function getEmailRoutingFromError(error: unknown) {
+  if (error && typeof error === "object" && "emailRouting" in error) {
+    return (error as { emailRouting?: EmailRoutingMetadata }).emailRouting
+  }
+
+  return undefined
+}
+
+function escapeEmailHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
+function createQaEmailHtmlBanner(originalRecipient: string) {
+  return [
+    '<div style="margin:0 0 20px;padding:12px 16px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;font-family:Arial,sans-serif;font-size:13px;line-height:1.5">',
+    "<strong>QA routed email</strong><br />",
+    `Original recipient: ${escapeEmailHtml(originalRecipient)}`,
+    "</div>",
+  ].join("")
 }
 
 export function createSignupVerificationEmail(input: {
@@ -392,5 +484,6 @@ export * from "./actions"
 export * from "./channels"
 export * from "./core-types"
 export * from "./delivery"
+export * from "./email-routing"
 export * from "./notification-types"
 export * from "./types/registry"

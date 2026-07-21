@@ -6,6 +6,7 @@ import {
   type NotificationEmailTransport,
   type NotificationInput,
 } from "./index"
+import { getEmailRoutingConfiguration } from "./email-routing"
 
 const DEFAULT_EMAIL_FROM_NAME = "Welcome to Halaalvest"
 
@@ -82,6 +83,7 @@ function createDevelopmentSafeEmailTransport(
 }
 
 export function getServerEmailDeliveryConfig() {
+  const routingConfiguration = getEmailRoutingConfiguration()
   const apiKey = process.env.RESEND_API_KEY?.trim()
   const from = formatServerEmailFrom(process.env.EMAIL_FROM_ADDRESS?.trim())
   const replyTo = process.env.EMAIL_REPLY_TO?.trim()
@@ -92,9 +94,11 @@ export function getServerEmailDeliveryConfig() {
     apiKey,
     configured: Boolean(apiKey && from),
     copyRecipient,
+    deliveryMode: routingConfiguration.deliveryMode,
     from,
+    qaDomainRoutes: routingConfiguration.qaDomainRoutes,
     replyTo,
-    testRecipient,
+    testRecipient: routingConfiguration.testRecipient ?? testRecipient,
   }
 }
 
@@ -103,22 +107,36 @@ export function isServerEmailDeliveryConfigured() {
 }
 
 export function createServerNotificationService() {
-  const { apiKey, configured, copyRecipient, from, replyTo, testRecipient } =
-    getServerEmailDeliveryConfig()
+  const {
+    apiKey,
+    configured,
+    copyRecipient,
+    deliveryMode,
+    from,
+    qaDomainRoutes,
+    replyTo,
+    testRecipient,
+  } = getServerEmailDeliveryConfig()
 
   const baseEmailTransport =
-    configured && apiKey && from
-      ? createResendEmailTransport({
-          apiKey,
-          copyRecipient,
-          from,
-          replyTo,
-          testRecipient,
-        })
-      : undefined
+    deliveryMode === "console"
+      ? createConsoleEmailTransport()
+      : configured && apiKey && from
+        ? createResendEmailTransport({
+            apiKey,
+            copyRecipient,
+            deliveryMode,
+            from,
+            qaDomainRoutes,
+            replyTo,
+            testRecipient,
+          })
+        : undefined
 
   const safeEmailTransport =
-    createDevelopmentSafeEmailTransport(baseEmailTransport)
+    deliveryMode === "qa_routed"
+      ? baseEmailTransport
+      : createDevelopmentSafeEmailTransport(baseEmailTransport)
 
   const emailTransport = safeEmailTransport
     ? createRetryingEmailTransport(safeEmailTransport, {

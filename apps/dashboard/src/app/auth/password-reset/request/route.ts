@@ -73,10 +73,12 @@ export async function POST(request: NextRequest) {
 
       await recordNotificationDeliveryAudit({
         attempts: delivery.attempts,
+        deliveredRecipients: delivery.routing?.deliveredRecipients,
         errorMessage: delivery.errorMessage,
         messageId: delivery.messageId,
         notificationType: "auth.password_reset_requested",
         recipient: user.email,
+        routingMode: delivery.routing?.mode,
         source: "dashboard.password_reset",
         status: delivery.status,
         tenantId: tenant.id,

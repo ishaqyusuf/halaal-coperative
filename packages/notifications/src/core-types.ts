@@ -63,7 +63,14 @@ export type NotificationEmailDelivery = {
   draft: NotificationEmailDraft
   errorMessage?: string
   messageId: string
+  routing?: EmailRoutingMetadata
   status: "failed" | "queued" | "sent"
+}
+
+export type EmailRoutingMetadata = {
+  deliveredRecipients: string[]
+  mode: "console" | "global_test_override" | "live" | "qa_domain"
+  originalRecipient: string
 }
 
 export type NotificationDispatch = NotificationInput & {

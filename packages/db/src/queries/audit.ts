@@ -539,10 +539,12 @@ export async function getAuditSummary(tenantId: string, prismaOverride?: PrismaC
 
 export type NotificationDeliveryAuditInput = {
   attempts: number
+  deliveredRecipients?: string[]
   errorMessage?: string
   messageId: string
   notificationType: string
   recipient: string
+  routingMode?: "console" | "global_test_override" | "live" | "qa_domain"
   source: string
   status: "failed" | "queued" | "sent"
   tenantId: string
@@ -565,9 +567,11 @@ export async function recordNotificationDeliveryAudit(
       entityType: "NotificationEmail",
       metadata: {
         attempts: input.attempts,
+        deliveredRecipients: input.deliveredRecipients ?? [input.recipient],
         errorMessage: input.errorMessage ?? null,
         notificationType: input.notificationType,
         recipient: input.recipient,
+        routingMode: input.routingMode ?? "live",
         source: input.source,
         status: input.status,
       },

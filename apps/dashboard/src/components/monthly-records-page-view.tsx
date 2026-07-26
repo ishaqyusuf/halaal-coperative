@@ -238,7 +238,6 @@ function ChargeBreakdown({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium text-foreground">{charge.name}</p>
-                <p className="text-xs text-muted-foreground">{charge.code}</p>
               </div>
               <Badge variant="outline">{charge.kind}</Badge>
             </div>

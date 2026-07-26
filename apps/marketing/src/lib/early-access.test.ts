@@ -11,10 +11,14 @@ import {
 
 const requestInput = {
   cooperativeName: "Amanah Staff Cooperative",
+  currentSize: "250",
+  launchTimeline: "within_30_days",
   message: "We want to launch with 120 members.",
   phone: "+2348012345678",
   primaryContactEmail: "Admin@Example.Test",
   primaryContactFullName: "Amina Bello",
+  recordSystem: "spreadsheets",
+  setupNeeds: ["member_and_balance_migration", "savings_and_contributions"],
 }
 
 describe("early access tokens", () => {
@@ -28,6 +32,10 @@ describe("early access tokens", () => {
     expect(verified.primaryContactFullName).toBe(
       requestInput.primaryContactFullName
     )
+    expect(verified.currentSize).toBe(requestInput.currentSize)
+    expect(verified.launchTimeline).toBe(requestInput.launchTimeline)
+    expect(verified.recordSystem).toBe(requestInput.recordSystem)
+    expect(verified.setupNeeds).toEqual(requestInput.setupNeeds)
   })
 
   test("round-trips approved setup payloads", () => {
@@ -39,6 +47,24 @@ describe("early access tokens", () => {
     expect(verified.kind).toBe("signup_approval")
     expect(verified.cooperativeName).toBe(requestInput.cooperativeName)
     expect(verified.primaryContactEmail).toBe("admin@example.test")
+  })
+
+  test("keeps previously issued early access links readable", () => {
+    const legacyPayload = createEarlyAccessRequestPayload(requestInput)
+    const legacyRecord = legacyPayload as Partial<typeof legacyPayload>
+
+    delete legacyRecord.currentSize
+    delete legacyRecord.launchTimeline
+    delete legacyRecord.recordSystem
+    delete legacyRecord.setupNeeds
+
+    const token = createSignedEarlyAccessRequestToken(legacyPayload)
+    const verified = verifySignedEarlyAccessRequestToken(token)
+
+    expect(verified.currentSize).toBe("")
+    expect(verified.launchTimeline).toBe("")
+    expect(verified.recordSystem).toBe("")
+    expect(verified.setupNeeds).toEqual([])
   })
 
   test("rejects expired signup approval tokens", () => {

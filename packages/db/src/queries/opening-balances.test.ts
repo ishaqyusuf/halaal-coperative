@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   applyMemberOpeningBalance,
+  cancelMemberOpeningBalance,
   createMemberOpeningBalance,
   listMemberOpeningBalances,
   reviewMemberOpeningBalance,
@@ -873,6 +874,62 @@ describe("member opening balances", () => {
         prisma as never
       )
     ).rejects.toThrow("Only pending opening balances can be reviewed")
+
+    expect(prisma.openingBalanceUpdates).toHaveLength(0)
+  })
+
+  test("cancels a pending opening balance with audit evidence", async () => {
+    const prisma = createOpeningBalancePrismaStub()
+
+    const openingBalance = await cancelMemberOpeningBalance(
+      {
+        actorUserId: "user-1",
+        openingBalanceId: "opening-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(openingBalance.status).toBe("cancelled")
+    expect(prisma.openingBalanceUpdates[0]).toMatchObject({
+      data: {
+        status: "cancelled",
+      },
+      where: {
+        id: "opening-1",
+      },
+    })
+    expect(prisma.auditLogCreates[0]).toMatchObject({
+      data: {
+        action: "migration.opening_balance.cancelled",
+        actorUserId: "user-1",
+        entityId: "opening-1",
+        entityType: "MemberOpeningBalance",
+        metadata: {
+          memberId: "member-1",
+          nextStatus: "cancelled",
+          previousStatus: "pending_review",
+        },
+        tenantId: "tenant-1",
+      },
+    })
+  })
+
+  test("blocks cancelling a reviewed opening balance", async () => {
+    const prisma = createOpeningBalancePrismaStub({
+      openingRows: [openingBalanceRow({ status: "approved" })],
+    })
+
+    await expect(
+      cancelMemberOpeningBalance(
+        {
+          actorUserId: "user-1",
+          openingBalanceId: "opening-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("Only pending opening balances can be cancelled")
 
     expect(prisma.openingBalanceUpdates).toHaveLength(0)
   })

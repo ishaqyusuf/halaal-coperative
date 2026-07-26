@@ -24,45 +24,46 @@ model Member {
   createdAt                   DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                   DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user                                 User?                         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  deductionSource                      DeductionSource?              @relation(fields: [deductionSourceId], references: [id], onDelete: SetNull)
-  contributionPlans                    ContributionPlan[]
-  contributions                        Contribution[]
+  tenant                                Tenant                                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                                  User?                                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deductionSource                       DeductionSource?                       @relation(fields: [deductionSourceId], references: [id], onDelete: SetNull)
+  contributionPlans                     ContributionPlan[]
+  contributions                         Contribution[]
+  specialSavingsWithdrawals             MemberSpecialSavingsWithdrawal[]
   collectionSourceContributionBatchRows CollectionSourceContributionBatchRow[]
-  paymentReceipts                      MemberPaymentReceipt[]
-  paymentReceiptAllocations            MemberPaymentReceiptAllocation[]
-  shareOverrides                       MemberShareOverride[]
-  amountLogs                           MemberAmountLog[]
-  chargeApplications                   ChargeApplication[]
-  loanRequests                         LoanRequest[]
-  loanGuarantorApprovals               LoanGuarantorApproval[]       @relation("LoanGuarantorApprovalGuarantor")
-  loans                                Loan[]
+  paymentReceipts                       MemberPaymentReceipt[]
+  paymentReceiptAllocations             MemberPaymentReceiptAllocation[]
+  shareOverrides                        MemberShareOverride[]
+  amountLogs                            MemberAmountLog[]
+  chargeApplications                    ChargeApplication[]
+  loanRequests                          LoanRequest[]
+  loanGuarantorApprovals                LoanGuarantorApproval[]                @relation("LoanGuarantorApprovalGuarantor")
+  loans                                 Loan[]
   procurementRequests                   ProcurementRequest[]
   procurementRepaymentSchedules         ProcurementRepaymentScheduleItem[]
   foodPurchaseApplications              FoodPurchaseApplication[]
   projectFinancingRequests              ProjectFinancingRequest[]
-  backfillBatches                      BackfillBatch[]
-  openingBalances                      MemberOpeningBalance[]
-  appliedBackfillMonths                AppliedBackfillMonth[]
-  repayments                           Repayment[]
-  collectionFollowUps                  CollectionFollowUp[]
-  supportCases                         SupportCase[]
-  documents                            MemberDocument[]
-  monthlyRecordMembers                 MonthlyRecordMember[]
-  dividendAllocations                  DividendAllocation[]
-  shareLedgerEntries                   MemberShareLedgerEntry[]
-  historicalSharePurchases             HistoricalMemberSharePurchase[]
-  shareApplications                    MemberShareApplication[]
-  shareProfitAllocations               ShareProfitAllocation[]
-  ledgerTransactions                   LedgerTransaction[]
-  offlineSyncEvents                    OfflineSyncEvent[]
-  legacyLoanMigrationDrafts            LegacyLoanMigrationDraft[]    @relation("LegacyLoanMigrationDraftMember")
-  legacyLoanMigrationDraftGuarantorOne LegacyLoanMigrationDraft[]    @relation("LegacyLoanMigrationDraftGuarantorOne")
-  legacyLoanMigrationDraftGuarantorTwo LegacyLoanMigrationDraft[]    @relation("LegacyLoanMigrationDraftGuarantorTwo")
-  migrationBackfillAdjustments         MigrationBackfillAdjustment[]
-  activityEvents                       MemberActivityEvent[]
-  migrationProfitAdjustments           MigrationProfitAdjustment[]
+  backfillBatches                       BackfillBatch[]
+  openingBalances                       MemberOpeningBalance[]
+  appliedBackfillMonths                 AppliedBackfillMonth[]
+  repayments                            Repayment[]
+  collectionFollowUps                   CollectionFollowUp[]
+  supportCases                          SupportCase[]
+  documents                             MemberDocument[]
+  monthlyRecordMembers                  MonthlyRecordMember[]
+  dividendAllocations                   DividendAllocation[]
+  shareLedgerEntries                    MemberShareLedgerEntry[]
+  historicalSharePurchases              HistoricalMemberSharePurchase[]
+  shareApplications                     MemberShareApplication[]
+  shareProfitAllocations                ShareProfitAllocation[]
+  ledgerTransactions                    LedgerTransaction[]
+  offlineSyncEvents                     OfflineSyncEvent[]
+  legacyLoanMigrationDrafts             LegacyLoanMigrationDraft[]             @relation("LegacyLoanMigrationDraftMember")
+  legacyLoanMigrationDraftGuarantorOne  LegacyLoanMigrationDraft[]             @relation("LegacyLoanMigrationDraftGuarantorOne")
+  legacyLoanMigrationDraftGuarantorTwo  LegacyLoanMigrationDraft[]             @relation("LegacyLoanMigrationDraftGuarantorTwo")
+  migrationBackfillAdjustments          MigrationBackfillAdjustment[]
+  activityEvents                        MemberActivityEvent[]
+  migrationProfitAdjustments            MigrationProfitAdjustment[]
 
   @@unique([tenantId, memberNumber], map: "members_tenant_member_number_key")
   @@index([tenantId, status], map: "members_tenant_status_idx")
@@ -122,8 +123,8 @@ model DeductionSource {
   createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  members Member[]
+  tenant                              Tenant                              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  members                             Member[]
   collectionSourceContributionBatches CollectionSourceContributionBatch[]
 
   @@unique([tenantId, name], map: "deduction_sources_tenant_name_key")

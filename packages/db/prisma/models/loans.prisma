@@ -1,18 +1,18 @@
 model LoanProduct {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String      @map("tenant_id") @db.Uuid
-  name                  String
-  code                  String?
-  loanType              LoanType    @map("loan_type")
-  termMonths            Int         @map("term_months")
-  maxSavingsMultiple    Decimal     @map("max_savings_multiple") @db.Decimal(10, 2)
-  isActive              Boolean     @default(true) @map("is_active")
-  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  name               String
+  code               String?
+  loanType           LoanType @map("loan_type")
+  termMonths         Int      @map("term_months")
+  maxSavingsMultiple Decimal  @map("max_savings_multiple") @db.Decimal(10, 2)
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  loanRequests          LoanRequest[]
-  loans                 Loan[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanRequests LoanRequest[]
+  loans        Loan[]
 
   @@unique([tenantId, name], map: "loan_products_tenant_name_key")
   @@unique([tenantId, code], map: "loan_products_tenant_code_key")
@@ -21,29 +21,29 @@ model LoanProduct {
 }
 
 model FinancingCycle {
-  id                          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId                    String                    @map("tenant_id") @db.Uuid
-  periodStart                 DateTime                  @map("period_start") @db.Date
-  periodEnd                   DateTime                  @map("period_end") @db.Date
-  status                      FinancingCycleStatus      @default(draft)
-  capacityBasis               FinancingCapacityBasis    @map("capacity_basis")
-  intakeReservationMode       LoanIntakeReservationMode @map("intake_reservation_mode")
-  projectedCommitmentAmount   Decimal                   @map("projected_commitment_amount") @db.Decimal(18, 2)
-  receivedContributionAmount  Decimal                   @default(0) @map("received_contribution_amount") @db.Decimal(18, 2)
-  reserveBufferAmount         Decimal                   @map("reserve_buffer_amount") @db.Decimal(18, 2)
-  totalCapacityAmount         Decimal                   @map("total_capacity_amount") @db.Decimal(18, 2)
-  quickAllocationPercentage   Decimal                   @map("quick_allocation_percentage") @db.Decimal(5, 2)
-  normalAllocationPercentage  Decimal                   @map("normal_allocation_percentage") @db.Decimal(5, 2)
-  quickBudgetAmount           Decimal                   @map("quick_budget_amount") @db.Decimal(18, 2)
-  normalBudgetAmount          Decimal                   @map("normal_budget_amount") @db.Decimal(18, 2)
-  openedAt                    DateTime?                 @map("opened_at") @db.Timestamptz(6)
-  pausedAt                    DateTime?                 @map("paused_at") @db.Timestamptz(6)
-  closedAt                    DateTime?                 @map("closed_at") @db.Timestamptz(6)
-  statusNote                  String?                   @map("status_note")
-  createdAt                   DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                   DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                   String                    @map("tenant_id") @db.Uuid
+  periodStart                DateTime                  @map("period_start") @db.Date
+  periodEnd                  DateTime                  @map("period_end") @db.Date
+  status                     FinancingCycleStatus      @default(draft)
+  capacityBasis              FinancingCapacityBasis    @map("capacity_basis")
+  intakeReservationMode      LoanIntakeReservationMode @map("intake_reservation_mode")
+  projectedCommitmentAmount  Decimal                   @map("projected_commitment_amount") @db.Decimal(18, 2)
+  receivedContributionAmount Decimal                   @default(0) @map("received_contribution_amount") @db.Decimal(18, 2)
+  reserveBufferAmount        Decimal                   @map("reserve_buffer_amount") @db.Decimal(18, 2)
+  totalCapacityAmount        Decimal                   @map("total_capacity_amount") @db.Decimal(18, 2)
+  quickAllocationPercentage  Decimal                   @map("quick_allocation_percentage") @db.Decimal(5, 2)
+  normalAllocationPercentage Decimal                   @map("normal_allocation_percentage") @db.Decimal(5, 2)
+  quickBudgetAmount          Decimal                   @map("quick_budget_amount") @db.Decimal(18, 2)
+  normalBudgetAmount         Decimal                   @map("normal_budget_amount") @db.Decimal(18, 2)
+  openedAt                   DateTime?                 @map("opened_at") @db.Timestamptz(6)
+  pausedAt                   DateTime?                 @map("paused_at") @db.Timestamptz(6)
+  closedAt                   DateTime?                 @map("closed_at") @db.Timestamptz(6)
+  statusNote                 String?                   @map("status_note")
+  createdAt                  DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, periodStart, periodEnd], map: "financing_cycles_tenant_period_key")
   @@index([tenantId, status], map: "financing_cycles_tenant_status_idx")
@@ -52,32 +52,32 @@ model FinancingCycle {
 }
 
 model LoanRequest {
-  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String             @map("tenant_id") @db.Uuid
-  memberId              String             @map("member_id") @db.Uuid
-  loanProductId         String             @map("loan_product_id") @db.Uuid
-  createdByUserId       String             @map("created_by_user_id") @db.Uuid
-  requestedAmount       Decimal            @map("requested_amount") @db.Decimal(18, 2)
-  requestedTermMonths   Int                @map("requested_term_months")
-  estimatedMonthlyServicing Decimal        @map("estimated_monthly_servicing") @db.Decimal(18, 2)
-  extraMonthlySavingsAmount Decimal        @default(0) @map("extra_monthly_savings_amount") @db.Decimal(18, 2)
-  eligibleAmountSnapshot Decimal           @map("eligible_amount_snapshot") @db.Decimal(18, 2)
-  availablePoolSnapshot Decimal            @map("available_pool_snapshot") @db.Decimal(18, 2)
-  requestedAt           DateTime           @map("requested_at") @db.Timestamptz(6)
-  purpose               String?
-  status                LoanRequestStatus  @default(submitted)
-  reviewNotes           String?            @map("review_notes")
-  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                  String            @map("tenant_id") @db.Uuid
+  memberId                  String            @map("member_id") @db.Uuid
+  loanProductId             String            @map("loan_product_id") @db.Uuid
+  createdByUserId           String            @map("created_by_user_id") @db.Uuid
+  requestedAmount           Decimal           @map("requested_amount") @db.Decimal(18, 2)
+  requestedTermMonths       Int               @map("requested_term_months")
+  estimatedMonthlyServicing Decimal           @map("estimated_monthly_servicing") @db.Decimal(18, 2)
+  extraMonthlySavingsAmount Decimal           @default(0) @map("extra_monthly_savings_amount") @db.Decimal(18, 2)
+  eligibleAmountSnapshot    Decimal           @map("eligible_amount_snapshot") @db.Decimal(18, 2)
+  availablePoolSnapshot     Decimal           @map("available_pool_snapshot") @db.Decimal(18, 2)
+  requestedAt               DateTime          @map("requested_at") @db.Timestamptz(6)
+  purpose                   String?
+  status                    LoanRequestStatus @default(submitted)
+  reviewNotes               String?           @map("review_notes")
+  createdAt                 DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member                Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  loanProduct           LoanProduct        @relation(fields: [loanProductId], references: [id], onDelete: Restrict)
-  createdByUser         User               @relation("LoanRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  approvals             LoanApproval[]
-  guarantorApprovals    LoanGuarantorApproval[]
-  charges               ChargeApplication[]
-  loan                  Loan?
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member             Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  loanProduct        LoanProduct             @relation(fields: [loanProductId], references: [id], onDelete: Restrict)
+  createdByUser      User                    @relation("LoanRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  approvals          LoanApproval[]
+  guarantorApprovals LoanGuarantorApproval[]
+  charges            ChargeApplication[]
+  loan               Loan?
 
   @@index([tenantId, memberId, status], map: "loan_requests_tenant_member_status_idx")
   @@index([tenantId, requestedAt], map: "loan_requests_tenant_requested_at_idx")
@@ -85,42 +85,42 @@ model LoanRequest {
 }
 
 model LoanApproval {
-  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String             @map("tenant_id") @db.Uuid
-  loanRequestId         String             @map("loan_request_id") @db.Uuid
-  actorUserId           String             @map("actor_user_id") @db.Uuid
-  action                LoanApprovalAction
-  notes                 String?
-  actedAt               DateTime           @map("acted_at") @db.Timestamptz(6)
-  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String             @map("tenant_id") @db.Uuid
+  loanRequestId String             @map("loan_request_id") @db.Uuid
+  actorUserId   String             @map("actor_user_id") @db.Uuid
+  action        LoanApprovalAction
+  notes         String?
+  actedAt       DateTime           @map("acted_at") @db.Timestamptz(6)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  loanRequest           LoanRequest        @relation(fields: [loanRequestId], references: [id], onDelete: Cascade)
-  actorUser             User               @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanRequest LoanRequest @relation(fields: [loanRequestId], references: [id], onDelete: Cascade)
+  actorUser   User        @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, loanRequestId, actedAt], map: "loan_approvals_tenant_request_acted_at_idx")
   @@map("loan_approvals")
 }
 
 model LoanGuarantorApproval {
-  id                String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId          String                       @map("tenant_id") @db.Uuid
-  loanRequestId     String                       @map("loan_request_id") @db.Uuid
-  guarantorMemberId String                       @map("guarantor_member_id") @db.Uuid
-  requestedByUserId String                       @map("requested_by_user_id") @db.Uuid
-  respondedByUserId String?                      @map("responded_by_user_id") @db.Uuid
+  id                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                      @map("tenant_id") @db.Uuid
+  loanRequestId     String                      @map("loan_request_id") @db.Uuid
+  guarantorMemberId String                      @map("guarantor_member_id") @db.Uuid
+  requestedByUserId String                      @map("requested_by_user_id") @db.Uuid
+  respondedByUserId String?                     @map("responded_by_user_id") @db.Uuid
   status            LoanGuarantorApprovalStatus @default(pending)
-  requestedAt       DateTime                     @map("requested_at") @db.Timestamptz(6)
-  respondedAt       DateTime?                    @map("responded_at") @db.Timestamptz(6)
-  responseNotes     String?                      @map("response_notes")
-  createdAt         DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  requestedAt       DateTime                    @map("requested_at") @db.Timestamptz(6)
+  respondedAt       DateTime?                   @map("responded_at") @db.Timestamptz(6)
+  responseNotes     String?                     @map("response_notes")
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant            Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  loanRequest       LoanRequest                  @relation(fields: [loanRequestId], references: [id], onDelete: Cascade)
-  guarantorMember   Member                       @relation("LoanGuarantorApprovalGuarantor", fields: [guarantorMemberId], references: [id], onDelete: Restrict)
-  requestedByUser   User                         @relation("LoanGuarantorApprovalRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
-  respondedByUser   User?                        @relation("LoanGuarantorApprovalRespondedBy", fields: [respondedByUserId], references: [id], onDelete: SetNull)
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanRequest     LoanRequest @relation(fields: [loanRequestId], references: [id], onDelete: Cascade)
+  guarantorMember Member      @relation("LoanGuarantorApprovalGuarantor", fields: [guarantorMemberId], references: [id], onDelete: Restrict)
+  requestedByUser User        @relation("LoanGuarantorApprovalRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  respondedByUser User?       @relation("LoanGuarantorApprovalRespondedBy", fields: [respondedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([loanRequestId, guarantorMemberId], map: "loan_guarantor_approvals_request_guarantor_key")
   @@index([tenantId, status], map: "loan_guarantor_approvals_tenant_status_idx")
@@ -129,34 +129,34 @@ model LoanGuarantorApproval {
 }
 
 model Loan {
-  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String                  @map("tenant_id") @db.Uuid
-  memberId              String                  @map("member_id") @db.Uuid
-  loanRequestId         String                  @unique @map("loan_request_id") @db.Uuid
-  loanProductId         String                  @map("loan_product_id") @db.Uuid
-  principalAmount       Decimal                 @map("principal_amount") @db.Decimal(18, 2)
-  termMonths            Int                     @map("term_months")
-  estimatedMonthlyServicing Decimal             @map("estimated_monthly_servicing") @db.Decimal(18, 2)
-  extraMonthlySavingsAmount Decimal             @default(0) @map("extra_monthly_savings_amount") @db.Decimal(18, 2)
-  outstandingPrincipal  Decimal                 @map("outstanding_principal") @db.Decimal(18, 2)
-  disbursedAt           DateTime?               @map("disbursed_at") @db.Timestamptz(6)
-  firstRepaymentDueAt   DateTime?               @map("first_repayment_due_at") @db.Timestamptz(6)
-  closedAt              DateTime?               @map("closed_at") @db.Timestamptz(6)
-  status                LoanStatus              @default(approved)
-  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                  String     @map("tenant_id") @db.Uuid
+  memberId                  String     @map("member_id") @db.Uuid
+  loanRequestId             String     @unique @map("loan_request_id") @db.Uuid
+  loanProductId             String     @map("loan_product_id") @db.Uuid
+  principalAmount           Decimal    @map("principal_amount") @db.Decimal(18, 2)
+  termMonths                Int        @map("term_months")
+  estimatedMonthlyServicing Decimal    @map("estimated_monthly_servicing") @db.Decimal(18, 2)
+  extraMonthlySavingsAmount Decimal    @default(0) @map("extra_monthly_savings_amount") @db.Decimal(18, 2)
+  outstandingPrincipal      Decimal    @map("outstanding_principal") @db.Decimal(18, 2)
+  disbursedAt               DateTime?  @map("disbursed_at") @db.Timestamptz(6)
+  firstRepaymentDueAt       DateTime?  @map("first_repayment_due_at") @db.Timestamptz(6)
+  closedAt                  DateTime?  @map("closed_at") @db.Timestamptz(6)
+  status                    LoanStatus @default(approved)
+  createdAt                 DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member                Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  loanRequest           LoanRequest             @relation(fields: [loanRequestId], references: [id], onDelete: Restrict)
-  loanProduct           LoanProduct             @relation(fields: [loanProductId], references: [id], onDelete: Restrict)
-  charges               ChargeApplication[]
-  repaymentScheduleItems RepaymentScheduleItem[]
-  repayments            Repayment[]
+  tenant                    Tenant                           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                    Member                           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  loanRequest               LoanRequest                      @relation(fields: [loanRequestId], references: [id], onDelete: Restrict)
+  loanProduct               LoanProduct                      @relation(fields: [loanProductId], references: [id], onDelete: Restrict)
+  charges                   ChargeApplication[]
+  repaymentScheduleItems    RepaymentScheduleItem[]
+  repayments                Repayment[]
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
-  collectionFollowUps   CollectionFollowUp[]
-  ledgerTransactions    LedgerTransaction[]
-  openingBalanceSource  MemberOpeningBalance?    @relation("MemberOpeningBalanceAppliedLoan")
+  collectionFollowUps       CollectionFollowUp[]
+  ledgerTransactions        LedgerTransaction[]
+  openingBalanceSource      MemberOpeningBalance?            @relation("MemberOpeningBalanceAppliedLoan")
 
   @@index([tenantId, memberId, status], map: "loans_tenant_member_status_idx")
   @@index([tenantId, disbursedAt], map: "loans_tenant_disbursed_at_idx")
@@ -164,23 +164,23 @@ model Loan {
 }
 
 model RepaymentScheduleItem {
-  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String                  @map("tenant_id") @db.Uuid
-  loanId                String                  @map("loan_id") @db.Uuid
-  installmentNumber     Int                     @map("installment_number")
-  dueAt                 DateTime                @map("due_at") @db.Timestamptz(6)
-  principalDue          Decimal                 @map("principal_due") @db.Decimal(18, 2)
-  chargeDue             Decimal                 @default(0) @map("charge_due") @db.Decimal(18, 2)
-  totalDue              Decimal                 @map("total_due") @db.Decimal(18, 2)
-  amountPaid            Decimal                 @default(0) @map("amount_paid") @db.Decimal(18, 2)
-  status                RepaymentScheduleStatus @default(pending)
-  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                  @map("tenant_id") @db.Uuid
+  loanId            String                  @map("loan_id") @db.Uuid
+  installmentNumber Int                     @map("installment_number")
+  dueAt             DateTime                @map("due_at") @db.Timestamptz(6)
+  principalDue      Decimal                 @map("principal_due") @db.Decimal(18, 2)
+  chargeDue         Decimal                 @default(0) @map("charge_due") @db.Decimal(18, 2)
+  totalDue          Decimal                 @map("total_due") @db.Decimal(18, 2)
+  amountPaid        Decimal                 @default(0) @map("amount_paid") @db.Decimal(18, 2)
+  status            RepaymentScheduleStatus @default(pending)
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  loan                  Loan                    @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  repayments            Repayment[]
-  collectionFollowUps   CollectionFollowUp[]
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loan                Loan                 @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  repayments          Repayment[]
+  collectionFollowUps CollectionFollowUp[]
 
   @@unique([loanId, installmentNumber], map: "repayment_schedule_loan_installment_key")
   @@index([tenantId, dueAt, status], map: "repayment_schedule_tenant_due_status_idx")
@@ -188,29 +188,29 @@ model RepaymentScheduleItem {
 }
 
 model CollectionFollowUp {
-  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String                  @map("tenant_id") @db.Uuid
-  repaymentScheduleItemId String                @map("repayment_schedule_item_id") @db.Uuid
-  loanId                String                  @map("loan_id") @db.Uuid
-  memberId              String                  @map("member_id") @db.Uuid
-  actorUserId           String                  @map("actor_user_id") @db.Uuid
-  assignedToUserId      String?                 @map("assigned_to_user_id") @db.Uuid
-  status                String
-  caseStage             String                  @default("active") @map("case_stage")
-  priority              String                  @default("normal")
-  resolutionStatus      String                  @default("open") @map("resolution_status")
-  note                  String
-  nextActionAt          DateTime?               @map("next_action_at") @db.Timestamptz(6)
-  promiseToPayAt        DateTime?               @map("promise_to_pay_at") @db.Timestamptz(6)
-  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                String    @map("tenant_id") @db.Uuid
+  repaymentScheduleItemId String    @map("repayment_schedule_item_id") @db.Uuid
+  loanId                  String    @map("loan_id") @db.Uuid
+  memberId                String    @map("member_id") @db.Uuid
+  actorUserId             String    @map("actor_user_id") @db.Uuid
+  assignedToUserId        String?   @map("assigned_to_user_id") @db.Uuid
+  status                  String
+  caseStage               String    @default("active") @map("case_stage")
+  priority                String    @default("normal")
+  resolutionStatus        String    @default("open") @map("resolution_status")
+  note                    String
+  nextActionAt            DateTime? @map("next_action_at") @db.Timestamptz(6)
+  promiseToPayAt          DateTime? @map("promise_to_pay_at") @db.Timestamptz(6)
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  repaymentScheduleItem RepaymentScheduleItem   @relation(fields: [repaymentScheduleItemId], references: [id], onDelete: Cascade)
-  loan                  Loan                    @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  member                Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  actorUser             User                    @relation("CollectionFollowUpActor", fields: [actorUserId], references: [id], onDelete: Restrict)
-  assignedToUser        User?                   @relation("CollectionFollowUpAssignedUser", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  repaymentScheduleItem RepaymentScheduleItem @relation(fields: [repaymentScheduleItemId], references: [id], onDelete: Cascade)
+  loan                  Loan                  @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  member                Member                @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  actorUser             User                  @relation("CollectionFollowUpActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  assignedToUser        User?                 @relation("CollectionFollowUpAssignedUser", fields: [assignedToUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt], map: "collection_follow_ups_tenant_created_at_idx")
   @@index([tenantId, status], map: "collection_follow_ups_tenant_status_idx")
@@ -220,25 +220,25 @@ model CollectionFollowUp {
 }
 
 model Repayment {
-  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String             @map("tenant_id") @db.Uuid
-  memberId              String             @map("member_id") @db.Uuid
-  loanId                String             @map("loan_id") @db.Uuid
-  repaymentScheduleItemId String?          @map("repayment_schedule_item_id") @db.Uuid
-  receivedByUserId      String             @map("received_by_user_id") @db.Uuid
-  paidAt                DateTime           @map("paid_at") @db.Timestamptz(6)
-  amount                Decimal            @db.Decimal(18, 2)
-  status                RepaymentStatus    @default(posted)
-  reference             String?            @map("reference")
-  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                String          @map("tenant_id") @db.Uuid
+  memberId                String          @map("member_id") @db.Uuid
+  loanId                  String          @map("loan_id") @db.Uuid
+  repaymentScheduleItemId String?         @map("repayment_schedule_item_id") @db.Uuid
+  receivedByUserId        String          @map("received_by_user_id") @db.Uuid
+  paidAt                  DateTime        @map("paid_at") @db.Timestamptz(6)
+  amount                  Decimal         @db.Decimal(18, 2)
+  status                  RepaymentStatus @default(posted)
+  reference               String?         @map("reference")
+  createdAt               DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member                Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  loan                  Loan               @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  repaymentScheduleItem RepaymentScheduleItem? @relation(fields: [repaymentScheduleItemId], references: [id], onDelete: SetNull)
-  receivedByUser        User               @relation("RepaymentReceivedBy", fields: [receivedByUserId], references: [id], onDelete: Restrict)
-  ledgerTransaction     LedgerTransaction?
+  tenant                    Tenant                           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                    Member                           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  loan                      Loan                             @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  repaymentScheduleItem     RepaymentScheduleItem?           @relation(fields: [repaymentScheduleItemId], references: [id], onDelete: SetNull)
+  receivedByUser            User                             @relation("RepaymentReceivedBy", fields: [receivedByUserId], references: [id], onDelete: Restrict)
+  ledgerTransaction         LedgerTransaction?
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
   @@index([tenantId, loanId, paidAt], map: "repayments_tenant_loan_paid_at_idx")

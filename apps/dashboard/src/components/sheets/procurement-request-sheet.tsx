@@ -2,7 +2,6 @@
 
 import { Suspense } from "react"
 import type { ProcurementRequestRow } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { useQuery } from "@tanstack/react-query"
 import {
   MemberProcurementRequestCreateContent,
@@ -12,8 +11,10 @@ import {
   type ProcurementMemberOption,
 } from "@/components/procurement-request-content"
 import { ProcurementRequestSheetHeader } from "@/components/procurement-request-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import type { WorkflowChargeOption } from "@/components/workflow-charge-summary"
 import { useProcurementParams } from "@/hooks/use-procurement-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
 type ProcurementSheetType = "create" | "purchase" | "review" | "self-service"
@@ -48,6 +49,10 @@ export function ProcurementRequestSheet({
   const { procurementRequestId, procurementSheetType, setParams } =
     useProcurementParams()
   const isOpen = isProcurementSheetType(procurementSheetType)
+  const presentation = getWorkflowPresentation(
+    "procurement",
+    procurementSheetType
+  )
   const selectedRouteRequest = requests.find(
     (request) => request.id === procurementRequestId
   )
@@ -76,8 +81,11 @@ export function ProcurementRequestSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={(open) => !open && closeSheet()}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -125,7 +133,6 @@ export function ProcurementRequestSheet({
             </div>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

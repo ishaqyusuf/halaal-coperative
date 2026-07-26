@@ -51,10 +51,8 @@ export const SORT_FIELD_MAPS: Record<TableId, Record<string, string>> = {
   members: {
     member: "fullName",
     number: "memberNumber",
-    type: "memberType",
     status: "status",
     kyc: "kycStatus",
-    joined: "joinedAt",
   },
   contributions: {
     member: "memberName",

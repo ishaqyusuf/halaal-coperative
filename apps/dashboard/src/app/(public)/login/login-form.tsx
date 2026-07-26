@@ -171,7 +171,27 @@ export function LoginForm({
   }
 
   return (
-    <form action={action} method="post" className="mt-6 space-y-4">
+    <form
+      action={action}
+      className="mt-6 space-y-4"
+      data-quick-fill-exempt="true"
+      method="post"
+    >
+      {showDevPicker ? (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={() => {
+              const account = devAccounts[0]
+              if (account) selectDevAccount(account)
+            }}
+          >
+            Quick fill
+          </Button>
+        </div>
+      ) : null}
       <input type="hidden" name="next" value={nextPath} />
       {showDevPicker ? (
         <input type="hidden" name="email" value={email} />

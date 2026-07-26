@@ -48,6 +48,11 @@ import {
 import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@halaalvest/ui/components/popover"
+import {
   usePreservedClientState,
   usePreservedFormState,
 } from "@halaalvest/ui/hooks/use-preserved-form-state"
@@ -58,6 +63,7 @@ import { GettingStartedFooterPortal } from "@/components/getting-started-footer-
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { QuickFill } from "@/components/quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
+import { navigateWithFreshWizardState } from "@/lib/getting-started/navigate-with-fresh-state"
 import type {
   LoanProductSettingsRow,
   TenantBusinessProfitPolicySettings,
@@ -69,6 +75,8 @@ import { PlusIcon, Trash2Icon } from "lucide-react"
 import {
   createChargeDefinitionAction,
   createChargeDefinitionVersionAction,
+  deleteChargeDefinitionAction,
+  deleteChargeDefinitionVersionAction,
   createShareBusinessAction,
   createShareBusinessProfitEntryAction,
   createTenantShareStructureVersionAction,
@@ -289,6 +297,7 @@ export function FinanceStartDateForm({
   defaultStartDate?: string | null
   preserveDraftKey?: string
 }) {
+  const router = useTenantRouter()
   const today = new Date().toISOString().slice(0, 10)
   const form = useZodForm<StartDateValues>(startDateSchema, {
     defaultValues: {
@@ -296,6 +305,7 @@ export function FinanceStartDateForm({
     },
   })
   const clearPreservedFormState = usePreservedFormState(form, {
+    baselineKey: defaultStartDate ?? "",
     enabled: Boolean(preserveDraftKey),
     storageKey: preserveDraftKey ?? "tenant-finance:start-date",
   })
@@ -308,6 +318,7 @@ export function FinanceStartDateForm({
         await updateTenantFinanceStartDateAction(objectToFormData(values))
         showSuccess("Start date updated", "Finance history anchor saved.")
         clearPreservedFormState()
+        router.refresh()
       } catch (error) {
         showError(
           "Could not update start date",
@@ -372,9 +383,7 @@ const businessProfitPolicySchema = z
       "ad_hoc",
     ]),
     requiresProfitDistributionApproval: z.boolean().default(true),
-    reserveRetentionPercentage: z
-      .string()
-      .min(1, "Reserve retention is required."),
+    reserveRetentionPercentage: z.string().optional(),
   })
   .superRefine((values, ctx) => {
     const financialYearStartMonth = Number(values.financialYearStartMonth)
@@ -416,11 +425,11 @@ const businessProfitPolicySchema = z
     if (
       Number.isFinite(distributable) &&
       Number.isFinite(reserve) &&
-      distributable + reserve > 100
+      Math.abs(distributable + reserve - 100) > Number.EPSILON
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Distributable plus reserve cannot exceed 100.",
+        message: "Distributable plus reserve must equal 100%.",
         path: ["reserveRetentionPercentage"],
       })
     }
@@ -506,13 +515,15 @@ export function BusinessProfitPolicyForm({
         profitDistributionFrequency: defaultPolicy.profitDistributionFrequency,
         requiresProfitDistributionApproval:
           defaultPolicy.requiresProfitDistributionApproval,
-        reserveRetentionPercentage: String(
-          defaultPolicy.reserveRetentionPercentage
-        ),
+        reserveRetentionPercentage:
+          defaultPolicy.reserveRetentionPercentage === 0
+            ? ""
+            : String(defaultPolicy.reserveRetentionPercentage),
       },
     }
   )
   const clearPreservedFormState = usePreservedFormState(form, {
+    baselineKey: `optional-zero-reserve-v1:${JSON.stringify(defaultPolicy)}`,
     enabled: Boolean(preserveDraftKey),
     storageKey: preserveDraftKey ?? "tenant-finance:business-profit-policy",
   })
@@ -539,13 +550,20 @@ export function BusinessProfitPolicyForm({
   function onSubmit(values: BusinessProfitPolicyValues) {
     startTransition(async () => {
       try {
-        await updateTenantBusinessProfitPolicyAction(objectToFormData(values))
+        await updateTenantBusinessProfitPolicyAction(
+          objectToFormData({
+            ...values,
+            reserveRetentionPercentage:
+              values.reserveRetentionPercentage?.trim() || "0",
+          })
+        )
         showSuccess("Policy saved", "Business profit policy updated.")
         clearPreservedFormState()
         if (redirectTo) {
-          router.push(redirectTo)
+          navigateWithFreshWizardState(router, redirectTo)
           return
         }
+        router.refresh()
       } catch (error) {
         showError(
           "Could not save policy",
@@ -811,16 +829,22 @@ export function SharePolicyForm({
   const router = useTenantRouter()
   const fallbackFormId = useId()
   const resolvedFormId = formId ?? fallbackFormId
+  const hasSavedUnitPolicy = defaultPolicy.configurationMode === "unit_based"
   const form = useZodForm<SharePolicyValues>(sharePolicySchema, {
     defaultValues: {
       configurationMode: defaultPolicy.configurationMode,
-      compulsoryShareUnits: String(defaultPolicy.compulsoryShareUnits),
-      maximumShareUnits: String(defaultPolicy.maximumShareUnits),
-      unitAmount: String(defaultPolicy.unitAmount),
+      compulsoryShareUnits: hasSavedUnitPolicy
+        ? String(defaultPolicy.compulsoryShareUnits)
+        : "",
+      maximumShareUnits: hasSavedUnitPolicy
+        ? String(defaultPolicy.maximumShareUnits)
+        : "",
+      unitAmount: hasSavedUnitPolicy ? String(defaultPolicy.unitAmount) : "",
     },
   })
   const selectedMode = form.watch("configurationMode")
   const clearPreservedFormState = usePreservedFormState(form, {
+    baselineKey: `empty-unsaved-unit-policy-v1:${JSON.stringify(defaultPolicy)}`,
     enabled: Boolean(preserveDraftKey),
     storageKey: preserveDraftKey ?? "tenant-finance:share-policy",
   })
@@ -843,7 +867,7 @@ export function SharePolicyForm({
         showSuccess("Policy saved", "Share configuration updated.")
         clearPreservedFormState()
         if (redirectTo) {
-          router.push(redirectTo)
+          navigateWithFreshWizardState(router, redirectTo)
           return
         }
         router.refresh()
@@ -872,10 +896,21 @@ export function SharePolicyForm({
               <FormControl>
                 <SelectFormInput
                   onChange={(value) => {
-                    field.onChange(value)
-                    onConfigurationModeChange?.(
+                    const mode =
                       value as TenantSharePolicySettings["configurationMode"]
-                    )
+
+                    if (
+                      mode === "unit_based" &&
+                      field.value !== "unit_based" &&
+                      !hasSavedUnitPolicy
+                    ) {
+                      form.setValue("unitAmount", "")
+                      form.setValue("compulsoryShareUnits", "")
+                      form.setValue("maximumShareUnits", "")
+                    }
+
+                    field.onChange(value)
+                    onConfigurationModeChange?.(mode)
                   }}
                   options={shareConfigurationModeOptions}
                   value={field.value}
@@ -898,7 +933,7 @@ export function SharePolicyForm({
                 <FormItem>
                   <FormLabel>Share cost</FormLabel>
                   <FormControl>
-                    <CurrencyFormInput {...field} placeholder="10000" />
+                    <CurrencyFormInput {...field} placeholder="Enter amount" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -1550,25 +1585,6 @@ export function LoanProductSettingsForm({
           />
           <FormField
             control={form.control}
-            name="code"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Code</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(event) =>
-                      field.onChange(event.target.value.toUpperCase())
-                    }
-                    placeholder="EMG"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
             name="termMonths"
             render={({ field }) => (
               <FormItem>
@@ -1862,10 +1878,12 @@ export function ShareStructureVersionForm({
     () => buildShareHistoryRows(initialVersions)
   )
   const clearPreservedFormState = usePreservedFormState(form, {
+    baselineKey: JSON.stringify(initialVersions ?? []),
     enabled: Boolean(preserveDraftKey),
     storageKey: `${preserveDraftKey ?? "tenant-finance:share-structure"}:form`,
   })
   const clearPreservedShareHistoryRows = usePreservedClientState({
+    baselineKey: JSON.stringify(initialVersions ?? []),
     enabled: Boolean(preserveDraftKey),
     onRestore: setShareHistoryRows,
     storageKey: `${preserveDraftKey ?? "tenant-finance:share-structure"}:history-rows`,
@@ -1882,7 +1900,7 @@ export function ShareStructureVersionForm({
       if (allowEmptyHistory && redirectTo) {
         clearPreservedFormState()
         clearPreservedShareHistoryRows()
-        router.push(redirectTo)
+        navigateWithFreshWizardState(router, redirectTo)
         return
       }
 
@@ -1941,7 +1959,7 @@ export function ShareStructureVersionForm({
         clearPreservedFormState()
         clearPreservedShareHistoryRows()
         if (redirectTo) {
-          router.push(redirectTo)
+          navigateWithFreshWizardState(router, redirectTo)
           return
         }
         resetShareHistoryRows()
@@ -2080,7 +2098,7 @@ export function ShareStructureVersionForm({
                       onChange={(amount) =>
                         updateShareHistoryRow(row.id, { amount })
                       }
-                      placeholder="15000"
+                      placeholder="Enter amount"
                       value={row.amount}
                     />
                   )}
@@ -2136,7 +2154,6 @@ const chargeDefinitionSchema = z.object({
     "manual",
   ]),
   chargeValueType: z.enum(["fixed_amount", "percentage"]),
-  code: z.string().min(1, "Code is required."),
   effectiveFrom: z.string().optional(),
   isMonthlyLevy: z.boolean().default(false),
   kind: z.enum(["fixed", "percentage"]),
@@ -2178,6 +2195,57 @@ const chargeApplicabilityOptions = [
     value: "project_financing_request:submission:deduct_from_savings",
   },
 ] as const
+
+function ChargeApplicabilityCombobox({
+  disabled,
+  onChange,
+  value,
+}: {
+  disabled: boolean
+  onChange: (value: string, checked: boolean) => void
+  value: string[]
+}) {
+  const selectedLabels = chargeApplicabilityOptions
+    .filter((option) => value.includes(option.value))
+    .map((option) => option.label)
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            className="h-9 w-full justify-start overflow-hidden px-3 font-normal"
+            disabled={disabled}
+            type="button"
+            variant="outline"
+          />
+        }
+      >
+        <span className="truncate">
+          {selectedLabels.length > 0
+            ? selectedLabels.join(", ")
+            : "Select workflows"}
+        </span>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 gap-1 p-1">
+        {chargeApplicabilityOptions.map((option) => (
+          <label
+            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
+            key={option.value}
+          >
+            <Checkbox
+              checked={value.includes(option.value)}
+              onCheckedChange={(checked) =>
+                onChange(option.value, checked === true)
+              }
+            />
+            <span>{option.label}</span>
+          </label>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 function defaultChargeApplicabilityForPurpose(
   purpose: ChargeDefinitionValues["purpose"]
@@ -2299,6 +2367,7 @@ type ChargeDefinitionInitialDefinition = {
 
 type ChargeDefinitionInputRow = ChargeDefinitionValues & {
   chargeDefinitionId: string
+  code: string
   historyRows: ChargeHistoryRow[]
   id: string
   isActive: boolean
@@ -2313,12 +2382,12 @@ type ChargeQuickFillTemplate = Pick<
   | "applicability"
   | "chargeFrequency"
   | "chargeValueType"
-  | "code"
   | "isMonthlyLevy"
   | "name"
   | "purpose"
 > & {
   amount: string
+  code: string
 }
 
 const chargeQuickFillTemplates = [
@@ -2486,9 +2555,7 @@ function buildChargeDefinitionRows(
 }
 
 function chargeDefinitionRowHasValue(row: ChargeDefinitionInputRow) {
-  return Boolean(
-    row.code || row.name || row.historyRows.some(chargeHistoryRowHasValue)
-  )
+  return Boolean(row.name || row.historyRows.some(chargeHistoryRowHasValue))
 }
 
 function normalizeChargeHistoryRows(rows: ChargeHistoryRow[]) {
@@ -2537,6 +2604,7 @@ export function ChargeDefinitionForm({
     buildChargeDefinitionRows(initialDefinitions)
   )
   const clearPreservedChargeRows = usePreservedClientState({
+    baselineKey: JSON.stringify(initialDefinitions ?? []),
     enabled: Boolean(preserveDraftKey),
     onRestore: setChargeRows,
     storageKey: preserveDraftKey ?? "tenant-finance:charge-definitions",
@@ -2693,11 +2761,39 @@ export function ChargeDefinitionForm({
   }
 
   function deleteChargeRow(rowId: string) {
-    setChargeRows((currentRows) =>
-      normalizeChargeDefinitionRows(
-        currentRows.filter((row) => row.id !== rowId)
+    const chargeRow = chargeRows.find((row) => row.id === rowId)
+
+    if (!chargeRow?.saved) {
+      setChargeRows((currentRows) =>
+        normalizeChargeDefinitionRows(
+          currentRows.filter((row) => row.id !== rowId)
+        )
       )
-    )
+      return
+    }
+
+    startTransition(async () => {
+      try {
+        await deleteChargeDefinitionAction(
+          objectToFormData({
+            chargeDefinitionId: chargeRow.chargeDefinitionId,
+          })
+        )
+        setChargeRows((currentRows) =>
+          normalizeChargeDefinitionRows(
+            currentRows.filter((row) => row.id !== rowId)
+          )
+        )
+        clearPreservedChargeRows()
+        showSuccess("Charge deleted", "The unused charge was removed.")
+        router.refresh()
+      } catch (error) {
+        showError(
+          "Could not delete charge",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
   }
 
   function addChargeRow() {
@@ -2708,20 +2804,57 @@ export function ChargeDefinitionForm({
   }
 
   function deleteChargeHistoryRow(chargeRowId: string, rowId: string) {
-    setChargeRows((currentRows) =>
-      normalizeChargeDefinitionRows(
-        currentRows.map((chargeRow) =>
-          chargeRow.id === chargeRowId
-            ? {
-                ...chargeRow,
-                historyRows: normalizeChargeHistoryRows(
-                  chargeRow.historyRows.filter((row) => row.id !== rowId)
-                ),
-              }
-            : chargeRow
+    const chargeRow = chargeRows.find((row) => row.id === chargeRowId)
+    const historyRow = chargeRow?.historyRows.find((row) => row.id === rowId)
+
+    if (!chargeRow || chargeRow.historyRows.length <= 1) {
+      return
+    }
+
+    const removeLocalRow = () =>
+      setChargeRows((currentRows) =>
+        normalizeChargeDefinitionRows(
+          currentRows.map((currentChargeRow) =>
+            currentChargeRow.id === chargeRowId
+              ? {
+                  ...currentChargeRow,
+                  historyRows: normalizeChargeHistoryRows(
+                    currentChargeRow.historyRows.filter(
+                      (row) => row.id !== rowId
+                    )
+                  ),
+                }
+              : currentChargeRow
+          )
         )
       )
-    )
+
+    if (!historyRow?.versionId) {
+      removeLocalRow()
+      return
+    }
+
+    startTransition(async () => {
+      try {
+        await deleteChargeDefinitionVersionAction(
+          objectToFormData({
+            chargeDefinitionVersionId: historyRow.versionId,
+          })
+        )
+        removeLocalRow()
+        clearPreservedChargeRows()
+        showSuccess(
+          "Dated amount deleted",
+          "The charge history row was removed."
+        )
+        router.refresh()
+      } catch (error) {
+        showError(
+          "Could not delete dated amount",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
   }
 
   function addChargeHistoryRow(chargeRowId: string) {
@@ -2761,7 +2894,7 @@ export function ChargeDefinitionForm({
       if (!result.success) {
         showError(
           "Complete charge row",
-          "Each started charge row needs a charge name, code, frequency, value, and purpose."
+          "Each started charge row needs a charge name, frequency, value, and purpose."
         )
         return null
       }
@@ -2849,7 +2982,6 @@ export function ChargeDefinitionForm({
                 ),
                 chargeDefinitionId: chargeRow.chargeDefinitionId,
                 chargeFrequency: chargeRow.chargeFrequency,
-                code: chargeRow.code,
                 isActive: String(chargeRow.isActive),
                 isMonthlyLevy: String(chargeRow.isMonthlyLevy),
                 name: chargeRow.name,
@@ -2894,7 +3026,6 @@ export function ChargeDefinitionForm({
               appliesToMembers: legacyApplicabilityFlags.appliesToMembers,
               chargeFrequency: chargeRow.chargeFrequency,
               chargeValueType: chargeRow.chargeValueType,
-              code: chargeRow.code,
               effectiveFrom: chargeRow.historyRows[0]?.effectiveFrom,
               historyAmount: chargeRow.historyRows.map((row) => row.amount),
               historyEffectiveFrom: chargeRow.historyRows.map(
@@ -2916,7 +3047,7 @@ export function ChargeDefinitionForm({
         clearPreservedChargeRows()
         onSuccess?.()
         if (redirectTo) {
-          router.push(redirectTo)
+          navigateWithFreshWizardState(router, redirectTo)
           return
         }
         router.refresh()
@@ -2971,7 +3102,7 @@ export function ChargeDefinitionForm({
             className="grid gap-4 border-t border-border/70 pt-4"
             key={chargeRow.id}
           >
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_7.5rem_10rem_8.5rem_9rem_15rem_2rem] xl:items-start">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_8.5rem_9rem_15rem_2rem] xl:items-start">
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Charge
                 <Input
@@ -2983,19 +3114,6 @@ export function ChargeDefinitionForm({
                   }
                   placeholder="Enter charge title"
                   value={chargeRow.name}
-                />
-              </label>
-              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                Code
-                <Input
-                  disabled={isPending}
-                  onChange={(event) =>
-                    updateChargeRow(chargeRow.id, {
-                      code: event.target.value,
-                    })
-                  }
-                  placeholder="Enter charge code name"
-                  value={chargeRow.code}
                 />
               </label>
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
@@ -3063,34 +3181,17 @@ export function ChargeDefinitionForm({
                 <p className="mb-1 text-xs font-medium text-muted-foreground">
                   Applies to
                 </p>
-                <div className="grid grid-cols-2 gap-1">
-                  {chargeApplicabilityOptions.map((option) => (
-                    <label
-                      className="flex h-8 items-center gap-2 rounded-md border border-input px-2 text-xs"
-                      key={option.value}
-                    >
-                      <Checkbox
-                        checked={chargeRow.applicability.includes(
-                          option.value
-                        )}
-                        disabled={isPending}
-                        onCheckedChange={(checked) =>
-                          updateChargeApplicability(
-                            chargeRow.id,
-                            option.value,
-                            checked === true
-                          )
-                        }
-                      />
-                      <span>{option.label}</span>
-                    </label>
-                  ))}
-                </div>
+                <ChargeApplicabilityCombobox
+                  disabled={isPending}
+                  onChange={(value, checked) =>
+                    updateChargeApplicability(chargeRow.id, value, checked)
+                  }
+                  value={chargeRow.applicability}
+                />
               </div>
               <div className="pt-6">
                 <DeleteInlineRowButton
                   disabled={
-                    chargeRow.saved ||
                     isPending ||
                     (!chargeDefinitionRowHasValue(chargeRow) &&
                       chargeRows.filter((row) => !row.saved).length === 1 &&
@@ -3152,15 +3253,19 @@ export function ChargeDefinitionForm({
                       />
                     )}
                   </label>
-                  <div className="pt-6">
-                    <DeleteInlineRowButton
-                      disabled={isPending || Boolean(row.versionId)}
-                      label="charge history row"
-                      onDelete={() =>
-                        deleteChargeHistoryRow(chargeRow.id, row.id)
-                      }
-                    />
-                  </div>
+                  {chargeRow.historyRows.length > 1 ? (
+                    <div className="pt-6">
+                      <DeleteInlineRowButton
+                        disabled={isPending}
+                        label="charge history row"
+                        onDelete={() =>
+                          deleteChargeHistoryRow(chargeRow.id, row.id)
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <span />
+                  )}
                 </div>
               ))}
               <AddInlineRowButton
@@ -3394,7 +3499,7 @@ export function ChargeDefinitionVersionForm({
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit" className="rounded-full">
+          <Button disabled={isPending} type="submit">
             Add charge update
           </Button>
         </div>
@@ -3592,6 +3697,7 @@ const businessHistoryInputRowSchema = z.object({
 
 const businessHistoryTableSchema = z.object({
   businessRows: z.array(businessHistoryInputRowSchema),
+  hasNoOngoingBusiness: z.boolean().default(false),
 })
 
 type BusinessHistoryInputRow = z.infer<typeof businessHistoryInputRowSchema>
@@ -3946,6 +4052,7 @@ function ShareBusinessProfitHistoryTableForm({
           initialBusinesses,
           defaultProfitStatus
         ),
+        hasNoOngoingBusiness: false,
       },
     }
   )
@@ -3956,7 +4063,9 @@ function ShareBusinessProfitHistoryTableForm({
   )
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const businessRows = form.watch("businessRows") ?? []
+  const hasNoOngoingBusiness = form.watch("hasNoOngoingBusiness") ?? false
   const clearPreservedFormState = usePreservedFormState(form, {
+    baselineKey: JSON.stringify(initialBusinesses ?? []),
     enabled: Boolean(preserveDraftKey),
     storageKey: `${preserveDraftKey ?? "tenant-finance:business-history"}:form`,
   })
@@ -3979,6 +4088,7 @@ function ShareBusinessProfitHistoryTableForm({
         initialBusinesses,
         defaultProfitStatus
       ),
+      hasNoOngoingBusiness: false,
     })
   }
 
@@ -4135,9 +4245,17 @@ function ShareBusinessProfitHistoryTableForm({
   }
 
   function getValidBusinessRows(values: BusinessHistoryTableValues) {
+    if (values.hasNoOngoingBusiness) {
+      return []
+    }
+
     const startedRows = values.businessRows.filter(businessHistoryRowHasValue)
 
     if (startedRows.length === 0) {
+      if (isBroughtForwardSetup) {
+        return []
+      }
+
       showError(
         "Business history required",
         "Add at least one business and profit row."
@@ -4197,7 +4315,7 @@ function ShareBusinessProfitHistoryTableForm({
         businessProfitHistoryRowHasValue
       )
 
-      if (startedProfitRows.length === 0) {
+      if (startedProfitRows.length === 0 && !isBroughtForwardSetup) {
         showError(
           "Profit history required",
           "Each started business needs at least one profit row."
@@ -4384,18 +4502,25 @@ function ShareBusinessProfitHistoryTableForm({
         }
 
         showSuccess(
-          "Business history saved",
-          "Business and profit history rows were recorded."
+          isBroughtForwardSetup
+            ? "Current-season businesses saved"
+            : "Business history saved",
+          validBusinessRows.length === 0
+            ? "No ongoing business was recorded. Continuing setup."
+            : isBroughtForwardSetup
+              ? "Current-season business details were recorded."
+              : "Business and profit history rows were recorded."
         )
         form.reset({
           businessRows: buildBusinessHistoryRows(
             initialBusinesses,
             defaultProfitStatus
           ),
+          hasNoOngoingBusiness: false,
         })
         clearPreservedFormState()
         if (redirectTo) {
-          router.push(redirectTo)
+          navigateWithFreshWizardState(router, redirectTo)
           return
         }
         router.refresh()
@@ -4419,8 +4544,45 @@ function ShareBusinessProfitHistoryTableForm({
         id={resolvedFormId}
         onSubmit={form.handleSubmit(submitBusinessRows)}
       >
+        <FormField
+          control={form.control}
+          name="hasNoOngoingBusiness"
+          render={({ field }) => (
+            <FormItem className="flex items-start gap-3 border border-border/70 bg-muted/20 p-4">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  disabled={isPending}
+                  onCheckedChange={(checked) =>
+                    field.onChange(checked === true)
+                  }
+                />
+              </FormControl>
+              <div className="grid gap-1">
+                <FormLabel>
+                  {isBroughtForwardSetup
+                    ? "We don't have any ongoing business"
+                    : "We don't have any business history to record"}
+                </FormLabel>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {isBroughtForwardSetup
+                    ? "Select this when there is no business participating in the current profit-sharing season."
+                    : "Select this when the cooperative has no historical business or profit records to migrate."}{" "}
+                  The business form will close and you can continue with Next.
+                </p>
+                <FormMessage />
+              </div>
+            </FormItem>
+          )}
+        />
+        {hasNoOngoingBusiness ? null : (
+          <>
         <div className="flex items-center gap-3">
-          <h3 className="shrink-0 text-sm font-medium">Business History</h3>
+          <h3 className="shrink-0 text-sm font-medium">
+            {isBroughtForwardSetup
+              ? "Current-season businesses"
+              : "Business History"}
+          </h3>
           <div className="min-w-10 flex-1 border-t border-border/70" />
           <Button
             disabled={isPending}
@@ -4523,7 +4685,9 @@ function ShareBusinessProfitHistoryTableForm({
               <div className="grid gap-3 pl-0 md:pl-6">
                 <div className="flex items-center gap-3">
                   <h4 className="shrink-0 text-xs font-medium text-muted-foreground">
-                    Profit History
+                    {isBroughtForwardSetup
+                      ? "Current-season profit"
+                      : "Profit History"}
                   </h4>
                   <div className="min-w-10 flex-1 border-t border-border/70" />
                 </div>
@@ -4686,6 +4850,8 @@ function ShareBusinessProfitHistoryTableForm({
             onAdd={addBusinessRow}
           />
         </div>
+          </>
+        )}
         {showSubmitButton ? (
           <div className="flex justify-end">
             <Button disabled={isPending} type="submit">
@@ -5237,7 +5403,7 @@ function ShareBusinessSingleForm({
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit" className="rounded-full">
+          <Button disabled={isPending} type="submit">
             Record business
           </Button>
         </div>
@@ -5527,7 +5693,6 @@ export function ShareBusinessProfitEntryForm({
           <Button
             disabled={isPending || businesses.length === 0}
             type="submit"
-            className="rounded-full"
           >
             Record profit
           </Button>
@@ -5569,7 +5734,6 @@ export function GenerateShareProfitAllocationsButton({
       disabled={isPending}
       type="button"
       variant="outline"
-      className="rounded-full"
       onClick={onClick}
     >
       Generate allocations

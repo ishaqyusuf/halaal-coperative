@@ -1,48 +1,49 @@
 model User {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId     String       @map("tenant_id") @db.Uuid
-  email        String
-  phoneNumber  String?      @map("phone_number")
-  passwordHash String?      @map("password_hash")
-  fullName     String       @map("full_name")
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  email           String
+  phoneNumber     String?   @map("phone_number")
+  passwordHash    String?   @map("password_hash")
+  fullName        String    @map("full_name")
   isPlatformOwner Boolean   @default(false) @map("is_platform_owner")
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memberships  Membership[]
-  memberProfile Member?
-  loanRequests LoanRequest[] @relation("LoanRequestCreatedBy")
-  loanApprovals LoanApproval[]
-  requestedLoanGuarantorApprovals LoanGuarantorApproval[] @relation("LoanGuarantorApprovalRequestedBy")
-  respondedLoanGuarantorApprovals LoanGuarantorApproval[] @relation("LoanGuarantorApprovalRespondedBy")
-  createdProcurementRequests ProcurementRequest[] @relation("ProcurementRequestCreatedBy")
-  reviewedProcurementRequests ProcurementRequest[] @relation("ProcurementRequestReviewedBy")
-  releasedFoodPurchaseCycles FoodPurchaseCycle[] @relation("FoodPurchaseCycleReleasedBy")
-  submittedFoodPurchaseAccounting FoodPurchaseCycle[] @relation("FoodPurchaseCycleAccountingSubmittedBy")
-  submittedFoodPurchaseApplications FoodPurchaseApplication[] @relation("FoodPurchaseApplicationSubmittedBy")
-  reviewedFoodPurchaseApplications FoodPurchaseApplication[] @relation("FoodPurchaseApplicationReviewedBy")
-  createdProjectFinancingRequests ProjectFinancingRequest[] @relation("ProjectFinancingRequestCreatedBy")
-  reviewedProjectFinancingRequests ProjectFinancingRequest[] @relation("ProjectFinancingRequestReviewedBy")
-  disbursedProjectFinancingRequests ProjectFinancingRequest[] @relation("ProjectFinancingRequestDisbursedBy")
-  repayments   Repayment[]   @relation("RepaymentReceivedBy")
-  submittedPaymentReceipts MemberPaymentReceipt[] @relation("MemberPaymentReceiptSubmittedBy")
-  reviewedPaymentReceipts MemberPaymentReceipt[] @relation("MemberPaymentReceiptReviewedBy")
-  collectionFollowUps CollectionFollowUp[] @relation("CollectionFollowUpActor")
-  assignedCollectionFollowUps CollectionFollowUp[] @relation("CollectionFollowUpAssignedUser")
-  openedSupportCases SupportCase[] @relation("SupportCaseOpenedBy")
-  assignedSupportCases SupportCase[] @relation("SupportCaseAssignedTo")
-  approvedSupportCaseFinancialAdjustments SupportCase[] @relation("SupportCaseFinancialAdjustmentApprovedBy")
-  supportCaseMessages SupportCaseMessage[] @relation("SupportCaseMessageAuthor")
-  importBatches ImportBatch[] @relation("ImportBatchCreatedBy")
-  offlineSyncEvents OfflineSyncEvent[] @relation("OfflineSyncCreatedBy")
-  auditLogs    AuditLog[]    @relation("AuditActorUser")
-  memberOnboardingRequests MemberOnboardingRequest[]
-  createdSignupLinks MemberSignupLink[] @relation("MemberSignupLinkCreatedBy")
-  reviewedTenantOperationProfiles TenantOperationProfile[] @relation("TenantOperationProfileReviewedBy")
+  tenant                                     Tenant                              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships                                Membership[]
+  memberProfile                              Member?
+  loanRequests                               LoanRequest[]                       @relation("LoanRequestCreatedBy")
+  loanApprovals                              LoanApproval[]
+  requestedLoanGuarantorApprovals            LoanGuarantorApproval[]             @relation("LoanGuarantorApprovalRequestedBy")
+  respondedLoanGuarantorApprovals            LoanGuarantorApproval[]             @relation("LoanGuarantorApprovalRespondedBy")
+  createdProcurementRequests                 ProcurementRequest[]                @relation("ProcurementRequestCreatedBy")
+  reviewedProcurementRequests                ProcurementRequest[]                @relation("ProcurementRequestReviewedBy")
+  releasedFoodPurchaseCycles                 FoodPurchaseCycle[]                 @relation("FoodPurchaseCycleReleasedBy")
+  submittedFoodPurchaseAccounting            FoodPurchaseCycle[]                 @relation("FoodPurchaseCycleAccountingSubmittedBy")
+  submittedFoodPurchaseApplications          FoodPurchaseApplication[]           @relation("FoodPurchaseApplicationSubmittedBy")
+  reviewedFoodPurchaseApplications           FoodPurchaseApplication[]           @relation("FoodPurchaseApplicationReviewedBy")
+  createdProjectFinancingRequests            ProjectFinancingRequest[]           @relation("ProjectFinancingRequestCreatedBy")
+  reviewedProjectFinancingRequests           ProjectFinancingRequest[]           @relation("ProjectFinancingRequestReviewedBy")
+  disbursedProjectFinancingRequests          ProjectFinancingRequest[]           @relation("ProjectFinancingRequestDisbursedBy")
+  repayments                                 Repayment[]                         @relation("RepaymentReceivedBy")
+  submittedPaymentReceipts                   MemberPaymentReceipt[]              @relation("MemberPaymentReceiptSubmittedBy")
+  reviewedPaymentReceipts                    MemberPaymentReceipt[]              @relation("MemberPaymentReceiptReviewedBy")
+  collectionFollowUps                        CollectionFollowUp[]                @relation("CollectionFollowUpActor")
+  assignedCollectionFollowUps                CollectionFollowUp[]                @relation("CollectionFollowUpAssignedUser")
+  openedSupportCases                         SupportCase[]                       @relation("SupportCaseOpenedBy")
+  assignedSupportCases                       SupportCase[]                       @relation("SupportCaseAssignedTo")
+  approvedSupportCaseFinancialAdjustments    SupportCase[]                       @relation("SupportCaseFinancialAdjustmentApprovedBy")
+  supportCaseMessages                        SupportCaseMessage[]                @relation("SupportCaseMessageAuthor")
+  importBatches                              ImportBatch[]                       @relation("ImportBatchCreatedBy")
+  offlineSyncEvents                          OfflineSyncEvent[]                  @relation("OfflineSyncCreatedBy")
+  auditLogs                                  AuditLog[]                          @relation("AuditActorUser")
+  memberOnboardingRequests                   MemberOnboardingRequest[]
+  createdSignupLinks                         MemberSignupLink[]                  @relation("MemberSignupLinkCreatedBy")
+  reviewedTenantOperationProfiles            TenantOperationProfile[]            @relation("TenantOperationProfileReviewedBy")
   createdCollectionSourceContributionBatches CollectionSourceContributionBatch[] @relation("CollectionSourceBatchCreatedBy")
-  postedCollectionSourceContributionBatches CollectionSourceContributionBatch[] @relation("CollectionSourceBatchPostedBy")
+  postedCollectionSourceContributionBatches  CollectionSourceContributionBatch[] @relation("CollectionSourceBatchPostedBy")
+  processedSpecialSavingsWithdrawals         MemberSpecialSavingsWithdrawal[]    @relation("MemberSpecialSavingsWithdrawalProcessedBy")
 
   @@unique([tenantId, email], map: "users_tenant_email_key")
   @@index([tenantId], map: "users_tenant_id_idx")
@@ -51,16 +52,16 @@ model User {
 }
 
 model Membership {
-  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String         @map("tenant_id") @db.Uuid
-  userId      String         @map("user_id") @db.Uuid
-  role        MembershipRole
-  isDefault   Boolean        @default(false) @map("is_default")
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  role      MembershipRole
+  isDefault Boolean        @default(false) @map("is_default")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, userId, role], map: "memberships_tenant_user_role_key")
   @@index([tenantId, role], map: "memberships_tenant_role_idx")

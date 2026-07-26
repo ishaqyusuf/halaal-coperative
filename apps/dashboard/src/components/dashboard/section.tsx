@@ -84,7 +84,7 @@ export function DashboardActionLink({
   href,
   children,
   className,
-  size = "sm",
+  size = "default",
   variant = "outline",
 }: {
   href: string
@@ -96,11 +96,7 @@ export function DashboardActionLink({
   return (
     <Link
       href={href}
-      className={cn(
-        buttonVariants({ size, variant }),
-        "rounded-md",
-        className,
-      )}
+      className={cn(buttonVariants({ size, variant }), className)}
     >
       {children}
     </Link>

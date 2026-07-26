@@ -98,15 +98,6 @@ export function getCurrentDashboardModule(
   )
 }
 
-export function getDashboardQuickLinks(pathname: string, modules: NavModule[]) {
-  const currentModule = getCurrentDashboardModule(pathname, modules)
-  return (
-    currentModule?.sections
-      .flatMap((section) => section.links.filter((item) => item.show))
-      .slice(0, 6) ?? []
-  )
-}
-
 export function getDashboardRouteTitle(
   pathname: string,
   role: CooperativeRole | null,
@@ -161,6 +152,3 @@ export function canAccessDashboardPath(
 }
 
 export type DashboardRouteTitle = ReturnType<typeof getDashboardRouteTitle>
-export type DashboardQuickLink = NonNullable<
-  ReturnType<typeof getDashboardQuickLinks>[number]
->

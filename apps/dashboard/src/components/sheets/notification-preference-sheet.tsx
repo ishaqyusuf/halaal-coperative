@@ -3,8 +3,9 @@
 import { Suspense } from "react"
 import { NotificationPreferenceContent } from "@/components/notification-preference-content"
 import { NotificationPreferenceSheetHeader } from "@/components/notification-preference-sheet-header"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useNotificationPreferenceParams } from "@/hooks/use-notification-preference-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function NotificationPreferenceSheet() {
   const {
@@ -22,8 +23,11 @@ export function NotificationPreferenceSheet() {
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent>
+    <WorkflowPresentation
+      config={getWorkflowPresentation("notificationPreference", "edit")}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -36,7 +40,6 @@ export function NotificationPreferenceSheet() {
             <NotificationPreferenceContent />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

@@ -1,11 +1,12 @@
 "use client"
 
 import { Suspense } from "react"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import type { RoleAssignmentForm } from "@/components/forms/settings-forms"
 import { RoleSettingsContent } from "@/components/role-settings-content"
 import { RoleSettingsSheetHeader } from "@/components/role-settings-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useRoleSettingsParams } from "@/hooks/use-role-settings-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 type RoleAssignmentFormProps = Parameters<typeof RoleAssignmentForm>[0]
 
@@ -25,8 +26,11 @@ export function RoleSettingsSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={getWorkflowPresentation("role", "assign")}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -39,7 +43,6 @@ export function RoleSettingsSheet({
             <RoleSettingsContent devMode={devMode} roles={roles} />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

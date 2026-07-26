@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./qa-preview-flash": "./src/qa-preview-flash.ts",
     "./server": "./src/server.ts"
   },
   "scripts": { 

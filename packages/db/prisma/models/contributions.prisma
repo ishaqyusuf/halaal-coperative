@@ -1,19 +1,19 @@
 model ContributionPlan {
-  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String                   @map("tenant_id") @db.Uuid
-  memberId              String                   @map("member_id") @db.Uuid
-  name                  String
-  amount                Decimal                  @db.Decimal(18, 2)
-  interval              ContributionPlanInterval @default(monthly)
-  startsAt              DateTime                 @map("starts_at") @db.Timestamptz(6)
-  endsAt                DateTime?                @map("ends_at") @db.Timestamptz(6)
-  isActive              Boolean                  @default(true) @map("is_active")
-  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String                   @map("tenant_id") @db.Uuid
+  memberId  String                   @map("member_id") @db.Uuid
+  name      String
+  amount    Decimal                  @db.Decimal(18, 2)
+  interval  ContributionPlanInterval @default(monthly)
+  startsAt  DateTime                 @map("starts_at") @db.Timestamptz(6)
+  endsAt    DateTime?                @map("ends_at") @db.Timestamptz(6)
+  isActive  Boolean                  @default(true) @map("is_active")
+  createdAt DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member                Member                   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  contributions         Contribution[]
+  tenant                    Tenant                                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                    Member                                 @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  contributions             Contribution[]
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
   collectionSourceBatchRows CollectionSourceContributionBatchRow[]
 
@@ -22,33 +22,57 @@ model ContributionPlan {
 }
 
 model Contribution {
-  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String             @map("tenant_id") @db.Uuid
-  memberId              String             @map("member_id") @db.Uuid
-  contributionPlanId    String?            @map("contribution_plan_id") @db.Uuid
-  postedAt              DateTime           @map("posted_at") @db.Timestamptz(6)
-  amount                Decimal            @db.Decimal(18, 2)
-  committedAmount       Decimal?           @map("committed_amount") @db.Decimal(18, 2)
-  extraSavingsAmount    Decimal            @default(0) @map("extra_savings_amount") @db.Decimal(18, 2)
-  status                ContributionStatus @default(posted)
-  channel               ContributionChannel
-  periodLabel           String?            @map("period_label")
-  reference             String?            @map("reference")
-  notes                 String?
-  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String              @map("tenant_id") @db.Uuid
+  memberId           String              @map("member_id") @db.Uuid
+  contributionPlanId String?             @map("contribution_plan_id") @db.Uuid
+  postedAt           DateTime            @map("posted_at") @db.Timestamptz(6)
+  amount             Decimal             @db.Decimal(18, 2)
+  committedAmount    Decimal?            @map("committed_amount") @db.Decimal(18, 2)
+  extraSavingsAmount Decimal             @default(0) @map("extra_savings_amount") @db.Decimal(18, 2)
+  status             ContributionStatus  @default(posted)
+  channel            ContributionChannel
+  periodLabel        String?             @map("period_label")
+  reference          String?             @map("reference")
+  notes              String?
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member                Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  contributionPlan      ContributionPlan?  @relation(fields: [contributionPlanId], references: [id], onDelete: SetNull)
-  chargeApplication     ChargeApplication?
-  ledgerTransaction     LedgerTransaction?
+  tenant                    Tenant                                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                    Member                                 @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  contributionPlan          ContributionPlan?                      @relation(fields: [contributionPlanId], references: [id], onDelete: SetNull)
+  chargeApplication         ChargeApplication?
+  ledgerTransaction         LedgerTransaction?
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
   collectionSourceBatchRows CollectionSourceContributionBatchRow[]
 
   @@index([tenantId, memberId, postedAt], map: "contributions_tenant_member_posted_at_idx")
   @@index([tenantId, status], map: "contributions_tenant_status_idx")
   @@map("contributions")
+}
+
+model MemberSpecialSavingsWithdrawal {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  memberId            String   @map("member_id") @db.Uuid
+  supportCaseId       String   @unique @map("support_case_id") @db.Uuid
+  ledgerTransactionId String   @unique @map("ledger_transaction_id") @db.Uuid
+  processedByUserId   String   @map("processed_by_user_id") @db.Uuid
+  amount              Decimal  @db.Decimal(18, 2)
+  paidAt              DateTime @map("paid_at") @db.Timestamptz(6)
+  reference           String
+  notes               String?
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member            Member            @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  supportCase       SupportCase       @relation(fields: [supportCaseId], references: [id], onDelete: Restrict)
+  ledgerTransaction LedgerTransaction @relation(fields: [ledgerTransactionId], references: [id], onDelete: Restrict)
+  processedByUser   User              @relation("MemberSpecialSavingsWithdrawalProcessedBy", fields: [processedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, memberId, paidAt], map: "member_special_savings_withdrawals_tenant_member_paid_idx")
+  @@index([tenantId, paidAt], map: "member_special_savings_withdrawals_tenant_paid_idx")
+  @@map("member_special_savings_withdrawals")
 }
 
 model CollectionSourceContributionBatch {
@@ -67,11 +91,11 @@ model CollectionSourceContributionBatch {
   createdAt         DateTime                                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime                                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant            Tenant                                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deductionSource   DeductionSource                         @relation(fields: [deductionSourceId], references: [id], onDelete: Restrict)
-  createdByUser     User                                    @relation("CollectionSourceBatchCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  postedByUser      User?                                   @relation("CollectionSourceBatchPostedBy", fields: [postedByUserId], references: [id], onDelete: SetNull)
-  rows              CollectionSourceContributionBatchRow[]
+  tenant          Tenant                                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deductionSource DeductionSource                        @relation(fields: [deductionSourceId], references: [id], onDelete: Restrict)
+  createdByUser   User                                   @relation("CollectionSourceBatchCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  postedByUser    User?                                  @relation("CollectionSourceBatchPostedBy", fields: [postedByUserId], references: [id], onDelete: SetNull)
+  rows            CollectionSourceContributionBatchRow[]
 
   @@unique([tenantId, deductionSourceId, periodYear, periodMonth], map: "collection_source_batches_tenant_source_period_key")
   @@index([tenantId, status], map: "collection_source_batches_tenant_status_idx")
@@ -95,11 +119,11 @@ model CollectionSourceContributionBatchRow {
   createdAt          DateTime                                   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                                   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant             Tenant                                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  batch              CollectionSourceContributionBatch          @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  member             Member                                     @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  contributionPlan   ContributionPlan?                          @relation(fields: [contributionPlanId], references: [id], onDelete: SetNull)
-  contribution       Contribution?                              @relation(fields: [contributionId], references: [id], onDelete: SetNull)
+  tenant           Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch            CollectionSourceContributionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  member           Member                            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  contributionPlan ContributionPlan?                 @relation(fields: [contributionPlanId], references: [id], onDelete: SetNull)
+  contribution     Contribution?                     @relation(fields: [contributionId], references: [id], onDelete: SetNull)
 
   @@unique([batchId, memberId], map: "collection_source_batch_rows_batch_member_key")
   @@index([tenantId, status], map: "collection_source_batch_rows_tenant_status_idx")
@@ -108,31 +132,31 @@ model CollectionSourceContributionBatchRow {
 }
 
 model MemberPaymentReceipt {
-  id                 String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId           String                       @map("tenant_id") @db.Uuid
-  memberId           String                       @map("member_id") @db.Uuid
-  submittedByUserId  String?                      @map("submitted_by_user_id") @db.Uuid
-  reviewedByUserId   String?                      @map("reviewed_by_user_id") @db.Uuid
-  paidAt             DateTime                     @map("paid_at") @db.Timestamptz(6)
-  submittedAt        DateTime                     @default(now()) @map("submitted_at") @db.Timestamptz(6)
-  reviewedAt         DateTime?                    @map("reviewed_at") @db.Timestamptz(6)
-  totalAmount        Decimal                      @map("total_amount") @db.Decimal(18, 2)
-  channel            ContributionChannel          @default(transfer)
-  paymentReference   String?                      @map("payment_reference")
-  proofDocumentUrl   String?                      @map("proof_document_url")
-  proofDocumentName  String?                      @map("proof_document_name")
-  status             MemberPaymentReceiptStatus   @default(submitted)
-  memberNotes        String?                      @map("member_notes")
-  reviewNotes        String?                      @map("review_notes")
-  adjustmentReason   String?                      @map("adjustment_reason")
-  createdAt          DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                     @map("tenant_id") @db.Uuid
+  memberId          String                     @map("member_id") @db.Uuid
+  submittedByUserId String?                    @map("submitted_by_user_id") @db.Uuid
+  reviewedByUserId  String?                    @map("reviewed_by_user_id") @db.Uuid
+  paidAt            DateTime                   @map("paid_at") @db.Timestamptz(6)
+  submittedAt       DateTime                   @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  reviewedAt        DateTime?                  @map("reviewed_at") @db.Timestamptz(6)
+  totalAmount       Decimal                    @map("total_amount") @db.Decimal(18, 2)
+  channel           ContributionChannel        @default(transfer)
+  paymentReference  String?                    @map("payment_reference")
+  proofDocumentUrl  String?                    @map("proof_document_url")
+  proofDocumentName String?                    @map("proof_document_name")
+  status            MemberPaymentReceiptStatus @default(submitted)
+  memberNotes       String?                    @map("member_notes")
+  reviewNotes       String?                    @map("review_notes")
+  adjustmentReason  String?                    @map("adjustment_reason")
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant             Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member             Member                       @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  submittedByUser    User?                        @relation("MemberPaymentReceiptSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: SetNull)
-  reviewedByUser     User?                        @relation("MemberPaymentReceiptReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  allocations         MemberPaymentReceiptAllocation[]
+  tenant          Tenant                           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member          Member                           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  submittedByUser User?                            @relation("MemberPaymentReceiptSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  reviewedByUser  User?                            @relation("MemberPaymentReceiptReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  allocations     MemberPaymentReceiptAllocation[]
 
   @@index([tenantId, status, submittedAt], map: "member_payment_receipts_tenant_status_submitted_idx")
   @@index([tenantId, memberId, status], map: "member_payment_receipts_tenant_member_status_idx")
@@ -141,37 +165,37 @@ model MemberPaymentReceipt {
 }
 
 model MemberPaymentReceiptAllocation {
-  id                    String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String                                  @map("tenant_id") @db.Uuid
-  receiptId             String                                  @map("receipt_id") @db.Uuid
-  memberId              String                                  @map("member_id") @db.Uuid
-  category              MemberPaymentReceiptAllocationCategory
-  amount                Decimal                                 @db.Decimal(18, 2)
-  targetPeriodStart     DateTime?                               @map("target_period_start") @db.Date
-  periodIntent          MemberPaymentReceiptPeriodIntent        @default(unspecified) @map("period_intent")
-  contributionPlanId    String?                                 @map("contribution_plan_id") @db.Uuid
-  loanId                String?                                 @map("loan_id") @db.Uuid
-  procurementRepaymentScheduleItemId String?                    @map("procurement_repayment_schedule_item_id") @db.Uuid
-  foodPurchaseApplicationId String?                             @map("food_purchase_application_id") @db.Uuid
-  projectFinancingRequestId String?                             @map("project_financing_request_id") @db.Uuid
-  postedContributionId  String?                                 @map("posted_contribution_id") @db.Uuid
-  postedRepaymentId     String?                                 @map("posted_repayment_id") @db.Uuid
-  postedShareLedgerEntryId String?                              @map("posted_share_ledger_entry_id") @db.Uuid
-  notes                 String?
-  createdAt             DateTime                                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                                 String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                           String                                 @map("tenant_id") @db.Uuid
+  receiptId                          String                                 @map("receipt_id") @db.Uuid
+  memberId                           String                                 @map("member_id") @db.Uuid
+  category                           MemberPaymentReceiptAllocationCategory
+  amount                             Decimal                                @db.Decimal(18, 2)
+  targetPeriodStart                  DateTime?                              @map("target_period_start") @db.Date
+  periodIntent                       MemberPaymentReceiptPeriodIntent       @default(unspecified) @map("period_intent")
+  contributionPlanId                 String?                                @map("contribution_plan_id") @db.Uuid
+  loanId                             String?                                @map("loan_id") @db.Uuid
+  procurementRepaymentScheduleItemId String?                                @map("procurement_repayment_schedule_item_id") @db.Uuid
+  foodPurchaseApplicationId          String?                                @map("food_purchase_application_id") @db.Uuid
+  projectFinancingRequestId          String?                                @map("project_financing_request_id") @db.Uuid
+  postedContributionId               String?                                @map("posted_contribution_id") @db.Uuid
+  postedRepaymentId                  String?                                @map("posted_repayment_id") @db.Uuid
+  postedShareLedgerEntryId           String?                                @map("posted_share_ledger_entry_id") @db.Uuid
+  notes                              String?
+  createdAt                          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant                                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  receipt               MemberPaymentReceipt                    @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  member                Member                                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  contributionPlan      ContributionPlan?                       @relation(fields: [contributionPlanId], references: [id], onDelete: SetNull)
-  loan                  Loan?                                   @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  tenant                           Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receipt                          MemberPaymentReceipt              @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  member                           Member                            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  contributionPlan                 ContributionPlan?                 @relation(fields: [contributionPlanId], references: [id], onDelete: SetNull)
+  loan                             Loan?                             @relation(fields: [loanId], references: [id], onDelete: SetNull)
   procurementRepaymentScheduleItem ProcurementRepaymentScheduleItem? @relation(fields: [procurementRepaymentScheduleItemId], references: [id], onDelete: SetNull)
-  foodPurchaseApplication FoodPurchaseApplication?              @relation(fields: [foodPurchaseApplicationId], references: [id], onDelete: SetNull)
-  projectFinancingRequest ProjectFinancingRequest?              @relation(fields: [projectFinancingRequestId], references: [id], onDelete: SetNull)
-  postedContribution    Contribution?                           @relation(fields: [postedContributionId], references: [id], onDelete: SetNull)
-  postedRepayment       Repayment?                              @relation(fields: [postedRepaymentId], references: [id], onDelete: SetNull)
-  postedShareLedgerEntry   MemberShareLedgerEntry?              @relation(fields: [postedShareLedgerEntryId], references: [id], onDelete: SetNull)
+  foodPurchaseApplication          FoodPurchaseApplication?          @relation(fields: [foodPurchaseApplicationId], references: [id], onDelete: SetNull)
+  projectFinancingRequest          ProjectFinancingRequest?          @relation(fields: [projectFinancingRequestId], references: [id], onDelete: SetNull)
+  postedContribution               Contribution?                     @relation(fields: [postedContributionId], references: [id], onDelete: SetNull)
+  postedRepayment                  Repayment?                        @relation(fields: [postedRepaymentId], references: [id], onDelete: SetNull)
+  postedShareLedgerEntry           MemberShareLedgerEntry?           @relation(fields: [postedShareLedgerEntryId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, receiptId], map: "member_payment_receipt_allocations_tenant_receipt_idx")
   @@index([tenantId, memberId, targetPeriodStart], map: "member_payment_receipt_allocations_tenant_member_period_idx")

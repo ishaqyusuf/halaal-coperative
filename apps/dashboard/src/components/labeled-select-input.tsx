@@ -19,6 +19,7 @@ const emptySelectValue = "__empty__"
 
 export function LabeledSelectInput({
   disabled,
+  id,
   name,
   onValueChange,
   options,
@@ -30,6 +31,7 @@ export function LabeledSelectInput({
 }: {
   defaultValue?: string
   disabled?: boolean
+  id?: string
   name?: string
   onValueChange?: (value: string) => void
   options: LabeledSelectOption[]
@@ -67,7 +69,10 @@ export function LabeledSelectInput({
         value={selectValue}
         onValueChange={handleValueChange}
       >
-        <SelectTrigger className={cn("w-full", triggerClassName)}>
+        <SelectTrigger
+          className={cn("w-full", triggerClassName)}
+          id={id}
+        >
           <span
             className={cn(
               "truncate",

@@ -3,6 +3,7 @@ import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { Separator } from "@halaalvest/ui/components/separator"
 import Link from "next/link"
+import type { QaQuickFillContext } from "@halaalvest/utils"
 import { EarlyAccessForm } from "./early-access-form"
 import { PricingSection } from "./pricing-section"
 
@@ -33,7 +34,13 @@ const readiness = [
 const contactTeamHref =
   "mailto:hello@halaalvest.com?subject=halaalvest%20product%20inquiry&body=Hello%20halaalvest%20team%2C%0A%0AI%27d%20like%20to%20learn%20more%20about%20the%20platform.%0A%0AName%3A%0AOrganization%3A%0APhone%3A%0A%0AThanks."
 
-export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
+export function PrelaunchLanding({
+  quickFill,
+  signupHref,
+}: {
+  quickFill: QaQuickFillContext
+  signupHref: string
+}) {
   return (
     <main className="web-readable min-h-svh bg-background text-foreground">
       <header className="border-b border-border bg-background">
@@ -157,7 +164,7 @@ export function PrelaunchLanding({ signupHref }: { signupHref: string }) {
             </p>
           </div>
 
-          <EarlyAccessForm />
+          <EarlyAccessForm quickFill={quickFill} />
         </div>
       </section>
 

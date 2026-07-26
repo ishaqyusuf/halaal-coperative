@@ -5017,7 +5017,7 @@ function buildChargesStatementSection(
         .join(" - "),
       format: "currency",
       key: `charge-${charge.id}`,
-      label: `${charge.chargeDefinition.name} (${charge.chargeDefinition.code})`,
+      label: charge.chargeDefinition.name,
       status: humanizeStatus(charge.status),
       value: Number(charge.amount ?? 0),
     })

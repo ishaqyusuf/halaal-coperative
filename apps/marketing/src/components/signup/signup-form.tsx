@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import type { QaNotificationPreview } from "@halaalvest/notifications"
 import { useWatch } from "react-hook-form"
 import {
   Alert,
@@ -43,7 +44,11 @@ import {
 import { Separator } from "@halaalvest/ui/components/separator"
 import { Spinner } from "@halaalvest/ui/components/spinner"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
-import { useNotifications } from "@halaalvest/notifications-react"
+import {
+  QaNotificationPreviewCard,
+  useNotifications,
+} from "@halaalvest/notifications-react"
+import type { QaQuickFillContext } from "@halaalvest/utils"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
   createWorkspaceSlugSuggestion,
@@ -57,6 +62,7 @@ type SignupApiSuccess = {
   emailDeliveryConfigured: boolean
   expiresAt: string
   onboardingUrl: string
+  qaPreviews?: QaNotificationPreview[]
   verificationDelivery: {
     attempts: number
     errorMessage?: string | null
@@ -107,15 +113,21 @@ function formatExpiry(value: string) {
 export function SignupForm({
   approvalToken,
   defaultValues,
-  devMode,
+  quickFill,
   workspaceUrlSuffix,
 }: {
   approvalToken?: string | null
   defaultValues?: Partial<SignupIntentInput>
-  devMode: boolean
+  quickFill: QaQuickFillContext
   workspaceUrlSuffix: string
 }) {
   const approvalLocked = Boolean(approvalToken)
+  const approvedQaWorkspaceSlug =
+    approvalLocked && quickFill.enabled
+      ? normalizeWorkspaceSlug(
+          defaultValues?.primaryContactEmail?.split("@")[0] ?? "",
+        )
+      : ""
   const form = useZodForm<SignupIntentInput>(signupIntentSchema, {
     defaultValues: {
       cooperativeName: defaultValues?.cooperativeName ?? "",
@@ -123,13 +135,15 @@ export function SignupForm({
       primaryContactEmail: defaultValues?.primaryContactEmail ?? "",
       primaryContactFullName: defaultValues?.primaryContactFullName ?? "",
       primaryContactMemberNumber: "",
-      workspaceSlug: "",
+      workspaceSlug: approvedQaWorkspaceSlug,
     },
   })
-  const { showError, showSuccess } = useNotifications()
+  const { publishQaPreviews, showError, showSuccess } = useNotifications()
   const [result, setResult] = useState<SignupApiSuccess | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [workspaceSlugEdited, setWorkspaceSlugEdited] = useState(false)
+  const [workspaceSlugEdited, setWorkspaceSlugEdited] = useState(
+    Boolean(approvedQaWorkspaceSlug),
+  )
   const [availability, setAvailability] = useState<AvailabilityState>({
     status: "idle",
   })
@@ -250,6 +264,7 @@ export function SignupForm({
       }
 
       setResult(payload)
+      publishQaPreviews(payload.qaPreviews)
       showSuccess(
         payload.verificationDelivery.status === "sent"
           ? "Verification email sent"
@@ -292,7 +307,9 @@ export function SignupForm({
         : result.emailDeliveryConfigured
           ? "Prepared"
           : "Local only"
-    const showSecureLink = result.devMode || !result.emailDeliveryConfigured
+    const qaPreview = result.qaPreviews?.at(-1)
+    const showSecureLink =
+      result.devMode || !result.emailDeliveryConfigured || Boolean(qaPreview)
 
     return (
       <Card>
@@ -338,6 +355,9 @@ export function SignupForm({
               </p>
             </div>
           </div>
+          {qaPreview ? (
+            <QaNotificationPreviewCard preview={qaPreview} />
+          ) : null}
         </CardContent>
         <CardFooter className="flex flex-wrap items-center gap-2">
           {showSecureLink ? (
@@ -374,15 +394,22 @@ export function SignupForm({
     <Form {...form}>
       <Card>
         <CardHeader>
-          {devMode ? (
+          {quickFill.enabled ? (
             <CardAction>
               <Button
                 size="sm"
                 type="button"
                 variant="outline"
-                onClick={() => void applyDevFormFill(form, "signup")}
+                onClick={() =>
+                  void applyDevFormFill(
+                    form,
+                    "signup",
+                    approvalLocked ? defaultValues : undefined,
+                    { emailDomain: quickFill.emailDomain },
+                  )
+                }
               >
-                Autofill dev data
+                Quick fill
               </Button>
             </CardAction>
           ) : null}

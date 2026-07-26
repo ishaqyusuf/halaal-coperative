@@ -10,30 +10,37 @@ type MemberAutocompleteOption = {
 
 type MemberAutocompleteSelectProps = {
   disabled?: boolean
+  id?: string
   label: string
   name: string
   onValueChange?: (value: string) => void
   options: MemberAutocompleteOption[]
   placeholder?: string
   promotedOptionIds?: readonly string[]
+  showIdSuffix?: boolean
   value?: string | null
 }
 
 export function MemberAutocompleteSelect({
   disabled = false,
+  id,
   label,
   name,
   onValueChange,
   options,
   placeholder = "Search member",
   promotedOptionIds = [],
+  showIdSuffix = true,
   value,
 }: MemberAutocompleteSelectProps) {
-  const inputId = useId()
+  const generatedInputId = useId()
+  const inputId = id ?? generatedInputId
   const listId = useId()
   const selectedOption = options.find((option) => option.id === value)
   const selectedDisplayValue = selectedOption
-    ? `${selectedOption.label} (${selectedOption.id.slice(0, 8)})`
+    ? showIdSuffix
+      ? `${selectedOption.label} (${selectedOption.id.slice(0, 8)})`
+      : selectedOption.label
     : ""
   const [query, setQuery] = useState(selectedDisplayValue)
   const [selectedId, setSelectedId] = useState(selectedOption?.id ?? "")
@@ -53,7 +60,9 @@ export function MemberAutocompleteSelect({
     return options
       .map((option) => ({
         ...option,
-        displayValue: `${option.label} (${option.id.slice(0, 8)})`,
+        displayValue: showIdSuffix
+          ? `${option.label} (${option.id.slice(0, 8)})`
+          : option.label,
       }))
       .sort((a, b) => {
         const aPromotedIndex =
@@ -67,11 +76,25 @@ export function MemberAutocompleteSelect({
 
         return a.label.localeCompare(b.label)
       })
-  }, [options, promotedOptionOrder])
+  }, [options, promotedOptionOrder, showIdSuffix])
 
   return (
     <div>
-      <input name={name} type="hidden" value={selectedId} />
+      <input
+        name={name}
+        onInput={(event) => {
+          const nextSelectedId = event.currentTarget.value
+          const nextOption = optionEntries.find(
+            (option) => option.id === nextSelectedId
+          )
+
+          setSelectedId(nextSelectedId)
+          setQuery(nextOption?.displayValue ?? "")
+          onValueChange?.(nextSelectedId)
+        }}
+        type="hidden"
+        value={selectedId}
+      />
       <label className="sr-only" htmlFor={inputId}>
         {label}
       </label>

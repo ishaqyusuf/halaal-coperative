@@ -72,6 +72,10 @@ export default async function LoginPage({
       if (setupGate.shouldRedirectAdminToSetup) {
         await tenantRedirect("/getting-started")
       }
+
+      if (setupGate.shouldRedirectAdminToSuccess) {
+        await tenantRedirect("/onboarding-success")
+      }
     }
 
     await tenantRedirect(nextPath)

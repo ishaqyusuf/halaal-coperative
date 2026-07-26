@@ -68,6 +68,10 @@ export default async function SidebarLayout({
       await tenantRedirect("/getting-started")
     }
 
+    if (setupGate.shouldRedirectAdminToSuccess && !alreadyInSetup) {
+      await tenantRedirect("/onboarding-success")
+    }
+
     if (!setupGate.canUseLiveWorkspace && !setupGate.isWorkspaceAdmin) {
       const tenantName = context.tenant.name
       const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"

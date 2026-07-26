@@ -496,7 +496,6 @@ const chargeDefinitionSchema = z.object({
   appliesToLoanRequests: z.boolean().default(false),
   appliesToLoans: z.boolean().default(false),
   appliesToMembers: z.boolean().default(true),
-  code: z.string().min(1, "Code is required."),
   effectiveFrom: z.string().min(1, "Start date is required."),
   isMonthlyLevy: z.boolean().default(false),
   kind: z.enum(["fixed", "percentage"]),
@@ -515,7 +514,6 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
       appliesToLoanRequests: false,
       appliesToLoans: false,
       appliesToMembers: true,
-      code: "",
       effectiveFrom: "",
       isMonthlyLevy: false,
       kind: "fixed",
@@ -536,7 +534,6 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
           appliesToLoanRequests: false,
           appliesToLoans: false,
           appliesToMembers: true,
-          code: "",
           effectiveFrom: "",
           isMonthlyLevy: false,
           kind: "fixed",
@@ -582,19 +579,6 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
               <FormLabel>Name</FormLabel>
               <FormControl>
                 <Input {...field} placeholder="Monthly Levy" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="code"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Code</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="LEVY-001" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1127,9 +1111,7 @@ export function LoanRequestForm({
                   className="flex items-center justify-between gap-3"
                   key={charge.id}
                 >
-                  <span>
-                    {charge.name} ({charge.code})
-                  </span>
+                  <span>{charge.name}</span>
                   <span>{formatCurrency(charge.estimatedAmount)}</span>
                 </div>
               ))}

@@ -1,11 +1,12 @@
 "use client"
 
 import { Suspense } from "react"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import type { CooperativeProfileForm } from "@/components/forms/settings-forms"
 import { ProfileSettingsContent } from "@/components/profile-settings-content"
 import { ProfileSettingsSheetHeader } from "@/components/profile-settings-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useProfileSettingsParams } from "@/hooks/use-profile-settings-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 type CooperativeProfileFormProps = Parameters<typeof CooperativeProfileForm>[0]
 
@@ -25,8 +26,11 @@ export function ProfileSettingsSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={getWorkflowPresentation("profile", "edit")}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -42,7 +46,6 @@ export function ProfileSettingsSheet({
             />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

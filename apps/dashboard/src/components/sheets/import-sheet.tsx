@@ -1,18 +1,17 @@
 "use client"
 
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
-import type {
-  ImportAvailability,
-} from "@/components/forms/import-forms"
+import type { ImportAvailability } from "@/components/forms/import-forms"
 import { ImportContent } from "@/components/import-content"
 import { ImportSheetHeader } from "@/components/import-sheet-header"
 import type { ImportBatchRow } from "@/components/import-sheet-types"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useImportParams } from "@/hooks/use-import-params"
 import {
   dashboardImportConfigs,
   type DashboardImportKind,
   type DashboardImportReferenceData,
 } from "@/lib/import-csv"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 function isDashboardImportKind(
   value: string | null
@@ -47,15 +46,12 @@ export function ImportSheet({
     Boolean(selectedBatch) &&
     (importSheetType === "details" || importSheetType === "apply")
   const isOpen = isCreateOpen || isBatchOpen
+  const presentation = getWorkflowPresentation("import", importSheetType)
   const selectedBatchKind = selectedBatch?.importType ?? null
   const batchKind = isDashboardImportKind(selectedBatchKind)
     ? selectedBatchKind
     : null
   const activeKind = selectedImportKind ?? batchKind
-  const sheetWidthClass =
-    activeKind === "members"
-      ? "!w-[92vw] !max-w-[92vw] sm:!w-[min(92vw,72rem)] sm:!max-w-[72rem]"
-      : "sm:max-w-xl"
   const batchAvailability = batchKind ? importAvailability[batchKind] : null
   const isBatchLocked =
     Boolean(selectedBatch) &&
@@ -71,8 +67,11 @@ export function ImportSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
-      <SheetContent className={`overflow-y-auto ${sheetWidthClass}`}>
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={(open) => !open && close()}
+    >
         <ImportSheetHeader
           activeKind={activeKind}
           isCreateOpen={isCreateOpen}
@@ -90,7 +89,6 @@ export function ImportSheet({
           selectedBatch={selectedBatch}
           onSuccess={close}
         />
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

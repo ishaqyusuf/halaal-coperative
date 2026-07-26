@@ -8,8 +8,9 @@ import {
   type LoanRequestChargeOption,
 } from "@/components/loan-content"
 import { LoanSheetHeader } from "@/components/loan-sheet-header"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useLoanParams } from "@/hooks/use-loan-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 function isLoanSheetOpen(type: string | null) {
   return Boolean(
@@ -37,7 +38,7 @@ export function LoanSheet({
 }) {
   const { loanSheetType, setParams } = useLoanParams()
   const isOpen = isLoanSheetOpen(loanSheetType)
-  const isWide = loanSheetType === "request"
+  const presentation = getWorkflowPresentation("loan", loanSheetType)
 
   const handleOnOpenChange = (open: boolean) => {
     if (open) {
@@ -48,12 +49,11 @@ export function LoanSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent
-        className={
-          isWide ? "w-full overflow-y-auto sm:max-w-3xl" : "overflow-y-auto"
-        }
-      >
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -73,7 +73,6 @@ export function LoanSheet({
             />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

@@ -4,12 +4,16 @@ import {
   recordNotificationDeliveryAudit,
   resolveTenantAsync,
 } from "@halaalvest/db"
-import { createNotificationEmailDraft } from "@halaalvest/notifications"
+import {
+  createNotificationEmailDraft,
+  createQaNotificationPreviews,
+} from "@halaalvest/notifications"
 import { createServerNotificationService } from "@halaalvest/notifications/server"
 import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import { NextResponse, type NextRequest } from "next/server"
 import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
 import { createPasswordResetToken } from "@/lib/password-reset-token"
+import { setQaPreviewFlash } from "@/lib/qa-preview-flash.server"
 import { getPublicRequestHost } from "@/lib/request-host"
 
 export function GET(request: NextRequest) {
@@ -32,8 +36,6 @@ export async function POST(request: NextRequest) {
         tenantId: tenantResolution.tenant?.id ?? null,
       })
     : null
-
-  let devResetUrl: string | null = null
 
   if (user) {
     const tenant =
@@ -84,16 +86,11 @@ export async function POST(request: NextRequest) {
         tenantId: tenant.id,
       })
 
-      if (process.env.NODE_ENV !== "production") {
-        devResetUrl = resetUrl
-      }
+      await setQaPreviewFlash(createQaNotificationPreviews([delivery]))
     }
   }
 
   const query = new URLSearchParams({ sent: "1" })
-  if (devResetUrl) {
-    query.set("devResetUrl", devResetUrl)
-  }
 
   return NextResponse.redirect(
     buildDashboardRedirectUrl(request, `/login/reset?${query.toString()}`),

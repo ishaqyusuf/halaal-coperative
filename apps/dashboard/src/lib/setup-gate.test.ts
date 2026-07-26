@@ -9,6 +9,8 @@ describe("initial migration setup gate", () => {
   })
 
   test("allows member backfill workflow during initial setup", () => {
+    expect(isInitialMigrationSetupPath("/members")).toBe(true)
+    expect(isInitialMigrationSetupPath("/members/member-123")).toBe(true)
     expect(
       isInitialMigrationSetupPath("/members/member-123/backfill")
     ).toBe(true)
@@ -21,8 +23,7 @@ describe("initial migration setup gate", () => {
     expect(isInitialMigrationSetupPath("/settings/roles")).toBe(false)
   })
 
-  test("does not allow unrelated member pages during initial setup", () => {
-    expect(isInitialMigrationSetupPath("/members/member-123")).toBe(false)
+  test("does not allow unrelated member sub-workspaces during initial setup", () => {
     expect(
       isInitialMigrationSetupPath("/members/member-123/activity")
     ).toBe(false)

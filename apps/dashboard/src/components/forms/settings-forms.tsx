@@ -33,6 +33,7 @@ import {
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
+import { useQaQuickFill } from "@/components/qa-quick-fill-provider"
 import { objectToFormData } from "@/lib/form-submit"
 import {
   provisionTenantUserRoleAction,
@@ -501,6 +502,7 @@ export function RoleAssignmentForm({
   devMode: boolean
   roles: Array<{ label: string; value: string }>
 }) {
+  const quickFill = useQaQuickFill()
   const form = useZodForm<RoleValues>(roleSchema, {
     defaultValues: {
       email: "",
@@ -547,7 +549,14 @@ export function RoleAssignmentForm({
             <Button
               type="button"
               variant="outline"
-              onClick={() => applyDashboardDevFormFill(form, "role_assignment")}
+              onClick={() =>
+                applyDashboardDevFormFill(
+                  form,
+                  "role_assignment",
+                  undefined,
+                  { emailDomain: quickFill.emailDomain },
+                )
+              }
             >
               Quick fill
             </Button>

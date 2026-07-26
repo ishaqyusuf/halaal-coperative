@@ -3,13 +3,13 @@
 import { useState, type ReactNode } from "react"
 import { Button } from "@halaalvest/ui/components/button"
 import {
-  Sheet,
-  SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
 import { cn } from "@halaalvest/ui/lib/utils"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
+import type { WorkflowPresentation as WorkflowPresentationType } from "@/lib/workflow-presentations"
 
 export function MigrationActionSheet({
   bodyClassName = "px-6",
@@ -18,6 +18,7 @@ export function MigrationActionSheet({
   description,
   disabled,
   eyebrow,
+  presentation = "dialog",
   title,
   triggerClassName,
   triggerLabel,
@@ -29,6 +30,7 @@ export function MigrationActionSheet({
   description: string
   disabled?: boolean
   eyebrow?: string
+  presentation?: Exclude<WorkflowPresentationType, "alert-dialog">
   title: ReactNode
   triggerClassName?: string
   triggerLabel: string
@@ -48,8 +50,15 @@ export function MigrationActionSheet({
       >
         {triggerLabel}
       </Button>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent className={contentClassName}>
+      <WorkflowPresentation
+        className={contentClassName}
+        config={{
+          presentation,
+          width: contentClassName.includes("2xl") ? "review" : "form",
+        }}
+        open={open}
+        onOpenChange={setOpen}
+      >
           <SheetHeader>
             {eyebrow ? (
               <p className="text-xs font-medium text-muted-foreground uppercase">
@@ -60,8 +69,7 @@ export function MigrationActionSheet({
             <SheetDescription>{description}</SheetDescription>
           </SheetHeader>
           <div className={cn(bodyClassName)}>{children}</div>
-        </SheetContent>
-      </Sheet>
+      </WorkflowPresentation>
     </>
   )
 }

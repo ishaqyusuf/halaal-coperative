@@ -15,6 +15,8 @@ This file captures payload shapes, response conventions, and contract assumption
 - Return authoritative balances from backend services only.
 - Use explicit workflow statuses for requests, approvals, and repayments.
 - Keep money fields consistent across endpoints.
+- Pending brought-forward member opening positions can transition to `cancelled` through the finance-managed dashboard action. Cancellation is tenant-scoped, audited, does not post ledger entries, and allows the same opening date to be staged again.
+- Member registry rows expose `backfillStatus.appliedOpeningBalanceId`; an applied opening position sets `backfillStatus.state` to `applied` just like authoritative historical backfill evidence.
 
 ## Current Scaffold Contracts
 
@@ -70,7 +72,8 @@ This file captures payload shapes, response conventions, and contract assumption
   - When `MARKETING_EARLY_ACCESS_ENABLED=true`, `approvalToken` is required and must verify to the same cooperative name and primary contact email before the route sends verification email.
   - Response returns `expiresAt`, `onboardingUrl`, delivery metadata, and the verification email draft.
 - `POST /api/early-access`
-  - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, optional `phone`, and optional `message`.
+  - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, optional `phone`, selected `currentSize`, selected `recordSystem`, selected `launchTimeline`, one or more `setupNeeds`, and optional `message` for details not covered by the structured fields.
+  - Supported setup areas cover member/balance migration, savings/contributions, shares, interest-free financing, procurement/Foodstuff Purchase, and businesses/profit distribution.
   - Response returns a received message, email delivery metadata, and in development only the generated approval URL.
   - Production error cases: email delivery is not configured, `MARKETING_ADMIN_EMAILS` is missing, or all admin email deliveries fail.
 - `GET /api/early-access/approve?token=...`
@@ -136,8 +139,12 @@ This file captures payload shapes, response conventions, and contract assumption
   - Supported sort fields: `subject`, `status`, `category`, `priority`, `assignedToUser`, `latestReply`, `linkedRecord`, `createdAt`, and `updatedAt`.
 - `trpc.support.get`
   - Request fields: `supportCaseId`.
-  - Response fields: one `SupportCaseRow` or `null` when the case is absent, outside the tenant, or outside the member's own profile scope.
+  - Response fields: one `SupportCaseRow` or `null` when the case is absent, outside the tenant, or outside the member's own profile scope. A completed special-savings refund includes its amount, payment date, and reference.
   - Used by URL-backed support update/reply/financial-adjustment sheets so filtered and infinite-loaded table rows can hydrate their selected case independently of the first server-rendered list page.
+- Dashboard `settleSupportCaseSpecialSavingsRefundAction`
+  - Request fields: `supportCaseId`, positive `amount`, `paidAt`, required external `reference`, and optional `notes`.
+  - Requires a finance-management role, live financial writes, a linked member, money-impact intent, approved financial-adjustment review, sufficient special savings, and no prior withdrawal for the case.
+  - Posts the member withdrawal and balanced ledger adjustment, records audit evidence, and resolves the support case atomically.
 - `trpc.mobile.member.procurement.list`
   - Response includes `canCreateRequest`, derived from the tenant Operation Profile procurement service mode, so mobile clients can hide or disable member self-service procurement submission while still showing existing request history.
 - Dashboard procurement create actions

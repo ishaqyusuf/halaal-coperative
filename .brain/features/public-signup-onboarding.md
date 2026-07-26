@@ -28,7 +28,7 @@
 ## UI Flow
 
 - Marketing homepage: production CTAs point to the early access request section instead of direct signup.
-- Early access form: collect cooperative name, primary contact name/email, phone, and context note with `useZodForm`; submitting sends platform admins the approval email.
+- Early access form: collect cooperative name, primary contact name/email, phone, current member-size range, current record system, target setup timeline, one or more setup areas, and an optional additional note with `useZodForm`; submitting sends platform admins the approval email.
 - `/api/early-access/approve?token=...`: platform admin approval link sends the cooperative primary contact an approved setup link.
 - `/signup?approvalToken=...`: the private setup form opens only from an approved setup link when early access mode is enabled and locks the approved cooperative/contact fields.
 - `/signup`: when early access mode is enabled and no token is present, redirects to `/#early-access` instead of exposing the setup form. When early access mode is disabled, the same route can be used for direct development setup.
@@ -39,12 +39,13 @@
 
 ## API/Data Impact
 
-- `apps/marketing/app/api/early-access/route.ts` creates a signed early access request token and emails configured marketing admins from `MARKETING_ADMIN_EMAILS`.
+- `apps/marketing/app/api/early-access/route.ts` creates a signed early access request token and emails configured marketing admins from `MARKETING_ADMIN_EMAILS`; the signed request and admin email preserve the selected cooperative size, record system, setup timeline, and setup-area labels.
 - `apps/marketing/app/api/early-access/approve/route.ts` verifies the admin approval token, mints a signed setup approval token, and emails the approved cooperative contact a private setup link.
 - `apps/marketing/app/api/signup/route.ts` creates a signed onboarding token and verification email draft; while early access mode is enabled it first verifies that the request includes a valid setup approval token matching the cooperative name and primary contact email.
 - Early access, approved setup, and onboarding verification URLs are built from the configured marketing public origin, so local QA links use `http://halaalvest.localhost/...` instead of `http://localhost:1440/...` when the portless host is configured.
 - `apps/marketing/app/api/onboarding/route.ts` verifies the token, derives the workspace slug from the cooperative name, and calls `createTenantWorkspaceBootstrap`.
 - `packages/notifications/src/index.ts` now owns the email-delivery path through `NotificationService.email(...)`, plus shared email-draft builders for signup verification and workspace-ready follow-up.
+- Provider tag values are normalized to the provider-safe alphanumeric, underscore, and hyphen character set at the shared notification boundary, so dotted application notification types remain valid metadata without causing delivery rejection.
 - `apps/marketing/src/lib/server-notifications.ts` creates the server-side notification service used by the marketing signup and onboarding routes.
 - When `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` are configured, notification emails are delivered through Resend; otherwise the system falls back to console delivery for local development.
 - Email delivery mode is explicit: local development defaults to `console`, production defaults to `live`, and any environment may explicitly enable validated `.test` domain routing so verification and workspace-ready links reach designated testers without changing the synthetic contact identity stored in tokens or tenant data.

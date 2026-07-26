@@ -1,6 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import type { MonthlyRecordMemberRow, MonthlyRecordSettingView } from "@halaalvest/db"
@@ -21,6 +23,9 @@ export function MonthlyRecordContent({
   rows: MonthlyRecordMemberRow[]
   settings: MonthlyRecordSettingView
 }) {
+  const [autoGenerateEnabled, setAutoGenerateEnabled] = useState(
+    settings.autoGenerateEnabled
+  )
   const {
     monthlyRecordMemberId,
     monthlyRecordSheetType,
@@ -129,10 +134,13 @@ export function MonthlyRecordContent({
       >
         <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
           <input
-            className="size-4"
-            defaultChecked={settings.autoGenerateEnabled}
             name="autoGenerateEnabled"
-            type="checkbox"
+            type="hidden"
+            value={autoGenerateEnabled ? "on" : ""}
+          />
+          <Checkbox
+            checked={autoGenerateEnabled}
+            onCheckedChange={setAutoGenerateEnabled}
           />
           Auto-generate
         </label>

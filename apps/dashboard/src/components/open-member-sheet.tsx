@@ -32,7 +32,6 @@ export function OpenMemberImportSheet() {
 
   return (
     <Button
-      className="rounded-full"
       onClick={() =>
         setParams({
           memberSheetType: "import",
@@ -40,7 +39,6 @@ export function OpenMemberImportSheet() {
           selectedMemberStatus: null,
         })
       }
-      size="sm"
       type="button"
       variant={isOpen ? "default" : "outline"}
     >

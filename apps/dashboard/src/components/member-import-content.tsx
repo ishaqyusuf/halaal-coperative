@@ -653,7 +653,6 @@ export function MemberImportContent({
               </p>
               <div className="flex items-center gap-3">
                 <Button
-                  className="rounded-full"
                   type="button"
                   variant="ghost"
                   onClick={onClose}
@@ -661,7 +660,6 @@ export function MemberImportContent({
                   Cancel
                 </Button>
                 <Button
-                  className="rounded-full"
                   disabled={
                     !preview.ok ||
                     preview.rows.length === 0 ||

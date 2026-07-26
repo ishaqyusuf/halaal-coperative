@@ -113,7 +113,9 @@ export async function POST(request: NextRequest) {
       : null
   const redirectPath = setupGate?.shouldRedirectAdminToSetup
     ? "/getting-started"
-    : nextPath
+    : setupGate?.shouldRedirectAdminToSuccess
+      ? "/onboarding-success"
+      : nextPath
   const response = NextResponse.redirect(
     buildDashboardRedirectUrl(request, redirectPath)
   )

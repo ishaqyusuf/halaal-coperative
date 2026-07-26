@@ -2,10 +2,11 @@
 
 import { Suspense } from "react"
 import type { TenantServiceKey } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { OperationProfileSettingsContent } from "@/components/operation-profile-settings-content"
 import { OperationProfileSettingsSheetHeader } from "@/components/operation-profile-settings-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useOperationProfileSettingsParams } from "@/hooks/use-operation-profile-settings-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function OperationProfileSettingsSheet({
   policy,
@@ -31,8 +32,11 @@ export function OperationProfileSettingsSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={getWorkflowPresentation("operationProfile", "edit")}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -48,7 +52,6 @@ export function OperationProfileSettingsSheet({
             />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

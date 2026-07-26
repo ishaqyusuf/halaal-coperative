@@ -511,7 +511,7 @@ export async function listChargeApplications(
 export type CreateChargeDefinitionInput = {
   tenantId: string
   name: string
-  code: string
+  code?: string
   kind: ChargeKind
   chargeFrequency?:
     | "recurring_monthly"
@@ -572,6 +572,9 @@ export async function createChargeDefinition(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
   const normalizedInput = normalizeChargeDefinitionInput(input)
+  const internalCode =
+    normalizedInput.code?.trim() ||
+    `charge-${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`
   const mutationMode = await getChargeDefinitionMutationMode(
     normalizedInput.tenantId,
     prisma
@@ -586,7 +589,7 @@ export async function createChargeDefinition(
       data: {
         tenantId: normalizedInput.tenantId,
         name: normalizedInput.name,
-        code: normalizedInput.code,
+        code: internalCode,
         kind: normalizedInput.kind,
         chargeFrequency: normalizedInput.chargeFrequency ?? "recurring_monthly",
         chargeValueType:
@@ -642,6 +645,60 @@ export async function createChargeDefinition(
         },
       },
     })
+  })
+}
+
+export async function deleteChargeDefinition(
+  tenantId: string,
+  chargeDefinitionId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  await getChargeDefinitionMutationMode(tenantId, prisma)
+
+  const applicationCount = await prisma.chargeApplication.count({
+    where: { chargeDefinitionId, tenantId },
+  })
+
+  if (applicationCount > 0) {
+    throw new Error(
+      "This charge has member records and cannot be deleted. Deactivate it instead."
+    )
+  }
+
+  return prisma.chargeDefinition.delete({
+    where: { id: chargeDefinitionId, tenantId },
+  })
+}
+
+export async function deleteChargeDefinitionVersion(
+  tenantId: string,
+  chargeDefinitionVersionId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  await getChargeDefinitionMutationMode(tenantId, prisma)
+
+  const version = await prisma.chargeDefinitionVersion.findFirst({
+    where: { id: chargeDefinitionVersionId, tenantId },
+  })
+
+  if (!version) {
+    throw new Error("Charge history row not found.")
+  }
+
+  const versionCount = await prisma.chargeDefinitionVersion.count({
+    where: { chargeDefinitionId: version.chargeDefinitionId, tenantId },
+  })
+
+  if (versionCount <= 1) {
+    throw new Error("A charge must keep at least one dated amount.")
+  }
+
+  return prisma.chargeDefinitionVersion.delete({
+    where: { id: chargeDefinitionVersionId, tenantId },
   })
 }
 

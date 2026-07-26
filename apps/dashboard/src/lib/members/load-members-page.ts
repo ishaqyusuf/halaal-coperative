@@ -1,6 +1,8 @@
 import {
   createDbRuntime,
+  getMemberRegistrySummary,
   getImportReferenceData,
+  getTenantInitialMigrationState,
   getTenantOperationProfile,
   getTenantMemberSignupSettings,
   getTenantMigrationSetup,
@@ -11,8 +13,15 @@ import {
 } from "@halaalvest/db"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
 import type { DashboardImportReferenceData } from "@/lib/import-csv"
-import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
-import { allStaffRoles, hasAnyRole, memberManagementRoles } from "@/lib/workspace-access"
+import {
+  canShowQuickFill,
+  getDashboardServerContext,
+} from "@/lib/server-context"
+import {
+  allStaffRoles,
+  hasAnyRole,
+  memberManagementRoles,
+} from "@/lib/workspace-access"
 import {
   getActiveMemberFilters,
   hasActiveMemberFilters,
@@ -97,12 +106,14 @@ export type MembersPageData =
 
 function toTenantStartDateString(value: Date | string | null | undefined) {
   if (!value) return null
-  return typeof value === "string" ? value.slice(0, 10) : value.toISOString().slice(0, 10)
+  return typeof value === "string"
+    ? value.slice(0, 10)
+    : value.toISOString().slice(0, 10)
 }
 
 function toMembersPageTenant(
   tenant: Awaited<ReturnType<typeof getDashboardServerContext>>["tenant"],
-  migrationSetupMode: TenantMigrationSetupMode = "historical_backfill",
+  migrationSetupMode: TenantMigrationSetupMode = "historical_backfill"
 ): MembersPageTenant | null {
   if (!tenant) return null
 
@@ -126,23 +137,26 @@ function isUnavailableMembersRuntimeError(error: unknown) {
 }
 
 export async function loadMembersPageData(
-  filters: MembersFilterParams,
+  filters: MembersFilterParams
 ): Promise<MembersPageData> {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
-  const canManageMembers = hasAnyRole(context.auth.membership?.role, memberManagementRoles)
-  const canManageImports = hasAnyRole(context.auth.membership?.role, allStaffRoles)
+  const canManageMembers = hasAnyRole(
+    context.auth.membership?.role,
+    memberManagementRoles
+  )
+  const hasImportRole = hasAnyRole(context.auth.membership?.role, allStaffRoles)
   const quickFillEnabled = canShowQuickFill(context)
   let tenant = toMembersPageTenant(context.tenant)
 
   if (!context.tenant || runtime.status !== "database-configured") {
-      return {
-        state: "unavailable" as const,
-        canManageCollectionSources: false,
-        canManageImports,
-        canManageMembers,
-        collectionSourceOptions: [],
-        filters,
+    return {
+      state: "unavailable" as const,
+      canManageCollectionSources: false,
+      canManageImports: hasImportRole,
+      canManageMembers,
+      collectionSourceOptions: [],
+      filters,
       quickFillEnabled,
       tenant,
     }
@@ -154,20 +168,42 @@ export async function loadMembersPageData(
   let signupSettings
   let migrationSetup
   let operationProfile
-  let deductionSources = [] as Awaited<ReturnType<typeof listActiveDeductionSources>>
+  let migrationState: Awaited<ReturnType<typeof getTenantInitialMigrationState>>
+  let summary: Awaited<ReturnType<typeof getMemberRegistrySummary>>
+  let deductionSources = [] as Awaited<
+    ReturnType<typeof listActiveDeductionSources>
+  >
 
   try {
-    ;[members, referenceData, batches, signupSettings, migrationSetup, operationProfile] = await Promise.all([
+    ;[
+      members,
+      referenceData,
+      batches,
+      signupSettings,
+      migrationSetup,
+      operationProfile,
+      migrationState,
+      summary,
+    ] = await Promise.all([
       listMembers(context.tenant.id, {
         ...toMemberQueryFilters(filters),
         page: 1,
         pageSize: 20,
       }),
-      canManageImports ? getImportReferenceData(context.tenant.id) : Promise.resolve(null),
-      canManageImports ? listImportBatches(context.tenant.id) : Promise.resolve([]),
+      hasImportRole
+        ? getImportReferenceData(context.tenant.id)
+        : Promise.resolve(null),
+      hasImportRole
+        ? listImportBatches(context.tenant.id)
+        : Promise.resolve([]),
       getTenantMemberSignupSettings(context.tenant.id),
       getTenantMigrationSetup(context.tenant.id),
       getTenantOperationProfile(context.tenant.id),
+      getTenantInitialMigrationState(context.tenant.id),
+      getMemberRegistrySummary(
+        context.tenant.id,
+        toMemberQueryFilters(filters)
+      ),
     ])
     tenant = toMembersPageTenant(context.tenant, migrationSetup.mode)
     if (
@@ -184,7 +220,7 @@ export async function loadMembersPageData(
     return {
       state: "unavailable" as const,
       canManageCollectionSources: false,
-      canManageImports,
+      canManageImports: hasImportRole,
       canManageMembers,
       collectionSourceOptions: [],
       filters,
@@ -199,7 +235,12 @@ export async function loadMembersPageData(
     canManageCollectionSources:
       canManageMembers &&
       operationProfile.services.collection_sources.canStaffCreate,
-    canManageImports,
+    canManageImports:
+      hasImportRole &&
+      migrationState.snapshot.canUseMigrationTools &&
+      migrationState.counts.appliedBackfillBatches === 0 &&
+      migrationState.counts.appliedBackfillMembers === 0 &&
+      migrationState.counts.appliedBackfillMonths === 0,
     canManageMembers,
     collectionSourceOptions: deductionSources.map((source) => ({
       id: source.id,
@@ -213,11 +254,6 @@ export async function loadMembersPageData(
     referenceData,
     signupSettings,
     tenant,
-    summary: {
-      activeCount: members.items.filter((member) => member.status === "active").length,
-      kycPendingCount: members.items.filter((member) => member.kycStatus !== "verified").length,
-      linkedUsersCount: members.items.filter((member) => member.user?.email).length,
-      totalCount: members.total,
-    },
+    summary: { ...summary, totalCount: members.total },
   }
 }

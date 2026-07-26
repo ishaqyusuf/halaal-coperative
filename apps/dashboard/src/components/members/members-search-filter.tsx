@@ -10,17 +10,12 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { Input } from "@halaalvest/ui/components/input"
-import { cn } from "@halaalvest/ui/lib/utils"
 import { formatISO, parseISO } from "date-fns"
 import {
   BadgeCheck,
   CalendarDays,
   CircleDot,
-  ListFilter,
-  Search,
   UserRound,
   type LucideIcon,
 } from "lucide-react"
@@ -30,6 +25,7 @@ import {
   MemberFilterList,
   type MemberFilterValue,
 } from "@/components/member-filter-list"
+import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
 import { useMembersFilterParams } from "@/hooks/use-members-filter-params"
 import { hasActiveMemberFilters } from "@/lib/members/member-filters"
@@ -211,18 +207,16 @@ export function MembersSearchFilter() {
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0 items-stretch sm:items-center w-full md:w-auto">
         <form
+          data-quick-fill-exempt="true"
           className="relative flex-1 sm:flex-initial"
           onSubmit={(event) => event.preventDefault()}
         >
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-[11px] size-4 text-muted-foreground"
-          />
-          <Input
+          <SearchFilterDropdownInput
             autoCapitalize="none"
             autoComplete="off"
             autoCorrect="off"
-            className="pl-9 w-full sm:w-[350px] pr-8"
+            filterActive={hasFilters}
+            filterOpen={isOpen}
             onChange={(event) =>
               setFilters(
                 { q: event.target.value || null },
@@ -231,21 +225,9 @@ export function MembersSearchFilter() {
             }
             placeholder="Search members..."
             spellCheck="false"
+            type="search"
             value={filters.q ?? ""}
           />
-
-          <DropdownMenuTrigger
-            className={cn(
-              "absolute z-10 right-3 top-[10px] text-muted-foreground opacity-50 transition-opacity duration-300 hover:opacity-100",
-              hasFilters && "opacity-100 text-foreground",
-              isOpen && "opacity-100 text-foreground"
-            )}
-            onClick={() => setIsOpen((current) => !current)}
-            type="button"
-          >
-            <ListFilter size={16} />
-            <span className="sr-only">Toggle member filters</span>
-          </DropdownMenuTrigger>
         </form>
 
         <MemberFilterList
@@ -263,7 +245,7 @@ export function MembersSearchFilter() {
         align="end"
         alignOffset={-11}
         className="w-[350px]"
-        side="top"
+        side="bottom"
         sideOffset={19}
       >
         <FilterMenuItem icon={CircleDot} label="Status">

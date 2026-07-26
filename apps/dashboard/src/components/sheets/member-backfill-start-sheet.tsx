@@ -1,9 +1,10 @@
 "use client"
 
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import type { CreatedMemberSummary } from "@/components/forms/member-forms"
 import { MemberBackfillStartContent } from "@/components/member-backfill-start-content"
 import { MemberBackfillStartSheetHeader } from "@/components/member-backfill-start-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function MemberBackfillStartSheet({
   member,
@@ -21,7 +22,8 @@ export function MemberBackfillStartSheet({
   }
 
   return (
-    <Sheet
+    <WorkflowPresentation
+      config={getWorkflowPresentation("memberBackfill", "start")}
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
@@ -29,14 +31,12 @@ export function MemberBackfillStartSheet({
         }
       }}
     >
-      <SheetContent className="w-[calc(100%-2rem)] p-4 sm:w-full sm:max-w-[455px]">
         <MemberBackfillStartSheetHeader />
         <MemberBackfillStartContent
           member={member}
           onLater={onLater}
           onStartBackfill={onStartBackfill}
         />
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

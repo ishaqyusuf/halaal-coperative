@@ -7,8 +7,9 @@ import type {
 } from "@halaalvest/db"
 import { MonthlyRecordContent } from "@/components/monthly-record-content"
 import { MonthlyRecordSheetHeader } from "@/components/monthly-record-sheet-header"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 function isMonthlyRecordSheetOpen(type: string | null) {
   return Boolean(
@@ -29,6 +30,10 @@ export function MonthlyRecordSheet({
 }) {
   const { monthlyRecordSheetType, setParams } = useMonthlyRecordParams()
   const isOpen = isMonthlyRecordSheetOpen(monthlyRecordSheetType)
+  const presentation = getWorkflowPresentation(
+    "monthlyRecord",
+    monthlyRecordSheetType
+  )
 
   const handleOnOpenChange = (open: boolean) => {
     if (open) {
@@ -39,8 +44,11 @@ export function MonthlyRecordSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent className="overflow-y-auto">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -53,7 +61,6 @@ export function MonthlyRecordSheet({
             <MonthlyRecordContent rows={rows} settings={settings} />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

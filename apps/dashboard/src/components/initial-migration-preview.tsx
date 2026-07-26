@@ -522,8 +522,8 @@ function LegacyLoanDraftEditSheet({
       description="Update the principal-only opening loan position before member ledger backfill is applied."
       disabled={disabled}
       eyebrow="Legacy loan draft"
+      presentation="sheet"
       title={`Edit ${loan.loanLabel}`}
-      triggerClassName="rounded-full"
       triggerLabel="Edit loan"
     >
       <LegacyLoanDraftEditContent
@@ -1326,6 +1326,7 @@ export function InitialMigrationPreview({
             {mutableMigrationMemberOptions.length === 0 ? null : (
               <MigrationActionSheet
                 description="Create a principal-only opening loan position before member ledger backfill generation."
+                presentation="sheet"
                 title="Add legacy loan draft"
                 triggerLabel="Add loan draft"
                 variant="default"

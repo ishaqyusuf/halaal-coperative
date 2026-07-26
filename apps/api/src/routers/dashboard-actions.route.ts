@@ -7,6 +7,7 @@ import { buildBackfillDraft } from "@halaalvest/backfill"
 import {
   addMemberSupportCaseMessage,
   applyMemberOpeningBalance,
+  cancelMemberOpeningBalance,
   postCollectionSourceContributionBatchRows,
   buildBackfillDraftInputForMember,
   addSupportCaseMessage,
@@ -21,6 +22,8 @@ import {
   createTenantCustomDomain,
   createChargeDefinition,
   createChargeDefinitionVersion,
+  deleteChargeDefinition,
+  deleteChargeDefinitionVersion,
   createImportBatch,
   createHistoricalMemberSharePurchase,
   createLegacyLoanMigrationDraft,
@@ -100,6 +103,7 @@ import {
   updateTenantBusinessProfitPolicy,
   updateShareBusinessProfitEntry,
   setMemberContributionPlan,
+  settleSupportCaseSpecialSavingsRefund,
   setMemberSignupLinkEnabled,
   submitFoodPurchaseApplication,
   submitLoanRequest,
@@ -115,6 +119,7 @@ import {
   updateChargeDefinition,
   updateChargeDefinitionVersion,
   updateTenantMigrationSetup,
+  upsertTenantBroughtForwardSnapshot,
   updateShareBusiness,
   updateSupportCaseStatus,
   updateMemberKyc,
@@ -177,12 +182,17 @@ import {
   normalizeMemberNumberPrefix,
 } from "../lib/member-number"
 import {
-  sendEmailDraftWithAudit,
-  sendTenantRoleNotificationEmails,
+  sendEmailDraftWithAudit as sendEmailDraftWithAuditBase,
+  sendTenantRoleNotificationEmails as sendTenantRoleNotificationEmailsBase,
 } from "../lib/server-notifications"
+import {
+  createQaNotificationPreviews,
+  type QaNotificationPreview,
+} from "@halaalvest/notifications"
 
 type DashboardActionState = {
   context: TRPCContext
+  qaPreviews: QaNotificationPreview[]
   revalidatePaths: string[]
 }
 
@@ -196,6 +206,32 @@ function revalidatePath(path: string) {
   }
 
   state.revalidatePaths.push(path)
+}
+
+function collectQaPreviews(previews: readonly QaNotificationPreview[]) {
+  const state = dashboardActionState.getStore()
+
+  if (!state || previews.length === 0) return
+
+  state.qaPreviews.push(...previews)
+}
+
+async function sendEmailDraftWithAudit(
+  input: Parameters<typeof sendEmailDraftWithAuditBase>[0]
+) {
+  const delivery = await sendEmailDraftWithAuditBase(input)
+  collectQaPreviews(createQaNotificationPreviews([delivery]))
+
+  return delivery
+}
+
+async function sendTenantRoleNotificationEmails(
+  input: Parameters<typeof sendTenantRoleNotificationEmailsBase>[0]
+) {
+  const deliveries = await sendTenantRoleNotificationEmailsBase(input)
+  collectQaPreviews(createQaNotificationPreviews(deliveries))
+
+  return deliveries
 }
 
 function getPasswordSetupSecret() {
@@ -254,6 +290,7 @@ function revalidateMemberBackfillPaths(memberId: string) {
 
 export type DashboardActionResult<TResult = unknown> = {
   data: TResult
+  qaPreviews: QaNotificationPreview[]
   revalidatePaths: string[]
 }
 
@@ -263,12 +300,14 @@ async function runDashboardActionWithContext<TResult>(
 ): Promise<DashboardActionResult<TResult>> {
   const state: DashboardActionState = {
     context,
+    qaPreviews: [],
     revalidatePaths: [],
   }
   const data = await dashboardActionState.run(state, handler)
 
   return {
     data,
+    qaPreviews: state.qaPreviews,
     revalidatePaths: Array.from(new Set(state.revalidatePaths)),
   }
 }
@@ -2216,7 +2255,6 @@ export async function createChargeDefinitionAction(formData: FormData) {
     appliesToLoans: formData.get("appliesToLoans") === "on",
     appliesToMembers: formData.get("appliesToMembers") === "on",
     ...(applicability ? { applicability } : {}),
-    code: getRequiredString(formData, "code"),
     chargeFrequency: ((
       formData.get("chargeFrequency") as string | null
     )?.trim() || "recurring_monthly") as DashboardChargeFrequency,
@@ -2465,6 +2503,31 @@ export async function updateTenantMigrationSetupAction(formData: FormData) {
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/getting-started")
+}
+
+export async function upsertTenantBroughtForwardSnapshotAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await upsertTenantBroughtForwardSnapshot({
+    actorUserId: actor.user.id,
+    asOfDate: getRequiredString(formData, "asOfDate"),
+    memberCountSnapshot: Number(
+      getRequiredString(formData, "memberCountSnapshot")
+    ),
+    notes: (formData.get("notes") as string | null)?.trim() || null,
+    tenantId: actor.tenant.id,
+    totalMemberSavingsAmount: Number(
+      getRequiredString(formData, "totalMemberSavingsAmount")
+    ),
+    totalShareUnits: Number(getRequiredString(formData, "totalShareUnits")),
+    totalSpecialSavingsAmount: Number(
+      getRequiredString(formData, "totalSpecialSavingsAmount")
+    ),
+  })
+
   revalidatePath("/getting-started")
 }
 
@@ -3157,16 +3220,19 @@ export async function saveBusinessProfitMigrationWorksheetAction(
 
 export async function saveBusinessProfitSeasonReviewAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
-  const redirectTo =
+  const requestedRedirectTo =
     (formData.get("redirectTo") as string | null)?.trim() ||
     "/getting-started?step=admin-member"
+  const redirectTo = requestedRedirectTo.startsWith("?")
+    ? `/getting-started${requestedRedirectTo}`
+    : requestedRedirectTo
   const migrationState = await getTenantInitialMigrationState(actor.tenant.id)
 
   if (migrationState.snapshot.canUseLiveFinancialWrites) {
     return { redirectTo }
   }
 
-  await requireHistoricalFinanceSetupMutable(actor)
+  await requireInitialMigrationToolsOpen(actor)
   const seasonKeys = getAllTrimmedStrings(formData, "seasonKey").filter(Boolean)
 
   await saveBusinessProfitSeasonReviews({
@@ -3179,11 +3245,6 @@ export async function saveBusinessProfitSeasonReviewAction(formData: FormData) {
         null,
       key,
     })),
-    tenantId: actor.tenant.id,
-  })
-
-  await finalizeTenantInitialMigration({
-    actorUserId: actor.user.id,
     tenantId: actor.tenant.id,
   })
 
@@ -3285,6 +3346,30 @@ export async function updateChargeDefinitionAction(formData: FormData) {
   revalidatePath("/charges")
   revalidatePath("/settings/finance")
   revalidatePath("/getting-started")
+}
+
+export async function deleteChargeDefinitionAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireChargeDefinitionWritesOpen(actor)
+  await deleteChargeDefinition(
+    actor.tenant.id,
+    getRequiredString(formData, "chargeDefinitionId")
+  )
+  revalidatePath("/charges")
+  revalidatePath("/getting-started")
+  revalidatePath("/settings/finance/charges")
+}
+
+export async function deleteChargeDefinitionVersionAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireChargeDefinitionWritesOpen(actor)
+  await deleteChargeDefinitionVersion(
+    actor.tenant.id,
+    getRequiredString(formData, "chargeDefinitionVersionId")
+  )
+  revalidatePath("/charges")
+  revalidatePath("/getting-started")
+  revalidatePath("/settings/finance/charges")
 }
 
 export async function applyChargeAction(formData: FormData) {
@@ -3883,6 +3968,23 @@ export async function reviewMemberOpeningBalanceAction(formData: FormData) {
       | "rejected",
     openingBalanceId: getRequiredString(formData, "openingBalanceId"),
     reviewNotes: getOptionalTrimmedString(formData, "reviewNotes"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateMemberBackfillPaths(memberId)
+  revalidatePath("/getting-started")
+  revalidatePath("/")
+}
+
+export async function cancelMemberOpeningBalanceAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const memberId = getRequiredString(formData, "memberId")
+
+  await requireMemberMigrationDraftMutable(actor, memberId)
+
+  await cancelMemberOpeningBalance({
+    actorUserId: actor.user.id,
+    openingBalanceId: getRequiredString(formData, "openingBalanceId"),
     tenantId: actor.tenant.id,
   })
 
@@ -5505,6 +5607,37 @@ export async function reviewSupportCaseFinancialAdjustmentAction(
   revalidatePath("/support")
 }
 
+export async function settleSupportCaseSpecialSavingsRefundAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+  const supportCaseId = getRequiredString(formData, "supportCaseId")
+  const paidAt = getRequiredString(formData, "paidAt")
+
+  requireDateOnOrAfterTenantStartDate(actor, paidAt, "Refund payment date")
+
+  await settleSupportCaseSpecialSavingsRefund({
+    actorUserId: actor.user.id,
+    amount: Number(getRequiredString(formData, "amount")),
+    notes: getOptionalTrimmedString(formData, "notes"),
+    paidAt: new Date(`${paidAt}T00:00:00.000Z`),
+    reference: getRequiredString(formData, "reference"),
+    supportCaseId,
+    tenantId: actor.tenant.id,
+  })
+
+  const supportCase = await getSupportCase({
+    supportCaseId,
+    tenantId: actor.tenant.id,
+  })
+
+  await sendSupportStatusMemberEmail(actor, supportCase)
+
+  revalidatePath("/")
+  revalidatePath("/support")
+}
+
 export async function createFoodPurchaseCycleAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
@@ -6404,12 +6537,15 @@ const dashboardActionHandlers = {
   updateCollectionSourceContributionBatchRowsAction,
   postCollectionSourceContributionBatchRowsAction,
   createChargeDefinitionAction,
+  deleteChargeDefinitionAction,
+  deleteChargeDefinitionVersionAction,
   createTenantShareStructureVersionAction,
   updateTenantShareStructureVersionAction,
   createChargeDefinitionVersionAction,
   updateChargeDefinitionVersionAction,
   updateTenantSharePolicyAction,
   updateTenantMigrationSetupAction,
+  upsertTenantBroughtForwardSnapshotAction,
   updateTenantOperationProfileAction,
   createMemberShareApplicationAction,
   createOwnMemberShareApplicationAction,
@@ -6446,6 +6582,7 @@ const dashboardActionHandlers = {
   createMemberOpeningBalanceAction,
   createHistoricalMemberSharePurchaseAction,
   reviewMemberOpeningBalanceAction,
+  cancelMemberOpeningBalanceAction,
   applyMemberOpeningBalanceAction,
   reverseMemberOpeningBalanceAction,
   createLegacyLoanMigrationDraftAction,
@@ -6478,6 +6615,7 @@ const dashboardActionHandlers = {
   addMemberSupportCaseMessageAction,
   updateSupportCaseStatusAction,
   reviewSupportCaseFinancialAdjustmentAction,
+  settleSupportCaseSpecialSavingsRefundAction,
   createFoodPurchaseCycleAction,
   submitFoodPurchaseApplicationAction,
   submitOwnFoodPurchaseApplicationAction,
@@ -6595,6 +6733,12 @@ export const dashboardActionsRouter = createTRPCRouter({
   createChargeDefinitionAction: formAction(
     dashboardActionHandlers.createChargeDefinitionAction
   ),
+  deleteChargeDefinitionAction: formAction(
+    dashboardActionHandlers.deleteChargeDefinitionAction
+  ),
+  deleteChargeDefinitionVersionAction: formAction(
+    dashboardActionHandlers.deleteChargeDefinitionVersionAction
+  ),
   createTenantShareStructureVersionAction: formAction(
     dashboardActionHandlers.createTenantShareStructureVersionAction
   ),
@@ -6612,6 +6756,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   updateTenantMigrationSetupAction: formAction(
     dashboardActionHandlers.updateTenantMigrationSetupAction
+  ),
+  upsertTenantBroughtForwardSnapshotAction: formAction(
+    dashboardActionHandlers.upsertTenantBroughtForwardSnapshotAction
   ),
   updateTenantOperationProfileAction: formAction(
     dashboardActionHandlers.updateTenantOperationProfileAction
@@ -6715,6 +6862,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   reviewMemberOpeningBalanceAction: formAction(
     dashboardActionHandlers.reviewMemberOpeningBalanceAction
   ),
+  cancelMemberOpeningBalanceAction: formAction(
+    dashboardActionHandlers.cancelMemberOpeningBalanceAction
+  ),
   applyMemberOpeningBalanceAction: formAction(
     dashboardActionHandlers.applyMemberOpeningBalanceAction
   ),
@@ -6810,6 +6960,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   reviewSupportCaseFinancialAdjustmentAction: formAction(
     dashboardActionHandlers.reviewSupportCaseFinancialAdjustmentAction
+  ),
+  settleSupportCaseSpecialSavingsRefundAction: formAction(
+    dashboardActionHandlers.settleSupportCaseSpecialSavingsRefundAction
   ),
   createFoodPurchaseCycleAction: formAction(
     dashboardActionHandlers.createFoodPurchaseCycleAction

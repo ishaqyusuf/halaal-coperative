@@ -1,11 +1,13 @@
 # Feature: Onboarding Finance Setup And Member Backfill
 
 ## Goal
+
 - Add a first-run finance setup flow for each cooperative and a historical member backfill workspace.
 - Let staff define the cooperative start date, selected share model, charge history, default share history when applicable, member-specific amount history, and member share overrides when applicable.
 - Generate editable month-by-month backfill rows from those histories before posting them into live contribution, charge, repayment, and future dividend records.
 
 ## User Flow
+
 - A tenant admin creates or updates the cooperative profile and confirms the cooperative `startDate`.
 - A tenant admin or finance officer opens the finance setup workspace and configures:
   - share model choice: monthly share history or unit-based shareholding
@@ -23,12 +25,33 @@
 - During Getting Started and the member baseline step, staff can now choose between the existing full historical backfill path and a brought-forward opening-position path.
 - During Getting Started, the Operation Profile review is presented as a guided sub-step flow instead of one dense service-access form. The flow asks about commitment collection, procurement, Foodstuff Purchase, member access, and review/save one area at a time, while the full setup rail is hidden for focus. Staff can single-click a choice to select it or double-click a choice to save that sub-step and advance. This setup flow should not ask staff for explicit access-reduction audit reasons; post-setup settings keep that stricter audit control.
 - Operation Profile settings remain available after setup as a compact service summary where admins can expand one service at a time to edit access mode and supply an audit reason when access is reduced.
-- During brought-forward setup, historical business/profit history is not a required setup blocker when no share businesses exist. Once operation profile, finance/share policy, charges, and member opening positions are complete, Getting Started should route staff to final review instead of sending them back to empty historical business steps.
+- Step 6 always places an explicit no-business checkbox above the business form. In brought-forward mode it reads `We don't have any ongoing business`; in historical mode it reads `We don't have any business history to record`. Selecting it collapses the business fields and makes the standard Next action continue without creating or updating business records. An untouched empty brought-forward form and the separate continue-without-businesses link remain equivalent paths. Once operation profile, finance/share policy, charges, and member opening positions are complete, Getting Started should route staff to final review instead of sending them back to empty historical business steps.
+- Getting Started copy follows the selected migration mode. Brought-forward steps describe current policies, active charges, opening positions, and businesses participating in the current profit-sharing season; they must not instruct staff to reconstruct completed historical records. The business step captures current-season capital and profit that will be reviewed and shared later.
+- The member onboarding step treats the saved migration setup mode as authoritative. Brought-forward tenants see only the opening-position workflow and never see historical-backfill actions or choice cards; historical-backfill tenants see only the historical workflow. Changing paths requires returning to the setup-mode step rather than choosing per member.
+- Completing the finance/setup sequence leaves `/getting-started` and opens the dedicated `/onboarding-success` handoff. The screen confirms that cooperative setup is complete and exposes one mode-specific CTA: `Start admin setup` for brought-forward mode or `Start admin backfill` for historical mode. Future admin logins return to this handoff while member migration is still the next action; they do not restart Getting Started. Once all member migration evidence exists, login returns to the migration review/finalization step instead.
+- Brought-forward setup may also register an active business before its first harvest or distribution without inventing a historical profit row. The wizard always exposes a submit/continue path for this state and offers an explicit `Continue without businesses` path when no business is being brought forward; full historical backfill still requires profit history for historical businesses.
+- Profit-season review remains available after an applied brought-forward opening position only while no historical backfill batch or monthly history has been created. Reviewing the season does not implicitly finalize migration; the explicit final-review action remains the authoritative lock boundary.
+- Brought-forward setup no longer collects a separate cooperative opening-totals form. Cooperative savings, special savings, share, and active-obligation totals are derived from the accumulated reviewed member opening positions. Legacy `TenantBroughtForwardSnapshot` rows may remain as historical evidence, but Getting Started does not create or update them and they are not the operational source of the cooperative position.
 - During migration setup, member opening-position/backfill routes such as `/members/:memberId/backfill` remain inside the allowed setup surface so staff can complete the admin member baseline before live operations unlock.
+- During member migration, the setup gate also permits the member registry and individual member profile routes. Admins can move from onboarding success to `/members`, inspect a member, and enter that member's backfill without being redirected back to the success screen; unrelated member sub-workspaces remain locked until live operations.
+- Member-registry migration actions follow the cooperative's saved setup mode. Brought-forward tenants see `Brought forward` and open the member's brought-forward position directly; historical tenants retain `Backfill`, `Continue backfill`, and `Backfilled` states and begin at the historical baseline.
 - Applied brought-forward opening positions count as member ledger migration evidence for brought-forward setup mode. Full historical backfill mode still requires applied historical backfill evidence and does not count opening balances as a substitute.
 - Admin share setup surfaces must present the two share models as mutually exclusive. When staff select a different active model, inactive model workflows should be hidden until the selected model is saved, so monthly share history and unit-based shareholding are never treated as side-by-side setup paths.
+- Selecting unit-based shareholding from an unsaved monthly-history policy must start Share Cost, Compulsory Shares, and Maximum Shares empty. Backend fallback constants and older preserved drafts must not appear as user-entered configuration; genuinely saved unit-based settings still repopulate for editing.
+- Profit policy setup requires the distributable percentage and reserve-retention percentage to total exactly 100%; both the dashboard form and server mutation reject totals above or below 100%. Distribution is required, while an empty optional reserve is normalized to 0%, allowing a 100% distributable policy without explicit reserve entry.
 - The brought-forward path now has a staged opening-position data model for current book balances and active obligations.
 - The member backfill baseline step now lets finance staff stage, review, and apply approved brought-forward opening positions for one member when the row contains savings, share-capital balances, and optional active loan, procurement, and Foodstuff Purchase obligations.
+- In brought-forward mode, the member opening-position form renders directly in the step content instead of opening inside a sheet or an additional explanatory card. Historical backfill retains its existing baseline and action-sheet presentation.
+- Brought-forward opening-position review and apply actions open in centered modals instead of side sheets. Reverse and historical-backfill actions retain their existing sheet presentation.
+- A member has one active brought-forward opening-position stage at a time. After staging, the capture form is hidden while staff review the staged details; approval reveals Apply. Pending stages can be cancelled through an audited transition, which hides the cancelled record and restores the capture form for restaging.
+- After an approved brought-forward opening position is applied, the member workflow switches from capture mode to a dedicated success state. The success panel confirms that the position is active, places the audited reset/reversal action beside that confirmation, and keeps the applied balances and obligations visible as a read-only summary below.
+- The member registry derives migration completion from both historical backfill evidence and applied brought-forward opening positions. In brought-forward mode, an applied member shows a non-actionable `Brought forward applied` status instead of another migration button.
+- The single-step brought-forward member workflow does not render the historical step rail; its opening-position content uses the full workspace width. Historical backfill retains the rail for its multi-step workflow.
+- Optional brought-forward Finance, Procurement, Food budget, and evidence sections can each be removed after being added; removing a section excludes its inputs from the staged opening-position submission. Opening balances and obligation original, outstanding, and monthly repayment amounts use the standard formatted currency input, displaying the naira prefix and thousands separators while submitting an unformatted numeric value.
+- Optional obligation dates do not show a separate `Clear` action beside the following Original amount field; staff remove the corresponding optional obligation section when it does not apply.
+- Brought-forward financing reuses the historical loan-backfill guarantor combobox. Staff can search registered members by name/member number or create a missing guarantor account inline; the created member is selected automatically, and staff complete that guarantor's own brought-forward position separately from the new member record.
+- The shared guarantor combobox brings its trigger into a safe viewport position before opening, preventing the member list from flipping upward over nearby loan fields when the selector is close to the bottom edge.
+- Creating a guarantor from either brought-forward or historical loan backfill uses a centered Midday-style modal instead of the general member side sheet. The modal reuses the member form and has a modest 640px maximum width for easier data entry.
 - Opening-position obligation capture includes the current outstanding amount plus original amount, start/purchase date, repayment months, monthly installment, paid-installment count, and item label where applicable, so staff can record the last/current loan, procurement item, or Foodstuff Purchase being serviced instead of only a flat balance.
 - Applying an approved opening position posts commitment/special savings as a brought-forward ledger adjustment, increments the member savings snapshot, posts share capital through the member share ledger, converts any active financing outstanding amount into a linked active brought-forward loan with remaining repayment schedule rows, converts any procurement outstanding amount into a linked active brought-forward procurement request with remaining repayment schedule rows, converts any Foodstuff Purchase outstanding amount into an approved opening Foodstuff Purchase application with paid amount inferred from original minus outstanding, marks the opening balance as applied, and writes audit evidence.
 - Finance staff can reverse an applied opening position with required notes. Reversal posts opposite brought-forward savings ledger entries, decrements the member savings snapshot, posts a negative brought-forward share ledger entry, closes the linked opening loan and cancels the linked opening procurement obligation when they have no repayment activity, marks the opening balance as reversed, and writes audit evidence.
@@ -49,6 +72,7 @@
 - After migration finalization, historical backfill mutation tools remain locked unless the tenant is still in migration setup or has an audited migration-tool/emergency-unlock state; ordinary audited member amount history updates remain allowed during live operations until that member's historical ledger has been applied.
 
 ## Data Model
+
 - Existing tables used directly:
   - `Tenant`
     - `startDate` is the canonical cooperative start date.
@@ -160,28 +184,28 @@
       - `createdAt`
       - `updatedAt`
 - `BackfillMonthRow`
-    - Purpose: the editable monthly grid row for one batch.
-    - Fields:
-      - `id`
-      - `tenantId`
-      - `batchId`
-      - `year`
-      - `month`
-      - `amount`
-      - `charge`
-      - `loanCollected`
-      - `loanServiceAmount`
-      - `monthlyTopup`
-      - `pendingLoanPayment`
-      - `share`
-      - `dividend`
-      - `totalShare`
-      - `total`
-      - `isGenerated`
-      - `isEdited`
-      - `notes`
-      - `createdAt`
-      - `updatedAt`
+  - Purpose: the editable monthly grid row for one batch.
+  - Fields:
+    - `id`
+    - `tenantId`
+    - `batchId`
+    - `year`
+    - `month`
+    - `amount`
+    - `charge`
+    - `loanCollected`
+    - `loanServiceAmount`
+    - `monthlyTopup`
+    - `pendingLoanPayment`
+    - `share`
+    - `dividend`
+    - `totalShare`
+    - `total`
+    - `isGenerated`
+    - `isEdited`
+    - `notes`
+    - `createdAt`
+    - `updatedAt`
   - `BackfillActivity`
     - Purpose: extra month-level activity rows attached to a backfill month.
     - Fields:
@@ -281,6 +305,7 @@
     - TODO: finalize whether this is gross remittance, row net, or row obligations summary
 
 ## API Endpoints
+
 - Existing routes to extend:
   - `TRPC /trpc/onboarding.bootstrap`
     - Add support for cooperative `startDate` if not already captured across all payload paths.
@@ -337,6 +362,7 @@
     - `packages/db/src/queries/contributions.ts`
 
 ## UI Screens
+
 - `apps/dashboard/src/app/(app)/(sidebar)/settings/profile/page.tsx`
   - Add or confirm editable cooperative start date.
 - Recommended new route:
@@ -388,6 +414,7 @@
   - `apps/dashboard/src/components/forms/backfill/backfill-activity-form.tsx`
 
 ## Edge Cases
+
 - Cooperative start date is missing.
   - Reject generation until it is set.
 - A charge/share/member amount version is created before the cooperative start date.
@@ -408,7 +435,8 @@
   - Show it inline as read-only context because it affects totals but should not be directly edited from backfill.
 - A business period is linked to a dividend/profit-sharing period after the business row already exists.
   - Support optional delayed linking so live business records can be captured before the distribution flow is finalized.
-  - Historical migration rows lock after backfill/finalization, but live business creation remains available through normal audited finance actions.
+- Historical migration rows lock after backfill/finalization, but live business creation remains available through normal audited finance actions.
+- Finalized historical businesses allow audited name/notes-only corrections when capital, profit, dates, status, and dividend linkage remain unchanged. This preserves operating-profile evidence without reopening financial migration values or published allocation calculations.
 - A batch is applied twice.
   - Prevent with batch status guard and record-level idempotency keys.
 - Applying a batch would create duplicate posted finance rows for the same member/month/category.
@@ -422,6 +450,7 @@
   - Round at 2 decimal places at row computation time and keep audit metadata for source values.
 
 ## Permissions
+
 - `tenant_admin`
   - full access to finance setup, charge/share structures, member overrides, and backfill apply
 - `finance_officer`
@@ -436,6 +465,7 @@
   - future read-only visibility may be added through statements after posting
 
 ## Future Improvements
+
 - Add a tenant-level “first finance month” wizard after workspace onboarding.
 - Add CSV import for member amount logs and share overrides.
 - Add a backfill preview diff showing generated rows versus already-posted live records.
@@ -447,6 +477,10 @@
 - Add offline capture support for draft backfill entry if this becomes part of field operations.
 
 ## Current Implementation Slice
+
+- Getting Started finance forms restore the latest persisted server baseline whenever staff move forward or return to a completed step. Successful client-driven saves refresh the destination wizard snapshot, while unsaved browser drafts are scoped to the exact server baseline so an older empty draft cannot hide newly saved charges, share history, policies, or business-profit history.
+- Cooperative staff configure and recognize charges by name; user-facing forms, tables, summaries, and workflow selectors do not expose charge codes. The platform still assigns an opaque internal code when a charge is created so existing database uniqueness, imports, and integrations remain compatible.
+- Charge setup uses a compact multi-select workflow control that summarizes selected targets by name. Unused saved charge definitions can be deleted, while definitions with member charge applications must be deactivated to preserve audit history. Dated amount rows expose deletion only when more than one row exists, and persisted history deletion enforces the same minimum-one-row rule on the server.
 - First-run workspace guidance:
   - empty tenant workspaces route admins to `/onboarding` after signup or login
   - the onboarding screen computes completion from real tenant data and links through charges, shares, business, member import, member migration, loan setup, and monthly commitments
@@ -500,6 +534,7 @@
   - the member backfill baseline step now explains both paths before staff enter history or approve the member migration state
 
 ## Remaining Work
+
 - Tighten repayment replay when multiple concurrent loans exist for one member.
 - Add draft reopen/resume UX using persisted batches instead of always hydrating the latest preview.
 - Add full historical obligation timelines only if cooperatives later need every past repayment row before the opening date; the current opening-position path stores the current/last obligation details and generates the remaining live schedule from the opening date onward.

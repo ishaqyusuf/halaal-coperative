@@ -44,6 +44,7 @@ export type MembersTableSortField =
 export type MemberTableBackfillStatus = {
   appliedBatchId: string | null
   appliedMonthCount: number
+  appliedOpeningBalanceId: string | null
   draftBatchId: string | null
   state: "not_started" | "draft" | "applied"
 }
@@ -130,6 +131,24 @@ export async function listMembers(
   ])
 
   return { items: items.map(serializeMemberListItem), total, page, pageSize }
+}
+
+export async function getMemberRegistrySummary(
+  tenantId: string,
+  filters?: ListMembersFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const where = buildMemberWhere(tenantId, filters)
+  const [activeCount, kycPendingCount, linkedUsersCount] = await Promise.all([
+    prisma.member.count({ where: { ...where, status: "active" } }),
+    prisma.member.count({ where: { ...where, kycStatus: "pending" } }),
+    prisma.member.count({ where: { ...where, userId: { not: null } } }),
+  ])
+
+  return { activeCount, kycPendingCount, linkedUsersCount }
 }
 
 export async function getMemberByUserId(
@@ -330,7 +349,7 @@ export async function listMembersTable(
     include: memberListInclude,
   })
   const memberIds = data.map((member) => member.id)
-  const [backfillBatches, appliedBackfillMonths] =
+  const [backfillBatches, appliedBackfillMonths, appliedOpeningBalances] =
     memberIds.length > 0
       ? await Promise.all([
           typeof prisma.backfillBatch?.findMany === "function"
@@ -356,8 +375,21 @@ export async function listMembersTable(
                 },
               })
             : [],
+          typeof prisma.memberOpeningBalance?.findMany === "function"
+            ? prisma.memberOpeningBalance.findMany({
+                select: {
+                  id: true,
+                  memberId: true,
+                },
+                where: {
+                  memberId: { in: memberIds },
+                  status: "applied",
+                  tenantId,
+                },
+              })
+            : [],
         ])
-      : [[], []]
+      : [[], [], []]
   const statusByMemberId = new Map<string, MemberTableBackfillStatus>()
 
   for (const memberId of memberIds) {
@@ -373,13 +405,18 @@ export async function listMembersTable(
     const appliedMonthCount = appliedBackfillMonths.filter(
       (month: { memberId: string }) => month.memberId === memberId
     ).length
+    const appliedOpeningBalance = appliedOpeningBalances.find(
+      (openingBalance: { memberId: string }) =>
+        openingBalance.memberId === memberId
+    )
 
     statusByMemberId.set(memberId, {
       appliedBatchId: appliedBatch?.id ?? null,
       appliedMonthCount,
+      appliedOpeningBalanceId: appliedOpeningBalance?.id ?? null,
       draftBatchId: draftBatch?.id ?? null,
       state:
-        appliedBatch || appliedMonthCount > 0
+        appliedBatch || appliedMonthCount > 0 || appliedOpeningBalance
           ? "applied"
           : draftBatch
             ? "draft"
@@ -391,6 +428,7 @@ export async function listMembersTable(
     backfillStatus: statusByMemberId.get(member.id) ?? {
       appliedBatchId: null,
       appliedMonthCount: 0,
+      appliedOpeningBalanceId: null,
       draftBatchId: null,
       state: "not_started" as const,
     },

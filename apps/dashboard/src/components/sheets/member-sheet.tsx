@@ -3,18 +3,19 @@
 import { Suspense, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { TenantMigrationSetupMode } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import type { CreatedMemberSummary } from "@/components/forms/member-forms"
 import { MemberContent } from "@/components/member-content"
 import { MemberSheetFormProvider } from "@/components/member/form-context"
 import { MemberSheetHeader } from "@/components/member-sheet-header"
 import { MemberBackfillStartSheet } from "@/components/sheets/member-backfill-start-sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useMemberParams } from "@/hooks/use-member-params"
 import {
   getMemberMigrationStartHref,
   shouldOpenMemberMigrationAfterCreate,
 } from "@/lib/members/member-migration-routing"
 import type { MemberCollectionSourceOption } from "@/lib/members/load-members-page"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 function isMemberSheetOpen(type: string | null) {
   return type === "create" || type === "status"
@@ -40,6 +41,7 @@ export function MemberSheet({
   const [pendingBackfillMember, setPendingBackfillMember] =
     useState<CreatedMemberSummary | null>(null)
   const isOpen = isMemberSheetOpen(memberSheetType)
+  const presentation = getWorkflowPresentation("member", memberSheetType)
 
   function closeSheet() {
     void setParams({
@@ -92,8 +94,11 @@ export function MemberSheet({
 
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+      <WorkflowPresentation
+        config={presentation}
+        open={isOpen}
+        onOpenChange={handleOnOpenChange}
+      >
           {isOpen ? (
             <Suspense
               fallback={
@@ -112,13 +117,16 @@ export function MemberSheet({
                   migrationSetupMode,
                 }}
               >
-                <MemberSheetHeader />
+                <MemberSheetHeader
+                  presentation={
+                    presentation.presentation === "sheet" ? "sheet" : "dialog"
+                  }
+                />
                 <MemberContent onCreated={handleMemberCreated} />
               </MemberSheetFormProvider>
             </Suspense>
           ) : null}
-        </SheetContent>
-      </Sheet>
+      </WorkflowPresentation>
 
       <MemberBackfillStartSheet
         member={pendingBackfillMember}

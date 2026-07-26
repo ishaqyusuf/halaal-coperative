@@ -31,6 +31,7 @@ import {
   canShowQuickFill,
   getDashboardServerContext,
 } from "@/lib/server-context"
+import { tenantRedirect } from "@/utils/tenant-redirect"
 
 function resolveDefaultStep(
   hasMigrationSetupMode: boolean,
@@ -130,6 +131,19 @@ export default async function GettingStartedPage({
     listInitialMigrationMemberReview(context.tenant.id),
     getTenantOperationProfile(context.tenant.id),
   ])
+  const shouldShowOnboardingSuccess =
+    migrationState.snapshot.status === "member_migration_in_progress" &&
+    Boolean(data.businessPolicy.id) &&
+    Boolean(operationProfile.reviewedAt)
+
+  if (migrationState.snapshot.canUseLiveFinancialWrites) {
+    await tenantRedirect("/")
+  }
+
+  if (shouldShowOnboardingSuccess) {
+    await tenantRedirect("/onboarding-success")
+  }
+
   const activeStep: GettingStartedStepKey =
     requestedStep ??
     resolveDefaultStep(
@@ -160,11 +174,7 @@ export default async function GettingStartedPage({
   const canGenerateMemberBackfillPreview =
     selectedMember &&
     !migrationState.snapshot.missingStepKeys.some((stepKey) =>
-      [
-        "finance_start_date",
-        "charge_schedules",
-        "member_profiles",
-      ]
+      ["finance_start_date", "charge_schedules", "member_profiles"]
         .concat(
           data.migrationSetup.mode === "brought_forward"
             ? []

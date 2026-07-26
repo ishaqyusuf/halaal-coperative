@@ -2,10 +2,11 @@
 
 import { Suspense } from "react"
 import type { TenantSharePolicySettings } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { MemberShareApplicationSheetHeader } from "@/components/member-share-application-sheet-header"
 import { MemberShareApplicationCreateContent } from "@/components/share-application-content"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useShareApplicationParams } from "@/hooks/use-share-application-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function MemberShareApplicationSheet({
   policy,
@@ -27,8 +28,11 @@ export function MemberShareApplicationSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-      <SheetContent className="overflow-y-auto">
+    <WorkflowPresentation
+      config={getWorkflowPresentation("memberShareApplication", "create")}
+      open={isOpen}
+      onOpenChange={(open) => !open && closeSheet()}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -47,7 +51,6 @@ export function MemberShareApplicationSheet({
             </div>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

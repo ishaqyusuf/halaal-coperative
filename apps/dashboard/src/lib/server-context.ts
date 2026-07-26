@@ -25,6 +25,11 @@ import {
   defaultTenantPolicy,
   productAreas,
 } from "@halaalvest/domain"
+import { getServerQaEmailDomains } from "@halaalvest/notifications/server"
+import {
+  resolveQaQuickFillContext,
+  type QaQuickFillContext,
+} from "@halaalvest/utils"
 import { cookies, headers } from "next/headers"
 import { getPublicRequestHost } from "@/lib/request-host"
 
@@ -107,9 +112,17 @@ type DashboardPageData = {
 export function canShowQuickFill(context: {
   auth: { user: { email: string } | null }
 }) {
-  const email = context.auth.user?.email.toLowerCase() ?? ""
+  return getQaQuickFillContext(context).enabled
+}
 
-  return process.env.NODE_ENV !== "production" || email.includes("@test.com")
+export function getQaQuickFillContext(context: {
+  auth: { user: { email: string } | null }
+}): QaQuickFillContext {
+  return resolveQaQuickFillContext({
+    authenticatedEmail: context.auth.user?.email,
+    configuredDomains: getServerQaEmailDomains(),
+    isDevelopment: process.env.NODE_ENV !== "production",
+  })
 }
 
 export async function getDashboardServerContext(): Promise<DashboardServerContext> {

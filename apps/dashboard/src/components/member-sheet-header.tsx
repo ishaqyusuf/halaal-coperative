@@ -1,6 +1,11 @@
 "use client"
 
 import {
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@halaalvest/ui/components/dialog"
+import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
@@ -39,10 +44,12 @@ function getMemberSheetDescription(sheetType: MemberSheetType) {
 
 export function MemberSheetHeader({
   description,
+  presentation = "sheet",
   sheetType,
   title,
 }: {
   description?: string
+  presentation?: "dialog" | "sheet"
   sheetType?: MemberSheetType
   title?: string
 }) {
@@ -52,6 +59,15 @@ export function MemberSheetHeader({
   const resolvedTitle = title ?? getMemberSheetTitle(activeSheetType)
   const resolvedDescription =
     description ?? getMemberSheetDescription(activeSheetType)
+
+  if (presentation === "dialog") {
+    return (
+      <DialogHeader>
+        <DialogTitle>{resolvedTitle}</DialogTitle>
+        <DialogDescription>{resolvedDescription}</DialogDescription>
+      </DialogHeader>
+    )
+  }
 
   return (
     <SheetHeader>

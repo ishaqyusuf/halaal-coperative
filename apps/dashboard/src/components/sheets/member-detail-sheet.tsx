@@ -1,10 +1,11 @@
 "use client"
 
 import { Suspense } from "react"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { MemberDetailContent } from "@/components/member-detail-content"
 import { MemberDetailSheetHeader } from "@/components/member-detail-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useMemberDetailParams } from "@/hooks/use-member-detail-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 type MemberDetailDocument = {
   id: string
@@ -39,6 +40,10 @@ export function MemberDetailSheet({
 }) {
   const { memberDetailSheetType, setParams } = useMemberDetailParams()
   const isOpen = Boolean(memberDetailSheetType)
+  const presentation = getWorkflowPresentation(
+    "memberDetail",
+    memberDetailSheetType
+  )
 
   function closeSheet() {
     void setParams({
@@ -48,8 +53,11 @@ export function MemberDetailSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={(open) => !open && closeSheet()}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -67,7 +75,6 @@ export function MemberDetailSheet({
             />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

@@ -4,6 +4,7 @@ import { buttonVariants } from "@halaalvest/ui/components/button"
 import { Separator } from "@halaalvest/ui/components/separator"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
+import { CheckCircle2Icon } from "lucide-react"
 import {
   DashboardActionLink,
   DashboardSectionCard,
@@ -25,11 +26,13 @@ import {
 } from "@/components/migration/member-migration-history-forms"
 import { MemberBackfillActionSheet } from "@/components/sheets/member-backfill-action-sheet"
 import { MemberBackfillBaselineEditSheet } from "@/components/sheets/member-backfill-baseline-edit-sheet"
+import { MemberBackfillActionModal } from "@/components/modals/member-backfill-action-modal"
 import type { loadMemberBackfillWorkflowData } from "@/lib/members"
 import {
   GenerateBackfillDividendsContent,
   HistoricalSharePurchaseContent,
   OpeningBalanceApplyContent,
+  OpeningBalanceCancelContent,
   OpeningBalanceCreateContent,
   OpeningBalanceReviewContent,
   OpeningBalanceReverseContent,
@@ -84,7 +87,9 @@ function formatDate(value: string | null | undefined) {
 
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
-  }).format(new Date(`${value}T00:00:00.000Z`))
+  }).format(
+    new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`)
+  )
 }
 
 function statusTone(status: MemberBackfillData["review"]["status"]) {
@@ -95,7 +100,9 @@ function statusTone(status: MemberBackfillData["review"]["status"]) {
 
 function isStepComplete(step: MemberBackfillStepKey, data: MemberBackfillData) {
   if (step === "brought-forward") {
-    return data.memberOpeningBalances.length > 0
+    return data.memberOpeningBalances.some((row) =>
+      ["pending_review", "approved", "applied", "reversed"].includes(row.status)
+    )
   }
   if (step === "baseline") return true
   if (step === "commitments") {
@@ -143,11 +150,13 @@ function OpeningBalanceRow({
   memberId,
   memberOptions,
   row,
+  showAppliedAction = true,
 }: {
   disabled: boolean
   memberId: string
   memberOptions: MemberBackfillData["memberOptions"]
   row: MemberBackfillData["memberOpeningBalances"][number]
+  showAppliedAction?: boolean
 }) {
   const pending = row.status === "pending_review"
   const approved = row.status === "approved"
@@ -255,11 +264,24 @@ function OpeningBalanceRow({
         </div>
       ) : null}
       {pending ? (
-        <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
-          <MemberBackfillActionSheet
+        <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border/70 pt-3">
+          <MemberBackfillActionModal
+            description="Cancel this staged opening position and return to the capture form. The cancellation remains in the audit history."
+            disabled={disabled}
+            modalId={`opening-balance-cancel:${row.id}`}
+            title="Cancel staged opening position"
+            triggerLabel="Cancel staging"
+          >
+            <OpeningBalanceCancelContent
+              disabled={disabled}
+              memberId={memberId}
+              openingBalanceId={row.id}
+            />
+          </MemberBackfillActionModal>
+          <MemberBackfillActionModal
             description="Approve or reject this staged opening position after reviewing the evidence."
             disabled={disabled}
-            sheetId={`opening-balance-review:${row.id}`}
+            modalId={`opening-balance-review:${row.id}`}
             title="Review opening position"
             triggerLabel="Review"
           >
@@ -268,14 +290,14 @@ function OpeningBalanceRow({
               memberId={memberId}
               openingBalanceId={row.id}
             />
-          </MemberBackfillActionSheet>
+          </MemberBackfillActionModal>
         </div>
       ) : approved ? (
         <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
-          <MemberBackfillActionSheet
+          <MemberBackfillActionModal
             description="Apply the approved opening position to the member ledger and related opening obligations."
             disabled={disabled}
-            sheetId={`opening-balance-apply:${row.id}`}
+            modalId={`opening-balance-apply:${row.id}`}
             title="Apply opening position"
             triggerLabel="Apply"
             variant="default"
@@ -285,13 +307,14 @@ function OpeningBalanceRow({
               memberId={memberId}
               openingBalanceId={row.id}
             />
-          </MemberBackfillActionSheet>
+          </MemberBackfillActionModal>
         </div>
-      ) : applied ? (
+      ) : applied && showAppliedAction ? (
         <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
           <MemberBackfillActionSheet
             description="Reverse a previously applied opening position with an audit note."
             disabled={disabled}
+            presentation="sheet"
             sheetId={`opening-balance-reverse:${row.id}`}
             title="Reverse opening position"
             triggerLabel="Reverse"
@@ -316,9 +339,135 @@ function OpeningBalanceRow({
   )
 }
 
-function OpeningPositionPanel({ data }: { data: MemberBackfillData }) {
+function AppliedOpeningPositionSuccess({
+  disabled,
+  memberId,
+  row,
+}: {
+  disabled: boolean
+  memberId: string
+  row: MemberBackfillData["memberOpeningBalances"][number]
+}) {
+  return (
+    <div
+      className="border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+      role="status"
+    >
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center border border-emerald-300 bg-background text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+            <CheckCircle2Icon className="size-5" />
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase text-emerald-700 dark:text-emerald-300">
+              Applied successfully
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">
+              Brought-forward position is now active
+            </h3>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-emerald-800 dark:text-emerald-200">
+              The approved opening balances and obligations have been posted to
+              this member&apos;s live records.
+            </p>
+            <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
+              Applied {formatDate(row.appliedAt)}
+            </p>
+          </div>
+        </div>
+        <MemberBackfillActionSheet
+          description="Reverse the applied brought-forward position with a required audit note. Posted opening entries will be reversed rather than deleted."
+          disabled={disabled}
+          presentation="sheet"
+          sheetId={`opening-balance-reverse:${row.id}`}
+          title="Reset brought-forward position"
+          triggerLabel="Reset / reverse"
+        >
+          <OpeningBalanceReverseContent
+            disabled={disabled}
+            memberId={memberId}
+            openingBalanceId={row.id}
+          />
+        </MemberBackfillActionSheet>
+      </div>
+    </div>
+  )
+}
+
+function OpeningPositionPanel({
+  data,
+  inline = false,
+}: {
+  data: MemberBackfillData
+  inline?: boolean
+}) {
   const disabled =
     !data.canEditBackfill || data.review.status === "backfill_applied"
+  const canCaptureOpeningPosition = !data.memberOpeningBalances.some((row) =>
+    ["pending_review", "approved", "applied", "reversed"].includes(row.status)
+  )
+  const visibleOpeningPositions = data.memberOpeningBalances.filter(
+    (row) => row.status !== "cancelled"
+  )
+  const appliedOpeningPosition = visibleOpeningPositions.find(
+    (row) => row.status === "applied"
+  )
+  const stagedPositions =
+    visibleOpeningPositions.length > 0 ? (
+      visibleOpeningPositions.map((row) => (
+        <OpeningBalanceRow
+          disabled={disabled}
+          key={row.id}
+          memberId={data.member.id}
+          memberOptions={data.memberOptions}
+          row={row}
+          showAppliedAction={!inline || !appliedOpeningPosition}
+        />
+      ))
+    ) : (
+      <div className="border border-dashed border-border/70 p-3 text-sm text-muted-foreground">
+        No brought-forward opening position has been staged for this member.
+      </div>
+    )
+
+  if (inline) {
+    return (
+      <div className="grid gap-6">
+        {appliedOpeningPosition ? (
+          <AppliedOpeningPositionSuccess
+            disabled={disabled}
+            memberId={data.member.id}
+            row={appliedOpeningPosition}
+          />
+        ) : null}
+        {canCaptureOpeningPosition ? (
+          <OpeningBalanceCreateContent
+            data={data}
+            disabled={disabled}
+            formId={memberOpeningBalanceFormId}
+          />
+        ) : null}
+        {visibleOpeningPositions.length > 0 ? (
+          <div className="grid gap-3">
+            {appliedOpeningPosition ? (
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Brought-forward details
+                </p>
+                <h3 className="mt-1 text-base font-semibold text-foreground">
+                  Applied opening position
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  These are the balances and obligations carried into the
+                  member&apos;s live records.
+                </p>
+              </div>
+            ) : null}
+            {stagedPositions}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
 
   return (
     <div className="border border-border/70 bg-background p-4">
@@ -338,6 +487,7 @@ function OpeningPositionPanel({ data }: { data: MemberBackfillData }) {
         <MemberBackfillActionSheet
           description="Capture current balances and active obligations as staged brought-forward evidence."
           disabled={disabled}
+          presentation="sheet"
           sheetId="opening-position"
           size="wide"
           title="Stage opening position"
@@ -352,21 +502,7 @@ function OpeningPositionPanel({ data }: { data: MemberBackfillData }) {
         </MemberBackfillActionSheet>
       </div>
       <div className="mt-5 grid gap-3">
-        {data.memberOpeningBalances.length > 0 ? (
-          data.memberOpeningBalances.map((row) => (
-            <OpeningBalanceRow
-              disabled={disabled}
-              key={row.id}
-              memberId={data.member.id}
-              memberOptions={data.memberOptions}
-              row={row}
-            />
-          ))
-        ) : (
-          <div className="border border-dashed border-border/70 p-3 text-sm text-muted-foreground">
-            No brought-forward opening position has been staged for this member.
-          </div>
-        )}
+        {stagedPositions}
       </div>
     </div>
   )
@@ -405,6 +541,7 @@ function HistoricalSharePurchasesPanel({ data }: { data: MemberBackfillData }) {
         <MemberBackfillActionSheet
           description="Record historical unit share purchases for this member."
           disabled={disabled}
+          presentation="sheet"
           sheetId="historical-share-purchase"
           title="Add historical share purchase"
           triggerLabel="Add share purchase"
@@ -645,35 +782,32 @@ function BaselineStep({ data }: { data: MemberBackfillData }) {
 }
 
 function BroughtForwardStep({ data }: { data: MemberBackfillData }) {
+  const applied = data.memberOpeningBalances.some(
+    (row) => row.status === "applied"
+  )
+
   return (
     <DashboardSectionCard>
       <DashboardSectionHeader
         eyebrow="Brought-forward"
-        title="Capture current member position"
-        description="Enter the member's current savings, special savings, share position, and any active obligations that should be carried forward."
+        title={
+          applied
+            ? "Member opening position completed"
+            : "Capture current member position"
+        }
+        description={
+          applied
+            ? "The brought-forward position has been applied. Review the posted opening details below or reverse them if a correction is required."
+            : "Enter the member's current savings, special savings, share position, and any active obligations that should be carried forward."
+        }
         actions={
-          <TrendPill tone={statusTone(data.review.status)}>
-            {displayEnum(data.review.status)}
+          <TrendPill tone={applied ? "positive" : statusTone(data.review.status)}>
+            {applied ? "Applied" : displayEnum(data.review.status)}
           </TrendPill>
         }
       />
-      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <OpeningPositionPanel data={data} />
-        <div className="border border-border/70 bg-muted/20 p-4">
-          <p className="text-sm font-semibold text-foreground">
-            Required current state
-          </p>
-          <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
-            <p>Current savings balance</p>
-            <p>Current special savings balance</p>
-            <p>Current share capital or share units</p>
-          </div>
-          <Separator className="my-4" />
-          <p className="text-sm text-muted-foreground">
-            Active financing and procurement are optional here. Add them only
-            when the member is currently serving those obligations.
-          </p>
-        </div>
+      <div className="mt-5">
+        <OpeningPositionPanel data={data} inline />
       </div>
     </DashboardSectionCard>
   )
@@ -1012,8 +1146,15 @@ export function MemberBackfillPageView({
         </TrendPill>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <StepRail activeStep={activeStep} data={data} />
+      <div
+        className={cn(
+          "grid gap-6",
+          !isBroughtForward && "xl:grid-cols-[280px_minmax(0,1fr)]"
+        )}
+      >
+        {isBroughtForward ? null : (
+          <StepRail activeStep={activeStep} data={data} />
+        )}
         <main>
           <ActiveStepPanel activeStep={activeStep} data={data} />
           <StepFooter

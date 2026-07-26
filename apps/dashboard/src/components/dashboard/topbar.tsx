@@ -24,14 +24,12 @@ function LogoutIcon(props: React.ComponentProps<"svg">) {
 export function DashboardTopbar({
   currentModuleSubtitle,
   onOpenMobileNav,
-  quickLinks,
   roleLabel,
   title,
   userName,
 }: {
   currentModuleSubtitle?: string | null
   onOpenMobileNav?: () => void
-  quickLinks: Array<{ href?: string; title?: string; name: string }>
   roleLabel: string
   title: string
   userName: string
@@ -58,19 +56,6 @@ export function DashboardTopbar({
             {title}
           </h1>
         </div>
-        <div className="hidden min-w-0 flex-1 items-center gap-2 overflow-x-auto xl:flex">
-          {quickLinks.map((link) =>
-            link.href ? (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              >
-                {link.title ?? link.name}
-              </Link>
-            ) : null
-          )}
-        </div>
         <div className="hidden items-center gap-2 lg:flex">
           <div className="max-w-[180px] text-right">
             <p className="truncate text-xs font-medium text-foreground">{userName}</p>
@@ -91,21 +76,6 @@ export function DashboardTopbar({
         </Link>
       </header>
 
-      <div className="border-b border-border px-4 py-2.5 xl:hidden sm:px-6 lg:px-8">
-        <div className="flex gap-2 overflow-x-auto">
-          {quickLinks.map((link) =>
-            link.href ? (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              >
-                {link.title ?? link.name}
-              </Link>
-            ) : null
-          )}
-        </div>
-      </div>
     </div>
   )
 }

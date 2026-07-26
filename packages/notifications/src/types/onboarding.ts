@@ -113,9 +113,13 @@ const marketingEarlyAccessRequestSchema = directEmailSchema.extend({
   approvalUrl: z.string().min(1),
   contactEmail: z.email(),
   contactName: z.string().min(1),
+  currentSizeLabel: z.string().min(1),
+  launchTimelineLabel: z.string().min(1),
   message: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
+  recordSystemLabel: z.string().min(1),
   requestedAt: z.string().min(1),
+  setupNeedLabels: z.array(z.string().min(1)).min(1),
 })
 
 type MarketingEarlyAccessRequestPayload = z.infer<
@@ -131,7 +135,11 @@ function buildMarketingEarlyAccessRequestBody(
     `Contact: ${payload.contactName}`,
     `Email: ${payload.contactEmail}`,
     payload.phone ? `Phone: ${payload.phone}` : null,
-    payload.message ? `Note: ${payload.message}` : null,
+    `Cooperative size: ${payload.currentSizeLabel}`,
+    `Current records: ${payload.recordSystemLabel}`,
+    `Target setup: ${payload.launchTimelineLabel}`,
+    `Setup should cover: ${payload.setupNeedLabels.join(", ")}`,
+    payload.message ? `Additional note: ${payload.message}` : null,
     `Requested: ${payload.requestedAt}`,
     "",
     "Open the approval link to send the cooperative a secure setup link.",

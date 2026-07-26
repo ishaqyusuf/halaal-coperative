@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react"
 import { z } from "zod"
-import { useNotifications } from "@halaalvest/notifications-react"
+import type { QaNotificationPreview } from "@halaalvest/notifications"
+import {
+  QaNotificationPreviewCard,
+  useNotifications,
+} from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import {
   Form,
@@ -20,6 +24,7 @@ import {
 } from "@halaalvest/ui/components/input-group"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
+import { useQaQuickFill } from "@/components/qa-quick-fill-provider"
 import { objectToFormData } from "@/lib/form-submit"
 import { submitMemberOnboardingAction } from "@/lib/public-actions"
 
@@ -50,6 +55,7 @@ export function MemberSignupForm({
   signupToken?: string | null
   tenantName: string
 }) {
+  const quickFill = useQaQuickFill()
   const form = useZodForm<MemberSignupValues>(memberSignupSchema, {
     defaultValues: {
       confirmPassword: "",
@@ -60,8 +66,9 @@ export function MemberSignupForm({
       phoneNumber: "",
     },
   })
-  const { showError, showSuccess } = useNotifications()
+  const { publishQaPreviews, showError, showSuccess } = useNotifications()
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [qaPreview, setQaPreview] = useState<QaNotificationPreview | null>(null)
   const [isPending, startTransition] = useTransition()
   const isLocked = isPending || isSubmitted
 
@@ -71,6 +78,8 @@ export function MemberSignupForm({
         const result = await submitMemberOnboardingAction(
           objectToFormData({ ...values, signupToken: signupToken ?? "" }),
         )
+        publishQaPreviews(result.qaPreviews)
+        setQaPreview(result.qaPreviews.at(-1) ?? null)
         showSuccess(
           "Verification email sent",
           `We sent a verification link to ${result.email}. Confirm it to enter the ${tenantName} approval queue.`,
@@ -115,7 +124,14 @@ export function MemberSignupForm({
                 disabled={isLocked}
                 type="button"
                 variant="outline"
-                onClick={() => applyDashboardDevFormFill(form, "member_signup")}
+                onClick={() =>
+                  applyDashboardDevFormFill(
+                    form,
+                    "member_signup",
+                    undefined,
+                    { emailDomain: quickFill.emailDomain },
+                  )
+                }
               >
                 Quick fill
               </Button>
@@ -252,6 +268,11 @@ export function MemberSignupForm({
             approval.
           </p>
         </div>
+        {qaPreview ? (
+          <div className="md:col-span-2">
+            <QaNotificationPreviewCard preview={qaPreview} />
+          </div>
+        ) : null}
       </form>
     </Form>
   )

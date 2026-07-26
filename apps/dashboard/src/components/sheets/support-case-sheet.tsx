@@ -2,7 +2,6 @@
 
 import { Suspense } from "react"
 import type { SupportCaseRow } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { useQuery } from "@tanstack/react-query"
 import {
   MemberSupportCaseCreateContent,
@@ -15,7 +14,9 @@ import {
   type SupportCaseOption,
 } from "@/components/support-case-content"
 import { SupportCaseSheetHeader } from "@/components/support-case-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useSupportCaseParams } from "@/hooks/use-support-case-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
 type SupportCaseSheetType =
@@ -59,6 +60,7 @@ export function SupportCaseSheet({
     supportCaseSheetType,
   } = useSupportCaseParams()
   const isOpen = isSupportCaseSheetType(supportCaseSheetType)
+  const presentation = getWorkflowPresentation("support", supportCaseSheetType)
   const selectedRouteCase = cases.find((supportCase) => {
     return supportCase.id === selectedSupportCaseId
   })
@@ -83,8 +85,11 @@ export function SupportCaseSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={(open) => !open && closeSheet()}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -143,7 +148,6 @@ export function SupportCaseSheet({
             </div>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

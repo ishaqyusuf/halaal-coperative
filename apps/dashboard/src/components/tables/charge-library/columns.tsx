@@ -10,14 +10,9 @@ export const columns: ColumnDef<ChargeLibraryRow>[] = [
   {
     accessorKey: "name",
     cell: ({ row }) => (
-      <div>
-        <p className="truncate font-medium text-foreground">
-          {row.original.name}
-        </p>
-        <p className="mt-1 truncate text-xs text-muted-foreground uppercase">
-          {row.original.code}
-        </p>
-      </div>
+      <p className="truncate font-medium text-foreground">
+        {row.original.name}
+      </p>
     ),
     enableHiding: false,
     enableResizing: true,

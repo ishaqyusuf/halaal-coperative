@@ -2,7 +2,6 @@
 
 import { Suspense } from "react"
 import type { MemberShareApplicationRow } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { useQuery } from "@tanstack/react-query"
 import {
   ShareApplicationCreateContent,
@@ -10,7 +9,9 @@ import {
   type ShareApplicationMemberOption,
 } from "@/components/share-application-content"
 import { ShareApplicationSheetHeader } from "@/components/share-application-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useShareApplicationParams } from "@/hooks/use-share-application-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
 function isShareApplicationSheetType(
@@ -32,6 +33,10 @@ export function ShareApplicationSheet({
   const { setParams, shareApplicationId, shareApplicationSheetType } =
     useShareApplicationParams()
   const isOpen = isShareApplicationSheetType(shareApplicationSheetType)
+  const presentation = getWorkflowPresentation(
+    "shareApplication",
+    shareApplicationSheetType
+  )
   const selectedRouteApplication = applications.find(
     (application) => application.id === shareApplicationId
   )
@@ -60,8 +65,11 @@ export function ShareApplicationSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-      <SheetContent className="overflow-y-auto">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={(open) => !open && closeSheet()}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -95,7 +103,6 @@ export function ShareApplicationSheet({
             </div>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

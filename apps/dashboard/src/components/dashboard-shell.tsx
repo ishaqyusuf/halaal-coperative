@@ -3,10 +3,7 @@
 import { useState } from "react"
 import { usePathname } from "next/navigation"
 import type { CooperativeRole } from "@halaalvest/auth/roles"
-import {
-  getDashboardQuickLinks,
-  getDashboardRouteTitle,
-} from "@/lib/navigation/lib"
+import { getDashboardRouteTitle } from "@/lib/navigation/lib"
 import { GlobalSheetsProvider } from "@/components/sheets/global-sheets-provider"
 import { DASHBOARD_SIDEBAR_COLLAPSED_WIDTH } from "./dashboard/constants"
 import { DashboardPageFrame } from "./dashboard/page"
@@ -30,7 +27,6 @@ export function DashboardShellClient({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const { activeItem, currentModule, modules, roleLabel } =
     getDashboardRouteTitle(pathname, role, hiddenNavPaths)
-  const quickLinks = getDashboardQuickLinks(pathname, modules)
 
   return (
     <div
@@ -55,7 +51,6 @@ export function DashboardShellClient({
         <DashboardTopbar
           currentModuleSubtitle={currentModule?.subtitle}
           onOpenMobileNav={() => setMobileSidebarOpen(true)}
-          quickLinks={quickLinks}
           roleLabel={roleLabel}
           title={activeItem?.title ?? "Dashboard"}
           userName={userName}

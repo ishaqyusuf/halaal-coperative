@@ -63,7 +63,7 @@ export function WorkflowChargeSummary({
             key={`${charge.code}-${charge.collectionMode}`}
           >
             <span>
-              {charge.name} ({charge.code}) ·{" "}
+              {charge.name} ·{" "}
               {charge.collectionMode === "pay_separately"
                 ? "paid separately"
                 : "deducted from savings"}

@@ -47,7 +47,7 @@ export function ChargeOperationContent({
         <ChargeApplicationForm
           chargeDefinitions={activeCharges.map((charge) => ({
             id: charge.id,
-            label: `${charge.name} (${charge.code})`,
+            label: charge.name,
           }))}
           devMode={devMode}
           members={members.map((member) => ({

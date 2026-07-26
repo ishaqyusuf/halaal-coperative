@@ -102,6 +102,10 @@ export function getServerEmailDeliveryConfig() {
   }
 }
 
+export function getServerQaEmailDomains() {
+  return [...getEmailRoutingConfiguration().qaDomainRoutes.keys()]
+}
+
 export function isServerEmailDeliveryConfigured() {
   return getServerEmailDeliveryConfig().configured
 }

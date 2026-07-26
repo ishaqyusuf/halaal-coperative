@@ -11,6 +11,7 @@ import {
   MemberPaymentForm,
   MemberPaymentPreferenceForm,
 } from "@/components/forms/finance-forms"
+import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { useContributionParams } from "@/hooks/use-contribution-params"
 import {
   postCollectionSourceContributionBatchRowsAction,
@@ -234,21 +235,19 @@ export function ContributionContent({
         </div>
         <label className="grid gap-2 text-sm font-medium text-foreground">
           Source
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          <LabeledSelectInput
             name="deductionSourceId"
-            required
-          >
-            <option value="">Select source</option>
-            {collectionSourceBatchOptions.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.label}
-                {source.externalReference
+            options={collectionSourceBatchOptions.map((source) => ({
+              label: `${source.label}${
+                source.externalReference
                   ? ` · ${source.externalReference}`
-                  : ""}
-              </option>
-            ))}
-          </select>
+                  : ""
+              }`,
+              value: source.id,
+            }))}
+            placeholder="Select source"
+            required
+          />
         </label>
         <label className="grid gap-2 text-sm font-medium text-foreground">
           Reference

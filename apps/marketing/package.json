@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node ../../scripts/with-workspace-env.mjs PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-1440} TZ=UTC portless halaalvest next dev --turbopack",
+    "dev": "node ../../scripts/with-workspace-env.mjs PORTLESS_WILDCARD=1 PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-1440} TZ=UTC portless halaalvest next dev --turbopack",
     "build": "bun next build --turbopack",
     "start": "node ../../scripts/with-workspace-env.mjs next start",
     "lint": "eslint",

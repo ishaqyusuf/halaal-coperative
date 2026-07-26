@@ -20,127 +20,129 @@ model Tenant {
   migrationEmergencyUnlockedByUserId String?                @map("migration_emergency_unlocked_by_user_id") @db.Uuid
   migrationEmergencyUnlockReason     String?                @map("migration_emergency_unlock_reason")
   isDirectDeductionEnabled           Boolean                @default(false) @map("is_direct_deduction_enabled")
-  trustLegalTermsUrl                  String?                @map("trust_legal_terms_url")
-  trustPrivacyPolicyUrl               String?                @map("trust_privacy_policy_url")
-  trustDataProcessingUrl              String?                @map("trust_data_processing_url")
-  trustIncidentContactName            String?                @map("trust_incident_contact_name")
-  trustIncidentContactEmail           String?                @map("trust_incident_contact_email")
-  trustBackupRetentionNote            String?                @map("trust_backup_retention_note")
-  trustRecoveryPointObjective         String?                @map("trust_recovery_point_objective")
-  trustRecoveryTimeObjective          String?                @map("trust_recovery_time_objective")
-  trustReviewedAt                     DateTime?              @map("trust_reviewed_at") @db.Timestamptz(6)
-  trustReviewedByUserId               String?                @map("trust_reviewed_by_user_id") @db.Uuid
+  trustLegalTermsUrl                 String?                @map("trust_legal_terms_url")
+  trustPrivacyPolicyUrl              String?                @map("trust_privacy_policy_url")
+  trustDataProcessingUrl             String?                @map("trust_data_processing_url")
+  trustIncidentContactName           String?                @map("trust_incident_contact_name")
+  trustIncidentContactEmail          String?                @map("trust_incident_contact_email")
+  trustBackupRetentionNote           String?                @map("trust_backup_retention_note")
+  trustRecoveryPointObjective        String?                @map("trust_recovery_point_objective")
+  trustRecoveryTimeObjective         String?                @map("trust_recovery_time_objective")
+  trustReviewedAt                    DateTime?              @map("trust_reviewed_at") @db.Timestamptz(6)
+  trustReviewedByUserId              String?                @map("trust_reviewed_by_user_id") @db.Uuid
   createdAt                          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  policies                        TenantPolicy?
-  operationProfile                TenantOperationProfile?
-  serviceSettings                 TenantServiceSetting[]
-  businessPolicy                  TenantBusinessPolicy?
-  domains                         TenantDomain[]
-  users                           User[]
-  memberships                     Membership[]
-  members                         Member[]
-  memberDocuments                 MemberDocument[]
-  importBatches                   ImportBatch[]
-  importBatchRows                 ImportBatchRow[]
-  deductionSources                DeductionSource[]
-  contributionPlans               ContributionPlan[]
-  contributions                   Contribution[]
-  collectionSourceContributionBatches CollectionSourceContributionBatch[]
+  policies                              TenantPolicy?
+  broughtForwardSnapshot                TenantBroughtForwardSnapshot?
+  operationProfile                      TenantOperationProfile?
+  serviceSettings                       TenantServiceSetting[]
+  businessPolicy                        TenantBusinessPolicy?
+  domains                               TenantDomain[]
+  users                                 User[]
+  memberships                           Membership[]
+  members                               Member[]
+  memberDocuments                       MemberDocument[]
+  importBatches                         ImportBatch[]
+  importBatchRows                       ImportBatchRow[]
+  deductionSources                      DeductionSource[]
+  contributionPlans                     ContributionPlan[]
+  contributions                         Contribution[]
+  memberSpecialSavingsWithdrawals       MemberSpecialSavingsWithdrawal[]
+  collectionSourceContributionBatches   CollectionSourceContributionBatch[]
   collectionSourceContributionBatchRows CollectionSourceContributionBatchRow[]
-  memberPaymentReceipts           MemberPaymentReceipt[]
-  memberPaymentReceiptAllocations MemberPaymentReceiptAllocation[]
-  tenantShareStructureVersions    TenantShareStructureVersion[]
-  chargeDefinitions               ChargeDefinition[]
-  chargeDefinitionVersions        ChargeDefinitionVersion[]
-  chargeApplicability             ChargeApplicability[]
-  chargeApplications              ChargeApplication[]
-  loanProducts                    LoanProduct[]
-  financingCycles                 FinancingCycle[]
-  loanRequests                    LoanRequest[]
-  loanApprovals                   LoanApproval[]
-  loanGuarantorApprovals          LoanGuarantorApproval[]
-  loans                           Loan[]
-  procurementRequests             ProcurementRequest[]
-  procurementRepaymentSchedules   ProcurementRepaymentScheduleItem[]
-  foodPurchaseCycles              FoodPurchaseCycle[]
-  foodPurchaseApplications        FoodPurchaseApplication[]
-  projectFinancingRequests        ProjectFinancingRequest[]
-  repaymentSchedules              RepaymentScheduleItem[]
-  collectionFollowUps             CollectionFollowUp[]
-  supportCases                    SupportCase[]
-  supportCaseMessages             SupportCaseMessage[]
-  repayments                      Repayment[]
-  ledgerAccounts                  LedgerAccount[]
-  ledgerTransactions              LedgerTransaction[]
-  ledgerEntries                   LedgerEntry[]
-  dividendPeriods                 DividendPeriod[]
-  dividendAllocations             DividendAllocation[]
-  shareBusinesses                 ShareBusiness[]
-  shareBusinessProfitEntries      ShareBusinessProfitEntry[]
-  shareBusinessProfitExpenseLines ShareBusinessProfitExpenseLine[]
-  shareLedgerEntries              MemberShareLedgerEntry[]
-  historicalSharePurchases        HistoricalMemberSharePurchase[]
-  memberShareApplications         MemberShareApplication[]
-  shareProfitAllocations          ShareProfitAllocation[]
-  offlineSyncEvents               OfflineSyncEvent[]
-  auditLogs                       AuditLog[]
-  notificationPreferences         NotificationPreference[]
-  memberOnboardingRequests        MemberOnboardingRequest[]
-  memberSignupLinks               MemberSignupLink[]
-  monthlyRecordSetting            MonthlyRecordSetting?
-  monthlyRecords                  MonthlyRecord[]
-  monthlyRecordMembers            MonthlyRecordMember[]
-  memberShareOverrides            MemberShareOverride[]
-  memberAmountLogs                MemberAmountLog[]
-  memberActivityEvents            MemberActivityEvent[]
-  legacyLoanMigrationDrafts       LegacyLoanMigrationDraft[]
-  migrationBackfillAdjustments    MigrationBackfillAdjustment[]
-  memberOpeningBalances           MemberOpeningBalance[]
-  migrationProfitAdjustments      MigrationProfitAdjustment[]
-  backfillBatches                 BackfillBatch[]
-  appliedBackfillMonths           AppliedBackfillMonth[]
-  backfillMonthRows               BackfillMonthRow[]
-  backfillActivities              BackfillActivity[]
+  memberPaymentReceipts                 MemberPaymentReceipt[]
+  memberPaymentReceiptAllocations       MemberPaymentReceiptAllocation[]
+  tenantShareStructureVersions          TenantShareStructureVersion[]
+  chargeDefinitions                     ChargeDefinition[]
+  chargeDefinitionVersions              ChargeDefinitionVersion[]
+  chargeApplicability                   ChargeApplicability[]
+  chargeApplications                    ChargeApplication[]
+  loanProducts                          LoanProduct[]
+  financingCycles                       FinancingCycle[]
+  loanRequests                          LoanRequest[]
+  loanApprovals                         LoanApproval[]
+  loanGuarantorApprovals                LoanGuarantorApproval[]
+  loans                                 Loan[]
+  procurementRequests                   ProcurementRequest[]
+  procurementRepaymentSchedules         ProcurementRepaymentScheduleItem[]
+  foodPurchaseCycles                    FoodPurchaseCycle[]
+  foodPurchaseApplications              FoodPurchaseApplication[]
+  projectFinancingRequests              ProjectFinancingRequest[]
+  repaymentSchedules                    RepaymentScheduleItem[]
+  collectionFollowUps                   CollectionFollowUp[]
+  supportCases                          SupportCase[]
+  supportCaseMessages                   SupportCaseMessage[]
+  repayments                            Repayment[]
+  ledgerAccounts                        LedgerAccount[]
+  ledgerTransactions                    LedgerTransaction[]
+  ledgerEntries                         LedgerEntry[]
+  dividendPeriods                       DividendPeriod[]
+  dividendAllocations                   DividendAllocation[]
+  shareBusinesses                       ShareBusiness[]
+  shareBusinessProfitEntries            ShareBusinessProfitEntry[]
+  shareBusinessProfitExpenseLines       ShareBusinessProfitExpenseLine[]
+  shareLedgerEntries                    MemberShareLedgerEntry[]
+  historicalSharePurchases              HistoricalMemberSharePurchase[]
+  memberShareApplications               MemberShareApplication[]
+  shareProfitAllocations                ShareProfitAllocation[]
+  offlineSyncEvents                     OfflineSyncEvent[]
+  auditLogs                             AuditLog[]
+  notificationPreferences               NotificationPreference[]
+  memberOnboardingRequests              MemberOnboardingRequest[]
+  memberSignupLinks                     MemberSignupLink[]
+  monthlyRecordSetting                  MonthlyRecordSetting?
+  monthlyRecords                        MonthlyRecord[]
+  monthlyRecordMembers                  MonthlyRecordMember[]
+  memberShareOverrides                  MemberShareOverride[]
+  memberAmountLogs                      MemberAmountLog[]
+  memberActivityEvents                  MemberActivityEvent[]
+  legacyLoanMigrationDrafts             LegacyLoanMigrationDraft[]
+  migrationBackfillAdjustments          MigrationBackfillAdjustment[]
+  memberOpeningBalances                 MemberOpeningBalance[]
+  migrationProfitAdjustments            MigrationProfitAdjustment[]
+  backfillBatches                       BackfillBatch[]
+  appliedBackfillMonths                 AppliedBackfillMonth[]
+  backfillMonthRows                     BackfillMonthRow[]
+  backfillActivities                    BackfillActivity[]
 
   @@map("tenants")
 }
 
 model TenantPolicy {
-  id                           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId                     String                 @unique @map("tenant_id") @db.Uuid
-  loanEligibilityMultiple      Decimal                @default(2.0) @map("loan_eligibility_multiple") @db.Decimal(10, 2)
-  quickLoanTermMonths          Int                    @default(3) @map("quick_loan_term_months")
-  normalLoanTermMonths         Int                    @default(18) @map("normal_loan_term_months")
-  reserveBufferAmount          Decimal                @default(0) @map("reserve_buffer_amount") @db.Decimal(18, 2)
-  financingCapacityBasis       FinancingCapacityBasis @default(projected_monthly_commitments) @map("financing_capacity_basis")
-  quickLoanAllocationPercentage Decimal                @default(30) @map("quick_loan_allocation_percentage") @db.Decimal(5, 2)
-  normalLoanAllocationPercentage Decimal               @default(70) @map("normal_loan_allocation_percentage") @db.Decimal(5, 2)
-  loanIntakeReservationMode    LoanIntakeReservationMode @default(submitted_request_amount) @map("loan_intake_reservation_mode")
-  disbursementRequiresDeployableFunds Boolean          @default(true) @map("disbursement_requires_deployable_funds")
-  specialSavingsCountsForEligibility Boolean           @default(true) @map("special_savings_counts_for_eligibility")
-  strictCommitmentDuringFinancing Boolean              @default(true) @map("strict_commitment_during_financing")
-  activeFinancingBlocksEmergency Boolean               @default(true) @map("active_financing_blocks_emergency")
-  activeFinancingBlocksProcurement Boolean             @default(true) @map("active_financing_blocks_procurement")
-  procurementMaximumPaybackMonths Int                  @default(12) @map("procurement_maximum_payback_months")
-  procurementAllowsCommitmentReductionDuringPayback Boolean @default(false) @map("procurement_allows_commitment_reduction_during_payback")
-  procurementMaximumActiveObligationsPerMember Int     @default(1) @map("procurement_maximum_active_obligations_per_member")
-  foodPurchaseMaximumPaybackMonths Int                 @default(1) @map("food_purchase_maximum_payback_months")
-  foodPurchaseAllowsCommitmentReductionDuringPayback Boolean @default(false) @map("food_purchase_allows_commitment_reduction_during_payback")
-  foodPurchaseRequiresOpenCycle Boolean                @default(true) @map("food_purchase_requires_open_cycle")
-  foodPurchaseMaximumActiveObligationsPerMember Int    @default(1) @map("food_purchase_maximum_active_obligations_per_member")
-  monthlyLevyAmount            Decimal?               @map("monthly_levy_amount") @db.Decimal(18, 2)
-  migrationSetupMode           TenantMigrationSetupMode @default(historical_backfill) @map("migration_setup_mode")
-  shareUnitAmount              Decimal                @default(10000) @map("share_unit_amount") @db.Decimal(18, 2)
-  compulsoryShareUnits         Int                    @default(1) @map("compulsory_share_units")
-  maximumShareUnits            Int                    @default(20) @map("maximum_share_units")
-  shareConfigurationMode       ShareConfigurationMode @default(monthly_history) @map("share_configuration_mode")
-  requiresDualLoanApproval     Boolean                @default(false) @map("requires_dual_loan_approval")
-  allowOfflineFinancialCapture Boolean                @default(true) @map("allow_offline_financial_capture")
-  memberSignupAccessMode       MemberSignupAccessMode @default(in_office) @map("member_signup_access_mode")
-  createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                                                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                                           String                    @unique @map("tenant_id") @db.Uuid
+  loanEligibilityMultiple                            Decimal                   @default(2.0) @map("loan_eligibility_multiple") @db.Decimal(10, 2)
+  quickLoanTermMonths                                Int                       @default(3) @map("quick_loan_term_months")
+  normalLoanTermMonths                               Int                       @default(18) @map("normal_loan_term_months")
+  reserveBufferAmount                                Decimal                   @default(0) @map("reserve_buffer_amount") @db.Decimal(18, 2)
+  financingCapacityBasis                             FinancingCapacityBasis    @default(projected_monthly_commitments) @map("financing_capacity_basis")
+  quickLoanAllocationPercentage                      Decimal                   @default(30) @map("quick_loan_allocation_percentage") @db.Decimal(5, 2)
+  normalLoanAllocationPercentage                     Decimal                   @default(70) @map("normal_loan_allocation_percentage") @db.Decimal(5, 2)
+  loanIntakeReservationMode                          LoanIntakeReservationMode @default(submitted_request_amount) @map("loan_intake_reservation_mode")
+  disbursementRequiresDeployableFunds                Boolean                   @default(true) @map("disbursement_requires_deployable_funds")
+  specialSavingsCountsForEligibility                 Boolean                   @default(true) @map("special_savings_counts_for_eligibility")
+  strictCommitmentDuringFinancing                    Boolean                   @default(true) @map("strict_commitment_during_financing")
+  activeFinancingBlocksEmergency                     Boolean                   @default(true) @map("active_financing_blocks_emergency")
+  activeFinancingBlocksProcurement                   Boolean                   @default(true) @map("active_financing_blocks_procurement")
+  procurementMaximumPaybackMonths                    Int                       @default(12) @map("procurement_maximum_payback_months")
+  procurementAllowsCommitmentReductionDuringPayback  Boolean                   @default(false) @map("procurement_allows_commitment_reduction_during_payback")
+  procurementMaximumActiveObligationsPerMember       Int                       @default(1) @map("procurement_maximum_active_obligations_per_member")
+  foodPurchaseMaximumPaybackMonths                   Int                       @default(1) @map("food_purchase_maximum_payback_months")
+  foodPurchaseAllowsCommitmentReductionDuringPayback Boolean                   @default(false) @map("food_purchase_allows_commitment_reduction_during_payback")
+  foodPurchaseRequiresOpenCycle                      Boolean                   @default(true) @map("food_purchase_requires_open_cycle")
+  foodPurchaseMaximumActiveObligationsPerMember      Int                       @default(1) @map("food_purchase_maximum_active_obligations_per_member")
+  monthlyLevyAmount                                  Decimal?                  @map("monthly_levy_amount") @db.Decimal(18, 2)
+  migrationSetupMode                                 TenantMigrationSetupMode  @default(historical_backfill) @map("migration_setup_mode")
+  shareUnitAmount                                    Decimal                   @default(10000) @map("share_unit_amount") @db.Decimal(18, 2)
+  compulsoryShareUnits                               Int                       @default(1) @map("compulsory_share_units")
+  maximumShareUnits                                  Int                       @default(20) @map("maximum_share_units")
+  shareConfigurationMode                             ShareConfigurationMode    @default(monthly_history) @map("share_configuration_mode")
+  requiresDualLoanApproval                           Boolean                   @default(false) @map("requires_dual_loan_approval")
+  allowOfflineFinancialCapture                       Boolean                   @default(true) @map("allow_offline_financial_capture")
+  memberSignupAccessMode                             MemberSignupAccessMode    @default(in_office) @map("member_signup_access_mode")
+  createdAt                                          DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                          DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -155,9 +157,9 @@ model TenantOperationProfile {
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  reviewedByUser   User?     @relation("TenantOperationProfileReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  serviceSettings  TenantServiceSetting[]
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reviewedByUser  User?                  @relation("TenantOperationProfileReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  serviceSettings TenantServiceSetting[]
 
   @@map("tenant_operation_profiles")
 }
@@ -171,8 +173,8 @@ model TenantServiceSetting {
   createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  operationProfile   TenantOperationProfile  @relation(fields: [operationProfileId], references: [id], onDelete: Cascade)
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operationProfile TenantOperationProfile @relation(fields: [operationProfileId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, serviceKey], map: "tenant_service_settings_tenant_service_key")
   @@index([tenantId, accessMode], map: "tenant_service_settings_tenant_access_mode_idx")
@@ -180,18 +182,18 @@ model TenantServiceSetting {
 }
 
 model TenantBusinessPolicy {
-  id                                  String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId                            String                              @unique @map("tenant_id") @db.Uuid
-  profitDistributionFrequency         BusinessProfitDistributionFrequency @default(annual) @map("profit_distribution_frequency")
-  financialYearStartMonth             Int                                 @default(1) @map("financial_year_start_month")
-  distributionBasis                   BusinessProfitDistributionBasis      @default(share_capital_balance) @map("distribution_basis")
-  defaultDistributablePercentage      Decimal                             @default(100) @map("default_distributable_percentage") @db.Decimal(5, 2)
-  reserveRetentionPercentage          Decimal                             @default(0) @map("reserve_retention_percentage") @db.Decimal(5, 2)
-  requiresProfitDistributionApproval  Boolean                             @default(true) @map("requires_profit_distribution_approval")
-  expenseTreatment                    BusinessProfitExpenseTreatment       @default(deduct_reviewed_expenses_before_distribution) @map("expense_treatment")
-  historicalProfitMigrationMode       HistoricalProfitMigrationMode        @default(manual_review_required) @map("historical_profit_migration_mode")
-  createdAt                           DateTime                            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                           DateTime                            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                                 String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                           String                              @unique @map("tenant_id") @db.Uuid
+  profitDistributionFrequency        BusinessProfitDistributionFrequency @default(annual) @map("profit_distribution_frequency")
+  financialYearStartMonth            Int                                 @default(1) @map("financial_year_start_month")
+  distributionBasis                  BusinessProfitDistributionBasis     @default(share_capital_balance) @map("distribution_basis")
+  defaultDistributablePercentage     Decimal                             @default(100) @map("default_distributable_percentage") @db.Decimal(5, 2)
+  reserveRetentionPercentage         Decimal                             @default(0) @map("reserve_retention_percentage") @db.Decimal(5, 2)
+  requiresProfitDistributionApproval Boolean                             @default(true) @map("requires_profit_distribution_approval")
+  expenseTreatment                   BusinessProfitExpenseTreatment      @default(deduct_reviewed_expenses_before_distribution) @map("expense_treatment")
+  historicalProfitMigrationMode      HistoricalProfitMigrationMode       @default(manual_review_required) @map("historical_profit_migration_mode")
+  createdAt                          DateTime                            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                          DateTime                            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 

@@ -255,7 +255,6 @@ export function MemberImportSheetHeader({
           onSettingsChange={onColumnSettingsChange}
         />
         <Button
-          className="rounded-full"
           type="button"
           variant="outline"
           onClick={() => downloadDashboardImportTemplate("members", activeColumns)}
@@ -263,7 +262,6 @@ export function MemberImportSheetHeader({
           Download Excel template
         </Button>
         <Button
-          className="rounded-full"
           disabled={isReadingFile}
           type="button"
           variant="outline"
@@ -273,7 +271,6 @@ export function MemberImportSheetHeader({
         </Button>
         {devMode ? (
           <Button
-            className="rounded-full"
             type="button"
             variant="outline"
             onClick={onQuickFill}
@@ -282,7 +279,6 @@ export function MemberImportSheetHeader({
           </Button>
         ) : null}
         <Button
-          className="rounded-full"
           type="button"
           variant="ghost"
           onClick={onClose}

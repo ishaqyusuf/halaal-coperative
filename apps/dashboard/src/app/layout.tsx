@@ -3,7 +3,12 @@ import { NotificationsProvider } from "@halaalvest/notifications-react"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { Inter } from "next/font/google"
 import { NuqsAdapter } from "nuqs/adapters/next/app"
+import { QaQuickFillProvider } from "@/components/qa-quick-fill-provider"
 import { ThemeProvider } from "@/components/theme-provider"
+import {
+  getDashboardServerContext,
+  getQaQuickFillContext,
+} from "@/lib/server-context"
 import { TRPCReactProvider } from "@/trpc/client"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
@@ -40,6 +45,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const dashboardContext = await getDashboardServerContext()
+  const quickFill = getQaQuickFillContext(dashboardContext)
+
   return (
     <html
       lang="en"
@@ -50,7 +58,11 @@ export default async function RootLayout({
         <NuqsAdapter>
           <TRPCReactProvider>
             <ThemeProvider>
-              <NotificationsProvider>{children}</NotificationsProvider>
+              <NotificationsProvider>
+                <QaQuickFillProvider value={quickFill}>
+                  {children}
+                </QaQuickFillProvider>
+              </NotificationsProvider>
             </ThemeProvider>
           </TRPCReactProvider>
         </NuqsAdapter>

@@ -591,6 +591,240 @@ export async function recordContribution(
   })
 }
 
+export type SettleSupportCaseSpecialSavingsRefundInput = {
+  actorUserId: string
+  amount: number
+  notes?: string | null
+  paidAt: Date
+  reference: string
+  supportCaseId: string
+  tenantId: string
+}
+
+function normalizePositiveMoney(value: number, label: string) {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${label} must be greater than 0.`)
+  }
+
+  return Math.round(value * 100) / 100
+}
+
+export async function settleSupportCaseSpecialSavingsRefund(
+  input: SettleSupportCaseSpecialSavingsRefundInput,
+  prismaOverride?: PrismaClient,
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
+  const amount = normalizePositiveMoney(input.amount, "Refund amount")
+  const reference = input.reference.trim()
+  const notes = input.notes?.trim() || null
+
+  if (!reference) {
+    throw new Error("Payment reference is required.")
+  }
+
+  if (Number.isNaN(input.paidAt.getTime())) {
+    throw new Error("Refund payment date is required.")
+  }
+
+  const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
+  const savingsAccount = await getLedgerAccountByCode(input.tenantId, "1000", prisma)
+
+  if (!cashAccount || !savingsAccount) {
+    throw new Error("Ledger accounts not initialized for this cooperative")
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const actor = await tx.user.findFirst({
+      select: { id: true },
+      where: {
+        deletedAt: null,
+        id: input.actorUserId,
+        tenantId: input.tenantId,
+      },
+    })
+    const supportCase = await tx.supportCase.findFirst({
+      select: {
+        financialAdjustmentApprovalStatus: true,
+        id: true,
+        memberId: true,
+        moneyImpactRequested: true,
+        requiresFinancialAdjustment: true,
+        specialSavingsWithdrawal: {
+          select: { id: true },
+        },
+        status: true,
+      },
+      where: {
+        id: input.supportCaseId,
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (!actor) {
+      throw new Error("Refund processor does not belong to this cooperative.")
+    }
+
+    if (!supportCase) {
+      throw new Error("Support case not found.")
+    }
+
+    if (!supportCase.memberId) {
+      throw new Error("A member must be linked before posting a savings refund.")
+    }
+
+    if (supportCase.specialSavingsWithdrawal) {
+      throw new Error("A special-savings refund has already been posted for this case.")
+    }
+
+    if (supportCase.status === "closed") {
+      throw new Error("A refund cannot be posted to a closed support case.")
+    }
+
+    if (!supportCase.moneyImpactRequested) {
+      throw new Error("This support case does not request a money-impact action.")
+    }
+
+    if (
+      !supportCase.requiresFinancialAdjustment ||
+      supportCase.financialAdjustmentApprovalStatus !== "approved"
+    ) {
+      throw new Error(
+        "Approved financial adjustment review is required before posting a special-savings refund.",
+      )
+    }
+
+    const openingBalanceTotals = await tx.memberOpeningBalance.aggregate({
+      _sum: { specialSavingsBalance: true },
+      where: {
+        memberId: supportCase.memberId,
+        status: "applied",
+        tenantId: input.tenantId,
+      },
+    })
+    const contributionTotals = await tx.contribution.aggregate({
+      _sum: { extraSavingsAmount: true },
+      where: {
+        memberId: supportCase.memberId,
+        status: "posted",
+        tenantId: input.tenantId,
+      },
+    })
+    const withdrawalTotals = await tx.memberSpecialSavingsWithdrawal.aggregate({
+      _sum: { amount: true },
+      where: {
+        memberId: supportCase.memberId,
+        tenantId: input.tenantId,
+      },
+    })
+    const member = await tx.member.findFirst({
+      select: { id: true, totalSavingsSnapshot: true },
+      where: {
+        id: supportCase.memberId,
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (!member) {
+      throw new Error("Member not found.")
+    }
+
+    const availableSpecialSavings =
+      Number(openingBalanceTotals._sum.specialSavingsBalance ?? 0) +
+      Number(contributionTotals._sum.extraSavingsAmount ?? 0) -
+      Number(withdrawalTotals._sum.amount ?? 0)
+
+    if (amount > availableSpecialSavings) {
+      throw new Error(
+        `Refund amount exceeds available special savings of ${availableSpecialSavings.toFixed(2)}.`,
+      )
+    }
+
+    if (amount > Number(member.totalSavingsSnapshot)) {
+      throw new Error("Refund amount exceeds the member's total savings balance.")
+    }
+
+    const ledgerTransaction = await postLedgerTransaction(
+      {
+        entries: [
+          { amount, direction: "debit", ledgerAccountId: savingsAccount.id },
+          { amount, direction: "credit", ledgerAccountId: cashAccount.id },
+        ],
+        memberId: supportCase.memberId,
+        narration: "Special-savings refund paid to member",
+        postedAt: input.paidAt,
+        reference,
+        tenantId: input.tenantId,
+        transactionType: "adjustment",
+      },
+      tx as unknown as PrismaClient,
+    )
+
+    const withdrawal = await tx.memberSpecialSavingsWithdrawal.create({
+      data: {
+        amount,
+        ledgerTransactionId: ledgerTransaction.id,
+        memberId: supportCase.memberId,
+        notes,
+        paidAt: input.paidAt,
+        processedByUserId: input.actorUserId,
+        reference,
+        supportCaseId: supportCase.id,
+        tenantId: input.tenantId,
+      },
+    })
+
+    await tx.member.update({
+      data: {
+        totalSavingsSnapshot: { decrement: amount },
+      },
+      where: {
+        id: supportCase.memberId,
+        tenantId: input.tenantId,
+      },
+    })
+
+    const resolutionSummary =
+      notes ??
+      `Special-savings refund of ${amount.toFixed(2)} paid. Reference: ${reference}.`
+    const resolvedAt = new Date()
+
+    await tx.supportCase.update({
+      data: {
+        resolutionSummary,
+        resolvedAt,
+        status: "resolved",
+      },
+      where: { id: supportCase.id },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        action: "special_savings.refund_posted",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: withdrawal.id,
+        entityType: "MemberSpecialSavingsWithdrawal",
+        metadata: {
+          amount,
+          availableSpecialSavingsBeforeRefund: availableSpecialSavings,
+          ledgerTransactionId: ledgerTransaction.id,
+          memberId: supportCase.memberId,
+          reference,
+          supportCaseId: supportCase.id,
+        },
+        occurredAt: resolvedAt,
+        tenantId: input.tenantId,
+      },
+    })
+
+    return withdrawal
+  })
+}
+
 async function allocateRepaymentAcrossScheduleItems(input: {
   loanId: string
   tenantId: string

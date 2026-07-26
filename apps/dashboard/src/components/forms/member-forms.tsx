@@ -37,6 +37,7 @@ import {
   applyDashboardDevFormFill,
   applyDashboardRandomDevFormFill,
 } from "@/lib/dev-form-fill"
+import { useQaQuickFill } from "@/components/qa-quick-fill-provider"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import { objectToFormData } from "@/lib/form-submit"
@@ -358,6 +359,7 @@ export function MemberCreateForm({
   memberNumberPrefix?: string | null
   onSuccess?: (member: CreatedMemberSummary) => void
 }) {
+  const quickFill = useQaQuickFill()
   const form = useZodForm<MemberCreateValues>(memberCreateSchema, {
     defaultValues: {
       address: initialValues?.address ?? "",
@@ -436,7 +438,12 @@ export function MemberCreateForm({
                 type="button"
                 variant="outline"
                 onClick={() =>
-                  applyDashboardRandomDevFormFill(form, "member_create")
+                  applyDashboardRandomDevFormFill(
+                    form,
+                    "member_create",
+                    undefined,
+                    { emailDomain: quickFill.emailDomain },
+                  )
                 }
               >
                 Quick fill
@@ -459,7 +466,12 @@ export function MemberCreateForm({
                 type="button"
                 variant="outline"
                 onClick={() =>
-                  applyDashboardRandomDevFormFill(form, "member_create")
+                  applyDashboardRandomDevFormFill(
+                    form,
+                    "member_create",
+                    undefined,
+                    { emailDomain: quickFill.emailDomain },
+                  )
                 }
               >
                 Quick fill
@@ -651,7 +663,6 @@ export function MemberCreateForm({
           <Button
             disabled={isPending}
             type="submit"
-            className={inSheet ? "rounded-full px-5" : undefined}
           >
             Add member
           </Button>

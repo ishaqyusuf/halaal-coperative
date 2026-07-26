@@ -2,7 +2,6 @@
 
 import { Suspense } from "react"
 import type { ProjectFinancingRequestRow } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { useQuery } from "@tanstack/react-query"
 import {
   MemberProjectFinancingRequestCreateContent,
@@ -12,8 +11,10 @@ import {
   type ProjectFinancingMemberOption,
 } from "@/components/project-financing-content"
 import { ProjectFinancingSheetHeader } from "@/components/project-financing-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import type { WorkflowChargeOption } from "@/components/workflow-charge-summary"
 import { useProjectFinancingParams } from "@/hooks/use-project-financing-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
 type ProjectFinancingSheetType =
@@ -56,6 +57,10 @@ export function ProjectFinancingSheet({
     setParams,
   } = useProjectFinancingParams()
   const isOpen = isProjectFinancingSheetType(projectFinancingSheetType)
+  const presentation = getWorkflowPresentation(
+    "projectFinancing",
+    projectFinancingSheetType
+  )
   const selectedRouteRequest = requests.find(
     (request) => request.id === projectFinancingRequestId
   )
@@ -84,8 +89,11 @@ export function ProjectFinancingSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={(open) => !open && closeSheet()}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -134,7 +142,6 @@ export function ProjectFinancingSheet({
             </div>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

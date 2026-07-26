@@ -77,6 +77,12 @@ export type SupportCaseRow = {
   requiresFinancialAdjustment: boolean
   resolutionSummary: string | null
   resolvedAt: Date | null
+  specialSavingsWithdrawal: {
+    amount: number
+    id: string
+    paidAt: Date
+    reference: string
+  } | null
   status: SupportCaseStatus
   subject: string
   updatedAt: Date
@@ -257,6 +263,14 @@ function normalizeSupportCase(supportCase: any): SupportCaseRow {
     ),
     resolutionSummary: supportCase.resolutionSummary ?? null,
     resolvedAt: supportCase.resolvedAt ?? null,
+    specialSavingsWithdrawal: supportCase.specialSavingsWithdrawal
+      ? {
+          amount: Number(supportCase.specialSavingsWithdrawal.amount),
+          id: supportCase.specialSavingsWithdrawal.id,
+          paidAt: supportCase.specialSavingsWithdrawal.paidAt,
+          reference: supportCase.specialSavingsWithdrawal.reference,
+        }
+      : null,
     status: supportCase.status,
     subject: supportCase.subject,
     updatedAt: supportCase.updatedAt,
@@ -285,6 +299,14 @@ function supportCaseInclude() {
         fullName: true,
         id: true,
         memberNumber: true,
+      },
+    },
+    specialSavingsWithdrawal: {
+      select: {
+        amount: true,
+        id: true,
+        paidAt: true,
+        reference: true,
       },
     },
     messages: {

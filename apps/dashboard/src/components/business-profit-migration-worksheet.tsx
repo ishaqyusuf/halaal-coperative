@@ -123,7 +123,6 @@ function PublishShareProfitAllocationsButton({
 
   return (
     <Button
-      className="rounded-full"
       disabled={disabled || isPending}
       onClick={onClick}
       type="button"

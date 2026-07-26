@@ -5,7 +5,10 @@ import {
   recordNotificationDeliveryAudit,
   syncTenantDomainVerificationByHostname,
 } from "@halaalvest/db"
-import { createWorkspaceReadyEmail } from "@halaalvest/notifications"
+import {
+  createQaNotificationPreviews,
+  createWorkspaceReadyEmail,
+} from "@halaalvest/notifications"
 import {
   composeMemberNumber,
   normalizeWorkspaceSlug,
@@ -125,6 +128,7 @@ export async function POST(request: Request) {
       devDashboardUrlVariants,
       primaryDashboardHostname: siteHostname,
       primarySiteHostname: siteHostname,
+      qaPreviews: createQaNotificationPreviews([workspaceReadyDelivery]),
       siteUrl,
       tenantId: result.tenant.id,
       tenantName: result.tenant.name,

@@ -16,7 +16,9 @@ import {
   updateTenantBusinessProfitPolicy,
   updateTenantMigrationSetup,
   updateTenantSharePolicy,
+  updateShareBusiness,
   updateShareBusinessProfitEntry,
+  upsertTenantBroughtForwardSnapshot,
   upsertTenantShareStructureVersion,
 } from "./tenant-finance"
 
@@ -81,6 +83,71 @@ function withMigrationState(
 }
 
 describe("tenant finance queries", () => {
+  test("allows metadata-only corrections on finalized historical businesses", async () => {
+    const auditCreates: unknown[] = []
+    const businessUpdates: Array<Record<string, any>> = []
+    const startDate = new Date("2026-01-01T00:00:00.000Z")
+
+    const updated = await updateShareBusiness(
+      {
+        actorUserId: "user-1",
+        capitalAmount: 20000000,
+        name: "Layer Poultry Farm",
+        notes: "1,000 hens, 800 eggs daily, ₦5,000 per crate.",
+        profitAmount: 12000000,
+        shareBusinessId: "business-1",
+        startDate,
+        status: "active",
+        tenantId: "tenant-1",
+      },
+      {
+        auditLog: {
+          create: async (input: unknown) => {
+            auditCreates.push(input)
+            return input
+          },
+        },
+        shareBusiness: {
+          findFirst: async () => ({
+            capitalAmount: 20000000,
+            endDate: null,
+            id: "business-1",
+            linkedDividendPeriodId: null,
+            name: "Layer Poultry Farm",
+            notes: null,
+            profitAmount: 12000000,
+            profitEntries: [
+              {
+                allocations: [{ status: "published" }],
+                sourceType: "backfill",
+              },
+            ],
+            startDate,
+            status: "active",
+          }),
+          update: async (input: Record<string, any>) => {
+            businessUpdates.push(input)
+            return { id: "business-1", ...input.data }
+          },
+        },
+      } as never
+    )
+
+    expect(updated.notes).toContain("800 eggs daily")
+    expect(businessUpdates).toHaveLength(1)
+    expect(auditCreates).toEqual([
+      {
+        data: expect.objectContaining({
+          action: "share_business.updated",
+          metadata: {
+            metadataOnly: true,
+            status: "active",
+          },
+        }),
+      },
+    ])
+  })
+
   test("blocks profit entry updates after allocations are published", async () => {
     const deletedDraftAllocations: unknown[] = []
     const updatedProfitEntries: unknown[] = []
@@ -304,6 +371,88 @@ describe("tenant finance queries", () => {
           },
         },
         tenantId: "tenant-1",
+      },
+    })
+  })
+
+  test("stores a cooperative-wide brought-forward snapshot without changing member share limits", async () => {
+    const auditLogCreates: Record<string, unknown>[] = []
+    const snapshotUpserts: Record<string, unknown>[] = []
+
+    const snapshot = await upsertTenantBroughtForwardSnapshot(
+      {
+        actorUserId: "user-1",
+        asOfDate: "2026-07-23",
+        memberCountSnapshot: 1000,
+        notes: "Current cooperative totals; member records are sampled.",
+        tenantId: "tenant-1",
+        totalMemberSavingsAmount: 100_000_000,
+        totalShareUnits: 5000,
+        totalSpecialSavingsAmount: 1_000_000,
+      },
+      {
+        ...withMigrationState(
+          {},
+          {
+            auditLog: {
+              count: async () => 0,
+              create: async (input: Record<string, unknown>) => {
+                auditLogCreates.push(input)
+                return input
+              },
+            },
+            tenantBroughtForwardSnapshot: {
+              findUnique: async () => null,
+              upsert: async (input: Record<string, any>) => {
+                snapshotUpserts.push(input)
+                return {
+                  ...input.create,
+                  id: "snapshot-1",
+                }
+              },
+            },
+            tenantPolicy: {
+              findUnique: async () => ({
+                compulsoryShareUnits: 2,
+                id: "policy-1",
+                maximumShareUnits: 15,
+                migrationSetupMode: "brought_forward",
+                shareConfigurationMode: "unit_based",
+                shareUnitAmount: 5000,
+              }),
+            },
+          }
+        ),
+      } as never
+    )
+
+    expect(snapshot).toMatchObject({
+      id: "snapshot-1",
+      memberCountSnapshot: 1000,
+      shareUnitAmountSnapshot: 5000,
+      totalMemberSavingsAmount: 100_000_000,
+      totalShareCapitalAmount: 25_000_000,
+      totalShareUnits: 5000,
+      totalSpecialSavingsAmount: 1_000_000,
+    })
+    expect(snapshotUpserts).toHaveLength(1)
+    expect(snapshotUpserts[0]).toMatchObject({
+      create: {
+        memberCountSnapshot: 1000,
+        shareUnitAmountSnapshot: 5000,
+        totalMemberSavingsAmount: 100_000_000,
+        totalShareCapitalAmount: 25_000_000,
+        totalShareUnits: 5000,
+        totalSpecialSavingsAmount: 1_000_000,
+      },
+      where: { tenantId: "tenant-1" },
+    })
+    expect(auditLogCreates[0]).toMatchObject({
+      data: {
+        action: "migration.brought_forward_snapshot_updated",
+        actorUserId: "user-1",
+        entityId: "snapshot-1",
+        entityType: "TenantBroughtForwardSnapshot",
       },
     })
   })
@@ -1442,8 +1591,9 @@ describe("tenant finance queries", () => {
       },
       {
         ...tx,
-        $transaction: async (callback: (transaction: typeof tx) => Promise<unknown>) =>
-          callback(tx),
+        $transaction: async (
+          callback: (transaction: typeof tx) => Promise<unknown>
+        ) => callback(tx),
       } as never
     )
 
@@ -1538,35 +1688,41 @@ describe("tenant finance queries", () => {
     })
   })
 
-  test("rejects tenant business profit policy percentages above 100", async () => {
-    const policyUpserts: unknown[] = []
+  test.each([
+    { distributable: 90, reserve: 20 },
+    { distributable: 60, reserve: 20 },
+  ])(
+    "rejects a tenant business profit policy split that does not total 100%",
+    async ({ distributable, reserve }) => {
+      const policyUpserts: unknown[] = []
 
-    await expect(
-      updateTenantBusinessProfitPolicy(
-        {
-          defaultDistributablePercentage: 90,
-          financialYearStartMonth: 1,
-          profitDistributionFrequency: "annual",
-          requiresProfitDistributionApproval: true,
-          reserveRetentionPercentage: 20,
-          tenantId: "tenant-1",
-        },
-        {
-          tenantBusinessPolicy: {
-            findUnique: async () => null,
-            upsert: async (input: unknown) => {
-              policyUpserts.push(input)
-              return input
-            },
+      await expect(
+        updateTenantBusinessProfitPolicy(
+          {
+            defaultDistributablePercentage: distributable,
+            financialYearStartMonth: 1,
+            profitDistributionFrequency: "annual",
+            requiresProfitDistributionApproval: true,
+            reserveRetentionPercentage: reserve,
+            tenantId: "tenant-1",
           },
-        } as never
+          {
+            tenantBusinessPolicy: {
+              findUnique: async () => null,
+              upsert: async (input: unknown) => {
+                policyUpserts.push(input)
+                return input
+              },
+            },
+          } as never
+        )
+      ).rejects.toThrow(
+        "Distributable percentage plus reserve retention must equal 100%."
       )
-    ).rejects.toThrow(
-      "Distributable percentage plus reserve retention cannot exceed 100."
-    )
 
-    expect(policyUpserts).toHaveLength(0)
-  })
+      expect(policyUpserts).toHaveLength(0)
+    }
+  )
 
   test("publishes dividend periods with aggregated member allocations across linked profit entries", async () => {
     const auditLogCreates: Record<string, unknown>[] = []

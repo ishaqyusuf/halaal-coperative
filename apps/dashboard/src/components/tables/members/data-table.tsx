@@ -1,6 +1,7 @@
 "use client"
 
 import { closestCenter, DndContext } from "@dnd-kit/core"
+import type { TenantMigrationSetupMode } from "@halaalvest/db"
 import {
   Table,
   TableBody,
@@ -50,6 +51,7 @@ type MembersSortField =
 type Props = {
   canManageMembers: boolean
   initialSettings?: Partial<TableSettings>
+  migrationSetupMode: TenantMigrationSetupMode
 }
 
 function getSort(sort?: string[] | null): [MembersSortField, "asc" | "desc"] | null {
@@ -84,6 +86,7 @@ function getEnumValue<TValue extends string>(
 export function MembersDataTable({
   canManageMembers,
   initialSettings,
+  migrationSetupMode,
 }: Props) {
   const trpc = useTRPC()
   const router = useRouter()
@@ -163,8 +166,9 @@ export function MembersDataTable({
   const tableMeta = useMemo(
     () => ({
       canManageMembers,
+      migrationSetupMode,
     }),
-    [canManageMembers]
+    [canManageMembers, migrationSetupMode]
   )
 
   const table = useReactTable({

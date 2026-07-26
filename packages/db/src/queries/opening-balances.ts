@@ -1743,6 +1743,73 @@ export async function reviewMemberOpeningBalance(
   return normalizeOpeningBalance(updated)
 }
 
+export async function cancelMemberOpeningBalance(
+  input: {
+    actorUserId: string
+    openingBalanceId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MemberOpeningBalanceRow> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  await assertActorBelongsToTenant(input, prisma)
+
+  const existing = await prisma.memberOpeningBalance.findFirst({
+    include: openingBalanceInclude(),
+    where: {
+      id: input.openingBalanceId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!existing) {
+    throw new Error("Opening balance was not found.")
+  }
+
+  await assertOpeningBalanceMutationOpen(
+    {
+      memberId: existing.memberId,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  if (existing.status !== "pending_review") {
+    throw new Error("Only pending opening balances can be cancelled.")
+  }
+
+  const updated = await prisma.memberOpeningBalance.update({
+    data: {
+      status: "cancelled",
+    },
+    include: openingBalanceInclude(),
+    where: {
+      id: input.openingBalanceId,
+    },
+  })
+
+  await createAuditLogEntry(
+    {
+      action: "migration.opening_balance.cancelled",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityId: input.openingBalanceId,
+      entityType: "MemberOpeningBalance",
+      metadata: {
+        memberId: existing.memberId,
+        nextStatus: "cancelled",
+        previousStatus: existing.status,
+      },
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return normalizeOpeningBalance(updated)
+}
+
 export async function applyMemberOpeningBalance(
   input: {
     actorUserId: string

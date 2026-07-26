@@ -48,7 +48,7 @@ This file tracks the public and internal API surface of the platform.
   - Purpose: validate the private cooperative setup intent, verify early access approval when `MARKETING_EARLY_ACCESS_ENABLED=true`, mint a signed onboarding token, and build the verification email draft for the cooperative primary contact.
   - Notes: implemented as `apps/marketing/app/api/signup/route.ts` because the full auth/session stack is not in place yet.
 - `POST /api/early-access`
-  - Purpose: capture a marketing early access request and email configured platform admins a signed approval API link.
+  - Purpose: capture accountable contact details plus structured cooperative size, current record system, setup timeline, and setup needs, then email configured platform admins a signed approval API link.
   - Notes: production requires email delivery plus `MARKETING_ADMIN_EMAILS`.
 - `GET /api/early-access/approve?token=...`
   - Purpose: verify the signed admin approval token and send the cooperative primary contact an approved setup link.
@@ -81,7 +81,10 @@ This file tracks the public and internal API surface of the platform.
   - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member, status, and search text.
 - `TRPC /trpc/support.list|get`
   - Purpose: list tenant/member support cases for the Midday-style dashboard table and hydrate URL-selected update/reply/financial-adjustment sheets.
-  - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member, assignee, status, and priority.
+  - Notes: member-role requests are scoped to the signed-in user's linked member profile; staff requests are tenant-scoped and may filter by member, assignee, status, and priority. Completed special-savings refunds include compact withdrawal evidence.
+- Dashboard action `settleSupportCaseSpecialSavingsRefundAction`
+  - Purpose: let finance post a one-time, support-linked special-savings refund after financial-adjustment approval.
+  - Notes: validates live-write and tenant/member boundaries, available special savings, payment evidence, and duplicate settlement before posting the balanced ledger transaction and resolving the case.
 
 ## Near-Term Route Targets
 

@@ -2,20 +2,20 @@
 
 import type { ReactNode } from "react"
 import { Button } from "@halaalvest/ui/components/button"
-import { cn } from "@halaalvest/ui/lib/utils"
 import {
-  Sheet,
-  SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useMemberBackfillParams } from "@/hooks/use-member-backfill-params"
+import type { WorkflowPresentation as WorkflowPresentationType } from "@/lib/workflow-presentations"
 
 export function MemberBackfillActionSheet({
   children,
   description,
   disabled,
+  presentation = "dialog",
   sheetId,
   size = "default",
   title,
@@ -25,6 +25,7 @@ export function MemberBackfillActionSheet({
   children: ReactNode
   description: string
   disabled?: boolean
+  presentation?: Exclude<WorkflowPresentationType, "alert-dialog">
   sheetId: string
   size?: "default" | "wide"
   title: string
@@ -53,22 +54,20 @@ export function MemberBackfillActionSheet({
       >
         {triggerLabel}
       </Button>
-      <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-        <SheetContent
-          className={cn(
-            "w-full overflow-y-auto",
-            size === "wide"
-              ? "!w-[92vw] sm:!max-w-4xl lg:!max-w-6xl"
-              : "sm:!max-w-2xl"
-          )}
-        >
+      <WorkflowPresentation
+        config={{
+          presentation,
+          width: size === "wide" ? "wide" : "form",
+        }}
+        open={isOpen}
+        onOpenChange={(open) => !open && closeSheet()}
+      >
           <SheetHeader>
             <SheetTitle>{title}</SheetTitle>
             <SheetDescription>{description}</SheetDescription>
           </SheetHeader>
           <div className="px-6 pb-6">{children}</div>
-        </SheetContent>
-      </Sheet>
+      </WorkflowPresentation>
     </>
   )
 }

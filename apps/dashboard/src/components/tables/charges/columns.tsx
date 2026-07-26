@@ -30,7 +30,12 @@ export type Charge = {
   isActive: boolean
   kind: string
   name: string
-  purpose?: "general" | "member_share" | "loan_fee" | "membership_fee" | "penalty"
+  purpose?:
+    | "general"
+    | "member_share"
+    | "loan_fee"
+    | "membership_fee"
+    | "penalty"
   versions: ChargeVersion[]
 }
 
@@ -52,12 +57,7 @@ export const columns: ColumnDef<Charge>[] = [
   {
     accessorKey: "name",
     cell: ({ row }) => (
-      <div>
-        <p className="font-medium text-foreground">{row.original.name}</p>
-        <p className="mt-1 text-xs text-muted-foreground uppercase">
-          {row.original.code}
-        </p>
-      </div>
+      <p className="font-medium text-foreground">{row.original.name}</p>
     ),
     enableHiding: false,
     enableResizing: true,

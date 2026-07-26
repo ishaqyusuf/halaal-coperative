@@ -16,6 +16,8 @@
 - Money-impact cases that require a financial adjustment keep an explicit finance approval status: not required, pending, approved, or rejected.
 - Finance reviewers can record approval/rejection notes for a required financial adjustment, with reviewer and timestamp evidence.
 - Support cases that require a financial adjustment cannot be resolved or closed until the adjustment approval status is approved.
+- After approval, finance can post a linked special-savings refund from the case update sheet. The form requires amount, payment date, and payment reference; the dedicated withdrawal workflow verifies available special savings, posts the balanced savings-to-bank ledger adjustment, records processor/audit evidence, decrements the member savings snapshot, and resolves the case atomically.
+- A special-savings case can be settled only once. The resolved case shows the posted amount, payment date, and reference.
 - Staff replies, member replies, case creation, and status updates create audit entries.
 - Case creation audit metadata includes the initial attachment URL when one is provided.
 - Support case creation, member replies, staff replies, and status updates emit registered notification events with delivery audit records. Member-created cases and replies notify staff roles; staff-created cases, staff replies, and status updates notify the linked member when the member has an email address.
@@ -27,9 +29,10 @@
 - Support cases do not mutate savings, share capital, repayments, charges, financing, procurement, or ledger records.
 - When a case requires a money correction, staff should mark it as needing a finance adjustment and complete the actual correction through an audited finance workflow.
 - Financial-adjustment approval on a support case is governance evidence only; it does not post, reverse, waive, or adjust money by itself.
+- The special-savings refund form launches a separate finance posting workflow after approval; opening, approving, or otherwise editing the support case does not move money.
 - Rejected or pending financial-adjustment reviews keep the case open or in progress until staff remove the adjustment requirement or resolve the issue through a different audited workflow.
 - Resolved or closed support cases need a resolution summary so decisions remain reviewable.
 
 ## Future Work
-- Add managed attachment storage and controlled finance-adjustment request workflows from support resolutions.
+- Add additional product-specific correction workflows for charges, repayments, shares, and other support resolutions.
 - Add WhatsApp, push/mobile, and in-app support delivery channels when those notification channels are selected for a pilot.

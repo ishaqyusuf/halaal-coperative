@@ -189,7 +189,7 @@ export function DashboardSidebar({
   const isExpanded = mobileOpen || expanded
 
   const navSections = (
-    <nav className="mt-4 w-full overflow-y-auto">
+    <nav className="scrollbar-hide mt-4 min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto">
       <div className="flex flex-col gap-5">
         {modules.flatMap((module) =>
           module.sections
@@ -312,7 +312,7 @@ export function DashboardSidebar({
       </DashboardSidebarSheet>
 
       <aside
-        className="fixed top-0 left-0 z-40 hidden h-screen flex-shrink-0 border-r border-border bg-background pb-4 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:flex md:flex-col"
+        className="fixed top-0 left-0 z-40 hidden h-screen flex-shrink-0 overflow-hidden border-r border-border bg-background pb-4 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:flex md:flex-col"
         style={{
           width: expanded
             ? DASHBOARD_SIDEBAR_EXPANDED_WIDTH

@@ -1,12 +1,13 @@
 "use client"
 
 import { Suspense } from "react"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { ChargeContent } from "@/components/charge-content"
 import { ChargeSheetFormProvider } from "@/components/charge/form-context"
 import { ChargeSheetHeader } from "@/components/charge-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useChargeParams } from "@/hooks/use-charge-params"
 import type { Charge } from "@/components/tables/charges/columns"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function ChargeSheet({
   financeStartDate,
@@ -24,6 +25,7 @@ export function ChargeSheet({
   const isUpdate = chargeType === "update"
   const isEdit = chargeType === "edit"
   const isOpen = isCreate || isUpdate || isEdit
+  const presentation = getWorkflowPresentation("charge", chargeType)
 
   const handleOnOpenChange = (open: boolean) => {
     if (!open) {
@@ -32,8 +34,11 @@ export function ChargeSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent>
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -55,7 +60,6 @@ export function ChargeSheet({
             </ChargeSheetFormProvider>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

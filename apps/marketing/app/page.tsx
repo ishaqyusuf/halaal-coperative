@@ -1,10 +1,12 @@
 import { listTenants } from "@halaalvest/db"
+import { resolveQaQuickFillContext } from "@halaalvest/utils"
 import { redirect } from "next/navigation"
 import { DevTenantFab } from "@/components/marketing/dev-tenant-fab"
 import { LaunchLanding } from "@/components/marketing/launch-landing"
 import { PrelaunchLanding } from "@/components/marketing/prelaunch-landing"
 import { getMarketingConfig } from "@/lib/marketing-config"
 import { getSignupHref } from "@/lib/runtime-url"
+import { getServerQaEmailDomains } from "@/lib/server-notifications"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -21,13 +23,18 @@ export default async function Page() {
   const signupHref = marketing.earlyAccessModeEnabled
     ? "#early-access"
     : await getSignupHref()
+  const quickFill = resolveQaQuickFillContext({
+    authenticatedEmail: null,
+    configuredDomains: getServerQaEmailDomains(),
+    isDevelopment: process.env.NODE_ENV !== "production",
+  })
 
   return (
     <>
       {marketing.isLaunchReady ? (
-        <LaunchLanding signupHref={signupHref} />
+        <LaunchLanding quickFill={quickFill} signupHref={signupHref} />
       ) : (
-        <PrelaunchLanding signupHref={signupHref} />
+        <PrelaunchLanding quickFill={quickFill} signupHref={signupHref} />
       )}
       {process.env.NODE_ENV !== "production" ? (
         <DevTenantFab

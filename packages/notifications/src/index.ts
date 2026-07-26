@@ -4,9 +4,11 @@ import type {
   EmailRoutingMetadata,
   NotificationEmailDelivery,
   NotificationEmailDraft,
+  NotificationQaArtifact,
   NotificationInput,
   NotificationRecord,
   NotificationVariant,
+  QaNotificationPreview,
 } from "./core-types"
 
 export type {
@@ -14,10 +16,12 @@ export type {
   EmailRoutingMetadata,
   NotificationEmailDelivery,
   NotificationEmailDraft,
+  NotificationQaArtifact,
   NotificationInput,
   NotificationRecord,
   NotificationRecipient,
   NotificationVariant,
+  QaNotificationPreview,
 } from "./core-types"
 
 export type NotificationEmailTransport = {
@@ -48,6 +52,10 @@ export type RetryingEmailTransportOptions = {
 
 export type NotificationStoreState = {
   notifications: NotificationRecord[]
+}
+
+function toProviderTagValue(value: string) {
+  return value.replace(/[^A-Za-z0-9_-]/g, "_")
 }
 
 export type NotificationStore = {
@@ -311,7 +319,7 @@ export function createResendEmailTransport(
             tags: [
               {
                 name: "notification_type",
-                value: draft.notificationType,
+                value: toProviderTagValue(draft.notificationType),
               },
             ],
             html:
@@ -460,11 +468,15 @@ export function createMarketingEarlyAccessRequestEmail(input: {
   approvalUrl: string
   contactEmail: string
   contactName: string
+  currentSizeLabel: string
+  launchTimelineLabel: string
   message?: string | null
   phone?: string | null
+  recordSystemLabel: string
   recipientEmail: string
   recipientName: string
   requestedAt: string
+  setupNeedLabels: string[]
   tenantName: string
 }): NotificationEmailDraft {
   return createEmailDraftFromType("marketing.early_access_requested", input)
@@ -484,6 +496,7 @@ export * from "./actions"
 export * from "./channels"
 export * from "./core-types"
 export * from "./delivery"
+export * from "./qa-preview"
 export * from "./email-routing"
 export * from "./notification-types"
 export * from "./types/registry"

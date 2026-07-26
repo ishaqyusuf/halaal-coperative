@@ -19,8 +19,7 @@ import {
 export function ChargeContent() {
   const { financeStartDate, isLocked, quickFillEnabled, rows } =
     useChargeSheetFormContext()
-  const { chargeId, chargeType, chargeVersionId, setParams } =
-    useChargeParams()
+  const { chargeId, chargeType, chargeVersionId, setParams } = useChargeParams()
   const isCreate = chargeType === "create"
   const isUpdate = chargeType === "update"
   const charge = rows.find((row) => row.id === chargeId)
@@ -61,7 +60,7 @@ export function ChargeContent() {
         />
         <label className="space-y-1 text-xs font-medium text-muted-foreground">
           Charge
-          <Input disabled value={`${charge.name} (${charge.code})`} />
+          <Input disabled value={charge.name} />
         </label>
         <label className="space-y-1 text-xs font-medium text-muted-foreground">
           Effective date

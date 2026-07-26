@@ -1,18 +1,18 @@
 model LedgerAccount {
-  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String            @map("tenant_id") @db.Uuid
-  code                  String
-  name                  String
-  accountType           LedgerAccountType @map("account_type")
-  parentAccountId       String?           @map("parent_account_id") @db.Uuid
-  isSystem              Boolean           @default(false) @map("is_system")
-  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String            @map("tenant_id") @db.Uuid
+  code            String
+  name            String
+  accountType     LedgerAccountType @map("account_type")
+  parentAccountId String?           @map("parent_account_id") @db.Uuid
+  isSystem        Boolean           @default(false) @map("is_system")
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parentAccount         LedgerAccount?    @relation("LedgerAccountHierarchy", fields: [parentAccountId], references: [id], onDelete: SetNull)
-  childAccounts         LedgerAccount[]   @relation("LedgerAccountHierarchy")
-  ledgerEntries         LedgerEntry[]
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentAccount LedgerAccount?  @relation("LedgerAccountHierarchy", fields: [parentAccountId], references: [id], onDelete: SetNull)
+  childAccounts LedgerAccount[] @relation("LedgerAccountHierarchy")
+  ledgerEntries LedgerEntry[]
 
   @@unique([tenantId, code], map: "ledger_accounts_tenant_code_key")
   @@index([tenantId, accountType], map: "ledger_accounts_tenant_type_idx")
@@ -20,26 +20,27 @@ model LedgerAccount {
 }
 
 model LedgerTransaction {
-  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String                @map("tenant_id") @db.Uuid
-  memberId              String?               @map("member_id") @db.Uuid
-  loanId                String?               @map("loan_id") @db.Uuid
-  contributionId        String?               @unique @map("contribution_id") @db.Uuid
-  chargeApplicationId   String?               @unique @map("charge_application_id") @db.Uuid
-  repaymentId           String?               @unique @map("repayment_id") @db.Uuid
-  transactionType       LedgerTransactionType @map("transaction_type")
-  postedAt              DateTime              @map("posted_at") @db.Timestamptz(6)
-  reference             String?               @map("reference")
-  narration             String?
-  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String                @map("tenant_id") @db.Uuid
+  memberId            String?               @map("member_id") @db.Uuid
+  loanId              String?               @map("loan_id") @db.Uuid
+  contributionId      String?               @unique @map("contribution_id") @db.Uuid
+  chargeApplicationId String?               @unique @map("charge_application_id") @db.Uuid
+  repaymentId         String?               @unique @map("repayment_id") @db.Uuid
+  transactionType     LedgerTransactionType @map("transaction_type")
+  postedAt            DateTime              @map("posted_at") @db.Timestamptz(6)
+  reference           String?               @map("reference")
+  narration           String?
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member                Member?               @relation(fields: [memberId], references: [id], onDelete: SetNull)
-  loan                  Loan?                 @relation(fields: [loanId], references: [id], onDelete: SetNull)
-  contribution          Contribution?         @relation(fields: [contributionId], references: [id], onDelete: SetNull)
-  chargeApplication     ChargeApplication?    @relation(fields: [chargeApplicationId], references: [id], onDelete: SetNull)
-  repayment             Repayment?            @relation(fields: [repaymentId], references: [id], onDelete: SetNull)
-  entries               LedgerEntry[]
+  tenant                   Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                   Member?                         @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  loan                     Loan?                           @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  contribution             Contribution?                   @relation(fields: [contributionId], references: [id], onDelete: SetNull)
+  chargeApplication        ChargeApplication?              @relation(fields: [chargeApplicationId], references: [id], onDelete: SetNull)
+  repayment                Repayment?                      @relation(fields: [repaymentId], references: [id], onDelete: SetNull)
+  specialSavingsWithdrawal MemberSpecialSavingsWithdrawal?
+  entries                  LedgerEntry[]
 
   @@index([tenantId, postedAt], map: "ledger_transactions_tenant_posted_at_idx")
   @@index([tenantId, transactionType], map: "ledger_transactions_tenant_type_idx")
@@ -47,17 +48,17 @@ model LedgerTransaction {
 }
 
 model LedgerEntry {
-  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId              String         @map("tenant_id") @db.Uuid
-  ledgerTransactionId   String         @map("ledger_transaction_id") @db.Uuid
-  ledgerAccountId       String         @map("ledger_account_id") @db.Uuid
-  direction             EntryDirection
-  amount                Decimal        @db.Decimal(18, 2)
-  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String         @map("tenant_id") @db.Uuid
+  ledgerTransactionId String         @map("ledger_transaction_id") @db.Uuid
+  ledgerAccountId     String         @map("ledger_account_id") @db.Uuid
+  direction           EntryDirection
+  amount              Decimal        @db.Decimal(18, 2)
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ledgerTransaction     LedgerTransaction @relation(fields: [ledgerTransactionId], references: [id], onDelete: Cascade)
-  ledgerAccount         LedgerAccount  @relation(fields: [ledgerAccountId], references: [id], onDelete: Restrict)
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ledgerTransaction LedgerTransaction @relation(fields: [ledgerTransactionId], references: [id], onDelete: Cascade)
+  ledgerAccount     LedgerAccount     @relation(fields: [ledgerAccountId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, ledgerTransactionId], map: "ledger_entries_tenant_transaction_idx")
   @@index([tenantId, ledgerAccountId], map: "ledger_entries_tenant_account_idx")

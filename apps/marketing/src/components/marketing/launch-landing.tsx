@@ -2,6 +2,7 @@ import { Badge } from "@halaalvest/ui/components/badge"
 import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import Link from "next/link"
+import type { QaQuickFillContext } from "@halaalvest/utils"
 import { EarlyAccessForm } from "./early-access-form"
 import { PricingSection } from "./pricing-section"
 
@@ -55,7 +56,13 @@ const productSignals = [
   ["Onboarding", "Guided", "Setup before operations"],
 ] as const
 
-export function LaunchLanding({ signupHref }: { signupHref: string }) {
+export function LaunchLanding({
+  quickFill,
+  signupHref,
+}: {
+  quickFill: QaQuickFillContext
+  signupHref: string
+}) {
   return (
     <main
       id="top"
@@ -321,7 +328,7 @@ export function LaunchLanding({ signupHref }: { signupHref: string }) {
             </p>
           </div>
 
-          <EarlyAccessForm />
+          <EarlyAccessForm quickFill={quickFill} />
         </div>
       </section>
 

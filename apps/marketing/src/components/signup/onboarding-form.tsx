@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import type { QaNotificationPreview } from "@halaalvest/notifications"
 import {
   Alert,
   AlertDescription,
@@ -54,7 +55,11 @@ import {
 import { Spinner } from "@halaalvest/ui/components/spinner"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
-import { useNotifications } from "@halaalvest/notifications-react"
+import {
+  QaNotificationPreviewCard,
+  useNotifications,
+} from "@halaalvest/notifications-react"
+import type { QaQuickFillContext } from "@halaalvest/utils"
 import {
   cooperativeCountryOptions,
   cooperativeSizeRanges,
@@ -79,6 +84,7 @@ type OnboardingResult = {
   }[]
   primaryDashboardHostname: string
   primarySiteHostname: string
+  qaPreviews?: QaNotificationPreview[]
   siteUrl: string
   tenantId: string
   tenantName: string
@@ -94,11 +100,11 @@ type OnboardingResult = {
 }
 
 export function OnboardingForm({
-  devMode,
+  quickFill,
   token,
   verification,
 }: {
-  devMode: boolean
+  quickFill: QaQuickFillContext
   token: string
   verification: SignupVerificationPayload
 }) {
@@ -112,7 +118,7 @@ export function OnboardingForm({
       token,
     },
   })
-  const { showError, showSuccess } = useNotifications()
+  const { publishQaPreviews, showError, showSuccess } = useNotifications()
   const [result, setResult] = useState<OnboardingResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -140,6 +146,7 @@ export function OnboardingForm({
       }
 
       setResult(payload)
+      publishQaPreviews(payload.qaPreviews)
       showSuccess(
         "Workspace created",
         `${payload.tenantName} is ready to open.`
@@ -160,6 +167,7 @@ export function OnboardingForm({
       result.vercelDomainProvisioning.status !== "verified" &&
       result.vercelDomainProvisioning.status !== "skipped"
     const devDashboardUrlVariants = result.devDashboardUrlVariants ?? []
+    const qaPreview = result.qaPreviews?.at(-1)
 
     return (
       <Card>
@@ -219,6 +227,10 @@ export function OnboardingForm({
             </Alert>
           ) : null}
 
+          {qaPreview ? (
+            <QaNotificationPreviewCard preview={qaPreview} />
+          ) : null}
+
           {domainNeedsAttention ? (
             <Alert>
               <AlertTitle>Cooperative domain still needs attention</AlertTitle>
@@ -230,7 +242,7 @@ export function OnboardingForm({
           ) : null}
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2">
-          {devMode && devDashboardUrlVariants.length ? (
+          {quickFill.enabled && devDashboardUrlVariants.length ? (
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button size="lg" type="button" />}>
                 Get Started
@@ -287,7 +299,7 @@ export function OnboardingForm({
     <Form {...form}>
       <Card>
         <CardHeader>
-          {devMode ? (
+          {quickFill.enabled ? (
             <CardAction>
               <Button
                 size="sm"
@@ -302,10 +314,12 @@ export function OnboardingForm({
                     primaryContactMemberNumber:
                       verification.primaryContactMemberNumber,
                     token: form.getValues("token"),
+                  }, {
+                    emailDomain: quickFill.emailDomain,
                   })
                 }
               >
-                Autofill dev data
+                Quick fill
               </Button>
             </CardAction>
           ) : null}

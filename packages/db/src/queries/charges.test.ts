@@ -322,6 +322,25 @@ describe("charge migration guards", () => {
     expect(prisma.chargeDefinitionVersionCreates).toHaveLength(1)
   })
 
+  test("generates an internal code when staff create a charge by name", async () => {
+    const prisma = createChargePrismaStub()
+
+    await createChargeDefinition(
+      {
+        amount: 100,
+        effectiveFrom: new Date("2025-01-01T00:00:00.000Z"),
+        kind: "fixed",
+        name: "Admin levy",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.chargeDefinitionCreates[0]?.data.code).toMatch(
+      /^charge-[a-f0-9]{12}$/
+    )
+  })
+
   test("normalizes loan fee definitions to one-time loan request charges", async () => {
     const prisma = createChargePrismaStub()
 

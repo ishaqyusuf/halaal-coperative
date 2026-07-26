@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  getMemberMigrationAction,
   getMemberMigrationStartHref,
   getMemberMigrationStartStep,
   shouldOpenMemberMigrationAfterCreate,
@@ -46,5 +47,35 @@ describe("member migration routing", () => {
         setupMode: "historical_backfill",
       })
     ).toBe(true)
+  })
+
+  test("turns applied member migrations into non-actionable statuses", () => {
+    expect(
+      getMemberMigrationAction({
+        setupMode: "brought_forward",
+        state: "applied",
+      })
+    ).toEqual({
+      kind: "status",
+      label: "Brought forward applied",
+    })
+    expect(
+      getMemberMigrationAction({
+        setupMode: "historical_backfill",
+        state: "applied",
+      })
+    ).toEqual({
+      kind: "status",
+      label: "Backfilled",
+    })
+    expect(
+      getMemberMigrationAction({
+        setupMode: "historical_backfill",
+        state: "draft",
+      })
+    ).toEqual({
+      kind: "action",
+      label: "Continue backfill",
+    })
   })
 })

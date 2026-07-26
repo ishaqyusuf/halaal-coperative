@@ -94,5 +94,10 @@
 - Repayments now persist collections follow-up records with notes and optional next-action dates, and reporting can surface those records directly rather than inferring everything from audit logs alone.
 - Notifications now support filtering the delivery history view and cover more internal workflow events such as repayments, charge corrections, and domain verification changes.
 - Members now also capture richer KYC review context, including document type, uploaded timestamp, and review notes.
+- Member registry KPI counts are aggregate queries over the complete filtered register, rather than counts derived from the current paginated table page, so active, pending, and linked-login totals stay accurate beyond the first page.
+- The member registry keeps identity metadata compact: member type is shown as a badge in the Member cell, while member number and joined date share a `# / Joined` cell with the number as the primary value.
+- Member and shared dashboard search/filter controls use Midday's filter-list glyph. Their primary menus open below the search field, and search-only forms are excluded from the QA Quick fill injector so development helpers do not appear in table filter toolbars.
+- The member CSV import entry point is shown only while the server-side initial-migration import window is actually open and no applied historical member data exists. Finalized cooperatives no longer receive an import action that can only fail after submission.
+- Member detail and statement page loaders normalize nested Prisma decimal values before crossing the server/client boundary, preventing raw database value objects from leaking into client-rendered profile views.
 - Food purchase now has a finance workspace route for monthly committee fund releases, member applications, staff review, month-end accounting, and overview action-queue visibility.
 - The next dashboard slice should deepen exports and statements further, then move collections and KYC from richer records into fuller operational case-management behavior.

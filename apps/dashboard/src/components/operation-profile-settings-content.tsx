@@ -10,6 +10,7 @@ import {
   FieldSet,
 } from "@halaalvest/ui/components/field"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { updateTenantOperationProfileAction } from "@/lib/dashboard-actions"
 
 const serviceRows = [
@@ -83,18 +84,15 @@ export function OperationProfileSettingsContent({
                   {service.label}
                 </FieldLabel>
                 <FieldDescription>{service.body}</FieldDescription>
-                <select
-                  className="h-10 w-full border border-input bg-background px-3 text-sm text-foreground"
+                <LabeledSelectInput
                   defaultValue={currentAccessMode}
                   id={serviceAccessInputName(service.key)}
                   name={serviceAccessInputName(service.key)}
-                >
-                  {accessModeOptions.map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  options={accessModeOptions.map(([value, label]) => ({
+                    label,
+                    value,
+                  }))}
+                />
               </Field>
             )
           })}

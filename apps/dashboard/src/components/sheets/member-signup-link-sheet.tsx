@@ -1,13 +1,14 @@
 "use client"
 
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { MemberSignupLinkContent } from "@/components/signup-links/member-signup-link-content"
 import type {
   MemberSignupLinkView,
   SignupAccessMode,
 } from "@/components/signup-links/member-signup-link-content"
 import { MemberSignupLinkSheetHeader } from "@/components/signup-links/member-signup-link-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useMemberSignupLinkParams } from "@/hooks/use-member-signup-link-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function MemberSignupLinkSheet({
   defaultMode,
@@ -31,6 +32,10 @@ export function MemberSignupLinkSheet({
           ? "Edit signup link"
           : "Signup links"
   const isOpen = Boolean(signupLinkSheetType)
+  const presentation = getWorkflowPresentation(
+    "memberSignupLink",
+    signupLinkSheetType
+  )
 
   function closeSheet() {
     void setParams({
@@ -40,8 +45,11 @@ export function MemberSignupLinkSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={(open) => !open && closeSheet()}
+    >
         {isOpen ? (
           <>
             <MemberSignupLinkSheetHeader title={title} />
@@ -54,7 +62,6 @@ export function MemberSignupLinkSheet({
             </div>
           </>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

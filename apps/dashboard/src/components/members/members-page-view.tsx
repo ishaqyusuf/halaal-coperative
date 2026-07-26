@@ -25,7 +25,7 @@ type MemberImportColumnSettings = Awaited<
 
 function SignupLinkAction() {
   return (
-    <DashboardActionLink className="px-4" href="/member-signup-links">
+    <DashboardActionLink href="/member-signup-links">
       Open link generator
     </DashboardActionLink>
   )
@@ -122,6 +122,7 @@ export function MembersPageView({
           <MembersDataTable
             canManageMembers={data.canManageMembers}
             initialSettings={initialSettings}
+            migrationSetupMode={data.tenant?.migrationSetupMode ?? "historical_backfill"}
           />
         </Suspense>
 

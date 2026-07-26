@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { checkTenantSignupAvailability } from "@halaalvest/db"
-import { createSignupVerificationEmail } from "@halaalvest/notifications"
+import {
+  createQaNotificationPreviews,
+  createSignupVerificationEmail,
+} from "@halaalvest/notifications"
 import {
   createServerNotificationService,
   isServerEmailDeliveryConfigured,
@@ -114,6 +117,7 @@ export async function POST(request: Request) {
       emailDeliveryConfigured,
       expiresAt: payload.expiresAt,
       onboardingUrl: onboardingUrl.toString(),
+      qaPreviews: createQaNotificationPreviews([verificationDelivery]),
       verificationDelivery,
       verificationEmail,
     })

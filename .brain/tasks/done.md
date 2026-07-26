@@ -11,6 +11,9 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-07-23: Completed the ACAC full-flow local QA fixture and added a tenant-level brought-forward reconciliation snapshot so the full 1,000-member cooperative can retain ₦100m member savings, ₦1m special savings, and 5,000 share units while the detailed QA import remains a 20-member sample and member share caps remain enforced.
+- 2026-07-23: Added approved support-linked special-savings refund settlement with a dedicated withdrawal record, balanced ledger posting, member balance update, audit evidence, dashboard form, and automatic case resolution; completed the ACAC ₦50,000 excess-payment refund with zero remaining sampled special savings.
+- 2026-07-23: Allowed audited metadata-only corrections on finalized historical businesses without reopening capital/profit/date/status values, and recorded the ACAC Layer Poultry operating profile (1,000 hens, about 800 eggs daily, ₦5,000 per crate, 10% monthly operating deduction).
 - 2026-07-21: Expanded explicit QA email domain routing to every runtime, including production, while retaining validated `.test` maps, unmatched-recipient blocking, legacy-mode conflict checks, provider-envelope isolation, and routing audit metadata.
 - 2026-07-19: Added staging/preview-only QA email domain routing with explicit delivery modes, validated reserved `.test` domain maps, fail-closed unmatched recipients, provider-envelope isolation, QA message labeling, original/delivered recipient audit metadata, Trigger/Turbo environment wiring, and focused routing/transport tests.
 - 2026-07-15: Updated the marketing production setup funnel so homepage CTAs and direct `/signup` visits go through early access, admin request emails contain a signed approval API link, approval sends the cooperative a private setup link, and production `/api/signup` requires that approval token before creating the onboarding verification email.
@@ -569,3 +572,14 @@ This file records completed work and important outcomes.
 - Created Date: 2026-07-14
 - Completed Date: 2026-07-14
 - Checks: `bun test packages/notifications/src/server.test.ts`; `bun test apps/dashboard/src/lib/navigation/lib.test.ts`; `bun test packages/db/src/queries/members.test.ts`; `bun --filter @halaalvest/notifications typecheck`; `bun --filter @halaalvest/api typecheck`; `bun --filter @halaalvest/dashboard typecheck`; `bun --filter @halaalvest/db typecheck`
+
+### Workflow Sheet And Modal Presentation Audit
+
+- Priority: High
+- Description: Audited dashboard workflow sheets against Midday interaction patterns, added a typed presentation registry and shared responsive presentation shell, retained long contextual entry flows as sheets, and moved focused review, approval, import, settings, and confirmation workflows to centered presentations without changing URL parameters or backend contracts.
+- Related Feature: Workflow sheet and modal presentations
+- Status: Done
+- Plan Status: Done
+- Created Date: 2026-07-26
+- Completed Date: 2026-07-26
+- Checks: `bun test apps/dashboard/src/lib/workflow-presentations.test.ts apps/dashboard/src/lib/workflow-presentation-usage.test.ts apps/dashboard/src/lib/members/member-opening-position-modal.test.ts`; `bun --filter @halaalvest/dashboard typecheck`; dashboard lint; browser QA

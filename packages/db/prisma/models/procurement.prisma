@@ -1,38 +1,38 @@
 model ProcurementRequest {
-  id                        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId                  String                   @map("tenant_id") @db.Uuid
-  memberId                  String                   @map("member_id") @db.Uuid
-  createdByUserId           String                   @map("created_by_user_id") @db.Uuid
-  reviewedByUserId          String?                  @map("reviewed_by_user_id") @db.Uuid
-  itemName                  String                   @map("item_name")
-  itemDescription           String?                  @map("item_description")
-  vendorName                String?                  @map("vendor_name")
-  requestedCost             Decimal                  @map("requested_cost") @db.Decimal(18, 2)
-  approvedCost              Decimal?                 @map("approved_cost") @db.Decimal(18, 2)
-  requestedRepaymentMonths  Int                      @map("requested_repayment_months")
-  approvedRepaymentMonths   Int?                     @map("approved_repayment_months")
-  policyMaximumPaybackMonths Int                      @default(12) @map("policy_maximum_payback_months")
-  allowsCommitmentReductionDuringPayback Boolean      @default(false) @map("allows_commitment_reduction_during_payback")
-  estimatedMonthlyRepayment Decimal                  @map("estimated_monthly_repayment") @db.Decimal(18, 2)
-  approvedMonthlyRepayment  Decimal?                 @map("approved_monthly_repayment") @db.Decimal(18, 2)
-  status                    ProcurementRequestStatus @default(submitted)
-  requestedAt               DateTime                 @map("requested_at") @db.Timestamptz(6)
-  reviewedAt                DateTime?                @map("reviewed_at") @db.Timestamptz(6)
-  purchasedAt               DateTime?                @map("purchased_at") @db.Timestamptz(6)
-  purchasedByUserId         String?                  @map("purchased_by_user_id") @db.Uuid
-  purchaseReference         String?                  @map("purchase_reference")
-  purchaseNotes             String?                  @map("purchase_notes")
-  reviewNotes               String?                  @map("review_notes")
-  createdAt                 DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                 DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                               String                   @map("tenant_id") @db.Uuid
+  memberId                               String                   @map("member_id") @db.Uuid
+  createdByUserId                        String                   @map("created_by_user_id") @db.Uuid
+  reviewedByUserId                       String?                  @map("reviewed_by_user_id") @db.Uuid
+  itemName                               String                   @map("item_name")
+  itemDescription                        String?                  @map("item_description")
+  vendorName                             String?                  @map("vendor_name")
+  requestedCost                          Decimal                  @map("requested_cost") @db.Decimal(18, 2)
+  approvedCost                           Decimal?                 @map("approved_cost") @db.Decimal(18, 2)
+  requestedRepaymentMonths               Int                      @map("requested_repayment_months")
+  approvedRepaymentMonths                Int?                     @map("approved_repayment_months")
+  policyMaximumPaybackMonths             Int                      @default(12) @map("policy_maximum_payback_months")
+  allowsCommitmentReductionDuringPayback Boolean                  @default(false) @map("allows_commitment_reduction_during_payback")
+  estimatedMonthlyRepayment              Decimal                  @map("estimated_monthly_repayment") @db.Decimal(18, 2)
+  approvedMonthlyRepayment               Decimal?                 @map("approved_monthly_repayment") @db.Decimal(18, 2)
+  status                                 ProcurementRequestStatus @default(submitted)
+  requestedAt                            DateTime                 @map("requested_at") @db.Timestamptz(6)
+  reviewedAt                             DateTime?                @map("reviewed_at") @db.Timestamptz(6)
+  purchasedAt                            DateTime?                @map("purchased_at") @db.Timestamptz(6)
+  purchasedByUserId                      String?                  @map("purchased_by_user_id") @db.Uuid
+  purchaseReference                      String?                  @map("purchase_reference")
+  purchaseNotes                          String?                  @map("purchase_notes")
+  reviewNotes                            String?                  @map("review_notes")
+  createdAt                              DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                              DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                    Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member                    Member                   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  createdByUser             User                     @relation("ProcurementRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  reviewedByUser            User?                    @relation("ProcurementRequestReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  charges                   ChargeApplication[]
-  repaymentScheduleItems    ProcurementRepaymentScheduleItem[]
-  openingBalanceSource      MemberOpeningBalance?    @relation("MemberOpeningBalanceAppliedProcurement")
+  tenant                 Tenant                             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                 Member                             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdByUser          User                               @relation("ProcurementRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  reviewedByUser         User?                              @relation("ProcurementRequestReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  charges                ChargeApplication[]
+  repaymentScheduleItems ProcurementRepaymentScheduleItem[]
+  openingBalanceSource   MemberOpeningBalance?              @relation("MemberOpeningBalanceAppliedProcurement")
 
   @@index([tenantId, status, requestedAt], map: "procurement_requests_tenant_status_requested_idx")
   @@index([tenantId, memberId, status], map: "procurement_requests_tenant_member_status_idx")
@@ -52,9 +52,9 @@ model ProcurementRepaymentScheduleItem {
   createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member               Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  procurementRequest   ProcurementRequest      @relation(fields: [procurementRequestId], references: [id], onDelete: Cascade)
+  tenant                    Tenant                           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                    Member                           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  procurementRequest        ProcurementRequest               @relation(fields: [procurementRequestId], references: [id], onDelete: Cascade)
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
   @@unique([procurementRequestId, installmentNumber], map: "procurement_repayment_schedule_request_installment_key")

@@ -1,39 +1,39 @@
 model ProjectFinancingRequest {
-  id                      String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId                String                         @map("tenant_id") @db.Uuid
-  memberId                String                         @map("member_id") @db.Uuid
-  createdByUserId         String                         @map("created_by_user_id") @db.Uuid
-  reviewedByUserId        String?                        @map("reviewed_by_user_id") @db.Uuid
-  disbursedByUserId       String?                        @map("disbursed_by_user_id") @db.Uuid
-  businessName            String                         @map("business_name")
-  businessDescription     String?                        @map("business_description")
-  projectPurpose          String?                        @map("project_purpose")
-  proposedStructure       ProjectFinancingStructure      @default(undecided) @map("proposed_structure")
-  approvedStructure       ProjectFinancingStructure?     @map("approved_structure")
-  requestedAmount         Decimal                        @map("requested_amount") @db.Decimal(18, 2)
-  approvedAmount          Decimal?                       @map("approved_amount") @db.Decimal(18, 2)
-  requestedPaybackMonths  Int?                           @map("requested_payback_months")
-  approvedPaybackMonths   Int?                           @map("approved_payback_months")
-  estimatedMonthlyPayback Decimal?                       @map("estimated_monthly_payback") @db.Decimal(18, 2)
-  approvedMonthlyPayback  Decimal?                       @map("approved_monthly_payback") @db.Decimal(18, 2)
-  paidAmount              Decimal                         @default(0) @map("paid_amount") @db.Decimal(18, 2)
-  paidAt                  DateTime?                       @map("paid_at") @db.Timestamptz(6)
-  disbursedAt             DateTime?                       @map("disbursed_at") @db.Timestamptz(6)
-  disbursementReference   String?                         @map("disbursement_reference")
-  disbursementNotes       String?                         @map("disbursement_notes")
-  status                  ProjectFinancingRequestStatus  @default(submitted)
-  requestedAt             DateTime                       @map("requested_at") @db.Timestamptz(6)
-  reviewedAt              DateTime?                      @map("reviewed_at") @db.Timestamptz(6)
-  reviewNotes             String?                        @map("review_notes")
-  createdAt               DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                      String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                String                        @map("tenant_id") @db.Uuid
+  memberId                String                        @map("member_id") @db.Uuid
+  createdByUserId         String                        @map("created_by_user_id") @db.Uuid
+  reviewedByUserId        String?                       @map("reviewed_by_user_id") @db.Uuid
+  disbursedByUserId       String?                       @map("disbursed_by_user_id") @db.Uuid
+  businessName            String                        @map("business_name")
+  businessDescription     String?                       @map("business_description")
+  projectPurpose          String?                       @map("project_purpose")
+  proposedStructure       ProjectFinancingStructure     @default(undecided) @map("proposed_structure")
+  approvedStructure       ProjectFinancingStructure?    @map("approved_structure")
+  requestedAmount         Decimal                       @map("requested_amount") @db.Decimal(18, 2)
+  approvedAmount          Decimal?                      @map("approved_amount") @db.Decimal(18, 2)
+  requestedPaybackMonths  Int?                          @map("requested_payback_months")
+  approvedPaybackMonths   Int?                          @map("approved_payback_months")
+  estimatedMonthlyPayback Decimal?                      @map("estimated_monthly_payback") @db.Decimal(18, 2)
+  approvedMonthlyPayback  Decimal?                      @map("approved_monthly_payback") @db.Decimal(18, 2)
+  paidAmount              Decimal                       @default(0) @map("paid_amount") @db.Decimal(18, 2)
+  paidAt                  DateTime?                     @map("paid_at") @db.Timestamptz(6)
+  disbursedAt             DateTime?                     @map("disbursed_at") @db.Timestamptz(6)
+  disbursementReference   String?                       @map("disbursement_reference")
+  disbursementNotes       String?                       @map("disbursement_notes")
+  status                  ProjectFinancingRequestStatus @default(submitted)
+  requestedAt             DateTime                      @map("requested_at") @db.Timestamptz(6)
+  reviewedAt              DateTime?                     @map("reviewed_at") @db.Timestamptz(6)
+  reviewNotes             String?                       @map("review_notes")
+  createdAt               DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                  Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  member                  Member                         @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  createdByUser           User                           @relation("ProjectFinancingRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  reviewedByUser          User?                          @relation("ProjectFinancingRequestReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  disbursedByUser         User?                          @relation("ProjectFinancingRequestDisbursedBy", fields: [disbursedByUserId], references: [id], onDelete: SetNull)
-  charges                 ChargeApplication[]
+  tenant                    Tenant                           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member                    Member                           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdByUser             User                             @relation("ProjectFinancingRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  reviewedByUser            User?                            @relation("ProjectFinancingRequestReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  disbursedByUser           User?                            @relation("ProjectFinancingRequestDisbursedBy", fields: [disbursedByUserId], references: [id], onDelete: SetNull)
+  charges                   ChargeApplication[]
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
   @@index([tenantId, status, requestedAt], map: "project_financing_requests_tenant_status_requested_idx")

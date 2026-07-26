@@ -240,49 +240,64 @@ export function MigrationSetupModeContent({
   recommendedMigrationSetupMode: TenantMigrationSetupMode | null
 }) {
   return (
-    <form
-      action={updateTenantMigrationSetupAction}
-      className="grid gap-3 md:grid-cols-2"
-    >
-      {migrationSetupModeOptions.map((option) => {
-        const selected = migrationSetup.mode === option.mode
-        const recommended = recommendedMigrationSetupMode === option.mode
+    <div className="grid gap-5">
+      <form
+        action={updateTenantMigrationSetupAction}
+        className="grid gap-3 md:grid-cols-2"
+      >
+        {migrationSetupModeOptions.map((option) => {
+          const selected = migrationSetup.mode === option.mode
+          const recommended = recommendedMigrationSetupMode === option.mode
 
-        return (
-          <div
-            className={cn(
-              "flex min-h-[210px] flex-col justify-between border p-4",
-              selected
-                ? "border-primary bg-primary/5"
-                : "border-border/70 bg-muted/20"
-            )}
-            key={option.mode}
-          >
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={selected ? "default" : "secondary"}>
-                  {selected ? "Selected" : "Option"}
-                </Badge>
-                {recommended ? <Badge variant="outline">Recommended</Badge> : null}
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">{option.label}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {option.description}
-              </p>
-            </div>
-            <Button
-              className="mt-5 w-fit"
-              name="mode"
-              type="submit"
-              value={option.mode}
-              variant={selected ? "default" : "outline"}
+          return (
+            <div
+              className={cn(
+                "flex min-h-[210px] flex-col justify-between border p-4",
+                selected
+                  ? "border-primary bg-primary/5"
+                  : "border-border/70 bg-muted/20"
+              )}
+              key={option.mode}
             >
-              {selected ? "Keep selected" : `Use ${option.label}`}
-            </Button>
-          </div>
-        )
-      })}
-    </form>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={selected ? "default" : "secondary"}>
+                    {selected ? "Selected" : "Option"}
+                  </Badge>
+                  {recommended ? (
+                    <Badge variant="outline">Recommended</Badge>
+                  ) : null}
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">{option.label}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {option.description}
+                </p>
+              </div>
+              <Button
+                className="mt-5 w-fit"
+                name="mode"
+                type="submit"
+                value={option.mode}
+                variant={selected ? "default" : "outline"}
+              >
+                {selected ? "Keep selected" : `Use ${option.label}`}
+              </Button>
+            </div>
+          )
+        })}
+      </form>
+
+      {migrationSetup.mode === "brought_forward" ? (
+        <div className="border border-border/70 bg-muted/20 p-4">
+          <p className="text-sm font-medium">Totals come from member records</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Add each member&apos;s opening position after setup. Cooperative
+            savings, special savings, shares, and active-obligation totals will
+            be calculated from those reviewed member records.
+          </p>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -710,7 +725,9 @@ function FoodstuffOperationStep({
             </FieldDescription>
           </Field>
           <OperationProfileCheckboxField
-            defaultChecked={operationProfile.policy.foodPurchaseRequiresOpenCycle}
+            defaultChecked={
+              operationProfile.policy.foodPurchaseRequiresOpenCycle
+            }
             description="Members can only apply when officials open an active purchase cycle."
             name="foodPurchaseRequiresOpenCycle"
             title="Require an open cycle"
@@ -1020,7 +1037,8 @@ export function ProfitSeasonsReviewContent({
                             <div className="flex items-center justify-between gap-3 text-muted-foreground">
                               <span>{formatDate(entry.profitDate)}</span>
                               <span>
-                                deduction {formatCurrency(entry.deductionAmount)}
+                                deduction{" "}
+                                {formatCurrency(entry.deductionAmount)}
                               </span>
                             </div>
                             {entry.reason ? (
@@ -1036,7 +1054,10 @@ export function ProfitSeasonsReviewContent({
                 </TooltipProvider>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {visibleBusinessNames.map((businessName) => (
-                    <Badge key={`${season.key}-${businessName}`} variant="secondary">
+                    <Badge
+                      key={`${season.key}-${businessName}`}
+                      variant="secondary"
+                    >
                       {businessName}
                     </Badge>
                   ))}

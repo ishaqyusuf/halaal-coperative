@@ -791,7 +791,7 @@ function LoanHistoryQuickFillButton({
   )
 }
 
-function GuarantorMemberCombobox({
+export function GuarantorMemberCombobox({
   disabled,
   disabledOptionIds = [],
   invalid,
@@ -814,6 +814,7 @@ function GuarantorMemberCombobox({
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const createName = query.trim()
   const selectedOption = options.find((option) => option.id === value)
   const disabledOptionIdSet = useMemo(
@@ -873,7 +874,20 @@ function GuarantorMemberCombobox({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        if (nextOpen) {
+          window.requestAnimationFrame(() => {
+            triggerRef.current?.scrollIntoView({
+              behavior: "auto",
+              block: "center",
+            })
+          })
+        }
+      }}
+    >
       <PopoverTrigger
         render={
           <Button
@@ -885,6 +899,7 @@ function GuarantorMemberCombobox({
               !selectedOption && "text-muted-foreground"
             )}
             disabled={disabled}
+            ref={triggerRef}
             type="button"
             variant="outline"
           />
@@ -1889,6 +1904,7 @@ export function LoanHistoryEntryForm({
             pendingGuarantorTarget &&
             !isGuarantorCreateClosed
         )}
+        presentation="dialog"
         suppressBackfillPrompt
         title="Create guarantor"
       />

@@ -3,8 +3,9 @@
 import { Suspense } from "react"
 import { GuarantorApprovalContent } from "@/components/guarantor-approval-content"
 import { GuarantorApprovalSheetHeader } from "@/components/guarantor-approval-sheet-header"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useGuarantorApprovalParams } from "@/hooks/use-guarantor-approval-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function GuarantorApprovalSheet() {
   const { guarantorApprovalId, setParams } = useGuarantorApprovalParams()
@@ -19,8 +20,11 @@ export function GuarantorApprovalSheet() {
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent>
+    <WorkflowPresentation
+      config={getWorkflowPresentation("guarantorApproval", "response")}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -33,7 +37,6 @@ export function GuarantorApprovalSheet() {
             <GuarantorApprovalContent />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

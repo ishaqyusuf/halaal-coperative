@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import type {
@@ -20,6 +21,7 @@ import {
   createMemberSupportCaseAction,
   createSupportCaseAction,
   reviewSupportCaseFinancialAdjustmentAction,
+  settleSupportCaseSpecialSavingsRefundAction,
   updateSupportCaseStatusAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
@@ -220,13 +222,10 @@ export function SupportCaseCreateContent({
           />
         </Field>
         <label className="flex items-center gap-2 self-end text-sm text-muted-foreground">
-          <input
+          <Checkbox
             checked={moneyImpactRequested}
             disabled={isPending}
-            onChange={(event) =>
-              setMoneyImpactRequested(event.target.checked)
-            }
-            type="checkbox"
+            onCheckedChange={setMoneyImpactRequested}
           />
           Money impact
         </label>
@@ -271,6 +270,12 @@ export function SupportCaseUpdateContent({
   )
   const [requiresFinancialAdjustment, setRequiresFinancialAdjustment] =
     useState(supportCase.requiresFinancialAdjustment)
+  const [refundAmount, setRefundAmount] = useState("")
+  const [refundNotes, setRefundNotes] = useState("")
+  const [refundPaidAt, setRefundPaidAt] = useState(
+    new Date().toISOString().slice(0, 10)
+  )
+  const [refundReference, setRefundReference] = useState("")
   const assigneeOptions = useMemo(
     () => [
       { label: "Unassigned", value: "" },
@@ -301,6 +306,33 @@ export function SupportCaseUpdateContent({
       } catch (error) {
         showError(
           "Could not update case",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  function settleSpecialSavingsRefund() {
+    startTransition(async () => {
+      try {
+        await settleSupportCaseSpecialSavingsRefundAction(
+          objectToFormData({
+            amount: refundAmount,
+            notes: refundNotes,
+            paidAt: refundPaidAt,
+            reference: refundReference,
+            supportCaseId: supportCase.id,
+          })
+        )
+        onClose()
+        showSuccess(
+          "Refund recorded",
+          "The special-savings withdrawal was posted and the case was resolved."
+        )
+        router.refresh()
+      } catch (error) {
+        showError(
+          "Could not record refund",
           error instanceof Error ? error.message : "Something went wrong."
         )
       }
@@ -344,13 +376,10 @@ export function SupportCaseUpdateContent({
       </Field>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
+          <Checkbox
             checked={requiresFinancialAdjustment}
             disabled={isPending}
-            onChange={(event) =>
-              setRequiresFinancialAdjustment(event.target.checked)
-            }
-            type="checkbox"
+            onCheckedChange={setRequiresFinancialAdjustment}
           />
           Needs finance adjustment
         </label>
@@ -358,6 +387,83 @@ export function SupportCaseUpdateContent({
           Update case
         </Button>
       </div>
+      {supportCase.specialSavingsWithdrawal ? (
+        <div className="mt-5 rounded-lg border bg-muted/30 p-4 text-sm">
+          <p className="font-medium">Special-savings refund posted</p>
+          <p className="mt-1 text-muted-foreground">
+            {supportCase.specialSavingsWithdrawal.amount.toLocaleString("en-NG", {
+              currency: "NGN",
+              style: "currency",
+            })}{" "}
+            on{" "}
+            {supportCase.specialSavingsWithdrawal.paidAt.toLocaleDateString(
+              "en-NG"
+            )}
+            . Reference: {supportCase.specialSavingsWithdrawal.reference}
+          </p>
+        </div>
+      ) : supportCase.requiresFinancialAdjustment &&
+        supportCase.financialAdjustmentApprovalStatus === "approved" ? (
+        <div className="mt-5 rounded-lg border p-4">
+          <p className="font-medium">Post special-savings refund</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Record the bank payment. This posts the withdrawal to the ledger and
+            resolves the support case.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <Field label="Refund amount">
+              <Input
+                disabled={isPending}
+                inputMode="decimal"
+                min="0.01"
+                onChange={(event) => setRefundAmount(event.target.value)}
+                placeholder="50000"
+                step="0.01"
+                type="number"
+                value={refundAmount}
+              />
+            </Field>
+            <Field label="Payment date">
+              <Input
+                disabled={isPending}
+                onChange={(event) => setRefundPaidAt(event.target.value)}
+                type="date"
+                value={refundPaidAt}
+              />
+            </Field>
+            <Field className="sm:col-span-2" label="Bank/payment reference">
+              <Input
+                disabled={isPending}
+                onChange={(event) => setRefundReference(event.target.value)}
+                placeholder="Transfer reference"
+                value={refundReference}
+              />
+            </Field>
+            <Field className="sm:col-span-2" label="Resolution note">
+              <Textarea
+                disabled={isPending}
+                onChange={(event) => setRefundNotes(event.target.value)}
+                placeholder="Optional note shown as the case resolution"
+                value={refundNotes}
+              />
+            </Field>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button
+              disabled={
+                isPending ||
+                !refundAmount ||
+                !refundPaidAt ||
+                !refundReference.trim()
+              }
+              onClick={settleSpecialSavingsRefund}
+              type="button"
+            >
+              Record refund and resolve
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }
@@ -577,13 +683,10 @@ export function MemberSupportCaseCreateContent({
         />
       </Field>
       <label className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-        <input
+        <Checkbox
           checked={moneyImpactRequested}
           disabled={isPending}
-          onChange={(event) =>
-            setMoneyImpactRequested(event.target.checked)
-          }
-          type="checkbox"
+          onCheckedChange={setMoneyImpactRequested}
         />
         This may affect my payment or balance
       </label>

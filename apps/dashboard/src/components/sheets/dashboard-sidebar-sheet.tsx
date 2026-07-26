@@ -16,7 +16,7 @@ export function DashboardSidebarSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="left"
-        className="w-[min(calc(100vw-2rem),22rem)] max-w-[calc(100vw-2rem)] md:hidden"
+        className="w-[min(calc(100vw-2rem),22rem)] max-w-[calc(100vw-2rem)] overflow-hidden md:hidden"
       >
         {children}
       </SheetContent>

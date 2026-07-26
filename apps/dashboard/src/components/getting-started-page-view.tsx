@@ -27,10 +27,10 @@ import {
 import { Separator } from "@halaalvest/ui/components/separator"
 import { cn } from "@halaalvest/ui/lib/utils"
 import type {
-  TenantOperationProfileReadModel,
   TenantBusinessProfitPolicySettings,
   TenantMigrationSetupMode,
   TenantMigrationSetupSettings,
+  TenantOperationProfileReadModel,
   TenantSharePolicySettings,
 } from "@halaalvest/db"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
@@ -390,17 +390,25 @@ function isStepComplete(
   return !missing.has("finalization")
 }
 
-function getStepMeta(key: GettingStartedStepKey) {
+function getStepMeta(
+  key: GettingStartedStepKey,
+  migrationMode: TenantMigrationSetupMode
+) {
+  const isBroughtForward = migrationMode === "brought_forward"
   const meta = {
     "admin-member": {
-      description:
-        "Choose full historical backfill or a brought-forward opening position for the registered admin, then repeat it for every member.",
-      label: "Member onboarding",
+      description: isBroughtForward
+        ? "Capture the current opening position for the registered admin, then repeat it for every member."
+        : "Complete historical backfill for the registered admin, then repeat it for every member.",
+      label: isBroughtForward ? "Member opening positions" : "Member onboarding",
     },
     business: {
-      description:
-        "Optionally record business pools, profits, expenses, and the explicit no-history decision when there are none.",
-      label: "Business and profits (optional)",
+      description: isBroughtForward
+        ? "Record businesses participating in the current profit-sharing season."
+        : "Record historical business pools, profits, and expenses.",
+      label: isBroughtForward
+        ? "Current-season businesses"
+        : "Business and profits",
     },
     "profit-seasons": {
       description:
@@ -408,9 +416,10 @@ function getStepMeta(key: GettingStartedStepKey) {
       label: "Dividend sharing review",
     },
     charges: {
-      description:
-        "Set active cooperative charges and dated history before member backfill can be trusted.",
-      label: "Charges and history",
+      description: isBroughtForward
+        ? "Set the active charges members will pay from the opening date onward."
+        : "Set cooperative charges and their dated history for member backfill.",
+      label: isBroughtForward ? "Current charges" : "Charges and history",
     },
     review: {
       description:
@@ -418,14 +427,18 @@ function getStepMeta(key: GettingStartedStepKey) {
       label: "Review and go live",
     },
     shares: {
-      description:
-        "Optionally define share capital history when it should affect member ledgers.",
-      label: "Shares and history (optional)",
+      description: isBroughtForward
+        ? "Set the cooperative's current share model and active terms."
+        : "Define share capital history when it should affect member ledgers.",
+      label: isBroughtForward ? "Current share model" : "Shares and history",
     },
     "profit-policy": {
-      description:
-        "Set the dividend or profit-sharing season used before member migration and future allocations.",
-      label: "Profit-sharing season",
+      description: isBroughtForward
+        ? "Set the rules for the current and future profit-sharing seasons."
+        : "Set the dividend season used by historical and future allocations.",
+      label: isBroughtForward
+        ? "Current profit-sharing policy"
+        : "Profit-sharing season",
     },
     "start-date": {
       description:
@@ -461,6 +474,10 @@ function formatDate(value: string | null) {
 function stepHref(key: GettingStartedStepKey) {
   if (key === "operation-profile") {
     return operationProfileStepHref(firstOperationProfileStep)
+  }
+
+  if (key === "admin-member") {
+    return "/onboarding-success"
   }
 
   return `?step=${key}`
@@ -540,7 +557,7 @@ function StepRail({
               {group.label}
             </p>
             {group.steps.map((key) => {
-              const meta = getStepMeta(key)
+              const meta = getStepMeta(key, migrationSetup.mode)
               const complete = isStepComplete(
                 key,
                 snapshot,
@@ -664,7 +681,9 @@ function MigrationSetupModeStep({
   tenantName,
 }: Pick<
   GettingStartedPageViewProps,
-  "migrationSetup" | "recommendedMigrationSetupMode" | "tenantName"
+  | "migrationSetup"
+  | "recommendedMigrationSetupMode"
+  | "tenantName"
 >) {
   return (
     <Card>
@@ -684,14 +703,21 @@ function MigrationSetupModeStep({
 }
 
 function StartDateStep({
+  migrationSetup,
   tenantStartDate,
-}: Pick<GettingStartedPageViewProps, "tenantStartDate">) {
+}: Pick<GettingStartedPageViewProps, "migrationSetup" | "tenantStartDate">) {
+  const isBroughtForward = migrationSetup.mode === "brought_forward"
+
   return (
     <Card>
       <SetupCardHeader
         eyebrow="Step 2"
         title="Enter or confirm the cooperative start date"
-        description="This date becomes the lower bound for historical finance setup and member migration rows."
+        description={
+          isBroughtForward
+            ? "Confirm when the cooperative began. Current opening balances and obligations will be captured separately as of the brought-forward date."
+            : "This date becomes the lower bound for historical finance setup and member migration rows."
+        }
       />
       <CardContent className="grid gap-5">
         <GettingStartedStartDateContent tenantStartDate={tenantStartDate} />
@@ -702,18 +728,32 @@ function StartDateStep({
 
 function ChargesStep({
   chargeDefinitions,
+  migrationSetup,
   quickFillEnabled,
   tenantStartDate,
 }: Pick<
   GettingStartedPageViewProps,
-  "chargeDefinitions" | "quickFillEnabled" | "tenantStartDate"
+  | "chargeDefinitions"
+  | "migrationSetup"
+  | "quickFillEnabled"
+  | "tenantStartDate"
 >) {
+  const isBroughtForward = migrationSetup.mode === "brought_forward"
+
   return (
     <Card>
       <SetupCardHeader
         eyebrow="Step 3"
-        title="Cooperative charges and history"
-        description="Create the charge definitions and dated amount changes that member migration will deduct."
+        title={
+          isBroughtForward
+            ? "Current cooperative charges"
+            : "Cooperative charges and history"
+        }
+        description={
+          isBroughtForward
+            ? "Enter the active charges and current amounts members will pay from the brought-forward opening date onward. You do not need to recreate old charge changes."
+            : "Create the charge definitions and dated amount changes that member migration will deduct."
+        }
       />
       <CardContent className="grid gap-5">
         <GettingStartedChargesContent
@@ -728,19 +768,29 @@ function ChargesStep({
 }
 
 function SharesStep({
+  migrationSetup,
   sharePolicy,
   shareStructureVersions,
   tenantStartDate,
 }: Pick<
   GettingStartedPageViewProps,
-  "sharePolicy" | "shareStructureVersions" | "tenantStartDate"
+  | "migrationSetup"
+  | "sharePolicy"
+  | "shareStructureVersions"
+  | "tenantStartDate"
 >) {
+  const isBroughtForward = migrationSetup.mode === "brought_forward"
+
   return (
     <Card>
       <SetupCardHeader
         eyebrow="Step 4"
         title="Shares system"
-        description="Choose the cooperative share model before member balances are brought forward."
+        description={
+          isBroughtForward
+            ? "Choose the current share model and enter the terms that apply from the brought-forward opening date. Existing member share balances are captured later as opening positions."
+            : "Choose the cooperative share model and enter its dated history before member backfill."
+        }
       />
       <CardContent className="grid gap-5">
         <GettingStartedShareModelPanel
@@ -756,14 +806,24 @@ function SharesStep({
 
 function ProfitPolicyStep({
   businessPolicy,
+  migrationSetup,
   quickFillEnabled,
-}: Pick<GettingStartedPageViewProps, "businessPolicy" | "quickFillEnabled">) {
+}: Pick<
+  GettingStartedPageViewProps,
+  "businessPolicy" | "migrationSetup" | "quickFillEnabled"
+>) {
+  const isBroughtForward = migrationSetup.mode === "brought_forward"
+
   return (
     <Card>
       <SetupCardHeader
         eyebrow="Step 5"
         title="Profit-sharing season"
-        description="Set the distribution calendar that migration and future profit allocations use."
+        description={
+          isBroughtForward
+            ? "Set the distribution calendar and allocation rules for the current profit-sharing season and future seasons."
+            : "Set the distribution calendar that historical migration and future profit allocations use."
+        }
       />
       <CardContent className="grid gap-5">
         <GettingStartedProfitPolicyContent
@@ -798,7 +858,7 @@ function BusinessStep({
         }
         description={
           isBroughtForward
-            ? "Enter only active businesses and profits that have not yet been shared. Already-shared historical profit should already be reflected in member balances."
+            ? "Enter the businesses participating in the current profit-sharing season. Capture their current capital and any profit earned in this season so it can be reviewed and shared in the future; do not recreate older completed seasons."
             : "Capture every historical business profit pool before member backfill so dividend allocations can be reviewed with the ledger."
         }
       />
@@ -814,6 +874,17 @@ function BusinessStep({
           setupMode={migrationSetup.mode}
           shareBusinesses={shareBusinesses}
         />
+        {isBroughtForward && shareBusinesses.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No ongoing businesses or unshared profits to bring forward?{" "}
+            <Link
+              className="font-medium text-foreground underline underline-offset-4"
+              href={stepHref("admin-member")}
+            >
+              Continue without businesses
+            </Link>
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   )
@@ -882,21 +953,22 @@ function ProfitSeasonsStep({
   )
 }
 
-function AdminMemberStep(props: GettingStartedPageViewProps) {
+function AdminMemberHandoffCard(
+  props: Pick<
+    GettingStartedPageViewProps,
+    "adminMember" | "memberOptions" | "migrationSetup" | "tenantName"
+  >
+) {
   const { adminMember, memberOptions, migrationSetup, tenantName } = props
   const isBroughtForward = migrationSetup.mode === "brought_forward"
-  const backfillHref = adminMember
-    ? `/members/${adminMember.id}/backfill?step=baseline`
-    : "/settings/imports/members"
-  const broughtForwardHref = adminMember
-    ? getMemberMigrationStartHref(adminMember.id, "brought_forward")
-    : "/settings/imports/members"
   const primaryMemberMigrationHref = adminMember
     ? getMemberMigrationStartHref(adminMember.id, migrationSetup.mode)
     : "/settings/imports/members"
   const onboardingSteps = [
     {
-      body: "Confirm identity, joined date, member number, and whether the member starts from full history or a brought-forward position.",
+      body: isBroughtForward
+        ? "Confirm identity, joined date, and member number before recording the member's brought-forward opening position."
+        : "Confirm identity, joined date, and member number before rebuilding the member's historical records.",
       icon: ClipboardListIcon,
       label: "Confirm profile",
     },
@@ -943,7 +1015,11 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
             className={buttonVariants({})}
             href={primaryMemberMigrationHref}
           >
-            {adminMember ? "Start admin migration" : "Add members"}
+            {adminMember
+              ? isBroughtForward
+                ? "Start admin setup"
+                : "Start admin backfill"
+              : "Add admin member"}
             <ArrowRightIcon className="size-4" />
           </Link>
         </div>
@@ -1004,49 +1080,41 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="border border-border/70 bg-background p-4">
-            <Badge variant="outline">Faster start</Badge>
-            <h3 className="mt-3 text-sm font-semibold">
-              Brought-forward opening position
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Use current book balances for savings, shares, active financing,
-              procurement, and special savings when reconstructing every month
-              would slow adoption.
-            </p>
-            <Link
-              className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
-              href={broughtForwardHref}
-            >
-              {adminMember ? "Start brought-forward" : "Add members first"}
-            </Link>
-          </div>
-          <div className="border border-border/70 bg-background p-4">
-            <Badge variant="outline">Detailed audit</Badge>
-            <h3 className="mt-3 text-sm font-semibold">
-              Full historical backfill
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Recreate dated commitments, charges, legacy loans, repayments,
-              activity windows, and profit adjustments when the cooperative
-              needs month-by-month history.
-            </p>
-            <Link
-              className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
-              href={backfillHref}
-            >
-              {adminMember ? "Start full backfill" : "Add members first"}
-            </Link>
-          </div>
+        <div className="border border-border/70 bg-background p-4">
+          <Badge variant="outline">
+            {isBroughtForward ? "Selected setup mode" : "Detailed audit"}
+          </Badge>
+          <h3 className="mt-3 text-sm font-semibold">
+            {isBroughtForward
+              ? "Brought-forward opening position"
+              : "Full historical backfill"}
+          </h3>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            {isBroughtForward
+              ? "Capture current book balances for savings, shares, active financing, procurement, Foodstuff Purchase, and special savings. Historical month-by-month backfill is not part of this setup path."
+              : "Recreate dated commitments, charges, legacy loans, repayments, activity windows, and profit adjustments for the cooperative's historical period."}
+          </p>
+          <Link
+            className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
+            href={primaryMemberMigrationHref}
+          >
+            {adminMember
+              ? isBroughtForward
+                ? "Start brought-forward"
+                : "Start full backfill"
+              : "Add members first"}
+          </Link>
         </div>
 
         <div className="border border-border/70">
           <div className="border-b border-border/70 px-4 py-3">
             <p className="text-sm font-semibold">Onboard every member</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Continue either migration path for each member while normal live
-              operations stay available after setup finalization.
+              Continue the selected{" "}
+              {isBroughtForward
+                ? "brought-forward opening-position"
+                : "historical-backfill"}{" "}
+              workflow for each member.
             </p>
           </div>
           <div className="grid divide-y divide-border/70 md:grid-cols-3 md:divide-x md:divide-y-0">
@@ -1076,6 +1144,29 @@ function AdminMemberStep(props: GettingStartedPageViewProps) {
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+export function OnboardingSuccessView(
+  props: Pick<
+    GettingStartedPageViewProps,
+    "adminMember" | "memberOptions" | "migrationSetup" | "tenantName"
+  >
+) {
+  const isBroughtForward = props.migrationSetup.mode === "brought_forward"
+
+  return (
+    <WorkspacePageShell
+      eyebrow="Onboarding successful"
+      title="You’re all set"
+      description={`${props.tenantName}'s cooperative setup is complete. ${
+        isBroughtForward
+          ? "Start by bringing the admin's current position forward."
+          : "Start by rebuilding the admin's historical records."
+      }`}
+    >
+      <AdminMemberHandoffCard {...props} />
+    </WorkspacePageShell>
   )
 }
 
@@ -1158,19 +1249,19 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
   const nextStep =
     props.activeStep === "admin-member"
       ? undefined
-      : props.activeStep === "profit-seasons"
+      : props.activeStep === "business" &&
+          props.migrationSetup.mode === "brought_forward"
         ? "admin-member"
-        : orderedStepKeys[activeIndex + 1]
+        : props.activeStep === "profit-seasons"
+          ? "admin-member"
+          : orderedStepKeys[activeIndex + 1]
   const requireHistoryConfirmation =
     props.activeStep === "charges" && props.chargeDefinitions.length === 0
-  const businessStepCanUsePlainNext =
-    props.activeStep === "business" &&
-    props.migrationSetup.mode === "brought_forward" &&
-    props.shareBusinesses.length === 0
   const hasStepNextAction =
     props.activeStep === "operation-profile" ||
-    ["charges", "shares", "profit-policy"].includes(props.activeStep) ||
-    (props.activeStep === "business" && !businessStepCanUsePlainNext) ||
+    ["charges", "shares", "profit-policy", "business"].includes(
+      props.activeStep
+    ) ||
     (props.activeStep === "profit-seasons" &&
       props.businessProfitSeasons.length > 0)
 
@@ -1189,15 +1280,20 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
           tenantName={props.tenantName}
         />
       ) : props.activeStep === "start-date" ? (
-        <StartDateStep tenantStartDate={props.tenantStartDate} />
+        <StartDateStep
+          migrationSetup={props.migrationSetup}
+          tenantStartDate={props.tenantStartDate}
+        />
       ) : props.activeStep === "charges" ? (
         <ChargesStep
           chargeDefinitions={props.chargeDefinitions}
+          migrationSetup={props.migrationSetup}
           quickFillEnabled={props.quickFillEnabled}
           tenantStartDate={props.tenantStartDate}
         />
       ) : props.activeStep === "shares" ? (
         <SharesStep
+          migrationSetup={props.migrationSetup}
           sharePolicy={props.sharePolicy}
           shareStructureVersions={props.shareStructureVersions}
           tenantStartDate={props.tenantStartDate}
@@ -1205,6 +1301,7 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
       ) : props.activeStep === "profit-policy" ? (
         <ProfitPolicyStep
           businessPolicy={props.businessPolicy}
+          migrationSetup={props.migrationSetup}
           quickFillEnabled={props.quickFillEnabled}
         />
       ) : props.activeStep === "business" ? (
@@ -1222,7 +1319,7 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
           tenantName={props.tenantName}
         />
       ) : props.activeStep === "admin-member" ? (
-        <AdminMemberStep {...props} />
+        <AdminMemberHandoffCard {...props} />
       ) : (
         <ReviewStep
           migrationSnapshot={props.migrationSnapshot}
@@ -1277,7 +1374,11 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
       }
       eyebrow="Initial migration"
       title="Getting started"
-      description={`Choose how ${tenantName} will enter existing records, then complete the setup gates before normal workspace records open.`}
+      description={
+        props.migrationSetup.mode === "brought_forward"
+          ? `Set ${tenantName}'s current policies, active obligations, ongoing businesses, and opening member positions before normal workspace records open.`
+          : `Rebuild ${tenantName}'s historical records, then complete the setup gates before normal workspace records open.`
+      }
     >
       <section
         className={cn(

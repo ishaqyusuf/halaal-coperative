@@ -3,7 +3,6 @@
 import { useState } from "react"
 import type { TenantMigrationSetupMode } from "@halaalvest/db"
 import { Button } from "@halaalvest/ui/components/button"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { useRouter } from "next/navigation"
 import type {
   CreatedMemberSummary,
@@ -13,6 +12,7 @@ import { MemberContent } from "@/components/member-content"
 import { MemberBackfillStartSheet } from "@/components/sheets/member-backfill-start-sheet"
 import { MemberSheetFormProvider } from "@/components/member/form-context"
 import { MemberSheetHeader } from "@/components/member-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useCreateMemberParams } from "@/hooks/use-create-member-params"
 import {
   getMemberMigrationStartHref,
@@ -32,6 +32,7 @@ export function MemberCreateSheet({
   onOpenChange,
   onSuccess,
   open,
+  presentation = "sheet",
   suppressBackfillPrompt = false,
   title = "Create member",
   triggerLabel = "New member",
@@ -47,6 +48,7 @@ export function MemberCreateSheet({
   onOpenChange?: (open: boolean) => void
   onSuccess?: (member: CreatedMemberSummary) => void
   open?: boolean
+  presentation?: "dialog" | "sheet"
   suppressBackfillPrompt?: boolean
   title?: string
   triggerLabel?: string
@@ -106,47 +108,56 @@ export function MemberCreateSheet({
     setPendingBackfillMember(null)
   }
 
+  const memberForm = (
+    <div className="max-h-[calc(100vh-2rem)] overflow-y-auto p-4">
+      <MemberSheetFormProvider
+        value={{
+          canManageCollectionSources,
+          collectionSourceOptions,
+          cooperativeStartDate,
+          devMode,
+          initialValues,
+          memberNumberPrefix,
+          migrationSetupMode,
+        }}
+      >
+        <MemberSheetHeader
+          description={description}
+          presentation={presentation}
+          sheetType="create"
+          title={title}
+        />
+        <MemberContent
+          key={`${initialValues?.fullName ?? ""}-${sheetOpen ? "open" : "closed"}`}
+          onCreated={handleMemberCreated}
+          sheetType="create"
+        />
+      </MemberSheetFormProvider>
+    </div>
+  )
+
   return (
     <>
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        {!isControlled ? (
-          <Button
-            type="button"
-            variant={sheetOpen ? "default" : "outline"}
-            className="rounded-full"
-            onClick={() => setSheetOpen(true)}
-          >
-            {triggerLabel}
-          </Button>
-        ) : null}
-
-        <SheetContent className="max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] overflow-hidden p-0 sm:w-full sm:max-w-[455px]">
-          <div className="max-h-[calc(100vh-2rem)] overflow-y-auto p-4">
-            <MemberSheetFormProvider
-              value={{
-                canManageCollectionSources,
-                collectionSourceOptions,
-                cooperativeStartDate,
-                devMode,
-                initialValues,
-                memberNumberPrefix,
-                migrationSetupMode,
-              }}
-            >
-              <MemberSheetHeader
-                description={description}
-                sheetType="create"
-                title={title}
-              />
-              <MemberContent
-                key={`${initialValues?.fullName ?? ""}-${sheetOpen ? "open" : "closed"}`}
-                onCreated={handleMemberCreated}
-                sheetType="create"
-              />
-            </MemberSheetFormProvider>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {!isControlled ? (
+        <Button
+          onClick={() => setSheetOpen(true)}
+          type="button"
+          variant={sheetOpen ? "default" : "outline"}
+        >
+          {triggerLabel}
+        </Button>
+      ) : null}
+      <WorkflowPresentation
+        className="overflow-hidden p-0"
+        config={{
+          presentation,
+          width: presentation === "dialog" ? "form" : "compact",
+        }}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+      >
+        {memberForm}
+      </WorkflowPresentation>
 
       <MemberBackfillStartSheet
         member={pendingBackfillMember}

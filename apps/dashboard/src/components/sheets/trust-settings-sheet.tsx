@@ -1,11 +1,12 @@
 "use client"
 
 import { Suspense } from "react"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import type { TenantTrustProfileForm } from "@/components/forms/settings-forms"
 import { TrustSettingsContent } from "@/components/trust-settings-content"
 import { TrustSettingsSheetHeader } from "@/components/trust-settings-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useTrustSettingsParams } from "@/hooks/use-trust-settings-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 type TenantTrustProfileFormProps = Parameters<typeof TenantTrustProfileForm>[0]
 
@@ -24,8 +25,11 @@ export function TrustSettingsSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={getWorkflowPresentation("trust", "edit")}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -38,7 +42,6 @@ export function TrustSettingsSheet({
             <TrustSettingsContent defaultValues={defaultValues} />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

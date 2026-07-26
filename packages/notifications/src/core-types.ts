@@ -54,8 +54,30 @@ export type NotificationEmailDraft = {
   bodyText: string
   notificationType: string
   previewText: string
+  qaArtifacts?: NotificationQaArtifact[]
   recipient: NotificationRecipient
   subject: string
+}
+
+export type NotificationQaArtifact =
+  | {
+      kind: "link"
+      label: string
+      value: string
+    }
+  | {
+      expiresAt?: string
+      kind: "otp"
+      label: string
+      value: string
+    }
+
+export type QaNotificationPreview = {
+  artifacts: NotificationQaArtifact[]
+  deliveryStatus: NotificationEmailDelivery["status"]
+  id: string
+  notificationType: string
+  recipient: string
 }
 
 export type NotificationEmailDelivery = {

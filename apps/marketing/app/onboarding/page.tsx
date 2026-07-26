@@ -1,15 +1,10 @@
 import Link from "next/link"
 import { buttonVariants } from "@halaalvest/ui/components/button"
+import { resolveQaQuickFillContext } from "@halaalvest/utils"
 import { OnboardingForm } from "@/components/signup/onboarding-form"
 import { SignupShell } from "@/components/signup/signup-shell"
 import { verifySignedSignupToken } from "@/lib/signup-token"
-
-function canShowOnboardingDevFill(email: string) {
-  return (
-    process.env.NODE_ENV !== "production" ||
-    email.toLowerCase().includes("@test.com")
-  )
-}
+import { getServerQaEmailDomains } from "@/lib/server-notifications"
 
 function getVerificationErrorMessage(error: unknown) {
   return error instanceof Error
@@ -78,7 +73,11 @@ export default async function OnboardingPage({
   }
 
   const verification = verificationResult.value
-  const devMode = canShowOnboardingDevFill(verification.primaryContactEmail)
+  const quickFill = resolveQaQuickFillContext({
+    authenticatedEmail: verification.primaryContactEmail,
+    configuredDomains: getServerQaEmailDomains(),
+    isDevelopment: process.env.NODE_ENV !== "production",
+  })
 
   return (
     <SignupShell
@@ -87,7 +86,7 @@ export default async function OnboardingPage({
       description="The verified admin is confirmed. Save the operating profile and first password, then move into guided dashboard setup."
     >
       <OnboardingForm
-        devMode={devMode}
+        quickFill={quickFill}
         token={token}
         verification={verification}
       />

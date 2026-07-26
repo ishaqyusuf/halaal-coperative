@@ -25,6 +25,7 @@ import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { z } from "zod"
 import { objectToFormData } from "@/lib/form-submit"
 import { saveTenantOperationProfileAction } from "@/lib/dashboard-actions"
+import { navigateWithFreshWizardState } from "@/lib/getting-started/navigate-with-fresh-state"
 
 const operationProfileWizardSchema = z.object({
   changeReason: z.string().optional(),
@@ -99,7 +100,7 @@ export function OperationProfileWizardForm({
     startTransition(async () => {
       try {
         await saveTenantOperationProfileAction(formData)
-        router.push(nextHref)
+        navigateWithFreshWizardState(router, nextHref)
       } catch (error) {
         showError(
           "Could not save operation profile",

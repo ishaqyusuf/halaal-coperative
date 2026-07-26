@@ -340,15 +340,17 @@ function mapFinanceShareRows(
     ReturnType<typeof getTenantFinanceSetup>
   >["shareStructureVersions"]
 ): FinanceShareRow[] {
-  return rows.map((version: any, index: number): FinanceShareRow => ({
-    amount: Number(version.amount),
-    basis: version.basis ?? "after_charge_deductions",
-    effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
-    id: version.id,
-    isCurrent: index === rows.length - 1,
-    notes: version.notes ?? null,
-    valueType: version.valueType ?? "fixed_amount",
-  }))
+  return rows.map(
+    (version: any, index: number): FinanceShareRow => ({
+      amount: Number(version.amount),
+      basis: version.basis ?? "after_charge_deductions",
+      effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
+      id: version.id,
+      isCurrent: index === rows.length - 1,
+      notes: version.notes ?? null,
+      valueType: version.valueType ?? "fixed_amount",
+    })
+  )
 }
 
 function filterFinanceShareRows(
@@ -510,7 +512,7 @@ export const chargesRouter = createTRPCRouter({
     .input(
       z.object({
         name: z.string().min(1),
-        code: z.string().min(1),
+        code: z.string().min(1).optional(),
         kind: z.enum(["fixed", "percentage"]),
         amount: z.number().positive(),
         effectiveFrom: z.coerce.date().optional(),

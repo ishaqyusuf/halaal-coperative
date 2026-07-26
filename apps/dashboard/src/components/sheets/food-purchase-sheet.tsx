@@ -5,7 +5,6 @@ import type {
   FoodPurchaseApplicationRow,
   FoodPurchaseCycleRow,
 } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { useQuery } from "@tanstack/react-query"
 import {
   FoodPurchaseAccountingContent,
@@ -17,8 +16,10 @@ import {
   type FoodPurchaseOption,
 } from "@/components/food-purchase-content"
 import { FoodPurchaseSheetHeader } from "@/components/food-purchase-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import type { WorkflowChargeOption } from "@/components/workflow-charge-summary"
 import { useFoodPurchaseParams } from "@/hooks/use-food-purchase-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
 type FoodPurchaseSheetType =
@@ -68,6 +69,10 @@ export function FoodPurchaseSheet({
     setParams,
   } = useFoodPurchaseParams()
   const isOpen = isFoodPurchaseSheetType(foodPurchaseSheetType)
+  const presentation = getWorkflowPresentation(
+    "foodPurchase",
+    foodPurchaseSheetType
+  )
   const selectedRouteApplication = applications.find(
     (application) => application.id === foodPurchaseApplicationId
   )
@@ -95,8 +100,11 @@ export function FoodPurchaseSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={(open) => !open && closeSheet()}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -157,7 +165,6 @@ export function FoodPurchaseSheet({
             </div>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

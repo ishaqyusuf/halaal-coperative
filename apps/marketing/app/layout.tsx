@@ -1,5 +1,6 @@
 import "@halaalvest/ui/globals.css"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
+import { QaPreviewFlashConsumer } from "@/components/qa-preview-flash-consumer"
 import { getMarketingConfig } from "@/lib/marketing-config"
 import "./readability.css"
 
@@ -47,7 +48,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="font-sans antialiased">
       <body>
-        <NotificationsProvider>{children}</NotificationsProvider>
+        <NotificationsProvider>
+          {children}
+          <QaPreviewFlashConsumer />
+        </NotificationsProvider>
       </body>
     </html>
   )

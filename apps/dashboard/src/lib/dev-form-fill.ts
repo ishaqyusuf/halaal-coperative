@@ -1,5 +1,7 @@
 "use client"
 
+import { buildQaEmail, normalizeCooperativeQaSlug } from "@halaalvest/utils"
+
 type FieldValues = Record<string, unknown>
 
 type DashboardFormReset<TFieldValues> = {
@@ -159,21 +161,45 @@ const dashboardDevFormDefaults = {
 
 export type DashboardDevFormKind = keyof typeof dashboardDevFormDefaults
 
-export function getDashboardRandomDevFormFill<TFieldValues extends FieldValues>(kind: DashboardDevFormKind) {
-  if (kind === "member_create") {
-    return createRandomMemberCreateDefaults() as unknown as TFieldValues
+export function getDashboardRandomDevFormFill<
+  TFieldValues extends FieldValues,
+>(
+  kind: DashboardDevFormKind,
+  options?: { emailDomain?: string },
+) {
+  const defaults =
+    kind === "member_create"
+      ? createRandomMemberCreateDefaults()
+      : dashboardDevFormDefaults[kind]
+  const emailDomain = options?.emailDomain
+
+  if (emailDomain && "email" in defaults && typeof defaults.email === "string") {
+    const fullName =
+      "fullName" in defaults && typeof defaults.fullName === "string"
+        ? defaults.fullName
+        : "qa-user"
+    const uniqueLocalPart = `${normalizeCooperativeQaSlug(fullName)}-${randomInt(
+      1000,
+      999999,
+    )}`
+
+    return {
+      ...defaults,
+      email: buildQaEmail(uniqueLocalPart, emailDomain),
+    } as unknown as TFieldValues
   }
 
-  return dashboardDevFormDefaults[kind] as unknown as TFieldValues
+  return defaults as unknown as TFieldValues
 }
 
 export function applyDashboardDevFormFill<TFieldValues extends FieldValues>(
   form: DashboardFormReset<TFieldValues>,
   kind: DashboardDevFormKind,
   overrides?: Partial<TFieldValues>,
+  options?: { emailDomain?: string },
 ) {
   form.reset(({
-    ...dashboardDevFormDefaults[kind],
+    ...getDashboardRandomDevFormFill(kind, options),
     ...overrides,
   } as unknown) as TFieldValues)
 }
@@ -182,9 +208,10 @@ export function applyDashboardRandomDevFormFill<TFieldValues extends FieldValues
   form: DashboardFormReset<TFieldValues>,
   kind: DashboardDevFormKind,
   overrides?: Partial<TFieldValues>,
+  options?: { emailDomain?: string },
 ) {
   form.reset(({
-    ...getDashboardRandomDevFormFill<TFieldValues>(kind),
+    ...getDashboardRandomDevFormFill<TFieldValues>(kind, options),
     ...overrides,
   } as unknown) as TFieldValues)
 }

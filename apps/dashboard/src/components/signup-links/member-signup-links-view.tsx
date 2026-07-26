@@ -54,10 +54,10 @@ export function MemberSignupLinksView({
     <WorkspacePageShell
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <DashboardActionLink className="px-4" href="#create-signup-link">
+          <DashboardActionLink href="#create-signup-link">
             Create link
           </DashboardActionLink>
-          <DashboardActionLink className="px-4" href="#signup-access-mode">
+          <DashboardActionLink href="#signup-access-mode">
             Signup gate
           </DashboardActionLink>
         </div>

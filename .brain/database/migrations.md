@@ -23,6 +23,7 @@ This file records migration history, rationale, and rollout notes.
 - Tenant Operation Profile persistence was added in `packages/db/prisma/migrations/20260712120000_add_tenant_operation_profile/`.
 - Collection Source contribution batch posting was added in `packages/db/prisma/migrations/20260712130000_add_collection_source_contribution_batches/`.
 - 2026-07-15: `member_opening_balances` gained detailed brought-forward obligation columns for active financing, procurement, and Foodstuff Purchase current/last obligations. Local `bun run db:push --local` was applied after `bun run db:migrate` stopped on pre-existing local drift; a formal migration should be generated once that drift is resolved safely.
+- 2026-07-23: Added `tenant_brought_forward_snapshots` for cooperative-wide brought-forward reconciliation totals. `bun db:migrate` was attempted but stopped on the same pre-existing local drift without resetting data; `bun db:push` then applied the additive table successfully.
 
 ## History
 - 2026-04-13: Generated `20260413115737_init` as the first full cooperative schema migration.
@@ -37,6 +38,8 @@ This file records migration history, rationale, and rollout notes.
 - 2026-07-12: Added `20260712120000_add_tenant_operation_profile` with `TenantServiceAccessMode`, `TenantServiceKey`, `tenant_operation_profiles`, `tenant_service_settings`, Operation Profile review metadata, and procurement/Foodstuff Purchase active-obligation policy columns so cooperatives can configure how services operate without deleting historical records.
 - 2026-07-12: Added `20260712130000_add_collection_source_contribution_batches` with collection-source batch and row statuses plus `collection_source_contribution_batches` / `collection_source_contribution_batch_rows` so payroll/ministry/employer/manual source collections can be staged, exception-reviewed, and posted into normal contributions with audit evidence.
 - 2026-07-15: Added schema fields in `packages/db/prisma/models/backfill.prisma` for brought-forward active financing original amount/repayment plan/paid installments, procurement item/date/original amount/repayment plan/paid installments, and Foodstuff Purchase item/date/original amount/repayment plan/paid installments. Local `db:push --local` succeeded; `db:migrate` did not create a migration because Prisma detected unrelated drift in the local development database and requested a reset, which was intentionally not performed.
+- 2026-07-23: Added the one-to-one `TenantBroughtForwardSnapshot` model with as-of date, full member count, savings totals, share-unit count, unit-price snapshot, derived share capital, and reconciliation notes. The local schema was synchronized with `bun db:push` after the required migrate attempt detected existing drift.
+- 2026-07-23: Added `MemberSpecialSavingsWithdrawal` with tenant/member/processor ownership and one-to-one support-case and ledger-transaction links. The required `bun db:migrate` attempt again stopped on the existing local drift and requested a destructive reset, which was intentionally not performed; `bun db:push` synchronized the local QA schema successfully.
 
 ## Migration Entry Template
 - Date:

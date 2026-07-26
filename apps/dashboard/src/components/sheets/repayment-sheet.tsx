@@ -3,8 +3,9 @@
 import { Suspense } from "react"
 import { RepaymentContent } from "@/components/repayment-content"
 import { RepaymentSheetHeader } from "@/components/repayment-sheet-header"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useRepaymentParams } from "@/hooks/use-repayment-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 function isRepaymentSheetOpen(type: string | null) {
   return Boolean(type === "refresh" || type === "post" || type === "followUp")
@@ -23,7 +24,7 @@ export function RepaymentSheet({
 }) {
   const { repaymentSheetType, setParams } = useRepaymentParams()
   const isOpen = isRepaymentSheetOpen(repaymentSheetType)
-  const isWide = repaymentSheetType === "post"
+  const presentation = getWorkflowPresentation("repayment", repaymentSheetType)
 
   const handleOnOpenChange = (open: boolean) => {
     if (open) {
@@ -34,12 +35,11 @@ export function RepaymentSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent
-        className={
-          isWide ? "w-full overflow-y-auto sm:max-w-2xl" : "overflow-y-auto"
-        }
-      >
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -57,7 +57,6 @@ export function RepaymentSheet({
             />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

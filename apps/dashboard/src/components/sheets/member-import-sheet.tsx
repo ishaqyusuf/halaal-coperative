@@ -1,10 +1,11 @@
 "use client"
 
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { MemberImportContent } from "@/components/member-import-content"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useMemberParams } from "@/hooks/use-member-params"
 import type { DashboardImportReferenceData } from "@/lib/import-csv"
 import type { MemberImportColumnSettings } from "@/lib/member-import-column-settings"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function MemberImportSheet({
   batches,
@@ -43,8 +44,12 @@ export function MemberImportSheet({
   }
 
   return (
-    <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-      <SheetContent className="flex max-h-[90vh] w-[96vw] max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-w-[92rem]">
+    <WorkflowPresentation
+      className="flex flex-col gap-0 overflow-hidden p-0"
+      config={getWorkflowPresentation("memberImport", "import")}
+      open={sheetOpen}
+      onOpenChange={setSheetOpen}
+    >
         <MemberImportContent
           batches={batches}
           devMode={devMode}
@@ -52,7 +57,6 @@ export function MemberImportSheet({
           referenceData={referenceData}
           onClose={() => setSheetOpen(false)}
         />
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

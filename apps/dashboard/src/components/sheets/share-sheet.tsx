@@ -2,12 +2,13 @@
 
 import { Suspense } from "react"
 import type { TenantSharePolicySettings } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { ShareContent } from "@/components/share-content"
 import { ShareSheetFormProvider } from "@/components/share/form-context"
 import { ShareSheetHeader } from "@/components/share-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useShareParams } from "@/hooks/use-share-params"
 import type { Share } from "@/components/tables/shares/columns"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function ShareSheet({
   financeStartDate,
@@ -25,6 +26,7 @@ export function ShareSheet({
   const isEdit = shareType === "edit"
   const isPolicy = shareType === "policy"
   const isOpen = isCreate || isEdit || isPolicy
+  const presentation = getWorkflowPresentation("share", shareType)
 
   const handleOnOpenChange = (open: boolean) => {
     if (!open) {
@@ -33,8 +35,11 @@ export function ShareSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent>
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -56,7 +61,6 @@ export function ShareSheet({
             </ShareSheetFormProvider>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

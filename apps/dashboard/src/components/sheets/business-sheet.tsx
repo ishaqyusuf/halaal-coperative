@@ -5,11 +5,9 @@ import { Suspense } from "react"
 import { BusinessContent } from "@/components/business-content"
 import { BusinessFormProvider } from "@/components/business/form-context"
 import { BusinessSheetHeader } from "@/components/business-sheet-header"
-import {
-  Sheet,
-  SheetContent,
-} from "@halaalvest/ui/components/sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useBusinessParams } from "@/hooks/use-business-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
 function isBusinessSheetOpen(type: string | null) {
@@ -28,7 +26,7 @@ export function BusinessSheet() {
   const trpc = useTRPC()
   const { businessType, setParams } = useBusinessParams()
   const isOpen = isBusinessSheetOpen(businessType)
-  const isWide = businessType === "create" || businessType === "details"
+  const presentation = getWorkflowPresentation("business", businessType)
 
   const handleOnOpenChange = (open: boolean) => {
     if (open) {
@@ -45,12 +43,11 @@ export function BusinessSheet() {
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent
-        className={
-          isWide ? "w-full overflow-y-auto sm:max-w-2xl" : "overflow-y-auto"
-        }
-      >
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -65,7 +62,6 @@ export function BusinessSheet() {
             </BusinessFormProvider>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

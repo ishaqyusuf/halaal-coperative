@@ -1,12 +1,40 @@
+"use client"
+
 import type { ComponentProps } from "react"
+import { useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 
 type FormAction = ComponentProps<"form">["action"]
 
-export function PasswordResetRequestForm({ action }: { action: string }) {
+export function PasswordResetRequestForm({
+  action,
+  existingAccountEmails = [],
+}: {
+  action: string
+  existingAccountEmails?: string[]
+}) {
+  const [email, setEmail] = useState("")
+
   return (
-    <form action={action} method="post" className="mt-6 space-y-4">
+    <form
+      action={action}
+      className="mt-6 space-y-4"
+      data-quick-fill-exempt="true"
+      method="post"
+    >
+      {existingAccountEmails.length > 0 ? (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={() => setEmail(existingAccountEmails[0] ?? "")}
+          >
+            Quick fill
+          </Button>
+        </div>
+      ) : null}
       <label className="grid gap-2 text-sm text-foreground">
         <span>Email</span>
         <Input
@@ -15,7 +43,17 @@ export function PasswordResetRequestForm({ action }: { action: string }) {
           placeholder="name@cooperative.com"
           required
           className="h-11"
+          list="password-reset-qa-accounts"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
         />
+        {existingAccountEmails.length > 0 ? (
+          <datalist id="password-reset-qa-accounts">
+            {existingAccountEmails.map((accountEmail) => (
+              <option key={accountEmail} value={accountEmail} />
+            ))}
+          </datalist>
+        ) : null}
       </label>
 
       <Button type="submit" size="lg" className="w-full">
@@ -33,7 +71,11 @@ export function PasswordResetConfirmForm({
   token: string
 }) {
   return (
-    <form action={action} method="post" className="mt-6 space-y-4">
+    <form
+      action={action}
+      className="mt-6 space-y-4"
+      method="post"
+    >
       <input type="hidden" name="token" value={token} />
 
       <label className="grid gap-2 text-sm text-foreground">
@@ -73,7 +115,7 @@ export function ResendMemberVerificationForm({
   action: FormAction
 }) {
   return (
-    <form action={action}>
+    <form action={action} data-quick-fill-exempt="true">
       <Button type="submit" size="lg">
         Resend verification email
       </Button>

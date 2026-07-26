@@ -1,6 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import type { QaNotificationPreview } from "@halaalvest/notifications"
+import {
+  QaNotificationPreviewCard,
+  useNotifications,
+} from "@halaalvest/notifications-react"
 import {
   Alert,
   AlertDescription,
@@ -14,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@halaalvest/ui/components/card"
+import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
@@ -24,33 +30,60 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@halaalvest/ui/components/select"
 import { Spinner } from "@halaalvest/ui/components/spinner"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
-import { useNotifications } from "@halaalvest/notifications-react"
+import type { QaQuickFillContext } from "@halaalvest/utils"
 import {
+  cooperativeSizeRanges,
+  formatCooperativeSizeRangeLabel,
+} from "@halaalvest/domain"
+import {
+  earlyAccessLaunchTimelineOptions,
+  earlyAccessRecordSystemOptions,
   earlyAccessRequestSchema,
+  earlyAccessSetupNeedOptions,
   type EarlyAccessRequestInput,
 } from "@/lib/early-access"
+import { applyDevFormFill } from "@/lib/dev-form-fill"
 
 type EarlyAccessResponse = {
+  approveAndContinueUrl?: string
   approvalUrl?: string
   message?: string
+  qaPreviews?: QaNotificationPreview[]
 }
 
-export function EarlyAccessForm() {
+export function EarlyAccessForm({
+  quickFill,
+}: {
+  quickFill: QaQuickFillContext
+}) {
   const form = useZodForm<EarlyAccessRequestInput>(earlyAccessRequestSchema, {
     defaultValues: {
       cooperativeName: "",
+      currentSize: "",
+      launchTimeline: "",
       message: "",
       phone: "",
       primaryContactEmail: "",
       primaryContactFullName: "",
+      recordSystem: "",
+      setupNeeds: [],
     },
   })
-  const { showError, showSuccess } = useNotifications()
+  const { publishQaPreviews, showError, showSuccess } = useNotifications()
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<EarlyAccessResponse | null>(null)
+  const [qaDomain, setQaDomain] = useState(quickFill.emailDomain)
 
   async function onSubmit(values: EarlyAccessRequestInput) {
     try {
@@ -74,6 +107,7 @@ export function EarlyAccessForm() {
       }
 
       setResult(payload)
+      publishQaPreviews(payload.qaPreviews)
       form.reset()
       showSuccess(
         "Early access request received",
@@ -90,6 +124,8 @@ export function EarlyAccessForm() {
   }
 
   if (result) {
+    const latestPreview = result.qaPreviews?.at(-1)
+
     return (
       <Card>
         <CardHeader>
@@ -112,9 +148,24 @@ export function EarlyAccessForm() {
             <Alert>
               <AlertTitle>Development approval link</AlertTitle>
               <AlertDescription className="break-all">
-                {result.approvalUrl}
+                <a className="underline" href={result.approvalUrl}>
+                  {result.approvalUrl}
+                </a>
               </AlertDescription>
             </Alert>
+          ) : null}
+
+          {latestPreview ? (
+            <QaNotificationPreviewCard preview={latestPreview} />
+          ) : null}
+
+          {result.approveAndContinueUrl ? (
+            <Button
+              render={<a href={result.approveAndContinueUrl} />}
+              type="button"
+            >
+              Approve and get started
+            </Button>
           ) : null}
 
           <Button
@@ -135,11 +186,50 @@ export function EarlyAccessForm() {
         <CardHeader>
           <CardTitle className="text-2xl">Request early access</CardTitle>
           <CardDescription>
-            Tell us who should receive the approved setup link. Workspace setup
-            opens only after admin approval.
+            Tell us who owns setup and how the cooperative operates today. We
+            use these details to prepare the right approval and migration path.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {quickFill.enabled ? (
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950">
+              <div className="min-w-56 flex-1">
+                <p className="text-sm font-medium text-amber-950 dark:text-amber-50">
+                  QA identity
+                </p>
+                <Select
+                  value={qaDomain}
+                  onValueChange={(value) =>
+                    setQaDomain(value ?? quickFill.emailDomain)
+                  }
+                >
+                  <SelectTrigger className="mt-2 w-full bg-background">
+                    <SelectValue placeholder="Select QA domain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {quickFill.qaDomains.map((domain) => (
+                        <SelectItem key={domain} value={domain}>
+                          @{domain}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  applyDevFormFill(form, "earlyAccess", undefined, {
+                    emailDomain: qaDomain,
+                  })
+                }
+              >
+                Quick fill
+              </Button>
+            </div>
+          ) : null}
           <form
             className="flex flex-col gap-5"
             onSubmit={form.handleSubmit(onSubmit)}
@@ -195,7 +285,7 @@ export function EarlyAccessForm() {
                 control={form.control}
                 name="phone"
                 render={({ field }) => (
-                  <FormItem className="md:col-span-2">
+                  <FormItem>
                     <FormLabel>Phone number</FormLabel>
                     <FormControl>
                       <Input placeholder="+234..." {...field} />
@@ -207,14 +297,173 @@ export function EarlyAccessForm() {
 
               <FormField
                 control={form.control}
+                name="currentSize"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current cooperative size</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => field.onChange(value ?? "")}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select member range">
+                            {field.value
+                              ? formatCooperativeSizeRangeLabel(field.value, "")
+                              : undefined}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          {cooperativeSizeRanges.map((range) => (
+                            <SelectItem
+                              key={range.value}
+                              value={String(range.value)}
+                            >
+                              {range.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="recordSystem"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>How are records managed today?</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => field.onChange(value ?? "")}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select current system">
+                            {
+                              earlyAccessRecordSystemOptions.find(
+                                (option) => option.value === field.value
+                              )?.label
+                            }
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          {earlyAccessRecordSystemOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="launchTimeline"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>When do you want to start setup?</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => field.onChange(value ?? "")}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select target timeline">
+                            {
+                              earlyAccessLaunchTimelineOptions.find(
+                                (option) => option.value === field.value
+                              )?.label
+                            }
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          {earlyAccessLaunchTimelineOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="setupNeeds"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>What should the setup cover?</FormLabel>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {earlyAccessSetupNeedOptions.map((option) => {
+                        const checked = field.value.includes(option.value)
+
+                        return (
+                          <label
+                            className="flex cursor-pointer gap-3 border border-border/70 bg-muted/20 p-3 text-sm has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/5"
+                            key={option.value}
+                          >
+                            <FormControl>
+                              <Checkbox
+                                aria-label={`${option.label}. ${option.description}`}
+                                checked={checked}
+                                className="mt-0.5"
+                                onCheckedChange={(nextChecked) =>
+                                  field.onChange(
+                                    nextChecked === true
+                                      ? [...field.value, option.value]
+                                      : field.value.filter(
+                                          (value) => value !== option.value
+                                        )
+                                  )
+                                }
+                              />
+                            </FormControl>
+                            <span aria-hidden="true">
+                              <span className="block font-medium text-foreground">
+                                {option.label}
+                              </span>
+                              <span className="mt-1 block text-muted-foreground">
+                                {option.description}
+                              </span>
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="message"
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel>Cooperative context</FormLabel>
+                    <FormLabel>
+                      Anything else we should know? (optional)
+                    </FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Share member count, launch timeline, or setup needs."
-                        rows={4}
+                        placeholder="Add a constraint, deadline, or operating detail we have not captured above."
+                        rows={3}
                         {...field}
                       />
                     </FormControl>

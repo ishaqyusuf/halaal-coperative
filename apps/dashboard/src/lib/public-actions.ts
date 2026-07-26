@@ -9,6 +9,7 @@ import {
 } from "@halaalvest/db"
 import {
   createEmailDraftFromType,
+  createQaNotificationPreviews,
   type NotificationEmailDraft,
 } from "@halaalvest/notifications"
 import { createServerNotificationService } from "@halaalvest/notifications/server"
@@ -18,6 +19,7 @@ import { verifyMemberSignupLinkToken } from "@/lib/member-signup-link-token"
 import { createMemberOnboardingVerificationToken } from "@/lib/member-onboarding-token"
 import { composeMemberNumber } from "@/lib/member-number"
 import { hashPassword } from "@/lib/password"
+import { setQaPreviewFlash } from "@/lib/qa-preview-flash.server"
 import { getDashboardServerContext } from "@/lib/server-context"
 
 function getRequiredString(formData: FormData, key: string) {
@@ -141,7 +143,7 @@ export async function submitMemberOnboardingAction(formData: FormData) {
     },
   )
 
-  await sendMemberSignupEmail({
+  const delivery = await sendMemberSignupEmail({
     draft: verificationDraft,
     source: "dashboard.member_signup",
     tenantId: context.tenant.id,
@@ -149,6 +151,7 @@ export async function submitMemberOnboardingAction(formData: FormData) {
 
   return {
     email,
+    qaPreviews: createQaNotificationPreviews([delivery]),
     tenantName: context.tenant.name,
   }
 }
@@ -197,9 +200,11 @@ export async function resendMemberVerificationAction() {
     },
   )
 
-  await sendMemberSignupEmail({
+  const delivery = await sendMemberSignupEmail({
     draft: verificationDraft,
     source: "dashboard.member_signup",
     tenantId: context.tenant.id,
   })
+
+  await setQaPreviewFlash(createQaNotificationPreviews([delivery]))
 }

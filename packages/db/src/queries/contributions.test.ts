@@ -5,6 +5,7 @@ import {
   recordContribution,
   recordMemberPayment,
   setMemberContributionPlan,
+  settleSupportCaseSpecialSavingsRefund,
   updateContributionPlan,
   updateMemberPaymentAllocationPreference,
 } from "./contributions"
@@ -473,5 +474,181 @@ describe("contribution live write guards", () => {
     ).rejects.toThrow("Ledger accounts not initialized")
 
     expect(prisma.ledgerLookups).toHaveLength(2)
+  })
+
+  test("posts an approved support refund against special savings and resolves the case", async () => {
+    const livePrisma = createLiveContributionPolicyPrismaStub()
+    const auditCreates: Array<Record<string, any>> = []
+    const caseUpdates: Array<Record<string, any>> = []
+    const ledgerCreates: Array<Record<string, any>> = []
+    const memberUpdates: Array<Record<string, any>> = []
+    const withdrawalCreates: Array<Record<string, any>> = []
+    const tx = {
+      ...livePrisma,
+      auditLog: {
+        ...livePrisma.auditLog,
+        create: async (args: Record<string, any>) => {
+          auditCreates.push(args)
+          return args.data
+        },
+      },
+      contribution: {
+        aggregate: async () => ({
+          _sum: { extraSavingsAmount: 50000 },
+        }),
+      },
+      ledgerTransaction: {
+        create: async (args: Record<string, any>) => {
+          ledgerCreates.push(args)
+          return { id: "ledger-1", entries: args.data.entries.create }
+        },
+      },
+      member: {
+        ...livePrisma.member,
+        findFirst: async () => ({
+          id: "member-1",
+          totalSavingsSnapshot: 150000,
+        }),
+        update: async (args: Record<string, any>) => {
+          memberUpdates.push(args)
+          return args.data
+        },
+      },
+      memberOpeningBalance: {
+        aggregate: async () => ({
+          _sum: { specialSavingsBalance: 0 },
+        }),
+      },
+      memberSpecialSavingsWithdrawal: {
+        aggregate: async () => ({ _sum: { amount: 0 } }),
+        create: async (args: Record<string, any>) => {
+          withdrawalCreates.push(args)
+          return { id: "withdrawal-1", ...args.data }
+        },
+      },
+      supportCase: {
+        findFirst: async () => ({
+          financialAdjustmentApprovalStatus: "approved",
+          id: "case-1",
+          memberId: "member-1",
+          moneyImpactRequested: true,
+          requiresFinancialAdjustment: true,
+          specialSavingsWithdrawal: null,
+          status: "in_progress",
+        }),
+        update: async (args: Record<string, any>) => {
+          caseUpdates.push(args)
+          return args.data
+        },
+      },
+      user: {
+        findFirst: async () => ({ id: "user-1" }),
+      },
+    }
+    const prisma = {
+      ...livePrisma,
+      $transaction: async (
+        callback: (transactionClient: typeof tx) => Promise<unknown>,
+      ) => callback(tx),
+      ledgerAccount: {
+        findUnique: async (args: Record<string, any>) => ({
+          id:
+            args.where.tenantId_code.code === "1000"
+              ? "savings-account"
+              : "cash-account",
+        }),
+      },
+    }
+
+    const withdrawal = await settleSupportCaseSpecialSavingsRefund(
+      {
+        actorUserId: "user-1",
+        amount: 50000,
+        notes: "Refund sent to the member.",
+        paidAt: new Date("2026-07-23T00:00:00.000Z"),
+        reference: "ACAC-REFUND-001",
+        supportCaseId: "case-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never,
+    )
+
+    expect(withdrawal.id).toBe("withdrawal-1")
+    expect(ledgerCreates[0]?.data.entries.create).toEqual([
+      {
+        amount: 50000,
+        direction: "debit",
+        ledgerAccountId: "savings-account",
+        tenantId: "tenant-1",
+      },
+      {
+        amount: 50000,
+        direction: "credit",
+        ledgerAccountId: "cash-account",
+        tenantId: "tenant-1",
+      },
+    ])
+    expect(withdrawalCreates[0]?.data.ledgerTransactionId).toBe("ledger-1")
+    expect(memberUpdates[0]?.data.totalSavingsSnapshot).toEqual({
+      decrement: 50000,
+    })
+    expect(caseUpdates[0]?.data).toMatchObject({
+      resolutionSummary: "Refund sent to the member.",
+      status: "resolved",
+    })
+    expect(auditCreates[0]?.data).toMatchObject({
+      action: "special_savings.refund_posted",
+      entityId: "withdrawal-1",
+      entityType: "MemberSpecialSavingsWithdrawal",
+    })
+  })
+
+  test("blocks a support refund until the financial adjustment is approved", async () => {
+    const livePrisma = createLiveContributionPolicyPrismaStub()
+    const tx = {
+      ...livePrisma,
+      supportCase: {
+        findFirst: async () => ({
+          financialAdjustmentApprovalStatus: "pending",
+          id: "case-1",
+          memberId: "member-1",
+          moneyImpactRequested: true,
+          requiresFinancialAdjustment: true,
+          specialSavingsWithdrawal: null,
+          status: "in_progress",
+        }),
+      },
+      user: {
+        findFirst: async () => ({ id: "user-1" }),
+      },
+    }
+    const prisma = {
+      ...livePrisma,
+      $transaction: async (
+        callback: (transactionClient: typeof tx) => Promise<unknown>,
+      ) => callback(tx),
+      ledgerAccount: {
+        findUnique: async (args: Record<string, any>) => ({
+          id:
+            args.where.tenantId_code.code === "1000"
+              ? "savings-account"
+              : "cash-account",
+        }),
+      },
+    }
+
+    await expect(
+      settleSupportCaseSpecialSavingsRefund(
+        {
+          actorUserId: "user-1",
+          amount: 50000,
+          paidAt: new Date("2026-07-23T00:00:00.000Z"),
+          reference: "ACAC-REFUND-001",
+          supportCaseId: "case-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("Approved financial adjustment review is required")
   })
 })

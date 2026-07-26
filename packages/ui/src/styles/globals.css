@@ -9,6 +9,17 @@
 @source "../../../../packages/site-nav/src/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
+.no-scrollbar,
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 :root {
   --font-sans: var(
     --font-hedvig-sans,

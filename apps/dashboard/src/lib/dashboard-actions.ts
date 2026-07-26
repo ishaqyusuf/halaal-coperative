@@ -7,6 +7,7 @@ import type {
   DashboardActionInput,
   DashboardActionResult,
 } from "@halaalvest/api/trpc/routers/dashboard-actions"
+import { setQaPreviewFlash } from "@/lib/qa-preview-flash.server"
 import { getServerCaller } from "@/trpc/server"
 
 type DashboardActionName = Extract<keyof DashboardActionHandlers, string>
@@ -65,6 +66,8 @@ async function callDashboardFormAction<TName extends FormActionName>(
       revalidatePath(path)
     }
 
+    await setQaPreviewFlash(result.qaPreviews)
+
     return result.data
   }
 
@@ -94,6 +97,8 @@ async function callDashboardNoInputAction<TName extends NoInputActionName>(
     for (const path of result.revalidatePaths) {
       revalidatePath(path)
     }
+
+    await setQaPreviewFlash(result.qaPreviews)
 
     return result.data
   }
@@ -228,6 +233,17 @@ export async function createChargeDefinitionAction(formData: FormData) {
   return callDashboardFormAction("createChargeDefinitionAction", formData)
 }
 
+export async function deleteChargeDefinitionAction(formData: FormData) {
+  return callDashboardFormAction("deleteChargeDefinitionAction", formData)
+}
+
+export async function deleteChargeDefinitionVersionAction(formData: FormData) {
+  return callDashboardFormAction(
+    "deleteChargeDefinitionVersionAction",
+    formData
+  )
+}
+
 export async function createTenantShareStructureVersionAction(
   formData: FormData
 ) {
@@ -252,6 +268,15 @@ export async function updateTenantSharePolicyAction(formData: FormData) {
 
 export async function updateTenantMigrationSetupAction(formData: FormData) {
   return callDashboardFormAction("updateTenantMigrationSetupAction", formData)
+}
+
+export async function upsertTenantBroughtForwardSnapshotAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "upsertTenantBroughtForwardSnapshotAction",
+    formData
+  )
 }
 
 export async function updateTenantOperationProfileAction(formData: FormData) {
@@ -472,8 +497,24 @@ export async function reviewMemberOpeningBalanceAction(formData: FormData) {
   return callDashboardFormAction("reviewMemberOpeningBalanceAction", formData)
 }
 
+export async function cancelMemberOpeningBalanceAction(formData: FormData) {
+  return callDashboardFormAction("cancelMemberOpeningBalanceAction", formData)
+}
+
 export async function applyMemberOpeningBalanceAction(formData: FormData) {
-  return callDashboardFormAction("applyMemberOpeningBalanceAction", formData)
+  const memberId = String(formData.get("memberId") ?? "")
+  const result = await callDashboardFormAction(
+    "applyMemberOpeningBalanceAction",
+    formData
+  )
+
+  if (memberId) {
+    redirect(
+      `/members/${encodeURIComponent(memberId)}/backfill?step=brought-forward`
+    )
+  }
+
+  return result
 }
 
 export async function reverseMemberOpeningBalanceAction(formData: FormData) {
@@ -646,6 +687,15 @@ export async function reviewSupportCaseFinancialAdjustmentAction(
 ) {
   return callDashboardFormAction(
     "reviewSupportCaseFinancialAdjustmentAction",
+    formData
+  )
+}
+
+export async function settleSupportCaseSpecialSavingsRefundAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "settleSupportCaseSpecialSavingsRefundAction",
     formData
   )
 }

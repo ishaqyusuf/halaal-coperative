@@ -531,7 +531,6 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
           <Button
             disabled={isApproving}
             type="submit"
-            className="rounded-full px-5"
           >
             Approve member
           </Button>
@@ -539,7 +538,6 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
             disabled={isRejecting}
             type="button"
             variant="outline"
-            className="rounded-full px-5"
             onClick={onReject}
           >
             Reject request

@@ -1,16 +1,16 @@
 model MonthlyRecord {
-  id              String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId        String                      @map("tenant_id") @db.Uuid
-  periodYear      Int                         @map("period_year")
-  periodMonth     Int                         @map("period_month")
-  periodLabel     String                      @map("period_label")
-  status          MonthlyRecordStatus         @default(open)
-  createdByUserId String                      @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String              @map("tenant_id") @db.Uuid
+  periodYear      Int                 @map("period_year")
+  periodMonth     Int                 @map("period_month")
+  periodLabel     String              @map("period_label")
+  status          MonthlyRecordStatus @default(open)
+  createdByUserId String              @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant          Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memberRows      MonthlyRecordMember[]
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberRows MonthlyRecordMember[]
 
   @@unique([tenantId, periodYear, periodMonth], map: "monthly_records_tenant_period_key")
   @@index([tenantId, periodYear, periodMonth], map: "monthly_records_tenant_period_idx")
@@ -51,9 +51,9 @@ model MonthlyRecordMember {
   createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                  Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  monthlyRecord           MonthlyRecord             @relation(fields: [monthlyRecordId], references: [id], onDelete: Cascade)
-  member                  Member                    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  monthlyRecord MonthlyRecord @relation(fields: [monthlyRecordId], references: [id], onDelete: Cascade)
+  member        Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@unique([monthlyRecordId, memberId], map: "monthly_record_members_record_member_key")
   @@index([tenantId, status], map: "monthly_record_members_tenant_status_idx")

@@ -64,6 +64,9 @@ describe("Resend email transport routing", () => {
     )
     expect(providerPayload?.html).toContain("QA routed email")
     expect(providerPayload?.bcc).toBeUndefined()
+    expect(providerPayload?.tags).toEqual([
+      { name: "notification_type", value: "test_notification" },
+    ])
     expect(delivery.draft).toBe(draft)
     expect(delivery.routing).toEqual({
       deliveredRecipients: ["ishaq@example.com"],

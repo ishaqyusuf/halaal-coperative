@@ -5,6 +5,12 @@ import {
   cooperativeCountryOptions,
   cooperativeSizeRanges,
 } from "@halaalvest/domain"
+import { buildQaEmail, normalizeCooperativeQaSlug } from "@halaalvest/utils"
+import {
+  earlyAccessLaunchTimelineOptions,
+  earlyAccessRecordSystemOptions,
+  earlyAccessSetupNeedOptions,
+} from "@/lib/early-access"
 import { createWorkspaceSlugSuggestion } from "@/lib/signup-flow"
 
 type FakerInstance = typeof import("@faker-js/faker").faker
@@ -111,7 +117,10 @@ function randomStartDate() {
   return `${year}-${month}-${day}`
 }
 
-function createRandomContact(faker: FakerInstance) {
+function createRandomContact(
+  faker: FakerInstance,
+  emailDomain = "example.test",
+) {
   const firstName = faker.person.firstName()
   const lastName = faker.person.lastName()
   const primaryContactFullName = `${firstName} ${lastName}`
@@ -120,7 +129,10 @@ function createRandomContact(faker: FakerInstance) {
   const memberNumberPrefix = faker.helpers.arrayElement(memberNumberPrefixes)
 
   return {
-    primaryContactEmail: `${emailHandle}.${emailSuffix}@example.test`,
+    primaryContactEmail: buildQaEmail(
+      `${emailHandle}-${emailSuffix}`,
+      emailDomain,
+    ),
     primaryContactFullName,
     memberNumberPrefix,
     primaryContactMemberNumber: String(
@@ -154,9 +166,40 @@ function createRandomOfficeAddress(faker: FakerInstance) {
   return `${suite}, ${streetAddress}, ${faker.helpers.arrayElement(cities)}`
 }
 
+function createEarlyAccessDefaults(faker: FakerInstance, emailDomain: string) {
+  const cooperativeName = `${createRandomCooperativeName(faker)} ${faker.number.int({
+    max: 9999,
+    min: 100,
+  })}`
+  const contact = createRandomContact(faker)
+
+  return {
+    cooperativeName,
+    currentSize: String(
+      faker.helpers.arrayElement(cooperativeSizeRanges).value,
+    ),
+    launchTimeline: faker.helpers.arrayElement(
+      earlyAccessLaunchTimelineOptions,
+    ).value,
+    message: "We want guided setup for our existing member records.",
+    phone: `+23480${faker.number.int({ max: 99999999, min: 10000000 })}`,
+    primaryContactEmail: buildQaEmail(
+      normalizeCooperativeQaSlug(cooperativeName),
+      emailDomain,
+    ),
+    primaryContactFullName: contact.primaryContactFullName,
+    recordSystem: faker.helpers.arrayElement(
+      earlyAccessRecordSystemOptions,
+    ).value,
+    setupNeeds: faker.helpers
+      .arrayElements(earlyAccessSetupNeedOptions, { max: 4, min: 2 })
+      .map((option) => option.value),
+  }
+}
+
 const devFormDefaults = {
-  onboarding: (faker: FakerInstance) => {
-    const contact = createRandomContact(faker)
+  onboarding: (faker: FakerInstance, emailDomain = "example.test") => {
+    const contact = createRandomContact(faker, emailDomain)
     const location = faker.helpers.arrayElement(locationDefaults)
 
     return {
@@ -178,8 +221,8 @@ const devFormDefaults = {
       token: "",
     }
   },
-  signup: (faker: FakerInstance) => {
-    const contact = createRandomContact(faker)
+  signup: (faker: FakerInstance, emailDomain = "example.test") => {
+    const contact = createRandomContact(faker, emailDomain)
     const cooperativeName = createRandomCooperativeName(faker)
     const workspaceSlug = `${createWorkspaceSlugSuggestion(
       cooperativeName,
@@ -188,7 +231,7 @@ const devFormDefaults = {
     return {
       cooperativeName,
       memberNumberPrefix: contact.memberNumberPrefix,
-      primaryContactEmail: contact.primaryContactEmail,
+      primaryContactEmail: buildQaEmail(workspaceSlug, emailDomain),
       primaryContactFullName: contact.primaryContactFullName,
       primaryContactMemberNumber: contact.primaryContactMemberNumber,
       workspaceSlug,
@@ -196,22 +239,55 @@ const devFormDefaults = {
   },
 } as const
 
-export type DevFormKind = keyof typeof devFormDefaults
+export type DevFormKind = keyof typeof devFormDefaults | "earlyAccess"
 
-export async function getDevFormDefaults<TKind extends DevFormKind>(
-  kind: TKind,
+export function getDevFormDefaults(
+  kind: "earlyAccess",
+  options?: { emailDomain?: string },
+): Promise<ReturnType<typeof createEarlyAccessDefaults>>
+export function getDevFormDefaults(
+  kind: "onboarding",
+  options?: { emailDomain?: string },
+): Promise<ReturnType<(typeof devFormDefaults)["onboarding"]>>
+export function getDevFormDefaults(
+  kind: "signup",
+  options?: { emailDomain?: string },
+): Promise<ReturnType<(typeof devFormDefaults)["signup"]>>
+export function getDevFormDefaults(
+  kind: DevFormKind,
+  options?: { emailDomain?: string },
+): Promise<
+  | ReturnType<typeof createEarlyAccessDefaults>
+  | ReturnType<(typeof devFormDefaults)["onboarding"]>
+  | ReturnType<(typeof devFormDefaults)["signup"]>
+>
+export async function getDevFormDefaults(
+  kind: DevFormKind,
+  options?: { emailDomain?: string },
 ) {
   const faker = await getFaker()
 
-  return devFormDefaults[kind](faker)
+  if (kind === "earlyAccess") {
+    return createEarlyAccessDefaults(
+      faker,
+      options?.emailDomain ?? "example.test",
+    )
+  }
+
+  if (kind === "onboarding") {
+    return devFormDefaults.onboarding(faker, options?.emailDomain)
+  }
+
+  return devFormDefaults.signup(faker, options?.emailDomain)
 }
 
 export async function applyDevFormFill<TFieldValues extends FieldValues>(
   form: Pick<UseFormReturn<TFieldValues>, "reset">,
   kind: DevFormKind,
   overrides?: Partial<TFieldValues>,
+  options?: { emailDomain?: string },
 ) {
-  const defaults = await getDevFormDefaults(kind)
+  const defaults = await getDevFormDefaults(kind, options)
 
   form.reset(({
     ...defaults,

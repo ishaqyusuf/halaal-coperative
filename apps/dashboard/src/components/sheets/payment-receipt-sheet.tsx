@@ -2,7 +2,6 @@
 
 import { Suspense } from "react"
 import type { MemberPaymentReceiptRow } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { useQuery } from "@tanstack/react-query"
 import {
   MemberPaymentReceiptCreateContent,
@@ -13,8 +12,10 @@ import {
   type PaymentReceiptOption,
 } from "@/components/payment-receipt-content"
 import { PaymentReceiptSheetHeader } from "@/components/payment-receipt-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { usePaymentReceiptParams } from "@/hooks/use-payment-receipt-params"
 import type { PaymentReceiptCategoryOption } from "@/lib/payment-receipts/load-payment-receipts-page"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
 type PaymentReceiptSheetType =
@@ -63,6 +64,10 @@ export function PaymentReceiptSheet({
   const { paymentReceiptId, paymentReceiptSheetType, setParams } =
     usePaymentReceiptParams()
   const isOpen = isPaymentReceiptSheetType(paymentReceiptSheetType)
+  const presentation = getWorkflowPresentation(
+    "paymentReceipt",
+    paymentReceiptSheetType
+  )
   const selectedRouteReceipt = receipts.find((receipt) => {
     return receipt.id === paymentReceiptId
   })
@@ -88,8 +93,11 @@ export function PaymentReceiptSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && closeSheet()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-3xl">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={(open) => !open && closeSheet()}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -159,7 +167,6 @@ export function PaymentReceiptSheet({
             </div>
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

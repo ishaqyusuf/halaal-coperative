@@ -66,11 +66,15 @@ export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
 
   if (dashboardTenantSlug && dashboardTenantHostname) {
-    const canonicalHost = host.endsWith(".localhost")
+    const isLocalDashboardHost = host.endsWith(".localhost")
+    const canonicalHost = isLocalDashboardHost
       ? buildLocalTenantSiteHostname(dashboardTenantSlug)
       : buildTenantSiteHostname(dashboardTenantSlug)
     const canonicalUrl = new URL(request.url)
     canonicalUrl.hostname = canonicalHost
+    if (isLocalDashboardHost) {
+      canonicalUrl.protocol = "http:"
+    }
 
     return NextResponse.redirect(canonicalUrl)
   }

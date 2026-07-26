@@ -3,6 +3,7 @@ import {
   createMember,
   createMemberDocument,
   ensureMemberPortalAccess,
+  getMemberRegistrySummary,
   getMemberStatementDetail,
   listMemberStatementSummaries,
   listMembersTable,
@@ -11,6 +12,42 @@ import {
   updateMemberKyc,
   updateMemberStatus,
 } from "./members"
+
+describe("member registry summary", () => {
+  test("counts the complete filtered registry instead of the first page", async () => {
+    const countCalls: unknown[] = []
+    const prisma = {
+      member: {
+        count: async (input: unknown) => {
+          countCalls.push(input)
+          return countCalls.length === 1 ? 21 : countCalls.length === 2 ? 1 : 2
+        },
+      },
+    }
+
+    const summary = await getMemberRegistrySummary(
+      "tenant-1",
+      { search: "ACAC" },
+      prisma as never
+    )
+
+    expect(summary).toEqual({
+      activeCount: 21,
+      kycPendingCount: 1,
+      linkedUsersCount: 2,
+    })
+    expect(countCalls).toHaveLength(3)
+    expect(countCalls[0]).toMatchObject({
+      where: { status: "active", tenantId: "tenant-1" },
+    })
+    expect(countCalls[1]).toMatchObject({
+      where: { kycStatus: "pending", tenantId: "tenant-1" },
+    })
+    expect(countCalls[2]).toMatchObject({
+      where: { tenantId: "tenant-1", userId: { not: null } },
+    })
+  })
+})
 
 function createMemberPortalAccessPrismaStub() {
   const auditLogCreates: unknown[] = []
@@ -698,6 +735,14 @@ describe("members table backfill status", () => {
           },
         ],
       },
+      memberOpeningBalance: {
+        findMany: async () => [
+          {
+            id: "opening-applied",
+            memberId: "member-brought-forward",
+          },
+        ],
+      },
       member: {
         findMany: async () => [
           {
@@ -715,6 +760,11 @@ describe("members table backfill status", () => {
             fullName: "Applied Backfill",
             memberNumber: "003",
           },
+          {
+            id: "member-brought-forward",
+            fullName: "Applied Opening Position",
+            memberNumber: "004",
+          },
         ],
       },
     }
@@ -731,18 +781,28 @@ describe("members table backfill status", () => {
     expect(statusByMemberId.get("member-empty")).toMatchObject({
       appliedBatchId: null,
       appliedMonthCount: 0,
+      appliedOpeningBalanceId: null,
       draftBatchId: null,
       state: "not_started",
     })
     expect(statusByMemberId.get("member-draft")).toMatchObject({
       appliedBatchId: null,
       appliedMonthCount: 0,
+      appliedOpeningBalanceId: null,
       draftBatchId: "batch-draft",
       state: "draft",
     })
     expect(statusByMemberId.get("member-applied")).toMatchObject({
       appliedBatchId: "batch-applied",
       appliedMonthCount: 2,
+      appliedOpeningBalanceId: null,
+      draftBatchId: null,
+      state: "applied",
+    })
+    expect(statusByMemberId.get("member-brought-forward")).toMatchObject({
+      appliedBatchId: null,
+      appliedMonthCount: 0,
+      appliedOpeningBalanceId: "opening-applied",
       draftBatchId: null,
       state: "applied",
     })
@@ -754,6 +814,9 @@ describe("members table backfill status", () => {
         findMany: async () => [],
       },
       backfillBatch: {
+        findMany: async () => [],
+      },
+      memberOpeningBalance: {
         findMany: async () => [],
       },
       member: {

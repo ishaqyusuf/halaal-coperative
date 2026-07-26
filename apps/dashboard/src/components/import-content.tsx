@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
+import { Input } from "@halaalvest/ui/components/input"
 import { DashboardImportForm } from "@/components/forms/import-forms"
 import type {
   ImportAvailability,
@@ -105,8 +106,7 @@ export function ImportContent({
       ) : isBatchLocked ? null : (
         <form action={applyImportBatchAction} className="grid gap-3">
           <input name="batchId" type="hidden" value={selectedBatch.id} />
-          <input
-            className="h-9 rounded-md border border-input bg-background px-3 text-xs text-foreground"
+          <Input
             name="confirmation"
             placeholder="APPLY IMPORT"
             required

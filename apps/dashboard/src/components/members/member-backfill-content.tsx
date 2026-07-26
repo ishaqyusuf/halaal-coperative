@@ -13,6 +13,7 @@ import { DatePickerInput } from "@/components/date-picker-input"
 import { DashboardSurfaceCard } from "@/components/dashboard"
 import {
   applyMemberOpeningBalanceAction,
+  cancelMemberOpeningBalanceAction,
   createHistoricalMemberSharePurchaseAction,
   createMemberOpeningBalanceAction,
   generateHistoricalBackfillShareProfitAllocationsAction,
@@ -27,6 +28,7 @@ import {
   MemberProfitSeasonAdjustmentTable,
   type MemberProfitSeasonAdjustmentSeason,
 } from "./member-profit-season-adjustment-table"
+import { OpeningCurrencyInput } from "./opening-currency-input"
 import { MemberOpeningSharePositionFields } from "./member-opening-share-position-fields"
 import { OpeningBalanceOptionalSections } from "./opening-balance-optional-sections"
 import { OpeningBalanceQuickFillButton } from "./opening-balance-quick-fill-button"
@@ -137,28 +139,22 @@ function OpeningAmountInput({
   label,
   name,
   required = false,
-  step = "0.01",
 }: {
   disabled?: boolean
   label: string
   name: string
   required?: boolean
-  step?: string
 }) {
   const id = `member-opening-${name}`
 
   return (
     <Field data-disabled={disabled ? true : undefined}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
+      <OpeningCurrencyInput
         disabled={disabled}
         id={id}
-        min="0"
         name={name}
-        placeholder="0"
         required={required}
-        step={step}
-        type="number"
       />
     </Field>
   )
@@ -290,8 +286,11 @@ export function OpeningBalanceCreateContent({
       <Separator />
 
       <OpeningBalanceOptionalSections
+        cooperativeStartDate={data.tenantStartDate}
         disabled={disabled}
         guarantorOptions={guarantorOptions}
+        memberNumberPrefix={data.memberNumberPrefix}
+        quickFillEnabled={data.quickFillEnabled}
       />
 
       <div className="flex justify-end">
@@ -362,6 +361,26 @@ export function OpeningBalanceApplyContent({
       <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
       <Button disabled={disabled} size="sm" type="submit">
         Apply
+      </Button>
+    </form>
+  )
+}
+
+export function OpeningBalanceCancelContent({
+  disabled,
+  memberId,
+  openingBalanceId,
+}: {
+  disabled: boolean
+  memberId: string
+  openingBalanceId: string
+}) {
+  return (
+    <form action={cancelMemberOpeningBalanceAction} className="flex justify-end">
+      <input name="memberId" type="hidden" value={memberId} />
+      <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
+      <Button disabled={disabled} type="submit" variant="outline">
+        Cancel staging
       </Button>
     </form>
   )

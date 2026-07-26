@@ -1,4 +1,5 @@
 import { headers } from "next/headers"
+import { listTenantUsersWithMemberships, listTenants } from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { buttonVariants } from "@halaalvest/ui/components/button"
@@ -6,6 +7,7 @@ import { cn } from "@halaalvest/ui/lib/utils"
 import { PublicAuthShell } from "@/components/public-auth-shell"
 import { PasswordResetRequestForm } from "@/components/public-auth-forms"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
+import { getDashboardServerContext } from "@/lib/server-context"
 
 export default async function PasswordResetRequestPage({
   searchParams,
@@ -20,8 +22,20 @@ export default async function PasswordResetRequestPage({
   })
   const params = await searchParams
   const sent = params.sent === "1"
-  const devResetUrl =
-    typeof params.devResetUrl === "string" ? params.devResetUrl : null
+  const context = await getDashboardServerContext()
+  const existingAccountEmails =
+    process.env.NODE_ENV === "production"
+      ? []
+      : (
+          await Promise.all(
+            (context.tenant ? [context.tenant] : await listTenants()).map(
+              async (tenant) => listTenantUsersWithMemberships(tenant.id),
+            ),
+          )
+        )
+          .flat()
+          .map((user) => user.email)
+          .filter((email, index, emails) => emails.indexOf(email) === index)
   const requestAction = buildTenantHref(
     tenantUrlContext,
     "/auth/password-reset/request",
@@ -51,19 +65,10 @@ export default async function PasswordResetRequestPage({
         </div>
       ) : null}
 
-      {devResetUrl ? (
-        <a
-          className={cn(
-            buttonVariants({ size: "lg", variant: "outline" }),
-            "mt-4 w-full"
-          )}
-          href={devResetUrl}
-        >
-          Open dev reset link
-        </a>
-      ) : null}
-
-      <PasswordResetRequestForm action={requestAction} />
+      <PasswordResetRequestForm
+        action={requestAction}
+        existingAccountEmails={existingAccountEmails}
+      />
 
       <a
         className={cn(

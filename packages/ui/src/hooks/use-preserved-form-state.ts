@@ -17,18 +17,29 @@ function getStorage(kind: StorageKind) {
   }
 }
 
-function buildStorageKey(storageKey: string) {
-  if (typeof window === "undefined") {
-    return storageKey
+function fingerprintBaseline(value: string) {
+  let hash = 5381
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(index)
   }
 
-  return `halaalvest:form-state:${window.location.host}:${storageKey}`
+  return (hash >>> 0).toString(36)
 }
 
-function readStoredValue<TValue>(
-  storageKey: string,
-  storageKind: StorageKind
-) {
+function buildStorageKey(storageKey: string, baselineKey?: string) {
+  const baselineSuffix = baselineKey
+    ? `:baseline:${fingerprintBaseline(baselineKey)}`
+    : ""
+
+  if (typeof window === "undefined") {
+    return `${storageKey}${baselineSuffix}`
+  }
+
+  return `halaalvest:form-state:${window.location.host}:${storageKey}${baselineSuffix}`
+}
+
+function readStoredValue<TValue>(storageKey: string, storageKind: StorageKind) {
   const storage = getStorage(storageKind)
   const storedValue = storage?.getItem(storageKey)
 
@@ -59,21 +70,24 @@ function writeStoredValue<TValue>(
 }
 
 export function usePreservedClientState<TValue>({
+  baselineKey,
   enabled = true,
   onRestore,
   storage = "session",
   storageKey,
   value,
 }: {
+  baselineKey?: string
   enabled?: boolean
   onRestore: (value: TValue) => void
   storage?: StorageKind
   storageKey: string
   value: TValue
 }) {
-  const scopedStorageKey = useMemo(() => buildStorageKey(storageKey), [
-    storageKey,
-  ])
+  const scopedStorageKey = useMemo(
+    () => buildStorageKey(storageKey, baselineKey),
+    [baselineKey, storageKey]
+  )
   const [canPersist, setCanPersist] = useState(false)
   const skipNextPersistRef = useRef(false)
 
@@ -113,18 +127,21 @@ export function usePreservedClientState<TValue>({
 export function usePreservedFormState<TFieldValues extends FieldValues>(
   form: UseFormReturn<TFieldValues>,
   {
+    baselineKey,
     enabled = true,
     storage = "session",
     storageKey,
   }: {
+    baselineKey?: string
     enabled?: boolean
     storage?: StorageKind
     storageKey: string
   }
 ) {
-  const scopedStorageKey = useMemo(() => buildStorageKey(storageKey), [
-    storageKey,
-  ])
+  const scopedStorageKey = useMemo(
+    () => buildStorageKey(storageKey, baselineKey),
+    [baselineKey, storageKey]
+  )
   const restoredRef = useRef(false)
   const skipNextPersistRef = useRef(false)
 

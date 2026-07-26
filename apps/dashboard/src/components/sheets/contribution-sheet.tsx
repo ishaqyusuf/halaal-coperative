@@ -10,8 +10,9 @@ import {
   type ContributionPlanOption,
 } from "@/components/contribution-content"
 import { ContributionSheetHeader } from "@/components/contribution-sheet-header"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useContributionParams } from "@/hooks/use-contribution-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 function isContributionSheetOpen(type: string | null) {
   return Boolean(
@@ -44,8 +45,10 @@ export function ContributionSheet({
 }) {
   const { contributionSheetType, setParams } = useContributionParams()
   const isOpen = isContributionSheetOpen(contributionSheetType)
-  const isWide =
-    contributionSheetType === "plan" || contributionSheetType === "payment"
+  const presentation = getWorkflowPresentation(
+    "contribution",
+    contributionSheetType
+  )
 
   const handleOnOpenChange = (open: boolean) => {
     if (open) {
@@ -56,12 +59,11 @@ export function ContributionSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent
-        className={
-          isWide ? "w-full overflow-y-auto sm:max-w-2xl" : "overflow-y-auto"
-        }
-      >
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -81,7 +83,6 @@ export function ContributionSheet({
             />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

@@ -3,8 +3,9 @@
 import { Suspense } from "react"
 import { ChargeOperationContent } from "@/components/charge-operation-content"
 import { ChargeOperationSheetHeader } from "@/components/charge-operation-sheet-header"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useChargeOperationParams } from "@/hooks/use-charge-operation-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 function isChargeOperationSheetOpen(type: string | null) {
   return Boolean(
@@ -28,10 +29,10 @@ export function ChargeOperationSheet({
 }) {
   const { chargeOperationSheetType, setParams } = useChargeOperationParams()
   const isOpen = isChargeOperationSheetOpen(chargeOperationSheetType)
-  const isWide =
-    chargeOperationSheetType === "definition" ||
-    chargeOperationSheetType === "application" ||
-    chargeOperationSheetType === "version"
+  const presentation = getWorkflowPresentation(
+    "chargeOperation",
+    chargeOperationSheetType
+  )
 
   const handleOnOpenChange = (open: boolean) => {
     if (open) {
@@ -42,12 +43,11 @@ export function ChargeOperationSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent
-        className={
-          isWide ? "w-full overflow-y-auto sm:max-w-2xl" : "overflow-y-auto"
-        }
-      >
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -64,7 +64,6 @@ export function ChargeOperationSheet({
             />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

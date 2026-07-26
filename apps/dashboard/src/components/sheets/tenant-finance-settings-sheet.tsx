@@ -5,10 +5,11 @@ import type {
   TenantBusinessProfitPolicySettings,
   TenantFinancingSettingsWorkspace,
 } from "@halaalvest/db"
-import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { TenantFinanceSettingsContent } from "@/components/tenant-finance-settings-content"
 import { TenantFinanceSettingsSheetHeader } from "@/components/tenant-finance-settings-sheet-header"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useTenantFinanceSettingsParams } from "@/hooks/use-tenant-finance-settings-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 type FinancingSettingsView = {
   currentCyclePreview: Omit<
@@ -49,6 +50,10 @@ export function TenantFinanceSettingsSheet({
   const isOpen = isTenantFinanceSettingsSheetOpen(
     tenantFinanceSettingsSheetType
   )
+  const presentation = getWorkflowPresentation(
+    "tenantFinance",
+    tenantFinanceSettingsSheetType
+  )
 
   const handleOnOpenChange = (open: boolean) => {
     if (open) {
@@ -59,8 +64,11 @@ export function TenantFinanceSettingsSheet({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOnOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+    <WorkflowPresentation
+      config={presentation}
+      open={isOpen}
+      onOpenChange={handleOnOpenChange}
+    >
         {isOpen ? (
           <Suspense
             fallback={
@@ -78,7 +86,6 @@ export function TenantFinanceSettingsSheet({
             />
           </Suspense>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </WorkflowPresentation>
   )
 }

@@ -2,7 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { deleteQaUploads, previewQaUploads } from "./qa-upload-storage"
+import {
+  deleteQaUploads,
+  getQaUploadRoots,
+  previewQaUploads,
+} from "./qa-upload-storage"
 
 const originalUploadDir = process.env.UPLOAD_DIR
 
@@ -12,6 +16,22 @@ afterEach(() => {
 })
 
 describe("QA upload cleanup", () => {
+  test("resolves upload roots without bundler-sensitive import metadata", () => {
+    const dashboardDirectory = path.join(
+      path.parse(process.cwd()).root,
+      "workspace",
+      "apps",
+      "dashboard",
+    )
+
+    expect(getQaUploadRoots(dashboardDirectory)).toContain(
+      path.join(dashboardDirectory, ".local", "uploads"),
+    )
+    expect(getQaUploadRoots(dashboardDirectory)).toContain(
+      path.join(path.parse(process.cwd()).root, "workspace", ".local", "uploads"),
+    )
+  })
+
   test("counts and removes only files tracked to the selected tenant", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "halaalvest-qa-uploads-"))
     process.env.UPLOAD_DIR = root

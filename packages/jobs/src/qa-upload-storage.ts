@@ -1,5 +1,4 @@
 import { readdir, readFile, stat, unlink } from "node:fs/promises"
-import { fileURLToPath } from "node:url"
 import path from "node:path"
 
 type UploadMetadata = {
@@ -7,17 +6,28 @@ type UploadMetadata = {
   tenantId?: string
 }
 
-const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url))
-
-export function getQaUploadRoots() {
+export function getQaUploadRoots(currentWorkingDirectory = process.cwd()) {
   const configuredRoot = process.env.UPLOAD_DIR?.trim()
 
   return [
     ...new Set(
       [
         configuredRoot ? path.resolve(configuredRoot) : null,
-        path.join(repositoryRoot, ".local", "uploads"),
-        path.join(repositoryRoot, "apps", "dashboard", ".local", "uploads"),
+        path.join(currentWorkingDirectory, ".local", "uploads"),
+        path.join(
+          currentWorkingDirectory,
+          "apps",
+          "dashboard",
+          ".local",
+          "uploads",
+        ),
+        path.resolve(
+          currentWorkingDirectory,
+          "..",
+          "..",
+          ".local",
+          "uploads",
+        ),
       ].filter((value): value is string => Boolean(value)),
     ),
   ]

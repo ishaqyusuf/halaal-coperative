@@ -24,6 +24,7 @@ describe("payment receipt notification types", () => {
         reviewNotes: "Payment confirmed.",
         status: "approved",
         tenantName: "Demo Cooperative",
+        tenantSlug: "demo-cooperative",
       }
     )
 
@@ -34,6 +35,10 @@ describe("payment receipt notification types", () => {
       recipient: {
         email: "aisha@example.com",
         value: "aisha@example.com",
+      },
+      sender: {
+        displayName: "Demo Cooperative",
+        localPart: "demo-cooperative",
       },
       subject: "Demo Cooperative: payment receipt approved",
     })

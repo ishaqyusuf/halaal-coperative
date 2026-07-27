@@ -27,10 +27,12 @@ function getDeliveryStatus(action: string) {
 }
 
 function getDeliverySort(
-  sort?: [
-    "createdAt" | "notificationType" | "recipient" | "status" | "subject",
-    "asc" | "desc",
-  ] | null,
+  sort?:
+    | [
+        "createdAt" | "notificationType" | "recipient" | "status" | "subject",
+        "asc" | "desc",
+      ]
+    | null
 ): ["action" | "occurredAt", "asc" | "desc"] {
   if (!sort) return ["occurredAt", "desc"]
 
@@ -72,7 +74,7 @@ export const notificationsRouter = createTRPCRouter({
         ? logs.filter(
             (entry) =>
               getMetadataString(entry.metadata, "notificationType") ===
-              input.type,
+              input.type
           )
         : logs
       const data = filteredLogs.slice(0, pageSize).map((entry) => ({
@@ -84,8 +86,7 @@ export const notificationsRouter = createTRPCRouter({
           "notification.email",
         occurredAt: entry.occurredAt,
         recipient:
-          getMetadataString(entry.metadata, "recipient") ??
-          "Unknown recipient",
+          getMetadataString(entry.metadata, "recipient") ?? "Unknown recipient",
       }))
 
       return {
@@ -112,6 +113,7 @@ export const notificationsRouter = createTRPCRouter({
         memberName: "Amina Yusuf",
         status: "under_review",
         tenantName: ctx.tenant.current.name,
+        tenantSlug: ctx.tenant.current.slug,
       }),
     ]
   }),

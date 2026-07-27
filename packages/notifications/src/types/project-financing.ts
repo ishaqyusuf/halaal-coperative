@@ -9,10 +9,10 @@ import {
   eventEmailDraft,
   formatAmount,
   sentenceCase,
-  tenantEventSchema,
+  tenantEmailEventSchema,
 } from "./shared"
 
-const projectFinancingRequestEventSchema = tenantEventSchema.extend({
+const projectFinancingRequestEventSchema = tenantEmailEventSchema.extend({
   amount: z.union([z.number(), z.string()]).optional().nullable(),
   approvedStructure: z.string().optional().nullable(),
   businessName: z.string().min(1),
@@ -46,6 +46,7 @@ function projectFinancingRecipient(
     recipientEmail: payload.recipientEmail,
     recipientName: payload.recipientName,
     tenantName: payload.tenantName,
+    tenantSlug: payload.tenantSlug,
   })
 }
 
@@ -55,7 +56,9 @@ function projectFinancingBody(payload: ProjectFinancingRequestEventPayload) {
   const structureText = payload.approvedStructure
     ? ` Approved structure: ${sentenceCase(payload.approvedStructure)}.`
     : ""
-  const notes = payload.reviewNotes ? ` Review note: ${payload.reviewNotes}` : ""
+  const notes = payload.reviewNotes
+    ? ` Review note: ${payload.reviewNotes}`
+    : ""
 
   return `Your project financing request for ${payload.businessName}${amountText} is now ${sentenceCase(payload.status)}.${structureText}${notes}`
 }
@@ -75,6 +78,7 @@ export const projectFinancingRequestStatusChanged = defineHalaalNotification({
   channels: channelHelpers.inAppAndEmail(),
   roles: [],
   schema: projectFinancingRequestEventSchema,
-  title: (payload) => `Project financing request ${sentenceCase(payload.status)}`,
+  title: (payload) =>
+    `Project financing request ${sentenceCase(payload.status)}`,
   variant: "info",
 })

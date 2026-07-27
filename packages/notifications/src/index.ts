@@ -4,6 +4,7 @@ import type {
   EmailRoutingMetadata,
   NotificationEmailDelivery,
   NotificationEmailDraft,
+  NotificationEmailSender,
   NotificationQaArtifact,
   NotificationInput,
   NotificationRecord,
@@ -16,6 +17,7 @@ export type {
   EmailRoutingMetadata,
   NotificationEmailDelivery,
   NotificationEmailDraft,
+  NotificationEmailSender,
   NotificationQaArtifact,
   NotificationInput,
   NotificationRecord,
@@ -56,6 +58,106 @@ export type NotificationStoreState = {
 
 function toProviderTagValue(value: string) {
   return value.replace(/[^A-Za-z0-9_-]/g, "_")
+}
+
+const cooperativeSenderLocalPartPattern =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+
+function isEmailHeaderControlCharacter(character: string) {
+  const code = character.charCodeAt(0)
+  return code <= 31 || (code >= 127 && code <= 159)
+}
+
+function parseConfiguredSender(from: string) {
+  if ([...from].some(isEmailHeaderControlCharacter)) {
+    throw new Error("Invalid configured email sender address.")
+  }
+
+  const trimmedFrom = from.trim()
+  const angleMatch = trimmedFrom.match(/^(.+?)\s*<([^<>]+)>$/)
+  const hasAngleBracket = trimmedFrom.includes("<") || trimmedFrom.includes(">")
+
+  if (hasAngleBracket && !angleMatch) {
+    throw new Error("Invalid configured email sender address.")
+  }
+
+  const address = (angleMatch?.[2] ?? trimmedFrom).trim()
+  const atIndex = address.lastIndexOf("@")
+  const localPart = atIndex >= 0 ? address.slice(0, atIndex) : ""
+  const domain = atIndex >= 0 ? address.slice(atIndex + 1).toLowerCase() : ""
+  const domainLabels = domain.split(".")
+  const validLocalPart =
+    localPart.length > 0 &&
+    localPart.length <= 64 &&
+    !localPart.startsWith(".") &&
+    !localPart.endsWith(".") &&
+    !localPart.includes("..") &&
+    /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/i.test(localPart)
+  const validDomain =
+    domain.length <= 253 &&
+    domainLabels.length >= 2 &&
+    domainLabels.every(
+      (label) =>
+        label.length <= 63 &&
+        /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label)
+    )
+
+  if (!validLocalPart || !validDomain) {
+    throw new Error("Invalid configured email sender address.")
+  }
+
+  const configuredDisplayName = angleMatch?.[1]?.trim()
+  const unquotedDisplayName =
+    configuredDisplayName &&
+    configuredDisplayName.startsWith('"') &&
+    configuredDisplayName.endsWith('"')
+      ? configuredDisplayName
+          .slice(1, -1)
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, "\\")
+      : configuredDisplayName
+
+  return {
+    domain,
+    formattedFrom: unquotedDisplayName
+      ? `${formatEmailDisplayName(unquotedDisplayName)} <${localPart}@${domain}>`
+      : `${localPart}@${domain}`,
+  }
+}
+
+function formatEmailDisplayName(value: string) {
+  const normalized = [...value]
+    .map((character) =>
+      isEmailHeaderControlCharacter(character) ? " " : character
+    )
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!normalized) {
+    throw new Error("Invalid cooperative email sender display name.")
+  }
+
+  return `"${normalized.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+}
+
+function formatProviderEmailFrom(
+  configuredFrom: string,
+  sender?: NotificationEmailSender
+) {
+  const configuredSender = parseConfiguredSender(configuredFrom)
+
+  if (!sender) {
+    return configuredSender.formattedFrom
+  }
+
+  const localPart = sender.localPart.trim().toLowerCase()
+
+  if (!cooperativeSenderLocalPartPattern.test(localPart)) {
+    throw new Error("Invalid cooperative email sender local part.")
+  }
+
+  return `${formatEmailDisplayName(sender.displayName)} <${localPart}@${configuredSender.domain}>`
 }
 
 export type NotificationStore = {
@@ -308,7 +410,7 @@ export function createResendEmailTransport(
           },
           body: JSON.stringify({
             bcc: bccRecipients,
-            from: options.from,
+            from: formatProviderEmailFrom(options.from, draft.sender),
             headers: isQaDomainRoute
               ? {
                   "X-HalaalVest-Email-Routing": routing.mode,
@@ -452,6 +554,7 @@ export function createSignupVerificationEmail(input: {
   recipientEmail: string
   recipientName: string
   tenantName: string
+  tenantSlug: string
   verificationUrl: string
 }): NotificationEmailDraft {
   return createEmailDraftFromType("signup_email_verification", input)
@@ -463,6 +566,7 @@ export function createWorkspaceReadyEmail(input: {
   recipientName: string
   siteUrl: string
   tenantName: string
+  tenantSlug: string
 }): NotificationEmailDraft {
   return createEmailDraftFromType("workspace_ready", input)
 }

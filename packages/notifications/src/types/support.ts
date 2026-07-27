@@ -8,10 +8,10 @@ import {
   defineHalaalNotification,
   eventEmailDraft,
   sentenceCase,
-  tenantEventSchema,
+  tenantEmailEventSchema,
 } from "./shared"
 
-const supportEventSchema = tenantEventSchema.extend({
+const supportEventSchema = tenantEmailEventSchema.extend({
   authorType: z.enum(["member", "staff", "system"]).optional(),
   linkedRecordType: z.string().optional().nullable(),
   memberName: z.string().optional().nullable(),
@@ -41,6 +41,7 @@ function supportRecipient(payload: SupportEventPayload) {
     recipientEmail: payload.recipientEmail,
     recipientName: payload.recipientName,
     tenantName: payload.tenantName,
+    tenantSlug: payload.tenantSlug,
   })
 }
 

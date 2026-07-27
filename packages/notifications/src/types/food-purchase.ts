@@ -9,10 +9,10 @@ import {
   eventEmailDraft,
   formatAmount,
   sentenceCase,
-  tenantEventSchema,
+  tenantEmailEventSchema,
 } from "./shared"
 
-const foodPurchaseApplicationEventSchema = tenantEventSchema.extend({
+const foodPurchaseApplicationEventSchema = tenantEmailEventSchema.extend({
   amount: z.union([z.number(), z.string()]).optional().nullable(),
   applicationId: z.string().min(1),
   itemDescription: z.string().optional().nullable(),
@@ -28,7 +28,7 @@ type FoodPurchaseApplicationEventPayload = z.infer<
   typeof foodPurchaseApplicationEventSchema
 >
 
-const foodPurchaseAccountingEventSchema = tenantEventSchema.extend({
+const foodPurchaseAccountingEventSchema = tenantEmailEventSchema.extend({
   cycleId: z.string().min(1),
   periodLabel: z.string().optional().nullable(),
   profitAmount: z.union([z.number(), z.string()]).optional().nullable(),
@@ -71,6 +71,7 @@ function foodPurchaseRecipient(
     recipientEmail: payload.recipientEmail,
     recipientName: payload.recipientName,
     tenantName: payload.tenantName,
+    tenantSlug: payload.tenantSlug,
   })
 }
 
@@ -81,7 +82,9 @@ function foodPurchaseBody(payload: FoodPurchaseApplicationEventPayload) {
     ? ` (${payload.itemDescription})`
     : ""
   const periodText = payload.periodLabel ? ` in ${payload.periodLabel}` : ""
-  const notes = payload.reviewNotes ? ` Review note: ${payload.reviewNotes}` : ""
+  const notes = payload.reviewNotes
+    ? ` Review note: ${payload.reviewNotes}`
+    : ""
 
   return `Your Foodstuff Purchase application${itemText}${amountText}${periodText} is now ${sentenceCase(payload.status)}.${notes}`
 }
@@ -93,7 +96,9 @@ function foodPurchaseAccountingBody(
   const profit = formatAmount(payload.profitAmount)
   const periodText = payload.periodLabel ? ` for ${payload.periodLabel}` : ""
   const profitText = profit ? ` with recorded profit of ${profit}` : ""
-  const notes = payload.reviewNotes ? ` Review note: ${payload.reviewNotes}` : ""
+  const notes = payload.reviewNotes
+    ? ` Review note: ${payload.reviewNotes}`
+    : ""
 
   return `Foodstuff Purchase accounting${periodText} is now ${sentenceCase(status)}${profitText}.${notes}`
 }
@@ -119,7 +124,8 @@ export const foodPurchaseApplicationStatusChanged = defineHalaalNotification({
   channels: channelHelpers.inAppAndEmail(),
   roles: [],
   schema: foodPurchaseApplicationEventSchema,
-  title: (payload) => `Foodstuff Purchase application ${sentenceCase(payload.status)}`,
+  title: (payload) =>
+    `Foodstuff Purchase application ${sentenceCase(payload.status)}`,
   variant: "info",
 })
 

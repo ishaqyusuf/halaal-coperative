@@ -158,6 +158,19 @@ export function createEmailDraftFromType<
   const actionUrl = template?.actionUrl ?? definition.buildLink(parsed) ?? "/"
   const subject = template?.subject ?? "Notification"
   const previewText = template?.previewText ?? bodyText
+  const sender =
+    template?.sender ??
+    (typeof parsed === "object" &&
+    parsed !== null &&
+    "tenantName" in parsed &&
+    typeof parsed.tenantName === "string" &&
+    "tenantSlug" in parsed &&
+    typeof parsed.tenantSlug === "string"
+      ? {
+          displayName: parsed.tenantName,
+          localPart: parsed.tenantSlug,
+        }
+      : undefined)
 
   return createNotificationEmailDraft({
     actionLabel,
@@ -167,6 +180,7 @@ export function createEmailDraftFromType<
     notificationType: type,
     previewText,
     recipient,
+    sender,
     subject,
   })
 }

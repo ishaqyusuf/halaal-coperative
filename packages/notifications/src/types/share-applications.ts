@@ -9,10 +9,10 @@ import {
   eventEmailDraft,
   formatAmount,
   sentenceCase,
-  tenantEventSchema,
+  tenantEmailEventSchema,
 } from "./shared"
 
-const memberShareApplicationEventSchema = tenantEventSchema.extend({
+const memberShareApplicationEventSchema = tenantEmailEventSchema.extend({
   approvedUnits: z.number().optional().nullable(),
   memberName: z.string().optional().nullable(),
   recipientEmail: z.email().optional(),
@@ -46,6 +46,7 @@ function shareApplicationRecipient(
     recipientEmail: payload.recipientEmail,
     recipientName: payload.recipientName,
     tenantName: payload.tenantName,
+    tenantSlug: payload.tenantSlug,
   })
 }
 
@@ -57,7 +58,9 @@ function shareApplicationBody(payload: MemberShareApplicationEventPayload) {
   const requestedUnits = `${payload.requestedUnits} requested unit${payload.requestedUnits === 1 ? "" : "s"}`
   const shareValue = formatAmount(payload.shareValue)
   const valueText = shareValue ? ` worth ${shareValue}` : ""
-  const notes = payload.reviewNotes ? ` Review note: ${payload.reviewNotes}` : ""
+  const notes = payload.reviewNotes
+    ? ` Review note: ${payload.reviewNotes}`
+    : ""
 
   return `Your share request for ${approvedUnits ?? requestedUnits}${valueText} is now ${sentenceCase(payload.status)}.${notes}`
 }

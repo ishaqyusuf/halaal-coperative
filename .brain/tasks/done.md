@@ -583,3 +583,15 @@ This file records completed work and important outcomes.
 - Created Date: 2026-07-26
 - Completed Date: 2026-07-26
 - Checks: `bun test apps/dashboard/src/lib/workflow-presentations.test.ts apps/dashboard/src/lib/workflow-presentation-usage.test.ts apps/dashboard/src/lib/members/member-opening-position-modal.test.ts`; `bun --filter @halaalvest/dashboard typecheck`; dashboard lint; browser QA
+
+### Cooperative-Subdomain Email Sender Identity
+
+- Priority: High
+- Description: Replaced the global `Welcome to Halaalvest` sender label with tenant-scoped outbound identities using the cooperative display name and immutable workspace slug on the configured sender domain, while retaining platform fallback email before a workspace slug exists.
+- Related Feature: Cooperative email sender identity; internal QA email routing; public signup and onboarding
+- Status: Done
+- Plan Status: Done
+- Rollout Status: Pending confirmation that `halaalvest.com` is verified in Resend and tenant/platform canary delivery is successful
+- Created Date: 2026-07-27
+- Completed Date: 2026-07-27
+- Checks: `bun test packages/notifications/src` (50 pass); notification, API, dashboard, marketing, jobs, and database typechecks; targeted lint with no errors; `bun test` (643 pass, with four unrelated existing failures in Quick Fill coverage and dashboard operation-profile mocks); source audit. External Resend domain verification and delivery canaries remain pending.

@@ -4,9 +4,10 @@ import {
   createDirectRecipient,
   defineHalaalNotification,
   directEmailSchema,
+  directTenantEmailSchema,
 } from "./shared"
 
-const signupEmailVerificationSchema = directEmailSchema.extend({
+const signupEmailVerificationSchema = directTenantEmailSchema.extend({
   expiresAt: z.string().min(1),
   verificationUrl: z.string().min(1),
 })
@@ -45,7 +46,7 @@ export const signupEmailVerification = defineHalaalNotification({
   variant: "info",
 })
 
-const workspaceReadySchema = directEmailSchema.extend({
+const workspaceReadySchema = directTenantEmailSchema.extend({
   dashboardUrl: z.string().min(1),
   siteUrl: z.string().min(1),
 })
@@ -81,7 +82,7 @@ export const workspaceReady = defineHalaalNotification({
   variant: "success",
 })
 
-const workspaceInvitationSchema = directEmailSchema.extend({
+const workspaceInvitationSchema = directTenantEmailSchema.extend({
   invitationUrl: z.string().min(1),
   roleLabel: z.string().optional(),
 })

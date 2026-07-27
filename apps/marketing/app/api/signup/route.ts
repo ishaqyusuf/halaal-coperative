@@ -96,12 +96,17 @@ export async function POST(request: Request) {
       recipientEmail: payload.primaryContactEmail,
       recipientName: payload.primaryContactFullName,
       tenantName: payload.cooperativeName,
+      tenantSlug: payload.workspaceSlug,
       verificationUrl: onboardingUrl.toString(),
     })
     const notificationService = createServerNotificationService()
-    const verificationDelivery = await notificationService.tryEmail(verificationEmail)
+    const verificationDelivery =
+      await notificationService.tryEmail(verificationEmail)
 
-    if (process.env.NODE_ENV === "production" && verificationDelivery.status !== "sent") {
+    if (
+      process.env.NODE_ENV === "production" &&
+      verificationDelivery.status !== "sent"
+    ) {
       return NextResponse.json(
         {
           error:

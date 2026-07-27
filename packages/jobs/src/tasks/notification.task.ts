@@ -22,6 +22,7 @@ export const emailSmokeTestTask = task({
       recipientName: "HalaalVest email smoke test",
       siteUrl: "https://halaalvest.com",
       tenantName: "HalaalVest",
+      tenantSlug: "halaalvest",
     })
     const delivery = await createServerNotificationService().tryEmail(draft)
 

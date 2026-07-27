@@ -9,10 +9,10 @@ import {
   eventEmailDraft,
   formatAmount,
   sentenceCase,
-  tenantEventSchema,
+  tenantEmailEventSchema,
 } from "./shared"
 
-const procurementRequestEventSchema = tenantEventSchema.extend({
+const procurementRequestEventSchema = tenantEmailEventSchema.extend({
   amount: z.union([z.number(), z.string()]).optional().nullable(),
   itemName: z.string().min(1),
   memberName: z.string().optional().nullable(),
@@ -45,6 +45,7 @@ function procurementRecipient(payload: ProcurementRequestEventPayload) {
     recipientEmail: payload.recipientEmail,
     recipientName: payload.recipientName,
     tenantName: payload.tenantName,
+    tenantSlug: payload.tenantSlug,
   })
 }
 
@@ -55,7 +56,9 @@ function procurementBody(payload: ProcurementRequestEventPayload) {
   const termText = payload.repaymentMonths
     ? ` Repayment plan: ${payload.repaymentMonths} month${payload.repaymentMonths === 1 ? "" : "s"}.`
     : ""
-  const notes = payload.reviewNotes ? ` Review note: ${payload.reviewNotes}` : ""
+  const notes = payload.reviewNotes
+    ? ` Review note: ${payload.reviewNotes}`
+    : ""
 
   return `Your procurement request for ${payload.itemName}${amountText} is now ${sentenceCase(payload.status)}.${vendorText}${termText}${notes}`
 }

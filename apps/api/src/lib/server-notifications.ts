@@ -42,6 +42,8 @@ export async function sendTenantRoleNotificationEmails(input: {
   source: string
   subject: string
   tenantId: string
+  tenantName: string
+  tenantSlug: string
 }) {
   const recipients = await listTenantRoleNotificationRecipients({
     notificationType: input.notificationType,
@@ -65,6 +67,10 @@ export async function sendTenantRoleNotificationEmails(input: {
         kind: "email",
         value: recipient.email,
       },
+      sender: {
+        displayName: input.tenantName,
+        localPart: input.tenantSlug,
+      },
       subject: input.subject,
     })
 
@@ -73,7 +79,7 @@ export async function sendTenantRoleNotificationEmails(input: {
         draft,
         source: input.source,
         tenantId: input.tenantId,
-      }),
+      })
     )
   }
 

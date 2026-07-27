@@ -9,10 +9,10 @@ import {
   eventEmailDraft,
   formatAmount,
   sentenceCase,
-  tenantEventSchema,
+  tenantEmailEventSchema,
 } from "./shared"
 
-const paymentReceiptEventSchema = tenantEventSchema.extend({
+const paymentReceiptEventSchema = tenantEmailEventSchema.extend({
   amount: z.union([z.number(), z.string()]).optional().nullable(),
   memberName: z.string().optional().nullable(),
   paymentReference: z.string().optional().nullable(),
@@ -41,6 +41,7 @@ function receiptRecipient(payload: PaymentReceiptEventPayload) {
     recipientEmail: payload.recipientEmail,
     recipientName: payload.recipientName,
     tenantName: payload.tenantName,
+    tenantSlug: payload.tenantSlug,
   })
 }
 
@@ -55,7 +56,9 @@ function receiptLabel(payload: PaymentReceiptEventPayload) {
 function receiptBody(payload: PaymentReceiptEventPayload) {
   const amount = formatAmount(payload.amount)
   const amountText = amount ? ` for ${amount}` : ""
-  const notes = payload.reviewNotes ? ` Review note: ${payload.reviewNotes}` : ""
+  const notes = payload.reviewNotes
+    ? ` Review note: ${payload.reviewNotes}`
+    : ""
 
   return `Your ${receiptLabel(payload)}${amountText} is now ${sentenceCase(payload.status)}.${notes}`
 }

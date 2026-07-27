@@ -8,7 +8,7 @@ import {
 } from "./index"
 import { getEmailRoutingConfiguration } from "./email-routing"
 
-const DEFAULT_EMAIL_FROM_NAME = "Welcome to Halaalvest"
+const DEFAULT_EMAIL_FROM_NAME = "Halaalvest"
 
 function discardNotification(_input: NotificationInput) {
   return `notification-${Date.now()}-${Math.random()}`

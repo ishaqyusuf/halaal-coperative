@@ -17,7 +17,9 @@ import { setQaPreviewFlash } from "@/lib/qa-preview-flash.server"
 import { getPublicRequestHost } from "@/lib/request-host"
 
 export function GET(request: NextRequest) {
-  return NextResponse.redirect(buildDashboardRedirectUrl(request, "/login/reset"))
+  return NextResponse.redirect(
+    buildDashboardRedirectUrl(request, "/login/reset")
+  )
 }
 
 export async function POST(request: NextRequest) {
@@ -68,6 +70,10 @@ export async function POST(request: NextRequest) {
           email: user.email,
           kind: "email",
           value: user.email,
+        },
+        sender: {
+          displayName: tenant.name,
+          localPart: tenant.slug,
         },
         subject: `${tenant.name}: reset your password`,
       })

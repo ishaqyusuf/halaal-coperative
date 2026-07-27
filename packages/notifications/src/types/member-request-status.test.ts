@@ -33,6 +33,7 @@ describe("member request status notification types", () => {
       reviewNotes: "Approved by finance.",
       status: "approved",
       tenantName: "Demo Cooperative",
+      tenantSlug: "demo-cooperative",
     })
 
     expect(draft).toMatchObject({
@@ -50,15 +51,19 @@ describe("member request status notification types", () => {
   })
 
   test("builds a direct guarantor approval email draft", () => {
-    const draft = createEmailDraftFromType("loan.guarantor_approval_requested", {
-      amount: 100000,
-      guarantorApprovalId: "guarantor-approval-1",
-      loanRequestId: "loan-request-1",
-      memberName: "Aisha Bello",
-      recipientEmail: "musa@example.com",
-      recipientName: "Musa Garba",
-      tenantName: "Demo Cooperative",
-    })
+    const draft = createEmailDraftFromType(
+      "loan.guarantor_approval_requested",
+      {
+        amount: 100000,
+        guarantorApprovalId: "guarantor-approval-1",
+        loanRequestId: "loan-request-1",
+        memberName: "Aisha Bello",
+        recipientEmail: "musa@example.com",
+        recipientName: "Musa Garba",
+        tenantName: "Demo Cooperative",
+        tenantSlug: "demo-cooperative",
+      }
+    )
 
     expect(draft).toMatchObject({
       actionLabel: "Review request",
@@ -88,6 +93,7 @@ describe("member request status notification types", () => {
         shareValue: 20000,
         status: "approved",
         tenantName: "Demo Cooperative",
+        tenantSlug: "demo-cooperative",
       }
     )
 
@@ -119,6 +125,7 @@ describe("member request status notification types", () => {
         reviewNotes: "Approved as a principal-only facility.",
         status: "approved",
         tenantName: "Demo Cooperative",
+        tenantSlug: "demo-cooperative",
       }
     )
 
@@ -151,6 +158,7 @@ describe("member request status notification types", () => {
         reviewNotes: "Approved at market cost.",
         status: "approved",
         tenantName: "Demo Cooperative",
+        tenantSlug: "demo-cooperative",
         vendorName: "Local Vendor",
       }
     )
@@ -184,6 +192,7 @@ describe("member request status notification types", () => {
         reviewNotes: "Approved by committee.",
         status: "approved",
         tenantName: "Demo Cooperative",
+        tenantSlug: "demo-cooperative",
       }
     )
 
@@ -215,6 +224,7 @@ describe("member request status notification types", () => {
         reviewNotes: "Accounting accepted for governance evidence.",
         status: "accounting_approved",
         tenantName: "Demo Cooperative",
+        tenantSlug: "demo-cooperative",
       }
     )
 
@@ -230,6 +240,8 @@ describe("member request status notification types", () => {
     })
     expect(draft.bodyText).toContain("Jul 2026")
     expect(draft.bodyText).toContain("95,000")
-    expect(draft.bodyText).toContain("Accounting accepted for governance evidence.")
+    expect(draft.bodyText).toContain(
+      "Accounting accepted for governance evidence."
+    )
   })
 })

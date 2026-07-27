@@ -17,9 +17,13 @@ export type NotificationEmailTemplateDraft = Omit<
 export type HalaalVestNotificationDefinition<
   TSchema extends z.ZodTypeAny = z.ZodTypeAny,
 > = NotificationTypeDefinition<TSchema> & {
-  buildAction?: (payload: z.infer<TSchema>) => NotificationActionDescriptor | null
+  buildAction?: (
+    payload: z.infer<TSchema>
+  ) => NotificationActionDescriptor | null
   buildBody: (payload: z.infer<TSchema>) => string
-  buildEmailDraft: (payload: z.infer<TSchema>) => NotificationEmailTemplateDraft | null
+  buildEmailDraft: (
+    payload: z.infer<TSchema>
+  ) => NotificationEmailTemplateDraft | null
   buildLink: (payload: z.infer<TSchema>) => string | null
   defaultRoles?: string[]
 }
@@ -30,6 +34,16 @@ export const directEmailSchema = z.object({
   tenantName: z.string().min(1),
 })
 
+export const tenantSlugSchema = z
+  .string()
+  .min(1)
+  .max(63)
+  .regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/)
+
+export const directTenantEmailSchema = directEmailSchema.extend({
+  tenantSlug: tenantSlugSchema,
+})
+
 export const tenantEventSchema = z.object({
   actionLabel: z.string().optional(),
   actionUrl: z.string().optional(),
@@ -37,15 +51,28 @@ export const tenantEventSchema = z.object({
   tenantName: z.string().min(1),
 })
 
+export const tenantEmailEventSchema = tenantEventSchema.extend({
+  tenantSlug: tenantSlugSchema,
+})
+
 export const financeEventSchema = tenantEventSchema.extend({
   amount: z.union([z.number(), z.string()]).optional().nullable(),
   memberName: z.string().optional().nullable(),
 })
 
+export const financeEmailEventSchema = tenantEmailEventSchema.extend({
+  amount: z.union([z.number(), z.string()]).optional().nullable(),
+  memberName: z.string().optional().nullable(),
+})
+
 export function defineHalaalNotification<TSchema extends z.ZodTypeAny>(input: {
-  buildAction?: (payload: z.infer<TSchema>) => NotificationActionDescriptor | null
+  buildAction?: (
+    payload: z.infer<TSchema>
+  ) => NotificationActionDescriptor | null
   buildBody: (payload: z.infer<TSchema>) => string
-  buildEmailDraft: (payload: z.infer<TSchema>) => NotificationEmailTemplateDraft | null
+  buildEmailDraft: (
+    payload: z.infer<TSchema>
+  ) => NotificationEmailTemplateDraft | null
   buildLink: (payload: z.infer<TSchema>) => string | null
   channels: NotificationChannel[]
   roles?: string[]
@@ -68,7 +95,9 @@ export function defineHalaalNotification<TSchema extends z.ZodTypeAny>(input: {
   }
 }
 
-export function createDirectRecipient(payload: z.infer<typeof directEmailSchema>): NotificationRecipient {
+export function createDirectRecipient(
+  payload: z.infer<typeof directEmailSchema> & { tenantSlug?: string }
+): NotificationRecipient {
   return {
     displayName: payload.recipientName,
     email: payload.recipientEmail,
@@ -85,6 +114,7 @@ export function createNotificationEmailDraft(input: {
   notificationType: string
   previewText: string
   recipient: NotificationRecipient
+  sender?: NotificationEmailDraft["sender"]
   subject: string
 }): NotificationEmailDraft {
   return {
@@ -102,6 +132,7 @@ export function createNotificationEmailDraft(input: {
     notificationType: input.notificationType,
     previewText: input.previewText,
     recipient: input.recipient,
+    sender: input.sender,
     subject: input.subject,
   }
 }
@@ -128,14 +159,14 @@ export function sentenceCase(value: string) {
 
 export function defaultActionLabel(
   payload: z.infer<typeof tenantEventSchema>,
-  fallback: string,
+  fallback: string
 ) {
   return payload.actionLabel ?? fallback
 }
 
 export function defaultActionUrl(
   payload: z.infer<typeof tenantEventSchema>,
-  fallback: string,
+  fallback: string
 ) {
   return payload.actionUrl ?? fallback
 }
@@ -143,7 +174,7 @@ export function defaultActionUrl(
 export function financeBody(
   payload: z.infer<typeof financeEventSchema>,
   event: string,
-  suffix?: string,
+  suffix?: string
 ) {
   const amount = formatAmount(payload.amount)
   const member = payload.memberName ? ` for ${payload.memberName}` : ""

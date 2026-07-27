@@ -80,12 +80,13 @@ export async function submitMemberOnboardingAction(formData: FormData) {
   const email = getRequiredString(formData, "email").toLowerCase()
   const memberNumber = composeMemberNumber(
     context.tenant.memberNumberPrefix,
-    getRequiredString(formData, "memberNumber"),
+    getRequiredString(formData, "memberNumber")
   )
   const phoneNumber = getRequiredString(formData, "phoneNumber")
   const password = getRequiredString(formData, "password")
   const confirmPassword = getRequiredString(formData, "confirmPassword")
-  const signupToken = (formData.get("signupToken") as string | null)?.trim() || null
+  const signupToken =
+    (formData.get("signupToken") as string | null)?.trim() || null
 
   if (password !== confirmPassword) {
     throw new Error("Passwords do not match.")
@@ -105,7 +106,9 @@ export async function submitMemberOnboardingAction(formData: FormData) {
   }
 
   const tokenPayload =
-    gate.mode === "link" && gate.token ? verifyMemberSignupLinkToken(gate.token) : null
+    gate.mode === "link" && gate.token
+      ? verifyMemberSignupLinkToken(gate.token)
+      : null
 
   const created = await createMemberOnboardingRequest({
     email,
@@ -139,8 +142,9 @@ export async function submitMemberOnboardingAction(formData: FormData) {
       recipientName: fullName,
       requestId: created.request.id,
       tenantName: context.tenant.name,
+      tenantSlug: context.tenant.slug,
       verificationUrl,
-    },
+    }
   )
 
   const delivery = await sendMemberSignupEmail({
@@ -196,8 +200,9 @@ export async function resendMemberVerificationAction() {
       recipientName: request.fullName,
       requestId: request.id,
       tenantName: context.tenant.name,
+      tenantSlug: context.tenant.slug,
       verificationUrl,
-    },
+    }
   )
 
   const delivery = await sendMemberSignupEmail({

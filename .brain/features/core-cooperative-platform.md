@@ -55,6 +55,7 @@ This file documents the primary business feature set for the Amanah cooperative 
 - Notify linked members when Foodstuff Purchase application review status changes and member email contact is available.
 - Let members and staff stage payment receipts with category-aware and period-aware allocation before finance approval.
 - Notify linked members when payment receipt review status changes and member email contact is available.
+- Send tenant-scoped email from the cooperative display name and immutable workspace-slug address on the configured verified provider domain.
 - Let members open and track their own support cases while staff manage member issues, payment mistakes, account questions, and resolution evidence.
 - Show linked members a self-service dashboard with profile status, commitment, savings, special savings, financing exposure, procurement/project/Foodstuff Purchase activity, receipt status, support cases, shares, and recent ledger activity.
 - Capture feature requests through the audited support workflow so client feedback can be triaged without changing financial records.

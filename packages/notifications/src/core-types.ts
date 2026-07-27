@@ -56,7 +56,13 @@ export type NotificationEmailDraft = {
   previewText: string
   qaArtifacts?: NotificationQaArtifact[]
   recipient: NotificationRecipient
+  sender?: NotificationEmailSender
   subject: string
+}
+
+export type NotificationEmailSender = {
+  displayName: string
+  localPart: string
 }
 
 export type NotificationQaArtifact =

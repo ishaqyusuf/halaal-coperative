@@ -7,7 +7,11 @@ import {
 } from "@halaalvest/db"
 import { z } from "zod"
 import { listMembersSchema } from "../schemas/members"
-import { createTRPCRouter, minRoleProcedure, tenantProcedure } from "../lib.trpc"
+import {
+  createTRPCRouter,
+  minRoleProcedure,
+  tenantProcedure,
+} from "../lib.trpc"
 import { sendTenantRoleNotificationEmails } from "../lib/server-notifications"
 
 export const membersRouter = createTRPCRouter({
@@ -33,10 +37,13 @@ export const membersRouter = createTRPCRouter({
         memberNumber: z.string().min(1),
         fullName: z.string().min(1),
         memberType: z.enum(["civil_servant", "individual", "business"]),
-        joinedAt: z.string().datetime().transform((s) => new Date(s)),
+        joinedAt: z
+          .string()
+          .datetime()
+          .transform((s) => new Date(s)),
         userId: z.string().uuid().optional(),
         deductionSourceId: z.string().uuid().optional(),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       return createMember({
@@ -58,11 +65,13 @@ export const membersRouter = createTRPCRouter({
         address: z.string().nullable().optional(),
         email: z.string().email().nullable().optional(),
         fullName: z.string().min(1).optional(),
-        memberType: z.enum(["civil_servant", "individual", "business"]).optional(),
+        memberType: z
+          .enum(["civil_servant", "individual", "business"])
+          .optional(),
         occupation: z.string().nullable().optional(),
         phoneNumber: z.string().nullable().optional(),
         deductionSourceId: z.string().uuid().nullable().optional(),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       return updateMember(ctx.tenant.current.id, input.memberId, {
@@ -81,15 +90,21 @@ export const membersRouter = createTRPCRouter({
     .input(
       z.object({
         memberId: z.string().uuid(),
-        status: z.enum(["pending", "active", "inactive", "suspended", "exited"]),
-      }),
+        status: z.enum([
+          "pending",
+          "active",
+          "inactive",
+          "suspended",
+          "exited",
+        ]),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       const member = await updateMemberStatus(
         ctx.tenant.current.id,
         input.memberId,
         input.status,
-        ctx.auth.session.user.id,
+        ctx.auth.session.user.id
       )
 
       await sendTenantRoleNotificationEmails({
@@ -106,6 +121,8 @@ export const membersRouter = createTRPCRouter({
         source: "dashboard.members",
         subject: `${ctx.tenant.current.name}: member status changed`,
         tenantId: ctx.tenant.current.id,
+        tenantName: ctx.tenant.current.name,
+        tenantSlug: ctx.tenant.current.slug,
       })
 
       return member

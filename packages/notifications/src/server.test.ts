@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { createNotificationEmailDraft } from "./types/shared"
-import { createServerNotificationService } from "./server"
+import {
+  createServerNotificationService,
+  getServerEmailDeliveryConfig,
+} from "./server"
 
 const env = process.env as Record<string, string | undefined>
 const originalFetch = globalThis.fetch
@@ -63,6 +66,14 @@ afterEach(() => {
 })
 
 describe("server notification delivery", () => {
+  test("uses the platform name instead of a welcome phrase for a bare fallback address", () => {
+    env.EMAIL_FROM_ADDRESS = "notifications@halaalvest.com"
+
+    expect(getServerEmailDeliveryConfig().from).toBe(
+      "Halaalvest <notifications@halaalvest.com>"
+    )
+  })
+
   test("sends through console transport in local development without provider credentials", async () => {
     env.NODE_ENV = "development"
     delete env.EMAIL_QA_DOMAIN_ROUTES

@@ -5,16 +5,21 @@ import {
   defaultActionLabel,
   defaultActionUrl,
   defineHalaalNotification,
-  directEmailSchema,
+  directTenantEmailSchema,
   eventEmailDraft,
   financeBody,
+  financeEmailEventSchema,
   financeEventSchema,
   formatAmount,
   createDirectRecipient,
   sentenceCase,
 } from "./shared"
 
-function financeAction(payload: z.infer<typeof financeEventSchema>, fallbackHref: string, fallbackLabel: string) {
+function financeAction(
+  payload: z.infer<typeof financeEventSchema>,
+  fallbackHref: string,
+  fallbackLabel: string
+) {
   return createHrefNotificationAction({
     href: defaultActionUrl(payload, fallbackHref),
     label: defaultActionLabel(payload, fallbackLabel),
@@ -26,7 +31,8 @@ function noEmailDraft() {
 }
 
 export const monthlyRecordGenerated = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/monthly-records", "Open monthly records"),
+  buildAction: (payload) =>
+    financeAction(payload, "/monthly-records", "Open monthly records"),
   buildBody: (payload) =>
     `Monthly records${payload.periodLabel ? ` for ${payload.periodLabel}` : ""} were generated.`,
   buildEmailDraft: noEmailDraft,
@@ -41,8 +47,10 @@ export const monthlyRecordGenerated = defineHalaalNotification({
 })
 
 export const monthlyRecordMemberApplied = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/monthly-records", "Open monthly records"),
-  buildBody: (payload) => financeBody(payload, "A monthly record payment was applied"),
+  buildAction: (payload) =>
+    financeAction(payload, "/monthly-records", "Open monthly records"),
+  buildBody: (payload) =>
+    financeBody(payload, "A monthly record payment was applied"),
   buildEmailDraft: noEmailDraft,
   buildLink: (payload) => defaultActionUrl(payload, "/monthly-records"),
   channels: channelHelpers.inAppAndEmail(),
@@ -57,12 +65,13 @@ export const monthlyRecordMemberApplied = defineHalaalNotification({
 })
 
 export const monthlyRecordMemberCancelled = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/monthly-records", "Open monthly records"),
+  buildAction: (payload) =>
+    financeAction(payload, "/monthly-records", "Open monthly records"),
   buildBody: (payload) =>
     financeBody(
       payload,
       "A monthly record row was cancelled",
-      "Linked contribution and repayment records were reversed when present.",
+      "Linked contribution and repayment records were reversed when present."
     ),
   buildEmailDraft: noEmailDraft,
   buildLink: (payload) => defaultActionUrl(payload, "/monthly-records"),
@@ -78,7 +87,8 @@ export const monthlyRecordMemberCancelled = defineHalaalNotification({
 })
 
 export const contributionRecorded = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/contributions", "Open contributions"),
+  buildAction: (payload) =>
+    financeAction(payload, "/contributions", "Open contributions"),
   buildBody: (payload) => financeBody(payload, "A contribution was recorded"),
   buildEmailDraft: noEmailDraft,
   buildLink: (payload) => defaultActionUrl(payload, "/contributions"),
@@ -93,8 +103,10 @@ export const contributionRecorded = defineHalaalNotification({
 })
 
 export const contributionPlanChanged = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/contributions", "Open contributions"),
-  buildBody: (payload) => financeBody(payload, "A contribution plan was updated"),
+  buildAction: (payload) =>
+    financeAction(payload, "/contributions", "Open contributions"),
+  buildBody: (payload) =>
+    financeBody(payload, "A contribution plan was updated"),
   buildEmailDraft: noEmailDraft,
   buildLink: (payload) => defaultActionUrl(payload, "/contributions"),
   channels: channelHelpers.inAppAndEmail(),
@@ -107,8 +119,10 @@ export const contributionPlanChanged = defineHalaalNotification({
 })
 
 export const chargeApplied = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/charges", "Review charges"),
-  buildBody: (payload) => financeBody(payload, "A charge application was posted"),
+  buildAction: (payload) =>
+    financeAction(payload, "/charges", "Review charges"),
+  buildBody: (payload) =>
+    financeBody(payload, "A charge application was posted"),
   buildEmailDraft: noEmailDraft,
   buildLink: (payload) => defaultActionUrl(payload, "/charges"),
   channels: channelHelpers.inAppAndEmail(),
@@ -122,8 +136,10 @@ export const chargeApplied = defineHalaalNotification({
 })
 
 export const chargeWaived = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/charges", "Review charges"),
-  buildBody: (payload) => financeBody(payload, "A charge application was waived"),
+  buildAction: (payload) =>
+    financeAction(payload, "/charges", "Review charges"),
+  buildBody: (payload) =>
+    financeBody(payload, "A charge application was waived"),
   buildEmailDraft: noEmailDraft,
   buildLink: (payload) => defaultActionUrl(payload, "/charges"),
   channels: channelHelpers.inAppAndEmail(),
@@ -137,8 +153,10 @@ export const chargeWaived = defineHalaalNotification({
 })
 
 export const chargeReversed = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/charges", "Review charges"),
-  buildBody: (payload) => financeBody(payload, "A charge application was reversed"),
+  buildAction: (payload) =>
+    financeAction(payload, "/charges", "Review charges"),
+  buildBody: (payload) =>
+    financeBody(payload, "A charge application was reversed"),
   buildEmailDraft: noEmailDraft,
   buildLink: (payload) => defaultActionUrl(payload, "/charges"),
   channels: channelHelpers.inAppAndEmail(),
@@ -181,6 +199,7 @@ export const loanRequestStatusChanged = defineHalaalNotification({
               recipientEmail: payload.recipientEmail,
               recipientName: payload.recipientName,
               tenantName: payload.tenantName,
+              tenantSlug: payload.tenantSlug,
             })
           : undefined,
       subject: `${payload.tenantName}: financing request ${sentenceCase(payload.status)}`,
@@ -188,7 +207,7 @@ export const loanRequestStatusChanged = defineHalaalNotification({
   buildLink: (payload) => defaultActionUrl(payload, "/loans"),
   channels: channelHelpers.inAppAndEmail(),
   roles: ["tenant_admin", "finance_officer", "operations_officer"],
-  schema: financeEventSchema.extend({
+  schema: financeEmailEventSchema.extend({
     loanRequestId: z.string().min(1),
     recipientEmail: z.email().optional(),
     recipientName: z.string().min(1).optional(),
@@ -204,7 +223,7 @@ export const loanGuarantorApprovalRequested = defineHalaalNotification({
     financeAction(
       payload,
       payload.actionUrl ?? "/guarantor-approvals",
-      "Review request",
+      "Review request"
     ),
   buildBody: (payload) => {
     const amount = formatAmount(payload.amount)
@@ -223,13 +242,11 @@ export const loanGuarantorApprovalRequested = defineHalaalNotification({
   buildLink: (payload) => defaultActionUrl(payload, "/guarantor-approvals"),
   channels: channelHelpers.email(),
   roles: [],
-  schema: financeEventSchema
-    .merge(directEmailSchema)
-    .extend({
-      guarantorApprovalId: z.string().min(1),
-      loanRequestId: z.string().min(1),
-      memberName: z.string().min(1),
-    }),
+  schema: financeEventSchema.merge(directTenantEmailSchema).extend({
+    guarantorApprovalId: z.string().min(1),
+    loanRequestId: z.string().min(1),
+    memberName: z.string().min(1),
+  }),
   title: () => "Guarantor approval requested",
   variant: "warning",
 })
@@ -250,7 +267,8 @@ export const loanDisbursed = defineHalaalNotification({
 })
 
 export const repaymentPosted = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/repayments", "Open repayments"),
+  buildAction: (payload) =>
+    financeAction(payload, "/repayments", "Open repayments"),
   buildBody: (payload) => financeBody(payload, "A repayment was posted"),
   buildEmailDraft: noEmailDraft,
   buildLink: (payload) => defaultActionUrl(payload, "/repayments"),
@@ -265,7 +283,8 @@ export const repaymentPosted = defineHalaalNotification({
 })
 
 export const collectionsFollowUpRecorded = defineHalaalNotification({
-  buildAction: (payload) => financeAction(payload, "/repayments", "Open repayments"),
+  buildAction: (payload) =>
+    financeAction(payload, "/repayments", "Open repayments"),
   buildBody: (payload) =>
     `A collections follow-up was recorded with status ${sentenceCase(payload.status)}.`,
   buildEmailDraft: noEmailDraft,
@@ -282,11 +301,16 @@ export const collectionsFollowUpRecorded = defineHalaalNotification({
 
 export const shareProfitPublished = defineHalaalNotification({
   buildAction: (payload) =>
-    financeAction(payload, "/settings/finance/business", "Open business finance"),
+    financeAction(
+      payload,
+      "/settings/finance/business",
+      "Open business finance"
+    ),
   buildBody: (payload) =>
     financeBody(payload, "Share/business profit allocations were published"),
   buildEmailDraft: noEmailDraft,
-  buildLink: (payload) => defaultActionUrl(payload, "/settings/finance/business"),
+  buildLink: (payload) =>
+    defaultActionUrl(payload, "/settings/finance/business"),
   channels: channelHelpers.inAppAndEmail(),
   roles: ["tenant_admin", "finance_officer"],
   schema: financeEventSchema.extend({

@@ -22,6 +22,7 @@ describe("support notification types", () => {
       subject: "Receipt allocation issue",
       supportCaseId: "support-1",
       tenantName: "Demo Cooperative",
+      tenantSlug: "demo-cooperative",
     })
 
     expect(draft).toMatchObject({

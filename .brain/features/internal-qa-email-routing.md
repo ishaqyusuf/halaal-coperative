@@ -24,6 +24,7 @@ EMAIL_QA_DOMAIN_ROUTES='{"tester-one.qa.test":"tester-one@example.com","tester-t
 - Any local part at a configured domain routes to the same tester inbox.
 - Only the provider envelope changes; persisted users, member profiles, notification drafts, verification tokens, and tenant data keep the synthetic recipient.
 - QA-routed messages include a subject prefix, an HTML/text banner, and provider headers identifying the original recipient.
+- QA routing preserves the tenant sender identity, including the cooperative display name and `Tenant.slug` local part; only the recipient envelope and QA evidence change.
 - Unmapped `.test` domains fail closed. Ordinary recipients use console delivery outside production and live provider delivery in production.
 - Mixed recipient lists are split and routed independently.
 - Delivery results and tenant audit metadata record the routing mode, original recipient, delivered recipients, attempts, status, and provider message ID without logging rendered email bodies.

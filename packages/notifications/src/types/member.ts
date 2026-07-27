@@ -6,23 +6,24 @@ import {
   defaultActionLabel,
   defaultActionUrl,
   defineHalaalNotification,
-  directEmailSchema,
+  directTenantEmailSchema,
   sentenceCase,
   tenantEventSchema,
 } from "./shared"
 
-const memberOnboardingVerificationRequestedSchema = directEmailSchema.extend({
-  expiresAt: z.string().min(1),
-  requestId: z.string().min(1),
-  verificationUrl: z.string().min(1),
-})
+const memberOnboardingVerificationRequestedSchema =
+  directTenantEmailSchema.extend({
+    expiresAt: z.string().min(1),
+    requestId: z.string().min(1),
+    verificationUrl: z.string().min(1),
+  })
 
 type MemberOnboardingVerificationRequestedPayload = z.infer<
   typeof memberOnboardingVerificationRequestedSchema
 >
 
 function buildMemberOnboardingVerificationRequestedBody(
-  payload: MemberOnboardingVerificationRequestedPayload,
+  payload: MemberOnboardingVerificationRequestedPayload
 ) {
   return [
     `Hello ${payload.recipientName},`,
@@ -51,7 +52,7 @@ export const memberOnboardingVerificationRequested = defineHalaalNotification({
   variant: "info",
 })
 
-const memberOnboardingApprovedSchema = directEmailSchema.extend({
+const memberOnboardingApprovedSchema = directTenantEmailSchema.extend({
   actionUrl: z.string().optional(),
   memberId: z.string().min(1),
   requestId: z.string().min(1),
@@ -62,7 +63,7 @@ type MemberOnboardingApprovedPayload = z.infer<
 >
 
 function buildMemberOnboardingApprovedBody(
-  payload: MemberOnboardingApprovedPayload,
+  payload: MemberOnboardingApprovedPayload
 ) {
   return `Hello ${payload.recipientName},\n\nYour membership for ${payload.tenantName} has been approved.\nYou can now sign in to your dashboard and continue with your cooperative account.`
 }
@@ -84,7 +85,7 @@ export const memberOnboardingApproved = defineHalaalNotification({
   variant: "success",
 })
 
-const memberOnboardingRejectedSchema = directEmailSchema.extend({
+const memberOnboardingRejectedSchema = directTenantEmailSchema.extend({
   actionUrl: z.string().optional(),
   reason: z.string().optional().nullable(),
   requestId: z.string().min(1),
@@ -95,7 +96,7 @@ type MemberOnboardingRejectedPayload = z.infer<
 >
 
 function buildMemberOnboardingRejectedBody(
-  payload: MemberOnboardingRejectedPayload,
+  payload: MemberOnboardingRejectedPayload
 ) {
   return [
     `Hello ${payload.recipientName},`,
@@ -153,7 +154,8 @@ export const memberKycUpdated = defineHalaalNotification({
   buildBody: (payload) =>
     `${payload.memberName ?? "A member"} KYC is now ${sentenceCase(payload.kycStatus)}.`,
   buildEmailDraft: () => null,
-  buildLink: (payload) => defaultActionUrl(payload, `/members/${payload.memberId}`),
+  buildLink: (payload) =>
+    defaultActionUrl(payload, `/members/${payload.memberId}`),
   channels: channelHelpers.inAppAndEmail(),
   roles: ["tenant_admin", "operations_officer"],
   schema: tenantEventSchema.extend({

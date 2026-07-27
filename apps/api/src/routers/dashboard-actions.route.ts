@@ -1396,6 +1396,8 @@ export async function updateMemberStatusAction(formData: FormData) {
     source: "dashboard.members",
     subject: `${actor.tenant.name}: member status changed`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/members")
@@ -1434,6 +1436,10 @@ export async function sendMemberPortalAccessEmailAction(formData: FormData) {
       kind: "email",
       value: access.member.email,
     },
+    sender: {
+      displayName: actor.tenant.name,
+      localPart: actor.tenant.slug,
+    },
     subject: `${actor.tenant.name}: set up your member portal`,
   })
 
@@ -1466,6 +1472,7 @@ export async function approveMemberOnboardingAction(formData: FormData) {
     recipientName: approved.user.fullName,
     requestId: approved.request.id,
     tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   await sendEmailDraftWithAudit({
@@ -1506,6 +1513,7 @@ export async function rejectMemberOnboardingAction(formData: FormData) {
       recipientName: rejected.user.fullName,
       requestId: rejected.request.id,
       tenantName: actor.tenant.name,
+      tenantSlug: actor.tenant.slug,
     }
   )
 
@@ -1551,6 +1559,8 @@ export async function updateMemberKycAction(formData: FormData) {
     source: "dashboard.members",
     subject: `${actor.tenant.name}: member KYC updated`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/members")
@@ -1836,6 +1846,8 @@ export async function applyMonthlyRecordMemberAction(formData: FormData) {
     source: "dashboard.monthly_records",
     subject: `${actor.tenant.name}: monthly record applied`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/monthly-records")
@@ -1874,6 +1886,8 @@ export async function cancelMonthlyRecordMemberAction(formData: FormData) {
     source: "dashboard.monthly_records",
     subject: `${actor.tenant.name}: monthly record cancelled`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/monthly-records")
@@ -3402,6 +3416,8 @@ export async function applyChargeAction(formData: FormData) {
     source: "dashboard.charge",
     subject: `${actor.tenant.name}: charge applied`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/charges")
@@ -3432,6 +3448,8 @@ export async function waiveChargeApplicationAction(formData: FormData) {
     source: "dashboard.charge",
     subject: `${actor.tenant.name}: charge waived`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/charges")
@@ -3462,6 +3480,8 @@ export async function reverseChargeApplicationAction(formData: FormData) {
     source: "dashboard.charge",
     subject: `${actor.tenant.name}: charge reversed`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/charges")
@@ -3518,6 +3538,7 @@ export async function submitLoanRequestAction(formData: FormData) {
         recipientEmail: approval.guarantorMember.email,
         recipientName: approval.guarantorMember.fullName,
         tenantName: actor.tenant.name,
+        tenantSlug: actor.tenant.slug,
       }
     )
 
@@ -3558,6 +3579,8 @@ export async function reviewLoanGuarantorApprovalAction(formData: FormData) {
     source: "dashboard.loans",
     subject: `${actor.tenant.name}: guarantor ${approval.status}`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/loans")
@@ -3620,6 +3643,8 @@ export async function reviewLoanRequestAction(formData: FormData) {
     source: "dashboard.loans",
     subject: `${actor.tenant.name}: loan request ${request.status.replace(/_/g, " ")}`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/loans")
@@ -3680,6 +3705,8 @@ export async function postRepaymentAction(formData: FormData) {
     source: "dashboard.repayments",
     subject: `${actor.tenant.name}: repayment posted`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/repayments")
@@ -4077,6 +4104,7 @@ function supportMemberEmailPayload(
     subject: supportCase.subject,
     supportCaseId: supportCase.id,
     tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   }
 }
 
@@ -4099,6 +4127,8 @@ async function sendSupportStaffNotification(
     source: "dashboard.support",
     subject: input.subject,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 }
 
@@ -4186,6 +4216,7 @@ async function sendPaymentReceiptStatusMemberEmail(
       reviewNotes: receipt.reviewNotes,
       status: receipt.status,
       tenantName: actor.tenant.name,
+      tenantSlug: actor.tenant.slug,
     }
   )
 
@@ -4223,6 +4254,7 @@ async function sendMemberShareApplicationStatusEmail(
           : application.approvedUnits * application.unitAmountSnapshot,
       status: application.status,
       tenantName: actor.tenant.name,
+      tenantSlug: actor.tenant.slug,
     }
   )
 
@@ -4253,6 +4285,7 @@ async function sendLoanRequestStatusMemberEmail(
     reviewNotes: request.reviewNotes,
     status: request.status,
     tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   await sendEmailDraftWithAudit({
@@ -4286,6 +4319,7 @@ async function sendProjectFinancingRequestStatusMemberEmail(
       reviewNotes: request.reviewNotes,
       status: request.status,
       tenantName: actor.tenant.name,
+      tenantSlug: actor.tenant.slug,
     }
   )
 
@@ -4319,6 +4353,7 @@ async function sendProcurementRequestStatusMemberEmail(
     reviewNotes: request.reviewNotes,
     status: request.status,
     tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
     vendorName: request.vendorName,
   })
 
@@ -4356,6 +4391,7 @@ async function sendFoodPurchaseApplicationStatusMemberEmail(
       reviewNotes: application.reviewNotes,
       status: application.status,
       tenantName: actor.tenant.name,
+      tenantSlug: actor.tenant.slug,
     }
   )
 
@@ -4399,6 +4435,7 @@ async function sendFoodPurchaseAccountingStatusCommitteeEmail(
       reviewNotes,
       status: cycle.status as "accounting_approved" | "accounting_rejected",
       tenantName: actor.tenant.name,
+      tenantSlug: actor.tenant.slug,
     }
   )
 
@@ -5268,6 +5305,8 @@ export async function updateTenantDomainVerificationStatusAction(
     source: "dashboard.domains",
     subject: `${actor.tenant.name}: domain verification updated`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/domains")
@@ -5298,6 +5337,8 @@ export async function runTenantDomainVerificationCheckAction(
     source: "dashboard.domains",
     subject: `${actor.tenant.name}: domain verification check completed`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/domains")
@@ -5404,6 +5445,8 @@ export async function recordCollectionFollowUpAction(formData: FormData) {
     source: "dashboard.collections",
     subject: `${actor.tenant.name}: collections follow-up recorded`,
     tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
   })
 
   revalidatePath("/repayments")

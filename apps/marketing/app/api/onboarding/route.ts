@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       ownerPasswordHash: hashPassword(input.password),
       qaSourceDomain: resolveConfiguredQaDomain(
         verification.primaryContactEmail,
-        getServerQaEmailDomains(),
+        getServerQaEmailDomains()
       ),
       slug: normalizeWorkspaceSlug(verification.workspaceSlug),
       state: input.state,
@@ -112,6 +112,7 @@ export async function POST(request: Request) {
       recipientName: input.primaryContactFullName,
       siteUrl,
       tenantName: result.tenant.name,
+      tenantSlug: result.tenant.slug,
     })
     const workspaceReadyDelivery =
       await notificationService.tryEmail(workspaceReadyEmail)

@@ -80,7 +80,7 @@ This file captures payload shapes, response conventions, and contract assumption
   - Request validates a signed early access request token from the query string.
   - Successful response sends an approved setup email to the cooperative primary contact and renders a small browser confirmation page.
   - The approved setup URL includes `approvalToken`, which expires after 7 days and is required by `POST /api/signup` whenever early access mode is enabled.
-  - Generated development URLs use the configured marketing origin such as `http://halaalvest.localhost` rather than the fallback `localhost:1440` host when portless is configured.
+  - Generated development URLs use the configured marketing origin such as `https://halaalvest.localhost` rather than the direct `http://localhost:1440` fallback when Portless is configured.
 - `POST /api/onboarding`
   - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, selected cooperative size range in `currentSize`, `officeAddress`, required `city`, `state`, `country`, `startDate`, and the signed `token`.
   - The route derives the slug from `cooperativeName` and applies server-side tenant policy defaults instead of asking for public policy fields.

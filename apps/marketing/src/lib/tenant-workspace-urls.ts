@@ -24,39 +24,28 @@ function getDashboardAppOrigin(currentOrigin?: string | null) {
   const configuredOrigin =
     process.env.DASHBOARD_APP_URL ?? process.env.NEXT_PUBLIC_DASHBOARD_APP_URL
 
+  if (process.env.NODE_ENV !== "production") {
+    return `https://${getDashboardRootDomain()}`
+  }
+
   if (configuredOrigin) {
     return configuredOrigin
   }
 
   const current = parseOriginLike(currentOrigin)
-  const hostname = current?.hostname ?? ""
-  const protocol = current?.protocol ?? "http:"
-
-  if (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "0.0.0.0"
-  ) {
-    const port = process.env.DASHBOARD_APP_PORT ?? "1441"
-    return `${protocol}//${hostname}:${port}`
-  }
-
-  if (hostname.endsWith(".localhost")) {
-    return `${protocol}//${
-      process.env.DASHBOARD_ROOT_DOMAIN?.trim() || "halaalvest-dash.localhost"
-    }`
-  }
-
-  return currentOrigin ?? "http://halaalvest-dash.localhost"
+  return current?.origin ?? "https://halaalvest.com"
 }
 
 function getTenantSiteOrigin(currentOrigin?: string | null) {
-  return (
+  const configuredOrigin =
     process.env.TENANT_SITE_APP_URL ??
-    process.env.NEXT_PUBLIC_TENANT_SITE_APP_URL ??
-    currentOrigin ??
-    "http://halaalvest.localhost:1440"
-  )
+    process.env.NEXT_PUBLIC_TENANT_SITE_APP_URL
+
+  if (process.env.NODE_ENV !== "production") {
+    return `https://${getTenantRootDomain()}`
+  }
+
+  return configuredOrigin ?? currentOrigin ?? "https://halaalvest.com"
 }
 
 function getTenantUrlDefaults(origin: string) {
@@ -96,18 +85,6 @@ function getDashboardAppPort(dashboardOrigin: string) {
     process.env.DASHBOARD_APP_PORT?.trim() ||
     parseOriginLike(dashboardOrigin)?.port ||
     "1441"
-  )
-}
-
-function isLocalOrigin(origin: string) {
-  const parsedOrigin = parseOriginLike(origin)
-  const hostname = parsedOrigin?.hostname ?? ""
-
-  return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "0.0.0.0" ||
-    hostname.endsWith(".localhost")
   )
 }
 
@@ -151,8 +128,9 @@ function buildDevDashboardUrlVariants(input: {
 
   const dashboardDefaults = getTenantUrlDefaults(input.dashboardOrigin)
   const dashboardOriginUrl = parseOriginLike(input.dashboardOrigin)
-  const protocol =
+  const portlessProtocol =
     dashboardOriginUrl?.protocol.replace(":", "") === "https" ? "https" : "http"
+  const directProtocol = "http"
   const dashboardAppPort = getDashboardAppPort(input.dashboardOrigin)
   const productPath = "/"
   const configuredDashboardRoot = stripPort(dashboardDefaults.currentHost)
@@ -169,12 +147,12 @@ function buildDevDashboardUrlVariants(input: {
       url: buildTenantAppUrl({
         tenantSlug: input.tenantSlug,
         currentHost: configuredDashboardRoot,
-        currentProtocol: protocol,
+        currentProtocol: portlessProtocol,
         path: productPath,
         targetPort: dashboardDefaults.targetPort,
         targetRootDomain: configuredDashboardRoot,
         enablePathStyleHosts: false,
-        defaultProtocol: protocol,
+        defaultProtocol: portlessProtocol,
       }),
     },
     {
@@ -183,12 +161,12 @@ function buildDevDashboardUrlVariants(input: {
       url: buildTenantAppUrl({
         tenantSlug: input.tenantSlug,
         currentHost: input.tenantRootDomain,
-        currentProtocol: protocol,
+        currentProtocol: portlessProtocol,
         path: productPath,
         targetPort: dashboardDefaults.targetPort,
         targetRootDomain: input.tenantRootDomain,
         enablePathStyleHosts: false,
-        defaultProtocol: protocol,
+        defaultProtocol: portlessProtocol,
       }),
     },
     {
@@ -197,12 +175,12 @@ function buildDevDashboardUrlVariants(input: {
       url: buildTenantAppUrl({
         tenantSlug: input.tenantSlug,
         currentHost: "localhost",
-        currentProtocol: protocol,
+        currentProtocol: directProtocol,
         path: productPath,
         targetPort: dashboardAppPort,
         targetRootDomain: "localhost",
         enablePathStyleHosts: false,
-        defaultProtocol: protocol,
+        defaultProtocol: directProtocol,
       }),
     },
     {
@@ -212,7 +190,7 @@ function buildDevDashboardUrlVariants(input: {
         tenantSlug: input.tenantSlug,
         path: productPath,
         port: dashboardAppPort,
-        protocol,
+        protocol: directProtocol,
       }),
     },
   ])

@@ -1,10 +1,10 @@
 import {
-  buildLocalTenantSiteHostname,
   buildTenantSiteHostname,
   extractDashboardHostname,
   extractDashboardTenantSlug,
   isTenantDashboardHost,
   resolveTenantSiteHostContext,
+  stripPortFromHostname,
 } from "@halaalvest/utils"
 import {
   getTenantUrlHeaderNames,
@@ -63,18 +63,19 @@ export function proxy(request: NextRequest) {
     tenantHostContext.tenantSubdomain ??
     dashboardTenantSlug
   const isTenantMode = isTenantDashboardHost(host) || Boolean(tenantSlug)
+  const isLocalDashboardHost =
+    stripPortFromHostname(host).endsWith(".localhost")
   const requestHeaders = new Headers(request.headers)
 
-  if (dashboardTenantSlug && dashboardTenantHostname) {
-    const isLocalDashboardHost = host.endsWith(".localhost")
-    const canonicalHost = isLocalDashboardHost
-      ? buildLocalTenantSiteHostname(dashboardTenantSlug)
-      : buildTenantSiteHostname(dashboardTenantSlug)
+  if (
+    process.env.NODE_ENV === "production" &&
+    !isLocalDashboardHost &&
+    dashboardTenantSlug &&
+    dashboardTenantHostname
+  ) {
+    const canonicalHost = buildTenantSiteHostname(dashboardTenantSlug)
     const canonicalUrl = new URL(request.url)
     canonicalUrl.hostname = canonicalHost
-    if (isLocalDashboardHost) {
-      canonicalUrl.protocol = "http:"
-    }
 
     return NextResponse.redirect(canonicalUrl)
   }

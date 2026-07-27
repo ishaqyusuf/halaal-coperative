@@ -47,26 +47,26 @@ afterEach(() => {
 describe("buildOnboardingWorkspaceUrls", () => {
   test("separates local tenant site and dashboard roots by default", () => {
     setEnv({
-      TENANT_SITE_APP_URL: "http://halaalvest.localhost",
+      TENANT_SITE_APP_URL: "https://halaalvest.localhost",
     })
 
     const urls = buildOnboardingWorkspaceUrls({
-      currentOrigin: "http://halaalvest.localhost/api/onboarding",
+      currentOrigin: "https://halaalvest.localhost/api/onboarding",
       tenantSlug: "mig-test-123",
     })
 
     expect(urls.dashboardUrl).toBe(
-      "http://mig-test-123.halaalvest-dash.localhost"
+      "https://mig-test-123.halaalvest-dash.localhost"
     )
-    expect(urls.siteUrl).toBe("http://mig-test-123.halaalvest.localhost")
+    expect(urls.siteUrl).toBe("https://mig-test-123.halaalvest.localhost")
     expect(urls.devDashboardUrlVariants.map((variant) => variant.url)).toEqual([
-      "http://mig-test-123.halaalvest-dash.localhost",
+      "https://mig-test-123.halaalvest-dash.localhost",
       "http://mig-test-123.localhost:1441",
       "http://localhost:1441/mig-test-123",
     ])
   })
 
-  test("uses one local tenant host at the dashboard root", () => {
+  test("keeps configured direct ports out of primary workspace URLs", () => {
     setEnv({
       DASHBOARD_APP_URL: "http://app.halaalvest.localhost:1441",
       DASHBOARD_ROOT_DOMAIN: "app.halaalvest.localhost",
@@ -80,19 +80,17 @@ describe("buildOnboardingWorkspaceUrls", () => {
     })
 
     expect(urls.dashboardUrl).toBe(
-      "http://mig-test-123.app.halaalvest.localhost:1441"
+      "https://mig-test-123.app.halaalvest.localhost"
     )
-    expect(urls.siteUrl).toBe(
-      "http://mig-test-123.app.halaalvest.localhost:1440"
-    )
+    expect(urls.siteUrl).toBe("https://mig-test-123.app.halaalvest.localhost")
     expect(urls.devDashboardUrlVariants.map((variant) => variant.url)).toEqual([
-      "http://mig-test-123.app.halaalvest.localhost:1441",
+      "https://mig-test-123.app.halaalvest.localhost",
       "http://mig-test-123.localhost:1441",
       "http://localhost:1441/mig-test-123",
     ])
   })
 
-  test("uses the dashboard port without /app for bare localhost onboarding requests", () => {
+  test("uses the HTTPS Portless root for bare localhost onboarding requests", () => {
     setEnv({
       DASHBOARD_APP_PORT: "1441",
       DASHBOARD_ROOT_DOMAIN: "app.halaalvest.localhost",
@@ -105,11 +103,11 @@ describe("buildOnboardingWorkspaceUrls", () => {
     })
 
     expect(urls.dashboardUrl).toBe(
-      "http://mig-test-123.app.halaalvest.localhost:1441"
+      "https://mig-test-123.app.halaalvest.localhost"
     )
-    expect(urls.siteUrl).toBe("http://mig-test-123.localhost:1440")
+    expect(urls.siteUrl).toBe("https://mig-test-123.app.halaalvest.localhost")
     expect(urls.devDashboardUrlVariants.map((variant) => variant.url)).toEqual([
-      "http://mig-test-123.app.halaalvest.localhost:1441",
+      "https://mig-test-123.app.halaalvest.localhost",
       "http://mig-test-123.localhost:1441",
       "http://localhost:1441/mig-test-123",
     ])
@@ -117,21 +115,20 @@ describe("buildOnboardingWorkspaceUrls", () => {
 
   test("offers portless and direct local dashboard variants", () => {
     setEnv({
-      DASHBOARD_APP_URL: "http://app.halaalvest.localhost",
+      DASHBOARD_APP_URL: "https://app.halaalvest.localhost",
       DASHBOARD_ROOT_DOMAIN: "halaalvest.localhost",
       LOCAL_ROOT_DOMAIN: "halaalvest.localhost",
-      TENANT_SITE_APP_URL: "http://halaalvest.localhost",
+      TENANT_SITE_APP_URL: "https://halaalvest.localhost",
     })
 
     const urls = buildOnboardingWorkspaceUrls({
-      currentOrigin: "http://halaalvest.localhost/api/onboarding",
+      currentOrigin: "https://halaalvest.localhost/api/onboarding",
       tenantSlug: "mig-test-123",
     })
 
-    expect(urls.dashboardUrl).toBe("http://mig-test-123.halaalvest.localhost")
+    expect(urls.dashboardUrl).toBe("https://mig-test-123.halaalvest.localhost")
     expect(urls.devDashboardUrlVariants.map((variant) => variant.url)).toEqual([
-      "http://mig-test-123.halaalvest.localhost",
-      "http://mig-test-123.app.halaalvest.localhost",
+      "https://mig-test-123.halaalvest.localhost",
       "http://mig-test-123.localhost:1441",
       "http://localhost:1441/mig-test-123",
     ])

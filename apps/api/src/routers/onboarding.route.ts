@@ -2,8 +2,10 @@ import {
   createTenantWorkspaceBootstrap,
   getTenantOnboardingState,
   listMemberOnboardingRequests,
+  resolveConfiguredQaDomain,
 } from "@halaalvest/db"
 import { isCooperativeCountry } from "@halaalvest/domain"
+import { getServerQaEmailDomains } from "@halaalvest/notifications/server"
 import { z } from "zod"
 
 import { authenticatedProcedure, createTRPCRouter, tenantProcedure } from "../lib.trpc"
@@ -80,6 +82,12 @@ export const onboardingRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
-      return createTenantWorkspaceBootstrap(input)
+      return createTenantWorkspaceBootstrap({
+        ...input,
+        qaSourceDomain: resolveConfiguredQaDomain(
+          input.ownerEmail,
+          getServerQaEmailDomains(),
+        ),
+      })
     }),
 })

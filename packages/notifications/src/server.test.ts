@@ -65,6 +65,7 @@ afterEach(() => {
 describe("server notification delivery", () => {
   test("sends through console transport in local development without provider credentials", async () => {
     env.NODE_ENV = "development"
+    delete env.EMAIL_QA_DOMAIN_ROUTES
     delete env.RESEND_API_KEY
     delete env.EMAIL_FROM_ADDRESS
 
@@ -78,6 +79,7 @@ describe("server notification delivery", () => {
 
   test("short-circuits reserved test domains to console transport when provider credentials exist locally", async () => {
     env.NODE_ENV = "development"
+    delete env.EMAIL_QA_DOMAIN_ROUTES
     env.RESEND_API_KEY = "re_test"
     env.EMAIL_FROM_ADDRESS = "noreply@halaalvest.localhost"
 
@@ -89,12 +91,12 @@ describe("server notification delivery", () => {
     expect(delivery.draft.recipient.value).toBe("aisha@example.test")
   })
 
-  test("routes production QA domains through the configured provider envelope", async () => {
+  test("routes production QA domains while ordinary production mail stays live", async () => {
     let providerPayload: Record<string, unknown> | undefined
 
     env.APP_ENV = "production"
     env.NODE_ENV = "production"
-    env.EMAIL_DELIVERY_MODE = "qa_routed"
+    env.EMAIL_DELIVERY_MODE = "live"
     env.EMAIL_QA_DOMAIN_ROUTES = JSON.stringify({
       "ishaq.qa.test": "ishaq@example.com",
     })
@@ -124,6 +126,37 @@ describe("server notification delivery", () => {
 
     expect(providerPayload?.to).toEqual(["ishaq@example.com"])
     expect(delivery.status).toBe("sent")
+    expect(delivery.routing?.mode).toBe("qa_domain")
+  })
+
+  test("routes configured QA domains through the provider in console environments", async () => {
+    let providerPayload: Record<string, unknown> | undefined
+
+    env.APP_ENV = "staging"
+    env.NODE_ENV = "production"
+    env.EMAIL_DELIVERY_MODE = "console"
+    env.EMAIL_QA_DOMAIN_ROUTES = JSON.stringify({
+      "ishaq.qa.test": "ishaq@example.com",
+    })
+    env.RESEND_API_KEY = "re_test"
+    env.EMAIL_FROM_ADDRESS = "noreply@example.com"
+    globalThis.fetch = async (_input, init) => {
+      providerPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >
+
+      return new Response(JSON.stringify({ id: "email_qa_console_456" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      })
+    }
+
+    const delivery = await createServerNotificationService().tryEmail(
+      testDraft("member@ishaq.qa.test")
+    )
+
+    expect(providerPayload?.to).toEqual(["ishaq@example.com"])
     expect(delivery.routing?.mode).toBe("qa_domain")
   })
 })

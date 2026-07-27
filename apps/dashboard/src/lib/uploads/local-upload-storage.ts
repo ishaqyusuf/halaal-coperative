@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { getQaUploadRoots } from "@halaalvest/jobs"
 
 const maxUploadBytes = 10 * 1024 * 1024
 const uploadIdPattern = /^[a-f0-9-]{36}$/
@@ -44,10 +45,7 @@ type UploadMetadata = {
 }
 
 function getUploadRoot() {
-  return (
-    process.env.UPLOAD_DIR ??
-    path.join(process.cwd(), ".local", "uploads")
-  )
+  return getQaUploadRoots()[0] ?? path.join(process.cwd(), ".local", "uploads")
 }
 
 function sanitizeFilename(value: string) {

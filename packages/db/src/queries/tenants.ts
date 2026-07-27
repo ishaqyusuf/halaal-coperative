@@ -27,6 +27,8 @@ export type TenantRecord = {
   currencyCode: string
   timezone: string
   status: TenantStatus
+  dataClassification: "live" | "qa"
+  qaPurgeStartedAt?: string | null
   memberCount: number
   isCaseStudy?: boolean
 }
@@ -96,6 +98,8 @@ const seedTenants: TenantRecord[] = [
     currencyCode: "NGN",
     timezone: "Africa/Lagos",
     status: "active",
+    dataClassification: "live",
+    qaPurgeStartedAt: null,
     memberCount: 428,
     isCaseStudy: true,
   },
@@ -114,6 +118,8 @@ const seedTenants: TenantRecord[] = [
     currencyCode: "NGN",
     timezone: "Africa/Lagos",
     status: "active",
+    dataClassification: "live",
+    qaPurgeStartedAt: null,
     memberCount: 212,
   },
 ]
@@ -240,6 +246,8 @@ function mapPrismaTenantRecord(input: {
   currencyCode: string
   timezone: string
   status: TenantStatus
+  dataClassification: "live" | "qa"
+  qaPurgeStartedAt: Date | null
   members?: unknown[]
 }) {
   return {
@@ -257,6 +265,8 @@ function mapPrismaTenantRecord(input: {
     currencyCode: input.currencyCode,
     timezone: input.timezone,
     status: input.status,
+    dataClassification: input.dataClassification,
+    qaPurgeStartedAt: input.qaPurgeStartedAt?.toISOString() ?? null,
     memberCount: input.members?.length ?? 0,
   } satisfies TenantRecord
 }

@@ -175,3 +175,8 @@ This file captures payload shapes, response conventions, and contract assumption
 - Response fields:
 - Validation rules:
 - Error cases:
+# QA maintenance contract
+
+- Candidate discovery never grants purge eligibility; adoption stores the QA marker.
+- A purge start revalidates the signed preview fingerprint and rejects empty, stale, or provider-blocked work.
+- Run responses contain status and aggregate counts only.

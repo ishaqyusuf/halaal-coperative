@@ -48,7 +48,7 @@ describe("Resend email transport routing", () => {
 
     const transport = createResendEmailTransport({
       apiKey: "re_test",
-      deliveryMode: "qa_routed",
+      deliveryMode: "live",
       from: "Halaalvest <notifications@example.com>",
       qaDomainRoutes: new Map([["ishaq.qa.test", "ishaq@example.com"]]),
     })
@@ -83,7 +83,7 @@ describe("Resend email transport routing", () => {
 
     const transport = createResendEmailTransport({
       apiKey: "re_test",
-      deliveryMode: "qa_routed",
+      deliveryMode: "live",
       from: "Halaalvest <notifications@example.com>",
       qaDomainRoutes: new Map([["ishaq.qa.test", "ishaq@example.com"]]),
     })
@@ -104,7 +104,7 @@ describe("Resend email transport routing", () => {
       () => "notification-test",
       createResendEmailTransport({
         apiKey: "re_test",
-        deliveryMode: "qa_routed",
+        deliveryMode: "live",
         from: "Halaalvest <notifications@example.com>",
         qaDomainRoutes: new Map([["ishaq.qa.test", "ishaq@example.com"]]),
       })

@@ -90,6 +90,7 @@ export type TenantBootstrapInput = {
   loanEligibilityMultiple?: number
   requiresDualLoanApproval?: boolean
   allowOfflineFinancialCapture?: boolean
+  qaSourceDomain?: string | null
 }
 
 export type TenantBootstrapResult = {
@@ -126,6 +127,8 @@ function toTenantRecord(input: {
   currencyCode: string
   timezone: string
   status: TenantRecord["status"]
+  dataClassification: TenantRecord["dataClassification"]
+  qaPurgeStartedAt?: Date | null
   members?: { id: string }[]
 }) {
   return {
@@ -145,6 +148,8 @@ function toTenantRecord(input: {
     currencyCode: input.currencyCode,
     timezone: input.timezone,
     status: input.status,
+    dataClassification: input.dataClassification,
+    qaPurgeStartedAt: input.qaPurgeStartedAt?.toISOString() ?? null,
     memberCount: input.members?.length ?? 0,
   } satisfies TenantRecord
 }
@@ -528,6 +533,9 @@ export async function createTenantWorkspaceBootstrap(
           currencyCode: input.currencyCode?.trim().toUpperCase() || "NGN",
           timezone: input.timezone?.trim() || "Africa/Lagos",
           status: "pending",
+          dataClassification: input.qaSourceDomain ? "qa" : "live",
+          qaMarkedAt: input.qaSourceDomain ? new Date() : null,
+          qaSourceDomain: input.qaSourceDomain ?? null,
         },
         include: {
           members: {

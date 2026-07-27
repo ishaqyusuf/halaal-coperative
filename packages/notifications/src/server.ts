@@ -46,38 +46,34 @@ function getEmailTestCopyRecipient() {
   return testEmail
 }
 
-function isReservedLocalRecipient(recipient: string) {
-  const value = recipient.trim().toLowerCase()
-  const domain = value.split("@").pop() ?? ""
-
-  return (
-    domain === "localhost" ||
-    domain.endsWith(".localhost") ||
-    domain === "test" ||
-    domain.endsWith(".test")
-  )
+function getRecipientDomain(recipient: string) {
+  return recipient.trim().toLowerCase().split("@").pop() ?? ""
 }
 
-function createDevelopmentSafeEmailTransport(
-  transport: NotificationEmailTransport | undefined
-): NotificationEmailTransport | undefined {
-  if (process.env.NODE_ENV === "production") {
-    return transport
-  }
-
+function createHybridConsoleEmailTransport(input: {
+  providerTransport?: NotificationEmailTransport
+  qaDomainRoutes: ReadonlyMap<string, string>
+}): NotificationEmailTransport {
   const consoleTransport = createConsoleEmailTransport()
-
-  if (!transport) {
-    return consoleTransport
-  }
 
   return {
     send(draft) {
-      if (isReservedLocalRecipient(draft.recipient.value)) {
+      const domain = getRecipientDomain(draft.recipient.value)
+      const isQaRecipient =
+        input.qaDomainRoutes.has(domain) ||
+        (input.qaDomainRoutes.size > 0 && domain.endsWith(".test"))
+
+      if (!isQaRecipient) {
         return consoleTransport.send(draft)
       }
 
-      return transport.send(draft)
+      if (!input.providerTransport) {
+        throw new Error(
+          "QA email delivery requires RESEND_API_KEY and EMAIL_FROM_ADDRESS."
+        )
+      }
+
+      return input.providerTransport.send(draft)
     },
   }
 }
@@ -122,28 +118,28 @@ export function createServerNotificationService() {
     testRecipient,
   } = getServerEmailDeliveryConfig()
 
+  const providerTransport =
+    configured && apiKey && from
+      ? createResendEmailTransport({
+          apiKey,
+          copyRecipient,
+          deliveryMode,
+          from,
+          qaDomainRoutes,
+          replyTo,
+          testRecipient,
+        })
+      : undefined
   const baseEmailTransport =
     deliveryMode === "console"
-      ? createConsoleEmailTransport()
-      : configured && apiKey && from
-        ? createResendEmailTransport({
-            apiKey,
-            copyRecipient,
-            deliveryMode,
-            from,
-            qaDomainRoutes,
-            replyTo,
-            testRecipient,
-          })
-        : undefined
+      ? createHybridConsoleEmailTransport({
+          providerTransport,
+          qaDomainRoutes,
+        })
+      : providerTransport
 
-  const safeEmailTransport =
-    deliveryMode === "qa_routed"
-      ? baseEmailTransport
-      : createDevelopmentSafeEmailTransport(baseEmailTransport)
-
-  const emailTransport = safeEmailTransport
-    ? createRetryingEmailTransport(safeEmailTransport, {
+  const emailTransport = baseEmailTransport
+    ? createRetryingEmailTransport(baseEmailTransport, {
         maxAttempts: 2,
         onAttemptFailure({ attempt, draft, error, maxAttempts }) {
           console.error(

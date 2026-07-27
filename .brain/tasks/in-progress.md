@@ -182,3 +182,7 @@ This file tracks work currently being executed.
 - Plan Status: In Progress
 - Plan File: brain/plans/2026-06-23-feature-school-clerk-style-notification-email-and-job-implementation.md
 - Created Date: 2026-06-23
+# Cross-product QA email and cleanup
+
+- Implementation is integrated in Halaalvest and ported to EwaTrade, PlotKeys, SchoolClerk, and afterservice.
+- Remaining rollout work is schema deployment, secure environment propagation, canary delivery, and the first operator-reviewed purge preview.

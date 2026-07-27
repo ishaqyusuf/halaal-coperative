@@ -32,3 +32,7 @@ This file explains important entity relationships and tenant boundaries.
 - Whether organizations should exist as a distinct entity under a tenant.
 - Whether dividend periods should be tenant-wide, plan-specific, or both.
 - TODO: decide how offline-created records are uniquely identified before sync.
+# QA purge relationships
+
+- QA classification belongs to the tenant isolation root and therefore covers the tenant aggregate through existing cascades.
+- `QaPurgeRun` is deliberately non-tenant and has no tenant relation, allowing a counts-only receipt to survive tenant deletion.

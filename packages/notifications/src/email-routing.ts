@@ -1,7 +1,8 @@
 import { z } from "zod"
 import type { EmailRoutingMetadata } from "./core-types"
 
-export const emailDeliveryModes = ["console", "qa_routed", "live"] as const
+export const emailDeliveryModes = ["console", "live"] as const
+const acceptedEmailDeliveryModes = [...emailDeliveryModes, "qa_routed"] as const
 
 export type EmailDeliveryMode = (typeof emailDeliveryModes)[number]
 
@@ -49,12 +50,16 @@ function parseDeliveryMode(
     return isProductionRuntime(environment) ? "live" : "console"
   }
 
-  const parsedMode = z.enum(emailDeliveryModes).safeParse(normalizedValue)
+  const parsedMode = z.enum(acceptedEmailDeliveryModes).safeParse(normalizedValue)
 
   if (!parsedMode.success) {
     throw new Error(
-      `EMAIL_DELIVERY_MODE must be one of: ${emailDeliveryModes.join(", ")}.`
+      `EMAIL_DELIVERY_MODE must be one of: ${acceptedEmailDeliveryModes.join(", ")}.`
     )
+  }
+
+  if (parsedMode.data === "qa_routed") {
+    return isProductionRuntime(environment) ? "live" : "console"
   }
 
   return parsedMode.data
@@ -173,14 +178,8 @@ export function getEmailRoutingConfiguration(
     )
   }
 
-  if (deliveryMode !== "qa_routed" && rawQaDomainRoutes) {
-    throw new Error(
-      "EMAIL_QA_DOMAIN_ROUTES requires EMAIL_DELIVERY_MODE=qa_routed."
-    )
-  }
-
   if (
-    deliveryMode === "qa_routed" &&
+    rawQaDomainRoutes &&
     (isTruthyEnvironmentFlag(environment.EMAIL_TEST_MODE) ||
       environment.EMAIL_TEST_RECIPIENT?.trim() ||
       environment.TEST_EMAIL?.trim())
@@ -190,16 +189,7 @@ export function getEmailRoutingConfiguration(
     )
   }
 
-  const qaDomainRoutes =
-    deliveryMode === "qa_routed"
-      ? parseQaDomainRoutes(rawQaDomainRoutes)
-      : new Map<string, string>()
-
-  if (deliveryMode === "qa_routed" && qaDomainRoutes.size === 0) {
-    throw new Error(
-      "EMAIL_DELIVERY_MODE=qa_routed requires at least one EMAIL_QA_DOMAIN_ROUTES entry."
-    )
-  }
+  const qaDomainRoutes = parseQaDomainRoutes(rawQaDomainRoutes)
 
   return {
     deliveryMode,
@@ -220,21 +210,21 @@ export function resolveEmailRouting(
 
   const originalRecipient = parsedOriginalRecipient.data
 
-  if (configuration.deliveryMode === "qa_routed") {
-    const domain = getEmailDomain(originalRecipient)
-    const deliveredRecipient = configuration.qaDomainRoutes.get(domain)
+  const domain = getEmailDomain(originalRecipient)
+  const deliveredRecipient = configuration.qaDomainRoutes.get(domain)
 
-    if (!deliveredRecipient) {
-      throw new Error(
-        `QA email delivery blocked unmatched recipient domain "${domain}".`
-      )
-    }
-
+  if (deliveredRecipient) {
     return {
       deliveredRecipients: [deliveredRecipient],
       mode: "qa_domain",
       originalRecipient,
     }
+  }
+
+  if (configuration.qaDomainRoutes.size > 0 && domain.endsWith(".test")) {
+    throw new Error(
+      `QA email delivery blocked unmatched recipient domain "${domain}".`
+    )
   }
 
   const testRecipient = configuration.testRecipient?.trim()

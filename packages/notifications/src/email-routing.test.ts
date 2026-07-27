@@ -15,9 +15,8 @@ describe("email routing configuration", () => {
     expect(configuration.qaDomainRoutes.size).toBe(0)
   })
 
-  test("allows QA domain routing in a preview runtime", () => {
+  test("keeps preview delivery on console while enabling QA routes", () => {
     const configuration = getEmailRoutingConfiguration({
-      EMAIL_DELIVERY_MODE: "qa_routed",
       EMAIL_QA_DOMAIN_ROUTES: JSON.stringify({
         "ishaq.qa.test": "ishaq@example.com",
       }),
@@ -25,75 +24,82 @@ describe("email routing configuration", () => {
       VERCEL_ENV: "preview",
     })
 
-    expect(configuration.deliveryMode).toBe("qa_routed")
+    expect(configuration.deliveryMode).toBe("console")
     expect(configuration.qaDomainRoutes.get("ishaq.qa.test")).toBe(
       "ishaq@example.com"
     )
   })
 
-  test("allows QA domain routing in an explicit staging runtime", () => {
+  test("keeps staging delivery on console while enabling QA routes", () => {
     const configuration = getEmailRoutingConfiguration({
       APP_ENV: "staging",
-      EMAIL_DELIVERY_MODE: "qa_routed",
       EMAIL_QA_DOMAIN_ROUTES: JSON.stringify({
         "mubarak.qa.test": "mubarak@example.com",
       }),
       NODE_ENV: "production",
     })
 
-    expect(configuration.deliveryMode).toBe("qa_routed")
+    expect(configuration.deliveryMode).toBe("console")
   })
 
-  test("allows explicitly configured QA routing in production", () => {
+  test("enables QA routes alongside live production delivery", () => {
     const configuration = getEmailRoutingConfiguration({
       APP_ENV: "production",
-      EMAIL_DELIVERY_MODE: "qa_routed",
       EMAIL_QA_DOMAIN_ROUTES: JSON.stringify({
         "ishaq.qa.test": "ishaq@example.com",
       }),
       NODE_ENV: "production",
     })
 
-    expect(configuration.deliveryMode).toBe("qa_routed")
+    expect(configuration.deliveryMode).toBe("live")
     expect(configuration.qaDomainRoutes.get("ishaq.qa.test")).toBe(
       "ishaq@example.com"
     )
   })
 
-  test("allows explicitly configured QA routing in local development", () => {
+  test("enables QA routes alongside console development delivery", () => {
     const configuration = getEmailRoutingConfiguration({
-      EMAIL_DELIVERY_MODE: "qa_routed",
       EMAIL_QA_DOMAIN_ROUTES: JSON.stringify({
         "ishaq.qa.test": "ishaq@example.com",
       }),
       NODE_ENV: "development",
     })
 
-    expect(configuration.deliveryMode).toBe("qa_routed")
+    expect(configuration.deliveryMode).toBe("console")
   })
 
-  test("rejects mixed legacy and QA routing configuration", () => {
-    expect(() =>
+  test("normalizes the deprecated QA-only mode to the environment default", () => {
+    expect(
+      getEmailRoutingConfiguration({
+        APP_ENV: "production",
+        EMAIL_DELIVERY_MODE: "qa_routed",
+        EMAIL_QA_DOMAIN_ROUTES: JSON.stringify({
+          "ishaq.qa.test": "ishaq@example.com",
+        }),
+      }).deliveryMode
+    ).toBe("live")
+
+    expect(
       getEmailRoutingConfiguration({
         APP_ENV: "staging",
         EMAIL_DELIVERY_MODE: "qa_routed",
         EMAIL_QA_DOMAIN_ROUTES: JSON.stringify({
           "ishaq.qa.test": "ishaq@example.com",
         }),
-        EMAIL_TEST_RECIPIENT: "legacy@example.com",
-      })
-    ).toThrow("QA domain routing cannot be combined")
+      }).deliveryMode
+    ).toBe("console")
   })
 
-  test("requires routes when QA routing is enabled", () => {
+  test("rejects mixed legacy overrides and QA routing configuration", () => {
     expect(() =>
       getEmailRoutingConfiguration({
         APP_ENV: "staging",
-        EMAIL_DELIVERY_MODE: "qa_routed",
+        EMAIL_QA_DOMAIN_ROUTES: JSON.stringify({
+          "ishaq.qa.test": "ishaq@example.com",
+        }),
+        EMAIL_TEST_RECIPIENT: "legacy@example.com",
       })
-    ).toThrow(
-      "EMAIL_DELIVERY_MODE=qa_routed requires at least one EMAIL_QA_DOMAIN_ROUTES entry."
-    )
+    ).toThrow("QA domain routing cannot be combined")
   })
 })
 
@@ -149,7 +155,7 @@ describe("QA domain route parsing", () => {
 
 describe("email recipient routing", () => {
   const qaConfiguration = {
-    deliveryMode: "qa_routed" as const,
+    deliveryMode: "live" as const,
     qaDomainRoutes: new Map([
       ["ishaq.qa.test", "ishaq@example.com"],
       ["mubarak.qa.test", "mubarak@example.com"],
@@ -174,18 +180,39 @@ describe("email recipient routing", () => {
     })
   })
 
-  test("blocks unmatched synthetic and real recipient domains", () => {
+  test("blocks unmatched synthetic domains but preserves ordinary recipients", () => {
     expect(() =>
       resolveEmailRouting("member@unmapped.qa.test", qaConfiguration)
     ).toThrow(
       'QA email delivery blocked unmatched recipient domain "unmapped.qa.test".'
     )
 
-    expect(() =>
-      resolveEmailRouting("member@example.com", qaConfiguration)
-    ).toThrow(
-      'QA email delivery blocked unmatched recipient domain "example.com".'
-    )
+    expect(resolveEmailRouting("member@example.com", qaConfiguration)).toEqual({
+      deliveredRecipients: ["member@example.com"],
+      mode: "live",
+      originalRecipient: "member@example.com",
+    })
+  })
+
+  test("uses console delivery for ordinary recipients while still routing QA", () => {
+    const consoleConfiguration = {
+      ...qaConfiguration,
+      deliveryMode: "console" as const,
+    }
+
+    expect(
+      resolveEmailRouting("member@ishaq.qa.test", consoleConfiguration)
+    ).toMatchObject({
+      deliveredRecipients: ["ishaq@example.com"],
+      mode: "qa_domain",
+    })
+    expect(
+      resolveEmailRouting("member@example.com", consoleConfiguration)
+    ).toEqual({
+      deliveredRecipients: ["member@example.com"],
+      mode: "console",
+      originalRecipient: "member@example.com",
+    })
   })
 
   test("preserves live recipients and supports the legacy global override", () => {

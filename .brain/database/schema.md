@@ -97,3 +97,7 @@ This file tracks the evolving database design and current source of truth at a c
 - Track member category and payment channel so direct deduction and indirect contribution flows remain explicit.
 - Prefer append-only transaction tables over mutable running totals where possible.
 - TODO: decide whether offline sync metadata belongs on each transactional table or in separate sync event tables.
+# QA data lifecycle
+
+- `Tenant.dataClassification`, `qaSourceDomain`, `qaMarkedAt`, and `qaPurgeStartedAt` provide the explicit QA isolation and purge state.
+- Global `QaPurgeRun` rows retain only actor, timestamps, status, aggregate deletion counts, and an error category; deleted tenant identities and contents are never copied into the receipt.

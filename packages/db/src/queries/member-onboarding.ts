@@ -5,6 +5,7 @@ import type {
 import { createPrismaClient } from "../prisma"
 import { createMemberWithState, type CreateMemberInput } from "./members"
 import { getTenantInitialMigrationState } from "./migration"
+import { assertQaIdentityLane } from "./qa-maintenance"
 
 export type ListMemberOnboardingFilters = {
   cursor?: string | null
@@ -57,6 +58,11 @@ export async function createMemberOnboardingRequest(
   const normalizedMemberNumber = input.memberNumber.trim()
   const normalizedFullName = input.fullName.trim()
   const normalizedPhoneNumber = input.phoneNumber?.trim() || null
+  await assertQaIdentityLane({
+    email: normalizedEmail,
+    prisma,
+    tenantId: input.tenantId,
+  })
 
   if (
     !normalizedEmail ||

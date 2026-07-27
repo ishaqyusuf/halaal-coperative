@@ -101,3 +101,7 @@ This file tracks the public and internal API surface of the platform.
 - Roles allowed:
 - Request summary:
 - Response summary:
+# Platform QA maintenance
+
+- `qaMaintenance.candidates`, `adopt`, `preview`, `start`, and `run` are platform-owner-only tRPC operations.
+- `preview` issues a ten-minute signed snapshot token. `start` requires that token plus the exact `PURGE ALL QA DATA` confirmation.

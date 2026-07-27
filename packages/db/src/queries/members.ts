@@ -11,6 +11,7 @@ import { getMemberTransactions } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
 import { ensureMemberInGeneratedMonthlyRecord } from "./monthly-records"
 import { getTenantOperationProfile } from "./operation-profile"
+import { assertQaIdentityLane } from "./qa-maintenance"
 
 export type ListMembersFilters = {
   kycStatus?: KycStatus
@@ -669,6 +670,11 @@ export async function createMemberWithState(
   input: CreateMemberInput
 ) {
   await assertMemberProfileMutationOpen(input.tenantId, tx)
+  await assertQaIdentityLane({
+    email: input.email,
+    prisma: tx,
+    tenantId: input.tenantId,
+  })
   if (input.deductionSourceId) {
     await assertCollectionSourceAssignmentAllowed({
       deductionSourceId: input.deductionSourceId,

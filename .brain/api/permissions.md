@@ -62,3 +62,7 @@ This file documents who can do what across the platform.
 - Role checks should use shared role hierarchy helpers from `packages/auth` rather than app-local rank maps.
 - Dashboard server context now drops a non-platform user if the resolved tenant does not match the user’s tenant, instead of allowing the route tree to proceed with a cross-tenant mismatch.
 - Report exports remain limited to workspace admin roles through the shared report-export context gate.
+# QA maintenance permissions
+
+- Only the platform-owner procedure may discover, adopt, preview, start, or poll QA purge runs.
+- Tenant procedures reject tenants whose `qaPurgeStartedAt` is set, and the purge job revokes their active sessions.

@@ -53,3 +53,7 @@ This file records migration history, rationale, and rollout notes.
 - If repository root scripts `db:migrate` and `db:push` exist, run `bun db:migrate` and `bun db:push` after Prisma schema/database updates.
 - Do not manually create migration files; use the repository scripts and Prisma workflow.
 - Keep migration commands aligned with root `package.json` and `packages/db` scripts.
+# QA hybrid routing cleanup
+
+- Adds tenant QA-classification fields and the non-tenant `QaPurgeRun` receipt.
+- Repository `db:migrate` and `db:push` remain required; the first local migration attempt was blocked when the configured Docker database was unavailable.

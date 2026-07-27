@@ -25,11 +25,41 @@ export const authenticatedProcedure = t.procedure.use(({ ctx, next }) => {
   })
 })
 
+export const platformOwnerProcedure = authenticatedProcedure.use(
+  ({ ctx, next }) => {
+    const session = ctx.auth.session
+
+    if (!session?.user.isPlatformOwner) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Platform-owner access is required for this action.",
+      })
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        auth: {
+          ...ctx.auth,
+          session,
+        },
+      },
+    })
+  },
+)
+
 export const tenantProcedure = authenticatedProcedure.use(({ ctx, next }) => {
   if (!ctx.tenant.current || !hasActiveMembership(ctx.auth)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "An active tenant is required for this action.",
+    })
+  }
+
+  if (ctx.tenant.current.qaPurgeStartedAt) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "This QA workspace is being purged and no longer accepts writes.",
     })
   }
 

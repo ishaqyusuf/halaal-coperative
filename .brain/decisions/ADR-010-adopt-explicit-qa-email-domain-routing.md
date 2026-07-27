@@ -13,20 +13,24 @@ Accepted
 
 ## Decision
 
-- Add explicit `console`, `qa_routed`, and `live` email delivery modes in the shared notification package.
-- Allow `qa_routed` in every runtime, including production, only when `EMAIL_DELIVERY_MODE=qa_routed` and a valid route map are explicitly configured.
+- Use only `console` and `live` as canonical base delivery modes.
+- Treat `EMAIL_QA_DOMAIN_ROUTES` as an orthogonal per-recipient routing layer that is active in either base mode and in every environment.
+- Temporarily normalize `qa_routed` to the environment-appropriate base mode as a deprecated Halaalvest-only deployment compatibility alias.
 - Configure exact reserved `.test` domain-to-inbox routes through a validated JSON environment value.
 - Change only the provider delivery envelope. Keep notification drafts, persisted identities, signed-token inputs, and tenant/member records unchanged.
-- Fail closed for every unmatched recipient while QA routing is active.
+- Always provider-deliver mapped `.test` recipients to their configured tester inbox, including when ordinary mail is in `console` mode.
+- Fail closed for unmapped `.test` recipients. Route ordinary recipients to console outside production and to the provider in production. Split mixed recipient lists per recipient.
 - Preserve original and delivered recipient evidence in delivery and audit metadata without logging rendered email content.
-- Keep legacy global override and BCC behavior temporarily, but reject mixed QA and legacy routing configuration.
+- Classify QA tenants explicitly at creation or candidate adoption. Purge eligibility is based only on this stored marker, never inferred during deletion.
+- Use a platform-owner-only, preview-token-protected background purge. Block live subscriptions/domains, delete tracked files first, revoke sessions, delete tenant aggregates transactionally, and retain only counts-only global purge receipts.
 
 ## Consequences
 
 - Multiple testers can use arbitrary synthetic identities without risking delivery to real members or unrelated domains.
 - QA routing configuration errors fail visibly instead of silently leaking email.
 - QA messages remain easy to identify through their subject prefix, message banner, provider headers, and audit metadata.
-- While QA routing is active, data in that environment must use configured `.test` domains for every workflow expected to send email; real and unmapped recipients are blocked.
+- QA and ordinary identities cannot cross tenant lanes.
+- The route map no longer changes ordinary delivery behavior. Production can simultaneously deliver ordinary mail normally and QA mail to designated tester inboxes.
 
 ## Alternatives Considered
 

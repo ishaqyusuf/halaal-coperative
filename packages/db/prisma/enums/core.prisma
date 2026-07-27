@@ -5,6 +5,20 @@ enum TenantStatus {
   archived
 }
 
+enum QaDataClassification {
+  live
+  qa
+}
+
+enum QaPurgeRunStatus {
+  queued
+  running
+  completed
+  partially_completed
+  failed
+  blocked
+}
+
 enum InitialMigrationStatus {
   not_started
   historical_setup_in_progress

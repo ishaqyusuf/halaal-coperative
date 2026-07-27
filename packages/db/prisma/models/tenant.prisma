@@ -13,6 +13,10 @@ model Tenant {
   currencyCode                       String                 @default("NGN") @map("currency_code")
   timezone                           String                 @default("Africa/Lagos")
   status                             TenantStatus           @default(pending)
+  dataClassification                 QaDataClassification   @default(live) @map("data_classification")
+  qaSourceDomain                     String?                @map("qa_source_domain")
+  qaMarkedAt                         DateTime?              @map("qa_marked_at") @db.Timestamptz(6)
+  qaPurgeStartedAt                   DateTime?              @map("qa_purge_started_at") @db.Timestamptz(6)
   initialMigrationStatus             InitialMigrationStatus @default(not_started) @map("initial_migration_status")
   migrationFinalizedAt               DateTime?              @map("migration_finalized_at") @db.Timestamptz(6)
   migrationFinalizedByUserId         String?                @map("migration_finalized_by_user_id") @db.Uuid
@@ -107,6 +111,23 @@ model Tenant {
   backfillActivities                    BackfillActivity[]
 
   @@map("tenants")
+}
+
+model QaPurgeRun {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestedByUserId String           @map("requested_by_user_id") @db.Uuid
+  status            QaPurgeRunStatus @default(queued)
+  activeKey         String?          @unique @map("active_key")
+  deletedCounts     Json?            @map("deleted_counts")
+  errorCategory     String?          @map("error_category")
+  startedAt         DateTime?        @map("started_at") @db.Timestamptz(6)
+  completedAt       DateTime?        @map("completed_at") @db.Timestamptz(6)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([createdAt], map: "qa_purge_runs_created_at_idx")
+  @@index([status], map: "qa_purge_runs_status_idx")
+  @@map("qa_purge_runs")
 }
 
 model TenantPolicy {

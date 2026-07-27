@@ -24,6 +24,7 @@ import { shareApplicationsRouter } from "./share-applications.route"
 import { supportRouter } from "./support.route"
 import { mobileAuthRouter } from "./mobile-auth.route"
 import { mobileRouter } from "./mobile.route"
+import { qaMaintenanceRouter } from "./qa-maintenance.route"
 
 export const appRouter = createTRPCRouter({
   analytics: analyticsRouter,
@@ -39,6 +40,7 @@ export const appRouter = createTRPCRouter({
   paymentReceipts: paymentReceiptsRouter,
   procurement: procurementRouter,
   projectFinancing: projectFinancingRouter,
+  qaMaintenance: qaMaintenanceRouter,
   shareApplications: shareApplicationsRouter,
   support: supportRouter,
   overview: overviewRouter,

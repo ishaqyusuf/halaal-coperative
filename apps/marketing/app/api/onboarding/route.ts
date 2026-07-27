@@ -3,12 +3,14 @@ import {
   checkTenantSignupAvailability,
   createTenantWorkspaceBootstrap,
   recordNotificationDeliveryAudit,
+  resolveConfiguredQaDomain,
   syncTenantDomainVerificationByHostname,
 } from "@halaalvest/db"
 import {
   createQaNotificationPreviews,
   createWorkspaceReadyEmail,
 } from "@halaalvest/notifications"
+import { getServerQaEmailDomains } from "@halaalvest/notifications/server"
 import {
   composeMemberNumber,
   normalizeWorkspaceSlug,
@@ -70,6 +72,10 @@ export async function POST(request: Request) {
         input.primaryContactMemberNumber
       ),
       ownerPasswordHash: hashPassword(input.password),
+      qaSourceDomain: resolveConfiguredQaDomain(
+        verification.primaryContactEmail,
+        getServerQaEmailDomains(),
+      ),
       slug: normalizeWorkspaceSlug(verification.workspaceSlug),
       state: input.state,
       startDate: input.startDate,

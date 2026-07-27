@@ -274,7 +274,10 @@ export function createResendEmailTransport(
           testRecipient: options.testRecipient,
         })
       } catch (error) {
-        if (deliveryMode === "qa_routed") {
+        if (
+          options.qaDomainRoutes?.size &&
+          draft.recipient.value.trim().toLowerCase().endsWith(".test")
+        ) {
           throw createEmailTransportError(error, {
             deliveredRecipients: [],
             mode: "qa_domain",

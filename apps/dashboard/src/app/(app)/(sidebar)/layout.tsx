@@ -12,7 +12,7 @@ import { canAccessDashboardPath } from "@/lib/navigation/lib"
 import { getOperationProfileHiddenNavPaths } from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
-  isInitialMigrationSetupPath,
+  resolveInitialMigrationLayoutRedirect,
   resolveInitialMigrationSetupGate,
 } from "@/lib/setup-gate"
 import { tenantRedirect } from "@/utils/tenant-redirect"
@@ -62,14 +62,14 @@ export default async function SidebarLayout({
       role: context.auth.membership?.role,
       tenantId: context.tenant.id,
     })
-    const alreadyInSetup = isInitialMigrationSetupPath(nextPath)
+    const setupRedirect = resolveInitialMigrationLayoutRedirect({
+      pathname: nextPath,
+      shouldRedirectAdminToSetup: setupGate.shouldRedirectAdminToSetup,
+      shouldRedirectAdminToSuccess: setupGate.shouldRedirectAdminToSuccess,
+    })
 
-    if (setupGate.shouldRedirectAdminToSetup && !alreadyInSetup) {
-      await tenantRedirect("/getting-started")
-    }
-
-    if (setupGate.shouldRedirectAdminToSuccess && !alreadyInSetup) {
-      await tenantRedirect("/onboarding-success")
+    if (setupRedirect) {
+      await tenantRedirect(setupRedirect)
     }
 
     if (!setupGate.canUseLiveWorkspace && !setupGate.isWorkspaceAdmin) {

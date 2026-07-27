@@ -33,6 +33,21 @@ export function isInitialMigrationSetupPath(pathname: string) {
   )
 }
 
+export function resolveInitialMigrationLayoutRedirect(input: {
+  pathname: string
+  shouldRedirectAdminToSetup: boolean
+  shouldRedirectAdminToSuccess: boolean
+}) {
+  if (
+    input.shouldRedirectAdminToSetup &&
+    !isInitialMigrationSetupPath(input.pathname)
+  ) {
+    return "/getting-started"
+  }
+
+  return null
+}
+
 export async function resolveInitialMigrationSetupGate(input: {
   role: MembershipRole | null | undefined
   tenantId: string | null | undefined

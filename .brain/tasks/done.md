@@ -595,3 +595,14 @@ This file records completed work and important outcomes.
 - Created Date: 2026-07-27
 - Completed Date: 2026-07-27
 - Checks: `bun test packages/notifications/src` (50 pass); notification, API, dashboard, marketing, jobs, and database typechecks; targeted lint with no errors; `bun test` (643 pass, with four unrelated existing failures in Quick Fill coverage and dashboard operation-profile mocks); source audit. External Resend domain verification and delivery canaries remain pending.
+
+### School Clerk Local-Infra Standardization
+
+- Priority: Medium
+- Description: Replaced Halaalvest's project-local dev router, env loader, PostgreSQL starter, and port cleanup with the shared `local-infra-kit` profile; standardized mode files and database commands; and configured local PostgreSQL for `127.0.0.1:55432/halaalvest`.
+- Related Decision: ADR-015
+- Status: Done
+- Rollout Status: Database backup completed and validated; runtime rename and container recreation pending because `school-clerk-postgres` owns port `55432`
+- Created Date: 2026-07-28
+- Completed Date: 2026-07-28
+- Checks: focused database-router, fail-closed launcher, and infrastructure-contract tests; configuration parsing; legacy-reference scan; inherited env-mode validation; local port-owner rejection; Prisma generation; monorepo typecheck; validated custom-format database backup. Live database cutover and local dev smoke intentionally skipped while port `55432` is occupied.

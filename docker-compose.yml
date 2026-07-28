@@ -4,15 +4,15 @@ services:
     container_name: halaalvest-postgres
     restart: unless-stopped
     ports:
-      - "${DB_HOST_PORT:-55434}:5432"
+      - "55432:5432"
     environment:
-      POSTGRES_DB: amanah_cooperative
+      POSTGRES_DB: halaalvest
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
       - halaalvest-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d amanah_cooperative"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d halaalvest"]
       interval: 5s
       timeout: 5s
       retries: 10

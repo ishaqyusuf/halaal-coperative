@@ -76,7 +76,9 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/notifications/src/email-routing.ts`: validated environment-aware email delivery modes plus explicit, fail-closed `.test` domain routing supported in every runtime.
 - `packages/notifications-react/`: React adapter for rendering shared notification events in web surfaces.
 - `packages/site-nav/`: shared reusable sidebar-navigation package modeled on the `gnd` package boundary, including nav builders, access helpers, path matching, and shell components for app surfaces.
-- `scripts/with-workspace-env.mjs`: shared environment bootstrap for root and workspace commands, including portless-based dev flows.
+- `scripts/db-command.ts`: local/remote/production Prisma command router using the standard mode files and shared local-infra service startup.
+- `scripts/local-infra-command.ts`: thin fail-closed launcher that selects only the standard mode files, validates remote/production database targets and local port ownership, then dispatches unchanged arguments to the sibling toolkit.
+- `/Users/M1PRO/Documents/code/local-infra-kit`: shared dev router, environment loader, service readiness, and application-port cleanup used by root and workspace commands.
 - `packages/eslint-config/`: shared lint configuration for apps and packages.
 - `packages/tsconfig/`: shared TypeScript presets for Next.js and workspace packages.
 - `packages/ui/`: shared shadcn/base UI components, styling tokens, and utilities.

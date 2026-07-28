@@ -6,7 +6,8 @@
   "scripts": {
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "with-env": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --"
   },
   "dependencies": {
     "@halaalvest/db": "workspace:*",

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "--build": "tsc --noEmit",
-    "dev": "node ../../scripts/with-workspace-env.mjs PORTLESS_WILDCARD=1 portless api.halaalvest bun --watch src/index.ts",
+    "dev": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest -- TZ=UTC PORTLESS_WILDCARD=1 portless api.halaalvest bun --watch src/index.ts",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",

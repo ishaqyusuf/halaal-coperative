@@ -18,8 +18,8 @@
     "typecheck": "tsc --noEmit",
     "update:preview": "node ./scripts/update-preview.mjs",
     "web": "bun run with-env node ./scripts/run-expo-cli.cjs start --web",
-    "with-env": "node ../../scripts/with-workspace-env.mjs",
-    "with-env:prod": "node ../../scripts/with-workspace-env.mjs APP_ENV=production"
+    "with-env": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --",
+    "with-env:prod": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod --"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

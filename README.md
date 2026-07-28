@@ -22,51 +22,54 @@ Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant interest-free c
 ```bash
 bun install
 bun run dev
+bun run dev --remote
 bun run dev --remote-dev
 bun run dev --prod
 bun run db:start
-bun run db:push --local
-bun run db:push --remote
-bun run db:push --prod
+bun run db:migrate
+bun run db:migrate:dev
+bun run db:migrate:prod
 bun run dev -f marketing dashboard api
 bun run lint
 bun run typecheck
 ```
 
-Development starters resolve a database profile, export the selected `DATABASE_URL`, and run deployed Prisma migrations before launching the apps. The root `dev` command is a GND-style profile router:
+Development commands use the shared `local-infra-kit` profile router:
 
-- `bun run dev` uses the local profile, starts the local Docker PostgreSQL service, and forwards to Turbo `dev`.
-- `bun run dev --remote-dev` loads `.env.remote-dev` and `.env.remote-dev.local` when present, then uses the hosted development database.
-- `bun run dev --prod` loads production env files, requires a non-localhost production `DATABASE_URL`, and skips local prepare/migration.
+- `bun run dev` loads `.env.local`, starts the local Docker PostgreSQL service, and forwards to Turbo `dev`.
+- `bun run dev --remote` and `bun run dev --remote-dev` overlay `.env.remote.local` and use the hosted development database without starting local PostgreSQL.
+- `bun run dev --prod` loads `.env.prod` and runs the production-profile development task.
 - `bun run dev -f dashboard api` accepts Turbo filter aliases and bare package names such as `marketing`, `dashboard`, `api`, and `jobs`.
 
-The local profile defaults to Docker PostgreSQL on `localhost:55434` with database `amanah_cooperative`. Override it with `LOCAL_DATABASE_URL` or `LOCAL_POSTGRES_URL` when needed. Run the local database directly with:
+The local profile uses Docker PostgreSQL at `127.0.0.1:55432/halaalvest`. Run only the database with:
 
 ```bash
 bun run db:start
 ```
 
-Configure your hosted remote-dev, staging, or production database in the existing env-loading flow before running dev commands.
+School Clerk uses the same host port, so its PostgreSQL container must be stopped before Halaalvest can start locally. Halaalvest checks port ownership before dispatching to the shared toolkit and fails clearly rather than stopping another project's database. Remote and production modes likewise reject local database URLs before starting any service.
 
-Use a hosted PostgreSQL connection string such as:
-
-```bash
-DATABASE_URL=postgresql://USER:PASSWORD@HOST/amanah_cooperative?sslmode=require
-```
-
-To run local dev against the production database, put the production `DATABASE_URL` in ignored file `.env.production.local`, then run:
+Database migrations are explicit and are not applied automatically during `bun run dev`:
 
 ```bash
-bun run dev --prod
+bun run db:migrate
+bun run db:migrate:dev
+bun run db:migrate:prod
 ```
 
-The production profile does not run migrations, and it refuses to run if `DATABASE_URL` still points at localhost.
+Generate, pull, push, studio, and shell commands expose matching local, remote-development, and production variants. Remote and production database commands reject local `DATABASE_URL` values.
 
-Database push commands use the same profile flags:
+## Environment modes
 
-- `bun run db:push --local` loads local development env files.
-- `bun run db:push --remote` loads remote-dev env files. `--remote-dev` is also accepted.
-- `bun run db:push --prod` loads production env files and refuses a localhost `DATABASE_URL`.
+Use the same application-facing variable names in each mode:
+
+```txt
+.env.local         local development
+.env.remote.local  remote development overrides loaded over .env.local
+.env.prod          production
+```
+
+Each mode uses `DATABASE_URL`; legacy local/remote/prod database URL aliases are not part of the contract.
 
 ## Portless
 

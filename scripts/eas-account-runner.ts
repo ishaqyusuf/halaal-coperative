@@ -49,14 +49,8 @@ if (!action || !(action in ACTION_COMMANDS)) {
 const usesProductionEnv =
   action === "eas-build:preview" || action === "update:preview"
 const env = await loadEnvFiles({ ...Bun.env }, [
-  path.join(REPO_DIR, ".env"),
-  ...(usesProductionEnv ? [path.join(REPO_DIR, ".env.production")] : []),
-  path.join(REPO_DIR, ".env.local"),
-  ...(usesProductionEnv ? [path.join(REPO_DIR, ".env.production.local")] : []),
-  path.join(APP_DIR, ".env"),
-  ...(usesProductionEnv ? [path.join(APP_DIR, ".env.production")] : []),
-  path.join(APP_DIR, ".env.local"),
-  ...(usesProductionEnv ? [path.join(APP_DIR, ".env.production.local")] : []),
+  path.join(REPO_DIR, usesProductionEnv ? ".env.prod" : ".env.local"),
+  path.join(APP_DIR, usesProductionEnv ? ".env.prod" : ".env.local"),
 ])
 if (usesProductionEnv) {
   env.APP_ENV = "production"

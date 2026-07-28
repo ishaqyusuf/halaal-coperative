@@ -10,7 +10,8 @@ This file records migration history, rationale, and rollout notes.
 ## Current Status
 - Prisma has been selected and configured with `prisma.config.ts`.
 - Multi-file schema loading is configured via `schema: "prisma"`.
-- `packages/db/prisma.config.ts` now loads root and workspace `.env` files before resolving `env("DATABASE_URL")`, so Prisma migrate commands work consistently from both the db package and the repo root.
+- `packages/db/prisma.config.ts` resolves `.env.local`, `.env.remote.local`, or `.env.prod` from `HALAALVEST_DB_MODE` / `HALAALVEST_ENV_MODE`, while `scripts/db-command.ts` provides guarded local, remote-development, and production Prisma commands.
+- Local PostgreSQL is standardized to `127.0.0.1:55432/halaalvest` on the existing `halaalvest-postgres-data` volume. A validated custom-format backup of `amanah_cooperative` is stored under ignored `.local/db-backups/`; the live rename and container recreation remain pending because `school-clerk-postgres` currently owns host port `55432`. No database or volume was modified during the blocked cutover.
 - The initial schema migration exists at `packages/db/prisma/migrations/20260413115737_init/`.
 - Notification outbox persistence was added in `packages/db/prisma/migrations/20260414093000_add_notification_outbox/`.
 - Tenant onboarding profile persistence was added in `packages/db/prisma/migrations/20260414133000_add_tenant_profile_fields/`.
@@ -40,6 +41,7 @@ This file records migration history, rationale, and rollout notes.
 - 2026-07-15: Added schema fields in `packages/db/prisma/models/backfill.prisma` for brought-forward active financing original amount/repayment plan/paid installments, procurement item/date/original amount/repayment plan/paid installments, and Foodstuff Purchase item/date/original amount/repayment plan/paid installments. Local `db:push --local` succeeded; `db:migrate` did not create a migration because Prisma detected unrelated drift in the local development database and requested a reset, which was intentionally not performed.
 - 2026-07-23: Added the one-to-one `TenantBroughtForwardSnapshot` model with as-of date, full member count, savings totals, share-unit count, unit-price snapshot, derived share capital, and reconciliation notes. The local schema was synchronized with `bun db:push` after the required migrate attempt detected existing drift.
 - 2026-07-23: Added `MemberSpecialSavingsWithdrawal` with tenant/member/processor ownership and one-to-one support-case and ledger-transaction links. The required `bun db:migrate` attempt again stopped on the existing local drift and requested a destructive reset, which was intentionally not performed; `bun db:push` synchronized the local QA schema successfully.
+- 2026-07-28: Adopted the School Clerk-style `local-infra-kit` command and environment contract, standardized the configured local target to `127.0.0.1:55432/halaalvest`, and retained the existing named volume. Backed up and validated the current database at `.local/db-backups/halaalvest-2026-07-28-pre-local-infra-rename.dump`. The runtime rename was intentionally not attempted because the required port was occupied by School Clerk; complete the rename and container recreation only after that service is stopped.
 
 ## Migration Entry Template
 - Date:

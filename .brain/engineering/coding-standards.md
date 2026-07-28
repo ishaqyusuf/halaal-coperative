@@ -20,7 +20,11 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - Favor pure functions for calculation logic where possible.
 - Keep authorization checks close to entry points and service boundaries.
 - Import browser-safe role metadata from `@halaalvest/auth/roles`; reserve `@halaalvest/auth` for server-side session, cookie, and token helpers.
-- `bun run kill:ports` discovers numeric env variables ending in `_PORT` and ignores names containing `PORTLESS`. Keep every project-owned dev port declared as an individual `*_PORT` env variable instead of adding aggregate kill lists.
+- The root `bun run dev` router, dev-run bridge, service readiness, kill-port discovery, and root-level environment wrapper are owned by `/Users/M1PRO/Documents/code/local-infra-kit`; invoke the toolkit with `--profile halaalvest` and keep the command contract aligned with School Clerk. Halaalvest's thin `scripts/local-infra-command.ts` launcher may only replace Bun-preloaded values with the selected standard mode file, validate the database target and port ownership, and forward arguments to those shared entrypoints.
+- Invoke toolkit entry points through `bun --env-file=/dev/null` so Bun does not preload `.env.local` and override the explicit remote or production mode selected by `local-infra-kit`.
+- Workspace development wrappers must inherit `HALAALVEST_ENV_MODE` when the root router selected remote or production mode; omit a hard-coded `--mode local` unless the command is explicitly local-only.
+- Standard local-infra env files are `.env.local`, `.env.remote.local`, and `.env.prod`; use `DATABASE_URL` in each mode instead of introducing profile-specific database URL aliases.
+- `bun run kill:ports` discovers numeric env variables ending in `_PORT` while excluding infrastructure ports such as Portless and databases. Keep project-owned application ports declared as individual `*_PORT` values.
 - For mobile styling or NativeWind issues that do not resolve after normal debugging, use the working GRD project as the fallback reference and align this project to its theme configuration, styling implementation, NativeWind version, and mobile UI setup.
 
 ## Financial Safety Rules

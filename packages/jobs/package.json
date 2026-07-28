@@ -8,11 +8,13 @@
     "./tasks": "./src/tasks/index.ts"
   },
   "scripts": {
-    "deploy": "node ../../scripts/with-workspace-env.mjs APP_ENV=production REQUIRE_PROD_DATABASE_URL=1 node --max-old-space-size=4096 ../../packages/db/node_modules/.bin/prisma generate --config ../../packages/db/prisma.config.ts && node ../../scripts/with-workspace-env.mjs APP_ENV=production REQUIRE_PROD_DATABASE_URL=1 node ../../scripts/with-trigger-profile.mjs -- trigger deploy --skip-update-check",
-    "dev": "node ../../scripts/with-workspace-env.mjs node ../../scripts/with-trigger-profile.mjs -- trigger dev",
+    "deploy": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod -- sh -c 'node --max-old-space-size=4096 ../../packages/db/node_modules/.bin/prisma generate --config ../../packages/db/prisma.config.ts && node ../../scripts/with-trigger-profile.mjs -- trigger deploy --skip-update-check'",
+    "dev": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest -- node ../../scripts/with-trigger-profile.mjs -- trigger dev",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "with-env": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --",
+    "with-env:prod": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod --"
   },
   "dependencies": {
     "@halaalvest/backfill": "workspace:*",

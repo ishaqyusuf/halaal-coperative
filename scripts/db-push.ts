@@ -56,40 +56,11 @@ export function parseArgs(argv: string[]): DbPushCliOptions {
 export function commandForProfile(profile: DatabaseProfile): string[] {
   switch (profile) {
     case "local":
-      return [
-        "node",
-        "./scripts/with-workspace-env.mjs",
-        "DEV_PROFILE=local",
-        "bun",
-        "run",
-        "--cwd",
-        "packages/db",
-        "db:push",
-      ]
+      return ["bun", "scripts/db-command.ts", "push", "--local"]
     case "remote-dev":
-      return [
-        "node",
-        "./scripts/with-workspace-env.mjs",
-        "APP_ENV=remote-dev",
-        "DEV_PROFILE=remote-dev",
-        "bun",
-        "run",
-        "--cwd",
-        "packages/db",
-        "db:push",
-      ]
+      return ["bun", "scripts/db-command.ts", "push", "--remote"]
     case "prod":
-      return [
-        "node",
-        "./scripts/with-workspace-env.mjs",
-        "APP_ENV=production",
-        "REQUIRE_PROD_DATABASE_URL=1",
-        "bun",
-        "run",
-        "--cwd",
-        "packages/db",
-        "db:push",
-      ]
+      return ["bun", "scripts/db-command.ts", "push", "--prod"]
   }
 }
 
@@ -108,10 +79,6 @@ async function run(command: string[]) {
 
 async function main() {
   const options = parseArgs(Bun.argv.slice(2))
-
-  if (options.profile === "local") {
-    await run(["bun", "run", "db:start"])
-  }
 
   await run(commandForProfile(options.profile))
 }

@@ -63,7 +63,7 @@ bun run db:migrate --preview
 bun run db:migrate --prod
 ```
 
-Generate, migrate, pull, push, studio, and shell each use one command with an optional mode flag: no flag (or `--local`) selects local development, `--preview` selects hosted preview, and `--prod` selects production. Preview and production database commands reject local `DATABASE_URL` values. `bun run db:sync` defaults to production → local; `--to-preview` explicitly selects preview, and `--to-prod` is never accepted.
+Generate, migrate, pull, push, studio, and shell each use one command with an optional mode flag: no flag (or `--local`) selects local development, `--preview` selects hosted preview, and `--prod` selects production. `bun run db:sync` defaults to production → local; `--from-local --to-preview` publishes local data to preview, and `--to-prod` is never accepted.
 
 ## Environment modes
 

@@ -26,9 +26,9 @@ Accepted
 - Have `local-infra-kit` parse the URL and pass its port, database name, user, and password transiently to Docker Compose. Do not generate a URL or maintain a central project-port registry.
 - Keep Prisma migration commands explicit instead of running migrations automatically during every development startup.
 - Refuse to stop or overwrite another project's service when the configured local port is occupied.
-- Route `db:sync` through the shared raw PostgreSQL engine. Production is the
-  only source; local is the default destination, `--to-preview` explicitly
-  authorizes preview, and production is never a destination. The engine owns
+- Route `db:sync` through the shared raw PostgreSQL engine. Production → local
+  is the default; `--to-preview` authorizes a preview write and `--from-local`
+  selects local as its source. Production is never a destination. The engine owns
   schema preflight, FK ordering/cycle safety, incremental upserts, bounded
   opt-in static refresh, sequence advancement, and per-destination cursor state
   under `.local-db-sync/` without deleting destination-only rows.

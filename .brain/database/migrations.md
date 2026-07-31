@@ -25,7 +25,7 @@ This file records migration history, rationale, and rollout notes.
 - Collection Source contribution batch posting was added in `packages/db/prisma/migrations/20260712130000_add_collection_source_contribution_batches/`.
 - 2026-07-15: `member_opening_balances` gained detailed brought-forward obligation columns for active financing, procurement, and Foodstuff Purchase current/last obligations. Local `bun run db:push --local` was applied after `bun run db:migrate` stopped on pre-existing local drift; a formal migration should be generated once that drift is resolved safely.
 - 2026-07-23: Added `tenant_brought_forward_snapshots` for cooperative-wide brought-forward reconciliation totals. `bun db:migrate` was attempted but stopped on the same pre-existing local drift without resetting data; `bun db:push` then applied the additive table successfully.
-- 2026-07-31: Standardized database commands on local, preview, and production. Each root action defaults to local and accepts only `--local`, `--preview`, or `--prod`; `db:sync` defaults to production → local and can explicitly target preview. The shared implementation owns profile env isolation, target guards, local service startup, sanitized target display, and production confirmation.
+- 2026-07-31: Standardized database commands on local, preview, and production. Each root action defaults to local and accepts only `--local`, `--preview`, or `--prod`; `db:sync` defaults to production → local and also supports explicit local → preview publishing. The shared implementation owns profile env isolation and target guards.
 
 ## History
 - 2026-04-13: Generated `20260413115737_init` as the first full cooperative schema migration.

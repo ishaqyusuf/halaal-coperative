@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "bun --env-file=/dev/null scripts/local-infra-command.ts with-env --mode prod -- turbo build",
-    "db:docker:down": "docker compose -f docker-compose.yml down",
+    "db:docker:down": "bun --env-file=/dev/null scripts/local-infra-command.ts with-env --mode local -- docker compose -f docker-compose.yml down",
     "db:docker:up": "bun run dev:services:local",
     "db:generate": "bun --env-file=/dev/null ../local-infra-kit/bin/db.ts generate --profile halaalvest",
     "db:migrate": "bun --env-file=/dev/null ../local-infra-kit/bin/db.ts migrate --profile halaalvest",
@@ -13,6 +13,7 @@
     "db:shell": "bun --env-file=/dev/null ../local-infra-kit/bin/db.ts shell --profile halaalvest",
     "db:start": "bun run dev:services:local",
     "db:studio": "bun --env-file=/dev/null ../local-infra-kit/bin/db.ts studio --profile halaalvest",
+    "db:sync": "bun --env-file=/dev/null ../local-infra-kit/bin/db-sync.ts --profile halaalvest",
     "dev": "bun --env-file=/dev/null scripts/local-infra-command.ts dev",
     "dev:prepare": "bun run kill:ports && bun run dev:services",
     "dev:services": "bun --env-file=/dev/null scripts/local-infra-command.ts dev-services",

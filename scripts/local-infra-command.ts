@@ -6,14 +6,13 @@ import { resolve } from "node:path"
 import { loadModeEnv } from "../../local-infra-kit/src/env"
 
 export type LocalInfraEntrypoint = "dev" | "dev-services" | "with-env"
-export type LocalInfraMode = "local" | "remote" | "prod"
+export type LocalInfraMode = "local" | "preview" | "prod"
 
 type CommandEnv = Record<string, string | undefined>
 
 const PROFILE = "halaalvest"
 const PROFILE_ENV_MODE = "HALAALVEST_ENV_MODE"
 const POSTGRES_CONTAINER = "halaalvest-postgres"
-const POSTGRES_PORT = 55432
 const LOCAL_DATABASE_HOSTS = new Set([
   "localhost",
   "127.0.0.1",
@@ -32,9 +31,14 @@ export function modeForCommand(
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
 
+    if (arg === "--") break
+
     if (entrypoint === "dev") {
+      if (arg === "--remote" || arg === "--remote-dev") {
+        throw new Error(`Unknown local-infra mode flag: ${arg}. Use --preview.`)
+      }
       if (arg === "--local") modes.add("local")
-      if (arg === "--remote" || arg === "--remote-dev") modes.add("remote")
+      if (arg === "--preview") modes.add("preview")
       if (arg === "--prod") modes.add("prod")
       continue
     }
@@ -59,11 +63,11 @@ export function modeForCommand(
 
 function normalizeMode(value: string | undefined): LocalInfraMode {
   if (value === "local" || value === "development") return "local"
-  if (value === "remote" || value === "remote-dev") return "remote"
+  if (value === "preview") return "preview"
   if (value === "prod" || value === "production") return "prod"
 
   throw new Error(
-    `Unknown local-infra mode "${value ?? ""}". Use local, remote, or prod.`
+    `Unknown local-infra mode "${value ?? ""}". Use local, preview, or prod.`
   )
 }
 
@@ -85,14 +89,12 @@ export function envForMode(
   return {
     ...processEnv,
     ...fileEnv,
-    HALAALVEST_DB_MODE: mode === "remote" ? "remote-dev" : mode,
+    HALAALVEST_DB_MODE: mode === "preview" ? "preview" : mode,
     HALAALVEST_ENV_MODE: mode,
   }
 }
 
 export function validateDatabaseForMode(mode: LocalInfraMode, env: CommandEnv) {
-  if (mode === "local") return
-
   const databaseUrl = env.DATABASE_URL
 
   if (!databaseUrl) {
@@ -102,7 +104,15 @@ export function validateDatabaseForMode(mode: LocalInfraMode, env: CommandEnv) {
   }
 
   try {
-    if (LOCAL_DATABASE_HOSTS.has(new URL(databaseUrl).hostname)) {
+    const isLocal = LOCAL_DATABASE_HOSTS.has(new URL(databaseUrl).hostname)
+
+    if (mode === "local" && !isLocal) {
+      throw new Error(
+        "Refusing local mode with a non-local DATABASE_URL. Check .env.local."
+      )
+    }
+
+    if (mode !== "local" && isLocal) {
       throw new Error(
         `Refusing ${mode} mode with a local DATABASE_URL. Check the standard mode env file.`
       )
@@ -116,7 +126,47 @@ export function validateDatabaseForMode(mode: LocalInfraMode, env: CommandEnv) {
   }
 }
 
+export function localDatabasePort(env: CommandEnv) {
+  const databaseUrl = env.DATABASE_URL
+
+  if (!databaseUrl) {
+    throw new Error("Missing DATABASE_URL for local mode. Check .env.local.")
+  }
+
+  try {
+    const url = new URL(databaseUrl)
+
+    if (!LOCAL_DATABASE_HOSTS.has(url.hostname)) {
+      throw new Error(
+        "Refusing local mode with a non-local DATABASE_URL. Check .env.local."
+      )
+    }
+
+    const port = Number(url.port || "5432")
+
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error("Invalid local PostgreSQL port in DATABASE_URL.")
+    }
+
+    return port
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Refusing ")) {
+      throw error
+    }
+
+    if (
+      error instanceof Error &&
+      error.message === "Invalid local PostgreSQL port in DATABASE_URL."
+    ) {
+      throw error
+    }
+
+    throw new Error("Invalid DATABASE_URL for local mode.")
+  }
+}
+
 export function validatePortOwner(
+  postgresPort: number,
   occupied: boolean,
   owner: string | undefined
 ) {
@@ -124,13 +174,13 @@ export function validatePortOwner(
 
   throw new Error(
     [
-      `Cannot start Halaalvest PostgreSQL: 127.0.0.1:${POSTGRES_PORT} is owned by ${owner ?? "another process"}.`,
-      "Stop the owning service before retrying. School Clerk and Halaalvest cannot run PostgreSQL simultaneously on this port.",
+      `Cannot start Halaalvest PostgreSQL: 127.0.0.1:${postgresPort} is owned by ${owner ?? "another process"}.`,
+      "Choose a free port in .env.local or stop the owning service before retrying.",
     ].join("\n")
   )
 }
 
-async function dockerContainerOwningPort() {
+async function dockerContainerOwningPort(postgresPort: number) {
   const result = Bun.spawnSync(
     ["docker", "ps", "--format", "{{.Names}}\t{{.Ports}}"],
     { stderr: "ignore", stdout: "pipe" }
@@ -141,20 +191,25 @@ async function dockerContainerOwningPort() {
   for (const line of result.stdout.toString().split(/\r?\n/)) {
     const [name, ports = ""] = line.split("\t")
 
-    if (name && ports.includes(`:${POSTGRES_PORT}->`)) return name
+    if (name && ports.includes(`:${postgresPort}->`)) return name
   }
 
   return undefined
 }
 
-async function portIsOccupied() {
+async function portIsOccupied(postgresPort: number) {
   return await new Promise<boolean>((resolvePromise, reject) => {
     const server = createServer()
 
-    server.once("error", () => {
-      resolvePromise(true)
+    server.once("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") {
+        resolvePromise(true)
+        return
+      }
+
+      reject(error)
     })
-    server.listen(POSTGRES_PORT, "127.0.0.1", () => {
+    server.listen(postgresPort, "127.0.0.1", () => {
       server.close((error) => {
         if (error) {
           reject(error)
@@ -199,7 +254,12 @@ async function main() {
   validateDatabaseForMode(mode, effectiveEnv)
 
   if (mode === "local" && entrypointValue !== "with-env") {
-    validatePortOwner(await portIsOccupied(), await dockerContainerOwningPort())
+    const postgresPort = localDatabasePort(effectiveEnv)
+    validatePortOwner(
+      postgresPort,
+      await portIsOccupied(postgresPort),
+      await dockerContainerOwningPort(postgresPort)
+    )
   }
 
   const toolkitBin = resolve(

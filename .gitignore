@@ -11,6 +11,7 @@ node_modules
 .env.development.local
 .env.remote.local
 .env.remote-dev.local
+.env.preview
 .env.prod
 .env.test.local
 .env.production
@@ -42,6 +43,7 @@ npm-debug.log*
 *.pem
 .gstack/
 .local/
+.local-db-sync/
 
 
 .trigger

@@ -76,8 +76,8 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/notifications/src/email-routing.ts`: validated environment-aware email delivery modes plus explicit, fail-closed `.test` domain routing supported in every runtime.
 - `packages/notifications-react/`: React adapter for rendering shared notification events in web surfaces.
 - `packages/site-nav/`: shared reusable sidebar-navigation package modeled on the `gnd` package boundary, including nav builders, access helpers, path matching, and shell components for app surfaces.
-- `../local-infra-kit/bin/db.ts`: shared local/remote/production database command router using the standard mode files and shared service startup.
-- `scripts/local-infra-command.ts`: thin fail-closed launcher that selects only the standard mode files, validates remote/production database targets and local port ownership, then dispatches unchanged arguments to the sibling toolkit.
+- `../local-infra-kit/bin/db.ts`: shared local/preview/production database command router using the standard mode files and shared service startup.
+- `scripts/local-infra-command.ts`: thin fail-closed launcher that selects only the standard mode files, validates preview/production database targets and local port ownership, then dispatches unchanged arguments to the sibling toolkit.
 - `/Users/M1PRO/Documents/code/local-infra-kit`: shared dev router, environment loader, service readiness, and application-port cleanup used by root and workspace commands.
 - `packages/eslint-config/`: shared lint configuration for apps and packages.
 - `packages/tsconfig/`: shared TypeScript presets for Next.js and workspace packages.

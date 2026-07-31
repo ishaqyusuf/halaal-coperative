@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   envForMode,
+  localDatabasePort,
   modeForCommand,
   validateDatabaseForMode,
   validatePortOwner,
@@ -12,13 +13,19 @@ import {
 describe("Halaalvest local-infra safety launcher", () => {
   test("resolves public dev and service mode flags", () => {
     expect(modeForCommand("dev", [])).toBe("local")
-    expect(modeForCommand("dev", ["--remote-dev"])).toBe("remote")
+    expect(modeForCommand("dev", ["--preview"])).toBe("preview")
+    expect(() => modeForCommand("dev", ["--remote"])).toThrow(
+      "Unknown local-infra mode flag"
+    )
+    expect(() => modeForCommand("dev", ["--remote-dev"])).toThrow(
+      "Unknown local-infra mode flag"
+    )
     expect(modeForCommand("dev", ["--prod"])).toBe("prod")
     expect(
       modeForCommand("dev-services", [], {
-        HALAALVEST_ENV_MODE: "remote",
+        HALAALVEST_ENV_MODE: "preview",
       })
-    ).toBe("remote")
+    ).toBe("preview")
     expect(modeForCommand("dev-services", ["--mode", "local"])).toBe("local")
     expect(
       modeForCommand("with-env", [], {
@@ -28,13 +35,13 @@ describe("Halaalvest local-infra safety launcher", () => {
   })
 
   test("rejects conflicting dev modes before dispatch", () => {
-    expect(() => modeForCommand("dev", ["--remote", "--prod"])).toThrow(
+    expect(() => modeForCommand("dev", ["--preview", "--prod"])).toThrow(
       "Conflicting local-infra modes"
     )
   })
 
-  test("rejects local database URLs in remote and production modes", () => {
-    for (const mode of ["remote", "prod"] as const) {
+  test("rejects local database URLs in preview and production modes", () => {
+    for (const mode of ["preview", "prod"] as const) {
       expect(() =>
         validateDatabaseForMode(mode, {
           DATABASE_URL:
@@ -44,10 +51,19 @@ describe("Halaalvest local-infra safety launcher", () => {
     }
   })
 
-  test("accepts non-local database URLs in remote and production modes", () => {
+  test("derives the local PostgreSQL port from DATABASE_URL", () => {
+    expect(
+      localDatabasePort({
+        DATABASE_URL:
+          "postgresql://postgres:postgres@127.0.0.1:55434/halaalvest",
+      })
+    ).toBe(55434)
+  })
+
+  test("accepts non-local database URLs in preview and production modes", () => {
     expect(() =>
-      validateDatabaseForMode("remote", {
-        DATABASE_URL: "postgresql://remote.example.com/halaalvest",
+      validateDatabaseForMode("preview", {
+        DATABASE_URL: "postgresql://preview.example.com/halaalvest",
       })
     ).not.toThrow()
     expect(() =>
@@ -63,41 +79,47 @@ describe("Halaalvest local-infra safety launcher", () => {
     try {
       writeFileSync(
         join(root, ".env.local"),
-        "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/halaalvest\nAPP_ENV=development\n"
+        "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55434/halaalvest\nAPP_ENV=development\n"
       )
       writeFileSync(
-        join(root, ".env.remote.local"),
-        "DATABASE_URL=postgresql://remote.example.com/halaalvest\nAPP_ENV=remote-dev\n"
+        join(root, ".env.preview"),
+        "DATABASE_URL=postgresql://preview.example.com/halaalvest\nAPP_ENV=preview\n"
       )
 
-      const env = envForMode("remote", root, {
+      const env = envForMode("preview", root, {
         DATABASE_URL:
-          "postgresql://postgres:postgres@127.0.0.1:55432/halaalvest",
+          "postgresql://postgres:postgres@127.0.0.1:55434/halaalvest",
         APP_ENV: "development",
       })
 
       expect(env.DATABASE_URL).toBe(
-        "postgresql://remote.example.com/halaalvest"
+        "postgresql://preview.example.com/halaalvest"
       )
-      expect(env.APP_ENV).toBe("remote-dev")
-      expect(env.HALAALVEST_ENV_MODE).toBe("remote")
-      expect(env.HALAALVEST_DB_MODE).toBe("remote-dev")
+      expect(env.APP_ENV).toBe("preview")
+      expect(env.HALAALVEST_ENV_MODE).toBe("preview")
+      expect(env.HALAALVEST_DB_MODE).toBe("preview")
     } finally {
       rmSync(root, { force: true, recursive: true })
     }
   })
 
-  test("fails closed when another service owns port 55432", () => {
-    expect(() => validatePortOwner(true, "school-clerk-postgres")).toThrow(
-      "school-clerk-postgres"
+  test("fails closed when another service owns the configured port", () => {
+    expect(() =>
+      validatePortOwner(55434, true, "unexpected-postgres")
+    ).toThrow(
+      "unexpected-postgres"
     )
-    expect(() => validatePortOwner(true, undefined)).toThrow("another process")
+    expect(() => validatePortOwner(55434, true, undefined)).toThrow(
+      "another process"
+    )
   })
 
   test("allows a free port or the idempotent Halaalvest owner", () => {
     expect(() =>
-      validatePortOwner(false, "school-clerk-postgres")
+      validatePortOwner(55434, false, "unexpected-postgres")
     ).not.toThrow()
-    expect(() => validatePortOwner(true, "halaalvest-postgres")).not.toThrow()
+    expect(() =>
+      validatePortOwner(55434, true, "halaalvest-postgres")
+    ).not.toThrow()
   })
 })

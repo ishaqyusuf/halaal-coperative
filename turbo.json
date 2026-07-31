@@ -3,7 +3,7 @@
   "globalDependencies": [
     "**/.env",
     "**/.env.local",
-    "**/.env.remote.local",
+    "**/.env.preview",
     "**/.env.prod"
   ],
   "globalEnv": [
@@ -27,7 +27,6 @@
     "HALAALVEST_DASHBOARD_PROD_PORT",
     "LOCAL_HOSTNAME",
     "DASHBOARD_ROOT_DOMAIN",
-    "DASHBOARD_APP_PORT",
     "DASHBOARD_DEV_URL_VARIANT_HOSTS",
     "DASHBOARD_PORT",
     "LOCAL_DASHBOARD_PROXY_TARGET",
@@ -45,7 +44,7 @@
     "VERCEL_TEAM_ID",
     "VERCEL_TEAM_SLUG",
     "WEB_APP_ROOT_DOMAIN",
-    "WEB_APP_PORT",
+    "MARKETING_PORT",
     "WEB_PORTLESS_ROOT_DOMAIN",
     "MONTHLY_RECORD_CRON_ACTOR_USER_ID",
     "MONTHLY_RECORD_CRON_SECRET",

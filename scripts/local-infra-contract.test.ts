@@ -53,9 +53,15 @@ describe("School Clerk local-infra contract", () => {
     const compose = readFileSync(resolve(root, "docker-compose.yml"), "utf8")
 
     expect(compose).toContain("postgres:16-alpine")
-    expect(compose).toContain('"55432:5432"')
-    expect(compose).toContain("POSTGRES_DB: halaalvest")
-    expect(compose).toContain("pg_isready -U postgres -d halaalvest")
+    expect(compose).toContain(
+      '"${DB_HOST_PORT:?DATABASE_URL must include a local PostgreSQL port}:5432"'
+    )
+    expect(compose).toContain(
+      'POSTGRES_DB: "${DB_NAME:?DATABASE_URL must include a database name}"'
+    )
+    expect(compose).toContain(
+      "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"
+    )
     expect(compose).toContain(
       "halaalvest-postgres-data:/var/lib/postgresql/data"
     )
@@ -97,6 +103,7 @@ describe("School Clerk local-infra contract", () => {
 
     for (const legacyName of [
       ".env.production",
+      ".env.remote.local",
       ".env.remote-dev",
       "LOCAL_DATABASE_URL",
       "REMOTE_DEV_DATABASE_URL",

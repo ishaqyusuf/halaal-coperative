@@ -21,10 +21,12 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - Keep authorization checks close to entry points and service boundaries.
 - Import browser-safe role metadata from `@halaalvest/auth/roles`; reserve `@halaalvest/auth` for server-side session, cookie, and token helpers.
 - The root `bun run dev` router, dev-run bridge, service readiness, kill-port discovery, and root-level environment wrapper are owned by `/Users/M1PRO/Documents/code/local-infra-kit`; invoke the toolkit with `--profile halaalvest` and keep the command contract aligned with School Clerk. Halaalvest's thin `scripts/local-infra-command.ts` launcher may only replace Bun-preloaded values with the selected standard mode file, validate the database target and port ownership, and forward arguments to those shared entrypoints.
-- Invoke toolkit entry points through `bun --env-file=/dev/null` so Bun does not preload `.env.local` and override the explicit remote or production mode selected by `local-infra-kit`.
-- Workspace development wrappers must inherit `HALAALVEST_ENV_MODE` when the root router selected remote or production mode; omit a hard-coded `--mode local` unless the command is explicitly local-only.
-- Standard local-infra env files are `.env.local`, `.env.remote.local`, and `.env.prod`; use `DATABASE_URL` in each mode instead of introducing profile-specific database URL aliases.
+- Invoke toolkit entry points through `bun --env-file=/dev/null` so Bun does not preload `.env.local` and override an explicit preview or production mode.
+- Workspace development wrappers must inherit `HALAALVEST_ENV_MODE` when the root router selected preview or production mode.
+- Standard local-infra env files are `.env.local`, `.env.preview`, and `.env.prod`; use `DATABASE_URL` in each mode instead of introducing profile-specific database URL aliases.
+- Root database actions (`db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell`) use `local-infra-kit/bin/db.ts`. Each defaults to local and accepts only `--local`, `--preview`, or `--prod`; put tool arguments after `--`. `db:sync` defaults to production → local and accepts `--to-preview`, never `--to-prod`.
 - `bun run kill:ports` discovers numeric env variables ending in `_PORT` while excluding infrastructure ports such as Portless and databases. Keep project-owned application ports declared as individual `*_PORT` values.
+- Use `MARKETING_PORT` and `DASHBOARD_PORT` as the canonical application-port variables. Do not introduce app-qualified aliases; `PORTLESS_APP_PORT` remains the Portless process-level bridge.
 - For mobile styling or NativeWind issues that do not resolve after normal debugging, use the working GRD project as the fallback reference and align this project to its theme configuration, styling implementation, NativeWind version, and mobile UI setup.
 
 ## Financial Safety Rules
@@ -52,4 +54,4 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - Sheets should follow the Midday global sheets pattern: `components/sheets/global-sheets.tsx`, `components/sheets/global-sheets-provider.tsx`, and domain sheet files under `components/sheets/`.
 - Forms must follow Midday validation, error handling, and mutation patterns.
 - Data fetching and mutations must use the standard Midday tRPC patterns, including invalidation, loading states, errors, and caching behavior.
-- Prisma schema changes must be followed by root `bun db:migrate` and `bun db:push` when those scripts exist. Do not manually create migration files.
+- Prisma schema changes must be followed by root `bun db:migrate` and `bun run db:push` when those scripts exist. Select non-local targets with `--preview` or `--prod`; do not manually create migration files.

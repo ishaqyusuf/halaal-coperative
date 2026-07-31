@@ -22,12 +22,11 @@ Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant interest-free c
 ```bash
 bun install
 bun run dev
-bun run dev --remote
-bun run dev --remote-dev
+bun run dev --preview
 bun run dev --prod
 bun run db:start
 bun run db:migrate
-bun run db:migrate --remote
+bun run db:migrate --preview
 bun run db:migrate --prod
 bun run dev -f marketing dashboard api
 bun run lint
@@ -37,27 +36,34 @@ bun run typecheck
 Development commands use the shared `local-infra-kit` profile router:
 
 - `bun run dev` loads `.env.local`, starts the local Docker PostgreSQL service, and forwards to Turbo `dev`.
-- `bun run dev --remote` and `bun run dev --remote-dev` overlay `.env.remote.local` and use the hosted development database without starting local PostgreSQL.
+- `bun run dev --preview` overlays `.env.preview` and uses the hosted preview database without starting local PostgreSQL.
 - `bun run dev --prod` loads `.env.prod` and runs the production-profile development task.
 - `bun run dev -f dashboard api` accepts Turbo filter aliases and bare package names such as `marketing`, `dashboard`, `api`, and `jobs`.
 
-The local profile uses Docker PostgreSQL at `127.0.0.1:55432/halaalvest`. Run only the database with:
+The local profile uses the exact `DATABASE_URL` from `.env.local`, currently
+`127.0.0.1:55434/halaalvest`. The shared toolkit parses that URL and passes its
+port, database name, user, and password to Docker Compose for the startup
+process. Run only the database with:
 
 ```bash
 bun run db:start
 ```
 
-School Clerk uses the same host port, so its PostgreSQL container must be stopped before Halaalvest can start locally. Halaalvest checks port ownership before dispatching to the shared toolkit and fails clearly rather than stopping another project's database. Remote and production modes likewise reject local database URLs before starting any service.
+School Clerk remains on `55432`, so both PostgreSQL containers can run
+concurrently. Halaalvest checks ownership of the port parsed from `.env.local`
+before dispatching to the shared toolkit and fails clearly rather than stopping
+another project's database. Preview and production modes likewise reject local
+database URLs before starting any service.
 
 Database migrations are explicit and are not applied automatically during `bun run dev`:
 
 ```bash
 bun run db:migrate
-bun run db:migrate --remote
+bun run db:migrate --preview
 bun run db:migrate --prod
 ```
 
-Generate, migrate, pull, push, studio, and shell each use one command with an optional mode flag: no flag (or `--local`) selects local development, `--remote` selects hosted development, and `--prod` selects production. Remote and production database commands reject local `DATABASE_URL` values.
+Generate, migrate, pull, push, studio, and shell each use one command with an optional mode flag: no flag (or `--local`) selects local development, `--preview` selects hosted preview, and `--prod` selects production. Preview and production database commands reject local `DATABASE_URL` values. `bun run db:sync` defaults to production → local; `--to-preview` explicitly selects preview, and `--to-prod` is never accepted.
 
 ## Environment modes
 
@@ -65,11 +71,13 @@ Use the same application-facing variable names in each mode:
 
 ```txt
 .env.local         local development
-.env.remote.local  remote development overrides loaded over .env.local
+.env.preview       preview overrides loaded over .env.local
 .env.prod          production
 ```
 
-Each mode uses `DATABASE_URL`; legacy local/remote/prod database URL aliases are not part of the contract.
+Each mode uses `DATABASE_URL`; legacy profile-specific database URL aliases,
+generated connection fallbacks, and central port registries are not part of the
+contract.
 
 ## Portless
 

@@ -52,11 +52,11 @@ function normalizeMode() {
   }
 
   if (
-    process.env.HALAALVEST_DB_MODE === "remote" ||
-    process.env.HALAALVEST_DB_MODE === "remote-dev" ||
-    process.env.HALAALVEST_ENV_MODE === "remote"
+    process.env.HALAALVEST_DB_MODE === "preview" ||
+    process.env.HALAALVEST_DB_MODE === "preview" ||
+    process.env.HALAALVEST_ENV_MODE === "preview"
   ) {
-    return "remote"
+    return "preview"
   }
 
   return "local"
@@ -67,10 +67,10 @@ function envFilesForMode(mode: string) {
     return [path.join(repoRoot, ".env.prod")]
   }
 
-  if (mode === "remote") {
+  if (mode === "preview") {
     return [
       path.join(repoRoot, ".env.local"),
-      path.join(repoRoot, ".env.remote.local"),
+      path.join(repoRoot, ".env.preview"),
     ]
   }
 

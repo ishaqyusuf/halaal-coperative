@@ -27,8 +27,8 @@ bun run dev --remote-dev
 bun run dev --prod
 bun run db:start
 bun run db:migrate
-bun run db:migrate:dev
-bun run db:migrate:prod
+bun run db:migrate --remote
+bun run db:migrate --prod
 bun run dev -f marketing dashboard api
 bun run lint
 bun run typecheck
@@ -53,11 +53,11 @@ Database migrations are explicit and are not applied automatically during `bun r
 
 ```bash
 bun run db:migrate
-bun run db:migrate:dev
-bun run db:migrate:prod
+bun run db:migrate --remote
+bun run db:migrate --prod
 ```
 
-Generate, pull, push, studio, and shell commands expose matching local, remote-development, and production variants. Remote and production database commands reject local `DATABASE_URL` values.
+Generate, migrate, pull, push, studio, and shell each use one command with an optional mode flag: no flag (or `--local`) selects local development, `--remote` selects hosted development, and `--prod` selects production. Remote and production database commands reject local `DATABASE_URL` values.
 
 ## Environment modes
 

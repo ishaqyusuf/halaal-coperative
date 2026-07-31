@@ -79,8 +79,8 @@ describe("School Clerk local-infra contract", () => {
       "bun run kill:ports && bun run dev:services"
     )
     expect(scripts["dev:prepare"]).not.toContain("db:migrate")
-    expect(scripts["db:shell:prod"]).toBe(
-      "bun scripts/db-command.ts shell --prod"
+    expect(scripts["db:shell"]).toBe(
+      "bun --env-file=/dev/null ../local-infra-kit/bin/db.ts shell --profile halaalvest"
     )
   })
 
@@ -88,7 +88,6 @@ describe("School Clerk local-infra contract", () => {
     const activeEnvSources = [
       "package.json",
       "turbo.json",
-      "scripts/db-command.ts",
       "scripts/eas-account-runner.ts",
       "scripts/local-infra-command.ts",
       "packages/db/prisma.config.ts",

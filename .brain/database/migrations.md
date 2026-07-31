@@ -25,6 +25,7 @@ This file records migration history, rationale, and rollout notes.
 - Collection Source contribution batch posting was added in `packages/db/prisma/migrations/20260712130000_add_collection_source_contribution_batches/`.
 - 2026-07-15: `member_opening_balances` gained detailed brought-forward obligation columns for active financing, procurement, and Foodstuff Purchase current/last obligations. Local `bun run db:push --local` was applied after `bun run db:migrate` stopped on pre-existing local drift; a formal migration should be generated once that drift is resolved safely.
 - 2026-07-23: Added `tenant_brought_forward_snapshots` for cooperative-wide brought-forward reconciliation totals. `bun db:migrate` was attempted but stopped on the same pre-existing local drift without resetting data; `bun db:push` then applied the additive table successfully.
+- 2026-07-31: Replaced the repository-local database router and all mode-suffixed generate/migrate/pull/push/studio/shell variants with `local-infra-kit/bin/db.ts`. Each root action defaults to local and accepts only `--local`, `--remote`, or `--prod`; the shared implementation owns profile env isolation, target guards, local service startup, sanitized target display, and production confirmation.
 
 ## History
 - 2026-04-13: Generated `20260413115737_init` as the first full cooperative schema migration.
@@ -55,6 +56,7 @@ This file records migration history, rationale, and rollout notes.
 - If repository root scripts `db:migrate` and `db:push` exist, run `bun db:migrate` and `bun db:push` after Prisma schema/database updates.
 - Do not manually create migration files; use the repository scripts and Prisma workflow.
 - Keep migration commands aligned with root `package.json` and `packages/db` scripts.
+- Keep one shared root entrypoint per database action and only raw `packages/db` implementations. Do not restore mode-suffixed variants or a repository-local database router.
 # QA hybrid routing cleanup
 
 - Adds tenant QA-classification fields and the non-tenant `QaPurgeRun` receipt.

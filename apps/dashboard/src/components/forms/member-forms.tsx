@@ -5,6 +5,7 @@ import { z } from "zod"
 import { Tick02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
+import { useTenantRouter } from "@halaalvest/tenant-url/next"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
@@ -386,6 +387,7 @@ export function MemberCreateForm({
   })
   const { showError, showSuccess } = useNotifications()
   const queryClient = useQueryClient()
+  const router = useTenantRouter()
   const trpc = useTRPC()
   const [isPending, startTransition] = useTransition()
 
@@ -408,6 +410,7 @@ export function MemberCreateForm({
         await queryClient.invalidateQueries(
           trpc.members.list.infiniteQueryFilter()
         )
+        router.refresh()
         showSuccess("Member added", "Member record created.")
         form.reset({
           address: "",

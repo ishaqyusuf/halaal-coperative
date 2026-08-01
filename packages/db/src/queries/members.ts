@@ -910,7 +910,13 @@ export async function createMember(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  return prisma.$transaction(async (tx) => createMemberWithState(tx, input))
+  return prisma.$transaction(
+    async (tx) => createMemberWithState(tx, input),
+    {
+      maxWait: 10_000,
+      timeout: 30_000,
+    }
+  )
 }
 
 export type UpdateMemberInput = {

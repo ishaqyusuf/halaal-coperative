@@ -219,6 +219,7 @@ function QaArtifactActions({
           <div className="mt-3 flex flex-wrap gap-2">
             {artifact.kind === "link" ? (
               <Button
+                nativeButton={false}
                 render={<a href={artifact.value} />}
                 size="sm"
                 variant="outline"

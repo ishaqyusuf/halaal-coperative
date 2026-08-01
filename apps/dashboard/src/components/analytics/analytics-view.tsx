@@ -36,13 +36,13 @@ function MetricLink({
     <OverviewActionLink
       href={href}
       variant="ghost"
-      className="group flex h-full min-h-[112px] flex-col items-start justify-between rounded-none border border-border bg-background p-4 text-left hover:border-foreground/20 hover:bg-muted"
+      className="group flex !h-auto min-h-[160px] flex-col items-start rounded-none border border-border bg-background p-4 text-left hover:border-foreground/20 hover:bg-muted"
     >
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="mt-4 text-2xl font-medium text-foreground">
         {value}
       </span>
-      <span className="mt-2 text-xs leading-5 text-muted-foreground">
+      <span className="mt-2 min-h-10 text-xs leading-5 text-muted-foreground">
         {detail}
       </span>
       <span

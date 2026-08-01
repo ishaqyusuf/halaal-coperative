@@ -368,6 +368,33 @@ export async function listMemberOnboardingRequests(
   return { items, total, page, pageSize }
 }
 
+export async function getMemberOnboardingRequestSummary(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const counts = await prisma.memberOnboardingRequest.groupBy({
+    by: ["status"],
+    where: { tenantId },
+    _count: { _all: true },
+  })
+
+  const countByStatus = new Map(
+    counts.map((row) => [row.status, row._count._all])
+  )
+
+  return {
+    approvedCount: countByStatus.get("approved") ?? 0,
+    awaitingVerificationCount:
+      countByStatus.get("pending_email_verification") ?? 0,
+    pendingApprovalCount: countByStatus.get("pending_approval") ?? 0,
+    rejectedCount: countByStatus.get("rejected") ?? 0,
+    total: counts.reduce((total, row) => total + row._count._all, 0),
+  }
+}
+
 export async function getMemberOnboardingRequestById(
   tenantId: string,
   requestId: string,

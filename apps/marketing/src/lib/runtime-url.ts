@@ -19,7 +19,7 @@ function getMainRuntimeConfig(): RuntimeUrlConfig {
 
   return {
     appPort:
-      process.env.WEB_APP_PORT ??
+      process.env.MARKETING_PORT ??
       process.env.PORTLESS_APP_PORT ??
       1440,
     appRootDomain: localRootDomain,

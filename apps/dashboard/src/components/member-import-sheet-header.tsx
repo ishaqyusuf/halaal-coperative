@@ -24,10 +24,10 @@ import {
   PopoverTrigger,
 } from "@halaalvest/ui/components/popover"
 import {
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@halaalvest/ui/components/sheet"
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@halaalvest/ui/components/dialog"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { GripVertical, SlidersHorizontal } from "lucide-react"
 import { updateMemberImportColumnSettingsAction } from "@/actions/update-member-import-column-settings-action"
@@ -170,7 +170,11 @@ function MemberImportColumnFilter({
       >
         <SlidersHorizontal size={18} />
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[300px] p-0" sideOffset={8}>
+      <PopoverContent
+        align="end"
+        className="w-[calc(100vw-2rem)] max-w-[300px] p-0"
+        sideOffset={8}
+      >
         <div className="border-b border-border/70 px-4 py-3">
           <p className="text-sm font-medium text-foreground">Import columns</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -232,17 +236,17 @@ export function MemberImportSheetHeader({
   onQuickFill: () => void
 }) {
   return (
-    <SheetHeader className="border-b border-border/70 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <DialogHeader className="border-b border-border/70 px-4 py-4 text-left sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div>
         <p className="text-[11px] font-medium text-muted-foreground uppercase">
           Import
         </p>
-        <SheetTitle>Import members</SheetTitle>
-        <SheetDescription>
+        <DialogTitle>Import members</DialogTitle>
+        <DialogDescription>
           Review member rows, then import now or stage for later review.
-        </SheetDescription>
+        </DialogDescription>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
         <input
           ref={fileInputRef}
           accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -257,7 +261,9 @@ export function MemberImportSheetHeader({
         <Button
           type="button"
           variant="outline"
-          onClick={() => downloadDashboardImportTemplate("members", activeColumns)}
+          onClick={() =>
+            downloadDashboardImportTemplate("members", activeColumns)
+          }
         >
           Download Excel template
         </Button>
@@ -270,22 +276,14 @@ export function MemberImportSheetHeader({
           {isReadingFile ? "Reading file..." : "Upload Excel/CSV"}
         </Button>
         {devMode ? (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onQuickFill}
-          >
+          <Button type="button" variant="outline" onClick={onQuickFill}>
             Quick fill
           </Button>
         ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onClose}
-        >
+        <Button type="button" variant="ghost" onClick={onClose}>
           Close
         </Button>
       </div>
-    </SheetHeader>
+    </DialogHeader>
   )
 }

@@ -12,7 +12,6 @@ import {
   getMemberById,
   getTenantMigrationSetup,
   getTenantSharePolicy,
-  getTenantInitialMigrationState,
   getTenantOperationProfile,
   listHistoricalMemberSharePurchases,
   listActiveDeductionSources,
@@ -23,7 +22,10 @@ import {
   listMembers,
   listMigrationProfitAdjustmentOptions,
 } from "@halaalvest/db"
-import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 
 type BackfillMember = NonNullable<Awaited<ReturnType<typeof getMemberById>>>
@@ -46,7 +48,9 @@ type ProfitAdjustmentOption = Awaited<
 
 function toDateString(value: Date | string | null | undefined) {
   if (!value) return null
-  return typeof value === "string" ? value.slice(0, 10) : value.toISOString().slice(0, 10)
+  return typeof value === "string"
+    ? value.slice(0, 10)
+    : value.toISOString().slice(0, 10)
 }
 
 function toMonthString(value: Date | string | null | undefined) {
@@ -68,7 +72,8 @@ function serializeLegacyLoanDraft(draft: LegacyLoanDraft) {
     outstandingPrincipalBalance: draft.outstandingPrincipalBalance,
     principalAmount: draft.principalAmount,
     savingsDuringLoan: draft.savingsDuringLoan,
-    scheduledMonthlyPrincipalRepayment: draft.scheduledMonthlyPrincipalRepayment,
+    scheduledMonthlyPrincipalRepayment:
+      draft.scheduledMonthlyPrincipalRepayment,
   }
 }
 
@@ -191,32 +196,18 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
   const tenantId = context.tenant.id
   const [
     member,
-    migrationState,
     review,
-    amountLogs,
-    activityEvents,
-    allLegacyLoanDrafts,
     openingBalances,
-    sharePurchases,
-    profitOptions,
     memberOptions,
     migrationSetup,
     sharePolicy,
-    operationProfile,
   ] = await Promise.all([
     getMemberById(tenantId, memberId),
-    getTenantInitialMigrationState(tenantId),
     getInitialMigrationMemberReview({ memberId, tenantId }),
-    listMemberAmountLogs({ memberId, tenantId }),
-    listMemberActivityEvents({ memberId, tenantId }),
-    listLegacyLoanMigrationDrafts(tenantId),
     listMemberOpeningBalances({ memberId, tenantId }),
-    listHistoricalMemberSharePurchases({ memberId, tenantId }),
-    listMigrationProfitAdjustmentOptions(tenantId, undefined, memberId),
     listMembers(tenantId, { page: 1, pageSize: 200 }),
     getTenantMigrationSetup(tenantId),
     getTenantSharePolicy(tenantId),
-    getTenantOperationProfile(tenantId),
   ])
 
   if (!member || !review) {
@@ -228,30 +219,64 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
   let generatedLedgerError: string | null = null
   let generatedLedgerRows: MemberLedgerBackfillRow[] = []
   let generatedLedgerSegments: EffectiveDateSegment[] = []
+  let amountLogs: MemberAmountLog[] = []
+  let activityEvents: MemberActivityEvent[] = []
+  let allLegacyLoanDrafts: LegacyLoanDraft[] = []
+  let sharePurchases: HistoricalMemberSharePurchase[] = []
+  let profitOptions: ProfitAdjustmentOption[] = []
+  let canManageCollectionSources = false
+  let collectionSourceOptions: Array<{ id: string; label: string }> = []
 
-  try {
-    const draftInput = await buildBackfillDraftInputForMember({
-      memberId,
-      tenantId,
-    })
-    generatedLedgerRows = projectBackfillDraftToMemberLedgerRows(
-      buildBackfillDraft(draftInput)
-    )
-    generatedLedgerSegments = groupRowsByEffectiveDateSegment(
-      generatedLedgerRows
-    )
-  } catch (error) {
-    generatedLedgerError =
-      error instanceof Error
-        ? error.message
-        : "Could not generate the member ledger preview."
+  if (migrationSetup.mode === "historical_backfill") {
+    const [
+      historicalAmountLogs,
+      historicalActivityEvents,
+      historicalLegacyLoanDrafts,
+      historicalSharePurchases,
+      historicalProfitOptions,
+      operationProfile,
+    ] = await Promise.all([
+      listMemberAmountLogs({ memberId, tenantId }),
+      listMemberActivityEvents({ memberId, tenantId }),
+      listLegacyLoanMigrationDrafts(tenantId),
+      listHistoricalMemberSharePurchases({ memberId, tenantId }),
+      listMigrationProfitAdjustmentOptions(tenantId, undefined, memberId),
+      getTenantOperationProfile(tenantId),
+    ])
+
+    amountLogs = historicalAmountLogs
+    activityEvents = historicalActivityEvents
+    allLegacyLoanDrafts = historicalLegacyLoanDrafts
+    sharePurchases = historicalSharePurchases
+    profitOptions = historicalProfitOptions
+    canManageCollectionSources =
+      operationProfile.services.collection_sources.canStaffCreate
+
+    if (canManageCollectionSources) {
+      const deductionSources = await listActiveDeductionSources(tenantId)
+      collectionSourceOptions = deductionSources.map((source) => ({
+        id: source.id,
+        label: `${source.name} (${source.type.replace(/_/g, " ")})`,
+      }))
+    }
+
+    try {
+      const draftInput = await buildBackfillDraftInputForMember({
+        memberId,
+        tenantId,
+      })
+      generatedLedgerRows = projectBackfillDraftToMemberLedgerRows(
+        buildBackfillDraft(draftInput)
+      )
+      generatedLedgerSegments =
+        groupRowsByEffectiveDateSegment(generatedLedgerRows)
+    } catch (error) {
+      generatedLedgerError =
+        error instanceof Error
+          ? error.message
+          : "Could not generate the member ledger preview."
+    }
   }
-
-  const canManageCollectionSources =
-    operationProfile.services.collection_sources.canStaffCreate
-  const deductionSources = canManageCollectionSources
-    ? await listActiveDeductionSources(tenantId)
-    : []
 
   return {
     state: "ready" as const,
@@ -267,10 +292,7 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
       .filter((draft) => draft.memberId === memberId)
       .map(serializeLegacyLoanDraft),
     member: serializeMember(member),
-    collectionSourceOptions: deductionSources.map((source) => ({
-      id: source.id,
-      label: `${source.name} (${source.type.replace(/_/g, " ")})`,
-    })),
+    collectionSourceOptions,
     memberActivityEvents: activityEvents.map(serializeMemberActivityEvent),
     memberAmountLogs: amountLogs.map(serializeMemberAmountLog),
     memberOpeningBalances: openingBalances.map(serializeMemberOpeningBalance),
@@ -283,7 +305,6 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
       label: `${option.fullName} (${option.memberNumber})`,
     })),
     migrationSetupMode: migrationSetup.mode,
-    migrationSnapshot: migrationState.snapshot,
     profitMigrationOptions: profitOptions.map(serializeProfitAdjustmentOption),
     quickFillEnabled: canShowQuickFill(context),
     review: {

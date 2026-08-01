@@ -27,10 +27,14 @@ export function MemberSignupLinkSheet({
     signupLinkSheetType === "access"
       ? "Member signup gate"
       : signupLinkSheetType === "create"
-        ? "Create signup link"
+        ? "Create a staff signup link"
         : signupLinkSheetType === "edit"
           ? "Edit signup link"
           : "Signup links"
+  const description =
+    signupLinkSheetType === "create"
+      ? "Generate a controlled signup URL for remote applicants when public signup is closed."
+      : "Manage member signup access and staff-issued signup links from a focused workflow."
   const isOpen = Boolean(signupLinkSheetType)
   const presentation = getWorkflowPresentation(
     "memberSignupLink",
@@ -52,7 +56,13 @@ export function MemberSignupLinkSheet({
     >
         {isOpen ? (
           <>
-            <MemberSignupLinkSheetHeader title={title} />
+            <MemberSignupLinkSheetHeader
+              description={description}
+              presentation={
+                presentation.presentation === "sheet" ? "sheet" : "dialog"
+              }
+              title={title}
+            />
             <div className="px-6">
               <MemberSignupLinkContent
                 defaultMode={defaultMode}

@@ -1,6 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "@prisma/client"
 import { buildTenantSiteHostname } from "@halaalvest/utils"
+import { normalizePostgresConnectionString } from "../src/postgres-connection"
 
 const DATABASE_URL = process.env.DATABASE_URL
 if (!DATABASE_URL) {
@@ -8,7 +9,9 @@ if (!DATABASE_URL) {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: DATABASE_URL }),
+  adapter: new PrismaPg({
+    connectionString: normalizePostgresConnectionString(DATABASE_URL),
+  }),
 })
 
 async function main() {

@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { createDbRuntime } from "@halaalvest/db"
 import {
   ReportsUnavailableView,
@@ -7,6 +8,12 @@ import { loadReportsFilterParams } from "@/hooks/use-reports-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 import { HydrateClient, prefetch, trpc } from "@/trpc/server"
+
+export const metadata: Metadata = {
+  description:
+    "Cooperative finance, audit, collections, notification, and compliance reporting.",
+  title: "Reports | Halaalvest",
+}
 
 export default async function ReportsPage({
   searchParams,
@@ -40,7 +47,7 @@ export default async function ReportsPage({
       trpc.reports.summary.queryOptions({
         from: filters.from ?? undefined,
         to: filters.to ?? undefined,
-      }),
+      })
     ),
     prefetch(trpc.filters.reports.queryOptions()),
   ])

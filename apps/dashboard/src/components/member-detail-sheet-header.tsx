@@ -1,6 +1,11 @@
 "use client"
 
 import {
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@halaalvest/ui/components/dialog"
+import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
@@ -35,7 +40,11 @@ const sheetCopy = {
   },
 } as const
 
-export function MemberDetailSheetHeader() {
+export function MemberDetailSheetHeader({
+  presentation,
+}: {
+  presentation: "dialog" | "sheet"
+}) {
   const { memberDetailSheetType } = useMemberDetailParams()
   const copy = memberDetailSheetType
     ? sheetCopy[memberDetailSheetType]
@@ -43,6 +52,15 @@ export function MemberDetailSheetHeader() {
         description: "Choose a member action to continue.",
         title: "Member action",
       }
+
+  if (presentation === "dialog") {
+    return (
+      <DialogHeader>
+        <DialogTitle>{copy.title}</DialogTitle>
+        <DialogDescription>{copy.description}</DialogDescription>
+      </DialogHeader>
+    )
+  }
 
   return (
     <SheetHeader>

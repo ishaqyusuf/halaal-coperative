@@ -1,120 +1,74 @@
-import type { PageFilterData } from "@halaalvest/utils"
+import { Suspense } from "react"
 import {
-  DashboardActionLink,
-  DashboardSectionCard,
-  DashboardSectionHeader,
-  DashboardStatCard,
-  TrendPill,
-  WorkspaceEmptyState,
-  WorkspacePageShell,
+  CollapsibleSummary,
+  DashboardEmptyState,
+  ScrollableContent,
 } from "@/components/dashboard"
-import { MembershipApprovalColumnVisibility } from "@/components/membership-approval-column-visibility"
 import { MembershipApprovalsHeader } from "@/components/membership-approvals-header"
-import { MembershipApprovalsDataTable } from "@/components/tables/membership-approvals/data-table"
+import {
+  MembershipApprovalsSummary,
+  MembershipApprovalsSummarySkeleton,
+} from "@/components/membership-approvals-summary"
+import { MembershipApprovalsDataView } from "@/components/tables/membership-approvals/data-view"
+import { MembershipApprovalsSkeleton } from "@/components/tables/membership-approvals/skeleton"
 import type { TableSettings } from "@/utils/table-settings"
 
 export function MembershipApprovalsUnavailableView() {
   return (
-    <WorkspacePageShell
-      eyebrow="Membership"
-      title="Membership approvals"
-      description="Review member signup requests after email verification and complete final cooperative approval."
-    >
-      <WorkspaceEmptyState
-        title="Membership approvals need the database runtime."
+    <ScrollableContent>
+      <DashboardEmptyState
         body="Once the database runtime is configured, verified signup requests will appear here for cooperative review."
+        title="Membership approvals need the database runtime."
       />
-    </WorkspacePageShell>
+    </ScrollableContent>
   )
 }
 
 export function MembershipApprovalsView({
-  approvedCount,
-  awaitingVerificationCount,
   canManage,
-  filterList,
   initialTableSettings,
-  pendingApprovalCount,
-  rejectedCount,
   showLinkGenerator,
-  total,
 }: {
-  approvedCount: number
-  awaitingVerificationCount: number
   canManage: boolean
-  filterList: PageFilterData[]
   initialTableSettings: Partial<TableSettings>
-  pendingApprovalCount: number
-  rejectedCount: number
   showLinkGenerator: boolean
-  total: number
 }) {
   return (
-    <WorkspacePageShell
-      description="Review verified member signups, confirm identity details, and approve final dashboard access."
-      eyebrow="Membership"
-      title="Membership approvals"
-    >
-      <section className="grid gap-4 md:grid-cols-4">
-        <DashboardStatCard
-          detail="Verified signups waiting for staff approval."
-          label="Pending approval"
-          tone="warning"
-          value={pendingApprovalCount.toString()}
-        />
-        <DashboardStatCard
-          detail="Accounts that still need email verification."
-          label="Awaiting verification"
-          value={awaitingVerificationCount.toString()}
-        />
-        <DashboardStatCard
-          detail="Requests already converted into members."
-          label="Approved"
-          tone="positive"
-          value={approvedCount.toString()}
-        />
-        <DashboardStatCard
-          detail="Requests closed by staff review."
-          label="Rejected"
-          value={rejectedCount.toString()}
-        />
-      </section>
+    <ScrollableContent>
+      <div className="flex flex-col gap-6">
+        {canManage ? (
+          <div className="hidden md:block">
+            <CollapsibleSummary>
+              <Suspense fallback={<MembershipApprovalsSummarySkeleton />}>
+                <MembershipApprovalsSummary />
+              </Suspense>
+            </CollapsibleSummary>
+          </div>
+        ) : null}
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              {showLinkGenerator ? (
-                <DashboardActionLink href="/member-signup-links">
-                  Open link generator
-                </DashboardActionLink>
-              ) : null}
-              <MembershipApprovalColumnVisibility />
-              <TrendPill>{total} requests</TrendPill>
-            </div>
-          }
-          description="Use search and status filters to focus on the requests that still need action."
-          eyebrow="Queue"
-          title="Membership request queue"
+        <MembershipApprovalsHeader
+          showLinkGenerator={showLinkGenerator && canManage}
         />
-
-        <div className="mt-5">
-          <MembershipApprovalsHeader filterList={filterList} />
-        </div>
 
         {canManage ? (
-          <div className="mt-5">
-            <MembershipApprovalsDataTable
+          <Suspense
+            fallback={
+              <MembershipApprovalsSkeleton
+                initialSettings={initialTableSettings}
+              />
+            }
+          >
+            <MembershipApprovalsDataView
               initialSettings={initialTableSettings}
             />
-          </div>
+          </Suspense>
         ) : (
-          <WorkspaceEmptyState
+          <DashboardEmptyState
             body="Cooperative admins and operations officers can review and approve member signups from this queue."
             title="Approval access is limited to member-management roles."
           />
         )}
-      </DashboardSectionCard>
-    </WorkspacePageShell>
+      </div>
+    </ScrollableContent>
   )
 }

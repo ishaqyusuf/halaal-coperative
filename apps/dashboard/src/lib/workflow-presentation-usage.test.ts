@@ -66,4 +66,15 @@ describe("workflow presentation ownership", () => {
     expect(source).toContain("onChangeCapture")
     expect(source).toContain("onInputCapture")
   })
+
+  test("opens the member signup link generator in a centered form dialog", () => {
+    const source = readFileSync(
+      new URL("../lib/workflow-presentations.ts", import.meta.url),
+      "utf8"
+    )
+
+    expect(source).toContain(
+      'memberSignupLink: {\n    access: dialog("form"),\n    create: dialog("form"),\n    edit: sheet(),'
+    )
+  })
 })

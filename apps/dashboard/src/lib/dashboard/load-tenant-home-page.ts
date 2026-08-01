@@ -2,6 +2,7 @@ import { normalizeRole } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
   getMemberByUserId,
+  getMemberOperationalReadiness,
   getMemberStatementDetail,
   getMemberUnitSharePosition,
   getTenantOperationProfile,
@@ -80,20 +81,25 @@ export async function loadTenantHomePageData() {
       }
     }
 
-    const [detail, receipts, supportCases, sharePolicy] = await Promise.all([
-      getMemberStatementDetail(context.tenant.id, member.id),
-      listMemberPaymentReceipts(context.tenant.id, {
-        memberId: member.id,
-      }),
-      listSupportCases({
-        limit: 5,
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
-      getTenantSharePolicy(context.tenant.id),
-    ])
+    const [detail, operationalReadiness, receipts, supportCases, sharePolicy] =
+      await Promise.all([
+        getMemberStatementDetail(context.tenant.id, member.id),
+        getMemberOperationalReadiness({
+          memberId: member.id,
+          tenantId: context.tenant.id,
+        }),
+        listMemberPaymentReceipts(context.tenant.id, {
+          memberId: member.id,
+        }),
+        listSupportCases({
+          limit: 5,
+          memberId: member.id,
+          tenantId: context.tenant.id,
+        }),
+        getTenantSharePolicy(context.tenant.id),
+      ])
 
-    if (!detail) {
+    if (!detail || !operationalReadiness) {
       return {
         state: "member-profile-missing" as const,
         ...shell,
@@ -140,8 +146,10 @@ export async function loadTenantHomePageData() {
 
     return {
       state: "member-ready" as const,
-      canCreateFoodPurchase: foodPurchaseCapability.canMemberCreate,
-      canCreateProcurement: procurementCapability.canMemberCreate,
+      canCreateFoodPurchase:
+        operationalReadiness.isReady && foodPurchaseCapability.canMemberCreate,
+      canCreateProcurement:
+        operationalReadiness.isReady && procurementCapability.canMemberCreate,
       canShowFoodPurchase:
         foodPurchaseCapability.shouldShowInMemberNav ||
         foodPurchaseApplications.length > 0,
@@ -150,6 +158,7 @@ export async function loadTenantHomePageData() {
         procurementRequests.length > 0,
       detail,
       foodPurchaseApplications,
+      operationalReadiness,
       procurementRequests,
       projectFinancingRequests,
       receipts: receipts.slice(0, 5),

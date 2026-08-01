@@ -1,6 +1,6 @@
 import type { Column } from "@tanstack/react-table"
 import { create } from "zustand"
-import type { MembershipApprovalRow } from "@/components/tables/membership-approvals/data-table"
+import type { MembershipApprovalRow } from "@/components/tables/membership-approvals/columns"
 
 interface MembershipApprovalTableState {
   columns: Column<MembershipApprovalRow, unknown>[]

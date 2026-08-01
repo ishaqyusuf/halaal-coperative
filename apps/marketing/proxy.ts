@@ -4,7 +4,7 @@ const dashboardRootDomain =
   process.env.DASHBOARD_ROOT_DOMAIN?.trim() || "halaalvest-dash.localhost"
 const dashboardProxyTarget =
   process.env.LOCAL_DASHBOARD_PROXY_TARGET?.trim() ||
-  `http://127.0.0.1:${process.env.DASHBOARD_APP_PORT?.trim() || "1441"}`
+  `http://127.0.0.1:${process.env.DASHBOARD_PORT?.trim() || "1441"}`
 
 function stripPort(host: string) {
   return host.trim().toLowerCase().replace(/:\d+$/, "")

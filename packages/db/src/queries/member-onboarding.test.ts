@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   approveMemberOnboardingRequest,
   createMemberOnboardingRequest,
+  getMemberOnboardingRequestSummary,
   rejectMemberOnboardingRequest,
   verifyMemberOnboardingRequest,
 } from "./member-onboarding"
@@ -156,6 +157,42 @@ function createLockedOnboardingWritePrismaStub() {
 }
 
 describe("member onboarding approval", () => {
+  test("returns unfiltered approval summary counts", async () => {
+    const groupByCalls: unknown[] = []
+    const prisma = {
+      memberOnboardingRequest: {
+        groupBy: async (input: unknown) => {
+          groupByCalls.push(input)
+          return [
+            { _count: { _all: 3 }, status: "pending_approval" },
+            { _count: { _all: 2 }, status: "approved" },
+            {
+              _count: { _all: 1 },
+              status: "pending_email_verification",
+            },
+          ]
+        },
+      },
+    }
+
+    await expect(
+      getMemberOnboardingRequestSummary("tenant-1", prisma as never)
+    ).resolves.toEqual({
+      approvedCount: 2,
+      awaitingVerificationCount: 1,
+      pendingApprovalCount: 3,
+      rejectedCount: 0,
+      total: 6,
+    })
+    expect(groupByCalls).toEqual([
+      {
+        by: ["status"],
+        where: { tenantId: "tenant-1" },
+        _count: { _all: true },
+      },
+    ])
+  })
+
   test("blocks onboarding request creation before initial migration is finalized", async () => {
     const prisma = createLockedOnboardingWritePrismaStub()
 

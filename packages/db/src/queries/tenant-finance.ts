@@ -2720,19 +2720,21 @@ export async function listShareBusinessesTable(
   const safeOffset = Number.isFinite(offset) && offset > 0 ? offset : 0
   const where = buildShareBusinessTableWhere(tenantId, filters)
 
-  const data = await prisma.shareBusiness.findMany({
+  const rows = await prisma.shareBusiness.findMany({
     where,
     include: shareBusinessTableInclude,
     orderBy: getShareBusinessTableOrderBy(filters?.sort),
     skip: safeOffset,
-    take: pageSize,
+    take: pageSize + 1,
   })
+  const hasNextPage = rows.length > pageSize
+  const data = hasNextPage ? rows.slice(0, pageSize) : rows
 
   return {
     data: data.map(serializeShareBusinessTableRow),
     meta: {
-      cursor: data.length === pageSize ? String(safeOffset + pageSize) : null,
-      hasNextPage: data.length === pageSize,
+      cursor: hasNextPage ? String(safeOffset + pageSize) : null,
+      hasNextPage,
       hasPreviousPage: safeOffset > 0,
     },
   }

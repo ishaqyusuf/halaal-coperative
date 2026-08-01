@@ -14,17 +14,66 @@ import {
 } from "./members"
 
 describe("member registry summary", () => {
-  test("counts the complete filtered registry instead of the first page", async () => {
-    const countCalls: unknown[] = []
+  function createRegistrySummaryPrismaStub() {
+    const findManyCalls: unknown[] = []
+    const members = [
+      {
+        id: "member-1",
+        joinedAt: new Date("2025-01-01T00:00:00.000Z"),
+        kycStatus: "verified",
+        status: "active",
+        userId: "user-1",
+      },
+      {
+        id: "member-2",
+        joinedAt: new Date("2025-02-01T00:00:00.000Z"),
+        kycStatus: "pending",
+        status: "active",
+        userId: null,
+      },
+      {
+        id: "member-3",
+        joinedAt: new Date("2025-03-01T00:00:00.000Z"),
+        kycStatus: "rejected",
+        status: "suspended",
+        userId: "user-3",
+      },
+      {
+        id: "member-4",
+        joinedAt: new Date("2025-04-01T00:00:00.000Z"),
+        kycStatus: "verified",
+        status: "active",
+        userId: null,
+      },
+    ] as const
     const prisma = {
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+      memberOpeningBalance: {
+        findMany: async () => [
+          { id: "opening-1", memberId: "member-1" },
+          { id: "opening-3", memberId: "member-3" },
+        ],
+      },
       member: {
-        count: async (input: unknown) => {
-          countCalls.push(input)
-          return countCalls.length === 1 ? 21 : countCalls.length === 2 ? 1 : 2
+        findMany: async (input: unknown) => {
+          findManyCalls.push(input)
+          return members
         },
+      },
+      tenant: {
+        findUnique: async () => ({ startDate: null }),
+      },
+      tenantPolicy: {
+        findUnique: async () => ({ migrationSetupMode: "brought_forward" }),
       },
     }
 
+    return { findManyCalls, prisma }
+  }
+
+  test("counts the complete filtered registry and finalized migrations", async () => {
+    const { findManyCalls, prisma } = createRegistrySummaryPrismaStub()
     const summary = await getMemberRegistrySummary(
       "tenant-1",
       { search: "ACAC" },
@@ -32,19 +81,38 @@ describe("member registry summary", () => {
     )
 
     expect(summary).toEqual({
-      activeCount: 21,
-      kycPendingCount: 1,
+      activeCount: 3,
+      kycPendingCount: 2,
       linkedUsersCount: 2,
+      migrationFinalizedCount: 2,
+      totalCount: 4,
     })
-    expect(countCalls).toHaveLength(3)
-    expect(countCalls[0]).toMatchObject({
-      where: { status: "active", tenantId: "tenant-1" },
+    expect(findManyCalls).toHaveLength(2)
+    expect(findManyCalls[0]).toMatchObject({
+      where: {
+        tenantId: "tenant-1",
+        OR: [
+          { fullName: { contains: "ACAC", mode: "insensitive" } },
+          { memberNumber: { contains: "ACAC", mode: "insensitive" } },
+        ],
+      },
     })
-    expect(countCalls[1]).toMatchObject({
-      where: { kycStatus: "pending", tenantId: "tenant-1" },
-    })
-    expect(countCalls[2]).toMatchObject({
-      where: { tenantId: "tenant-1", userId: { not: null } },
+  })
+
+  test("scopes every summary count to the migration filter", async () => {
+    const { prisma } = createRegistrySummaryPrismaStub()
+    const summary = await getMemberRegistrySummary(
+      "tenant-1",
+      { migrationStatus: "pending" },
+      prisma as never
+    )
+
+    expect(summary).toEqual({
+      activeCount: 2,
+      kycPendingCount: 1,
+      linkedUsersCount: 0,
+      migrationFinalizedCount: 0,
+      totalCount: 2,
     })
   })
 })
@@ -712,7 +780,7 @@ describe("member profile migration guards", () => {
   })
 })
 
-describe("members table backfill status", () => {
+describe("members table operational readiness", () => {
   test("maps not started, draft, and applied member backfill states", async () => {
     const prisma = {
       appliedBackfillMonth: {
@@ -748,22 +816,34 @@ describe("members table backfill status", () => {
           {
             id: "member-empty",
             fullName: "No Backfill",
+            joinedAt: new Date("2025-01-01T00:00:00.000Z"),
+            kycStatus: "verified",
             memberNumber: "001",
+            status: "active",
           },
           {
             id: "member-draft",
             fullName: "Draft Backfill",
+            joinedAt: new Date("2025-01-01T00:00:00.000Z"),
+            kycStatus: "verified",
             memberNumber: "002",
+            status: "active",
           },
           {
             id: "member-applied",
             fullName: "Applied Backfill",
+            joinedAt: new Date("2025-01-01T00:00:00.000Z"),
+            kycStatus: "verified",
             memberNumber: "003",
+            status: "active",
           },
           {
             id: "member-brought-forward",
             fullName: "Applied Opening Position",
+            joinedAt: new Date("2025-01-01T00:00:00.000Z"),
+            kycStatus: "verified",
             memberNumber: "004",
+            status: "active",
           },
         ],
       },
@@ -774,37 +854,113 @@ describe("members table backfill status", () => {
       { pageSize: 10 },
       prisma as never
     )
-    const statusByMemberId = new Map(
-      result.data.map((member) => [member.id, member.backfillStatus])
+    const readinessByMemberId = new Map(
+      result.data.map((member) => [member.id, member.operationalReadiness])
     )
 
-    expect(statusByMemberId.get("member-empty")).toMatchObject({
-      appliedBatchId: null,
-      appliedMonthCount: 0,
-      appliedOpeningBalanceId: null,
-      draftBatchId: null,
-      state: "not_started",
+    expect(readinessByMemberId.get("member-empty")).toMatchObject({
+      migration: {
+        appliedBatchId: null,
+        appliedMonthCount: 0,
+        appliedOpeningBalanceId: null,
+        draftBatchId: null,
+        state: "not_started",
+      },
     })
-    expect(statusByMemberId.get("member-draft")).toMatchObject({
-      appliedBatchId: null,
-      appliedMonthCount: 0,
-      appliedOpeningBalanceId: null,
-      draftBatchId: "batch-draft",
-      state: "draft",
+    expect(readinessByMemberId.get("member-draft")).toMatchObject({
+      migration: {
+        appliedBatchId: null,
+        appliedMonthCount: 0,
+        appliedOpeningBalanceId: null,
+        draftBatchId: "batch-draft",
+        state: "draft",
+      },
     })
-    expect(statusByMemberId.get("member-applied")).toMatchObject({
-      appliedBatchId: "batch-applied",
-      appliedMonthCount: 2,
-      appliedOpeningBalanceId: null,
-      draftBatchId: null,
-      state: "applied",
+    expect(readinessByMemberId.get("member-applied")).toMatchObject({
+      migration: {
+        appliedBatchId: "batch-applied",
+        appliedMonthCount: 2,
+        appliedOpeningBalanceId: null,
+        draftBatchId: null,
+        state: "applied",
+      },
     })
-    expect(statusByMemberId.get("member-brought-forward")).toMatchObject({
-      appliedBatchId: null,
-      appliedMonthCount: 0,
-      appliedOpeningBalanceId: "opening-applied",
-      draftBatchId: null,
-      state: "applied",
+    expect(readinessByMemberId.get("member-brought-forward")).toMatchObject({
+      migration: {
+        appliedBatchId: null,
+        appliedMonthCount: 0,
+        appliedOpeningBalanceId: "opening-applied",
+        draftBatchId: null,
+        state: "applied",
+      },
+    })
+  })
+
+  test("filters and paginates members by mode-aware migration status", async () => {
+    const members = [
+      {
+        fullName: "Finalized Member",
+        id: "member-1",
+        joinedAt: new Date("2025-01-01T00:00:00.000Z"),
+        kycStatus: "verified",
+        memberNumber: "001",
+        status: "active",
+      },
+      {
+        fullName: "Pending Member One",
+        id: "member-2",
+        joinedAt: new Date("2025-02-01T00:00:00.000Z"),
+        kycStatus: "verified",
+        memberNumber: "002",
+        status: "active",
+      },
+      {
+        fullName: "Pending Member Two",
+        id: "member-3",
+        joinedAt: new Date("2025-03-01T00:00:00.000Z"),
+        kycStatus: "verified",
+        memberNumber: "003",
+        status: "active",
+      },
+    ]
+    const prisma = {
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+      memberOpeningBalance: {
+        findMany: async () => [{ id: "opening-1", memberId: "member-1" }],
+      },
+      member: {
+        findMany: async () => members,
+      },
+      tenant: {
+        findUnique: async () => ({ startDate: null }),
+      },
+      tenantPolicy: {
+        findUnique: async () => ({ migrationSetupMode: "brought_forward" }),
+      },
+    }
+
+    const firstPage = await listMembersTable(
+      "tenant-1",
+      { migrationStatus: "pending", pageSize: 1 },
+      prisma as never
+    )
+    const secondPage = await listMembersTable(
+      "tenant-1",
+      { cursor: "1", migrationStatus: "pending", pageSize: 1 },
+      prisma as never
+    )
+
+    expect(firstPage.data.map((member) => member.id)).toEqual(["member-2"])
+    expect(firstPage.meta).toMatchObject({
+      cursor: "1",
+      hasNextPage: true,
+    })
+    expect(secondPage.data.map((member) => member.id)).toEqual(["member-3"])
+    expect(secondPage.meta).toMatchObject({
+      cursor: null,
+      hasNextPage: false,
+      hasPreviousPage: true,
     })
   })
 
@@ -838,6 +994,69 @@ describe("members table backfill status", () => {
     )
 
     expect(result.data[0]?.totalSavingsSnapshot).toBe(12500.75)
+  })
+
+  test("orders the default member directory by newest joined date", async () => {
+    let receivedOrderBy: unknown
+    const prisma = {
+      member: {
+        findMany: async ({ orderBy }: { orderBy: unknown }) => {
+          receivedOrderBy = orderBy
+          return []
+        },
+      },
+    }
+
+    await listMembersTable("tenant-1", { pageSize: 10 }, prisma as never)
+
+    expect(receivedOrderBy).toEqual([
+      { joinedAt: "desc" },
+      { createdAt: "desc" },
+    ])
+  })
+
+  test("only returns a next cursor when another member exists", async () => {
+    const memberRows = Array.from({ length: 3 }, (_, index) => ({
+      fullName: `Member ${index + 1}`,
+      id: `member-${index + 1}`,
+      memberNumber: String(index + 1).padStart(3, "0"),
+    }))
+    const prisma = {
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+      memberOpeningBalance: { findMany: async () => [] },
+      member: {
+        findMany: async ({ take }: { take: number }) =>
+          memberRows.slice(0, take),
+      },
+    }
+
+    const firstPage = await listMembersTable(
+      "tenant-1",
+      { pageSize: 2 },
+      prisma as never
+    )
+
+    expect(firstPage.data).toHaveLength(2)
+    expect(firstPage.meta).toMatchObject({
+      cursor: "2",
+      hasNextPage: true,
+    })
+
+    prisma.member.findMany = async ({ take }: { take: number }) =>
+      memberRows.slice(0, take - 1)
+
+    const exactPage = await listMembersTable(
+      "tenant-1",
+      { pageSize: 2 },
+      prisma as never
+    )
+
+    expect(exactPage.data).toHaveLength(2)
+    expect(exactPage.meta).toMatchObject({
+      cursor: null,
+      hasNextPage: false,
+    })
   })
 })
 

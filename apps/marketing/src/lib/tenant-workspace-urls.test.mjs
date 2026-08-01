@@ -6,7 +6,7 @@ import { buildOnboardingWorkspaceUrls } from "./tenant-workspace-urls.ts"
 const trackedEnvKeys = [
   "APP_ROOT_DOMAIN",
   "DASHBOARD_APP_URL",
-  "DASHBOARD_APP_PORT",
+  "DASHBOARD_PORT",
   "DASHBOARD_ROOT_DOMAIN",
   "LOCAL_ROOT_DOMAIN",
   "NEXT_PUBLIC_DASHBOARD_APP_URL",
@@ -92,7 +92,7 @@ describe("buildOnboardingWorkspaceUrls", () => {
 
   test("uses the HTTPS Portless root for bare localhost onboarding requests", () => {
     setEnv({
-      DASHBOARD_APP_PORT: "1441",
+      DASHBOARD_PORT: "1441",
       DASHBOARD_ROOT_DOMAIN: "app.halaalvest.localhost",
       LOCAL_ROOT_DOMAIN: "app.halaalvest.localhost",
     })

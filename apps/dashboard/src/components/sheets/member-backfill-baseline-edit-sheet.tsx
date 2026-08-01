@@ -44,20 +44,21 @@ export function MemberBackfillBaselineEditSheet({
       </Button>
       <WorkflowPresentation
         className="overflow-hidden p-0"
+        contentClassName="max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11"
         config={getWorkflowPresentation("memberBackfill", "baselineEdit")}
         open={isOpen}
         onOpenChange={(open) => !open && closeSheet()}
       >
-          <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-4">
-            <MemberBackfillBaselineEditSheetHeader />
-            <MemberBackfillBaselineEditContent
-              canManageCollectionSources={canManageCollectionSources}
-              collectionSourceOptions={collectionSourceOptions}
-              isOpen={isOpen}
-              member={member}
-              onClose={closeSheet}
-            />
-          </div>
+        <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-4">
+          <MemberBackfillBaselineEditSheetHeader />
+          <MemberBackfillBaselineEditContent
+            canManageCollectionSources={canManageCollectionSources}
+            collectionSourceOptions={collectionSourceOptions}
+            isOpen={isOpen}
+            member={member}
+            onClose={closeSheet}
+          />
+        </div>
       </WorkflowPresentation>
     </>
   )

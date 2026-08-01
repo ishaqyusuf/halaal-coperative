@@ -10,7 +10,7 @@ import {
 import { MemberImportPanel } from "@/components/member-import-panel"
 import { OpenMemberSheet } from "@/components/open-member-sheet"
 import { MemberSheet } from "@/components/sheets/member-sheet"
-import { MembersDataTable } from "@/components/tables/members/data-table"
+import { MembersDataView } from "@/components/tables/members/data-view"
 import { MembersSkeleton } from "@/components/tables/members/skeleton"
 import type { TableSettings } from "@/utils/table-settings"
 import { MembersActive } from "./members-active"
@@ -53,20 +53,31 @@ export function MembersPageView({
             secondaryActions={
               data.canManageMembers ? <SignupLinkAction /> : undefined
             }
+            migrationSetupMode={data.tenant?.migrationSetupMode}
           />
 
           <DashboardEmptyState
-            body="The member registry could not load from the cooperative database right now. If you still open the create form, submissions will fail until the database connection is restored."
-            title="Database-backed member records are not available yet."
+            body={
+              data.accessDenied
+                ? "The full member directory is restricted to cooperative staff. Members can use their own dashboard and statement routes for personal records."
+                : "The member registry could not load from the cooperative database right now. If you still open the create form, submissions will fail until the database connection is restored."
+            }
+            title={
+              data.accessDenied
+                ? "Staff member access is required."
+                : "Database-backed member records are not available yet."
+            }
           />
-          <MemberSheet
-            canManageCollectionSources={data.canManageCollectionSources}
-            collectionSourceOptions={data.collectionSourceOptions}
-            cooperativeStartDate={data.tenant?.startDate}
-            devMode={data.quickFillEnabled}
-            memberNumberPrefix={data.tenant?.memberNumberPrefix}
-            migrationSetupMode={data.tenant?.migrationSetupMode}
-          />
+          {data.accessDenied ? null : (
+            <MemberSheet
+              canManageCollectionSources={data.canManageCollectionSources}
+              collectionSourceOptions={data.collectionSourceOptions}
+              cooperativeStartDate={data.tenant?.startDate}
+              devMode={data.quickFillEnabled}
+              memberNumberPrefix={data.tenant?.memberNumberPrefix}
+              migrationSetupMode={data.tenant?.migrationSetupMode}
+            />
+          )}
         </div>
       </ScrollableContent>
     )
@@ -75,30 +86,33 @@ export function MembersPageView({
   return (
     <ScrollableContent>
       <div className="flex flex-col gap-6">
-        <CollapsibleSummary>
-          <section className="grid grid-cols-1 gap-4 pt-6 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-            <MembersAll
-              filters={data.filters}
-              totalCount={data.summary.totalCount}
-            />
-            <MembersActive
-              activeCount={data.summary.activeCount}
-              filters={data.filters}
-            />
-            <MembersKycPending
-              filters={data.filters}
-              kycPendingCount={data.summary.kycPendingCount}
-            />
-            <MembersLinkedUsers
-              linkedUsersCount={data.summary.linkedUsersCount}
-            />
-          </section>
-        </CollapsibleSummary>
+        <div className="hidden md:block">
+          <CollapsibleSummary>
+            <section className="grid grid-cols-2 gap-6 pt-6 lg:grid-cols-4">
+              <MembersAll
+                filters={data.filters}
+                migrationFinalizedCount={data.summary.migrationFinalizedCount}
+                migrationSetupMode={
+                  data.tenant?.migrationSetupMode ?? "historical_backfill"
+                }
+                totalCount={data.summary.totalCount}
+              />
+              <MembersActive
+                activeCount={data.summary.activeCount}
+                filters={data.filters}
+              />
+              <MembersKycPending
+                kycPendingCount={data.summary.kycPendingCount}
+              />
+              <MembersLinkedUsers
+                linkedUsersCount={data.summary.linkedUsersCount}
+              />
+            </section>
+          </CollapsibleSummary>
+        </div>
 
         <MembersPageHeader
-          createAction={
-            data.canManageMembers ? <OpenMemberSheet /> : undefined
-          }
+          createAction={data.canManageMembers ? <OpenMemberSheet /> : undefined}
           importPanel={
             data.canManageImports && data.referenceData ? (
               <MemberImportPanel
@@ -115,14 +129,14 @@ export function MembersPageView({
               <SignupLinkAction />
             ) : undefined
           }
+          migrationSetupMode={data.tenant?.migrationSetupMode}
           startWithImportPanelOpen={startWithImportPanelOpen}
         />
 
         <Suspense fallback={<MembersSkeleton />}>
-          <MembersDataTable
+          <MembersDataView
             canManageMembers={data.canManageMembers}
             initialSettings={initialSettings}
-            migrationSetupMode={data.tenant?.migrationSetupMode ?? "historical_backfill"}
           />
         </Suspense>
 

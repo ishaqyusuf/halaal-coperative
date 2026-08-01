@@ -85,7 +85,13 @@ const memberPortalAccessSchema = z.object({
 
 type MemberPortalAccessValues = z.infer<typeof memberPortalAccessSchema>
 
-export function MemberPortalAccessForm({ memberId }: { memberId: string }) {
+export function MemberPortalAccessForm({
+  memberId,
+  onSuccess,
+}: {
+  memberId: string
+  onSuccess?: () => void
+}) {
   const form = useZodForm<MemberPortalAccessValues>(memberPortalAccessSchema, {
     defaultValues: {
       memberId,
@@ -102,6 +108,7 @@ export function MemberPortalAccessForm({ memberId }: { memberId: string }) {
           "Portal access sent",
           "The member can use the email link to set their password."
         )
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not send portal access",
@@ -256,10 +263,12 @@ export function MemberCommitmentForm({
   defaultStartDate,
   defaultAmount,
   memberId,
+  onSuccess,
 }: {
   defaultStartDate?: string
   defaultAmount?: string
   memberId: string
+  onSuccess?: () => void
 }) {
   const today = new Date().toISOString().slice(0, 10)
   const form = useZodForm<MemberCommitmentValues>(memberCommitmentSchema, {
@@ -278,6 +287,7 @@ export function MemberCommitmentForm({
       try {
         await setMemberContributionPlanAction(objectToFormData(values))
         showSuccess("Commitment saved", "Monthly commitment history updated.")
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not save commitment",
@@ -442,7 +452,7 @@ export function MemberCreateForm({
                     form,
                     "member_create",
                     undefined,
-                    { emailDomain: quickFill.emailDomain },
+                    { emailDomain: quickFill.emailDomain }
                   )
                 }
               >
@@ -470,7 +480,7 @@ export function MemberCreateForm({
                     form,
                     "member_create",
                     undefined,
-                    { emailDomain: quickFill.emailDomain },
+                    { emailDomain: quickFill.emailDomain }
                   )
                 }
               >
@@ -480,8 +490,8 @@ export function MemberCreateForm({
           </div>
         )}
 
-          <div
-            className={
+        <div
+          className={
             inSheet
               ? "grid gap-4 sm:grid-cols-4"
               : "grid gap-4 md:grid-cols-2 xl:col-span-5 xl:grid-cols-5"
@@ -660,10 +670,7 @@ export function MemberCreateForm({
               : "xl:col-span-5"
           }
         >
-          <Button
-            disabled={isPending}
-            type="submit"
-          >
+          <Button disabled={isPending} type="submit">
             Add member
           </Button>
         </div>
@@ -686,9 +693,11 @@ type MemberKycValues = z.infer<typeof memberKycSchema>
 export function MemberKycForm({
   defaultValues,
   devMode,
+  onSuccess,
 }: {
   defaultValues: MemberKycValues
   devMode: boolean
+  onSuccess?: () => void
 }) {
   const form = useZodForm<MemberKycValues>(memberKycSchema, { defaultValues })
   const { showError, showSuccess } = useNotifications()
@@ -699,6 +708,7 @@ export function MemberKycForm({
       try {
         await updateMemberKycAction(objectToFormData(values))
         showSuccess("KYC saved", "Member KYC details updated.")
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not save KYC",
@@ -850,9 +860,11 @@ type MemberDocumentValues = z.infer<typeof memberDocumentSchema>
 export function MemberDocumentForm({
   defaultMemberId,
   devMode,
+  onSuccess,
 }: {
   defaultMemberId: string
   devMode: boolean
+  onSuccess?: () => void
 }) {
   const form = useZodForm<MemberDocumentValues>(memberDocumentSchema, {
     defaultValues: {
@@ -881,6 +893,7 @@ export function MemberDocumentForm({
           reviewNotes: "",
           reviewStatus: "pending",
         })
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not add document",
@@ -1018,8 +1031,10 @@ type MemberDocumentReviewValues = z.infer<typeof memberDocumentReviewSchema>
 
 export function MemberDocumentReviewForm({
   defaultValues,
+  onSuccess,
 }: {
   defaultValues: MemberDocumentReviewValues
+  onSuccess?: () => void
 }) {
   const form = useZodForm<MemberDocumentReviewValues>(
     memberDocumentReviewSchema,
@@ -1033,6 +1048,7 @@ export function MemberDocumentReviewForm({
       try {
         await updateMemberDocumentReviewAction(objectToFormData(values))
         showSuccess("Document review saved", "Document review state updated.")
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not save review",

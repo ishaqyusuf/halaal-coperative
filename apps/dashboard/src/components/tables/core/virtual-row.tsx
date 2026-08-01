@@ -68,6 +68,7 @@ function VirtualRowInner<TData>({
         const meta = cell.column.columnDef.meta as TableColumnMeta | undefined
         const isSticky = meta?.sticky ?? false
         const isActions = columnId === "actions"
+        const isSelect = columnId === "select"
         const isLastBeforeActions =
           cellIndex === cells.length - 2 && lastCellId === "actions"
         const actionsFullWidth = isActions && !hasNonStickyBeforeActions
@@ -88,9 +89,10 @@ function VirtualRowInner<TData>({
           <TableCell
             key={cell.id}
             className={cn(
-              "h-full flex items-center border-b border-border",
+              "flex h-full items-center border-b border-border",
               cellClassName,
-              isActions && "justify-center"
+              isActions && "justify-center",
+              isSelect && "justify-center px-0"
             )}
             style={cellStyle}
             onClick={() => {
@@ -99,7 +101,12 @@ function VirtualRowInner<TData>({
               }
             }}
           >
-            <div className="w-full overflow-hidden truncate">
+            <div
+              className={cn(
+                "w-full truncate overflow-hidden",
+                isSelect && "flex items-center justify-center"
+              )}
+            >
               {flexRender(cell.column.columnDef.cell, cell.getContext())}
             </div>
           </TableCell>

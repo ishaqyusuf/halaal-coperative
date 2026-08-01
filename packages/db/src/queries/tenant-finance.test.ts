@@ -10,6 +10,7 @@ import {
   getTenantMigrationSetup,
   getMemberUnitSharePosition,
   getTenantSharePolicy,
+  listShareBusinessesTable,
   publishShareProfitAllocations,
   recommendTenantMigrationSetupMode,
   reviewMemberShareApplication,
@@ -83,6 +84,54 @@ function withMigrationState(
 }
 
 describe("tenant finance queries", () => {
+  test("only returns a business next cursor when another row exists", async () => {
+    const requestedTake: number[] = []
+    const businessRow = (index: number) => ({
+      capitalAmount: 1000 + index,
+      endDate: null,
+      id: `business-${index}`,
+      name: `Business ${index}`,
+      profitAmount: 100,
+      profitEntries: [],
+      startDate: new Date("2026-01-01T00:00:00.000Z"),
+      status: "active",
+    })
+    const pages = [
+      [businessRow(1), businessRow(2), businessRow(3)],
+      [businessRow(1), businessRow(2)],
+    ]
+    const prisma = {
+      shareBusiness: {
+        findMany: async ({ take }: { take: number }) => {
+          requestedTake.push(take)
+          return pages.shift() ?? []
+        },
+      },
+    } as never
+
+    const firstPage = await listShareBusinessesTable(
+      "tenant-1",
+      { pageSize: 2 },
+      prisma
+    )
+    const finalPage = await listShareBusinessesTable(
+      "tenant-1",
+      { pageSize: 2 },
+      prisma
+    )
+
+    expect(requestedTake).toEqual([3, 3])
+    expect(firstPage.data).toHaveLength(2)
+    expect(firstPage.meta).toEqual({
+      cursor: "2",
+      hasNextPage: true,
+      hasPreviousPage: false,
+    })
+    expect(finalPage.data).toHaveLength(2)
+    expect(finalPage.meta.cursor).toBeNull()
+    expect(finalPage.meta.hasNextPage).toBe(false)
+  })
+
   test("allows metadata-only corrections on finalized historical businesses", async () => {
     const auditCreates: unknown[] = []
     const businessUpdates: Array<Record<string, any>> = []

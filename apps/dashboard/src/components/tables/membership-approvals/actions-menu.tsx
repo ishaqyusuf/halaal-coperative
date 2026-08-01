@@ -10,7 +10,7 @@ import {
 import { cn } from "@halaalvest/ui/lib/utils"
 import { MoreHorizontal } from "lucide-react"
 import { memo } from "react"
-import type { MembershipApprovalRow } from "./data-table"
+import type { MembershipApprovalRow } from "./columns"
 
 export const MembershipApprovalActionsMenu = memo(
   ({ request }: { request: MembershipApprovalRow }) => (

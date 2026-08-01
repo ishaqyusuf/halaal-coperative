@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import {
   MemberDetailUnavailableView,
@@ -5,6 +6,10 @@ import {
 } from "@/components/member-detail-view"
 import { loadMemberDetailParams } from "@/hooks/use-member-detail-params"
 import { loadMemberDetailPageData } from "@/lib/members"
+
+export const metadata: Metadata = {
+  title: "Member details | Halaalvest",
+}
 
 export default async function MemberDetailPage({
   params,

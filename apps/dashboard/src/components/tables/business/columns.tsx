@@ -17,12 +17,21 @@ type BusinessTableMeta = {
   isLocked: boolean
 }
 
-function displayEnum(value: string) {
+export function displayBusinessEnum(value: string) {
   return value.replaceAll("_", " ")
 }
 
-function latestProfitEntry(business: Business) {
+export function getLatestBusinessProfitEntry(business: Business) {
   return business.profitEntries[0] ?? null
+}
+
+export function getBusinessAllocatableProfit(business: Business) {
+  return (
+    business.profitEntries.reduce(
+      (sum, entry) => sum + Number(entry.allocatableProfitAmount ?? 0),
+      0
+    ) || business.profitAmount
+  )
 }
 
 const BusinessCell = memo(
@@ -38,7 +47,7 @@ const BusinessCell = memo(
 
 BusinessCell.displayName = "BusinessCell"
 
-const StatusBadge = memo(({ status }: { status: string }) => (
+export const BusinessStatusBadge = memo(({ status }: { status: string }) => (
   <Badge
     className={
       status === "active"
@@ -49,11 +58,11 @@ const StatusBadge = memo(({ status }: { status: string }) => (
     }
     variant="outline"
   >
-    {displayEnum(status)}
+    {displayBusinessEnum(status)}
   </Badge>
 ))
 
-StatusBadge.displayName = "StatusBadge"
+BusinessStatusBadge.displayName = "BusinessStatusBadge"
 
 export const columns: ColumnDef<Business>[] = [
   {
@@ -133,15 +142,11 @@ export const columns: ColumnDef<Business>[] = [
   },
   {
     accessorKey: "profitAmount",
-    cell: ({ row }) => {
-      const total =
-        row.original.profitEntries.reduce(
-          (sum, entry) => sum + Number(entry.allocatableProfitAmount ?? 0),
-          0
-        ) || row.original.profitAmount
-
-      return <span className="font-medium">{formatCurrency(total)}</span>
-    },
+    cell: ({ row }) => (
+      <span className="font-medium">
+        {formatCurrency(getBusinessAllocatableProfit(row.original))}
+      </span>
+    ),
     enableResizing: true,
     header: "Allocatable profit",
     id: "profit",
@@ -156,7 +161,7 @@ export const columns: ColumnDef<Business>[] = [
   },
   {
     cell: ({ row }) => {
-      const latest = latestProfitEntry(row.original)
+      const latest = getLatestBusinessProfitEntry(row.original)
 
       if (!latest) {
         return <span className="text-muted-foreground">No profit entry</span>
@@ -168,7 +173,7 @@ export const columns: ColumnDef<Business>[] = [
             {formatCurrency(latest.allocatableProfitAmount)}
           </p>
           <p className="mt-1 truncate text-xs text-muted-foreground">
-            {latest.profitDate} · {displayEnum(latest.status)}
+            {latest.profitDate} · {displayBusinessEnum(latest.status)}
           </p>
         </div>
       )
@@ -187,7 +192,9 @@ export const columns: ColumnDef<Business>[] = [
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => (
+      <BusinessStatusBadge status={row.original.status} />
+    ),
     enableResizing: true,
     header: "Status",
     id: "status",

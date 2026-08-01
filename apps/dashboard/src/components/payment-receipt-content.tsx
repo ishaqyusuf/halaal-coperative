@@ -3,14 +3,39 @@
 import { useMemo, useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { useNotifications } from "@halaalvest/notifications-react"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@halaalvest/ui/components/alert"
+import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
+import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
+import { DialogFooter } from "@halaalvest/ui/components/dialog"
+import {
+  Field as FormField,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@halaalvest/ui/components/field"
 import { Input } from "@halaalvest/ui/components/input"
+import { ScrollArea } from "@halaalvest/ui/components/scroll-area"
+import { Separator } from "@halaalvest/ui/components/separator"
+import { Spinner } from "@halaalvest/ui/components/spinner"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@halaalvest/ui/components/toggle-group"
 import { formatCurrency } from "@halaalvest/utils"
 import type {
   MemberPaymentReceiptAllocationRow,
   MemberPaymentReceiptRow,
 } from "@halaalvest/db"
+import { ExternalLinkIcon } from "lucide-react"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import {
@@ -91,6 +116,32 @@ const decisionOptions: Array<{ label: string; value: ReceiptDecision }> = [
   { label: "Reject", value: "rejected" },
 ]
 
+const decisionGuidance: Record<
+  ReceiptDecision,
+  { description: string; title: string }
+> = {
+  approved: {
+    description:
+      "The verified allocations will post through their supported ledgers. This changes the member's financial position.",
+    title: "Approve and post this receipt",
+  },
+  correction_requested: {
+    description:
+      "No balance will change. The member will be asked to correct the receipt using your review note.",
+    title: "Return this receipt for correction",
+  },
+  rejected: {
+    description:
+      "The receipt will be closed without posting any allocation. A review note is required.",
+    title: "Reject this receipt",
+  },
+  under_review: {
+    description:
+      "Keep the receipt in the finance queue while evidence or allocation details are still being checked.",
+    title: "Continue reviewing this receipt",
+  },
+}
+
 function emptyAllocation(): AllocationDraft {
   return {
     amount: "",
@@ -146,12 +197,20 @@ function toAllocationPayload(allocations: AllocationDraft[]) {
     .map((allocation) => ({
       amount: Number(allocation.amount),
       category: allocation.category,
-      contributionPlanId: allocation.contributionPlanId || null,
+      contributionPlanId:
+        allocation.category === "commitment" ||
+        allocation.category === "special_savings"
+          ? allocation.contributionPlanId || null
+          : null,
       foodPurchaseApplicationId:
         allocation.category === "food_purchase"
           ? allocation.foodPurchaseApplicationId || null
           : null,
-      loanId: allocation.loanId || null,
+      loanId:
+        allocation.category === "loan_servicing" ||
+        allocation.category === "loan_extra_payment"
+          ? allocation.loanId || null
+          : null,
       notes: allocation.notes || null,
       periodIntent: allocation.periodIntent,
       projectFinancingRequestId:
@@ -168,7 +227,10 @@ function toAllocationPayload(allocations: AllocationDraft[]) {
     }))
 }
 
-function selectOptionsForMember(options: PaymentReceiptOption[], memberId: string) {
+function selectOptionsForMember(
+  options: PaymentReceiptOption[],
+  memberId: string
+) {
   return options
     .filter((option) => !memberId || option.memberId === memberId)
     .map((option) => ({ label: option.label, value: option.id }))
@@ -275,7 +337,10 @@ export function PaymentReceiptCreateContent({
         setProofDocumentName("")
         setProofDocumentUrl("")
         onClose()
-        showSuccess("Receipt submitted", "Receipt is waiting for finance review.")
+        showSuccess(
+          "Receipt submitted",
+          "Receipt is waiting for finance review."
+        )
         router.refresh()
       } catch (error) {
         showError(
@@ -438,6 +503,13 @@ export function PaymentReceiptReviewContent({
   const [allocations, setAllocations] = useState<AllocationDraft[]>(
     receipt.allocations.map(draftFromAllocation)
   )
+  const originalAllocationSnapshot = useMemo(
+    () =>
+      JSON.stringify(
+        toAllocationPayload(receipt.allocations.map(draftFromAllocation))
+      ),
+    [receipt.allocations]
+  )
   const receiptLoans = useMemo(
     () => selectOptionsForMember(loans, receipt.memberId),
     [loans, receipt.memberId]
@@ -458,6 +530,36 @@ export function PaymentReceiptReviewContent({
     () => selectOptionsForMember(procurementSchedules, receipt.memberId),
     [procurementSchedules, receipt.memberId]
   )
+  const allocationPayload = useMemo(
+    () => toAllocationPayload(allocations),
+    [allocations]
+  )
+  const allocationTotal = allocationPayload.reduce(
+    (total, allocation) => total + allocation.amount,
+    0
+  )
+  const isAllocationBalanced =
+    Math.abs(allocationTotal - receipt.totalAmount) < 0.005
+  const allocationsChanged =
+    JSON.stringify(allocationPayload) !== originalAllocationSnapshot
+  const requiresReviewNote =
+    decision === "correction_requested" || decision === "rejected"
+  const adjustmentReasonMissing = allocationsChanged && !adjustmentReason.trim()
+  const reviewNoteMissing = requiresReviewNote && !reviewNotes.trim()
+  const canSaveReview =
+    !isPending &&
+    isAllocationBalanced &&
+    !adjustmentReasonMissing &&
+    !reviewNoteMissing
+  const guidance = decisionGuidance[decision]
+  const actionLabel =
+    decision === "approved"
+      ? "Approve and post"
+      : decision === "correction_requested"
+        ? "Request correction"
+        : decision === "rejected"
+          ? "Reject receipt"
+          : "Save as under review"
 
   function updateAllocation(index: number, patch: Partial<AllocationDraft>) {
     setAllocations((current) =>
@@ -472,9 +574,7 @@ export function PaymentReceiptReviewContent({
       try {
         await reviewMemberPaymentReceiptAction(
           objectToFormData({
-            adjustedAllocationsJson: JSON.stringify(
-              toAllocationPayload(allocations)
-            ),
+            adjustedAllocationsJson: JSON.stringify(allocationPayload),
             adjustmentReason,
             decision,
             receiptId: receipt.id,
@@ -494,53 +594,511 @@ export function PaymentReceiptReviewContent({
   }
 
   return (
-    <>
-      <div className="space-y-3">
-        {allocations.map((allocation, index) => (
-          <AllocationEditor
-            allocation={allocation}
-            categoryOptions={categoryOptions}
-            commitmentPlans={receiptPlans}
-            disabled={isPending}
-            foodPurchaseApplications={receiptFoodPurchaseApplications}
-            key={`${receipt.id}-${index}`}
-            loans={receiptLoans}
-            onChange={(patch) => updateAllocation(index, patch)}
-            projectFinancingRequests={receiptProjectFinancingRequests}
-            procurementSchedules={receiptProcurementSchedules}
-          />
-        ))}
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <Field label="Decision">
-          <LabeledSelectInput
-            disabled={isPending}
-            onValueChange={(value) => setDecision(value as ReceiptDecision)}
-            options={decisionOptions}
-            value={decision}
-          />
-        </Field>
-        <Field label="Adjustment reason">
-          <Input
-            disabled={isPending}
-            onChange={(event) => setAdjustmentReason(event.target.value)}
-            value={adjustmentReason}
-          />
-        </Field>
-        <Field label="Review note">
-          <Textarea
-            disabled={isPending}
-            onChange={(event) => setReviewNotes(event.target.value)}
-            value={reviewNotes}
-          />
-        </Field>
-        <div className="md:col-span-3">
-          <Button disabled={isPending} onClick={reviewReceipt}>
-            Save review
-          </Button>
+    <div className="absolute inset-0 flex min-h-0 w-full flex-col overflow-hidden">
+      <ScrollArea className="h-0 flex-1 overflow-hidden">
+        <div className="flex flex-col gap-6 px-6 pt-5 pb-24">
+          <section
+            aria-labelledby="receipt-overview-heading"
+            className="flex flex-col gap-4"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3
+                    className="text-sm font-medium"
+                    id="receipt-overview-heading"
+                  >
+                    {receipt.member.fullName}
+                  </h3>
+                  <Badge variant={receiptStatusVariant(receipt.status)}>
+                    {receiptStatusLabel(receipt.status)}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {receipt.member.memberNumber}
+                  {receipt.member.email ? ` · ${receipt.member.email}` : ""}
+                </p>
+              </div>
+              <div className="text-left sm:text-right">
+                <p className="text-xs text-muted-foreground">Receipt amount</p>
+                <p className="text-xl font-semibold tabular-nums">
+                  {formatCurrency(receipt.totalAmount)}
+                </p>
+              </div>
+            </div>
+
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <ReceiptMetadata
+                label="Paid"
+                value={formatDate(receipt.paidAt)}
+              />
+              <ReceiptMetadata
+                label="Channel"
+                value={humanizeValue(receipt.channel)}
+              />
+              <ReceiptMetadata
+                label="Reference"
+                value={receipt.paymentReference || "Not provided"}
+              />
+              <ReceiptMetadata
+                label="Submitted"
+                value={formatDate(receipt.submittedAt)}
+              />
+            </dl>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {receipt.proofDocumentUrl ? (
+                <Button
+                  render={
+                    <a
+                      href={receipt.proofDocumentUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    />
+                  }
+                  variant="outline"
+                >
+                  <ExternalLinkIcon data-icon="inline-start" />
+                  {receipt.proofDocumentName || "Open payment proof"}
+                </Button>
+              ) : (
+                <Badge variant="destructive">Payment proof missing</Badge>
+              )}
+            </div>
+
+            {receipt.memberNotes ? (
+              <Alert>
+                <AlertTitle>Member note</AlertTitle>
+                <AlertDescription>{receipt.memberNotes}</AlertDescription>
+              </Alert>
+            ) : null}
+          </section>
+
+          <Separator />
+
+          <section
+            aria-labelledby="receipt-allocation-heading"
+            className="flex flex-col gap-4"
+          >
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h3
+                  className="text-sm font-medium"
+                  id="receipt-allocation-heading"
+                >
+                  Verify allocations
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Confirm where the receipt should post before making a
+                  decision.
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {formatCurrency(allocationTotal)} of{" "}
+                {formatCurrency(receipt.totalAmount)} allocated
+              </p>
+            </div>
+
+            {!isAllocationBalanced ? (
+              <Alert variant="destructive">
+                <AlertTitle>Allocation total does not match</AlertTitle>
+                <AlertDescription>
+                  Adjust the allocation amounts until they equal{" "}
+                  {formatCurrency(receipt.totalAmount)}. The review cannot be
+                  saved while the totals differ.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <div className="flex flex-col gap-3">
+              {allocations.map((allocation, index) => (
+                <ReviewAllocationEditor
+                  allocation={allocation}
+                  categoryOptions={categoryOptions}
+                  commitmentPlans={receiptPlans}
+                  disabled={isPending}
+                  foodPurchaseApplications={receiptFoodPurchaseApplications}
+                  index={index}
+                  key={`${receipt.id}-${index}`}
+                  loans={receiptLoans}
+                  onChange={(patch) => updateAllocation(index, patch)}
+                  projectFinancingRequests={receiptProjectFinancingRequests}
+                  procurementSchedules={receiptProcurementSchedules}
+                />
+              ))}
+            </div>
+          </section>
+
+          <Separator />
+
+          <section
+            aria-labelledby="receipt-decision-heading"
+            className="flex flex-col gap-4"
+          >
+            <div>
+              <h3 className="text-sm font-medium" id="receipt-decision-heading">
+                Review decision
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Choose the next state and leave clear evidence for the member
+                and finance team.
+              </p>
+            </div>
+
+            <FieldSet>
+              <FieldLegend variant="label">Decision</FieldLegend>
+              <ToggleGroup
+                aria-label="Receipt decision"
+                className="grid w-full grid-cols-2 sm:grid-cols-4"
+                disabled={isPending}
+                onValueChange={(values) => {
+                  const nextDecision = values[0]
+                  if (nextDecision) {
+                    setDecision(nextDecision as ReceiptDecision)
+                  }
+                }}
+                value={[decision]}
+                variant="outline"
+              >
+                {decisionOptions.map((option) => (
+                  <ToggleGroupItem
+                    className="w-full"
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </FieldSet>
+
+            <Alert
+              variant={decision === "rejected" ? "destructive" : "default"}
+            >
+              <AlertTitle>{guidance.title}</AlertTitle>
+              <AlertDescription>{guidance.description}</AlertDescription>
+            </Alert>
+
+            <FieldGroup className="grid gap-4 sm:grid-cols-2">
+              {allocationsChanged ? (
+                <FormField
+                  className="sm:col-span-2"
+                  data-invalid={adjustmentReasonMissing}
+                >
+                  <FieldLabel htmlFor="receipt-adjustment-reason">
+                    Adjustment reason
+                  </FieldLabel>
+                  <Input
+                    aria-invalid={adjustmentReasonMissing}
+                    disabled={isPending}
+                    id="receipt-adjustment-reason"
+                    onChange={(event) =>
+                      setAdjustmentReason(event.target.value)
+                    }
+                    placeholder="Explain why the submitted allocation changed"
+                    value={adjustmentReason}
+                  />
+                  <FieldDescription>
+                    Required because one or more submitted allocation values
+                    were changed.
+                  </FieldDescription>
+                  {adjustmentReasonMissing ? (
+                    <FieldError>Enter an adjustment reason.</FieldError>
+                  ) : null}
+                </FormField>
+              ) : null}
+
+              <FormField
+                className="sm:col-span-2"
+                data-invalid={reviewNoteMissing}
+              >
+                <FieldLabel htmlFor="receipt-review-note">
+                  Review note
+                  {requiresReviewNote ? " (required)" : " (optional)"}
+                </FieldLabel>
+                <Textarea
+                  aria-invalid={reviewNoteMissing}
+                  disabled={isPending}
+                  id="receipt-review-note"
+                  onChange={(event) => setReviewNotes(event.target.value)}
+                  placeholder={
+                    requiresReviewNote
+                      ? "Explain what the member needs to correct or why the receipt was rejected"
+                      : "Add context for the member and finance audit trail"
+                  }
+                  value={reviewNotes}
+                />
+                {reviewNoteMissing ? (
+                  <FieldError>
+                    A review note is required for this decision.
+                  </FieldError>
+                ) : null}
+              </FormField>
+            </FieldGroup>
+          </section>
         </div>
+      </ScrollArea>
+
+      <div className="absolute inset-x-0 bottom-0 bg-popover">
+        <Separator />
+        <DialogFooter className="px-6 py-4 sm:justify-between">
+          <Button disabled={isPending} onClick={onClose} variant="outline">
+            Cancel
+          </Button>
+          <Button
+            disabled={!canSaveReview}
+            onClick={reviewReceipt}
+            variant={decision === "rejected" ? "destructive" : "default"}
+          >
+            {isPending ? <Spinner data-icon="inline-start" /> : null}
+            {isPending ? "Saving review..." : actionLabel}
+          </Button>
+        </DialogFooter>
       </div>
-    </>
+    </div>
+  )
+}
+
+function ReceiptMetadata({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="truncate text-xs font-medium">{value}</dd>
+    </div>
+  )
+}
+
+function humanizeValue(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function receiptStatusLabel(status: MemberPaymentReceiptRow["status"]) {
+  return humanizeValue(status)
+}
+
+function receiptStatusVariant(
+  status: MemberPaymentReceiptRow["status"]
+): "default" | "destructive" | "outline" | "secondary" {
+  if (status === "approved") return "default"
+  if (status === "rejected" || status === "correction_requested") {
+    return "destructive"
+  }
+  if (status === "under_review") return "secondary"
+  return "outline"
+}
+
+function ReviewAllocationEditor({
+  allocation,
+  categoryOptions,
+  commitmentPlans,
+  disabled,
+  foodPurchaseApplications,
+  index,
+  loans,
+  onChange,
+  projectFinancingRequests,
+  procurementSchedules,
+}: {
+  allocation: AllocationDraft
+  categoryOptions: PaymentReceiptCategoryOption[]
+  commitmentPlans: Array<{ label: string; value: string }>
+  disabled?: boolean
+  foodPurchaseApplications: Array<{ label: string; value: string }>
+  index: number
+  loans: Array<{ label: string; value: string }>
+  onChange: (patch: Partial<AllocationDraft>) => void
+  projectFinancingRequests: Array<{ label: string; value: string }>
+  procurementSchedules: Array<{ label: string; value: string }>
+}) {
+  const idPrefix = `receipt-allocation-${index}`
+  const visibleCategoryOptions = categoryOptions.some(
+    (option) => option.value === allocation.category
+  )
+    ? categoryOptions
+    : [
+        ...categoryOptions,
+        {
+          label: categoryLabels[allocation.category],
+          value: allocation.category,
+        },
+      ]
+  const showsContributionPlan =
+    allocation.category === "commitment" ||
+    allocation.category === "special_savings"
+  const showsLoan =
+    allocation.category === "loan_servicing" ||
+    allocation.category === "loan_extra_payment"
+  const showsProcurement = allocation.category === "procurement"
+  const showsFoodPurchase = allocation.category === "food_purchase"
+  const showsProjectFinancing = allocation.category === "project_financing"
+
+  return (
+    <FieldSet className="rounded-none border bg-muted/20 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <FieldLegend className="mb-0">Allocation {index + 1}</FieldLegend>
+        <Badge variant="outline">
+          {formatCurrency(Number(allocation.amount || 0))}
+        </Badge>
+      </div>
+
+      <FieldGroup className="grid gap-4 sm:grid-cols-2">
+        <FormField>
+          <FieldLabel htmlFor={`${idPrefix}-category`}>Category</FieldLabel>
+          <LabeledSelectInput
+            disabled={disabled}
+            id={`${idPrefix}-category`}
+            onValueChange={(value) =>
+              onChange({ category: value as AllocationCategory })
+            }
+            options={visibleCategoryOptions}
+            value={allocation.category}
+          />
+        </FormField>
+
+        <FormField>
+          <FieldLabel htmlFor={`${idPrefix}-amount`}>Amount</FieldLabel>
+          <CurrencyInput
+            allowNegative={false}
+            decimalScale={2}
+            disabled={disabled}
+            id={`${idPrefix}-amount`}
+            onValueChange={(values) => onChange({ amount: values.value })}
+            value={allocation.amount}
+          />
+        </FormField>
+
+        <FormField>
+          <FieldLabel htmlFor={`${idPrefix}-target-month`}>
+            Target month
+          </FieldLabel>
+          <Input
+            disabled={disabled}
+            id={`${idPrefix}-target-month`}
+            onChange={(event) => onChange({ targetMonth: event.target.value })}
+            type="month"
+            value={allocation.targetMonth}
+          />
+        </FormField>
+
+        <FormField>
+          <FieldLabel htmlFor={`${idPrefix}-period`}>Period</FieldLabel>
+          <LabeledSelectInput
+            disabled={disabled}
+            id={`${idPrefix}-period`}
+            onValueChange={(value) =>
+              onChange({ periodIntent: value as PeriodIntent })
+            }
+            options={periodOptions}
+            value={allocation.periodIntent}
+          />
+        </FormField>
+
+        {showsContributionPlan ? (
+          <FormField className="sm:col-span-2">
+            <FieldLabel htmlFor={`${idPrefix}-plan`}>
+              Contribution plan
+            </FieldLabel>
+            <LabeledSelectInput
+              disabled={disabled}
+              id={`${idPrefix}-plan`}
+              onValueChange={(value) => onChange({ contributionPlanId: value })}
+              options={[
+                { label: "Use active plan", value: "" },
+                ...commitmentPlans,
+              ]}
+              value={allocation.contributionPlanId}
+            />
+          </FormField>
+        ) : null}
+
+        {showsLoan ? (
+          <FormField className="sm:col-span-2">
+            <FieldLabel htmlFor={`${idPrefix}-loan`}>Loan</FieldLabel>
+            <LabeledSelectInput
+              disabled={disabled}
+              id={`${idPrefix}-loan`}
+              onValueChange={(value) => onChange({ loanId: value })}
+              options={[{ label: "Select loan", value: "" }, ...loans]}
+              value={allocation.loanId}
+            />
+          </FormField>
+        ) : null}
+
+        {showsProcurement ? (
+          <FormField className="sm:col-span-2">
+            <FieldLabel htmlFor={`${idPrefix}-procurement`}>
+              Procurement repayment
+            </FieldLabel>
+            <LabeledSelectInput
+              disabled={disabled}
+              id={`${idPrefix}-procurement`}
+              onValueChange={(value) =>
+                onChange({ procurementRepaymentScheduleItemId: value })
+              }
+              options={[
+                { label: "Select repayment item", value: "" },
+                ...procurementSchedules,
+              ]}
+              value={allocation.procurementRepaymentScheduleItemId}
+            />
+          </FormField>
+        ) : null}
+
+        {showsFoodPurchase ? (
+          <FormField className="sm:col-span-2">
+            <FieldLabel htmlFor={`${idPrefix}-food-purchase`}>
+              Foodstuff Purchase application
+            </FieldLabel>
+            <LabeledSelectInput
+              disabled={disabled}
+              id={`${idPrefix}-food-purchase`}
+              onValueChange={(value) =>
+                onChange({ foodPurchaseApplicationId: value })
+              }
+              options={[
+                { label: "Select application", value: "" },
+                ...foodPurchaseApplications,
+              ]}
+              value={allocation.foodPurchaseApplicationId}
+            />
+          </FormField>
+        ) : null}
+
+        {showsProjectFinancing ? (
+          <FormField className="sm:col-span-2">
+            <FieldLabel htmlFor={`${idPrefix}-project-financing`}>
+              Project financing request
+            </FieldLabel>
+            <LabeledSelectInput
+              disabled={disabled}
+              id={`${idPrefix}-project-financing`}
+              onValueChange={(value) =>
+                onChange({ projectFinancingRequestId: value })
+              }
+              options={[
+                { label: "Select financing request", value: "" },
+                ...projectFinancingRequests,
+              ]}
+              value={allocation.projectFinancingRequestId}
+            />
+          </FormField>
+        ) : null}
+
+        <FormField className="sm:col-span-2">
+          <FieldLabel htmlFor={`${idPrefix}-note`}>Allocation note</FieldLabel>
+          <Input
+            disabled={disabled}
+            id={`${idPrefix}-note`}
+            onChange={(event) => onChange({ notes: event.target.value })}
+            placeholder="Optional allocation context"
+            value={allocation.notes}
+          />
+        </FormField>
+      </FieldGroup>
+    </FieldSet>
   )
 }
 
@@ -816,7 +1374,10 @@ export function MemberPaymentReceiptCreateContent({
         </Button>
       </div>
       <div className="mt-4 flex justify-end">
-        <Button disabled={isPending || totalAmount <= 0} onClick={createReceipt}>
+        <Button
+          disabled={isPending || totalAmount <= 0}
+          onClick={createReceipt}
+        >
           Submit receipt
         </Button>
       </div>

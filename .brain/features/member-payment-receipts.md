@@ -23,6 +23,7 @@
 - Approval posts food-purchase allocations to a selected approved food purchase application, updates paid amount evidence, and marks the application paid when the approved amount is fully settled.
 - Approval posts project-financing allocations to a selected approved/active repayable-facility request, updates paid amount evidence, moves partial repayments to active, and marks fully repaid requests completed.
 - Review-side allocation changes require an adjustment reason.
+- Finance review uses a centered, accessible decision dialog with a fixed header and action footer, one scrollable body, receipt evidence and member context, allocation reconciliation, category-specific target controls, standard currency inputs, and decision-specific validation before posting.
 - Overview action queue includes pending receipt reviews.
 
 ## Boundaries

@@ -1,26 +1,37 @@
-import Link from "next/link"
 import { formatCurrency } from "@halaalvest/utils"
 import {
+  DashboardActionLink,
   DashboardSectionCard,
   DashboardSectionHeader,
   DashboardStatCard,
   DashboardSurfaceCard,
   TrendPill,
 } from "@/components/dashboard"
-import { loadMemberDetailPageData } from "@/lib/members"
+import type { MemberStatementPageData } from "@/lib/members"
 
-type MemberDetailPageData = Extract<
-  Awaited<ReturnType<typeof loadMemberDetailPageData>>,
+type ReadyMemberStatementPageData = Extract<
+  MemberStatementPageData,
   { state: "ready" }
 >
+
+type MemberStatementCharge = {
+  amount: number | string | { toString(): string }
+  chargeApplicability?: { workflow?: string | null } | null
+  chargeDefinition: { name: string }
+  collectionMode: string
+  foodPurchaseApplication?: unknown
+  id: string
+  loanRequest?: unknown
+  procurementRequest?: { itemName: string } | null
+  projectFinancingRequest?: { businessName: string } | null
+  status: string
+}
 
 function formatIsoDate(value: Date | null | undefined) {
   return value ? value.toISOString().slice(0, 10) : null
 }
 
-function formatChargeSource(
-  charge: MemberDetailPageData["detail"]["chargeApplications"][number]
-) {
+function formatChargeSource(charge: MemberStatementCharge) {
   if (charge.procurementRequest) {
     return `Procurement: ${charge.procurementRequest.itemName}`
   }
@@ -50,16 +61,16 @@ function EmptyStatementRows({ label }: { label: string }) {
   )
 }
 
-export function MemberStatementView({ detail }: MemberDetailPageData) {
+export function MemberStatementView({ detail }: ReadyMemberStatementPageData) {
   return (
-    <section className="mx-auto max-w-6xl space-y-6 px-6 py-10 print:px-0">
-      <div className="rounded-lg border border-border/70 bg-card px-6 py-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <section className="mx-auto max-w-6xl space-y-6 px-3 py-6 sm:px-6 sm:py-10 print:px-0">
+      <div className="rounded-lg border border-border/70 bg-card px-4 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:px-6 sm:py-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-[11px] font-medium text-muted-foreground uppercase">
               Member statement
             </p>
-            <h1 className="mt-3 text-[32px] font-semibold text-foreground">
+            <h1 className="mt-3 text-2xl font-semibold text-foreground sm:text-[32px]">
               {detail.member.fullName}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -68,21 +79,30 @@ export function MemberStatementView({ detail }: MemberDetailPageData) {
               {detail.member.status}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 print:hidden">
-            <Link
-              className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
-              href={`/members/${detail.member.id}`}
-            >
-              Back to member view
-            </Link>
+          <div className="flex flex-col gap-2 print:hidden md:items-end">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <DashboardActionLink
+                className="h-11 w-full md:h-9 md:w-auto"
+                href={`/members/${detail.member.id}`}
+              >
+                Back to member view
+              </DashboardActionLink>
+              <DashboardActionLink
+                className="h-11 w-full md:h-9 md:w-auto"
+                href={`/members/${detail.member.id}/statement-export`}
+                variant="secondary"
+              >
+                Download statement
+              </DashboardActionLink>
+            </div>
             <span className="text-sm text-muted-foreground">
-              Use your browser print action for a hard copy.
+              Use your browser print action for a hard copy or PDF.
             </span>
           </div>
         </div>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5">
         <DashboardStatCard
           label="Commitment"
           value={formatCurrency(detail.summary?.activeCommitmentAmount ?? 0)}
@@ -113,6 +133,7 @@ export function MemberStatementView({ detail }: MemberDetailPageData) {
             </TrendPill>
           }
           eyebrow="Dividends"
+          headingLevel={2}
           title="Published dividend allocations"
         />
         <div className="mt-5 space-y-3">
@@ -158,35 +179,38 @@ export function MemberStatementView({ detail }: MemberDetailPageData) {
             <TrendPill>{detail.chargeApplications.length} charges</TrendPill>
           }
           eyebrow="Charges"
+          headingLevel={2}
           title="Workflow and manual charges"
         />
         <div className="mt-5 space-y-3">
           {detail.chargeApplications.length ? (
-            detail.chargeApplications.slice(0, 20).map((charge: any) => (
-              <DashboardSurfaceCard
-                as="article"
-                className="rounded-lg"
-                key={charge.id}
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
+            detail.chargeApplications
+              .slice(0, 20)
+              .map((charge: MemberStatementCharge) => (
+                <DashboardSurfaceCard
+                  as="article"
+                  className="rounded-lg"
+                  key={charge.id}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {charge.chargeDefinition.name}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {formatChargeSource(charge)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground capitalize">
+                        {charge.status} ·{" "}
+                        {charge.collectionMode.replace(/_/g, " ")}
+                      </p>
+                    </div>
                     <p className="font-medium text-foreground">
-                      {charge.chargeDefinition.name}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {formatChargeSource(charge)}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground capitalize">
-                      {charge.status} ·{" "}
-                      {charge.collectionMode.replace(/_/g, " ")}
+                      {formatCurrency(Number(charge.amount))}
                     </p>
                   </div>
-                  <p className="font-medium text-foreground">
-                    {formatCurrency(Number(charge.amount))}
-                  </p>
-                </div>
-              </DashboardSurfaceCard>
-            ))
+                </DashboardSurfaceCard>
+              ))
           ) : (
             <EmptyStatementRows label="No workflow or manual charges recorded yet." />
           )}
@@ -201,6 +225,7 @@ export function MemberStatementView({ detail }: MemberDetailPageData) {
             </TrendPill>
           }
           eyebrow="Ledger"
+          headingLevel={2}
           title="Ledger timeline"
         />
         <div className="mt-5 space-y-3">

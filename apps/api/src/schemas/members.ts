@@ -17,6 +17,8 @@ const kycStatusSchema = z.enum([
   "rejected",
 ])
 
+const memberMigrationStatusSchema = z.enum(["pending", "finalized"])
+
 const memberSortFieldSchema = z.enum([
   "fullName",
   "memberNumber",
@@ -29,12 +31,16 @@ const memberSortFieldSchema = z.enum([
 const dateFilterSchema = z
   .string()
   .optional()
-  .transform((value) => (value ? new Date(`${value}T00:00:00.000Z`) : undefined))
+  .transform((value) =>
+    value ? new Date(`${value}T00:00:00.000Z`) : undefined
+  )
 
 const dateToFilterSchema = z
   .string()
   .optional()
-  .transform((value) => (value ? new Date(`${value}T23:59:59.999Z`) : undefined))
+  .transform((value) =>
+    value ? new Date(`${value}T23:59:59.999Z`) : undefined
+  )
 
 export const listMembersSchema = z
   .object({
@@ -43,6 +49,7 @@ export const listMembersSchema = z
     joinedTo: dateToFilterSchema,
     kycStatus: kycStatusSchema.optional(),
     memberType: memberTypeSchema.optional(),
+    migrationStatus: memberMigrationStatusSchema.optional(),
     pageSize: z.coerce.number().int().min(1).max(100).optional(),
     q: z.string().nullable().optional(),
     sort: z
@@ -52,4 +59,3 @@ export const listMembersSchema = z
     status: memberStatusSchema.optional(),
   })
   .optional()
-

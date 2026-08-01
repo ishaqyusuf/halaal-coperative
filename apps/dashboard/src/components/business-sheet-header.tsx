@@ -9,7 +9,7 @@ import { useBusinessParams } from "@/hooks/use-business-params"
 import { useBusinessFormContext } from "@/components/business/form-context"
 
 const sheetTitles = {
-  create: "Record business history",
+  create: "Record business",
   details: "Business details",
   edit: "Edit business",
   editProfit: "Edit profit entry",

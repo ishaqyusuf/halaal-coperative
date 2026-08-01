@@ -34,6 +34,8 @@ This file documents who can do what across the platform.
 - Early-access-gated cooperative setup requires a signed early access approval token matching the cooperative name and primary contact email.
 - Tenant onboarding still requires the signed email-verification token generated after approved setup.
 - Members can view only their own financial records.
+- Member financial and operational mutations require an operationally ready member profile: active member status, verified KYC, and completion of any migration evidence required by the tenant's historical-backfill or brought-forward setup mode.
+- Readiness enforcement covers dashboard member submissions and mobile receipt, financing, procurement, project-financing, Foodstuff Purchase, share, and guarantor-response mutations. Member login, member-scoped reads, support create/reply, and document remediation remain available while action is required.
 - Super admins can oversee platform-wide setup and tenant support workflows.
 - Tenant admins and finance officers operate only within their tenant.
 - Office staff may capture transactions subject to tenant-defined permissions.
@@ -48,6 +50,8 @@ This file documents who can do what across the platform.
   - `disabled` and `read_only` block new Foodstuff Purchase cycles and applications while preserving existing cycles, applications, payments, and accounting evidence.
 - Collection Source batch posting requires a finance-management dashboard role, live financial writes, and `collection_source_batch_posting` Operation Profile staff create access. Disabled/read-only modes hide the dashboard workflow and block staging, row updates, and posting in the DB layer.
 - Member payment receipt submission requires `payment_receipts` Operation Profile member create access. Staff office capture remains staff-role gated through the dashboard action.
+- `trpc.members.list` and `trpc.members.get` require an operations-officer-or-higher role, which includes all staff roles in the shared hierarchy and excludes member-role accounts from the tenant-wide directory. Members continue to use member-scoped dashboard and statement flows for their own records.
+- `trpc.onboarding.membershipApprovals` and `trpc.onboarding.membershipApprovalSummary` require the shared `manage_members` permission (`super_admin`, `tenant_admin`, or `operations_officer`). Finance-officer and member sessions cannot read the tenant-wide applicant queue or its summary.
 - `trpc.paymentReceipts.list` and `trpc.paymentReceipts.get` require an active tenant session; member-role users are forced to their linked member profile, while staff roles can inspect tenant-scoped receipts and optionally filter by member.
 - `trpc.procurement.list` and `trpc.procurement.get` require an active tenant session; member-role users are forced to their linked member profile, while staff roles can inspect tenant-scoped procurement requests and optionally filter by member.
 - `trpc.foodPurchase.list` and `trpc.foodPurchase.get` require an active tenant session; member-role users are forced to their linked member profile, while staff roles can inspect tenant-scoped Foodstuff Purchase applications and optional staff filters.
@@ -62,6 +66,7 @@ This file documents who can do what across the platform.
 - Role checks should use shared role hierarchy helpers from `packages/auth` rather than app-local rank maps.
 - Dashboard server context now drops a non-platform user if the resolved tenant does not match the user’s tenant, instead of allowing the route tree to proceed with a cross-tenant mismatch.
 - Report exports remain limited to workspace admin roles through the shared report-export context gate.
+
 # QA maintenance permissions
 
 - Only the platform-owner procedure may discover, adopt, preview, start, or poll QA purge runs.

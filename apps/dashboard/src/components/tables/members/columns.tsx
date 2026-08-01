@@ -1,31 +1,17 @@
 "use client"
 
 import type { RouterOutputs } from "@halaalvest/api/trpc/routers/_app"
-import type { TenantMigrationSetupMode } from "@halaalvest/db"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@halaalvest/ui/components/dropdown-menu"
 import type { ColumnDef } from "@tanstack/react-table"
-import { MoreHorizontal } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { memo, useCallback } from "react"
-import { OpenMemberStatusSheet } from "@/components/open-member-sheet"
-import {
-  getMemberMigrationAction,
-  getMemberMigrationStartHref,
-} from "@/lib/members/member-migration-routing"
+import { BadgeCheck } from "lucide-react"
+import { memo } from "react"
+import { MemberDesktopActions } from "./member-row-actions"
 
 export type Member = RouterOutputs["members"]["list"]["data"][number]
 
 type MembersTableMeta = {
   canManageMembers: boolean
-  migrationSetupMode: TenantMigrationSetupMode
 }
 
 function displayEnum(value: string) {
@@ -40,15 +26,29 @@ const MemberCell = memo(
   ({
     email,
     fullName,
+    migrationCompleted,
+    migrationMode,
     memberType,
   }: {
     email?: string | null
     fullName: string
+    migrationCompleted: boolean
+    migrationMode: "brought_forward" | "historical_backfill"
     memberType: string
   }) => (
     <div>
       <div className="flex min-w-0 items-center gap-2">
         <p className="truncate font-medium text-foreground">{fullName}</p>
+        {migrationCompleted ? (
+          <BadgeCheck
+            aria-label={
+              migrationMode === "brought_forward"
+                ? "Brought forward completed"
+                : "Backfill completed"
+            }
+            className="size-4 shrink-0 text-emerald-600"
+          />
+        ) : null}
         <Badge className="shrink-0 capitalize" variant="outline">
           {displayEnum(memberType)}
         </Badge>
@@ -81,12 +81,55 @@ const MemberNumberCell = memo(
 
 MemberNumberCell.displayName = "MemberNumberCell"
 
-const StatusBadge = memo(({ status }: { status: string }) => (
+export const MigrationSetupStatusBadge = memo(
+  ({
+    migrationMode,
+    migrationState,
+  }: {
+    migrationMode: "brought_forward" | "historical_backfill"
+    migrationState: "not_required" | "not_started" | "draft" | "applied"
+  }) => {
+    const label =
+      migrationState === "applied"
+        ? "Completed"
+        : migrationState === "draft"
+          ? "In progress"
+          : migrationState === "not_required"
+            ? "Not required"
+            : "Action required"
+    const migrationLabel =
+      migrationMode === "brought_forward" ? "Brought forward" : "Backfill"
+
+    return (
+      <Badge
+        aria-label={`${migrationLabel}: ${label}`}
+        className={
+          migrationState === "applied"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : migrationState === "not_required"
+              ? "border-border bg-muted text-muted-foreground"
+              : "border-amber-200 bg-amber-50 text-amber-700"
+        }
+        variant="outline"
+      >
+        {label}
+      </Badge>
+    )
+  }
+)
+
+MigrationSetupStatusBadge.displayName = "MigrationSetupStatusBadge"
+
+export const MemberStatusBadge = memo(({ status }: { status: string }) => (
   <Badge
     className={
       status === "active"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-        : "border-amber-200 bg-amber-50 text-amber-700"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700 capitalize"
+        : status === "suspended"
+          ? "border-red-200 bg-red-50 text-red-700 capitalize"
+          : status === "pending"
+            ? "border-amber-200 bg-amber-50 text-amber-700 capitalize"
+            : "border-border bg-muted text-muted-foreground capitalize"
     }
     variant="outline"
   >
@@ -94,14 +137,14 @@ const StatusBadge = memo(({ status }: { status: string }) => (
   </Badge>
 ))
 
-StatusBadge.displayName = "StatusBadge"
+MemberStatusBadge.displayName = "MemberStatusBadge"
 
-const KycBadge = memo(({ status }: { status: string }) => (
+export const KycBadge = memo(({ status }: { status: string }) => (
   <Badge
     className={
       status === "verified"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-        : "border-amber-200 bg-amber-50 text-amber-700"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700 capitalize"
+        : "border-amber-200 bg-amber-50 text-amber-700 capitalize"
     }
     variant="outline"
   >
@@ -110,90 +153,6 @@ const KycBadge = memo(({ status }: { status: string }) => (
 ))
 
 KycBadge.displayName = "KycBadge"
-
-const ActionsCell = memo(
-  ({
-    canManageMembers,
-    member,
-    migrationSetupMode,
-  }: {
-    canManageMembers: boolean
-    member: Member
-    migrationSetupMode: TenantMigrationSetupMode
-  }) => {
-    const router = useRouter()
-    const migrationAction = getMemberMigrationAction({
-      setupMode: migrationSetupMode,
-      state: member.backfillStatus?.state ?? "not_started",
-    })
-    const goToMember = useCallback(() => {
-      router.push(`/members/${member.id}`)
-    }, [member.id, router])
-    const goToMigration = useCallback(() => {
-      router.push(getMemberMigrationStartHref(member.id, migrationSetupMode))
-    }, [member.id, migrationSetupMode, router])
-
-    return (
-      <div className="flex w-full items-center justify-center gap-1">
-        {migrationAction.kind === "status" ? (
-          <Badge
-            className="border-emerald-200 bg-emerald-50 text-emerald-700"
-            variant="outline"
-          >
-            {migrationAction.label}
-          </Badge>
-        ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={goToMigration}
-          >
-            {migrationAction.label}
-          </Button>
-        )}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button className="h-8 w-8 p-0" variant="ghost" />}>
-            <MoreHorizontal className="size-4" />
-            <span className="sr-only">Open member actions</span>
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={goToMember}>View details</DropdownMenuItem>
-
-            {canManageMembers ? (
-              <>
-                {member.status !== "active" ? (
-                  <OpenMemberStatusSheet
-                    label="Activate"
-                    memberId={member.id}
-                    status="active"
-                  />
-                ) : null}
-                {member.status !== "suspended" ? (
-                  <OpenMemberStatusSheet
-                    label="Suspend"
-                    memberId={member.id}
-                    status="suspended"
-                  />
-                ) : null}
-                {member.status !== "inactive" ? (
-                  <OpenMemberStatusSheet
-                    label="Mark inactive"
-                    memberId={member.id}
-                    status="inactive"
-                  />
-                ) : null}
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    )
-  }
-)
-
-ActionsCell.displayName = "ActionsCell"
 
 export const columns: ColumnDef<Member>[] = [
   {
@@ -219,29 +178,6 @@ export const columns: ColumnDef<Member>[] = [
     size: 50,
   },
   {
-    accessorKey: "fullName",
-    cell: ({ row }) => (
-      <MemberCell
-        email={row.original.user?.email}
-        fullName={row.original.fullName}
-        memberType={row.original.memberType}
-      />
-    ),
-    enableResizing: true,
-    header: "Member",
-    id: "member",
-    maxSize: 480,
-    meta: {
-      className:
-        "w-[320px] min-w-[240px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
-      headerLabel: "Member",
-      skeleton: { type: "avatar-text", width: "w-32" },
-      sticky: true,
-    },
-    minSize: 240,
-    size: 320,
-  },
-  {
     accessorKey: "memberNumber",
     cell: ({ row }) => (
       <MemberNumberCell
@@ -254,23 +190,78 @@ export const columns: ColumnDef<Member>[] = [
     id: "number",
     maxSize: 220,
     meta: {
-      className: "w-[160px] min-w-[130px]",
+      className:
+        "w-[160px] min-w-[130px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
       headerLabel: "# / Joined",
       skeleton: { type: "text", width: "w-24" },
+      sticky: true,
     },
     minSize: 130,
     size: 160,
   },
   {
-    accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    accessorKey: "fullName",
+    cell: ({ row }) => (
+      <MemberCell
+        email={row.original.user?.email}
+        fullName={row.original.fullName}
+        migrationCompleted={
+          row.original.operationalReadiness?.migration.state === "applied"
+        }
+        migrationMode={
+          row.original.operationalReadiness?.migration.mode ??
+          "historical_backfill"
+        }
+        memberType={row.original.memberType}
+      />
+    ),
     enableResizing: true,
-    header: "Status",
+    header: "Member",
+    id: "member",
+    maxSize: 480,
+    meta: {
+      className: "w-[320px] min-w-[240px]",
+      headerLabel: "Member",
+      skeleton: { type: "avatar-text", width: "w-32" },
+    },
+    minSize: 240,
+    size: 320,
+  },
+  {
+    cell: ({ row }) => (
+      <MigrationSetupStatusBadge
+        migrationMode={
+          row.original.operationalReadiness?.migration.mode ??
+          "historical_backfill"
+        }
+        migrationState={
+          row.original.operationalReadiness?.migration.state ?? "not_started"
+        }
+      />
+    ),
+    enableResizing: true,
+    enableSorting: false,
+    header: "Migration setup status",
+    id: "migrationSetupStatus",
+    maxSize: 240,
+    meta: {
+      className: "w-[190px] min-w-[170px]",
+      headerLabel: "Migration setup status",
+      skeleton: { type: "badge" },
+    },
+    minSize: 170,
+    size: 190,
+  },
+  {
+    accessorKey: "status",
+    cell: ({ row }) => <MemberStatusBadge status={row.original.status} />,
+    enableResizing: true,
+    header: "Member status",
     id: "status",
     maxSize: 180,
     meta: {
       className: "w-[140px] min-w-[120px]",
-      headerLabel: "Status",
+      headerLabel: "Member status",
       skeleton: { type: "badge" },
     },
     minSize: 120,
@@ -296,10 +287,9 @@ export const columns: ColumnDef<Member>[] = [
       const meta = table.options.meta as MembersTableMeta
 
       return (
-        <ActionsCell
+        <MemberDesktopActions
           canManageMembers={meta.canManageMembers}
           member={row.original}
-          migrationSetupMode={meta.migrationSetupMode}
         />
       )
     },
@@ -308,7 +298,7 @@ export const columns: ColumnDef<Member>[] = [
     enableSorting: false,
     header: "Actions",
     id: "actions",
-    maxSize: 160,
+    maxSize: 80,
     meta: {
       className:
         "text-right sticky right-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-30 justify-center !border-l !border-border",
@@ -316,7 +306,7 @@ export const columns: ColumnDef<Member>[] = [
       skeleton: { type: "icon" },
       sticky: true,
     },
-    minSize: 150,
-    size: 150,
+    minSize: 72,
+    size: 72,
   },
 ]

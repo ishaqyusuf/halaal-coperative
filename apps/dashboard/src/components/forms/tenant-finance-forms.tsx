@@ -26,10 +26,7 @@ import {
 } from "@halaalvest/ui/components/alert-dialog"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
-import {
-  CurrencyInput,
-  CurrencyPrefixInput,
-} from "@halaalvest/ui/components/currency-input"
+import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import { Field, FieldGroup, FieldLabel } from "@halaalvest/ui/components/field"
 import {
   Form,
@@ -45,7 +42,6 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@halaalvest/ui/components/input-group"
-import { Separator } from "@halaalvest/ui/components/separator"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import {
   Popover,
@@ -157,7 +153,7 @@ function AddInlineRowButton({
 }) {
   return (
     <Button
-      className="w-full"
+      className="h-11 w-full md:h-9"
       disabled={disabled}
       onClick={onAdd}
       type="button"
@@ -170,12 +166,14 @@ function AddInlineRowButton({
 }
 
 function CurrencyFormInput({
+  className,
   disabled,
   id,
   onChange,
   placeholder,
   value,
 }: {
+  className?: string
   disabled?: boolean
   id?: string
   onChange: (value: string) => void
@@ -185,6 +183,7 @@ function CurrencyFormInput({
   return (
     <CurrencyInput
       allowNegative={false}
+      className={className}
       decimalScale={2}
       disabled={disabled}
       id={id}
@@ -234,12 +233,14 @@ function SelectFormInput({
   onChange,
   options,
   placeholder,
+  triggerClassName,
   value,
 }: {
   disabled?: boolean
   onChange: (value: string) => void
   options: Array<{ label: string; value: string }>
   placeholder?: string
+  triggerClassName?: string
   value?: string
 }) {
   const hasEmptyOption = options.some((option) => option.value === "")
@@ -250,6 +251,7 @@ function SelectFormInput({
       onValueChange={onChange}
       options={options}
       placeholder={placeholder}
+      triggerClassName={triggerClassName}
       value={hasEmptyOption && !value ? "" : (value ?? "")}
     />
   )
@@ -292,9 +294,11 @@ type StartDateValues = z.infer<typeof startDateSchema>
 
 export function FinanceStartDateForm({
   defaultStartDate,
+  onSuccess,
   preserveDraftKey,
 }: {
   defaultStartDate?: string | null
+  onSuccess?: () => void
   preserveDraftKey?: string
 }) {
   const router = useTenantRouter()
@@ -319,6 +323,7 @@ export function FinanceStartDateForm({
         showSuccess("Start date updated", "Finance history anchor saved.")
         clearPreservedFormState()
         router.refresh()
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not update start date",
@@ -4880,6 +4885,7 @@ function ShareBusinessSingleForm({
   sourceType = "manual",
   stayOnStepHref,
 }: ShareBusinessFormProps) {
+  const isMigrationHistory = sourceType === "backfill"
   const router = useTenantRouter()
   const form = useZodForm<ShareBusinessValues>(shareBusinessSchema, {
     defaultValues: {
@@ -4942,6 +4948,16 @@ function ShareBusinessSingleForm({
     ])
   }
 
+  function removeProfitHistoryRow(rowId: string) {
+    setProfitHistoryRows((currentRows) => {
+      const remainingRows = currentRows.filter((row) => row.id !== rowId)
+
+      return remainingRows.length > 0
+        ? remainingRows
+        : [createBusinessProfitHistoryRow()]
+    })
+  }
+
   function sortProfitHistoryRows() {
     setProfitHistoryRows((currentRows) => {
       const sortedRows = currentRows
@@ -4964,8 +4980,8 @@ function ShareBusinessSingleForm({
 
     if (incompleteRow) {
       showError(
-        "Complete profit history",
-        "Each started profit history row needs a profit date and amount."
+        "Complete profit entry",
+        "Each started profit entry needs a profit date and amount."
       )
       return null
     }
@@ -4988,17 +5004,14 @@ function ShareBusinessSingleForm({
       }
 
       if (deductionAmount < 0) {
-        showError(
-          "Invalid deduction",
-          "Profit history deduction cannot be negative."
-        )
+        showError("Invalid deduction", "Profit deduction cannot be negative.")
         return null
       }
 
       if (shareableBalance < 0) {
         showError(
           "Invalid shareable balance",
-          "Profit history deduction cannot be greater than the profit amount."
+          "Profit deduction cannot be greater than the profit amount."
         )
         return null
       }
@@ -5006,7 +5019,7 @@ function ShareBusinessSingleForm({
       if (deductionAmount > 0 && !row.reason.trim()) {
         showError(
           "Deduction reason required",
-          "Add a reason for every profit history row with a deduction."
+          "Add a reason for every profit entry with a deduction."
         )
         return null
       }
@@ -5086,7 +5099,11 @@ function ShareBusinessSingleForm({
         )
         showSuccess(
           "Business recorded",
-          "Historical business and profit record saved."
+          isMigrationHistory
+            ? "Historical business and profit record saved."
+            : validProfitHistoryRows?.length
+              ? "Business and realized profit entries were saved."
+              : "Business saved. Profit can be recorded when results are available."
         )
         form.reset({
           capitalAmount: "",
@@ -5129,7 +5146,11 @@ function ShareBusinessSingleForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Business name</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Ramadan retail pool" />
+                <Input
+                  {...field}
+                  className="h-11 md:h-8"
+                  placeholder="Community retail pool"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -5142,7 +5163,11 @@ function ShareBusinessSingleForm({
             <FormItem>
               <FormLabel>Capital</FormLabel>
               <FormControl>
-                <CurrencyFormInput {...field} placeholder="500000" />
+                <CurrencyFormInput
+                  {...field}
+                  className="h-11 md:h-8"
+                  placeholder="500000"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -5177,6 +5202,7 @@ function ShareBusinessSingleForm({
                 <DatePickerInput
                   {...field}
                   allowClear={false}
+                  className="h-11 md:h-8"
                   min={financeStartDate ?? undefined}
                   placeholder="Select start date"
                 />
@@ -5194,6 +5220,7 @@ function ShareBusinessSingleForm({
               <FormControl>
                 <DatePickerInput
                   {...field}
+                  className="h-11 md:h-8"
                   min={watchedStartDate || financeStartDate || undefined}
                   placeholder="Select end date"
                 />
@@ -5217,6 +5244,7 @@ function ShareBusinessSingleForm({
                     { label: "Completed", value: "completed" },
                     { label: "Archived", value: "archived" },
                   ]}
+                  triggerClassName="h-11! md:h-8!"
                   value={field.value}
                 />
               </FormControl>
@@ -5240,6 +5268,7 @@ function ShareBusinessSingleForm({
                       value: period.id,
                     })),
                   ]}
+                  triggerClassName="h-11! md:h-8!"
                   value={field.value ?? ""}
                 />
               </FormControl>
@@ -5248,142 +5277,175 @@ function ShareBusinessSingleForm({
           )}
         />
         {profitHistoryMode ? (
-          <div className="flex flex-col gap-3 border border-border/70 bg-muted/20 p-3 md:col-span-2">
-            <div className="flex items-center gap-3">
-              <h3 className="shrink-0 text-sm font-medium">Profit History</h3>
-              <Separator className="min-w-10 flex-1" />
-              <QuickFill
-                args={{
-                  createRow: createBusinessProfitHistoryRow,
-                  disabled: !watchedStartDate,
-                  hasValue: businessProfitHistoryRowHasValue,
-                  maxDate: watchedEndDate || undefined,
-                  minDate: watchedStartDate || financeStartDate,
-                  rows: profitHistoryRows,
-                  setRows: (updater) =>
-                    setProfitHistoryRows(
-                      (currentRows) =>
-                        updater(currentRows) as BusinessProfitHistoryRow[]
-                    ),
-                  sortRows: sortBusinessProfitHistoryRowsByDate,
-                }}
-                key={`${watchedStartDate || "no-start"}-${watchedEndDate || "no-end"}`}
-                name="businessProfitHistory"
-              />
-              <Button
-                aria-label="Sort profit history by date"
-                onClick={sortProfitHistoryRows}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  icon={ArrowUpDownIcon}
-                  data-icon="inline-start"
+          <section className="border-y border-border/70 py-4 md:col-span-2 md:border md:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <h3 className="text-sm font-medium">
+                  {isMigrationHistory
+                    ? "Profit history"
+                    : "Profit entries (optional)"}
+                </h3>
+                <p className="max-w-xl text-xs leading-5 text-muted-foreground">
+                  {isMigrationHistory
+                    ? "Add each historical profit result supported by the cooperative records."
+                    : "Register the business now, then add only realized profit supported by evidence."}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0">
+                <QuickFill
+                  args={{
+                    createRow: createBusinessProfitHistoryRow,
+                    disabled: !watchedStartDate,
+                    hasValue: businessProfitHistoryRowHasValue,
+                    maxDate: watchedEndDate || undefined,
+                    minDate: watchedStartDate || financeStartDate,
+                    rows: profitHistoryRows,
+                    setRows: (updater) =>
+                      setProfitHistoryRows(
+                        (currentRows) =>
+                          updater(currentRows) as BusinessProfitHistoryRow[]
+                      ),
+                    sortRows: sortBusinessProfitHistoryRowsByDate,
+                  }}
+                  key={`${watchedStartDate || "no-start"}-${watchedEndDate || "no-end"}`}
+                  name="businessProfitHistory"
+                  triggerClassName="h-11 w-full sm:w-auto! md:h-8"
                 />
-              </Button>
-              <Button
-                onClick={resetProfitHistoryRows}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                Clear
-              </Button>
+                <Button
+                  className="h-11 w-full sm:w-auto! md:h-8"
+                  onClick={sortProfitHistoryRows}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <HugeiconsIcon
+                    icon={ArrowUpDownIcon}
+                    data-icon="inline-start"
+                  />
+                  Sort
+                </Button>
+                <Button
+                  className="h-11 w-full sm:w-auto! md:h-8"
+                  onClick={resetProfitHistoryRows}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  Clear
+                </Button>
+              </div>
             </div>
-            <FieldGroup className="gap-3">
-              {profitHistoryRows.map((row) => {
+            <FieldGroup className="mt-4 gap-4">
+              {profitHistoryRows.map((row, index) => {
                 const shareableBalance = calculateShareableBalance(row)
 
                 return (
                   <div
-                    className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(140px,0.9fr)_minmax(130px,0.8fr)_minmax(130px,0.8fr)_minmax(150px,1fr)_minmax(130px,0.8fr)]"
+                    className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0"
                     key={row.id}
                   >
-                    <Field>
-                      <FieldLabel htmlFor={`profit-history-date-${row.id}`}>
-                        Profit date
-                      </FieldLabel>
-                      <DatePickerInput
-                        allowClear={false}
-                        id={`profit-history-date-${row.id}`}
-                        min={financeStartDate ?? undefined}
-                        onChange={(profitDate) =>
-                          updateProfitHistoryRow(row.id, { profitDate })
-                        }
-                        placeholder="Select profit date"
-                        value={row.profitDate}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`profit-history-amount-${row.id}`}>
-                        Amount
-                      </FieldLabel>
-                      <CurrencyFormInput
-                        id={`profit-history-amount-${row.id}`}
-                        onChange={(amount) =>
-                          updateProfitHistoryRow(row.id, { amount })
-                        }
-                        placeholder="85000"
-                        value={row.amount}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel
-                        htmlFor={`profit-history-deduction-${row.id}`}
+                    <div className="mb-3 flex min-h-11 items-center justify-between gap-3">
+                      <p className="text-xs font-medium text-foreground">
+                        Profit entry {index + 1}
+                      </p>
+                      <Button
+                        aria-label={`Remove profit entry ${index + 1}`}
+                        className="size-11 text-muted-foreground md:size-8"
+                        onClick={() => removeProfitHistoryRow(row.id)}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
                       >
-                        Deduction
-                      </FieldLabel>
-                      <CurrencyFormInput
-                        id={`profit-history-deduction-${row.id}`}
-                        onChange={(deductionAmount) =>
-                          updateProfitHistoryRow(row.id, { deductionAmount })
-                        }
-                        placeholder="0"
-                        value={row.deductionAmount}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`profit-history-reason-${row.id}`}>
-                        Reason
-                      </FieldLabel>
-                      <Input
-                        id={`profit-history-reason-${row.id}`}
-                        onChange={(event) =>
-                          updateProfitHistoryRow(row.id, {
-                            reason: event.target.value,
-                          })
-                        }
-                        placeholder="Enter deduction reason"
-                        value={row.reason}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel
-                        htmlFor={`profit-history-shareable-${row.id}`}
-                      >
-                        Shareable balance
-                      </FieldLabel>
-                      <CurrencyPrefixInput
-                        id={`profit-history-shareable-${row.id}`}
-                        inputClassName="text-right"
-                        readOnly
-                        value={
-                          Number.isFinite(shareableBalance)
-                            ? shareableBalance.toFixed(2)
-                            : "0.00"
-                        }
-                      />
-                    </Field>
+                        <Trash2Icon className="size-4" />
+                      </Button>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor={`profit-history-date-${row.id}`}>
+                          Profit date
+                        </FieldLabel>
+                        <DatePickerInput
+                          allowClear={false}
+                          className="h-11 md:h-8"
+                          id={`profit-history-date-${row.id}`}
+                          min={financeStartDate ?? undefined}
+                          onChange={(profitDate) =>
+                            updateProfitHistoryRow(row.id, { profitDate })
+                          }
+                          placeholder="Select profit date"
+                          value={row.profitDate}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor={`profit-history-amount-${row.id}`}>
+                          Profit amount
+                        </FieldLabel>
+                        <CurrencyFormInput
+                          className="h-11 md:h-8"
+                          id={`profit-history-amount-${row.id}`}
+                          onChange={(amount) =>
+                            updateProfitHistoryRow(row.id, { amount })
+                          }
+                          placeholder="85000"
+                          value={row.amount}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel
+                          htmlFor={`profit-history-deduction-${row.id}`}
+                        >
+                          Deduction
+                        </FieldLabel>
+                        <CurrencyFormInput
+                          className="h-11 md:h-8"
+                          id={`profit-history-deduction-${row.id}`}
+                          onChange={(deductionAmount) =>
+                            updateProfitHistoryRow(row.id, { deductionAmount })
+                          }
+                          placeholder="0"
+                          value={row.deductionAmount}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor={`profit-history-reason-${row.id}`}>
+                          Deduction reason
+                        </FieldLabel>
+                        <Input
+                          className="h-11 md:h-8"
+                          id={`profit-history-reason-${row.id}`}
+                          onChange={(event) =>
+                            updateProfitHistoryRow(row.id, {
+                              reason: event.target.value,
+                            })
+                          }
+                          placeholder="Required when a deduction is added"
+                          value={row.reason}
+                        />
+                      </Field>
+                      <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-3 sm:col-span-2">
+                        <span className="text-xs text-muted-foreground">
+                          Shareable balance
+                        </span>
+                        <span className="font-medium tabular-nums text-foreground">
+                          ₦
+                          {Number.isFinite(shareableBalance)
+                            ? shareableBalance.toLocaleString("en-NG", {
+                                maximumFractionDigits: 2,
+                                minimumFractionDigits: 2,
+                              })
+                            : "0.00"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 )
               })}
               <AddInlineRowButton
-                label="Add Profit"
+                label="Add profit entry"
                 onAdd={addProfitHistoryRow}
               />
             </FieldGroup>
-          </div>
+          </section>
         ) : null}
         <FormField
           control={form.control}
@@ -5403,7 +5465,11 @@ function ShareBusinessSingleForm({
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">
+          <Button
+            className="h-11 w-full md:h-9 md:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
             Record business
           </Button>
         </div>

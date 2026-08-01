@@ -45,7 +45,7 @@
 - Brought-forward opening-position review and apply actions open in centered modals instead of side sheets. Reverse and historical-backfill actions retain their existing sheet presentation.
 - A member has one active brought-forward opening-position stage at a time. After staging, the capture form is hidden while staff review the staged details; approval reveals Apply. Pending stages can be cancelled through an audited transition, which hides the cancelled record and restores the capture form for restaging.
 - After an approved brought-forward opening position is applied, the member workflow switches from capture mode to a dedicated success state. The success panel confirms that the position is active, places the audited reset/reversal action beside that confirmation, and keeps the applied balances and obligations visible as a read-only summary below.
-- The member registry derives migration completion from both historical backfill evidence and applied brought-forward opening positions. In brought-forward mode, an applied member shows a non-actionable `Brought forward applied` status instead of another migration button.
+- The member registry derives migration completion from both historical backfill evidence and applied brought-forward opening positions. Brought-forward mode requires an applied opening position for every member; historical mode requires complete backfill for members who joined before the current month and treats current-month members as having no historical work due. The same rule powers operational verification, the `Members / Brought forward|Backfilled` ratio, and URL-backed pending/finalized filters; row migration buttons remain absent because remediation starts from member detail.
 - The single-step brought-forward member workflow does not render the historical step rail; its opening-position content uses the full workspace width. Historical backfill retains the rail for its multi-step workflow.
 - Optional brought-forward Finance, Procurement, Food budget, and evidence sections can each be removed after being added; removing a section excludes its inputs from the staged opening-position submission. Opening balances and obligation original, outstanding, and monthly repayment amounts use the standard formatted currency input, displaying the naira prefix and thousands separators while submitting an unformatted numeric value.
 - Optional obligation dates do not show a separate `Clear` action beside the following Original amount field; staff remove the corresponding optional obligation section when it does not apply.
@@ -532,6 +532,14 @@
     - brought-forward opening position for current book balances and active obligations
     - full historical backfill for month-by-month reconstruction
   - the member backfill baseline step now explains both paths before staff enter history or approve the member migration state
+- Completed the member backfill page's Midday onboarding adaptation:
+  - `/members/[memberId]/backfill` now owns route metadata, a workflow-shaped loading state, and a retryable error boundary
+  - the requested URL step is canonicalized to the tenant's configured migration mode while preserving URL-backed sheet state
+  - brought-forward mode loads only the common profile and opening-position data it needs; historical logs, loans, profit configuration, and draft construction remain exclusive to historical backfill
+  - high-impact actions share the URL-backed member backfill sheet instead of a page-local modal
+  - setup state is presented as `Action required`, `In progress`, or `Completed`, independent of KYC and member lifecycle status
+  - reversed opening positions can be corrected by staging a new position, while pending, approved, and applied positions retain their mutation guards
+  - all interactive controls meet the 44-pixel phone target below `md`, and the page preserves the desktop step rail with a compact horizontal phone navigator
 
 ## Remaining Work
 

@@ -7,21 +7,17 @@ import {
 } from "@halaalvest/db"
 import { z } from "zod"
 import { listMembersSchema } from "../schemas/members"
-import {
-  createTRPCRouter,
-  minRoleProcedure,
-  tenantProcedure,
-} from "../lib.trpc"
+import { createTRPCRouter, minRoleProcedure } from "../lib.trpc"
 import { sendTenantRoleNotificationEmails } from "../lib/server-notifications"
 
 export const membersRouter = createTRPCRouter({
-  list: tenantProcedure
+  list: minRoleProcedure("operations_officer")
     .input(listMembersSchema)
     .query(async ({ ctx, input }) => {
       return listMembersTable(ctx.tenant.current.id, input ?? {})
     }),
 
-  get: tenantProcedure
+  get: minRoleProcedure("operations_officer")
     .input(z.object({ memberId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const member = await getMemberById(ctx.tenant.current.id, input.memberId)

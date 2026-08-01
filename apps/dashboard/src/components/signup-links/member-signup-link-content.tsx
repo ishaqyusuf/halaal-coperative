@@ -184,19 +184,7 @@ function CreateLinkForm() {
   }
 
   return (
-    <section className="rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm">
-      <div className="mb-4">
-        <p className="text-xs text-muted-foreground uppercase">
-          Generator
-        </p>
-        <h3 className="mt-2 text-lg font-semibold text-foreground">
-          Create a staff signup link
-        </h3>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Generate a controlled signup URL for remote applicants when public
-          signup is closed.
-        </p>
-      </div>
+    <section>
       <Form {...form}>
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="grid gap-4 md:grid-cols-2">

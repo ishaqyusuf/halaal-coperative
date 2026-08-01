@@ -26,7 +26,6 @@ import {
 } from "@/components/migration/member-migration-history-forms"
 import { MemberBackfillActionSheet } from "@/components/sheets/member-backfill-action-sheet"
 import { MemberBackfillBaselineEditSheet } from "@/components/sheets/member-backfill-baseline-edit-sheet"
-import { MemberBackfillActionModal } from "@/components/modals/member-backfill-action-modal"
 import type { loadMemberBackfillWorkflowData } from "@/lib/members"
 import {
   GenerateBackfillDividendsContent,
@@ -87,22 +86,43 @@ function formatDate(value: string | null | undefined) {
 
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
-  }).format(
-    new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`)
-  )
+  }).format(new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`))
 }
 
-function statusTone(status: MemberBackfillData["review"]["status"]) {
-  if (status === "backfill_applied") return "positive"
-  if (status === "backfill_draft" || status === "configured") return "warning"
-  return "neutral"
+function migrationStatusPresentation(data: MemberBackfillData) {
+  if (data.migrationSetupMode === "brought_forward") {
+    if (data.memberOpeningBalances.some((row) => row.status === "applied")) {
+      return { label: "Completed", tone: "positive" as const }
+    }
+
+    if (
+      data.memberOpeningBalances.some((row) =>
+        ["pending_review", "approved"].includes(row.status)
+      )
+    ) {
+      return { label: "In progress", tone: "warning" as const }
+    }
+
+    return { label: "Action required", tone: "warning" as const }
+  }
+
+  if (data.review.status === "backfill_applied") {
+    return { label: "Completed", tone: "positive" as const }
+  }
+
+  if (
+    data.review.status === "backfill_draft" ||
+    data.review.status === "configured"
+  ) {
+    return { label: "In progress", tone: "warning" as const }
+  }
+
+  return { label: "Action required", tone: "warning" as const }
 }
 
 function isStepComplete(step: MemberBackfillStepKey, data: MemberBackfillData) {
   if (step === "brought-forward") {
-    return data.memberOpeningBalances.some((row) =>
-      ["pending_review", "approved", "applied", "reversed"].includes(row.status)
-    )
+    return data.memberOpeningBalances.some((row) => row.status === "applied")
   }
   if (step === "baseline") return true
   if (step === "commitments") {
@@ -265,10 +285,10 @@ function OpeningBalanceRow({
       ) : null}
       {pending ? (
         <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border/70 pt-3">
-          <MemberBackfillActionModal
+          <MemberBackfillActionSheet
             description="Cancel this staged opening position and return to the capture form. The cancellation remains in the audit history."
             disabled={disabled}
-            modalId={`opening-balance-cancel:${row.id}`}
+            sheetId={`opening-balance-cancel:${row.id}`}
             title="Cancel staged opening position"
             triggerLabel="Cancel staging"
           >
@@ -277,11 +297,11 @@ function OpeningBalanceRow({
               memberId={memberId}
               openingBalanceId={row.id}
             />
-          </MemberBackfillActionModal>
-          <MemberBackfillActionModal
+          </MemberBackfillActionSheet>
+          <MemberBackfillActionSheet
             description="Approve or reject this staged opening position after reviewing the evidence."
             disabled={disabled}
-            modalId={`opening-balance-review:${row.id}`}
+            sheetId={`opening-balance-review:${row.id}`}
             title="Review opening position"
             triggerLabel="Review"
           >
@@ -290,14 +310,14 @@ function OpeningBalanceRow({
               memberId={memberId}
               openingBalanceId={row.id}
             />
-          </MemberBackfillActionModal>
+          </MemberBackfillActionSheet>
         </div>
       ) : approved ? (
         <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
-          <MemberBackfillActionModal
+          <MemberBackfillActionSheet
             description="Apply the approved opening position to the member ledger and related opening obligations."
             disabled={disabled}
-            modalId={`opening-balance-apply:${row.id}`}
+            sheetId={`opening-balance-apply:${row.id}`}
             title="Apply opening position"
             triggerLabel="Apply"
             variant="default"
@@ -307,7 +327,7 @@ function OpeningBalanceRow({
               memberId={memberId}
               openingBalanceId={row.id}
             />
-          </MemberBackfillActionModal>
+          </MemberBackfillActionSheet>
         </div>
       ) : applied && showAppliedAction ? (
         <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
@@ -359,7 +379,7 @@ function AppliedOpeningPositionSuccess({
             <CheckCircle2Icon className="size-5" />
           </div>
           <div>
-            <p className="text-xs font-medium uppercase text-emerald-700 dark:text-emerald-300">
+            <p className="text-xs font-medium text-emerald-700 uppercase dark:text-emerald-300">
               Applied successfully
             </p>
             <h3 className="mt-1 text-lg font-semibold">
@@ -403,7 +423,7 @@ function OpeningPositionPanel({
   const disabled =
     !data.canEditBackfill || data.review.status === "backfill_applied"
   const canCaptureOpeningPosition = !data.memberOpeningBalances.some((row) =>
-    ["pending_review", "approved", "applied", "reversed"].includes(row.status)
+    ["pending_review", "approved", "applied"].includes(row.status)
   )
   const visibleOpeningPositions = data.memberOpeningBalances.filter(
     (row) => row.status !== "cancelled"
@@ -450,7 +470,7 @@ function OpeningPositionPanel({
           <div className="grid gap-3">
             {appliedOpeningPosition ? (
               <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">
+                <p className="text-xs font-medium text-muted-foreground uppercase">
                   Brought-forward details
                 </p>
                 <h3 className="mt-1 text-base font-semibold text-foreground">
@@ -501,9 +521,7 @@ function OpeningPositionPanel({
           />
         </MemberBackfillActionSheet>
       </div>
-      <div className="mt-5 grid gap-3">
-        {stagedPositions}
-      </div>
+      <div className="mt-5 grid gap-3">{stagedPositions}</div>
     </div>
   )
 }
@@ -639,6 +657,49 @@ function StepRail({
   )
 }
 
+function MobileStepNavigation({
+  activeStep,
+  data,
+}: {
+  activeStep: MemberBackfillStepKey
+  data: MemberBackfillData
+}) {
+  const steps = getMemberBackfillStepsForMode(data.migrationSetupMode)
+
+  return (
+    <nav aria-label="Member migration steps" className="xl:hidden">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+        {steps.map((step, index) => {
+          const active = step.key === activeStep
+          const complete = isStepComplete(step.key, data)
+
+          return (
+            <Link
+              aria-current={active ? "step" : undefined}
+              className={cn(
+                "min-w-[150px] shrink-0 border px-3 py-2.5 transition-colors",
+                active
+                  ? "border-foreground bg-primary text-primary-foreground"
+                  : "border-border/70 bg-muted/20 hover:bg-muted/40"
+              )}
+              href={memberBackfillStepHref(data.member.id, step.key)}
+              key={step.key}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium">Step {index + 1}</span>
+                <Badge variant={active || !complete ? "secondary" : "default"}>
+                  {complete ? "Done" : "Todo"}
+                </Badge>
+              </div>
+              <p className="mt-1.5 text-sm font-semibold">{step.label}</p>
+            </Link>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
 function StepFooter({
   activeStep,
   hasStepNextAction,
@@ -689,6 +750,8 @@ function StepFooter({
 }
 
 function BaselineStep({ data }: { data: MemberBackfillData }) {
+  const migrationStatus = migrationStatusPresentation(data)
+
   return (
     <DashboardSectionCard>
       <DashboardSectionHeader
@@ -706,8 +769,8 @@ function BaselineStep({ data }: { data: MemberBackfillData }) {
               }
               member={data.member}
             />
-            <TrendPill tone={statusTone(data.review.status)}>
-              {displayEnum(data.review.status)}
+            <TrendPill tone={migrationStatus.tone}>
+              {migrationStatus.label}
             </TrendPill>
           </div>
         }
@@ -785,6 +848,7 @@ function BroughtForwardStep({ data }: { data: MemberBackfillData }) {
   const applied = data.memberOpeningBalances.some(
     (row) => row.status === "applied"
   )
+  const migrationStatus = migrationStatusPresentation(data)
 
   return (
     <DashboardSectionCard>
@@ -801,9 +865,11 @@ function BroughtForwardStep({ data }: { data: MemberBackfillData }) {
             : "Enter the member's current savings, special savings, share position, and any active obligations that should be carried forward."
         }
         actions={
-          <TrendPill tone={applied ? "positive" : statusTone(data.review.status)}>
-            {applied ? "Applied" : displayEnum(data.review.status)}
-          </TrendPill>
+          <div className="justify-self-start">
+            <TrendPill tone={migrationStatus.tone}>
+              {migrationStatus.label}
+            </TrendPill>
+          </div>
         }
       />
       <div className="mt-5">
@@ -1123,6 +1189,7 @@ export function MemberBackfillPageView({
       activeStep === "loans" ||
       activeStep === "profit")
   const isBroughtForward = data.migrationSetupMode === "brought_forward"
+  const migrationStatus = migrationStatusPresentation(data)
 
   return (
     <WorkspacePageShell
@@ -1134,36 +1201,44 @@ export function MemberBackfillPageView({
           : `${data.member.memberNumber} joined ${formatDate(data.member.joinedAt)}. Complete historical setup for this member before applying generated ledger rows.`
       }
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <DashboardActionLink href="/members">
-          Back to members
-        </DashboardActionLink>
-        <DashboardActionLink href={`/members/${data.member.id}`}>
-          Open member detail
-        </DashboardActionLink>
-        <TrendPill tone={statusTone(data.review.status)}>
-          {displayEnum(data.review.status)}
-        </TrendPill>
-      </div>
+      <div className="flex flex-col gap-6 max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11">
+        <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+          <DashboardActionLink href="/members">
+            Back to members
+          </DashboardActionLink>
+          <DashboardActionLink href={`/members/${data.member.id}`}>
+            Open member detail
+          </DashboardActionLink>
+          <div className="justify-self-start">
+            <TrendPill tone={migrationStatus.tone}>
+              {migrationStatus.label}
+            </TrendPill>
+          </div>
+        </div>
 
-      <div
-        className={cn(
-          "grid gap-6",
-          !isBroughtForward && "xl:grid-cols-[280px_minmax(0,1fr)]"
-        )}
-      >
         {isBroughtForward ? null : (
-          <StepRail activeStep={activeStep} data={data} />
+          <MobileStepNavigation activeStep={activeStep} data={data} />
         )}
-        <main>
-          <ActiveStepPanel activeStep={activeStep} data={data} />
-          <StepFooter
-            activeStep={activeStep}
-            hasStepNextAction={hasStepNextAction}
-            memberId={data.member.id}
-            setupMode={data.migrationSetupMode}
-          />
-        </main>
+
+        <div
+          className={cn(
+            "grid gap-6",
+            !isBroughtForward && "xl:grid-cols-[280px_minmax(0,1fr)]"
+          )}
+        >
+          {isBroughtForward ? null : (
+            <StepRail activeStep={activeStep} data={data} />
+          )}
+          <section aria-label="Current migration step">
+            <ActiveStepPanel activeStep={activeStep} data={data} />
+            <StepFooter
+              activeStep={activeStep}
+              hasStepNextAction={hasStepNextAction}
+              memberId={data.member.id}
+              setupMode={data.migrationSetupMode}
+            />
+          </section>
+        </div>
       </div>
     </WorkspacePageShell>
   )

@@ -56,6 +56,7 @@ import { z } from "zod"
 
 import {
   createTRPCRouter,
+  memberOperationalProcedure,
   minRoleProcedure,
   tenantProcedure,
 } from "../lib.trpc"
@@ -616,7 +617,7 @@ export const mobileRouter = createTRPCRouter({
       })
     }),
     receipts: createTRPCRouter({
-      create: tenantProcedure
+      create: memberOperationalProcedure
         .input(mobileReceiptCreateInput)
         .mutation(({ ctx, input }) => {
           assertMemberWorkspace(ctx.auth.activeMembership.role)
@@ -652,7 +653,7 @@ export const mobileRouter = createTRPCRouter({
           userId: ctx.auth.session.user.id,
         })
       }),
-      respond: tenantProcedure
+      respond: memberOperationalProcedure
         .input(mobileGuarantorApprovalRespondInput)
         .mutation(({ ctx, input }) => {
           assertMemberWorkspace(ctx.auth.activeMembership.role)
@@ -667,7 +668,7 @@ export const mobileRouter = createTRPCRouter({
         }),
     }),
     financing: createTRPCRouter({
-      createRequest: tenantProcedure
+      createRequest: memberOperationalProcedure
         .input(mobileFinancingRequestCreateInput)
         .mutation(({ ctx, input }) => {
           assertMemberWorkspace(ctx.auth.activeMembership.role)
@@ -692,7 +693,7 @@ export const mobileRouter = createTRPCRouter({
       }),
     }),
     procurement: createTRPCRouter({
-      createRequest: tenantProcedure
+      createRequest: memberOperationalProcedure
         .input(mobileProcurementRequestCreateInput)
         .mutation(({ ctx, input }) => {
           assertMemberWorkspace(ctx.auth.activeMembership.role)
@@ -717,7 +718,7 @@ export const mobileRouter = createTRPCRouter({
       }),
     }),
     projectFinancing: createTRPCRouter({
-      createRequest: tenantProcedure
+      createRequest: memberOperationalProcedure
         .input(mobileProjectFinancingRequestCreateInput)
         .mutation(({ ctx, input }) => {
           assertMemberWorkspace(ctx.auth.activeMembership.role)
@@ -743,7 +744,7 @@ export const mobileRouter = createTRPCRouter({
       }),
     }),
     foodPurchase: createTRPCRouter({
-      createApplication: tenantProcedure
+      createApplication: memberOperationalProcedure
         .input(mobileFoodPurchaseApplicationCreateInput)
         .mutation(({ ctx, input }) => {
           assertMemberWorkspace(ctx.auth.activeMembership.role)
@@ -768,7 +769,7 @@ export const mobileRouter = createTRPCRouter({
       }),
     }),
     shares: createTRPCRouter({
-      createApplication: tenantProcedure
+      createApplication: memberOperationalProcedure
         .input(mobileShareApplicationCreateInput)
         .mutation(({ ctx, input }) => {
           assertMemberWorkspace(ctx.auth.activeMembership.role)

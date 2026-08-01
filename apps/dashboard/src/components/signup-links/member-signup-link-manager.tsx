@@ -221,7 +221,7 @@ export function MemberSignupLinkManager({
               Staff signup links
             </h3>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Generate controlled signup URLs from a focused sheet.
+              Generate controlled signup URLs from a focused modal.
             </p>
           </div>
           <Button type="button" onClick={() => openSheet("create")}>

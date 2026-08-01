@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useRef, useState, useTransition } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
@@ -33,6 +34,7 @@ import {
   type DashboardImportReferenceData,
 } from "@/lib/import-csv"
 import { MemberImportSheetHeader } from "@/components/member-import-sheet-header"
+import { useTRPC } from "@/trpc/client"
 import {
   memberImportColumns,
   memberImportRequiredColumns,
@@ -109,7 +111,7 @@ function MemberImportEditableTable({
 }) {
   return (
     <div className="rounded-xl bg-background">
-      <div className="max-h-[45vh] overflow-auto">
+      <div className="max-h-[40dvh] overflow-auto sm:max-h-[45vh]">
         <div
           className="grid min-w-max text-xs"
           style={{
@@ -135,16 +137,13 @@ function MemberImportEditableTable({
                 : String(rowIndex + 1)
 
             return (
-              <div
-                className="contents"
-                key={`member-import-row-${rowIndex}`}
-              >
+              <div className="contents" key={`member-import-row-${rowIndex}`}>
                 <div className="sticky left-0 z-10 border-r border-border/60 bg-background px-2 py-2 text-xs text-muted-foreground">
                   {rowLabel}
                 </div>
                 {headers.map((header) => (
                   <div
-                    className="border-r border-border/50 border-b border-border/40 p-0"
+                    className="border-r border-b border-border/40 border-border/50 p-0"
                     key={`${rowIndex}-${header}`}
                   >
                     <Input
@@ -189,6 +188,8 @@ export function MemberImportContent({
   referenceData: DashboardImportReferenceData
 }) {
   const config = dashboardImportConfigs.members
+  const queryClient = useQueryClient()
+  const trpc = useTRPC()
   const form = useZodForm<MemberImportValues>(memberImportSchema, {
     defaultValues: {
       confirmExistingMatches: false,
@@ -427,6 +428,14 @@ export function MemberImportContent({
             `${preview.rows.length} member row(s) applied to the registry.`
           )
         }
+        await Promise.all([
+          queryClient.invalidateQueries(
+            trpc.imports.batches.infiniteQueryFilter()
+          ),
+          queryClient.invalidateQueries(
+            trpc.members.list.infiniteQueryFilter()
+          ),
+        ])
         resetImportForm()
         onClose()
       } catch (error) {
@@ -459,229 +468,223 @@ export function MemberImportContent({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={form.handleSubmit(onStage)}
         >
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
-              <details className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                <summary className="cursor-pointer list-none text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
-                  CSV source
-                </summary>
-                <div className="mt-4">
-                  <FormField
-                    control={form.control}
-                    name="csvText"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CSV content</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            {...field}
-                            className="min-h-[180px] font-mono text-xs"
-                            placeholder={config.sampleCsv}
-                            onChange={(event) =>
-                              setCsvTextAndGrid(event.target.value)
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </details>
-
-              <section className="space-y-3">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      Member rows
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {populatedGridRowCount} entered rows ·{" "}
-                      {activeColumns.length} columns
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    <span>
-                      {preview.ok
-                        ? `${preview.rows.length} valid rows`
-                        : `${preview.errors.length} validation issues`}
-                    </span>
-                    {preview.ok ? (
-                      <span>
-                        {reconciliation.existingMatchCount} existing matches
-                      </span>
-                    ) : null}
-                    {preview.ok ? (
-                      <span>
-                        {reconciliation.duplicateCount} in-file duplicates
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <MemberImportEditableTable
-                  headers={activeColumns}
-                  rows={gridRows}
-                  onCellChange={onGridCellChange}
-                />
-              </section>
-
-              {!preview.ok && preview.errors.length > 0 ? (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive">
-                  {preview.errors.slice(0, 5).map((error) => (
-                    <p key={error}>{error}</p>
-                  ))}
-                  {preview.errors.length > 5 ? (
-                    <p>+{preview.errors.length - 5} more validation issues</p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {preview.ok ? (
-                <div className="grid gap-3 text-xs text-muted-foreground md:grid-cols-2">
-                  <p className="rounded-xl border border-border/60 bg-background/80 p-3">
-                    Existing member matches:{" "}
-                    {reconciliation.existingMatchCount}. Matching rows will
-                    update or link where the import supports idempotent upserts.
-                  </p>
-                  <p className="rounded-xl border border-border/60 bg-background/80 p-3">
-                    In-file duplicates: {reconciliation.duplicateCount}
-                    {reconciliation.duplicates.length
-                      ? ` (${reconciliation.duplicates.join(", ")})`
-                      : "."}
-                  </p>
-                </div>
-              ) : null}
-
-              {shouldConfirmExistingMatches || shouldConfirmInFileDuplicates ? (
-                <div className="space-y-3 rounded-xl border border-border/60 bg-background/80 p-4">
-                  <p className="text-sm font-medium text-foreground">
-                    Import review gate
-                  </p>
-                  {shouldConfirmExistingMatches ? (
-                    <FormField
-                      control={form.control}
-                      name="confirmExistingMatches"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start gap-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={(checked) =>
-                                field.onChange(checked === true)
-                              }
-                            />
-                          </FormControl>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              I reviewed the rows that match existing members.
-                            </FormLabel>
-                            <FormMessage />
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  ) : null}
-                  {shouldConfirmInFileDuplicates ? (
-                    <FormField
-                      control={form.control}
-                      name="confirmInFileDuplicates"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start gap-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={(checked) =>
-                                field.onChange(checked === true)
-                              }
-                            />
-                          </FormControl>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              I reviewed the duplicate rows inside this file.
-                            </FormLabel>
-                            <FormMessage />
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  ) : null}
-                </div>
-              ) : null}
-
-              <FormField
-                control={form.control}
-                name="stageImport"
-                render={({ field }) => (
-                  <FormItem className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                    <div className="flex flex-row items-start gap-3">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-6 sm:py-5">
+            <details className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <summary className="cursor-pointer list-none text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+                CSV source
+              </summary>
+              <div className="mt-4">
+                <FormField
+                  control={form.control}
+                  name="csvText"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CSV content</FormLabel>
                       <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={(checked) =>
-                            field.onChange(checked === true)
+                        <Textarea
+                          {...field}
+                          className="min-h-[180px] font-mono text-xs"
+                          placeholder={config.sampleCsv}
+                          onChange={(event) =>
+                            setCsvTextAndGrid(event.target.value)
                           }
                         />
                       </FormControl>
-                      <div className="space-y-1">
-                        <FormLabel>Stage for later review</FormLabel>
-                        <p className="text-xs leading-5 text-muted-foreground">
-                          Save this file as a staged import batch instead of
-                          applying the member rows now. Staged batches are
-                          reviewed and applied from `/settings/imports`.
-                        </p>
-                        <FormMessage />
-                      </div>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              {latestBatch ? (
-                <p className="rounded-xl border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
-                  Latest staged batch: {latestBatch.status} ·{" "}
-                  {latestBatch.validRows}/{latestBatch._count.rows} rows ·{" "}
-                  {latestBatch.createdAt.toISOString().slice(0, 10)}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 px-6 py-4">
-              <p className="text-sm text-muted-foreground">
-                {shouldStageImport
-                  ? "This will save a review batch for `/settings/imports`."
-                  : "This will apply valid member rows to the registry now."}
-              </p>
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={onClose}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={
-                    !preview.ok ||
-                    preview.rows.length === 0 ||
-                    isPending ||
-                    isReadingFile ||
-                    (shouldConfirmExistingMatches &&
-                      !confirmedExistingMatches) ||
-                    (shouldConfirmInFileDuplicates &&
-                      !confirmedInFileDuplicates)
-                  }
-                  type="submit"
-                >
-                  {isPending
-                    ? shouldStageImport
-                      ? "Staging..."
-                      : "Importing..."
-                    : shouldStageImport
-                      ? "Stage members import"
-                      : "Import members"}
-                </Button>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
+            </details>
+
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    Member rows
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {populatedGridRowCount} entered rows ·{" "}
+                    {activeColumns.length} columns
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  <span>
+                    {preview.ok
+                      ? `${preview.rows.length} valid rows`
+                      : `${preview.errors.length} validation issues`}
+                  </span>
+                  {preview.ok ? (
+                    <span>
+                      {reconciliation.existingMatchCount} existing matches
+                    </span>
+                  ) : null}
+                  {preview.ok ? (
+                    <span>
+                      {reconciliation.duplicateCount} in-file duplicates
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+
+              <MemberImportEditableTable
+                headers={activeColumns}
+                rows={gridRows}
+                onCellChange={onGridCellChange}
+              />
+            </section>
+
+            {!preview.ok && preview.errors.length > 0 ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive">
+                {preview.errors.slice(0, 5).map((error) => (
+                  <p key={error}>{error}</p>
+                ))}
+                {preview.errors.length > 5 ? (
+                  <p>+{preview.errors.length - 5} more validation issues</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {preview.ok ? (
+              <div className="grid gap-3 text-xs text-muted-foreground md:grid-cols-2">
+                <p className="rounded-xl border border-border/60 bg-background/80 p-3">
+                  Existing member matches: {reconciliation.existingMatchCount}.
+                  Matching rows will update or link where the import supports
+                  idempotent upserts.
+                </p>
+                <p className="rounded-xl border border-border/60 bg-background/80 p-3">
+                  In-file duplicates: {reconciliation.duplicateCount}
+                  {reconciliation.duplicates.length
+                    ? ` (${reconciliation.duplicates.join(", ")})`
+                    : "."}
+                </p>
+              </div>
+            ) : null}
+
+            {shouldConfirmExistingMatches || shouldConfirmInFileDuplicates ? (
+              <div className="space-y-3 rounded-xl border border-border/60 bg-background/80 p-4">
+                <p className="text-sm font-medium text-foreground">
+                  Import review gate
+                </p>
+                {shouldConfirmExistingMatches ? (
+                  <FormField
+                    control={form.control}
+                    name="confirmExistingMatches"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start gap-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(checked) =>
+                              field.onChange(checked === true)
+                            }
+                          />
+                        </FormControl>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            I reviewed the rows that match existing members.
+                          </FormLabel>
+                          <FormMessage />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
+                {shouldConfirmInFileDuplicates ? (
+                  <FormField
+                    control={form.control}
+                    name="confirmInFileDuplicates"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start gap-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(checked) =>
+                              field.onChange(checked === true)
+                            }
+                          />
+                        </FormControl>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            I reviewed the duplicate rows inside this file.
+                          </FormLabel>
+                          <FormMessage />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+
+            <FormField
+              control={form.control}
+              name="stageImport"
+              render={({ field }) => (
+                <FormItem className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                  <div className="flex flex-row items-start gap-3">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                      />
+                    </FormControl>
+                    <div className="space-y-1">
+                      <FormLabel>Stage for later review</FormLabel>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        Save this file as a staged import batch instead of
+                        applying the member rows now. Staged batches are
+                        reviewed and applied from `/settings/imports`.
+                      </p>
+                      <FormMessage />
+                    </div>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {latestBatch ? (
+              <p className="rounded-xl border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+                Latest staged batch: {latestBatch.status} ·{" "}
+                {latestBatch.validRows}/{latestBatch._count.rows} rows ·{" "}
+                {latestBatch.createdAt.toISOString().slice(0, 10)}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col items-stretch justify-between gap-3 border-t border-border/70 px-3 py-4 sm:flex-row sm:items-center sm:px-6">
+            <p className="text-sm text-muted-foreground">
+              {shouldStageImport
+                ? "This will save a review batch for `/settings/imports`."
+                : "This will apply valid member rows to the registry now."}
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3">
+              <Button type="button" variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  !preview.ok ||
+                  preview.rows.length === 0 ||
+                  isPending ||
+                  isReadingFile ||
+                  (shouldConfirmExistingMatches && !confirmedExistingMatches) ||
+                  (shouldConfirmInFileDuplicates && !confirmedInFileDuplicates)
+                }
+                type="submit"
+              >
+                {isPending
+                  ? shouldStageImport
+                    ? "Staging..."
+                    : "Importing..."
+                  : shouldStageImport
+                    ? "Stage members import"
+                    : "Import members"}
+              </Button>
             </div>
+          </div>
         </form>
       </Form>
     </>

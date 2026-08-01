@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense } from "react"
+import { useRouter } from "next/navigation"
 import { MemberDetailContent } from "@/components/member-detail-content"
 import { MemberDetailSheetHeader } from "@/components/member-detail-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
@@ -38,6 +39,7 @@ export function MemberDetailSheet({
   documents: MemberDetailDocument[]
   member: MemberDetailMember
 }) {
+  const router = useRouter()
   const { memberDetailSheetType, setParams } = useMemberDetailParams()
   const isOpen = Boolean(memberDetailSheetType)
   const presentation = getWorkflowPresentation(
@@ -52,29 +54,39 @@ export function MemberDetailSheet({
     })
   }
 
+  function handleSuccess() {
+    closeSheet()
+    router.refresh()
+  }
+
   return (
     <WorkflowPresentation
       config={presentation}
       open={isOpen}
       onOpenChange={(open) => !open && closeSheet()}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading member action...
-              </div>
+      {isOpen ? (
+        <Suspense
+          fallback={
+            <div className="px-6 text-sm text-muted-foreground">
+              Loading member action...
+            </div>
+          }
+        >
+          <MemberDetailSheetHeader
+            presentation={
+              presentation.presentation === "sheet" ? "sheet" : "dialog"
             }
-          >
-            <MemberDetailSheetHeader />
-            <MemberDetailContent
-              activePlan={activePlan}
-              devMode={devMode}
-              documents={documents}
-              member={member}
-            />
-          </Suspense>
-        ) : null}
+          />
+          <MemberDetailContent
+            activePlan={activePlan}
+            devMode={devMode}
+            documents={documents}
+            member={member}
+            onSuccess={handleSuccess}
+          />
+        </Suspense>
+      ) : null}
     </WorkflowPresentation>
   )
 }

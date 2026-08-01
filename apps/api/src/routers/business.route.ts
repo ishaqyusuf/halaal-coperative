@@ -120,11 +120,12 @@ export const businessRouter = createTRPCRouter({
   }),
 
   summary: tenantProcedure.query(async ({ ctx }) => {
-    const [setup, businesses] = await Promise.all([
-      getBusinessSetup(ctx.tenant.current.id),
+    const [financeSetup, businesses] = await Promise.all([
+      getTenantFinanceSetup(ctx.tenant.current.id),
       listShareBusinessesForTableSummary(ctx.tenant.current.id),
     ])
+    const dividendPeriods = toDividendPeriodOptions(financeSetup.dividendPeriods)
 
-    return getBusinessSummary(businesses, setup.dividendPeriods)
+    return getBusinessSummary(businesses, dividendPeriods)
   }),
 })

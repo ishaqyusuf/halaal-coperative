@@ -32,7 +32,7 @@ export function MemberImportSheet({
   referenceData: DashboardImportReferenceData
 }) {
   const { memberSheetType, setParams } = useMemberParams()
-  const sheetOpen = open ?? (memberSheetType === "import")
+  const sheetOpen = open ?? memberSheetType === "import"
 
   function setSheetOpen(nextOpen: boolean) {
     onOpenChange?.(nextOpen)
@@ -46,17 +46,18 @@ export function MemberImportSheet({
   return (
     <WorkflowPresentation
       className="flex flex-col gap-0 overflow-hidden p-0"
+      contentClassName="flex min-h-0 flex-1 flex-col"
       config={getWorkflowPresentation("memberImport", "import")}
       open={sheetOpen}
       onOpenChange={setSheetOpen}
     >
-        <MemberImportContent
-          batches={batches}
-          devMode={devMode}
-          initialColumnSettings={initialColumnSettings}
-          referenceData={referenceData}
-          onClose={() => setSheetOpen(false)}
-        />
+      <MemberImportContent
+        batches={batches}
+        devMode={devMode}
+        initialColumnSettings={initialColumnSettings}
+        referenceData={referenceData}
+        onClose={() => setSheetOpen(false)}
+      />
     </WorkflowPresentation>
   )
 }

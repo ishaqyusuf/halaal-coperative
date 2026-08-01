@@ -44,6 +44,9 @@ This file tracks the public and internal API surface of the platform.
   - Purpose: return onboarding progress for the active tenant, including domain, primary admin contact, policy, and ledger bootstrap state.
 - `TRPC /trpc/onboarding.bootstrap`
   - Purpose: create a new tenant workspace with primary domains, tenant-admin contact, default policy, and baseline ledger accounts.
+- `TRPC /trpc/onboarding.membershipApprovals|membershipApprovalSummary`
+  - Purpose: list and summarize tenant membership signup requests for the Midday-style approval queue.
+  - Notes: both procedures require the shared `manage_members` permission; list input supports URL-backed search, status, sort, and cursor pagination.
 - `POST /api/signup`
   - Purpose: validate the private cooperative setup intent, verify early access approval when `MARKETING_EARLY_ACCESS_ENABLED=true`, mint a signed onboarding token, and build the verification email draft for the cooperative primary contact.
   - Notes: implemented as `apps/marketing/app/api/signup/route.ts` because the full auth/session stack is not in place yet.
@@ -60,6 +63,7 @@ This file tracks the public and internal API surface of the platform.
   - Purpose: return sample notification payloads using the shared notification registry.
 - `TRPC /trpc/members.list|get|create|update|updateStatus`
   - Purpose: list and manage tenant member records.
+  - Notes: `list` and `get` require an operations-officer-or-higher staff role; tenant identity is derived from the authenticated context. Member-role accounts do not receive tenant-wide member records. `list` accepts the URL-backed, mode-aware `migrationStatus=pending|finalized` filter and preserves derived filtering across cursor pagination.
 - `TRPC /trpc/contributions.list|record|memberHistory|memberSavings`
   - Purpose: list and post contributions plus retrieve member savings history.
 - `TRPC /trpc/charges.listDefinitions|createDefinition|updateDefinition`
@@ -101,6 +105,7 @@ This file tracks the public and internal API surface of the platform.
 - Roles allowed:
 - Request summary:
 - Response summary:
+
 # Platform QA maintenance
 
 - `qaMaintenance.candidates`, `adopt`, `preview`, `start`, and `run` are platform-owner-only tRPC operations.

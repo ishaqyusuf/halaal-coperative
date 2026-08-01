@@ -5,6 +5,7 @@ import type { TRPCContext } from "../context"
 import { authenticatedProcedure, createTRPCRouter } from "../lib.trpc"
 import { buildBackfillDraft } from "@halaalvest/backfill"
 import {
+  assertMemberOperationalReadiness,
   addMemberSupportCaseMessage,
   applyMemberOpeningBalance,
   cancelMemberOpeningBalance,
@@ -468,6 +469,19 @@ async function requireActorMember(
   if (!member) {
     throw new Error("Your user account is not linked to a member profile.")
   }
+
+  return member
+}
+
+async function requireOperationalActorMember(
+  actor: Awaited<ReturnType<typeof requireDashboardActor>>
+) {
+  const member = await requireActorMember(actor)
+
+  await assertMemberOperationalReadiness({
+    memberId: member.id,
+    tenantId: actor.tenant.id,
+  })
 
   return member
 }
@@ -2662,7 +2676,7 @@ export async function createOwnMemberShareApplicationAction(
   formData: FormData
 ) {
   const actor = await requireDashboardActor(memberSelfServiceRoles)
-  const member = await requireActorMember(actor)
+  const member = await requireOperationalActorMember(actor)
 
   await createMemberShareApplication({
     memberId: member.id,
@@ -3495,7 +3509,9 @@ export async function submitLoanRequestAction(formData: FormData) {
   ])
   await requireLiveFinancialWritesOpen(actor)
   const actorMember =
-    actor.membership.role === "member" ? await requireActorMember(actor) : null
+    actor.membership.role === "member"
+      ? await requireOperationalActorMember(actor)
+      : null
   const requestedAmount = Number(getRequiredString(formData, "requestedAmount"))
   const requestedTermMonths = Number(
     getRequiredString(formData, "requestedTermMonths")
@@ -3592,14 +3608,7 @@ export async function respondMemberLoanGuarantorApprovalAction(
   const actor = await requireDashboardActor(memberSelfServiceRoles)
   await requireLiveFinancialWritesOpen(actor)
 
-  const member = await getMemberByUserId({
-    tenantId: actor.tenant.id,
-    userId: actor.user.id,
-  })
-
-  if (!member) {
-    throw new Error("Your user account is not linked to a member profile.")
-  }
+  const member = await requireOperationalActorMember(actor)
 
   await respondMemberLoanGuarantorApproval({
     actorUserId: actor.user.id,
@@ -5731,7 +5740,7 @@ export async function submitOwnFoodPurchaseApplicationAction(
 ) {
   const actor = await requireDashboardActor(memberSelfServiceRoles)
   await requireLiveFinancialWritesOpen(actor)
-  const member = await requireActorMember(actor)
+  const member = await requireOperationalActorMember(actor)
 
   await submitFoodPurchaseApplication({
     actorUserId: actor.user.id,
@@ -5840,7 +5849,7 @@ export async function createProcurementRequestAction(formData: FormData) {
 export async function createOwnProcurementRequestAction(formData: FormData) {
   const actor = await requireDashboardActor(memberSelfServiceRoles)
   await requireLiveFinancialWritesOpen(actor)
-  const member = await requireActorMember(actor)
+  const member = await requireOperationalActorMember(actor)
 
   await createProcurementRequest({
     actorUserId: actor.user.id,
@@ -5947,7 +5956,7 @@ export async function createOwnProjectFinancingRequestAction(
 ) {
   const actor = await requireDashboardActor(memberSelfServiceRoles)
   await requireLiveFinancialWritesOpen(actor)
-  const member = await requireActorMember(actor)
+  const member = await requireOperationalActorMember(actor)
 
   await createProjectFinancingRequest({
     actorUserId: actor.user.id,
@@ -6065,7 +6074,7 @@ export async function createMemberPaymentReceiptAction(formData: FormData) {
 
 export async function createOwnMemberPaymentReceiptAction(formData: FormData) {
   const actor = await requireDashboardActor(memberSelfServiceRoles)
-  const member = await requireActorMember(actor)
+  const member = await requireOperationalActorMember(actor)
   const operationProfile = await getTenantOperationProfile(actor.tenant.id)
 
   if (!operationProfile.services.payment_receipts.canMemberCreate) {

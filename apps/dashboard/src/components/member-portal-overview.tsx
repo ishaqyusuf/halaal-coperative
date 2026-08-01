@@ -10,7 +10,14 @@ import type {
   SupportCaseRow,
   TenantSharePolicySettings,
   getMemberStatementDetail,
+  MemberOperationalReadiness,
 } from "@halaalvest/db"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@halaalvest/ui/components/alert"
+import { BadgeCheck, CircleAlert } from "lucide-react"
 import {
   DashboardPageFrame,
   DashboardSectionCard,
@@ -19,6 +26,7 @@ import {
   TrendPill,
 } from "@/components/dashboard"
 import { MemberDocumentSelfServiceForm } from "@/components/member-document-self-service-form"
+import { MemberPortalActions } from "@/components/member-portal-actions"
 
 type MemberStatementDetail = NonNullable<
   Awaited<ReturnType<typeof getMemberStatementDetail>>
@@ -65,6 +73,7 @@ export function MemberPortalOverview({
   canShowProcurement,
   detail,
   foodPurchaseApplications,
+  operationalReadiness,
   procurementRequests,
   projectFinancingRequests,
   receipts,
@@ -79,6 +88,7 @@ export function MemberPortalOverview({
   canShowProcurement: boolean
   detail: MemberStatementDetail
   foodPurchaseApplications: FoodPurchaseApplicationRow[]
+  operationalReadiness: MemberOperationalReadiness
   procurementRequests: ProcurementRequestRow[]
   projectFinancingRequests: ProjectFinancingRequestRow[]
   receipts: MemberPaymentReceiptRow[]
@@ -129,31 +139,52 @@ export function MemberPortalOverview({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
-              {detail.member.fullName}
+              <span className="inline-flex items-center gap-2">
+                {detail.member.fullName}
+                {operationalReadiness.isReady ? (
+                  <BadgeCheck
+                    aria-label="Verified member"
+                    className="size-5 text-emerald-600"
+                  />
+                ) : null}
+              </span>
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {detail.member.memberNumber} ·{" "}
               {formatStatus(detail.member.memberType)} ·{" "}
-              {formatStatus(detail.member.status)}
+              {detail.member.status === "active" &&
+              !operationalReadiness.isReady
+                ? "Action required"
+                : formatStatus(detail.member.status)}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <MemberLink href="/member-statement-export">Statement</MemberLink>
-            <MemberLink href="/payment-receipts">Receipts</MemberLink>
-            {canShowFoodPurchase ? (
-              <MemberLink href="/food-purchase">Foodstuff Purchase</MemberLink>
-            ) : null}
-            <MemberLink href="/guarantor-approvals">Guarantor</MemberLink>
-            {canShowProcurement ? (
-              <MemberLink href="/procurement">Procurement</MemberLink>
-            ) : null}
-            <MemberLink href="/support">Support</MemberLink>
-            <MemberLink href="/shares">Shares</MemberLink>
-          </div>
+          <MemberPortalActions
+            canShowFoodPurchase={canShowFoodPurchase}
+            canShowProcurement={canShowProcurement}
+          />
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      {!operationalReadiness.isReady ? (
+        <Alert className="items-start border-amber-300 bg-amber-50 px-4 py-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+          <CircleAlert className="mt-0.5 size-5" />
+          <AlertTitle className="text-sm">
+            Your account needs verification
+          </AlertTitle>
+          <AlertDescription className="mt-1 text-sm text-amber-900/80 dark:text-amber-100/80">
+            You can review your records and contact support, but financial and
+            operational requests stay read-only until cooperative staff finish
+            your KYC and required migration checks.
+            <div className="mt-3">
+              <MemberLink href={profileUpdateSupportHref}>
+                Request an update
+              </MemberLink>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-6">
         <DashboardStatCard
           detail={
             activePlan
@@ -279,9 +310,11 @@ export function MemberPortalOverview({
                 {canCreateProcurement ? (
                   <MemberLink href="/procurement">Request item</MemberLink>
                 ) : null}
-                <MemberLink href="/project-financing">
-                  Request business
-                </MemberLink>
+                {operationalReadiness.isReady ? (
+                  <MemberLink href="/project-financing">
+                    Request business
+                  </MemberLink>
+                ) : null}
               </>
             }
             eyebrow="Financing"
@@ -452,7 +485,7 @@ function MemberLink({
 }) {
   return (
     <Link
-      className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted"
+      className="inline-flex h-11 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted md:h-8"
       href={href}
     >
       {children}
@@ -506,11 +539,11 @@ function StatusRows({
     <div className="space-y-2">
       {rows.map((row) => (
         <div
-          className="flex items-center justify-between gap-4 border border-border bg-background px-3 py-2"
+          className="flex flex-col items-start justify-between gap-2 border border-border bg-background px-3 py-2 sm:flex-row sm:items-center sm:gap-4"
           key={row.key}
         >
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="text-sm font-medium text-foreground sm:truncate">
               {row.label}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">{row.detail}</p>

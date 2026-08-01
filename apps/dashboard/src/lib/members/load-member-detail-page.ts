@@ -1,4 +1,8 @@
-import { createDbRuntime, getMemberStatementDetail } from "@halaalvest/db"
+import {
+  createDbRuntime,
+  getMemberOperationalReadiness,
+  getMemberStatementDetail,
+} from "@halaalvest/db"
 import {
   canShowQuickFill,
   getDashboardServerContext,
@@ -24,6 +28,9 @@ export type MemberDetailPageData =
       canManageCommitments: boolean
       canManageMembers: boolean
       detail: MemberStatementDetail
+      operationalReadiness: NonNullable<
+        Awaited<ReturnType<typeof getMemberOperationalReadiness>>
+      >
       quickFillEnabled: boolean
       state: "ready"
       tenantStartDate: string | null
@@ -84,9 +91,15 @@ export async function loadMemberDetailPageData(
     }
   }
 
-  const detail = await getMemberStatementDetail(context.tenant.id, memberId)
+  const [detail, operationalReadiness] = await Promise.all([
+    getMemberStatementDetail(context.tenant.id, memberId),
+    getMemberOperationalReadiness({
+      memberId,
+      tenantId: context.tenant.id,
+    }),
+  ])
 
-  if (!detail) {
+  if (!detail || !operationalReadiness) {
     return {
       state: "not-found" as const,
     }
@@ -103,6 +116,7 @@ export async function loadMemberDetailPageData(
       memberManagementRoles
     ),
     detail: toClientValue(detail),
+    operationalReadiness,
     quickFillEnabled: canShowQuickFill(context),
     tenantStartDate: toDateString(context.tenant.startDate),
   }

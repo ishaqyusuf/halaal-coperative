@@ -41,11 +41,13 @@ export function MemberDetailContent({
   devMode,
   documents,
   member,
+  onSuccess,
 }: {
   activePlan: ActiveCommitmentPlan
   devMode: boolean
   documents: MemberDetailDocument[]
   member: MemberDetailMember
+  onSuccess: () => void
 }) {
   const { memberDetailDocumentId, memberDetailSheetType } =
     useMemberDetailParams()
@@ -56,7 +58,7 @@ export function MemberDetailContent({
   if (memberDetailSheetType === "portal-access") {
     return (
       <div className="px-6">
-        <MemberPortalAccessForm memberId={member.id} />
+        <MemberPortalAccessForm memberId={member.id} onSuccess={onSuccess} />
       </div>
     )
   }
@@ -74,6 +76,7 @@ export function MemberDetailContent({
               : (formatIsoDate(member.joinedAt) ?? undefined)
           }
           memberId={member.id}
+          onSuccess={onSuccess}
         />
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
           Saving closes the existing active commitment from the selected
@@ -96,6 +99,7 @@ export function MemberDetailContent({
             memberId: member.id,
           }}
           devMode={devMode}
+          onSuccess={onSuccess}
         />
       </div>
     )
@@ -104,7 +108,11 @@ export function MemberDetailContent({
   if (memberDetailSheetType === "document") {
     return (
       <div className="px-6">
-        <MemberDocumentForm defaultMemberId={member.id} devMode={devMode} />
+        <MemberDocumentForm
+          defaultMemberId={member.id}
+          devMode={devMode}
+          onSuccess={onSuccess}
+        />
       </div>
     )
   }
@@ -130,6 +138,7 @@ export function MemberDetailContent({
                 | "verified"
                 | "rejected") ?? "pending",
           }}
+          onSuccess={onSuccess}
         />
       </div>
     )

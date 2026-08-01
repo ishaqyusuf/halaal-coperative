@@ -13,6 +13,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import { MissedMonthsRangeGrid } from "@/components/migration/missed-months-range-grid"
 import {
@@ -64,7 +65,12 @@ function BackfillControlSheet({
         {triggerLabel}
       </Button>
       <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-        <SheetContent className={widthClassName}>
+        <SheetContent
+          className={cn(
+            widthClassName,
+            "max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11"
+          )}
+        >
           <SheetHeader>
             {eyebrow ? (
               <p className="text-xs font-medium text-muted-foreground uppercase">

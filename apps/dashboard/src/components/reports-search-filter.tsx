@@ -15,12 +15,14 @@ export function ReportsSearchFilter({
   const { filters, setFilters } = useReportsFilterParams()
 
   return (
-    <SearchFilter
-      filterSchema={reportsFilterParamsSchema}
-      filters={filters}
-      initialFilterList={initialFilterList}
-      placeholder="Filter report window..."
-      setFilters={setFilters}
-    />
+    <div className="min-w-0 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[&_select]:min-h-11">
+      <SearchFilter
+        filterSchema={reportsFilterParamsSchema}
+        filters={filters}
+        initialFilterList={initialFilterList}
+        placeholder="Filter report window..."
+        setFilters={setFilters}
+      />
+    </div>
   )
 }

@@ -16,7 +16,7 @@ export function OverviewActionLink({
     <Link
       href={href}
       className={cn(
-        "inline-flex h-7 shrink-0 items-center justify-center rounded-md px-2.5 text-xs font-medium transition-colors",
+        "inline-flex h-11 shrink-0 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors md:h-7 md:px-2.5",
         variant === "outline" &&
           "border border-border bg-background hover:bg-muted",
         variant === "secondary" &&
@@ -54,18 +54,25 @@ export function OverviewPill({
 export function OverviewSection({
   actions,
   children,
+  className,
   description,
   eyebrow,
   title,
 }: {
   actions?: React.ReactNode
   children: React.ReactNode
+  className?: string
   description?: string
   eyebrow?: string
   title: string
 }) {
   return (
-    <section className="h-full border border-border bg-background p-4 sm:p-5">
+    <section
+      className={cn(
+        "h-full min-w-0 border border-border bg-background p-4 sm:p-5",
+        className
+      )}
+    >
       <div className="flex flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           {eyebrow ? (
@@ -82,7 +89,9 @@ export function OverviewSection({
             </p>
           ) : null}
         </div>
-        {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
+        {actions ? (
+          <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
+        ) : null}
       </div>
       {children}
     </section>

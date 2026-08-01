@@ -1,21 +1,28 @@
-"use client"
-
-import type { PageFilterData } from "@halaalvest/utils"
+import { DashboardActionLink } from "@/components/dashboard"
+import { MembershipApprovalColumnVisibility } from "@/components/membership-approval-column-visibility"
+import { MembershipApprovalsMobileToolbar } from "@/components/membership-approvals-mobile-toolbar"
 import { MembershipApprovalsSearchFilter } from "@/components/membership-approvals-search-filter"
 
 export function MembershipApprovalsHeader({
-  actions,
-  filterList,
+  showLinkGenerator,
 }: {
-  actions?: React.ReactNode
-  filterList?: PageFilterData[]
+  showLinkGenerator: boolean
 }) {
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div className="min-w-0 flex-1">
-        <MembershipApprovalsSearchFilter initialFilterList={filterList} />
+    <div className="space-y-4">
+      <div className="hidden items-center justify-between gap-4 md:flex">
+        <MembershipApprovalsSearchFilter />
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {showLinkGenerator ? (
+            <DashboardActionLink href="/member-signup-links">
+              Open link generator
+            </DashboardActionLink>
+          ) : null}
+          <MembershipApprovalColumnVisibility />
+        </div>
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+
+      <MembershipApprovalsMobileToolbar showLinkGenerator={showLinkGenerator} />
     </div>
   )
 }

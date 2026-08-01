@@ -6,6 +6,7 @@ export type MemberFilterValues = MembersFilterParams
 type MemberStatus = "pending" | "active" | "inactive" | "suspended" | "exited"
 type MemberType = "individual" | "civil_servant" | "business"
 type KycStatus = "not_started" | "pending" | "verified" | "rejected"
+type MemberMigrationStatus = "pending" | "finalized"
 
 function displayEnum(value: string) {
   return value
@@ -39,11 +40,22 @@ export function toMemberQueryFilters(filters: MembersFilterParams) {
       ? (filters.kycStatus as KycStatus)
       : undefined
 
+  const normalizedMigrationStatus =
+    filters.migrationStatus === "pending" ||
+    filters.migrationStatus === "finalized"
+      ? (filters.migrationStatus as MemberMigrationStatus)
+      : undefined
+
   return {
-    joinedFrom: filters.joinedFrom ? new Date(`${filters.joinedFrom}T00:00:00.000Z`) : undefined,
-    joinedTo: filters.joinedTo ? new Date(`${filters.joinedTo}T23:59:59.999Z`) : undefined,
+    joinedFrom: filters.joinedFrom
+      ? new Date(`${filters.joinedFrom}T00:00:00.000Z`)
+      : undefined,
+    joinedTo: filters.joinedTo
+      ? new Date(`${filters.joinedTo}T23:59:59.999Z`)
+      : undefined,
     kycStatus: normalizedKycStatus,
     memberType: normalizedMemberType,
+    migrationStatus: normalizedMigrationStatus,
     search: filters.q ?? undefined,
     status: normalizedStatus,
   }
@@ -57,29 +69,54 @@ export function getActiveMemberFilters(filters: MembersFilterParams) {
   const activeFilters: Array<{ key: string; label: string }> = []
 
   if (filters.status) {
-    activeFilters.push({ key: "status", label: `Status: ${displayEnum(filters.status)}` })
+    activeFilters.push({
+      key: "status",
+      label: `Status: ${displayEnum(filters.status)}`,
+    })
   }
 
   if (filters.memberType) {
-    activeFilters.push({ key: "memberType", label: `Type: ${displayEnum(filters.memberType)}` })
+    activeFilters.push({
+      key: "memberType",
+      label: `Type: ${displayEnum(filters.memberType)}`,
+    })
   }
 
   if (filters.kycStatus) {
-    activeFilters.push({ key: "kycStatus", label: `KYC: ${displayEnum(filters.kycStatus)}` })
+    activeFilters.push({
+      key: "kycStatus",
+      label: `KYC: ${displayEnum(filters.kycStatus)}`,
+    })
+  }
+
+  if (filters.migrationStatus) {
+    activeFilters.push({
+      key: "migrationStatus",
+      label: `Migration: ${displayEnum(filters.migrationStatus)}`,
+    })
   }
 
   if (filters.joinedFrom) {
-    activeFilters.push({ key: "joinedFrom", label: `Joined from: ${filters.joinedFrom}` })
+    activeFilters.push({
+      key: "joinedFrom",
+      label: `Joined from: ${filters.joinedFrom}`,
+    })
   }
 
   if (filters.joinedTo) {
-    activeFilters.push({ key: "joinedTo", label: `Joined to: ${filters.joinedTo}` })
+    activeFilters.push({
+      key: "joinedTo",
+      label: `Joined to: ${filters.joinedTo}`,
+    })
   }
 
   return activeFilters
 }
 
-export function buildMembersPath(filters: MemberFilterValues, pathname = "/members") {
+export function buildMembersPath(
+  filters: MemberFilterValues,
+  pathname = "/members"
+) {
   const params = new URLSearchParams()
 
   Object.entries(filters).forEach(([key, value]) => {

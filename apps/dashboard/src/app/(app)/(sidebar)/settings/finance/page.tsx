@@ -1,9 +1,15 @@
+import type { Metadata } from "next"
+import type { SearchParams } from "nuqs"
 import { FinanceSettingsRoute } from "./finance-route"
 
-export default function FinanceSetupPage({
+export const metadata: Metadata = {
+  title: "Finance Settings | Halaalvest",
+}
+
+export default function FinanceSettingsPage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>
+  searchParams: Promise<SearchParams>
 }) {
   return <FinanceSettingsRoute searchParams={searchParams} section="overview" />
 }

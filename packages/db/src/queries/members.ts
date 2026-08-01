@@ -8,6 +8,11 @@ import type {
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getMemberTransactions } from "./ledger"
+import {
+  getMembersOperationalReadiness,
+  isMemberMigrationFinalized,
+  type MemberOperationalReadiness,
+} from "./member-readiness"
 import { getTenantInitialMigrationState } from "./migration"
 import { ensureMemberInGeneratedMonthlyRecord } from "./monthly-records"
 import { getTenantOperationProfile } from "./operation-profile"
@@ -17,12 +22,15 @@ export type ListMembersFilters = {
   kycStatus?: KycStatus
   joinedFrom?: Date
   joinedTo?: Date
+  migrationStatus?: MemberMigrationFilterStatus
   status?: MemberStatus
   memberType?: MemberType
   search?: string
   page?: number
   pageSize?: number
 }
+
+export type MemberMigrationFilterStatus = "pending" | "finalized"
 
 export type ListMembersTableFilters = Omit<
   ListMembersFilters,
@@ -41,14 +49,6 @@ export type MembersTableSortField =
   | "status"
   | "kycStatus"
   | "joinedAt"
-
-export type MemberTableBackfillStatus = {
-  appliedBatchId: string | null
-  appliedMonthCount: number
-  appliedOpeningBalanceId: string | null
-  draftBatchId: string | null
-  state: "not_started" | "draft" | "applied"
-}
 
 const memberListInclude = {
   deductionSource: true,
@@ -99,12 +99,25 @@ function getMembersTableOrderBy(
   sort?: ListMembersTableFilters["sort"]
 ): Prisma.MemberOrderByWithRelationInput[] {
   if (!sort) {
-    return [{ createdAt: "desc" }]
+    return [{ joinedAt: "desc" }, { createdAt: "desc" }]
   }
 
   const [field, direction] = sort
 
   return [{ [field]: direction }, { createdAt: "desc" }]
+}
+
+function matchesMemberMigrationStatus(
+  readiness: MemberOperationalReadiness | null | undefined,
+  migrationStatus?: MemberMigrationFilterStatus
+) {
+  if (!migrationStatus || !readiness) {
+    return !migrationStatus
+  }
+
+  const isFinalized = isMemberMigrationFinalized(readiness)
+
+  return migrationStatus === "finalized" ? isFinalized : !isFinalized
 }
 
 export async function listMembers(
@@ -143,13 +156,45 @@ export async function getMemberRegistrySummary(
   if (!prisma) throw new Error("Database not configured")
 
   const where = buildMemberWhere(tenantId, filters)
-  const [activeCount, kycPendingCount, linkedUsersCount] = await Promise.all([
-    prisma.member.count({ where: { ...where, status: "active" } }),
-    prisma.member.count({ where: { ...where, kycStatus: "pending" } }),
-    prisma.member.count({ where: { ...where, userId: { not: null } } }),
-  ])
+  const members = await prisma.member.findMany({
+    select: {
+      id: true,
+      kycStatus: true,
+      status: true,
+      userId: true,
+    },
+    where,
+  })
+  const readinessByMemberId = await getMembersOperationalReadiness(
+    {
+      memberIds: members.map((member) => member.id),
+      tenantId,
+    },
+    prisma
+  )
+  const filteredMembers = members.filter((member) =>
+    matchesMemberMigrationStatus(
+      readinessByMemberId.get(member.id),
+      filters?.migrationStatus
+    )
+  )
 
-  return { activeCount, kycPendingCount, linkedUsersCount }
+  return {
+    activeCount: filteredMembers.filter((member) => member.status === "active")
+      .length,
+    kycPendingCount: filteredMembers.filter(
+      (member) => member.kycStatus !== "verified"
+    ).length,
+    linkedUsersCount: filteredMembers.filter((member) => member.userId !== null)
+      .length,
+    migrationFinalizedCount: filteredMembers.filter((member) =>
+      matchesMemberMigrationStatus(
+        readinessByMemberId.get(member.id),
+        "finalized"
+      )
+    ).length,
+    totalCount: filteredMembers.length,
+  }
 }
 
 export async function getMemberByUserId(
@@ -342,104 +387,45 @@ export async function listMembersTable(
     search: filters?.q ?? undefined,
   })
 
-  const data = await prisma.member.findMany({
+  const rows = await prisma.member.findMany({
     where,
     orderBy: getMembersTableOrderBy(filters?.sort),
-    skip: safeOffset,
-    take: pageSize,
+    ...(filters?.migrationStatus
+      ? {}
+      : {
+          skip: safeOffset,
+          take: pageSize + 1,
+        }),
     include: memberListInclude,
   })
-  const memberIds = data.map((member) => member.id)
-  const [backfillBatches, appliedBackfillMonths, appliedOpeningBalances] =
-    memberIds.length > 0
-      ? await Promise.all([
-          typeof prisma.backfillBatch?.findMany === "function"
-            ? prisma.backfillBatch.findMany({
-                orderBy: { updatedAt: "desc" },
-                select: {
-                  id: true,
-                  memberId: true,
-                  status: true,
-                },
-                where: {
-                  memberId: { in: memberIds },
-                  tenantId,
-                },
-              })
-            : [],
-          typeof prisma.appliedBackfillMonth?.findMany === "function"
-            ? prisma.appliedBackfillMonth.findMany({
-                select: { memberId: true },
-                where: {
-                  memberId: { in: memberIds },
-                  tenantId,
-                },
-              })
-            : [],
-          typeof prisma.memberOpeningBalance?.findMany === "function"
-            ? prisma.memberOpeningBalance.findMany({
-                select: {
-                  id: true,
-                  memberId: true,
-                },
-                where: {
-                  memberId: { in: memberIds },
-                  status: "applied",
-                  tenantId,
-                },
-              })
-            : [],
-        ])
-      : [[], [], []]
-  const statusByMemberId = new Map<string, MemberTableBackfillStatus>()
-
-  for (const memberId of memberIds) {
-    const memberBatches = backfillBatches.filter(
-      (batch: { memberId: string }) => batch.memberId === memberId
-    )
-    const appliedBatch = memberBatches.find(
-      (batch: { status: string }) => batch.status === "applied"
-    )
-    const draftBatch = memberBatches.find(
-      (batch: { status: string }) => batch.status !== "applied"
-    )
-    const appliedMonthCount = appliedBackfillMonths.filter(
-      (month: { memberId: string }) => month.memberId === memberId
-    ).length
-    const appliedOpeningBalance = appliedOpeningBalances.find(
-      (openingBalance: { memberId: string }) =>
-        openingBalance.memberId === memberId
-    )
-
-    statusByMemberId.set(memberId, {
-      appliedBatchId: appliedBatch?.id ?? null,
-      appliedMonthCount,
-      appliedOpeningBalanceId: appliedOpeningBalance?.id ?? null,
-      draftBatchId: draftBatch?.id ?? null,
-      state:
-        appliedBatch || appliedMonthCount > 0 || appliedOpeningBalance
-          ? "applied"
-          : draftBatch
-            ? "draft"
-            : "not_started",
-    })
-  }
-  const dataWithBackfillStatus = data.map((member) => ({
-    ...serializeMemberListItem(member),
-    backfillStatus: statusByMemberId.get(member.id) ?? {
-      appliedBatchId: null,
-      appliedMonthCount: 0,
-      appliedOpeningBalanceId: null,
-      draftBatchId: null,
-      state: "not_started" as const,
+  const readinessByMemberId = await getMembersOperationalReadiness(
+    {
+      memberIds: rows.map((member) => member.id),
+      tenantId,
     },
+    prisma
+  )
+  const filteredRows = rows.filter((member) =>
+    matchesMemberMigrationStatus(
+      readinessByMemberId.get(member.id),
+      filters?.migrationStatus
+    )
+  )
+  const pagedRows = filters?.migrationStatus
+    ? filteredRows.slice(safeOffset, safeOffset + pageSize + 1)
+    : filteredRows
+  const hasNextPage = pagedRows.length > pageSize
+  const data = pagedRows.slice(0, pageSize)
+  const dataWithOperationalReadiness = data.map((member) => ({
+    ...serializeMemberListItem(member),
+    operationalReadiness: readinessByMemberId.get(member.id) ?? null,
   }))
 
   return {
-    data: dataWithBackfillStatus,
+    data: dataWithOperationalReadiness,
     meta: {
-      cursor: data.length === pageSize ? String(safeOffset + pageSize) : null,
-      hasNextPage: data.length === pageSize,
+      cursor: hasNextPage ? String(safeOffset + pageSize) : null,
+      hasNextPage,
       hasPreviousPage: safeOffset > 0,
     },
   }

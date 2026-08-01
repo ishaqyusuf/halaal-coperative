@@ -35,15 +35,12 @@ function getMissingGettingStartedSetupStepKeys(
   return missingStepKeys.filter((stepKey) => requiredSetupStepKeys.has(stepKey))
 }
 
-async function readTenantPolicySetupSettings(
-  prisma: any,
-  tenantId: string
-) {
+async function readTenantPolicySetupSettings(prisma: any, tenantId: string) {
   if (typeof prisma.tenantPolicy?.findUnique !== "function") {
     return {
       hasMigrationSetupMode: false,
       migrationSetupMode: "historical_backfill" as const,
-    shareConfigurationMode: "monthly_history" as const,
+      shareConfigurationMode: "monthly_history" as const,
     }
   }
 
@@ -91,7 +88,9 @@ function getActiveEmergencyUnlock(unlockUntil: Date | null | undefined) {
 function startOfTodayUtc() {
   const now = new Date()
 
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  )
 }
 
 function startOfMonth(value: Date) {
@@ -110,7 +109,7 @@ function inclusiveMonthDifference(start: Date, end: Date) {
   )
 }
 
-function getExpectedBackfillMonthKeys(input: {
+export function getExpectedMemberBackfillMonthKeys(input: {
   joinedAt: Date
   tenantStartDate: Date | null | undefined
 }) {
@@ -323,11 +322,9 @@ export async function getTenantInitialMigrationState(
   const hasLegacyLoansReviewed = legacyLoans > 0 || legacyLoanReviewMarkers > 0
   const hasRequiredBusinessProfitPools =
     isBroughtForwardSetup || hasBusinessProfitPools
-  const hasRequiredBusinessProfitSeasons =
-    isBroughtForwardSetup
-      ? broughtForwardPendingPastProfitEntries === 0 ||
-        hasBusinessProfitSeasons
-      : hasBusinessProfitSeasons
+  const hasRequiredBusinessProfitSeasons = isBroughtForwardSetup
+    ? broughtForwardPendingPastProfitEntries === 0 || hasBusinessProfitSeasons
+    : hasBusinessProfitSeasons
   const hasRequiredLegacyLoansReviewed =
     isBroughtForwardSetup || hasLegacyLoansReviewed
   const appliedMonthKeysByMemberId = new Map<string, Set<string>>()
@@ -347,7 +344,7 @@ export async function getTenantInitialMigrationState(
   const appliedBackfillMonthMemberIds = new Set(
     memberProfiles
       .filter((member: { id: string; joinedAt: Date }) => {
-        const expectedMonthKeys = getExpectedBackfillMonthKeys({
+        const expectedMonthKeys = getExpectedMemberBackfillMonthKeys({
           joinedAt: member.joinedAt,
           tenantStartDate: tenant?.startDate ?? null,
         })

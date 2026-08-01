@@ -1,18 +1,40 @@
 import {
   createTenantWorkspaceBootstrap,
+  getMemberOnboardingRequestSummary,
   getTenantOnboardingState,
   listMemberOnboardingRequests,
   resolveConfiguredQaDomain,
 } from "@halaalvest/db"
+import { roleCan } from "@halaalvest/auth/roles"
 import { isCooperativeCountry } from "@halaalvest/domain"
 import { getServerQaEmailDomains } from "@halaalvest/notifications/server"
+import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 
-import { authenticatedProcedure, createTRPCRouter, tenantProcedure } from "../lib.trpc"
+import {
+  authenticatedProcedure,
+  createTRPCRouter,
+  tenantProcedure,
+} from "../lib.trpc"
 import { listMembershipApprovalsSchema } from "../schemas/onboarding"
 
+const membershipApprovalProcedure = tenantProcedure.use(({ ctx, next }) => {
+  if (!roleCan(ctx.auth.activeMembership.role, "manage_members")) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Member-management access is required for this action.",
+    })
+  }
+
+  return next({ ctx })
+})
+
 export const onboardingRouter = createTRPCRouter({
-  membershipApprovals: tenantProcedure
+  membershipApprovalSummary: membershipApprovalProcedure.query(({ ctx }) =>
+    getMemberOnboardingRequestSummary(ctx.tenant.current.id)
+  ),
+
+  membershipApprovals: membershipApprovalProcedure
     .input(listMembershipApprovalsSchema)
     .query(async ({ ctx, input }) => {
       const pageSize = input?.pageSize ?? 50
@@ -31,20 +53,8 @@ export const onboardingRouter = createTRPCRouter({
       return {
         data: items,
         meta: {
-          approvedCount: requests.items.filter(
-            (item) => item.status === "approved"
-          ).length,
-          awaitingVerificationCount: requests.items.filter(
-            (item) => item.status === "pending_email_verification"
-          ).length,
           cursor:
             requests.items.length > pageSize ? items.at(-1)?.id : undefined,
-          pendingApprovalCount: requests.items.filter(
-            (item) => item.status === "pending_approval"
-          ).length,
-          rejectedCount: requests.items.filter(
-            (item) => item.status === "rejected"
-          ).length,
           total: requests.total,
         },
       }
@@ -79,14 +89,14 @@ export const onboardingRouter = createTRPCRouter({
         loanEligibilityMultiple: z.number().positive().optional(),
         requiresDualLoanApproval: z.boolean().optional(),
         allowOfflineFinancialCapture: z.boolean().optional(),
-      }),
+      })
     )
     .mutation(async ({ input }) => {
       return createTenantWorkspaceBootstrap({
         ...input,
         qaSourceDomain: resolveConfiguredQaDomain(
           input.ownerEmail,
-          getServerQaEmailDomains(),
+          getServerQaEmailDomains()
         ),
       })
     }),

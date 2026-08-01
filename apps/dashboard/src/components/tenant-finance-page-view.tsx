@@ -113,15 +113,6 @@ type ShareBusinessRow = {
   status: string
 }
 
-type DividendPeriodRow = {
-  id: string
-  name: string
-  periodStart: string
-  periodEnd: string
-  status: string
-  totalProfitAmount: number
-}
-
 type LegacyLoanDraftRow = {
   closedAt: string | null
   guarantorOneMemberId?: string | null
@@ -204,7 +195,6 @@ function HistoricalSetupLockedNotice({
 
 export function TenantFinancePageView({
   chargeDefinitions,
-  dividendPeriods,
   financingSettings,
   generatedLedgerRows,
   initialMigrationSnapshot,
@@ -225,7 +215,6 @@ export function TenantFinancePageView({
   tenantStartDate,
 }: {
   chargeDefinitions: ChargeDefinitionRow[]
-  dividendPeriods: DividendPeriodRow[]
   financingSettings: FinancingSettingsRow
   generatedLedgerRows?: MemberLedgerBackfillRow[]
   initialMigrationSnapshot?: InitialMigrationSnapshot
@@ -245,8 +234,6 @@ export function TenantFinancePageView({
   shareStructureVersions: ShareVersionRow[]
   tenantStartDate: string | null
 }) {
-  void dividendPeriods
-
   const activeCharges = chargeDefinitions.filter((charge) => charge.isActive)
   const currentShareAmount =
     shareStructureVersions.length > 0
@@ -573,8 +560,7 @@ export function TenantFinancePageView({
                             Max tenure
                           </p>
                           <p className="font-medium text-foreground">
-                            {financingSettings.products.quick.termMonths}{" "}
-                            months
+                            {financingSettings.products.quick.termMonths} months
                           </p>
                         </div>
                         <div>
@@ -582,7 +568,10 @@ export function TenantFinancePageView({
                             Savings multiple
                           </p>
                           <p className="font-medium text-foreground">
-                            {financingSettings.products.quick.maxSavingsMultiple}
+                            {
+                              financingSettings.products.quick
+                                .maxSavingsMultiple
+                            }
                             x
                           </p>
                         </div>
@@ -598,8 +587,7 @@ export function TenantFinancePageView({
                           Normal product
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Standard financing settings for the normal
-                          allocation.
+                          Standard financing settings for the normal allocation.
                         </p>
                       </div>
                       <TrendPill
@@ -630,7 +618,10 @@ export function TenantFinancePageView({
                             Savings multiple
                           </p>
                           <p className="font-medium text-foreground">
-                            {financingSettings.products.normal.maxSavingsMultiple}
+                            {
+                              financingSettings.products.normal
+                                .maxSavingsMultiple
+                            }
                             x
                           </p>
                         </div>

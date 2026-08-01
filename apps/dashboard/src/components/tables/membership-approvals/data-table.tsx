@@ -8,126 +8,49 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react"
-import { EmptyState, VirtualRow } from "@/components/tables/core"
+import { useCallback, useEffect, useRef } from "react"
+import { VirtualRow } from "@/components/tables/core"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
-import { useMembershipApprovalsFilterParams } from "@/hooks/use-membership-approvals-filter-params"
-import { useSortParams } from "@/hooks/use-sort-params"
+import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useMembershipApprovalTableStore } from "@/store/membership-approvals"
-import { useTRPC } from "@/trpc/client"
-import { getEnumValue } from "@/utils/enum"
-import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
+import {
+  ROW_HEIGHTS,
+  STICKY_COLUMNS,
+  SUMMARY_GRID_HEIGHTS,
+} from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { columns } from "./columns"
-import { MembershipApprovalsSkeleton } from "./skeleton"
+import {
+  MembershipApprovalsEmptyState,
+  MembershipApprovalsNoResults,
+} from "./empty-states"
 import { MembershipApprovalsTableHeader } from "./table-header"
-
-export type MembershipApprovalRow = {
-  createdAt: Date
-  email: string
-  emailVerifiedAt?: Date | null
-  fullName: string
-  id: string
-  memberNumber: string
-  phoneNumber?: string | null
-  status: string
-}
-
-type MembershipApprovalSortField =
-  | "emailVerifiedAt"
-  | "fullName"
-  | "memberNumber"
-  | "phoneNumber"
-  | "status"
-  | "submittedAt"
+import { useMembershipApprovalsQuery } from "./use-membership-approvals-query"
 
 const NON_CLICKABLE_COLUMNS = new Set(["actions"])
 const COLUMN_IDS = getColumnIds(columns)
-
-function getSort(
-  sort?: string[] | null
-): [MembershipApprovalSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "emailVerifiedAt",
-    "fullName",
-    "memberNumber",
-    "phoneNumber",
-    "status",
-    "submittedAt",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as MembershipApprovalSortField, direction]
-}
 
 export function MembershipApprovalsDataTable({
   initialSettings,
 }: {
   initialSettings?: Partial<TableSettings>
 }) {
-  const trpc = useTRPC()
   const router = useTenantRouter()
-  const { filters } = useMembershipApprovalsFilterParams()
-  const { params } = useSortParams()
   const parentRef = useRef<HTMLDivElement>(null)
   const { setColumns } = useMembershipApprovalTableStore()
-  const deferredSearch = useDeferredValue(filters.search)
-  const queryInput = useMemo(
-    () => ({
-      q: deferredSearch || undefined,
-      sort: getSort(params.sort),
-      status: getEnumValue(filters.status, [
-        "approved",
-        "cancelled",
-        "pending_approval",
-        "pending_email_verification",
-        "rejected",
-      ] as const),
-    }),
-    [deferredSearch, filters, params.sort]
-  )
-  const infiniteQueryOptions =
-    trpc.onboarding.membershipApprovals.infiniteQueryOptions(queryInput, {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-    })
-
   const {
-    data,
     fetchNextPage,
+    hasActiveControls,
     hasNextPage,
-    isError,
     isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
-
-  const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? [],
-    [data]
-  )
+    requests,
+  } = useMembershipApprovalsQuery()
 
   const {
     columnOrder,
@@ -145,7 +68,7 @@ export function MembershipApprovalsDataTable({
   const table = useReactTable({
     columnResizeMode: "onChange",
     columns,
-    data: tableData,
+    data: requests,
     enableColumnResizing: true,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
@@ -160,6 +83,10 @@ export function MembershipApprovalsDataTable({
   })
 
   const { sensors, handleDragEnd } = useTableDnd(table)
+
+  useScrollHeader(parentRef, {
+    extraOffset: SUMMARY_GRID_HEIGHTS.membershipApprovals,
+  })
 
   useEffect(() => {
     setColumns(table.getAllLeafColumns())
@@ -203,26 +130,12 @@ export function MembershipApprovalsDataTable({
     [router]
   )
 
-  if (isPending) {
-    return <MembershipApprovalsSkeleton />
+  if (!requests.length && hasActiveControls) {
+    return <MembershipApprovalsNoResults />
   }
 
-  if (isError) {
-    return (
-      <EmptyState
-        description="Reload the page or adjust the filters before trying again."
-        title="Membership requests could not load."
-      />
-    )
-  }
-
-  if (!tableData.length) {
-    return (
-      <EmptyState
-        description="Verified member signup requests will appear here once applicants complete the onboarding link."
-        title="No membership requests yet"
-      />
-    )
+  if (!requests.length) {
+    return <MembershipApprovalsEmptyState />
   }
 
   const virtualItems = rowVirtualizer.getVirtualItems()
@@ -231,7 +144,7 @@ export function MembershipApprovalsDataTable({
     <div className="relative">
       <div className="w-full">
         <div
-          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          className="scrollbar-hide overflow-auto overscroll-contain border-x border-b border-border"
           ref={(element) => {
             parentRef.current = element
             tableScroll.containerRef.current = element

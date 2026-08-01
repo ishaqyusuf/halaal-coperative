@@ -1,5 +1,11 @@
 import type { MemberPaymentReceiptRow } from "@halaalvest/db"
 import {
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@halaalvest/ui/components/dialog"
+import { Separator } from "@halaalvest/ui/components/separator"
+import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
@@ -62,6 +68,18 @@ export function PaymentReceiptSheetHeader({
   type: PaymentReceiptSheetType
 }) {
   const copy = getHeaderCopy({ receipt, type })
+
+  if (type === "review") {
+    return (
+      <div className="shrink-0">
+        <DialogHeader className="px-6 pt-6 pb-4">
+          <DialogTitle>{copy.title}</DialogTitle>
+          <DialogDescription>{copy.description}</DialogDescription>
+        </DialogHeader>
+        <Separator />
+      </div>
+    )
+  }
 
   return (
     <SheetHeader>

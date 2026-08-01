@@ -51,13 +51,14 @@ export function BusinessContent() {
 
   if (businessType === "create") {
     return (
-      <div className="px-6">
+      <div className="px-4 pb-6 sm:px-6">
         <ShareBusinessForm
           dividendPeriods={dividendPeriods}
           financeStartDate={financeStartDate}
           onSuccess={() => setParams(null)}
           profitHistoryLayout="single"
           profitHistoryMode
+          sourceType="manual"
         />
       </div>
     )

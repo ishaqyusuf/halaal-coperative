@@ -1,5 +1,9 @@
 import { hasActiveMembership } from "@halaalvest/auth"
 import { isRoleAtLeast, type CooperativeRole } from "@halaalvest/auth/roles"
+import {
+  assertMemberOperationalReadiness,
+  getMemberByUserId,
+} from "@halaalvest/db"
 import { initTRPC, TRPCError } from "@trpc/server"
 import superjson from "superjson"
 
@@ -45,7 +49,7 @@ export const platformOwnerProcedure = authenticatedProcedure.use(
         },
       },
     })
-  },
+  }
 )
 
 export const tenantProcedure = authenticatedProcedure.use(({ ctx, next }) => {
@@ -59,7 +63,8 @@ export const tenantProcedure = authenticatedProcedure.use(({ ctx, next }) => {
   if (ctx.tenant.current.qaPurgeStartedAt) {
     throw new TRPCError({
       code: "CONFLICT",
-      message: "This QA workspace is being purged and no longer accepts writes.",
+      message:
+        "This QA workspace is being purged and no longer accepts writes.",
     })
   }
 
@@ -78,6 +83,57 @@ export const tenantProcedure = authenticatedProcedure.use(({ ctx, next }) => {
     },
   })
 })
+
+export const memberOperationalProcedure = tenantProcedure.use(
+  async ({ ctx, next }) => {
+    if (ctx.auth.activeMembership.role !== "member") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Member access is required for this action.",
+      })
+    }
+
+    let member
+
+    try {
+      member = await getMemberByUserId({
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "Database not configured"
+      ) {
+        return next({ ctx })
+      }
+
+      throw error
+    }
+
+    if (!member) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Your user account is not linked to a member profile.",
+      })
+    }
+
+    try {
+      await assertMemberOperationalReadiness({
+        memberId: member.id,
+        tenantId: ctx.tenant.current.id,
+      })
+    } catch {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "Member verification is required before financial or operational actions can continue.",
+      })
+    }
+
+    return next({ ctx })
+  }
+)
 
 export function minRoleProcedure(required: CooperativeRole) {
   return tenantProcedure.use(({ ctx, next }) => {

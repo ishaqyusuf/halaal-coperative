@@ -75,8 +75,7 @@ export function MembersTableHeader<TData>({
                 | { sticky?: boolean }
                 | undefined
               const isSticky = meta?.sticky
-              const canReorder =
-                !NON_REORDERABLE_COLUMNS.members.has(columnId)
+              const canReorder = !NON_REORDERABLE_COLUMNS.members.has(columnId)
               const isActions = columnId === "actions"
 
               if (!isVisible(columnId)) return null
@@ -192,11 +191,7 @@ function renderHeaderContent<TData>(
       <Checkbox
         aria-label="Select all visible members"
         aria-checked={
-          allPageRowsSelected
-            ? true
-            : somePageRowsSelected
-              ? "mixed"
-              : false
+          allPageRowsSelected ? true : somePageRowsSelected ? "mixed" : false
         }
         checked={allPageRowsSelected}
         data-indeterminate={
@@ -274,7 +269,7 @@ function SortButton({
 }) {
   return (
     <Button
-      className="min-w-0 max-w-full space-x-2 p-0 hover:bg-transparent"
+      className="max-w-full min-w-0 space-x-2 p-0 hover:bg-transparent"
       onClick={(event) => {
         event.stopPropagation()
         onSort(sortField)
@@ -298,8 +293,9 @@ function getHeaderLabel(columnId: string): string {
     joined: "Joined",
     kyc: "KYC",
     member: "Member",
-    number: "Number",
-    status: "Status",
+    migrationSetupStatus: "Migration setup status",
+    number: "# / Joined",
+    status: "Member status",
     type: "Type",
   }
 

@@ -4,7 +4,7 @@ import type { TableId } from "./table-settings"
 export const STICKY_COLUMNS: Record<TableId, StickyColumnConfig[]> = {
   members: [
     { id: "select", width: 50 },
-    { id: "member", width: 320 },
+    { id: "number", width: 160 },
   ],
   contributions: [{ id: "member", width: 300 }],
   charges: [{ id: "name", width: 300 }],
@@ -50,7 +50,7 @@ export const STICKY_COLUMNS: Record<TableId, StickyColumnConfig[]> = {
 export const SORT_FIELD_MAPS: Record<TableId, Record<string, string>> = {
   members: {
     member: "fullName",
-    number: "memberNumber",
+    number: "joinedAt",
     status: "status",
     kyc: "kycStatus",
   },
@@ -203,7 +203,7 @@ export const SORT_FIELD_MAPS: Record<TableId, Record<string, string>> = {
 }
 
 export const NON_REORDERABLE_COLUMNS: Record<TableId, Set<string>> = {
-  members: new Set(["select", "member", "actions"]),
+  members: new Set(["select", "number", "actions"]),
   contributions: new Set(["member", "actions"]),
   charges: new Set(["name", "actions"]),
   shares: new Set(["effectiveFrom", "actions"]),
@@ -261,6 +261,7 @@ export const SUMMARY_GRID_HEIGHTS: Partial<Record<TableId, number>> = {
   chargeLibrary: 180,
   loanPortfolio: 180,
   loanRequests: 180,
+  membershipApprovals: 180,
   monthlyRecords: 180,
 }
 

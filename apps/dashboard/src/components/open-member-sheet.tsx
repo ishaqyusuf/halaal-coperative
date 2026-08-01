@@ -5,11 +5,19 @@ import { DropdownMenuItem } from "@halaalvest/ui/components/dropdown-menu"
 import { PlusIcon, UploadIcon } from "lucide-react"
 import { useMemberParams } from "@/hooks/use-member-params"
 
-export function OpenMemberSheet({ disabled }: { disabled?: boolean }) {
+export function OpenMemberSheet({
+  disabled,
+  iconOnly = false,
+}: {
+  disabled?: boolean
+  iconOnly?: boolean
+}) {
   const { setParams } = useMemberParams()
 
   return (
     <Button
+      aria-label={iconOnly ? "New member" : undefined}
+      className={iconOnly ? "size-11" : undefined}
       disabled={disabled}
       onClick={() =>
         setParams({
@@ -18,10 +26,11 @@ export function OpenMemberSheet({ disabled }: { disabled?: boolean }) {
           selectedMemberStatus: null,
         })
       }
+      size={iconOnly ? "icon-lg" : "default"}
       type="button"
     >
-      <PlusIcon data-icon="inline-start" />
-      New member
+      <PlusIcon data-icon={iconOnly ? undefined : "inline-start"} />
+      {iconOnly ? <span className="sr-only">New member</span> : "New member"}
     </Button>
   )
 }

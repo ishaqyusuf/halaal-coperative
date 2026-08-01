@@ -1,5 +1,6 @@
 "use client"
 
+import type { TenantMigrationSetupMode } from "@halaalvest/db"
 import { Calendar } from "@halaalvest/ui/components/calendar"
 import {
   DropdownMenu,
@@ -16,6 +17,7 @@ import {
   BadgeCheck,
   CalendarDays,
   CircleDot,
+  History,
   UserRound,
   type LucideIcon,
 } from "lucide-react"
@@ -25,24 +27,17 @@ import {
   MemberFilterList,
   type MemberFilterValue,
 } from "@/components/member-filter-list"
+import {
+  getMigrationStatusFilters,
+  kycStatusFilters,
+  memberStatusFilters,
+  memberTypeFilters,
+} from "@/components/members/member-filter-options"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
 import { useMembersFilterParams } from "@/hooks/use-members-filter-params"
 import { hasActiveMemberFilters } from "@/lib/members/member-filters"
-
-type MemberStatusFilter =
-  | "pending"
-  | "active"
-  | "inactive"
-  | "suspended"
-  | "exited"
-type MemberTypeFilter = "individual" | "civil_servant" | "business"
-type KycStatusFilter = "not_started" | "pending" | "verified" | "rejected"
-
-type FilterItem<T extends string> = {
-  id: T
-  name: string
-}
+import { useIsMobile } from "@/hooks/use-mobile"
 
 type FilterMenuItemProps = {
   children: ReactNode
@@ -57,27 +52,6 @@ type FilterCheckboxItemProps = {
   name: string
   onCheckedChange: (checked: boolean) => void
 }
-
-const statusFilters: FilterItem<MemberStatusFilter>[] = [
-  { id: "pending", name: "Pending" },
-  { id: "active", name: "Active" },
-  { id: "inactive", name: "Inactive" },
-  { id: "suspended", name: "Suspended" },
-  { id: "exited", name: "Exited" },
-]
-
-const memberTypeFilters: FilterItem<MemberTypeFilter>[] = [
-  { id: "individual", name: "Individual" },
-  { id: "civil_servant", name: "Civil servant" },
-  { id: "business", name: "Business" },
-]
-
-const kycStatusFilters: FilterItem<KycStatusFilter>[] = [
-  { id: "not_started", name: "Not started" },
-  { id: "pending", name: "Pending" },
-  { id: "verified", name: "Verified" },
-  { id: "rejected", name: "Rejected" },
-]
 
 function FilterMenuItem({ icon: Icon, label, children }: FilterMenuItemProps) {
   return (
@@ -133,12 +107,14 @@ function MemberDateRangeFilter({
   }) => void
   start: string | null | undefined
 }) {
+  const isMobile = useIsMobile()
+
   return (
     <div className="flex flex-col">
       <Calendar
         defaultMonth={start ? parseISO(start) : new Date()}
         mode="range"
-        numberOfMonths={2}
+        numberOfMonths={isMobile ? 1 : 2}
         selected={{
           from: start ? parseISO(start) : undefined,
           to: end ? parseISO(end) : undefined,
@@ -158,17 +134,24 @@ function MemberDateRangeFilter({
   )
 }
 
-export function MembersSearchFilter() {
+export function MembersSearchFilter({
+  migrationSetupMode = "historical_backfill",
+}: {
+  migrationSetupMode?: TenantMigrationSetupMode
+}) {
   const [isOpen, setIsOpen] = useState(false)
   const { filters, setFilters } = useMembersFilterParams()
   const hasFilters = hasActiveMemberFilters(filters)
+  const migrationLabel =
+    migrationSetupMode === "brought_forward" ? "Brought forward" : "Backfill"
+  const migrationStatusFilters = getMigrationStatusFilters(migrationLabel)
 
   useHotkeys("esc", () => setFilters({ q: null }, { shallow: false }), {
     enableOnFormTags: true,
   })
 
   function setMemberFilter(
-    key: "kycStatus" | "memberType" | "status",
+    key: "kycStatus" | "memberType" | "migrationStatus" | "status",
     value: string | null
   ) {
     setFilters({ [key]: value } as Partial<MembersFilterParams>, {
@@ -193,6 +176,7 @@ export function MembersSearchFilter() {
       joinedTo: filters.joinedTo ?? undefined,
       kycStatus: filters.kycStatus ?? undefined,
       memberType: filters.memberType ?? undefined,
+      migrationStatus: filters.migrationStatus ?? undefined,
       status: filters.status ?? undefined,
     }
 
@@ -205,7 +189,7 @@ export function MembersSearchFilter() {
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0 items-stretch sm:items-center w-full md:w-auto">
+      <div className="flex w-full flex-col items-stretch space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4 md:w-auto">
         <form
           data-quick-fill-exempt="true"
           className="relative flex-1 sm:flex-initial"
@@ -218,10 +202,7 @@ export function MembersSearchFilter() {
             filterActive={hasFilters}
             filterOpen={isOpen}
             onChange={(event) =>
-              setFilters(
-                { q: event.target.value || null },
-                { shallow: false }
-              )
+              setFilters({ q: event.target.value || null }, { shallow: false })
             }
             placeholder="Search members..."
             spellCheck="false"
@@ -236,7 +217,8 @@ export function MembersSearchFilter() {
           options={{
             kycStatus: kycStatusFilters,
             memberType: memberTypeFilters,
-            status: statusFilters,
+            migrationStatus: migrationStatusFilters,
+            status: memberStatusFilters,
           }}
         />
       </div>
@@ -244,12 +226,12 @@ export function MembersSearchFilter() {
       <DropdownMenuContent
         align="end"
         alignOffset={-11}
-        className="w-[350px]"
+        className="w-[calc(100vw-2rem)] max-w-[350px]"
         side="bottom"
         sideOffset={19}
       >
-        <FilterMenuItem icon={CircleDot} label="Status">
-          {statusFilters.map(({ id, name }) => (
+        <FilterMenuItem icon={CircleDot} label="Member status">
+          {memberStatusFilters.map(({ id, name }) => (
             <FilterCheckboxItem
               checked={filters.status === id}
               id={id}
@@ -285,6 +267,20 @@ export function MembersSearchFilter() {
               name={name}
               onCheckedChange={(checked) =>
                 setMemberFilter("kycStatus", checked ? id : null)
+              }
+            />
+          ))}
+        </FilterMenuItem>
+
+        <FilterMenuItem icon={History} label={migrationLabel}>
+          {migrationStatusFilters.map(({ id, name }) => (
+            <FilterCheckboxItem
+              checked={filters.migrationStatus === id}
+              id={id}
+              key={id}
+              name={name}
+              onCheckedChange={(checked) =>
+                setMemberFilter("migrationStatus", checked ? id : null)
               }
             />
           ))}

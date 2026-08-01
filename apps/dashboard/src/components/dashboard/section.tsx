@@ -25,13 +25,17 @@ export function DashboardSectionHeader({
   actions,
   description,
   eyebrow,
+  headingLevel = 3,
   title,
 }: {
   actions?: React.ReactNode
   description?: string
   eyebrow?: string
+  headingLevel?: 2 | 3
   title: string
 }) {
+  const Heading = headingLevel === 2 ? "h2" : "h3"
+
   return (
     <div className="flex flex-col gap-3 border-b border-border/70 pb-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -40,9 +44,9 @@ export function DashboardSectionHeader({
             {eyebrow}
           </p>
         ) : null}
-        <h3 className="mt-1 text-base font-semibold tracking-normal text-foreground sm:text-lg">
+        <Heading className="mt-1 text-base font-semibold tracking-normal text-foreground sm:text-lg">
           {title}
-        </h3>
+        </Heading>
         {description ? (
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
             {description}

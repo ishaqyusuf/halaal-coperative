@@ -53,14 +53,12 @@ function MetricLink({
 }) {
   return (
     <OverviewActionLink
-      className="group flex h-full min-h-[112px] flex-col items-start justify-between rounded-none border border-border bg-background p-4 text-left hover:border-foreground/20 hover:bg-muted"
+      className="group flex h-full min-h-[112px] min-w-0 flex-col items-start justify-between rounded-none border border-border bg-background p-4 text-left hover:border-foreground/20 hover:bg-muted"
       href={href}
       variant="ghost"
     >
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="mt-4 text-2xl font-medium text-foreground">
-        {value}
-      </span>
+      <span className="mt-4 text-2xl font-medium text-foreground">{value}</span>
       <span className="mt-2 text-xs leading-5 text-muted-foreground">
         {detail}
       </span>
@@ -92,7 +90,11 @@ function SmallStat({
   )
 }
 
-function FinanceSnapshot({ data }: { data: ReportsSummary["financeSnapshot"] }) {
+function FinanceSnapshot({
+  data,
+}: {
+  data: ReportsSummary["financeSnapshot"]
+}) {
   return (
     <OverviewSection
       actions={
@@ -103,7 +105,7 @@ function FinanceSnapshot({ data }: { data: ReportsSummary["financeSnapshot"] }) 
       eyebrow="Finance"
       title="Reportable finance snapshot"
     >
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <SmallStat
           label="Deployable funds"
           value={formatCurrency(data.deployableFunds)}
@@ -150,16 +152,27 @@ function ExportCatalog({
       eyebrow="Exports"
       title="Report exports"
     >
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-4 min-w-0 divide-y divide-border border border-border md:grid md:grid-cols-2 md:gap-3 md:divide-y-0 md:border-0 xl:grid-cols-3">
         {visibleExports.map((item) => (
           <a
-            className="border border-border bg-background p-4 text-sm transition hover:border-foreground/30 hover:bg-muted"
+            className="flex min-h-14 min-w-0 items-center justify-between gap-3 px-3 py-3 text-sm transition hover:bg-muted md:block md:min-h-0 md:border md:border-border md:bg-background md:p-4 md:hover:border-foreground/30"
             href={withReportFilters(item.href, filters)}
             key={item.href}
           >
-            <p className="text-xs text-muted-foreground">{item.category}</p>
-            <p className="mt-2 font-medium text-foreground">{item.title}</p>
-            <p className="mt-2 leading-6 text-muted-foreground">{item.body}</p>
+            <span className="min-w-0">
+              <span className="block text-xs text-muted-foreground">
+                {item.category}
+              </span>
+              <span className="mt-1 block font-medium text-foreground md:mt-2">
+                {item.title}
+              </span>
+              <span className="mt-2 hidden leading-6 text-muted-foreground md:block">
+                {item.body}
+              </span>
+            </span>
+            <span className="shrink-0 text-xs font-medium text-muted-foreground md:hidden">
+              CSV
+            </span>
           </a>
         ))}
       </div>
@@ -194,7 +207,15 @@ function ComplianceWatch({
 function AuditTrail({ items }: { items: ReportsSummary["auditPreview"] }) {
   return (
     <OverviewSection
-      actions={<OverviewPill>{items.length} events</OverviewPill>}
+      actions={
+        <>
+          <OverviewPill>{items.length} events</OverviewPill>
+          <OverviewActionLink href="/reports/audit">
+            Open report
+          </OverviewActionLink>
+        </>
+      }
+      className="!h-auto"
       eyebrow="Audit"
       title="Recent activity trail"
     >
@@ -202,13 +223,13 @@ function AuditTrail({ items }: { items: ReportsSummary["auditPreview"] }) {
         {items.length ? (
           items.map((item) => (
             <OverviewActionLink
-              className="block h-auto rounded-none border-0 px-4 py-3 text-left hover:bg-muted"
+              className="!block !h-auto min-h-11 w-full rounded-none border-0 px-4 py-3 text-left hover:bg-muted md:min-h-0"
               href={item.href}
               key={item.id}
               variant="ghost"
             >
-              <span className="block text-sm font-medium text-foreground">
-                {item.action}
+              <span className="block text-sm font-medium break-words text-foreground">
+                {item.actionLabel}
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
                 {item.actorLabel} · {item.entityType} ·{" "}
@@ -233,7 +254,13 @@ function CollectionsEvidence({
 }) {
   return (
     <OverviewSection
-      actions={<OverviewPill>{items.length} follow-ups</OverviewPill>}
+      actions={
+        <>
+          <OverviewPill>{items.length} follow-ups</OverviewPill>
+          <OverviewActionLink href="/repayments">Open cases</OverviewActionLink>
+        </>
+      }
+      className="!h-auto"
       eyebrow="Collections"
       title="Collections evidence"
     >
@@ -241,7 +268,7 @@ function CollectionsEvidence({
         {items.length ? (
           items.map((item) => (
             <OverviewActionLink
-              className="block h-auto rounded-none border-0 px-4 py-3 text-left hover:bg-muted"
+              className="!block !h-auto min-h-11 w-full rounded-none border-0 px-4 py-3 text-left hover:bg-muted md:min-h-0"
               href={item.href}
               key={item.id}
               variant="ghost"
@@ -249,7 +276,7 @@ function CollectionsEvidence({
               <span className="block text-sm font-medium text-foreground">
                 {item.memberName}
               </span>
-              <span className="mt-1 block text-xs text-muted-foreground">
+              <span className="mt-1 block text-xs break-words text-muted-foreground">
                 {item.loanProductName} · {item.status.replace(/_/g, " ")} ·{" "}
                 {item.resolutionStatus}
               </span>
@@ -275,10 +302,10 @@ export function ReportsView({ filters }: { filters: ReportsFilterParams }) {
     to: filters.to ?? undefined,
   }
   const { data } = useSuspenseQuery(
-    trpc.reports.summary.queryOptions(queryInput),
+    trpc.reports.summary.queryOptions(queryInput)
   )
   const { data: filterList } = useSuspenseQuery(
-    trpc.filters.reports.queryOptions(),
+    trpc.filters.reports.queryOptions()
   )
 
   return (
@@ -287,83 +314,102 @@ export function ReportsView({ filters }: { filters: ReportsFilterParams }) {
       eyebrow="Reports"
       title="Activity and reporting"
     >
-      <ReportsHeader filterList={filterList} />
+      <div className="min-w-0 max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[&_select]:min-h-11">
+        <ReportsHeader filterList={filterList} />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricLink
-          detail="Recent cooperative audit volume."
-          href="/reports/audit"
-          label="Audit events"
-          tone={getCountTone(data.governanceMetrics.auditEventsInRange)}
-          value={data.governanceMetrics.auditEventsInRange.toString()}
-        />
-        <MetricLink
-          detail="Open collections cases that still need evidence or action."
-          href="/repayments"
-          label="Open collections"
-          tone={getCountTone(data.governanceMetrics.openCollectionCases)}
-          value={data.governanceMetrics.openCollectionCases.toString()}
-        />
-        <MetricLink
-          detail="KYC records currently pending staff review."
-          href="/members?kycStatus=pending"
-          label="KYC pending"
-          tone={getCountTone(data.governanceMetrics.kycPending)}
-          value={data.governanceMetrics.kycPending.toString()}
-        />
-        <MetricLink
-          detail="Direct notification emails sent in this range."
-          href="/notifications"
-          label="Emails sent"
-          tone="positive"
-          value={data.notificationDelivery.sent.toString()}
-        />
-      </section>
+        <div className="mt-6 space-y-6">
+          <section className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricLink
+              detail="Recent cooperative audit volume."
+              href="/reports/audit"
+              label="Audit events"
+              tone={getCountTone(data.governanceMetrics.auditEventsInRange)}
+              value={data.governanceMetrics.auditEventsInRange.toString()}
+            />
+            <MetricLink
+              detail="Open collections cases that still need evidence or action."
+              href="/repayments"
+              label="Open collections"
+              tone={getCountTone(data.governanceMetrics.openCollectionCases)}
+              value={data.governanceMetrics.openCollectionCases.toString()}
+            />
+            <MetricLink
+              detail="KYC records currently pending staff review."
+              href="/members?kycStatus=pending"
+              label="KYC pending"
+              tone={getCountTone(data.governanceMetrics.kycPending)}
+              value={data.governanceMetrics.kycPending.toString()}
+            />
+            <MetricLink
+              detail="Direct notification emails sent in this range."
+              href="/notifications"
+              label="Emails sent"
+              tone="positive"
+              value={data.notificationDelivery.sent.toString()}
+            />
+          </section>
 
-      <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <FinanceSnapshot data={data.financeSnapshot} />
-        <ExportCatalog
-          exportVisibility={data.exportVisibility}
-          filters={filters}
-        />
-      </section>
+          <section className="min-w-0">
+            <FinanceSnapshot data={data.financeSnapshot} />
+          </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
-        <ComplianceWatch items={data.complianceWatch} />
-        <OverviewSection eyebrow="Delivery" title="Notification delivery">
-          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-            <SmallStat label="Total" value={data.notificationDelivery.total} />
-            <SmallStat label="Sent" value={data.notificationDelivery.sent} />
-            <SmallStat label="Queued" value={data.notificationDelivery.queued} />
-            <SmallStat label="Failed" value={data.notificationDelivery.failed} />
-          </dl>
-        </OverviewSection>
-        <OverviewSection eyebrow="Governance" title="30-day audit split">
-          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-            <SmallStat
-              label="User events"
-              value={data.governanceMetrics.userEvents30d}
-            />
-            <SmallStat
-              label="System events"
-              value={data.governanceMetrics.systemEvents30d}
-            />
-            <SmallStat
-              label="High-priority cases"
-              value={data.governanceMetrics.highPriorityCollectionCases}
-            />
-            <SmallStat
-              label="Failed imports"
-              value={data.governanceMetrics.failedImports}
-            />
-          </dl>
-        </OverviewSection>
-      </section>
+          <section className="grid min-w-0 gap-4 xl:grid-cols-3">
+            <ComplianceWatch items={data.complianceWatch} />
+            <OverviewSection eyebrow="Delivery" title="Notification delivery">
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <SmallStat
+                  label="Total"
+                  value={data.notificationDelivery.total}
+                />
+                <SmallStat
+                  label="Sent"
+                  value={data.notificationDelivery.sent}
+                />
+                <SmallStat
+                  label="Queued"
+                  value={data.notificationDelivery.queued}
+                />
+                <SmallStat
+                  label="Failed"
+                  value={data.notificationDelivery.failed}
+                />
+              </dl>
+            </OverviewSection>
+            <OverviewSection eyebrow="Governance" title="30-day audit split">
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <SmallStat
+                  label="User events"
+                  value={data.governanceMetrics.userEvents30d}
+                />
+                <SmallStat
+                  label="System events"
+                  value={data.governanceMetrics.systemEvents30d}
+                />
+                <SmallStat
+                  label="High-priority cases"
+                  value={data.governanceMetrics.highPriorityCollectionCases}
+                />
+                <SmallStat
+                  label="Failed imports"
+                  value={data.governanceMetrics.failedImports}
+                />
+              </dl>
+            </OverviewSection>
+          </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <AuditTrail items={data.auditPreview} />
-        <CollectionsEvidence items={data.collectionsPreview} />
-      </section>
+          <section className="grid min-w-0 items-start gap-4 xl:grid-cols-2">
+            <AuditTrail items={data.auditPreview} />
+            <CollectionsEvidence items={data.collectionsPreview} />
+          </section>
+
+          <section className="min-w-0">
+            <ExportCatalog
+              exportVisibility={data.exportVisibility}
+              filters={filters}
+            />
+          </section>
+        </div>
+      </div>
     </WorkspacePageShell>
   )
 }

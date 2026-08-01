@@ -55,6 +55,7 @@ export function MemberBackfillActionSheet({
         {triggerLabel}
       </Button>
       <WorkflowPresentation
+        contentClassName="max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11"
         config={{
           presentation,
           width: size === "wide" ? "wide" : "form",
@@ -62,11 +63,11 @@ export function MemberBackfillActionSheet({
         open={isOpen}
         onOpenChange={(open) => !open && closeSheet()}
       >
-          <SheetHeader>
-            <SheetTitle>{title}</SheetTitle>
-            <SheetDescription>{description}</SheetDescription>
-          </SheetHeader>
-          <div className="px-6 pb-6">{children}</div>
+        <SheetHeader>
+          <SheetTitle>{title}</SheetTitle>
+          <SheetDescription>{description}</SheetDescription>
+        </SheetHeader>
+        <div className="px-6 pb-6">{children}</div>
       </WorkflowPresentation>
     </>
   )

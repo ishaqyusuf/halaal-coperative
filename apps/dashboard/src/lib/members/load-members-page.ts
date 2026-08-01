@@ -9,7 +9,6 @@ import {
   type TenantMigrationSetupMode,
   listActiveDeductionSources,
   listImportBatches,
-  listMembers,
 } from "@halaalvest/db"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
 import type { DashboardImportReferenceData } from "@/lib/import-csv"
@@ -36,17 +35,6 @@ type MembersPageTenant = {
   startDate?: string | null
 }
 
-type MembersPageMemberRow = {
-  fullName: string
-  id: string
-  joinedAt: Date
-  kycStatus: string
-  memberNumber: string
-  memberType: string
-  status: string
-  user?: { email: string | null } | null
-}
-
 type MembersPageBatchRow = {
   _count: { rows: number }
   createdAt: Date
@@ -69,6 +57,7 @@ export type MemberCollectionSourceOption = {
 
 export type MembersPageData =
   | {
+      accessDenied: boolean
       canManageImports: boolean
       canManageCollectionSources: boolean
       canManageMembers: boolean
@@ -87,10 +76,6 @@ export type MembersPageData =
       collectionSourceOptions: MemberCollectionSourceOption[]
       filters: MembersFilterParams
       hasFilters: boolean
-      members: {
-        items: MembersPageMemberRow[]
-        total: number
-      }
       referenceData: DashboardImportReferenceData | null
       quickFillEnabled: boolean
       signupSettings: MembersPageSignupSettings
@@ -99,6 +84,7 @@ export type MembersPageData =
         activeCount: number
         kycPendingCount: number
         linkedUsersCount: number
+        migrationFinalizedCount: number
         totalCount: number
       }
       tenant: MembersPageTenant | null
@@ -149,9 +135,24 @@ export async function loadMembersPageData(
   const quickFillEnabled = canShowQuickFill(context)
   let tenant = toMembersPageTenant(context.tenant)
 
+  if (!hasImportRole) {
+    return {
+      state: "unavailable" as const,
+      accessDenied: true,
+      canManageCollectionSources: false,
+      canManageImports: false,
+      canManageMembers: false,
+      collectionSourceOptions: [],
+      filters,
+      quickFillEnabled,
+      tenant,
+    }
+  }
+
   if (!context.tenant || runtime.status !== "database-configured") {
     return {
       state: "unavailable" as const,
+      accessDenied: false,
       canManageCollectionSources: false,
       canManageImports: hasImportRole,
       canManageMembers,
@@ -162,7 +163,6 @@ export async function loadMembersPageData(
     }
   }
 
-  let members
   let referenceData
   let batches
   let signupSettings
@@ -176,7 +176,6 @@ export async function loadMembersPageData(
 
   try {
     ;[
-      members,
       referenceData,
       batches,
       signupSettings,
@@ -185,11 +184,6 @@ export async function loadMembersPageData(
       migrationState,
       summary,
     ] = await Promise.all([
-      listMembers(context.tenant.id, {
-        ...toMemberQueryFilters(filters),
-        page: 1,
-        pageSize: 20,
-      }),
       hasImportRole
         ? getImportReferenceData(context.tenant.id)
         : Promise.resolve(null),
@@ -219,6 +213,7 @@ export async function loadMembersPageData(
 
     return {
       state: "unavailable" as const,
+      accessDenied: false,
       canManageCollectionSources: false,
       canManageImports: hasImportRole,
       canManageMembers,
@@ -249,11 +244,10 @@ export async function loadMembersPageData(
     activeFilters: getActiveMemberFilters(filters),
     filters,
     hasFilters: hasActiveMemberFilters(filters),
-    members: members as { items: MembersPageMemberRow[]; total: number },
     quickFillEnabled,
     referenceData,
     signupSettings,
     tenant,
-    summary: { ...summary, totalCount: members.total },
+    summary,
   }
 }

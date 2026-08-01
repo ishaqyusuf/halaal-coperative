@@ -1,19 +1,27 @@
+import type { Metadata } from "next"
 import { headers } from "next/headers"
+import { Suspense } from "react"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import {
   TenantUrlProvider,
   TenantUrlVariantSwitcher,
 } from "@halaalvest/tenant-url/react"
 import { DashboardPageFrame, WorkspaceEmptyState } from "@/components/dashboard"
+import { DashboardHomeSkeleton } from "@/components/dashboard-home-page-states"
 import { DashboardShellClient } from "@/components/dashboard-shell"
 import { MemberPortalOverview } from "@/components/member-portal-overview"
 import { OverviewView } from "@/components/widgets"
+import { OverviewSkeleton } from "@/components/widgets/overview-skeleton"
 import { loadTenantHomePageData } from "@/lib/dashboard/load-tenant-home-page"
 import { HydrateClient, prefetch, trpc } from "@/trpc/server"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
-export default async function TenantHomePage() {
+export const metadata: Metadata = {
+  title: "Overview | Halaalvest",
+}
+
+async function TenantHomePageContent() {
   const headerStore = await headers()
   const tenantUrlConfig = getDashboardTenantUrlConfig()
   const tenantUrlContext = resolveTenantUrlContextFromHeaders({
@@ -60,6 +68,7 @@ export default async function TenantHomePage() {
           canShowProcurement={data.canShowProcurement}
           detail={data.detail}
           foodPurchaseApplications={data.foodPurchaseApplications}
+          operationalReadiness={data.operationalReadiness}
           procurementRequests={data.procurementRequests}
           projectFinancingRequests={data.projectFinancingRequests}
           receipts={data.receipts}
@@ -97,10 +106,20 @@ export default async function TenantHomePage() {
         userName={data.userName}
       >
         <HydrateClient>
-          <OverviewView />
+          <Suspense fallback={<OverviewSkeleton />}>
+            <OverviewView />
+          </Suspense>
         </HydrateClient>
       </DashboardShellClient>
       <TenantUrlVariantSwitcher />
     </TenantUrlProvider>
+  )
+}
+
+export default function TenantHomePage() {
+  return (
+    <Suspense fallback={<DashboardHomeSkeleton />}>
+      <TenantHomePageContent />
+    </Suspense>
   )
 }

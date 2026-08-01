@@ -82,7 +82,7 @@ function getTenantRootDomain() {
 
 function getDashboardAppPort(dashboardOrigin: string) {
   return (
-    process.env.DASHBOARD_APP_PORT?.trim() ||
+    process.env.DASHBOARD_PORT?.trim() ||
     parseOriginLike(dashboardOrigin)?.port ||
     "1441"
   )

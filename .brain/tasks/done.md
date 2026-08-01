@@ -584,6 +584,17 @@ This file records completed work and important outcomes.
 - Completed Date: 2026-07-26
 - Checks: `bun test apps/dashboard/src/lib/workflow-presentations.test.ts apps/dashboard/src/lib/workflow-presentation-usage.test.ts apps/dashboard/src/lib/members/member-opening-position-modal.test.ts`; `bun --filter @halaalvest/dashboard typecheck`; dashboard lint; browser QA
 
+### Payment Receipt Review Dialog UX
+
+- Priority: High
+- Description: Rebuilt the finance payment-receipt review dialog around receipt evidence, allocation verification, and a clear review decision; added a fixed header and action footer, an independently scrollable body, standard currency controls, category-specific allocation targets, reconciliation and required-note validation, and decision-specific posting consequences.
+- Related Feature: Member payment receipts
+- Status: Done
+- Plan Status: Done
+- Created Date: 2026-07-27
+- Completed Date: 2026-07-27
+- Checks: `bun --filter @halaalvest/dashboard typecheck`; targeted dashboard lint with no errors and one existing shared-wrapper warning; `bun test apps/dashboard/src/lib/workflow-presentations.test.ts apps/dashboard/src/lib/workflow-presentation-usage.test.ts`; browser QA of review, approval-selection, scrolling, and reset without submission
+
 ### Cooperative-Subdomain Email Sender Identity
 
 - Priority: High

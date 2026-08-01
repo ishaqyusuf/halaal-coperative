@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 
-const DEFAULT_WEB_APP_PORT = "3000";
+const DEFAULT_DASHBOARD_PORT = "3000";
 const DEFAULT_API_PORT = "1442";
 
 const stripTrailingSlash = (value: string) => value.replace(/\/$/, "");
@@ -65,5 +65,5 @@ export const getWebUrl = () => {
     );
   }
 
-  return `http://${localhost}:${DEFAULT_WEB_APP_PORT}`;
+  return `http://${localhost}:${DEFAULT_DASHBOARD_PORT}`;
 };

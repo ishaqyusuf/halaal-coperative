@@ -7,29 +7,19 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { AnimatePresence } from "framer-motion"
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { VirtualRow } from "@/components/tables/core"
-import { useBusinessFilterParams } from "@/hooks/use-business-filter-params"
 import { useBusinessParams } from "@/hooks/use-business-params"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
-import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useBusinessStore } from "@/store/business"
-import { useTRPC } from "@/trpc/client"
 import {
   ROW_HEIGHTS,
   STICKY_COLUMNS,
@@ -39,62 +29,28 @@ import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { BusinessBottomBar } from "./bottom-bar"
 import { columns } from "./columns"
 import { BusinessEmptyState, BusinessNoResults } from "./empty-states"
-import { BusinessSkeleton } from "./skeleton"
 import { BusinessTableHeader } from "./table-header"
+import { useBusinessQuery } from "./use-business-query"
 
 const NON_CLICKABLE_COLUMNS = new Set(["select", "actions"])
 const COLUMN_IDS = getColumnIds(columns)
-
-type BusinessSortField =
-  | "name"
-  | "startDate"
-  | "capitalAmount"
-  | "profitAmount"
-  | "status"
 
 type Props = {
   initialSettings?: Partial<TableSettings>
   isLocked: boolean
 }
 
-function getSort(
-  sort?: string[] | null
-): [BusinessSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "name",
-    "startDate",
-    "capitalAmount",
-    "profitAmount",
-    "status",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as BusinessSortField, direction]
-}
-
-function getEnumValue<TValue extends string>(
-  value: string | null,
-  validValues: readonly TValue[]
-) {
-  return validValues.includes(value as TValue) ? (value as TValue) : undefined
-}
-
-export function DataTable({ initialSettings, isLocked }: Props) {
-  const trpc = useTRPC()
-  const { filter } = useBusinessFilterParams()
-  const { params } = useSortParams()
+export function BusinessDataTable({ initialSettings, isLocked }: Props) {
   const { setParams } = useBusinessParams()
   const parentRef = useRef<HTMLDivElement>(null)
   const { rowSelection, setColumns, setRowSelection } = useBusinessStore()
-  const deferredSearch = useDeferredValue(filter.q)
+  const {
+    businesses,
+    fetchNextPage,
+    hasActiveControls,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useBusinessQuery()
 
   useScrollHeader(parentRef, { extraOffset: SUMMARY_GRID_HEIGHTS.business })
 
@@ -111,61 +67,6 @@ export function DataTable({ initialSettings, isLocked }: Props) {
     tableId: "business",
   })
 
-  const queryInput = useMemo(
-    () => ({
-      dividendPeriodId: filter.dividendPeriodId ?? undefined,
-      hasProfitEntries: filter.hasProfitEntries ?? undefined,
-      profitStatus: getEnumValue(filter.profitStatus, [
-        "draft",
-        "pending",
-        "reviewed",
-        "completed",
-        "approved",
-        "archived",
-      ] as const),
-      q: deferredSearch,
-      sort: getSort(params.sort),
-      sourceType: getEnumValue(filter.sourceType, [
-        "manual",
-        "backfill",
-        "import",
-      ] as const),
-      startFrom: filter.startFrom ?? undefined,
-      startTo: filter.startTo ?? undefined,
-      status: getEnumValue(filter.status, [
-        "planned",
-        "active",
-        "completed",
-        "archived",
-      ] as const),
-    }),
-    [deferredSearch, filter, params.sort]
-  )
-
-  const infiniteQueryOptions = trpc.business.list.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-    }
-  )
-
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isError,
-    isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
-
-  const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? [],
-    [data]
-  )
-
   const tableMeta = useMemo(
     () => ({
       isLocked,
@@ -176,7 +77,7 @@ export function DataTable({ initialSettings, isLocked }: Props) {
   const table = useReactTable({
     columnResizeMode: "onChange",
     columns,
-    data: tableData,
+    data: businesses,
     enableColumnResizing: true,
     enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
@@ -245,23 +146,11 @@ export function DataTable({ initialSettings, isLocked }: Props) {
     [setParams]
   )
 
-  const hasTableFilters = Object.values(filter).some(
-    (value) => value !== null && value !== ""
-  )
-
-  if (isPending) {
-    return <BusinessSkeleton />
-  }
-
-  if (isError) {
+  if (!businesses.length && hasActiveControls) {
     return <BusinessNoResults />
   }
 
-  if (!tableData.length && hasTableFilters) {
-    return <BusinessNoResults />
-  }
-
-  if (!tableData.length) {
+  if (!businesses.length) {
     return <BusinessEmptyState />
   }
 

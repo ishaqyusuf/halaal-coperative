@@ -14,36 +14,15 @@ import {
 import { Input } from "@halaalvest/ui/components/input"
 import type { ChangeEvent, FormEvent } from "react"
 import { useRef, useState } from "react"
+import {
+  businessHasProfitEntryFilters,
+  businessProfitStatusFilters,
+  businessSourceTypeFilters,
+  businessStatusFilters,
+} from "@/components/business-filter-options"
 import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useBusinessFilterParams } from "@/hooks/use-business-filter-params"
-
-const statusFilters = [
-  { id: "planned", name: "Planned" },
-  { id: "active", name: "Active" },
-  { id: "completed", name: "Completed" },
-  { id: "archived", name: "Archived" },
-]
-
-const profitStatusFilters = [
-  { id: "draft", name: "Draft" },
-  { id: "pending", name: "Pending" },
-  { id: "reviewed", name: "Reviewed" },
-  { id: "completed", name: "Completed" },
-  { id: "approved", name: "Approved" },
-  { id: "archived", name: "Archived" },
-]
-
-const sourceTypeFilters = [
-  { id: "manual", name: "Manual" },
-  { id: "backfill", name: "Backfill" },
-  { id: "import", name: "Import" },
-]
-
-const hasProfitEntryFilters = [
-  { id: "true", name: "Has profit entries" },
-  { id: "false", name: "No profit entries" },
-]
 
 export function BusinessSearchFilter() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -105,10 +84,10 @@ export function BusinessSearchFilter() {
           filters={validFilters}
           onRemove={setFilter}
           options={{
-            hasProfitEntries: hasProfitEntryFilters,
-            profitStatus: profitStatusFilters,
-            sourceType: sourceTypeFilters,
-            status: statusFilters,
+            hasProfitEntries: businessHasProfitEntryFilters,
+            profitStatus: businessProfitStatusFilters,
+            sourceType: businessSourceTypeFilters,
+            status: businessStatusFilters,
           }}
         />
       </div>
@@ -131,7 +110,7 @@ export function BusinessSearchFilter() {
                 className="p-0"
                 sideOffset={14}
               >
-                {statusFilters.map((item) => (
+                {businessStatusFilters.map((item) => (
                   <DropdownMenuCheckboxItem
                     checked={filter.status === item.id}
                     key={item.id}
@@ -159,7 +138,7 @@ export function BusinessSearchFilter() {
                 className="p-0"
                 sideOffset={14}
               >
-                {profitStatusFilters.map((item) => (
+                {businessProfitStatusFilters.map((item) => (
                   <DropdownMenuCheckboxItem
                     checked={filter.profitStatus === item.id}
                     key={item.id}
@@ -187,7 +166,7 @@ export function BusinessSearchFilter() {
                 className="p-0"
                 sideOffset={14}
               >
-                {sourceTypeFilters.map((item) => (
+                {businessSourceTypeFilters.map((item) => (
                   <DropdownMenuCheckboxItem
                     checked={filter.sourceType === item.id}
                     key={item.id}

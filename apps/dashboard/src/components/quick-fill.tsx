@@ -366,10 +366,12 @@ export function QuickFill<Name extends QuickFillName>({
   args,
   label = "Quick fill",
   name,
+  triggerClassName,
 }: {
   args: QuickFillArgs[Name]
   label?: string
   name: Name
+  triggerClassName?: string
 }) {
   const parsedArgs = parseQuickFillArgs({
     name,
@@ -420,6 +422,7 @@ export function QuickFill<Name extends QuickFillName>({
   return (
     <>
       <Button
+        className={triggerClassName}
         disabled={parsedArgs.disabled}
         onClick={() => setOpen(true)}
         size="sm"
@@ -429,7 +432,7 @@ export function QuickFill<Name extends QuickFillName>({
         {label}
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent className="sm:max-w-xl">
+        <SheetContent className="w-full! sm:max-w-xl!">
           <SheetHeader>
             <SheetTitle>{quickFill.title}</SheetTitle>
             <SheetDescription>

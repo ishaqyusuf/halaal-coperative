@@ -55,7 +55,9 @@ This file captures payload shapes, response conventions, and contract assumption
   - `governanceMetrics`: audit counts, collection follow-up counts, open/high-priority collection cases, KYC pending count, and failed import count.
   - `notificationDelivery`: total, sent, queued, and failed notification counts in the selected range.
   - `complianceWatch`: linked review counts for KYC, documents, failed imports, and pending profit allocation review.
-  - `auditPreview` and `collectionsPreview`: compact evidence rows for the report landing page; CSV generation stays in dedicated export routes.
+  - `auditPreview`: up to five normalized activity events with a human-readable `actionLabel`, actor, entity, timestamp, and activity-report link.
+  - `collectionsPreview`: up to five recent collection follow-ups with member, financing product, status, note, and repayment-workspace link.
+  - CSV generation stays in dedicated export routes.
 - `trpc.onboarding.status`
   - `status`: `"complete"` or `"incomplete"`.
   - `completedStepCount`: completed onboarding steps.
@@ -67,6 +69,11 @@ This file captures payload shapes, response conventions, and contract assumption
 - `trpc.onboarding.bootstrap`
   - Request creates tenant name, slug, primary admin identity, optional city/state/country profile fields, default policy values, and base routing hostnames.
   - Response returns the created tenant record, owner user id, primary hostnames, and refreshed onboarding state.
+- `trpc.onboarding.membershipApprovals`
+  - Member-management-only infinite result with a `data` array plus `meta.cursor` and `meta.total`; tenant scope is derived from authenticated context.
+  - Input accepts optional cursor, page size, search text, request status, and sort tuple. Supported sort fields are `emailVerifiedAt`, `fullName`, `memberNumber`, `phoneNumber`, `status`, and `submittedAt`.
+- `trpc.onboarding.membershipApprovalSummary`
+  - Member-management-only tenant summary for pending approval, awaiting verification, approved, rejected, and total request counts.
 - `POST /api/signup`
   - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, `primaryContactMemberNumber`, `memberNumberPrefix`, `workspaceSlug`, and optional `approvalToken`.
   - When `MARKETING_EARLY_ACCESS_ENABLED=true`, `approvalToken` is required and must verify to the same cooperative name and primary contact email before the route sends verification email.
@@ -88,7 +95,24 @@ This file captures payload shapes, response conventions, and contract assumption
 - `trpc.notifications.list`
   - array of shared notification payloads built from `@halaalvest/notifications` types.
 - `trpc.members.list`
-  - paginated tenant member result with `items`, `total`, `page`, and `pageSize`.
+  - Staff-only infinite result with a `data` array and `meta.cursor`, `meta.hasNextPage`, and `meta.hasPreviousPage`; tenant scope is derived from authenticated context and list input accepts optional cursor, page size, search, member type, status, KYC status, joined-date range, sort fields, and mode-aware `migrationStatus` (`pending` or `finalized`).
+  - Migration filtering uses the same derived member-readiness contract as member verification: every brought-forward member requires an applied opening position, while historical members who joined before the current month require complete backfill and current-month members have no historical work due.
+- `trpc.members.get`
+  - Staff-only tenant-scoped member profile lookup by `memberId`; returns no cross-tenant or member-role directory access.
+- `trpc.business.list`
+  - Staff-only tenant-scoped infinite result with a `data` array and `meta.cursor`, `meta.hasNextPage`, `meta.hasPreviousPage`, and `meta.total`.
+  - Request fields accept optional cursor, page size, search text, business status, latest profit status, source type, profit-evidence state, start-date range, dividend period, and a supported sort tuple.
+  - Pagination reads one row beyond the requested page and emits a next cursor only when another row exists.
+- `trpc.business.setup`
+  - Staff-only tenant finance setup and permission contract used by the business registry and URL-backed business sheet.
+  - The setup determines allowed create/edit/review/allocation actions and preserves migration and published-allocation locks.
+- `trpc.business.summary`
+  - Staff-only tenant summary for business counts, capital, realized/allocatable profit, and linked dividend-period filter options.
+  - The summary reads tenant finance setup directly and does not repeat the route's migration/setup loader work.
+- Dashboard business create/update actions
+  - A manual live business may be created before profit is realized; profit entries are optional and can be added later with evidence.
+  - Historical migration/backfill records retain source-specific profit-history behavior and migration controls.
+  - Planned, active, completed, archived, manual, backfill, and import records remain in the unified `/business` registry rather than separate future/ongoing pages.
 - `trpc.contributions.list`
   - paginated contribution result with joined member display fields.
 - `trpc.charges.listDefinitions`
@@ -175,6 +199,7 @@ This file captures payload shapes, response conventions, and contract assumption
 - Response fields:
 - Validation rules:
 - Error cases:
+
 # QA maintenance contract
 
 - Candidate discovery never grants purge eligibility; adoption stores the QA marker.

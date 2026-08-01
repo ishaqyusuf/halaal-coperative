@@ -10,18 +10,18 @@ import {
 } from "@halaalvest/ui/components/dropdown-menu"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { MoreHorizontal } from "lucide-react"
-import { memo } from "react"
+import { memo, type ReactNode } from "react"
+import { MobileActionsDrawer } from "@/components/tables/core/mobile-actions-drawer"
 import { useBusinessParams } from "@/hooks/use-business-params"
-import type { Business } from "./columns"
-
-function latestProfitEntry(business: Business) {
-  return business.profitEntries[0] ?? null
-}
+import {
+  getLatestBusinessProfitEntry,
+  type Business,
+} from "./columns"
 
 export const BusinessActionsMenu = memo(
   ({ business, isLocked }: { business: Business; isLocked: boolean }) => {
     const { setParams } = useBusinessParams()
-    const latest = latestProfitEntry(business)
+    const latest = getLatestBusinessProfitEntry(business)
 
     return (
       <DropdownMenu>
@@ -102,3 +102,101 @@ export const BusinessActionsMenu = memo(
 )
 
 BusinessActionsMenu.displayName = "BusinessActionsMenu"
+
+function MobileActionButton({
+  children,
+  disabled,
+  onClick,
+}: {
+  children: ReactNode
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <Button
+      className="h-11 w-full justify-start"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+      variant="ghost"
+    >
+      {children}
+    </Button>
+  )
+}
+
+export function BusinessMobileActionsDrawer({
+  business,
+  isLocked,
+  onOpenChange,
+  open,
+}: {
+  business: Business
+  isLocked: boolean
+  onOpenChange: (open: boolean) => void
+  open: boolean
+}) {
+  const { setParams } = useBusinessParams()
+  const latest = getLatestBusinessProfitEntry(business)
+
+  function openSheet(
+    businessType: "details" | "profit" | "edit" | "editProfit",
+    profitEntryId: string | null = null
+  ) {
+    onOpenChange(false)
+    void setParams({
+      businessId: business.id,
+      businessType,
+      profitEntryId,
+    })
+  }
+
+  return (
+    <MobileActionsDrawer
+      description={`Choose an action for ${business.name}.`}
+      onOpenChange={onOpenChange}
+      open={open}
+      title="Business actions"
+    >
+      <div className="space-y-2">
+        <MobileActionButton onClick={() => openSheet("details")}>
+          View details
+        </MobileActionButton>
+        <MobileActionButton
+          disabled={isLocked}
+          onClick={() => openSheet("profit")}
+        >
+          Add profit entry
+        </MobileActionButton>
+        <MobileActionButton
+          disabled={isLocked}
+          onClick={() => openSheet("edit")}
+        >
+          Edit business
+        </MobileActionButton>
+        <MobileActionButton
+          disabled={
+            isLocked || !latest?.id || latest.hasPublishedAllocations
+          }
+          onClick={() =>
+            latest?.id ? openSheet("editProfit", latest.id) : undefined
+          }
+        >
+          Edit latest profit
+        </MobileActionButton>
+        {latest?.id ? (
+          <Link
+            className={cn(
+              buttonVariants({ variant: "ghost" }),
+              "h-11 w-full justify-start"
+            )}
+            href={`/settings/finance/business/profits/${latest.id}/migration`}
+            onClick={() => onOpenChange(false)}
+          >
+            Open migration
+          </Link>
+        ) : null}
+      </div>
+    </MobileActionsDrawer>
+  )
+}

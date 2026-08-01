@@ -11,14 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@halaalvest/ui/components/alert-dialog"
-import {
-  Dialog,
-  DialogContent,
-} from "@halaalvest/ui/components/dialog"
-import {
-  Sheet,
-  SheetContent,
-} from "@halaalvest/ui/components/sheet"
+import { Dialog, DialogContent } from "@halaalvest/ui/components/dialog"
+import { Sheet, SheetContent } from "@halaalvest/ui/components/sheet"
 import { cn } from "@halaalvest/ui/lib/utils"
 import type {
   WorkflowPresentationConfig,
@@ -33,22 +27,24 @@ const dialogWidthClasses: Record<WorkflowPresentationWidth, string> = {
 }
 
 const sheetWidthClasses: Record<WorkflowPresentationWidth, string> = {
-  compact: "sm:max-w-[455px]",
-  form: "sm:max-w-2xl",
-  review: "sm:max-w-3xl",
-  wide: "sm:max-w-[92rem]",
+  compact: "sm:max-w-[455px]!",
+  form: "sm:max-w-2xl!",
+  review: "sm:max-w-3xl!",
+  wide: "sm:max-w-[92rem]!",
 }
 
 export function WorkflowPresentation({
   children,
   className,
   config,
+  contentClassName,
   onOpenChange,
   open,
 }: {
   children: ReactNode
   className?: string
   config: WorkflowPresentationConfig
+  contentClassName?: string
   onOpenChange: (open: boolean) => void
   open: boolean
 }) {
@@ -79,6 +75,7 @@ export function WorkflowPresentation({
 
   const content = (
     <div
+      className={contentClassName}
       onChangeCapture={() => setIsDirty(true)}
       onInputCapture={() => setIsDirty(true)}
     >
@@ -115,7 +112,7 @@ export function WorkflowPresentation({
         <Sheet open={open} onOpenChange={handleOpenChange}>
           <SheetContent
             className={cn(
-              "max-h-dvh w-full overflow-y-auto",
+              "max-h-dvh w-full! overflow-y-auto",
               sheetWidthClasses[config.width],
               className
             )}

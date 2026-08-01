@@ -9,6 +9,7 @@ type MemberFilterKey =
   | "joinedTo"
   | "kycStatus"
   | "memberType"
+  | "migrationStatus"
   | "status"
 
 export type MemberFilterValue = {
@@ -16,6 +17,7 @@ export type MemberFilterValue = {
   joinedTo: string
   kycStatus: string
   memberType: string
+  migrationStatus: string
   status: string
 }
 
@@ -64,6 +66,7 @@ export function MemberFilterList({
 
       case "kycStatus":
       case "memberType":
+      case "migrationStatus":
       case "status":
         return (
           options?.[key]?.find((filter) => filter.id === value)?.name ??
@@ -104,11 +107,11 @@ export function MemberFilterList({
           return (
             <li key={key}>
               <Button
-                className="h-9 px-2 bg-secondary hover:bg-secondary font-normal text-[#878787] flex space-x-1 items-center group rounded-none"
+                className="group flex h-9 items-center space-x-1 rounded-none bg-secondary px-2 font-normal text-[#878787] hover:bg-secondary"
                 onClick={() => handleOnRemove(filterKey)}
                 type="button"
               >
-                <X className="scale-0 group-hover:scale-100 transition-all w-0 group-hover:w-4" />
+                <X className="w-0 scale-0 transition-all group-hover:w-4 group-hover:scale-100" />
                 <span>{label}</span>
               </Button>
             </li>

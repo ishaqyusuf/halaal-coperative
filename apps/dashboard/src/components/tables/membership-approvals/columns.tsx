@@ -1,41 +1,95 @@
 "use client"
 
+import type { RouterOutputs } from "@halaalvest/api/trpc/routers/_app"
 import { Badge } from "@halaalvest/ui/components/badge"
 import type { ColumnDef } from "@tanstack/react-table"
+import { memo } from "react"
 import { MembershipApprovalActionsMenu } from "./actions-menu"
-import type { MembershipApprovalRow } from "./data-table"
 
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <Badge
-      className={
-        status === "approved"
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : status === "rejected"
-            ? "border-red-200 bg-red-50 text-red-700"
-            : status === "pending_approval"
-              ? "border-amber-200 bg-amber-50 text-amber-700"
-              : "border-muted bg-muted text-muted-foreground"
-      }
-      variant="outline"
-    >
-      {status.replace(/_/g, " ")}
-    </Badge>
-  )
+export type MembershipApprovalRow =
+  RouterOutputs["onboarding"]["membershipApprovals"]["data"][number]
+
+export function formatMembershipApprovalStatus(status: string) {
+  if (status === "pending_email_verification") {
+    return "Awaiting verification"
+  }
+
+  if (status === "pending_approval") {
+    return "Pending approval"
+  }
+
+  return `${status.charAt(0).toUpperCase()}${status.slice(1).replaceAll("_", " ")}`
 }
+
+export const MembershipApprovalStatusBadge = memo(
+  function MembershipApprovalStatusBadge({ status }: { status: string }) {
+    return (
+      <Badge
+        className={
+          status === "approved"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : status === "rejected" || status === "cancelled"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : status === "pending_approval"
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : "border-muted bg-muted text-muted-foreground"
+        }
+        variant="outline"
+      >
+        {formatMembershipApprovalStatus(status)}
+      </Badge>
+    )
+  }
+)
+
+export const MembershipApprovalVerificationBadge = memo(
+  function MembershipApprovalVerificationBadge({
+    verified,
+  }: {
+    verified: boolean
+  }) {
+    return (
+      <Badge
+        className={
+          verified
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : "border-amber-200 bg-amber-50 text-amber-700"
+        }
+        variant="outline"
+      >
+        {verified ? "Verified" : "Pending"}
+      </Badge>
+    )
+  }
+)
+
+MembershipApprovalStatusBadge.displayName = "MembershipApprovalStatusBadge"
+MembershipApprovalVerificationBadge.displayName =
+  "MembershipApprovalVerificationBadge"
+
+const ApplicantCell = memo(function ApplicantCell({
+  email,
+  fullName,
+}: {
+  email: string
+  fullName: string
+}) {
+  return (
+    <div>
+      <p className="truncate font-medium text-foreground">{fullName}</p>
+      <p className="mt-1 truncate text-xs text-muted-foreground">{email}</p>
+    </div>
+  )
+})
 
 export const columns: ColumnDef<MembershipApprovalRow>[] = [
   {
     accessorKey: "fullName",
     cell: ({ row }) => (
-      <div>
-        <p className="truncate font-medium text-foreground">
-          {row.original.fullName}
-        </p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {row.original.email}
-        </p>
-      </div>
+      <ApplicantCell
+        email={row.original.email}
+        fullName={row.original.fullName}
+      />
     ),
     enableResizing: true,
     header: "Applicant",
@@ -45,6 +99,7 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
       className:
         "w-[300px] min-w-[240px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
       headerLabel: "Applicant",
+      skeleton: { type: "avatar-text", width: "w-32" },
       sticky: true,
     },
     minSize: 240,
@@ -60,6 +115,7 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
     meta: {
       className: "w-[180px] min-w-[150px]",
       headerLabel: "Cooperative number",
+      skeleton: { type: "text", width: "w-20" },
     },
     minSize: 150,
     size: 180,
@@ -74,6 +130,7 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
     meta: {
       className: "w-[180px] min-w-[150px]",
       headerLabel: "Phone",
+      skeleton: { type: "text", width: "w-24" },
     },
     minSize: 150,
     size: 180,
@@ -81,16 +138,9 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
   {
     accessorKey: "emailVerifiedAt",
     cell: ({ row }) => (
-      <Badge
-        className={
-          row.original.emailVerifiedAt
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-amber-200 bg-amber-50 text-amber-700"
-        }
-        variant="outline"
-      >
-        {row.original.emailVerifiedAt ? "Verified" : "Pending"}
-      </Badge>
+      <MembershipApprovalVerificationBadge
+        verified={Boolean(row.original.emailVerifiedAt)}
+      />
     ),
     enableResizing: true,
     header: "Verification",
@@ -99,13 +149,16 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
     meta: {
       className: "w-[150px] min-w-[130px]",
       headerLabel: "Verification",
+      skeleton: { type: "badge", width: "w-16" },
     },
     minSize: 130,
     size: 150,
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => (
+      <MembershipApprovalStatusBadge status={row.original.status} />
+    ),
     enableResizing: true,
     header: "Status",
     id: "status",
@@ -113,6 +166,7 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
     meta: {
       className: "w-[160px] min-w-[140px]",
       headerLabel: "Status",
+      skeleton: { type: "badge", width: "w-20" },
     },
     minSize: 140,
     size: 160,
@@ -127,6 +181,7 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
     meta: {
       className: "w-[140px] min-w-[120px]",
       headerLabel: "Submitted",
+      skeleton: { type: "text", width: "w-20" },
     },
     minSize: 120,
     size: 140,

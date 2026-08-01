@@ -105,7 +105,7 @@ export const workflowPresentations = {
   },
   memberSignupLink: {
     access: dialog("form"),
-    create: sheet(),
+    create: dialog("form"),
     edit: sheet(),
   },
   monthlyRecord: {

@@ -13,17 +13,17 @@ export const membershipApprovalsFilterParamsSchema = {
 }
 
 export function useMembershipApprovalsFilterParams() {
-  const [filters, setFilters] = useQueryStates(membershipApprovalsFilterParamsSchema, {
-    shallow: false,
-  })
+  const [filter, setFilter] = useQueryStates(
+    membershipApprovalsFilterParamsSchema
+  )
 
   return {
-    filters,
-    hasFilters: hasActiveFilters(filters, { ignoreKeys: ["search"] }),
-    setFilters,
+    filter,
+    hasFilters: hasActiveFilters(filter),
+    setFilter,
   }
 }
 
 export const loadMembershipApprovalsFilterParams = createLoader(
-  membershipApprovalsFilterParamsSchema,
+  membershipApprovalsFilterParamsSchema
 )

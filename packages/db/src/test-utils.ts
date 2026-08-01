@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "../generated/prisma/client"
+import { normalizePostgresConnectionString } from "./postgres-connection"
 
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
@@ -10,7 +11,9 @@ let testPrisma: PrismaClient | null = null
 export function getTestPrisma(): PrismaClient {
   if (!testPrisma) {
     testPrisma = new PrismaClient({
-      adapter: new PrismaPg({ connectionString: TEST_DATABASE_URL }),
+      adapter: new PrismaPg({
+        connectionString: normalizePostgresConnectionString(TEST_DATABASE_URL),
+      }),
     })
   }
   return testPrisma

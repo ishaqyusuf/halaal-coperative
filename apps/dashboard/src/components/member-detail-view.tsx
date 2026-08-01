@@ -1,5 +1,11 @@
 import { formatCurrency } from "@halaalvest/utils"
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@halaalvest/ui/components/alert"
+import { CircleAlert } from "lucide-react"
+import {
   DashboardActionLink,
   DashboardSectionCard,
   DashboardSectionHeader,
@@ -9,15 +15,16 @@ import {
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
+import { MemberDetailActions } from "@/components/member-detail-actions"
 import {
   OpenMemberDetailCommitmentSheet,
   OpenMemberDetailDocumentReviewSheet,
   OpenMemberDetailDocumentSheet,
   OpenMemberDetailKycSheet,
-  OpenMemberDetailPortalAccessSheet,
 } from "@/components/open-member-detail-sheet"
 import { MemberDetailSheet } from "@/components/sheets/member-detail-sheet"
 import { loadMemberDetailPageData } from "@/lib/members"
+import { getMemberMigrationStartHref } from "@/lib/members/member-migration-routing"
 
 type MemberDetailPageData = Extract<
   Awaited<ReturnType<typeof loadMemberDetailPageData>>,
@@ -47,6 +54,7 @@ export function MemberDetailView({
   canManageCommitments,
   canManageMembers,
   detail,
+  operationalReadiness,
   quickFillEnabled,
 }: MemberDetailPageData) {
   const rawActivePlan =
@@ -61,33 +69,72 @@ export function MemberDetailView({
 
   return (
     <WorkspacePageShell
+      actions={
+        <MemberDetailActions
+          canManageMembers={canManageMembers}
+          memberId={detail.member.id}
+        />
+      }
       eyebrow="Members"
       title={detail.member.fullName}
       description="A Midday-style member workspace for identity review, KYC, savings history, loan exposure, repayments, and ledger activity."
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <DashboardActionLink href="/members">
-          Back to member registry
-        </DashboardActionLink>
-        <DashboardActionLink href={`/members/${detail.member.id}/statement`}>
-          Open printable statement
-        </DashboardActionLink>
-        <DashboardActionLink
-          href={`/members/${detail.member.id}/backfill?step=baseline`}
-          variant="secondary"
-        >
-          Backfill history
-        </DashboardActionLink>
-        <a
-          className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
-          href={`/members/${detail.member.id}/statement-export`}
-        >
-          Download member statement
-        </a>
-        {canManageMembers ? <OpenMemberDetailPortalAccessSheet /> : null}
-      </div>
+      {!operationalReadiness.isReady ? (
+        <Alert className="items-start border-amber-300 bg-amber-50 px-4 py-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+          <CircleAlert className="mt-0.5 size-5" />
+          <AlertTitle className="text-sm">
+            Member verification required
+          </AlertTitle>
+          <AlertDescription className="mt-1 text-sm text-amber-900/80 dark:text-amber-100/80">
+            <p>
+              This member remains read-only until every required verification
+              step is complete.
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-4">
+              {operationalReadiness.issues.includes("member_inactive") ? (
+                <li>Set the registry status to active.</li>
+              ) : null}
+              {operationalReadiness.issues.includes("kyc_unverified") ? (
+                <li>Review and verify the member’s KYC information.</li>
+              ) : null}
+              {operationalReadiness.issues.includes("migration_incomplete") ? (
+                <li>
+                  {operationalReadiness.migration.mode === "brought_forward"
+                    ? "Apply the member’s brought-forward opening position."
+                    : "Complete and apply the member’s historical backfill."}
+                </li>
+              ) : null}
+            </ul>
+            {canManageMembers ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {operationalReadiness.issues.includes(
+                  "migration_incomplete"
+                ) ? (
+                  <DashboardActionLink
+                    href={getMemberMigrationStartHref(
+                      detail.member.id,
+                      operationalReadiness.migration.mode
+                    )}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    {operationalReadiness.migration.mode === "brought_forward"
+                      ? "Complete brought forward"
+                      : operationalReadiness.migration.state === "draft"
+                        ? "Continue backfill"
+                        : "Start backfill"}
+                  </DashboardActionLink>
+                ) : null}
+                {operationalReadiness.issues.includes("kyc_unverified") ? (
+                  <OpenMemberDetailKycSheet />
+                ) : null}
+              </div>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <DashboardStatCard
           detail={
             activePlan
@@ -149,7 +196,10 @@ export function MemberDetailView({
             <div>
               <dt className="text-muted-foreground">Status</dt>
               <dd className="mt-1 font-medium text-foreground capitalize">
-                {detail.member.status}
+                {detail.member.status === "active" &&
+                !operationalReadiness.isReady
+                  ? "Action required"
+                  : detail.member.status}
               </dd>
             </div>
             <div>
@@ -236,7 +286,7 @@ export function MemberDetailView({
           />
           <DashboardSurfaceCard as="article" className="mt-5">
             <details open>
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+              <summary className="flex cursor-pointer list-none flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                   <p className="font-medium text-foreground">
                     Current monthly commitment{" "}
@@ -280,7 +330,7 @@ export function MemberDetailView({
                       return (
                         <div
                           key={plan.id}
-                          className="flex items-center justify-between rounded-lg border border-border/70 bg-background/80 px-4 py-3"
+                          className="flex flex-col items-start justify-between gap-3 rounded-lg border border-border/70 bg-background/80 px-4 py-3 sm:flex-row sm:items-center"
                         >
                           <div>
                             <p className="text-sm font-medium text-foreground">
@@ -291,7 +341,7 @@ export function MemberDetailView({
                               {plan.name}
                             </p>
                           </div>
-                          <div className="text-right">
+                          <div className="sm:text-right">
                             <p className="font-medium text-foreground">
                               {formatCurrency(Number(plan.amount))}
                             </p>
@@ -418,7 +468,7 @@ export function MemberDetailView({
             {detail.contributions.length ? (
               detail.contributions.map((contribution) => (
                 <DashboardSurfaceCard key={contribution.id}>
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4">
                     <div>
                       <p className="font-medium text-foreground">
                         {formatCurrency(Number(contribution.amount))}
@@ -460,7 +510,7 @@ export function MemberDetailView({
             {detail.repayments.length ? (
               detail.repayments.map((repayment) => (
                 <DashboardSurfaceCard key={repayment.id}>
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4">
                     <div>
                       <p className="font-medium text-foreground">
                         {formatCurrency(Number(repayment.amount))}

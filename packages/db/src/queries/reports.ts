@@ -1,6 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { getAuditSummary, listAuditLogs } from "./audit"
+import { getAuditSummary, listActivityReportEvents } from "./audit"
 import { getOverviewSummary } from "./dashboard"
 import { getCollectionFollowUpSummary, listCollectionFollowUps } from "./loans"
 import { getMemberKycSummary } from "./members"
@@ -58,6 +58,7 @@ export type ReportsSummary = {
   auditPreview: Array<{
     id: string
     action: string
+    actionLabel: string
     actorLabel: string
     actorType: string
     entityType: string
@@ -140,7 +141,7 @@ function getEmptyReportsSummary(input: {
 
 export async function getReportsSummary(
   input: ReportsSummaryInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<ReportsSummary> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -165,7 +166,7 @@ export async function getReportsSummary(
   const [
     overview,
     auditSummary,
-    auditLogs,
+    activityEvents,
     auditEventsInRange,
     collectionSummary,
     collectionFollowUps,
@@ -183,10 +184,10 @@ export async function getReportsSummary(
   ] = await Promise.all([
     getOverviewSummary(input.tenantId, prisma),
     getAuditSummary(input.tenantId, prisma),
-    listAuditLogs(
+    listActivityReportEvents(
       input.tenantId,
-      { fromDate: input.fromDate, limit: 20, toDate: input.toDate },
-      prisma,
+      { fromDate: input.fromDate, limit: 5, toDate: input.toDate },
+      prisma
     ),
     prisma.auditLog.count({
       where: {
@@ -197,8 +198,8 @@ export async function getReportsSummary(
     getCollectionFollowUpSummary(input.tenantId, prisma),
     listCollectionFollowUps(
       input.tenantId,
-      { fromDate: input.fromDate, limit: 12, toDate: input.toDate },
-      prisma,
+      { fromDate: input.fromDate, limit: 5, toDate: input.toDate },
+      prisma
     ),
     getMemberKycSummary(input.tenantId, prisma),
     prisma.importBatch.count({
@@ -276,14 +277,15 @@ export async function getReportsSummary(
       tenantName: tenant.name,
       to: input.toDate?.toISOString() ?? null,
     },
-    auditPreview: auditLogs.map((log) => ({
-      action: log.action,
-      actorLabel: log.actorUser?.fullName ?? log.actorType,
-      actorType: log.actorType,
-      entityType: log.entityType,
+    auditPreview: activityEvents.map((event) => ({
+      action: event.action,
+      actionLabel: event.actionLabel,
+      actorLabel: event.actorLabel,
+      actorType: event.actorType,
+      entityType: event.entityType,
       href: "/reports/audit",
-      id: log.id,
-      occurredAt: log.occurredAt.toISOString(),
+      id: event.id,
+      occurredAt: event.occurredAt.toISOString(),
     })),
     collectionsPreview: collectionFollowUps.map((followUp) => ({
       caseStage: followUp.caseStage,
@@ -309,7 +311,10 @@ export async function getReportsSummary(
           kycSummary.pending + kycSummary.rejected > 0 ? "warning" : "positive",
       },
       {
-        count: Math.max(0, kycSummary.memberDocuments - kycSummary.approvedDocuments),
+        count: Math.max(
+          0,
+          kycSummary.memberDocuments - kycSummary.approvedDocuments
+        ),
         href: "/members",
         key: "document-review",
         label: "Documents not yet approved",
@@ -326,7 +331,8 @@ export async function getReportsSummary(
         tone: failedImports > 0 ? "warning" : "positive",
       },
       {
-        count: overview.shareAndProfitPosition.profitPendingAllocation > 0 ? 1 : 0,
+        count:
+          overview.shareAndProfitPosition.profitPendingAllocation > 0 ? 1 : 0,
         href: "/settings/finance/business",
         key: "profit-review",
         label: "Profit allocation pending review",
@@ -341,8 +347,7 @@ export async function getReportsSummary(
       deployableFunds: overview.primaryMetrics.deployableFunds,
       outstandingPrincipal: overview.financingRisk.outstandingPrincipal,
       overdueAmount: overview.financingRisk.overdueAmount,
-      pendingDisbursementCount:
-        overview.financingRisk.pendingDisbursementCount,
+      pendingDisbursementCount: overview.financingRisk.pendingDisbursementCount,
       portfolioAtRiskAmount: overview.primaryMetrics.portfolioAtRiskAmount,
       portfolioAtRiskRate: overview.primaryMetrics.portfolioAtRiskRate,
     },

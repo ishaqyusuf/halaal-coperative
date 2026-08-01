@@ -36,7 +36,8 @@ export function TenantFinanceSettingsContent({
   financingSettings?: FinancingSettingsView
   tenantStartDate: string | null
 }) {
-  const { tenantFinanceSettingsSheetType } = useTenantFinanceSettingsParams()
+  const { setParams, tenantFinanceSettingsSheetType } =
+    useTenantFinanceSettingsParams()
 
   if (tenantFinanceSettingsSheetType === "businessProfitPolicy") {
     if (!businessPolicy) {
@@ -60,7 +61,10 @@ export function TenantFinanceSettingsContent({
   if (tenantFinanceSettingsSheetType === "startDate") {
     return (
       <div className="px-6">
-        <FinanceStartDateForm defaultStartDate={tenantStartDate} />
+        <FinanceStartDateForm
+          defaultStartDate={tenantStartDate}
+          onSuccess={() => setParams(null)}
+        />
       </div>
     )
   }

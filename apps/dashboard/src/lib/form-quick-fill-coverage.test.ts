@@ -11,9 +11,11 @@ describe("dashboard Quick fill coverage", () => {
     expect(provider).toContain("<UniversalQaQuickFill")
   })
 
-  test("limits explicit exemptions to existing-identity and submit-only forms", async () => {
+  test("limits explicit exemptions to identity, submit-only, and search forms", async () => {
     const approvedExemptions = new Set([
       "app/(public)/login/login-form.tsx",
+      "components/members/members-mobile-toolbar.tsx",
+      "components/members/members-search-filter.tsx",
       "components/public-auth-forms.tsx",
     ])
     const filesWithExemptions = new Set<string>()

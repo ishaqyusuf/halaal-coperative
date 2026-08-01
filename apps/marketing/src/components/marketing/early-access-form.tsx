@@ -419,22 +419,21 @@ export function EarlyAccessForm({
                             className="flex cursor-pointer gap-3 border border-border/70 bg-muted/20 p-3 text-sm has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/5"
                             key={option.value}
                           >
-                            <FormControl>
-                              <Checkbox
-                                aria-label={`${option.label}. ${option.description}`}
-                                checked={checked}
-                                className="mt-0.5"
-                                onCheckedChange={(nextChecked) =>
-                                  field.onChange(
-                                    nextChecked === true
-                                      ? [...field.value, option.value]
-                                      : field.value.filter(
-                                          (value) => value !== option.value
-                                        )
-                                  )
-                                }
-                              />
-                            </FormControl>
+                            <Checkbox
+                              aria-label={`${option.label}. ${option.description}`}
+                              checked={checked}
+                              className="mt-0.5"
+                              id={`setup-need-${option.value}`}
+                              onCheckedChange={(nextChecked) =>
+                                field.onChange(
+                                  nextChecked === true
+                                    ? [...field.value, option.value]
+                                    : field.value.filter(
+                                        (value) => value !== option.value
+                                      )
+                                )
+                              }
+                            />
                             <span aria-hidden="true">
                               <span className="block font-medium text-foreground">
                                 {option.label}

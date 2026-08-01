@@ -125,8 +125,12 @@ export function GettingStartedShareModelPanel({
           <SharePolicyForm
             defaultPolicy={sharePolicy}
             preserveDraftKey="getting-started:share-policy"
-            redirectTo={selectedMonthlyHistory ? undefined : profitPolicyHref}
-            showSubmitButton={selectedMonthlyHistory}
+            redirectTo={
+              !hasUnsavedModeChange && !selectedMonthlyHistory
+                ? profitPolicyHref
+                : undefined
+            }
+            showSubmitButton={hasUnsavedModeChange || selectedMonthlyHistory}
             onConfigurationModeChange={setSelectedMode}
           />
         </div>

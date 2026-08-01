@@ -3298,7 +3298,11 @@ export function ChargeDefinitionForm({
       ) : null}
       {redirectTo ? (
         <GettingStartedFooterPortal>
-          <Button disabled={isPending} form={resolvedFormId} type="submit">
+          <Button
+            disabled={isPending}
+            onClick={submitChargeRows}
+            type="button"
+          >
             Next
           </Button>
         </GettingStartedFooterPortal>

@@ -105,6 +105,7 @@ export default async function SignupPage({
     return (
       <SignupShell
         eyebrow="Early access"
+        stage="request"
         title="This approval link cannot be used."
         description="Cooperative setup opens only from a valid approved early access link while early access mode is enabled."
       >
@@ -123,6 +124,7 @@ export default async function SignupPage({
   return (
     <SignupShell
       eyebrow={approval ? "Approved setup" : "Cooperative setup"}
+      stage="workspace"
       title="Create a governed cooperative workspace."
       description={
         approval

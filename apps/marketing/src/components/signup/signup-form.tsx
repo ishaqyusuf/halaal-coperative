@@ -36,11 +36,6 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@halaalvest/ui/components/input-group"
-import {
-  Progress,
-  ProgressLabel,
-  ProgressValue,
-} from "@halaalvest/ui/components/progress"
 import { Separator } from "@halaalvest/ui/components/separator"
 import { Spinner } from "@halaalvest/ui/components/spinner"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
@@ -56,6 +51,8 @@ import {
   signupIntentSchema,
   type SignupIntentInput,
 } from "@/lib/signup-flow"
+import { useSignupJourneyStage } from "./signup-journey-state"
+import { SetupContextStrip } from "./setup-context-strip"
 
 type SignupApiSuccess = {
   devMode: boolean
@@ -125,7 +122,7 @@ export function SignupForm({
   const approvedQaWorkspaceSlug =
     approvalLocked && quickFill.enabled
       ? normalizeWorkspaceSlug(
-          defaultValues?.primaryContactEmail?.split("@")[0] ?? "",
+          defaultValues?.primaryContactEmail?.split("@")[0] ?? ""
         )
       : ""
   const form = useZodForm<SignupIntentInput>(signupIntentSchema, {
@@ -140,9 +137,10 @@ export function SignupForm({
   })
   const { publishQaPreviews, showError, showSuccess } = useNotifications()
   const [result, setResult] = useState<SignupApiSuccess | null>(null)
+  useSignupJourneyStage(result ? "verify" : "workspace")
   const [submitting, setSubmitting] = useState(false)
   const [workspaceSlugEdited, setWorkspaceSlugEdited] = useState(
-    Boolean(approvedQaWorkspaceSlug),
+    Boolean(approvedQaWorkspaceSlug)
   )
   const [availability, setAvailability] = useState<AvailabilityState>({
     status: "idle",
@@ -323,11 +321,6 @@ export function SignupForm({
           <CardDescription>{successDescription}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          <Progress value={50}>
-            <ProgressLabel>Setup progress</ProgressLabel>
-            <ProgressValue>Step 1 of 2</ProgressValue>
-          </Progress>
-
           <Alert variant={emailFailed ? "destructive" : "default"}>
             <AlertTitle>Next step</AlertTitle>
             <AlertDescription>
@@ -355,9 +348,7 @@ export function SignupForm({
               </p>
             </div>
           </div>
-          {qaPreview ? (
-            <QaNotificationPreviewCard preview={qaPreview} />
-          ) : null}
+          {qaPreview ? <QaNotificationPreviewCard preview={qaPreview} /> : null}
         </CardContent>
         <CardFooter className="flex flex-wrap items-center gap-2">
           {showSecureLink ? (
@@ -405,7 +396,7 @@ export function SignupForm({
                     form,
                     "signup",
                     approvalLocked ? defaultValues : undefined,
-                    { emailDomain: quickFill.emailDomain },
+                    { emailDomain: quickFill.emailDomain }
                   )
                 }
               >
@@ -414,23 +405,31 @@ export function SignupForm({
             </CardAction>
           ) : null}
           <CardTitle className="text-2xl">
-            Open the verification step.
+            Choose the cooperative workspace.
           </CardTitle>
           <CardDescription>
-            Capture the accountable admin, reserve the cooperative URL, and send
-            the secure email link before any workspace is created.
+            Confirm the accountable admin, reserve the workspace address, and
+            send the secure email link before any records are created.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          <Progress value={25}>
-            <ProgressLabel>Setup progress</ProgressLabel>
-            <ProgressValue>Step 1 of 2</ProgressValue>
-          </Progress>
-
           <form
             className="flex flex-col gap-5"
             onSubmit={form.handleSubmit(onSubmit)}
           >
+            <SetupContextStrip
+              items={[
+                {
+                  label: "Accountable admin",
+                  body: "The verified contact becomes the first workspace owner.",
+                },
+                {
+                  label: "Workspace identity",
+                  body: "Reserve the cooperative name and private operating address.",
+                },
+              ]}
+            />
+
             <FieldGroup className="grid gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
@@ -493,7 +492,7 @@ export function SignupForm({
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
                     <FormLabel>
-                      Admin Membership No (Leave prefix blank if you don't have
+                      Admin Membership No (Leave prefix blank if you do not have
                       a Membership No Prefix).
                     </FormLabel>
                     <div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-3">
@@ -536,11 +535,11 @@ export function SignupForm({
                 name="workspaceSlug"
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel>Website</FormLabel>
+                    <FormLabel>Workspace address</FormLabel>
                     <FormControl>
                       <InputGroup>
                         <InputGroupInput
-                          placeholder="Enter website name"
+                          placeholder="Enter workspace name"
                           {...field}
                           onChange={(event) => {
                             setWorkspaceSlugEdited(true)

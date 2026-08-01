@@ -1,83 +1,150 @@
-.web-readable {
-  --web-secondary-text: color-mix(
-    in oklch,
-    var(--foreground) 74%,
-    var(--background)
+.marketing-site,
+.marketing-flow {
+  --marketing-canvas: #f7faf7;
+  --marketing-canvas-strong: #edf4ee;
+  --marketing-ink: #0b1f36;
+  --marketing-green: #1f7a3d;
+  --marketing-green-bright: #2f9a56;
+  --marketing-gold: #d6a63a;
+  --marketing-line: color-mix(in srgb, var(--marketing-ink) 13%, transparent);
+  --primary: #1f7a3d;
+  --primary-foreground: #ffffff;
+  --ring: #2f9a56;
+  color: var(--marketing-ink);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.marketing-site {
+  background:
+    radial-gradient(circle at 92% 8%, rgb(47 154 86 / 11%), transparent 25rem),
+    radial-gradient(circle at 12% 2%, rgb(214 166 58 / 10%), transparent 22rem),
+    var(--marketing-canvas);
+}
+
+.marketing-flow {
+  background:
+    radial-gradient(circle at 8% 0%, rgb(47 154 86 / 10%), transparent 23rem),
+    #f8faf8;
+}
+
+.marketing-serif {
+  font-family: var(--font-hedvig-serif), Georgia, serif;
+  font-weight: 400;
+}
+
+.marketing-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--marketing-green);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+.marketing-eyebrow::before {
+  width: 1.65rem;
+  height: 1px;
+  background: currentColor;
+  content: "";
+}
+
+.marketing-grid {
+  background-image:
+    linear-gradient(var(--marketing-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--marketing-line) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.marketing-dots {
+  background-image: radial-gradient(
+    circle,
+    rgb(11 31 54 / 16%) 1px,
+    transparent 1.25px
   );
-  --web-inverse-secondary-text: color-mix(
-    in oklch,
-    var(--background) 86%,
-    var(--foreground)
-  );
-  font-size: 1rem;
-  line-height: 1.75rem;
+  background-size: 13px 13px;
 }
 
-.web-readable .text-muted-foreground,
-.web-readable .text-foreground\/60,
-.web-readable .text-foreground\/70 {
-  color: var(--web-secondary-text);
+.marketing-panel-shadow {
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 75%) inset,
+    0 32px 80px rgb(11 31 54 / 13%);
 }
 
-.web-readable .text-background\/60,
-.web-readable .text-background\/70,
-.web-readable .text-background\/80 {
-  color: var(--web-inverse-secondary-text);
+.marketing-soft-shadow {
+  box-shadow: 0 18px 55px rgb(11 31 54 / 9%);
 }
 
-.web-readable .text-xs,
-.web-readable .text-sm,
-.web-readable .text-base {
-  font-size: 1rem;
-  line-height: 1.75rem;
+.marketing-site ::selection,
+.marketing-flow ::selection {
+  color: #f7faf7;
+  background: var(--marketing-green);
 }
 
-.web-readable [class~="text-[11px]"] {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+.marketing-form [data-slot="card"] {
+  overflow: hidden;
+  border-color: rgb(11 31 54 / 13%);
+  border-radius: 1.25rem;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 22px 70px rgb(11 31 54 / 9%);
 }
 
-.web-readable :is(a, button)[class*="group/button"],
-.web-readable [data-slot="button"] {
+.marketing-form [data-slot="card-header"] {
+  border-bottom: 1px solid rgb(11 31 54 / 9%);
+  background: linear-gradient(135deg, rgb(247 250 247 / 95%), #fff);
+  padding: 1.5rem;
+}
+
+.marketing-form [data-slot="card-content"] {
+  padding: 1.5rem;
+}
+
+.marketing-form [data-slot="card-footer"] {
+  border-top: 1px solid rgb(11 31 54 / 9%);
+  padding: 1.25rem 1.5rem;
+}
+
+.marketing-form [data-slot="input"],
+.marketing-form [data-slot="input-group"],
+.marketing-form [data-slot="select-trigger"],
+.marketing-form textarea {
+  min-height: 2.875rem;
+  border-color: rgb(11 31 54 / 16%);
+  border-radius: 0.7rem;
+  background: rgb(255 255 255 / 90%);
+  font-size: 0.95rem;
+}
+
+.marketing-form [data-slot="button"] {
   min-height: 2.75rem;
-  font-size: 1rem;
-  line-height: 1.5rem;
+  border-radius: 0.7rem;
 }
 
-.web-readable [class*="group/badge"] {
-  min-height: 1.75rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+.marketing-form [data-slot="progress"] {
+  overflow: hidden;
+  border-radius: 999px;
 }
 
-.web-readable [data-slot="card"],
-.web-readable [data-slot="card-description"],
-.web-readable [data-slot="alert"],
-.web-readable [data-slot="alert-description"] {
-  font-size: 1rem;
-  line-height: 1.75rem;
+@media (min-width: 640px) {
+  .marketing-form [data-slot="card-header"],
+  .marketing-form [data-slot="card-content"] {
+    padding: 1.75rem;
+  }
+
+  .marketing-form [data-slot="card-footer"] {
+    padding-inline: 1.75rem;
+  }
 }
 
-.web-readable [data-slot="label"],
-.web-readable [data-slot="progress-label"],
-.web-readable [data-slot="progress-value"] {
-  font-size: 1rem;
-  line-height: 1.5rem;
-}
-
-.web-readable [data-slot="input-group"] {
-  min-height: 2.75rem;
-  height: auto;
-}
-
-.web-readable :is(input, textarea, select) {
-  min-height: 2.75rem;
-  font-size: 1rem;
-  line-height: 1.5rem;
-}
-
-.web-readable :is(input, textarea, select)::placeholder {
-  color: var(--web-secondary-text);
-  font-size: 1rem;
-  line-height: 1.5rem;
+@media (prefers-reduced-motion: reduce) {
+  .marketing-site *,
+  .marketing-flow * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

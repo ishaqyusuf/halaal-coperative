@@ -2,8 +2,7 @@ import { listTenants } from "@halaalvest/db"
 import { resolveQaQuickFillContext } from "@halaalvest/utils"
 import { redirect } from "next/navigation"
 import { DevTenantFab } from "@/components/marketing/dev-tenant-fab"
-import { LaunchLanding } from "@/components/marketing/launch-landing"
-import { PrelaunchLanding } from "@/components/marketing/prelaunch-landing"
+import { MarketingLanding } from "@/components/marketing/marketing-landing"
 import { getMarketingConfig } from "@/lib/marketing-config"
 import { getSignupHref } from "@/lib/runtime-url"
 import { getServerQaEmailDomains } from "@/lib/server-notifications"
@@ -31,11 +30,11 @@ export default async function Page() {
 
   return (
     <>
-      {marketing.isLaunchReady ? (
-        <LaunchLanding quickFill={quickFill} signupHref={signupHref} />
-      ) : (
-        <PrelaunchLanding quickFill={quickFill} signupHref={signupHref} />
-      )}
+      <MarketingLanding
+        isLaunchReady={marketing.isLaunchReady}
+        quickFill={quickFill}
+        signupHref={signupHref}
+      />
       {process.env.NODE_ENV !== "production" ? (
         <DevTenantFab
           tenants={tenants.map((tenant) => ({

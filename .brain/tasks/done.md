@@ -618,3 +618,14 @@ This file records completed work and important outcomes.
 - Created Date: 2026-07-28
 - Completed Date: 2026-07-28
 - Checks: focused database-router, fail-closed launcher, and infrastructure-contract tests; configuration parsing; legacy-reference scan; inherited env-mode validation; local port-owner rejection; Prisma generation; monorepo typecheck; validated custom-format database backup. Live database cutover and local dev smoke intentionally skipped while port `55432` is occupied.
+
+### Organic Trust Marketing And Public Setup Redesign
+
+- Priority: High
+- Description: Replaced the generic split launch/prelaunch landing variants with one responsive Organic Trust marketing experience, added a domain-shaped sample cooperative workspace, clarified product, migration, trust, and subscription narratives, preserved the full five-plan comparison on a dedicated pricing page, and unified early access, signup, verification, profile, and ready states into a five-stage public setup presentation without changing signed-token or API behavior.
+- Related Feature: Public signup and onboarding; cooperative platform positioning
+- Status: Done
+- Plan Status: Done
+- Created Date: 2026-08-01
+- Completed Date: 2026-08-01
+- Checks: focused marketing regression tests; marketing typecheck and lint; responsive browser screenshots; live anchor, early-access field, and onboarding recovery QA; `git diff --check`

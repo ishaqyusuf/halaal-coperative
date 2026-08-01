@@ -24,6 +24,7 @@ This file captures the customer problem, target users, and long-term product vis
 - Any cooperative that wants transparent, interest-free, member-owned finance operations without being limited to a Muslim-only audience.
 
 ## Value Proposition
+- Primary marketing promise: run a cooperative with records every member can trust.
 - Replace manual ledgers with transparent digital records.
 - Give members visibility into savings, charges, financing, and repayment progress.
 - Support both direct deduction and indirect contribution workflows in one platform.
@@ -38,6 +39,7 @@ This file captures the customer problem, target users, and long-term product vis
 - Public voice: inclusive, neutral, and operator-focused. Lead with transparent, ethical, interest-free cooperative finance rather than religious audience cues.
 - Avoid positioning as a direct lender unless that becomes a regulated business line later.
 - Current public positioning should emphasize staged contributions, approval-controlled signup, transparent member records, interest-free financing operations, charges, statements, and guided setup without invented traction metrics.
+- Public product previews should be labeled as samples and explain operational outcomes in cooperative language: staged records, liquidity-before-approval checks, traceable balances, transparent charges, and member-readable statements.
 
 ## Pricing Posture
 - Price as predictable tenant SaaS subscriptions with active-member bands, not as a share of savings, financing, repayments, dividends, or cooperative profits.

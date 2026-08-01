@@ -1,8 +1,29 @@
 import "@halaalvest/ui/globals.css"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
+import { Hedvig_Letters_Sans, Hedvig_Letters_Serif } from "next/font/google"
 import { QaPreviewFlashConsumer } from "@/components/qa-preview-flash-consumer"
 import { getMarketingConfig } from "@/lib/marketing-config"
 import "./readability.css"
+
+const hedvigSans = Hedvig_Letters_Sans({
+  weight: "400",
+  subsets: ["latin"],
+  display: "optional",
+  variable: "--font-hedvig-sans",
+  preload: true,
+  adjustFontFallback: true,
+  fallback: ["system-ui", "Arial"],
+})
+
+const hedvigSerif = Hedvig_Letters_Serif({
+  weight: "400",
+  subsets: ["latin"],
+  display: "optional",
+  variable: "--font-hedvig-serif",
+  preload: true,
+  adjustFontFallback: true,
+  fallback: ["Georgia", "Times New Roman", "serif"],
+})
 
 const marketing = getMarketingConfig()
 const iconName =
@@ -46,8 +67,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="font-sans antialiased">
-      <body>
+    <html lang="en" className="antialiased">
+      <body
+        className={`${hedvigSans.variable} ${hedvigSerif.variable} font-sans`}
+      >
         <NotificationsProvider>
           {children}
           <QaPreviewFlashConsumer />

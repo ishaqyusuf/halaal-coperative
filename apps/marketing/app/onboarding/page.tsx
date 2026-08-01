@@ -34,6 +34,7 @@ export default async function OnboardingPage({
     return (
       <SignupShell
         eyebrow="Verified setup"
+        stage="verify"
         title="Open onboarding from a secure verification link."
         description="Setup sends the primary admin a time-limited link before a workspace can be created."
       >
@@ -62,6 +63,7 @@ export default async function OnboardingPage({
     return (
       <SignupShell
         eyebrow="Verified setup"
+        stage="verify"
         title="This verification link can’t be used."
         description={verificationResult.errorMessage}
       >
@@ -82,6 +84,7 @@ export default async function OnboardingPage({
   return (
     <SignupShell
       eyebrow="Verified setup"
+      stage="profile"
       title="Finish the cooperative workspace profile."
       description="The verified admin is confirmed. Save the operating profile and first password, then move into guided dashboard setup."
     >

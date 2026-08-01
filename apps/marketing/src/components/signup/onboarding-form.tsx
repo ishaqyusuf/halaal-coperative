@@ -38,11 +38,6 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import {
-  Progress,
-  ProgressLabel,
-  ProgressValue,
-} from "@halaalvest/ui/components/progress"
 import { Separator } from "@halaalvest/ui/components/separator"
 import {
   Select,
@@ -74,6 +69,8 @@ import {
   type OnboardingFormInput,
   type SignupVerificationPayload,
 } from "@/lib/signup-flow"
+import { useSignupJourneyStage } from "./signup-journey-state"
+import { SetupContextStrip } from "./setup-context-strip"
 
 type OnboardingResult = {
   dashboardUrl: string
@@ -120,6 +117,7 @@ export function OnboardingForm({
   })
   const { publishQaPreviews, showError, showSuccess } = useNotifications()
   const [result, setResult] = useState<OnboardingResult | null>(null)
+  useSignupJourneyStage(result ? "ready" : "profile")
   const [submitting, setSubmitting] = useState(false)
 
   async function onSubmit(values: OnboardingFormInput) {
@@ -185,11 +183,6 @@ export function OnboardingForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          <Progress value={100}>
-            <ProgressLabel>Setup progress</ProgressLabel>
-            <ProgressValue>Complete</ProgressValue>
-          </Progress>
-
           <div className="grid gap-3 md:grid-cols-3">
             <div className="border bg-muted/35 p-3">
               <p className="text-xs text-muted-foreground">Workspace</p>
@@ -227,9 +220,7 @@ export function OnboardingForm({
             </Alert>
           ) : null}
 
-          {qaPreview ? (
-            <QaNotificationPreviewCard preview={qaPreview} />
-          ) : null}
+          {qaPreview ? <QaNotificationPreviewCard preview={qaPreview} /> : null}
 
           {domainNeedsAttention ? (
             <Alert>
@@ -251,9 +242,7 @@ export function OnboardingForm({
           {quickFill.enabled && devDashboardUrlVariants.length ? (
             <DropdownMenu>
               <DropdownMenuTrigger
-                render={
-                  <Button size="lg" type="button" variant="outline" />
-                }
+                render={<Button size="lg" type="button" variant="outline" />}
               >
                 URL variants
                 <ChevronDownIcon data-icon="inline-end" />
@@ -309,17 +298,23 @@ export function OnboardingForm({
                 type="button"
                 variant="outline"
                 onClick={() =>
-                  void applyDevFormFill(form, "onboarding", {
-                    cooperativeName: verification.cooperativeName,
-                    primaryContactEmail: verification.primaryContactEmail,
-                    primaryContactFullName: verification.primaryContactFullName,
-                    memberNumberPrefix: verification.memberNumberPrefix,
-                    primaryContactMemberNumber:
-                      verification.primaryContactMemberNumber,
-                    token: form.getValues("token"),
-                  }, {
-                    emailDomain: quickFill.emailDomain,
-                  })
+                  void applyDevFormFill(
+                    form,
+                    "onboarding",
+                    {
+                      cooperativeName: verification.cooperativeName,
+                      primaryContactEmail: verification.primaryContactEmail,
+                      primaryContactFullName:
+                        verification.primaryContactFullName,
+                      memberNumberPrefix: verification.memberNumberPrefix,
+                      primaryContactMemberNumber:
+                        verification.primaryContactMemberNumber,
+                      token: form.getValues("token"),
+                    },
+                    {
+                      emailDomain: quickFill.emailDomain,
+                    }
+                  )
                 }
               >
                 Quick fill
@@ -327,19 +322,14 @@ export function OnboardingForm({
             </CardAction>
           ) : null}
           <CardTitle className="text-2xl">
-            Finish the verified workspace profile.
+            Complete the cooperative profile.
           </CardTitle>
           <CardDescription>
-            The admin email is verified. Add the operating profile and first
-            password before opening the tenant setup checklist.
+            The admin email is verified. Add the cooperative identity and first
+            password before opening the protected setup checklist.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          <Progress value={75}>
-            <ProgressLabel>Setup progress</ProgressLabel>
-            <ProgressValue>Step 2 of 2</ProgressValue>
-          </Progress>
-
           <form
             className="flex flex-col gap-5"
             onSubmit={form.handleSubmit(onSubmit)}
@@ -369,6 +359,19 @@ export function OnboardingForm({
               type="hidden"
               value={verification.primaryContactMemberNumber}
               {...form.register("primaryContactMemberNumber")}
+            />
+
+            <SetupContextStrip
+              items={[
+                {
+                  label: "Cooperative details",
+                  body: "Save the operating location and current member-size range.",
+                },
+                {
+                  label: "Admin security",
+                  body: "Create the first password for the verified workspace owner.",
+                },
+              ]}
             />
 
             <FieldGroup className="grid gap-4 md:grid-cols-2">

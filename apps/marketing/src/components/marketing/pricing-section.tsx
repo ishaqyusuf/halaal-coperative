@@ -1,295 +1,139 @@
-import { Badge } from "@halaalvest/ui/components/badge"
 import { buttonVariants } from "@halaalvest/ui/components/button"
+import { ArrowRightIcon, CheckIcon } from "lucide-react"
 import Link from "next/link"
-
-const planRateRange = {
-  low: 50,
-  high: 75,
-} as const
-
-function formatPlanPrice(memberCap: number) {
-  const formatValue = (value: number) => {
-    if (value >= 1000) {
-      const thousands = value / 1000
-      const formattedThousands = Number.isInteger(thousands)
-        ? `${thousands}`
-        : thousands.toFixed(2).replace(/\.?0+$/, "")
-
-      return `${formattedThousands}k`
-    }
-
-    return value.toLocaleString("en-NG")
-  }
-
-  return `NGN ${formatValue(memberCap * planRateRange.low)}-${formatValue(
-    memberCap * planRateRange.high,
-  )}`
-}
-
-const pricingPlans = [
-  {
-    name: "Free Beta",
-    price: "NGN 0",
-    cadence: "while beta is active",
-    members: "Up to 100 active members",
-    description:
-      "For early cooperatives validating guided setup and live operating workflows.",
-    features: [
-      "Guided cooperative setup",
-      "Member import and records",
-      "Contributions, charges, and statements",
-      "Admin-only beta workspace",
-    ],
-    cta: "Request access",
-    featured: true,
-  },
-  {
-    name: "Starter",
-    price: formatPlanPrice(250),
-    cadence: "per month",
-    members: "Up to 250 active members",
-    description:
-      "For small societies moving from spreadsheets into accountable records.",
-    features: [
-      "Core finance workspace",
-      "Admin-only by default",
-      "Email notifications for admins",
-      "Member login as paid add-on",
-    ],
-    cta: "Request access",
-    featured: false,
-  },
-  {
-    name: "Standard",
-    price: formatPlanPrice(1000),
-    cadence: "per month",
-    members: "Up to 1,000 active members",
-    description:
-      "For established cooperatives running monthly contribution operations.",
-    features: [
-      "Member login included",
-      "Custom domain included",
-      "Email notifications for members",
-      "Audit history",
-    ],
-    cta: "Request access",
-    featured: false,
-  },
-  {
-    name: "Growth",
-    price: formatPlanPrice(3000),
-    cadence: "per month",
-    members: "Up to 3,000 active members",
-    description:
-      "For larger employer, civil-service, or multi-group cooperative programs.",
-    features: [
-      "WhatsApp setup included",
-      "Advanced email templates",
-      "Bulk operations and exports",
-      "White label app as add-on",
-    ],
-    cta: "Request access",
-    featured: false,
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    cadence: "quoted monthly",
-    members: "Custom active-member band",
-    description:
-      "For multi-branch, integration-heavy, or SLA-backed cooperative deployments.",
-    features: [
-      "White label app options",
-      "Custom domains and branding",
-      "WhatsApp and email workflows",
-      "Dedicated success support",
-    ],
-    cta: "Talk to us",
-    featured: false,
-  },
-] as const
-
-const feeNotes = [
-  "No percentage of member savings, financing, repayments, dividends, or profits.",
-  "SMS, KYC, payment gateway, transfer, and direct-debit costs stay transparent pass-throughs.",
-  "Setup, migration, integrations, training, and white-label work are quoted separately.",
-] as const
-
-const featureMatrix = [
-  {
-    feature: "Member login",
-    values: ["No", "Add-on", "Included", "Included", "Included"],
-  },
-  {
-    feature: "Custom domain",
-    values: ["No", "Add-on", "Included", "Included", "Included"],
-  },
-  {
-    feature: "Email notifications",
-    values: ["Admin setup", "Admin only", "Admin + member", "Advanced", "Custom"],
-  },
-  {
-    feature: "WhatsApp notifications",
-    values: ["Pilot only", "Add-on", "Add-on", "Setup included", "Custom"],
-  },
-  {
-    feature: "White label app",
-    values: ["No", "No", "No", "Add-on", "Custom"],
-  },
-] as const
+import { homepagePricingPlans, pricingFeePrinciples } from "./pricing-data"
 
 export function PricingSection({ signupHref }: { signupHref: string }) {
   return (
-    <section id="pricing" className="border-b border-border bg-background">
-      <div className="mx-auto w-full max-w-7xl px-5 py-14 sm:px-6 lg:px-8 lg:py-18">
-        <div className="grid gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-end">
+    <section
+      id="pricing"
+      className="scroll-mt-24 bg-white px-5 py-20 sm:px-8 sm:py-24 lg:px-12 lg:py-32"
+    >
+      <div className="mx-auto w-full max-w-[90rem]">
+        <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
+          <div className="marketing-eyebrow">Predictable SaaS pricing</div>
           <div>
-            <Badge variant="outline" className="h-6 rounded-md px-2.5">
-              Pricing
-            </Badge>
-            <h2 className="mt-5 max-w-xl font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              Predictable plans that stay separate from member funds.
+            <h2 className="marketing-serif max-w-4xl text-4xl leading-[1.02] tracking-[-0.035em] sm:text-5xl lg:text-6xl">
+              Software fees stay separate from member money.
             </h2>
-          </div>
-
-          <div className="border border-border bg-card p-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-semibold">Free beta access</p>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Selected early cooperatives can run guided setup and core live
-                  workflows at no subscription cost while the beta is active.
-                </p>
-              </div>
-              <Link
-                className={buttonVariants({
-                  className: "h-10 rounded-md px-4 text-sm",
-                })}
-                href={signupHref}
-              >
-                Request access
-                <span aria-hidden="true">-&gt;</span>
-              </Link>
-            </div>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-[#0B1F36]/62">
+              Plans use active-member capacity bands. Halaalvest does not take a
+              percentage of cooperative funds or financing activity.
+            </p>
           </div>
         </div>
 
-        <div className="mt-8 grid gap-px overflow-hidden border border-border bg-border md:grid-cols-2 xl:grid-cols-5">
-          {pricingPlans.map((plan) => {
-            const planClassName = plan.featured
-              ? "bg-foreground p-5 text-background"
-              : "bg-card p-5 text-foreground"
-            const mutedClassName = plan.featured
-              ? "text-background/70"
-              : "text-muted-foreground"
-            const markerClassName = plan.featured
-              ? "mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-background"
-              : "mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-foreground"
-
-            return (
-              <article className={planClassName} key={plan.name}>
-                <div className="flex min-h-64 flex-col">
-                  <div>
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-lg font-semibold tracking-tight">
-                        {plan.name}
-                      </h3>
-                      {plan.featured ? (
-                        <span className="border border-background/30 px-2 py-1 text-[11px] font-medium text-background/80">
-                          Beta
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-5 text-3xl font-semibold tracking-tight">
-                      {plan.price}
-                    </p>
-                    <p className={`mt-1 text-xs ${mutedClassName}`}>
-                      {plan.cadence}
-                    </p>
-                    <p className="mt-5 text-sm font-medium">{plan.members}</p>
-                    <p className={`mt-3 text-sm leading-6 ${mutedClassName}`}>
-                      {plan.description}
-                    </p>
-                  </div>
-
-                  <ul className="mt-6 space-y-3 text-sm">
-                    {plan.features.map((feature) => (
-                      <li className="flex gap-2" key={feature}>
-                        <span aria-hidden="true" className={markerClassName}>
-                          +
-                        </span>
-                        <span className={mutedClassName}>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link
-                    className={buttonVariants({
-                      className: plan.featured
-                        ? "mt-auto h-10 rounded-md bg-background px-4 text-sm text-foreground hover:bg-background/90"
-                        : "mt-auto h-10 rounded-md px-4 text-sm",
-                      variant: plan.featured ? "default" : "outline",
-                    })}
-                    href={signupHref}
-                  >
-                    {plan.cta}
-                    <span aria-hidden="true">-&gt;</span>
-                  </Link>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-
-        <div className="mt-8 grid gap-px overflow-hidden border border-border bg-border md:grid-cols-3">
-          {feeNotes.map((note) => (
-            <div className="bg-card p-5" key={note}>
-              <p className="text-sm leading-6 text-muted-foreground">{note}</p>
-            </div>
+        <div className="mt-14 grid gap-4 lg:grid-cols-3">
+          {homepagePricingPlans.map((plan) => (
+            <PricingCard key={plan.name} plan={plan} signupHref={signupHref} />
           ))}
         </div>
 
-        <div className="mt-8 border border-border bg-card">
-          <div className="border-b border-border p-5">
-            <p className="text-sm font-semibold">Feature availability</p>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Starter stays admin-only by default. Standard unlocks direct
-              member access, while Growth and Enterprise add richer
-              communications and branding.
+        <div className="mt-4 grid overflow-hidden rounded-2xl border border-[#0B1F36]/10 bg-[#F7FAF7] lg:grid-cols-[0.7fr_1.3fr]">
+          <div className="border-b border-[#0B1F36]/10 p-6 lg:border-r lg:border-b-0 lg:p-7">
+            <p className="text-sm font-semibold">
+              Need a different member band?
             </p>
+            <p className="mt-2 text-sm leading-6 text-[#0B1F36]/58">
+              Starter covers up to 250 active members. Growth covers up to
+              3,000. We confirm the right rollout during setup.
+            </p>
+            <Link
+              className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#1F7A3D] hover:text-[#176331]"
+              href="/pricing"
+            >
+              Compare all five plans
+              <ArrowRightIcon aria-hidden="true" className="size-4" />
+            </Link>
           </div>
-
-          <div className="overflow-x-auto">
-            <div className="min-w-[760px]">
-              <div className="grid grid-cols-[1.25fr_repeat(5,1fr)] border-b border-border bg-muted/30 text-xs font-medium text-muted-foreground">
-                <div className="p-4">Feature</div>
-                {pricingPlans.map((plan) => (
-                  <div className="p-4" key={plan.name}>
-                    {plan.name}
-                  </div>
-                ))}
+          <div className="grid gap-px bg-[#0B1F36]/10 md:grid-cols-3">
+            {pricingFeePrinciples.map((principle) => (
+              <div
+                className="bg-[#F7FAF7] p-6 text-sm leading-6 text-[#0B1F36]/62"
+                key={principle}
+              >
+                {principle}
               </div>
-
-              {featureMatrix.map((row) => (
-                <div
-                  className="grid grid-cols-[1.25fr_repeat(5,1fr)] border-b border-border text-sm last:border-b-0"
-                  key={row.feature}
-                >
-                  <div className="p-4 font-medium">{row.feature}</div>
-                  {row.values.map((value, index) => (
-                    <div
-                      className="p-4 text-muted-foreground"
-                      key={`${row.feature}-${index}`}
-                    >
-                      {value}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
         </div>
       </div>
     </section>
+  )
+}
+
+function PricingCard({
+  plan,
+  signupHref,
+}: {
+  plan: (typeof homepagePricingPlans)[number]
+  signupHref: string
+}) {
+  const featured = plan.name === "Standard"
+
+  return (
+    <article
+      className={`flex min-h-[35rem] flex-col overflow-hidden rounded-[1.5rem] border p-7 sm:p-8 ${
+        featured
+          ? "border-[#0B1F36] bg-[#0B1F36] text-white"
+          : "border-[#0B1F36]/10 bg-[#F7FAF7] text-[#0B1F36]"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="text-lg font-semibold">{plan.name}</h3>
+        {featured ? (
+          <span className="rounded-full bg-[#71D98B] px-2.5 py-1 text-[10px] font-semibold text-[#071B2C] uppercase">
+            Established teams
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-10">
+        <p className="marketing-serif text-4xl tracking-[-0.035em] sm:text-5xl">
+          {plan.price}
+        </p>
+        <p
+          className={`mt-2 text-sm ${featured ? "text-white/55" : "text-[#0B1F36]/52"}`}
+        >
+          {plan.cadence}
+        </p>
+      </div>
+
+      <p className="mt-7 text-sm font-semibold">{plan.members}</p>
+      <p
+        className={`mt-3 text-sm leading-7 ${featured ? "text-white/62" : "text-[#0B1F36]/60"}`}
+      >
+        {plan.description}
+      </p>
+
+      <ul
+        className={`mt-8 space-y-3 border-t pt-6 text-sm ${featured ? "border-white/12" : "border-[#0B1F36]/10"}`}
+      >
+        {plan.features.map((feature) => (
+          <li className="flex items-start gap-2.5" key={feature}>
+            <CheckIcon
+              aria-hidden="true"
+              className={`mt-0.5 size-4 shrink-0 ${featured ? "text-[#71D98B]" : "text-[#1F7A3D]"}`}
+            />
+            <span className={featured ? "text-white/72" : "text-[#0B1F36]/68"}>
+              {feature}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <Link
+        className={buttonVariants({
+          className: featured
+            ? "mt-auto h-11 rounded-full !bg-[#71D98B] px-5 !text-[#071B2C] hover:!bg-[#8AE6A0]"
+            : "mt-auto h-11 rounded-full border-[#0B1F36]/16 bg-white px-5 text-[#0B1F36] hover:bg-white",
+          variant: featured ? "default" : "outline",
+        })}
+        href={signupHref}
+      >
+        Request access
+        <ArrowRightIcon aria-hidden="true" className="size-4" />
+      </Link>
+    </article>
   )
 }

@@ -54,6 +54,7 @@ import {
   type EarlyAccessRequestInput,
 } from "@/lib/early-access"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
+import { SetupContextStrip } from "@/components/signup/setup-context-strip"
 
 type EarlyAccessResponse = {
   approveAndContinueUrl?: string
@@ -184,10 +185,12 @@ export function EarlyAccessForm({
     <Form {...form}>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Request early access</CardTitle>
+          <CardTitle className="text-2xl">
+            Tell us about your cooperative.
+          </CardTitle>
           <CardDescription>
-            Tell us who owns setup and how the cooperative operates today. We
-            use these details to prepare the right approval and migration path.
+            Share the accountable contact and current operating context. We use
+            it to prepare the right approval and migration path.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -234,6 +237,19 @@ export function EarlyAccessForm({
             className="flex flex-col gap-5"
             onSubmit={form.handleSubmit(onSubmit)}
           >
+            <SetupContextStrip
+              items={[
+                {
+                  label: "Cooperative contact",
+                  body: "Who owns setup and how we can reach them.",
+                },
+                {
+                  label: "Rollout context",
+                  body: "Current records, timing, and the areas setup should cover.",
+                },
+              ]}
+            />
+
             <FieldGroup className="grid gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}

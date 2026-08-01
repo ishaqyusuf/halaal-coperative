@@ -27,8 +27,12 @@
 
 ## UI Flow
 
-- Marketing homepage: production CTAs point to the early access request section instead of direct signup.
+- Marketing homepage: launch and prelaunch modes share one responsive public experience. The hero leads with trustworthy cooperative records, the sample workspace demonstrates collections, financing safeguards, approvals, and member-visible statements, and the remaining sections explain operating areas, setup, migration, trust, and pricing without invented customer or traction claims.
+- Production CTAs point to the early access request section instead of direct signup. Launch-ready environments may use the same page structure while sending the primary action to cooperative setup.
+- Public marketing presentation uses the Organic Trust direction: warm off-white surfaces, deep navy editorial typography, restrained cooperative green, subtle ledger grids, and domain-shaped product previews. It must remain inclusive and operator-focused and must not imply that Halaalvest is a lender, bank, or custodian of member funds.
+- The homepage keeps pricing concise, while `/pricing` preserves the five-plan capacity bands, feature availability matrix, and fee-separation principles for detailed comparison.
 - Early access form: collect cooperative name, primary contact name/email, phone, current member-size range, current record system, target setup timeline, one or more setup areas, and an optional additional note with `useZodForm`; submitting sends platform admins the approval email.
+- Early access, approved signup, verification, profile, and ready states are presented as one five-stage setup journey. Stateful forms advance the shared shell to verification and ready after successful requests; signed-token gates and existing API contracts remain authoritative.
 - `/api/early-access/approve?token=...`: platform admin approval link sends the cooperative primary contact an approved setup link.
 - `/signup?approvalToken=...`: the private setup form opens only from an approved setup link when early access mode is enabled and locks the approved cooperative/contact fields.
 - `/signup`: when early access mode is enabled and no token is present, redirects to `/#early-access` instead of exposing the setup form. When early access mode is disabled, the same route can be used for direct development setup.
@@ -39,6 +43,7 @@
 
 ## API/Data Impact
 
+- The 2026-08-01 public-experience redesign changed presentation and content only. It did not alter early-access, approval, signup, verification, onboarding, tenancy, or notification contracts.
 - `apps/marketing/app/api/early-access/route.ts` creates a signed early access request token and emails configured marketing admins from `MARKETING_ADMIN_EMAILS`; the signed request and admin email preserve the selected cooperative size, record system, setup timeline, and setup-area labels.
 - `apps/marketing/app/api/early-access/approve/route.ts` verifies the admin approval token, mints a signed setup approval token, and emails the approved cooperative contact a private setup link.
 - `apps/marketing/app/api/signup/route.ts` creates a signed onboarding token and verification email draft; while early access mode is enabled it first verifies that the request includes a valid setup approval token matching the cooperative name and primary contact email.

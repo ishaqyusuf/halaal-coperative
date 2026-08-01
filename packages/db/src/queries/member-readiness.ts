@@ -70,6 +70,7 @@ export function resolveMemberOperationalReadiness(
   const appliedMonthCount =
     input.appliedBackfillMonthCount ?? appliedMonthKeys.size
   const expectedMonthKeys = getExpectedMemberBackfillMonthKeys({
+    asOf: now,
     joinedAt: input.joinedAt,
     tenantStartDate: input.tenantStartDate,
   })

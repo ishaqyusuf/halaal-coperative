@@ -110,6 +110,7 @@ function inclusiveMonthDifference(start: Date, end: Date) {
 }
 
 export function getExpectedMemberBackfillMonthKeys(input: {
+  asOf?: Date
   joinedAt: Date
   tenantStartDate: Date | null | undefined
 }) {
@@ -118,7 +119,7 @@ export function getExpectedMemberBackfillMonthKeys(input: {
       ? input.tenantStartDate
       : input.joinedAt
   )
-  const end = startOfMonth(new Date())
+  const end = startOfMonth(input.asOf ?? new Date())
   const monthCount = inclusiveMonthDifference(start, end)
 
   if (monthCount <= 0) return []

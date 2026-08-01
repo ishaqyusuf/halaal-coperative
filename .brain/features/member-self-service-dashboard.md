@@ -26,6 +26,13 @@
 - Financial and operational submissions require operational readiness: the member must be active, KYC verified, and complete for any tenant-required historical backfill or brought-forward opening position. Web server actions and mobile mutation procedures enforce the same rule.
 - Request-item, request-business, and Foodstuff Purchase entry actions are suppressed on the member dashboard while readiness is incomplete; support and document update paths remain available so the member can resolve the blocker.
 
+## QA Verification — 2026-08-01
+
+- Safa portal access was issued to Hauwa Ilyas through the `ishaq.qa.test` QA artifact, and the password-setup/member-login flow completed successfully.
+- The signed-in member received member-only navigation and saw the unit-based share model, NGN 10,000 unit value, and 1 approved compulsory unit.
+- Because Safa uses brought-forward migration, submission actions remain locked until Hauwa's opening position is applied. This is the intended readiness boundary: login, member-scoped reads, support, and remediation remain available.
+- The verified member dashboard and admin re-login produced no browser console errors.
+
 ## Boundaries
 
 - Profile and document update requests are support-backed review requests; they do not directly mutate member profile, KYC, or document records.

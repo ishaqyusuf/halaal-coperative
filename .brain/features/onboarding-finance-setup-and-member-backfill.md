@@ -541,6 +541,16 @@
   - reversed opening positions can be corrected by staging a new position, while pending, approved, and applied positions retain their mutation guards
   - all interactive controls meet the 44-pixel phone target below `md`, and the page preserves the desktop step rail with a compact horizontal phone navigator
 
+## QA Hardening — 2026-08-01
+
+- Getting Started footer actions submit their owning form handlers directly, preventing portaled controls and development overlays from swallowing charge, share, and finance progression.
+- A changed share model keeps `Save policy` available until the selected model is persisted. The Safa QA workspace verified a unit value of NGN 10,000, 1 compulsory unit, and a 16-unit maximum.
+- Charge persistence can advance without refreshing the route being left; Safa saved four current schedules and completed the brought-forward onboarding path.
+- Guarded member creation allows a 10-second acquisition wait and a 30-second transaction budget for remote preview databases while retaining the existing atomic write boundary.
+- Successful member creation invalidates client queries and refreshes server-rendered registry metrics. Safa's member count updated from three to four without a manual reload.
+- Historical readiness calculations pass one explicit reference clock through expected-month generation, preventing month-boundary drift between the caller and migration helper.
+- The full repository regression on 2026-08-01 passed 716 tests, all 16 typecheck tasks, and all 16 lint tasks.
+
 ## Remaining Work
 
 - Tighten repayment replay when multiple concurrent loans exist for one member.

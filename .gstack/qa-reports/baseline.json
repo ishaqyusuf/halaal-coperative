@@ -1,0 +1,16 @@
+{
+  "target": "https://halaalvest.localhost/",
+  "cooperative": "Safa",
+  "workspace": "https://safa.halaalvest-dash.localhost",
+  "completedAt": "2026-08-01",
+  "status": "completed_passed",
+  "healthScore": 100,
+  "findings": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  },
+  "blockedFlows": [],
+  "report": "qa-report-halaalvest-localhost-2026-07-31.md"
+}

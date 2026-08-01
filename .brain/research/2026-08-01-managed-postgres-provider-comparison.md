@@ -1,11 +1,13 @@
-# Managed PostgreSQL provider comparison for Halaalvest
+# Database provider comparison and portfolio policy
 
 Research date: 2026-08-01  
-Scope: current official product documentation and pricing for Neon, Supabase, and credible no-cost managed PostgreSQL alternatives. Plan limits change frequently; verify the linked pricing pages before committing production traffic.
+Scope: current official product documentation and pricing for Neon, Supabase, Firebase, Aiven, Prisma Postgres, CockroachDB, Render, and PlanetScale. The recommendation applies across the project portfolio, with Halaalvest as a concrete financial/KYC example. Plan limits change frequently; verify the linked pricing pages before committing production traffic.
 
 ## Executive recommendation
 
-Use **Neon Free for development, QA, and preview databases**. Its native copy-on-write branching, destructive reset-from-parent workflow, pooled and direct connection strings, short point-in-time restore window, and Prisma support fit Halaalvest's current environment problem better than Supabase Free.
+For **new relational applications**, default to **PostgreSQL on Neon**: use Neon Free for development, QA, and previews, and move important production workloads to a paid/recovery-capable posture. Native copy-on-write branching, reset-from-parent, pooled/direct URLs, scale-to-zero, and Prisma support make it the strongest free relational developer workflow in this comparison.
+
+Do **not** impose one database on every existing project. Keep Firebase where Firestore/Realtime Database's mobile SDKs, realtime listeners, offline synchronization, Firebase Auth, FCM, or existing Security Rules are material product capabilities. Moving such an application to PostgreSQL is an application and data-model rewrite, not a database copy, so consolidation alone is not a sufficient reason.
 
 Do **not** move Halaalvest production from Supabase to Neon merely to obtain free branches. Keep the current hybrid arrangement while the product is pre-launch or low-volume:
 
@@ -17,6 +19,8 @@ Do **not** move Halaalvest production from Supabase to Neon merely to obtain fre
 A full Supabase-to-Neon production migration is reasonable later only if all Supabase-specific dependencies have been inventoried and replaced. The application-owned Prisma/PostgreSQL schemas are portable. Supabase Auth, Storage objects, Realtime, Edge Functions, secrets, and provider configuration are not recreated by copying PostgreSQL tables.
 
 For a financial/KYC multi-tenant application, **neither provider's Free plan should be treated as the final production posture**. Supabase Free lacks managed backups/PITR and may pause; Neon Free has only a short restore window and lacks paid production safeguards such as protected branches, IP allowlisting, an SLA, and support. If real member money, KYC documents, or regulated personal data becomes production-critical, budget for a paid production database plus independent encrypted backups and restore drills.
+
+For Halaalvest specifically, the relational tenant, ledger, contribution, financing, repayment, audit, and KYC metadata model favors PostgreSQL. Keep the working Supabase production system stable for now and use Neon previews; do not move production merely to obtain free branches.
 
 ## Current free-plan comparison
 
@@ -129,6 +133,33 @@ Neon explicitly recommends a direct connection for ORM migrations and `pg_dump`,
 
 Halaalvest's current `DATABASE_URL`/administrative URL split should therefore remain provider-neutral. Do not embed provider SDK assumptions into the Prisma schema or database command router.
 
+## Firebase Spark: keep where mobile realtime/offline behavior is material
+
+Firebase is not a PostgreSQL provider and is therefore not a drop-in Neon/Supabase database alternative. It is a mobile/web application platform whose two principal databases use NoSQL models:
+
+- Cloud Firestore stores schemaless documents in collections and subcollections, not SQL tables and foreign keys. Its native SDKs provide realtime listeners and offline reads, writes, queries, and synchronization on supported clients ([Firestore data model](https://firebase.google.com/docs/firestore/data-model), [Firestore overview](https://firebase.google.com/docs/firestore)).
+- Realtime Database stores one JSON tree. It is optimized for simple lookups and low-latency synchronization; both Firebase databases have mobile-first realtime SDKs and offline support, although Realtime Database web offline support is more limited ([Realtime Database structure](https://firebase.google.com/docs/database/web/structure-data), [Firebase database comparison](https://firebase.google.com/docs/database/rtdb-vs-firestore)).
+
+Current Spark/free limits and constraints include:
+
+- Firestore: exactly one free database per project, 1 GiB stored, 50,000 document reads/day, 20,000 writes/day, 20,000 deletes/day, and 10 GiB outbound/month. PITR, backups, restore, clone, and TTL deletes require billing ([Firestore quotas](https://firebase.google.com/docs/firestore/quotas)).
+- Realtime Database: the Spark plan has a 100-simultaneous-connection limit; the product's documented database-wide limits and JSON-tree/query characteristics still apply ([Realtime Database limits](https://firebase.google.com/docs/database/usage/limits)).
+- Authentication: most sign-in options are no-cost, but current Spark projects have a 3,000-DAU limit for most providers; verification-code SMS is Blaze-only. FCM, Crashlytics, Remote Config, and several other Firebase products remain no-cost ([Firebase pricing plans](https://firebase.google.com/docs/projects/billing/firebase-pricing-plans), [Firebase Auth limits](https://firebase.google.com/docs/auth/limits)).
+- Cloud Storage for Firebase now requires the Blaze plan to provision or maintain bucket access as of 2026-02-03. No-cost storage usage can still exist under Blaze, but a billing account is required ([Firebase Storage billing change](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024)).
+- If a Spark paid-product quota is exhausted, that product can be shut off for the rest of the billing period; Spark also cannot use paid Google Cloud services such as Cloud Run or Pub/Sub ([Firebase pricing plans](https://firebase.google.com/docs/projects/billing/firebase-pricing-plans)).
+
+### Firebase migration implications
+
+A Firebase-to-Neon migration is substantially different from Supabase-to-Neon:
+
+1. Transform Firestore collections/subcollections or the Realtime Database JSON tree into normalized PostgreSQL tables, keys, constraints, indexes, and explicit transactions.
+2. Rewrite direct client SDK reads/listeners as a trusted API, authorization layer, and optional realtime transport. Firestore/Realtime Security Rules do not translate automatically to PostgreSQL grants or RLS.
+3. Design an offline cache, mutation queue, conflict policy, and resynchronization protocol if the app currently depends on Firebase offline behavior. Raw PostgreSQL, Prisma, and Neon do not supply a Firebase-equivalent client sync engine.
+4. Migrate identity separately and plan token/session cutover; copy Storage objects separately from database documents; Firebase Cloud Messaging can remain as an independent notification service.
+5. Reconcile denormalized documents and orphaned references before adding relational constraints, then dual-read or rehearse a controlled cutover before retiring Firebase.
+
+Therefore, **do not force existing Firebase projects onto Neon**. Migrate only when relational integrity/reporting is now more important than Firebase-native behavior, or when Firebase constraints/costs justify the rewrite. Keep Firebase for offline-first/mobile realtime products; choose Neon for new relational systems and for services whose data naturally requires joins, constraints, ledgers, and auditable transactions.
+
 ## Full Supabase-to-Neon migration assessment
 
 ### Database-only migration
@@ -190,6 +221,18 @@ Render's Free PostgreSQL is a time-limited evaluation database: 1 GB storage, on
 
 It is suitable only for disposable demonstrations and is not a credible Halaalvest environment baseline.
 
+### CockroachDB Cloud Basic
+
+CockroachDB Basic starts at $0 and currently includes 50 million request units and 10 GiB storage free each month, usage-based compute that scales to zero, automatic three-way replication, selected AWS/GCP multi-region deployments, IP allowlisting, and a 99.99% availability commitment. Basic managed backups occur daily and are included in RU costs ([CockroachDB pricing](https://www.cockroachlabs.com/pricing/), [CockroachDB Cloud costs](https://www.cockroachlabs.com/docs/cockroachcloud/costs)).
+
+This is the strongest free allowance for a globally distributed relational workload, but it is **not ordinary PostgreSQL**. CockroachDB is PostgreSQL-wire compatible while documenting SQL/behavior differences, and Prisma requires the `cockroachdb` connector rather than `postgresql` ([CockroachDB PostgreSQL compatibility](https://www.cockroachlabs.com/docs/v26.2/postgresql-compatibility), [Prisma CockroachDB connector](https://www.prisma.io/docs/orm/v6/overview/databases/cockroachdb)). Choosing it changes schema semantics and migration expectations. Use it when distributed SQL and multi-region resilience are explicit requirements, not as a free substitute for standard Postgres or Neon branching.
+
+### PlanetScale Postgres
+
+PlanetScale no longer offers a free plan. Its managed Postgres single-node option starts at $5/month; each branch is an independently billed cluster, branches can be populated from backups or explicit copy tools, local PgBouncer is included, automatic backups run every 12 hours, PITR is supported, and default backup retention is two days ([PlanetScale plans](https://planetscale.com/docs/planetscale-plans), [PlanetScale Postgres pricing](https://planetscale.com/docs/postgres/pricing), [PlanetScale branching](https://planetscale.com/docs/postgres/branching), [PlanetScale backups](https://planetscale.com/docs/postgres/backups)).
+
+It is a credible low-cost conventional Postgres option when dedicated compute, HA upgrades, and PlanetScale operations are worth paying for, but it does not solve the stated zero-cost preview requirement. Do not confuse current PlanetScale Postgres with PlanetScale's older Vitess/MySQL product or its retired free Developer plan.
+
 ### Self-hosting
 
 PostgreSQL and Supabase's software can be self-hosted without a software subscription, but compute, storage, network, patching, monitoring, backups, failover, incident response, and operator time are not free. For a financial/KYC service, a single unmanaged free VM is a worse risk trade than using a managed development tier and budgeting for production reliability.
@@ -209,15 +252,27 @@ Regardless of provider:
 - Keep encrypted off-provider logical backups and prove restores on a schedule.
 - Record source/target fingerprints, schema hash, archive checksum, masking policy, validation results, operator, and promotion time for every refresh.
 
-## Final provider choice
+## Portfolio provider policy
 
 | Need | Recommended choice |
 |---|---|
-| Free PR/preview databases | Neon Free |
-| Free bundled Auth + Storage + Realtime + Functions prototype | Supabase Free |
+| New relational application with Prisma, joins, constraints, ledgers, reporting, or auditability | Neon by default; Free for non-critical environments, paid/recovery-capable production when important |
+| Existing Firebase mobile/realtime/offline application | Keep Firebase unless a measured product need justifies a model and application rewrite |
+| Free PR/preview databases for PostgreSQL projects | Neon Free; migrations plus synthetic/sanitized data |
+| Free bundled PostgreSQL Auth + Storage + Realtime + Functions prototype | Supabase Free |
+| Globally distributed SQL where PostgreSQL differences are acceptable | CockroachDB Basic; use its Prisma connector and test semantics explicitly |
 | Conventional small PostgreSQL sandbox without serverless branching | Aiven Free |
 | Prisma-native disposable evaluation database | Prisma Postgres Free |
 | Temporary 30-day demo | Render Free |
+| Low-cost paid dedicated Postgres | PlanetScale Postgres is credible, but not free |
 | Mature financial/KYC production | No Free plan; choose a paid, backed-up, monitored service after workload and compliance review |
 
-The best current architecture is therefore **hybrid, not a rushed migration**: keep Supabase production stable, use Neon for safe disposable environments, standardize on PostgreSQL-native backup/restore plus Prisma migrations, and plan a later database consolidation only after provider-specific services and production recovery requirements have been removed from the migration risk.
+Portfolio rules:
+
+- Keep one authoritative writer per project/environment. Cross-provider synchronization is a temporary migration, sanitized preview refresh, or analytics feed—not a permanent bidirectional merge.
+- Keep schema migrations, seeds, backup/restore procedures, and runtime connection configuration in version-controlled, provider-neutral form where the data model allows it.
+- Do not copy production PII/KYC into routine previews; use synthetic data or an audited masking boundary.
+- Keep encrypted backups outside the database-provider account and prove restores. A provider's free reset/branch feature is not a backup.
+- Reassess free production before accepting money, regulated data, contractual recovery objectives, or business-critical traffic.
+
+The best current portfolio architecture is **intentional plurality, not forced consolidation**: default new relational projects to Neon; keep Firebase where its realtime/offline/mobile platform is material; keep stable Supabase production systems until service dependencies and recovery requirements justify migration; and use PostgreSQL-native backup/restore plus Prisma migrations for portable relational workloads. For Halaalvest, that means Supabase production plus safe Neon previews today, with a later controlled database-only migration as an option—not an immediate requirement.

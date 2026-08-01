@@ -5,8 +5,11 @@ type WizardRouter = {
 
 export function navigateWithFreshWizardState(
   router: WizardRouter,
-  href: string
+  href: string,
+  options: { refreshDestination?: boolean } = {}
 ) {
   router.push(href)
-  router.refresh()
+  if (options.refreshDestination !== false) {
+    router.refresh()
+  }
 }

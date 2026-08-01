@@ -3052,7 +3052,9 @@ export function ChargeDefinitionForm({
         clearPreservedChargeRows()
         onSuccess?.()
         if (redirectTo) {
-          navigateWithFreshWizardState(router, redirectTo)
+          navigateWithFreshWizardState(router, redirectTo, {
+            refreshDestination: false,
+          })
           return
         }
         router.refresh()

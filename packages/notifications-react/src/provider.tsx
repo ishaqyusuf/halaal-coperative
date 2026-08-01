@@ -221,6 +221,7 @@ function QaArtifactActions({
               <Button
                 nativeButton={false}
                 render={<a href={artifact.value} />}
+                role="link"
                 size="sm"
                 variant="outline"
               >

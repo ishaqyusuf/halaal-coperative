@@ -242,10 +242,20 @@ export function OnboardingForm({
           ) : null}
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2">
+          <Link
+            className={buttonVariants({ size: "lg" })}
+            href={result.dashboardUrl}
+          >
+            Get Started
+          </Link>
           {quickFill.enabled && devDashboardUrlVariants.length ? (
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button size="lg" type="button" />}>
-                Get Started
+              <DropdownMenuTrigger
+                render={
+                  <Button size="lg" type="button" variant="outline" />
+                }
+              >
+                URL variants
                 <ChevronDownIcon data-icon="inline-end" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -282,14 +292,7 @@ export function OnboardingForm({
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : (
-            <Link
-              className={buttonVariants({ size: "lg" })}
-              href={result.dashboardUrl}
-            >
-              Get Started
-            </Link>
-          )}
+          ) : null}
         </CardFooter>
       </Card>
     )

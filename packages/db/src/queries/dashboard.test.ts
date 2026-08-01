@@ -128,6 +128,12 @@ function createDashboardPrismaStub({
       }),
     },
     tenantOperationProfile: {
+      findUnique: async () => ({
+        id: "operation-profile-1",
+        reviewedAt: null,
+        reviewedByUserId: null,
+        tenantId: "tenant-1",
+      }),
       upsert: async () => ({
         id: "operation-profile-1",
         reviewedAt: null,

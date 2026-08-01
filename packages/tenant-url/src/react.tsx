@@ -125,7 +125,10 @@ export function TenantUrlVariantSwitcher({
   const currentVariant = variants.find((variant) => variant.isCurrent)
 
   return (
-    <div className="fixed bottom-4 left-16 z-[90] print:hidden">
+    <div
+      className="fixed bottom-4 z-[90] print:hidden"
+      style={{ left: "4rem" }}
+    >
       <DropdownMenu>
         <DropdownMenuTrigger
           render={

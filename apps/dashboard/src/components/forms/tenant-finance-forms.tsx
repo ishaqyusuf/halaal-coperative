@@ -744,7 +744,11 @@ export function BusinessProfitPolicyForm({
         ) : null}
         {redirectTo ? (
           <GettingStartedFooterPortal>
-            <Button disabled={isPending} form={resolvedFormId} type="submit">
+            <Button
+              disabled={isPending}
+              onClick={form.handleSubmit(onSubmit)}
+              type="button"
+            >
               Next
             </Button>
           </GettingStartedFooterPortal>
@@ -993,7 +997,11 @@ export function SharePolicyForm({
         ) : null}
         {redirectTo ? (
           <GettingStartedFooterPortal>
-            <Button disabled={isPending} form={resolvedFormId} type="submit">
+            <Button
+              disabled={isPending}
+              onClick={form.handleSubmit(onSubmit)}
+              type="button"
+            >
               Next
             </Button>
           </GettingStartedFooterPortal>
@@ -2136,7 +2144,11 @@ export function ShareStructureVersionForm({
         ) : null}
         {redirectTo ? (
           <GettingStartedFooterPortal>
-            <Button disabled={isPending} form={resolvedFormId} type="submit">
+            <Button
+              disabled={isPending}
+              onClick={form.handleSubmit(onSubmit)}
+              type="button"
+            >
               Next
             </Button>
           </GettingStartedFooterPortal>
@@ -4872,7 +4884,11 @@ function ShareBusinessProfitHistoryTableForm({
         ) : null}
         {redirectTo ? (
           <GettingStartedFooterPortal>
-            <Button disabled={isPending} form={resolvedFormId} type="submit">
+            <Button
+              disabled={isPending}
+              onClick={form.handleSubmit(submitBusinessRows)}
+              type="button"
+            >
               Next
             </Button>
           </GettingStartedFooterPortal>

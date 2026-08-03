@@ -148,12 +148,13 @@ export function RoleSettingsView({
                         {group.label}
                       </span>
                       <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {group.permissions.length} governed actions
+                        {group.permissions.length} governed{" "}
+                        {group.permissions.length === 1 ? "action" : "actions"}
                       </span>
                     </span>
                     <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                   </summary>
-                  <div className="divide-y divide-border/70 border-t border-border/70 pb-1">
+                  <div className="ml-6 divide-y divide-border/70 border-t border-l-2 border-border/70 pb-1 pl-6 sm:ml-8 sm:pl-8">
                     {group.permissions.map((permission) => (
                       <div
                         className="grid gap-3 py-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)]"
@@ -169,7 +170,10 @@ export function RoleSettingsView({
                         </div>
                         <div className="flex flex-wrap gap-2 lg:justify-end">
                           {permission.allowedRoles.map((role) => (
-                            <TrendPill key={role}>
+                            <TrendPill
+                              className="h-5 px-2 py-0 leading-none"
+                              key={role}
+                            >
                               {getRoleDisplayName(role)}
                             </TrendPill>
                           ))}

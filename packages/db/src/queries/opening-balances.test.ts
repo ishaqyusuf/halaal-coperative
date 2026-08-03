@@ -102,6 +102,7 @@ function createOpeningBalancePrismaStub({
   const procurementScheduleUpdates: Record<string, unknown>[] = []
   const repaymentScheduleCreates: Record<string, unknown>[] = []
   const repaymentScheduleUpdates: Record<string, unknown>[] = []
+  const transactionOptions: unknown[] = []
 
   const tx = {
     appliedBackfillMonth: {
@@ -446,8 +447,12 @@ function createOpeningBalancePrismaStub({
   return {
     ...tx,
     $transaction: async (
-      callback: (transaction: typeof tx) => Promise<unknown>
-    ) => callback(tx),
+      callback: (transaction: typeof tx) => Promise<unknown>,
+      options?: unknown
+    ) => {
+      transactionOptions.push(options)
+      return callback(tx)
+    },
     auditLogCreates,
     foodPurchaseApplicationCreates,
     foodPurchaseApplicationUpdates,
@@ -469,6 +474,7 @@ function createOpeningBalancePrismaStub({
     procurementScheduleUpdates,
     repaymentScheduleCreates,
     repaymentScheduleUpdates,
+    transactionOptions,
   }
 }
 
@@ -957,6 +963,10 @@ describe("member opening balances", () => {
     expect(openingBalance).toMatchObject({
       appliedByUserId: "user-1",
       status: "applied",
+    })
+    expect(prisma.transactionOptions).toContainEqual({
+      maxWait: 10_000,
+      timeout: 30_000,
     })
     expect(prisma.ledgerTransactionCreates[0]).toMatchObject({
       data: {

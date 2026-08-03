@@ -1823,7 +1823,15 @@ export async function applyMemberOpeningBalance(
 
   await assertActorBelongsToTenant(input, prisma)
 
-  return prisma.$transaction(async (tx: any) => {
+  const runApplyTransaction = (
+    operation: (tx: any) => Promise<MemberOpeningBalanceRow>
+  ) =>
+    prisma.$transaction(operation, {
+      maxWait: 10_000,
+      timeout: 30_000,
+    })
+
+  return runApplyTransaction(async (tx: any) => {
     const existing = await tx.memberOpeningBalance.findFirst({
       include: openingBalanceInclude(),
       where: {

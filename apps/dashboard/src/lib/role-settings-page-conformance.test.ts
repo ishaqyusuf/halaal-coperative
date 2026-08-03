@@ -28,12 +28,20 @@ describe("workspace roles Midday conformance", () => {
     expect(view).toContain('className="hidden gap-4 md:grid md:grid-cols-3"')
     expect(view).toContain("<details")
     expect(view).toContain("min-h-12")
+    expect(view).toContain(
+      "ml-6 divide-y divide-border/70 border-t border-l-2 border-border/70 pb-1 pl-6 sm:ml-8 sm:pl-8"
+    )
+    expect(view).toContain(
+      'group.permissions.length === 1 ? "action" : "actions"'
+    )
     expect(view).toContain("Role scope guide")
     expect(view).not.toContain("<DashboardSurfaceCard")
     expect(view).not.toContain("<DashboardSectionCard")
     expect(userList).toContain('aria-label="Search workspace users"')
     expect(userList).toContain("filteredUsers")
     expect(userList).toContain("border-y border-border/70")
+    expect(userList).toContain('className="h-5 px-2 py-0 leading-none"')
+    expect(view).toContain('className="h-5 px-2 py-0 leading-none"')
     expect(userList).not.toContain("<DashboardSurfaceCard")
   })
 

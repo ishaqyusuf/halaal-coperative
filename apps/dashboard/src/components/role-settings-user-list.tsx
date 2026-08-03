@@ -110,7 +110,10 @@ export function RoleSettingsUserList({ users }: { users: RoleSettingsUser[] }) {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {user.memberships.map((membership) => (
-                    <TrendPill key={membership.id}>
+                    <TrendPill
+                      className="h-5 px-2 py-0 leading-none"
+                      key={membership.id}
+                    >
                       {getRoleDisplayName(membership.role)}
                       {membership.isDefault ? " · default" : ""}
                     </TrendPill>

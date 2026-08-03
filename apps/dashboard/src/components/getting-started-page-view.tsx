@@ -1,5 +1,4 @@
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
-import type { MemberLedgerBackfillRow } from "@halaalvest/backfill"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
 import type { ReactNode } from "react"
 import {
@@ -27,11 +26,8 @@ import {
 import { Separator } from "@halaalvest/ui/components/separator"
 import { cn } from "@halaalvest/ui/lib/utils"
 import type {
-  TenantBusinessProfitPolicySettings,
-  TenantMigrationSetupMode,
   TenantMigrationSetupSettings,
   TenantOperationProfileReadModel,
-  TenantSharePolicySettings,
 } from "@halaalvest/db"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import {
@@ -50,8 +46,19 @@ import { type GettingStartedStepKey } from "@/hooks/use-getting-started-params"
 import {
   firstOperationProfileStep,
   operationProfileStepHref,
-  type OperationProfileStepKey,
 } from "@/lib/getting-started/operation-profile-flow"
+import type {
+  GettingStartedBusinessProfitSeasonRow,
+  GettingStartedPageViewProps,
+} from "@/lib/getting-started/getting-started-page-types"
+import {
+  formatGettingStartedDate,
+  getGettingStartedStepGroups,
+  getGettingStartedStepHref,
+  getGettingStartedStepMeta,
+  getOrderedGettingStartedStepKeys,
+  isGettingStartedStepComplete,
+} from "@/lib/getting-started/getting-started-step-model"
 import { getMemberMigrationStartHref } from "@/lib/members/member-migration-routing"
 import {
   ArrowRightIcon,
@@ -60,205 +67,6 @@ import {
   HistoryIcon,
   UsersIcon,
 } from "lucide-react"
-
-type ChargeDefinitionRow = {
-  appliesToLoanRequests?: boolean
-  appliesToLoans?: boolean
-  appliesToMembers?: boolean
-  id: string
-  chargeFrequency:
-    | "recurring_monthly"
-    | "per_contribution"
-    | "one_time"
-    | "manual"
-  chargeValueType: "fixed_amount" | "percentage"
-  code: string
-  isActive: boolean
-  isMonthlyLevy?: boolean
-  kind: "fixed" | "percentage"
-  name: string
-  purpose?:
-    | "general"
-    | "member_share"
-    | "loan_fee"
-    | "membership_fee"
-    | "penalty"
-  versions: Array<{
-    amount: number
-    chargeValueType: "fixed_amount" | "percentage"
-    effectiveFrom: string
-    id: string
-    notes?: string | null
-    status: "current" | "historical" | "scheduled"
-  }>
-}
-
-type ShareStructureVersionRow = {
-  amount: number
-  basis: "after_charge_deductions"
-  effectiveFrom: string
-  id: string
-  notes?: string | null
-  valueType: "fixed_amount" | "percentage"
-}
-
-type ShareBusinessRow = {
-  capitalAmount: number
-  endDate: string | null
-  id: string
-  linkedDividendPeriodId?: string | null
-  name: string
-  notes?: string | null
-  profitAmount: number
-  profitEntries: Array<{
-    allocatableProfitAmount: number
-    expenseAmount: number
-    id: string
-    linkedDividendPeriodId?: string | null
-    profitAmount: number
-    profitDate: string
-    reason?: string | null
-    sourceType: string
-    status: string
-  }>
-  startDate: string
-  status: string
-}
-
-type DividendPeriodRow = {
-  id: string
-  label: string
-}
-
-type BusinessProfitSeasonRow = {
-  businessNames: string[]
-  deductionAmount: number
-  deductionReason?: string | null
-  distributableAmount: number
-  entryDeductionAmount: number
-  grossProfitAmount: number
-  id?: string | null
-  key: string
-  label: string
-  periodEnd: string
-  periodStart: string
-  profitEntries: Array<{
-    businessName: string
-    deductionAmount: number
-    profitAmount: number
-    profitDate: string
-    reason?: string | null
-    status: string
-  }>
-  profitEntryCount: number
-  status: "pending" | "draft" | "approved" | "published" | "closed"
-}
-
-type MemberOption = {
-  id: string
-  label: string
-}
-
-type MemberSummary = {
-  email?: string | null
-  fullName: string
-  id: string
-  joinedAt: string
-  memberNumber: string
-}
-
-type LegacyLoanDraftRow = {
-  closedAt: string | null
-  guarantorOneMemberId?: string | null
-  guarantorTwoMemberId?: string | null
-  id: string
-  loanLabel: string
-  memberId: string
-  memberName: string
-  memberNumber: string
-  openedAt: string
-  outstandingPrincipalBalance: number
-  principalAmount: number
-  savingsDuringLoan: number
-  scheduledMonthlyPrincipalRepayment: number
-}
-
-type MemberAmountLogRow = {
-  amount: number
-  effectiveFrom: string
-  id: string
-  notes?: string | null
-}
-
-type MemberActivityEventRow = {
-  effectiveMonth: string
-  id: string
-  notes?: string | null
-  reason?: string | null
-  status: "active" | "inactive"
-}
-
-type MigrationMemberReviewRow = {
-  appliedBackfillBatches: number
-  appliedBackfillMonths: number
-  backfillDraftBatches: number
-  fullName: string
-  id: string
-  joinedAt: string
-  legacyLoanDrafts: number
-  memberNumber: string
-  profitAdjustments: number
-  rowAdjustments: number
-  status: "profile_only" | "configured" | "backfill_draft" | "backfill_applied"
-}
-
-type ProfitMigrationOptionRow = {
-  allocatableProfitAmount: number
-  availableAmount: number
-  businessName: string
-  editableAvailableAmount: number
-  expenseAmount: number
-  id: string
-  memberAllocatedAmount: number
-  memberMigrationAdjustmentAmount: number
-  memberPublishedAllocationAmount: number
-  profitAmount: number
-  profitDate: string
-  seasonLabel?: string | null
-  seasonPeriodEnd?: string | null
-  totalDisbursedAmount: number
-}
-
-type GettingStartedPageViewProps = {
-  activeStep: GettingStartedStepKey
-  adminMember: MemberSummary | null
-  businessPolicy: TenantBusinessProfitPolicySettings
-  businessProfitSeasons: BusinessProfitSeasonRow[]
-  chargeDefinitions: ChargeDefinitionRow[]
-  dividendPeriods: DividendPeriodRow[]
-  generatedLedgerError?: string | null
-  generatedLedgerRows?: MemberLedgerBackfillRow[]
-  legacyLoanDrafts: LegacyLoanDraftRow[]
-  memberActivityEvents: MemberActivityEventRow[]
-  memberAmountLogs: MemberAmountLogRow[]
-  memberNumberPrefix?: string | null
-  memberOptions: MemberOption[]
-  migrationMemberReview: MigrationMemberReviewRow[]
-  migrationSnapshot: InitialMigrationSnapshot
-  migrationSetup: TenantMigrationSetupSettings
-  operationProfile: TenantOperationProfileReadModel
-  operationProfileStep: OperationProfileStepKey
-  profitMigrationOptions: ProfitMigrationOptionRow[]
-  quickFillEnabled: boolean
-  recommendedMigrationSetupMode: TenantMigrationSetupMode | null
-  selectedMigrationMemberId?: string | null
-  selectedMigrationMemberLabel?: string | null
-  shareBusinesses: ShareBusinessRow[]
-  sharePolicy: TenantSharePolicySettings
-  shareStructureVersions: ShareStructureVersionRow[]
-  tenantName: string
-  tenantStartDate: string | null
-}
 
 export function GettingStartedUnavailableView({
   body,
@@ -278,209 +86,6 @@ export function GettingStartedUnavailableView({
       <WorkspaceEmptyState title={title} body={body} />
     </WorkspacePageShell>
   )
-}
-
-const setupStepKeys: GettingStartedStepKey[] = [
-  "setup-mode",
-  "operation-profile",
-  "start-date",
-  "charges",
-  "shares",
-  "profit-policy",
-  "business",
-  "profit-seasons",
-]
-
-function shouldShowProfitSeasonsSetup(props: {
-  businessProfitSeasons: BusinessProfitSeasonRow[]
-  migrationSetup: TenantMigrationSetupSettings
-  migrationSnapshot: InitialMigrationSnapshot
-}) {
-  if (props.migrationSetup.mode === "brought_forward") {
-    const today = new Date().toISOString().slice(0, 10)
-
-    return props.businessProfitSeasons.some(
-      (season) =>
-        season.periodEnd < today &&
-        season.profitEntries.some((entry) => entry.status === "pending")
-    )
-  }
-
-  return (
-    props.migrationSetup.mode === "historical_backfill" ||
-    props.migrationSnapshot.missingStepKeys.includes("business_profit_seasons")
-  )
-}
-
-function getOrderedStepKeys(
-  props: Pick<
-    GettingStartedPageViewProps,
-    "businessProfitSeasons" | "migrationSetup" | "migrationSnapshot"
-  >
-) {
-  return setupStepKeys.filter(
-    (key) => key !== "profit-seasons" || shouldShowProfitSeasonsSetup(props)
-  )
-}
-
-function getStepGroups(
-  props: Pick<
-    GettingStartedPageViewProps,
-    "businessProfitSeasons" | "migrationSetup" | "migrationSnapshot"
-  >
-) {
-  const orderedStepKeys = getOrderedStepKeys(props)
-
-  return [
-    {
-      label: "Foundation",
-      steps: orderedStepKeys.filter((key) =>
-        ["setup-mode", "operation-profile", "start-date"].includes(key)
-      ),
-    },
-    {
-      label:
-        props.migrationSetup.mode === "brought_forward"
-          ? "Current finance setup"
-          : "Financial history",
-      steps: orderedStepKeys.filter(
-        (key) =>
-          !["setup-mode", "operation-profile", "start-date"].includes(key)
-      ),
-    },
-  ] satisfies Array<{ label: string; steps: GettingStartedStepKey[] }>
-}
-
-function isStepComplete(
-  key: GettingStartedStepKey,
-  snapshot: InitialMigrationSnapshot,
-  migrationSetup?: TenantMigrationSetupSettings,
-  operationProfile?: TenantOperationProfileReadModel
-) {
-  const missing = new Set(snapshot.missingStepKeys)
-
-  if (key === "start-date") return !missing.has("finance_start_date")
-  if (key === "setup-mode") return Boolean(migrationSetup?.id)
-  if (key === "operation-profile") {
-    return Boolean(operationProfile?.reviewedAt)
-  }
-  if (key === "charges") return !missing.has("charge_schedules")
-  if (key === "shares") return true
-  if (key === "profit-policy") return true
-  if (key === "business") {
-    return (
-      migrationSetup?.mode === "brought_forward" ||
-      !missing.has("business_profit_pools")
-    )
-  }
-  if (key === "profit-seasons") {
-    return (
-      migrationSetup?.mode === "brought_forward" ||
-      !missing.has("business_profit_seasons")
-    )
-  }
-  if (key === "admin-member") {
-    return (
-      !missing.has("member_profiles") &&
-      !missing.has("legacy_loans") &&
-      !missing.has("member_ledger_backfill")
-    )
-  }
-
-  return !missing.has("finalization")
-}
-
-function getStepMeta(
-  key: GettingStartedStepKey,
-  migrationMode: TenantMigrationSetupMode
-) {
-  const isBroughtForward = migrationMode === "brought_forward"
-  const meta = {
-    "admin-member": {
-      description: isBroughtForward
-        ? "Capture the current opening position for the registered admin, then repeat it for every member."
-        : "Complete historical backfill for the registered admin, then repeat it for every member.",
-      label: isBroughtForward ? "Member opening positions" : "Member onboarding",
-    },
-    business: {
-      description: isBroughtForward
-        ? "Record businesses participating in the current profit-sharing season."
-        : "Record historical business pools, profits, and expenses.",
-      label: isBroughtForward
-        ? "Current-season businesses"
-        : "Business and profits",
-    },
-    "profit-seasons": {
-      description:
-        "Review generated dividend seasons, confirm deductions, and prepare profit entries for member migration.",
-      label: "Dividend sharing review",
-    },
-    charges: {
-      description: isBroughtForward
-        ? "Set the active charges members will pay from the opening date onward."
-        : "Set cooperative charges and their dated history for member backfill.",
-      label: isBroughtForward ? "Current charges" : "Charges and history",
-    },
-    review: {
-      description:
-        "Review every setup gate and finalize the one-time migration into live operations.",
-      label: "Review and go live",
-    },
-    shares: {
-      description: isBroughtForward
-        ? "Set the cooperative's current share model and active terms."
-        : "Define share capital history when it should affect member ledgers.",
-      label: isBroughtForward ? "Current share model" : "Shares and history",
-    },
-    "profit-policy": {
-      description: isBroughtForward
-        ? "Set the rules for the current and future profit-sharing seasons."
-        : "Set the dividend season used by historical and future allocations.",
-      label: isBroughtForward
-        ? "Current profit-sharing policy"
-        : "Profit-sharing season",
-    },
-    "start-date": {
-      description:
-        "Anchor historical finance so every charge, share, loan, and contribution is dated against the same start month.",
-      label: "Cooperative start date",
-    },
-    "setup-mode": {
-      description:
-        "Choose whether this cooperative will rebuild history or carry current balances forward.",
-      label: "Setup mode",
-    },
-    "operation-profile": {
-      description:
-        "Confirm how members request commitments, receipts, procurement, Foodstuff Purchase, support, and payroll collections.",
-      label: "Operation profile",
-    },
-  } satisfies Record<
-    GettingStartedStepKey,
-    { description: string; label: string }
-  >
-
-  return meta[key]
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "Not set"
-
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-  }).format(new Date(`${value}T00:00:00.000Z`))
-}
-
-function stepHref(key: GettingStartedStepKey) {
-  if (key === "operation-profile") {
-    return operationProfileStepHref(firstOperationProfileStep)
-  }
-
-  if (key === "admin-member") {
-    return "/onboarding-success"
-  }
-
-  return `?step=${key}`
 }
 
 function SetupCardHeader({
@@ -527,17 +132,17 @@ function StepRail({
   snapshot,
 }: {
   activeStep: GettingStartedStepKey
-  businessProfitSeasons: BusinessProfitSeasonRow[]
+  businessProfitSeasons: GettingStartedBusinessProfitSeasonRow[]
   migrationSetup: TenantMigrationSetupSettings
   operationProfile: TenantOperationProfileReadModel
   snapshot: InitialMigrationSnapshot
 }) {
-  const stepGroups = getStepGroups({
+  const stepGroups = getGettingStartedStepGroups({
     businessProfitSeasons,
     migrationSetup,
     migrationSnapshot: snapshot,
   })
-  const orderedStepKeys = getOrderedStepKeys({
+  const orderedStepKeys = getOrderedGettingStartedStepKeys({
     businessProfitSeasons,
     migrationSetup,
     migrationSnapshot: snapshot,
@@ -557,8 +162,8 @@ function StepRail({
               {group.label}
             </p>
             {group.steps.map((key) => {
-              const meta = getStepMeta(key, migrationSetup.mode)
-              const complete = isStepComplete(
+              const meta = getGettingStartedStepMeta(key, migrationSetup.mode)
+              const complete = isGettingStartedStepComplete(
                 key,
                 snapshot,
                 migrationSetup,
@@ -569,6 +174,7 @@ function StepRail({
 
               return (
                 <Link
+                  aria-current={isActive ? "step" : undefined}
                   key={key}
                   className={cn(
                     "border px-3 py-3 text-left transition-colors",
@@ -576,7 +182,7 @@ function StepRail({
                       ? "border-foreground bg-primary text-primary-foreground"
                       : "border-border/70 bg-muted/20 hover:bg-muted/40"
                   )}
-                  href={stepHref(key)}
+                  href={getGettingStartedStepHref(key)}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-medium">
@@ -599,6 +205,67 @@ function StepRail({
   )
 }
 
+function MobileStepNavigation({
+  activeStep,
+  businessProfitSeasons,
+  migrationSetup,
+  operationProfile,
+  snapshot,
+}: {
+  activeStep: GettingStartedStepKey
+  businessProfitSeasons: GettingStartedBusinessProfitSeasonRow[]
+  migrationSetup: TenantMigrationSetupSettings
+  operationProfile: TenantOperationProfileReadModel
+  snapshot: InitialMigrationSnapshot
+}) {
+  const orderedStepKeys = getOrderedGettingStartedStepKeys({
+    businessProfitSeasons,
+    migrationSetup,
+    migrationSnapshot: snapshot,
+  })
+
+  return (
+    <nav aria-label="Migration setup steps" className="xl:hidden">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+        {orderedStepKeys.map((key, index) => {
+          const meta = getGettingStartedStepMeta(key, migrationSetup.mode)
+          const complete = isGettingStartedStepComplete(
+            key,
+            snapshot,
+            migrationSetup,
+            operationProfile
+          )
+          const isActive = activeStep === key
+
+          return (
+            <Link
+              aria-current={isActive ? "step" : undefined}
+              className={cn(
+                "min-h-11 min-w-[160px] shrink-0 border px-3 py-2.5 transition-colors",
+                isActive
+                  ? "border-foreground bg-primary text-primary-foreground"
+                  : "border-border/70 bg-muted/20 hover:bg-muted/40"
+              )}
+              href={getGettingStartedStepHref(key)}
+              key={key}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium">Step {index + 1}</span>
+                <Badge
+                  variant={isActive || !complete ? "secondary" : "default"}
+                >
+                  {complete ? "Done" : "Todo"}
+                </Badge>
+              </div>
+              <p className="mt-1.5 text-sm font-semibold">{meta.label}</p>
+            </Link>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
 function StepFooter({
   hasStepNextAction = false,
   hideNext = false,
@@ -618,18 +285,23 @@ function StepFooter({
   previousStep?: GettingStartedStepKey
   requireHistoryConfirmation?: boolean
 }) {
-  const nextHref = nextHrefOverride ?? (nextStep ? stepHref(nextStep) : "")
+  const nextHref =
+    nextHrefOverride ?? (nextStep ? getGettingStartedStepHref(nextStep) : "")
   const previousHref =
-    previousHrefOverride ?? (previousStep ? stepHref(previousStep) : "")
+    previousHrefOverride ??
+    (previousStep ? getGettingStartedStepHref(previousStep) : "")
   const hasNext = Boolean(nextHref) && !hideNext
 
   return (
     <div className="mt-6 flex flex-col gap-4">
       <Separator />
-      <div className="flex flex-wrap justify-between gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-between">
         {previousHref ? (
           <Link
-            className={buttonVariants({ variant: "outline" })}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-11 w-full sm:h-10 sm:w-auto"
+            )}
             href={previousHref}
           >
             Previous
@@ -642,7 +314,9 @@ function StepFooter({
             <GettingStartedFooterActionsSlot />
           ) : requireHistoryConfirmation ? (
             <AlertDialog>
-              <AlertDialogTrigger render={<Button />}>
+              <AlertDialogTrigger
+                render={<Button className="h-11 w-full sm:h-10 sm:w-auto" />}
+              >
                 {nextLabel}
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -665,7 +339,13 @@ function StepFooter({
               </AlertDialogContent>
             </AlertDialog>
           ) : (
-            <Link className={buttonVariants({})} href={nextHref}>
+            <Link
+              className={cn(
+                buttonVariants({}),
+                "h-11 w-full sm:h-10 sm:w-auto"
+              )}
+              href={nextHref}
+            >
               {nextLabel}
             </Link>
           )
@@ -681,9 +361,7 @@ function MigrationSetupModeStep({
   tenantName,
 }: Pick<
   GettingStartedPageViewProps,
-  | "migrationSetup"
-  | "recommendedMigrationSetupMode"
-  | "tenantName"
+  "migrationSetup" | "recommendedMigrationSetupMode" | "tenantName"
 >) {
   return (
     <Card>
@@ -759,7 +437,7 @@ function ChargesStep({
         <GettingStartedChargesContent
           chargeDefinitions={chargeDefinitions}
           quickFillEnabled={quickFillEnabled}
-          redirectTo={stepHref("shares")}
+          redirectTo={getGettingStartedStepHref("shares")}
           tenantStartDate={tenantStartDate}
         />
       </CardContent>
@@ -794,7 +472,7 @@ function SharesStep({
       />
       <CardContent className="grid gap-5">
         <GettingStartedShareModelPanel
-          profitPolicyHref={stepHref("profit-policy")}
+          profitPolicyHref={getGettingStartedStepHref("profit-policy")}
           sharePolicy={sharePolicy}
           shareStructureVersions={shareStructureVersions}
           tenantStartDate={tenantStartDate}
@@ -829,7 +507,7 @@ function ProfitPolicyStep({
         <GettingStartedProfitPolicyContent
           businessPolicy={businessPolicy}
           quickFillEnabled={quickFillEnabled}
-          redirectTo={stepHref("business")}
+          redirectTo={getGettingStartedStepHref("business")}
         />
       </CardContent>
     </Card>
@@ -868,8 +546,8 @@ function BusinessStep({
           financeStartDate={tenantStartDate}
           redirectTo={
             isBroughtForward
-              ? stepHref("admin-member")
-              : stepHref("profit-seasons")
+              ? getGettingStartedStepHref("admin-member")
+              : getGettingStartedStepHref("profit-seasons")
           }
           setupMode={migrationSetup.mode}
           shareBusinesses={shareBusinesses}
@@ -879,7 +557,7 @@ function BusinessStep({
             No ongoing businesses or unshared profits to bring forward?{" "}
             <Link
               className="font-medium text-foreground underline underline-offset-4"
-              href={stepHref("admin-member")}
+              href={getGettingStartedStepHref("admin-member")}
             >
               Continue without businesses
             </Link>
@@ -945,7 +623,7 @@ function ProfitSeasonsStep({
           <ProfitSeasonsReviewContent
             businessProfitSeasons={businessProfitSeasons}
             pendingCount={pendingCount}
-            redirectTo={stepHref("admin-member")}
+            redirectTo={getGettingStartedStepHref("admin-member")}
           />
         )}
       </CardContent>
@@ -988,7 +666,7 @@ function AdminMemberHandoffCard(
 
   return (
     <Card className="overflow-hidden">
-      <div className="border-b border-border/70 bg-primary/5 px-6 py-6">
+      <div className="border-b border-border/70 bg-primary/5 px-4 py-5 sm:px-6 sm:py-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex gap-4">
             <div className="flex size-11 shrink-0 items-center justify-center border border-primary/25 bg-background text-primary">
@@ -1012,7 +690,7 @@ function AdminMemberHandoffCard(
             </div>
           </div>
           <Link
-            className={buttonVariants({})}
+            className={cn(buttonVariants({}), "h-11 w-full lg:h-10 lg:w-auto")}
             href={primaryMemberMigrationHref}
           >
             {adminMember
@@ -1024,7 +702,7 @@ function AdminMemberHandoffCard(
           </Link>
         </div>
       </div>
-      <CardContent className="grid gap-6 p-6">
+      <CardContent className="grid gap-6 p-4 sm:p-6">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]">
           <div className="border border-border/70 bg-muted/15 p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1043,7 +721,9 @@ function AdminMemberHandoffCard(
                 {adminMember ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                     <span>{adminMember.memberNumber}</span>
-                    <span>Joined {formatDate(adminMember.joinedAt)}</span>
+                    <span>
+                      Joined {formatGettingStartedDate(adminMember.joinedAt)}
+                    </span>
                     {adminMember.email ? (
                       <span>{adminMember.email}</span>
                     ) : null}
@@ -1058,7 +738,10 @@ function AdminMemberHandoffCard(
               <div className="flex flex-wrap items-center gap-2">
                 {adminMember ? <Badge>Admin account</Badge> : null}
                 <Link
-                  className={buttonVariants({})}
+                  className={cn(
+                    buttonVariants({}),
+                    "h-11 w-full sm:h-10 sm:w-auto"
+                  )}
                   href={primaryMemberMigrationHref}
                 >
                   {adminMember
@@ -1095,7 +778,10 @@ function AdminMemberHandoffCard(
               : "Recreate dated commitments, charges, legacy loans, repayments, activity windows, and profit adjustments for the cooperative's historical period."}
           </p>
           <Link
-            className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "mt-4 h-11 w-full sm:h-10 sm:w-auto"
+            )}
             href={primaryMemberMigrationHref}
           >
             {adminMember
@@ -1240,7 +926,7 @@ function ReviewStep({
 }
 
 function ActiveStepPanel(props: GettingStartedPageViewProps) {
-  const orderedStepKeys = getOrderedStepKeys(props)
+  const orderedStepKeys = getOrderedGettingStartedStepKeys(props)
   const activeIndex = orderedStepKeys.indexOf(props.activeStep)
   const previousStep =
     props.activeStep === "admin-member"
@@ -1346,11 +1032,11 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
 
 export function GettingStartedPageView(props: GettingStartedPageViewProps) {
   const { migrationSnapshot, tenantName } = props
-  const orderedStepKeys = getOrderedStepKeys(props)
+  const orderedStepKeys = getOrderedGettingStartedStepKeys(props)
   const firstIncompleteStep =
     orderedStepKeys.find(
       (key) =>
-        !isStepComplete(
+        !isGettingStartedStepComplete(
           key,
           migrationSnapshot,
           props.migrationSetup,
@@ -1366,8 +1052,11 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
     <WorkspacePageShell
       actions={
         <Link
-          className={buttonVariants({ variant: "outline" })}
-          href={stepHref(firstIncompleteStep)}
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "h-11 w-full md:h-10 md:w-auto"
+          )}
+          href={getGettingStartedStepHref(firstIncompleteStep)}
         >
           Resume next step
         </Link>
@@ -1382,12 +1071,21 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
     >
       <section
         className={cn(
-          "grid gap-5",
+          "grid gap-5 max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[&_select]:min-h-11",
           props.activeStep === "operation-profile"
             ? "xl:grid-cols-1"
             : "xl:grid-cols-[280px_minmax(0,1fr)]"
         )}
       >
+        {props.activeStep === "operation-profile" ? null : (
+          <MobileStepNavigation
+            activeStep={props.activeStep}
+            businessProfitSeasons={props.businessProfitSeasons}
+            migrationSetup={props.migrationSetup}
+            operationProfile={props.operationProfile}
+            snapshot={migrationSnapshot}
+          />
+        )}
         {props.activeStep === "operation-profile" ? null : (
           <StepRail
             activeStep={props.activeStep}

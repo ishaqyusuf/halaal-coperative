@@ -2,8 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { getMembersListInput, getMembersSort } from "./member-list-input"
 
 const emptyFilters = {
-  joinedFrom: null,
-  joinedTo: null,
+  dateRange: null,
   kycStatus: null,
   memberType: null,
   migrationStatus: null,
@@ -17,8 +16,7 @@ describe("member list input", () => {
       getMembersListInput(
         {
           ...emptyFilters,
-          joinedFrom: "2026-01-01",
-          joinedTo: "2026-06-30",
+          dateRange: ["2026-01-01", "2026-06-30"],
           kycStatus: "verified",
           memberType: "unsupported",
           migrationStatus: "finalized",
@@ -37,6 +35,16 @@ describe("member list input", () => {
       sort: ["joinedAt", "desc"],
       status: "active",
     })
+  })
+
+  test("resolves a canonical date preset at the API boundary", () => {
+    const input = getMembersListInput({
+      ...emptyFilters,
+      dateRange: ["last month"],
+    })
+
+    expect(input.joinedFrom).toMatch(/^\d{4}-\d{2}-01$/)
+    expect(input.joinedTo).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
   test("uses deferred search without changing the URL filter object", () => {

@@ -25,5 +25,5 @@ This file keeps absolute local paths for external repositories that serve as ref
 - These repositories are external references, not part of this workspace.
 - Primary use: architecture review, implementation pattern comparison, and coding style guidance.
 - `midday` is the primary reference for architecture, coding standards, and page-speed-sensitive implementation decisions unless this project has an explicit reason to diverge.
-- `gnd` is the reference for the standard notification package system.
+- `gnd` is the reference for the standard notification package system and the Sales Orders rich date-filter interaction (suggestion rail plus two-boundary range calendar).
 - `plot-keys` is the reference for local URL handling, portless/proxy support, and generated links.

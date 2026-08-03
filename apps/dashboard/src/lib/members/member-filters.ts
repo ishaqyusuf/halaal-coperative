@@ -1,3 +1,8 @@
+import {
+  getDatePresetLabel,
+  isDateFilterPreset,
+  resolveDateFilter,
+} from "@halaalvest/utils"
 import { hasActiveFilters } from "@/lib/filters/utils"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
 
@@ -16,6 +21,7 @@ function displayEnum(value: string) {
 }
 
 export function toMemberQueryFilters(filters: MembersFilterParams) {
+  const dateRange = resolveDateFilter(filters.dateRange)
   const normalizedStatus =
     filters.status === "pending" ||
     filters.status === "active" ||
@@ -47,11 +53,11 @@ export function toMemberQueryFilters(filters: MembersFilterParams) {
       : undefined
 
   return {
-    joinedFrom: filters.joinedFrom
-      ? new Date(`${filters.joinedFrom}T00:00:00.000Z`)
+    joinedFrom: dateRange?.from
+      ? new Date(`${dateRange.from}T00:00:00.000Z`)
       : undefined,
-    joinedTo: filters.joinedTo
-      ? new Date(`${filters.joinedTo}T23:59:59.999Z`)
+    joinedTo: dateRange?.to
+      ? new Date(`${dateRange.to}T23:59:59.999Z`)
       : undefined,
     kycStatus: normalizedKycStatus,
     memberType: normalizedMemberType,
@@ -96,17 +102,17 @@ export function getActiveMemberFilters(filters: MembersFilterParams) {
     })
   }
 
-  if (filters.joinedFrom) {
-    activeFilters.push({
-      key: "joinedFrom",
-      label: `Joined from: ${filters.joinedFrom}`,
-    })
-  }
+  if (filters.dateRange?.length) {
+    const [first] = filters.dateRange
+    const dateRange = resolveDateFilter(filters.dateRange)
+    const label =
+      filters.dateRange.length === 1 && first && isDateFilterPreset(first)
+        ? getDatePresetLabel(first)
+        : [dateRange?.from, dateRange?.to].filter(Boolean).join(" - ")
 
-  if (filters.joinedTo) {
     activeFilters.push({
-      key: "joinedTo",
-      label: `Joined to: ${filters.joinedTo}`,
+      key: "dateRange",
+      label: `Joined: ${label}`,
     })
   }
 
@@ -122,6 +128,8 @@ export function buildMembersPath(
   Object.entries(filters).forEach(([key, value]) => {
     if (typeof value === "string" && value.length > 0) {
       params.set(key, value)
+    } else if (Array.isArray(value) && value.length > 0) {
+      params.set(key, value.join(","))
     }
   })
 

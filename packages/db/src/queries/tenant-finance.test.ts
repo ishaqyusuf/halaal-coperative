@@ -83,6 +83,38 @@ function withMigrationState(
   }
 }
 
+function currentAnnualSeasonTransaction(
+  txStubs: Record<string, unknown>,
+  overrides: {
+    appliedBackfillBatches?: number
+    initialMigrationStatus?: string
+  } = {}
+) {
+  const base = withMigrationState(overrides)
+
+  return {
+    ...base,
+    $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        ...base,
+        dividendPeriod: {
+          create: async (input: any) => ({
+            id: "profit-season-2026",
+            name: input.data.name,
+          }),
+          findFirst: async () => ({
+            id: "profit-season-2026",
+            name: "2026 Annual profit season",
+            periodEnd: new Date("2026-12-31T00:00:00.000Z"),
+            periodStart: new Date("2026-01-01T00:00:00.000Z"),
+            status: "draft",
+          }),
+        },
+        ...txStubs,
+      }),
+  }
+}
+
 describe("tenant finance queries", () => {
   test("only returns a business next cursor when another row exists", async () => {
     const requestedTake: number[] = []
@@ -1323,16 +1355,13 @@ describe("tenant finance queries", () => {
       {
         createdByUserId: "user-1",
         profitAmount: 10000,
-        profitDate: new Date("2026-01-31T00:00:00.000Z"),
+        profitDate: new Date("2026-08-01T00:00:00.000Z"),
+        referenceDate: new Date("2026-08-02T00:00:00.000Z"),
         shareBusinessId: "business-1",
         sourceType: "manual",
         tenantId: "tenant-1",
       },
-      withMigrationState(
-        {
-          appliedBackfillBatches: 1,
-          initialMigrationStatus: "live_operations",
-        },
+      currentAnnualSeasonTransaction(
         {
           auditLog: {
             count: async () => 0,
@@ -1341,6 +1370,12 @@ describe("tenant finance queries", () => {
               return input
             },
           },
+          shareBusiness: {
+            findFirst: async () => ({
+              endDate: null,
+              startDate: new Date("2010-01-01T00:00:00.000Z"),
+            }),
+          },
           shareBusinessProfitEntry: {
             count: async () => 1,
             create: async (input: any) => {
@@ -1348,6 +1383,10 @@ describe("tenant finance queries", () => {
               return { id: "profit-entry-1", ...input.data }
             },
           },
+        },
+        {
+          appliedBackfillBatches: 1,
+          initialMigrationStatus: "live_operations",
         }
       ) as never
     )
@@ -1355,6 +1394,7 @@ describe("tenant finance queries", () => {
     expect(profitEntryCreates).toHaveLength(1)
     expect(profitEntryCreates[0]).toMatchObject({
       data: {
+        linkedDividendPeriodId: "profit-season-2026",
         sourceType: "manual",
       },
     })
@@ -1367,6 +1407,111 @@ describe("tenant finance queries", () => {
         tenantId: "tenant-1",
       },
     })
+  })
+
+  test("rejects manual profit outside the current profit season", async () => {
+    const profitEntryCreates: unknown[] = []
+
+    await expect(
+      createShareBusinessProfitEntry(
+        {
+          profitAmount: 10000,
+          profitDate: new Date("2025-12-31T00:00:00.000Z"),
+          referenceDate: new Date("2026-08-02T00:00:00.000Z"),
+          shareBusinessId: "business-1",
+          sourceType: "manual",
+          tenantId: "tenant-1",
+        },
+        currentAnnualSeasonTransaction({
+          shareBusiness: {
+            findFirst: async () => ({
+              endDate: null,
+              startDate: new Date("2010-01-01T00:00:00.000Z"),
+            }),
+          },
+          shareBusinessProfitEntry: {
+            count: async () => 1,
+            create: async (input: unknown) => {
+              profitEntryCreates.push(input)
+              return input
+            },
+          },
+        }) as never
+      )
+    ).rejects.toThrow("Profit date must be between 2026-01-01 and 2026-12-31")
+
+    expect(profitEntryCreates).toHaveLength(0)
+  })
+
+  test("rejects future manual profit inside the current season", async () => {
+    const profitEntryCreates: unknown[] = []
+
+    await expect(
+      createShareBusinessProfitEntry(
+        {
+          profitAmount: 10000,
+          profitDate: new Date("2026-08-03T00:00:00.000Z"),
+          referenceDate: new Date("2026-08-02T00:00:00.000Z"),
+          shareBusinessId: "business-1",
+          sourceType: "manual",
+          tenantId: "tenant-1",
+        },
+        currentAnnualSeasonTransaction({
+          shareBusiness: {
+            findFirst: async () => ({
+              endDate: null,
+              startDate: new Date("2010-01-01T00:00:00.000Z"),
+            }),
+          },
+          shareBusinessProfitEntry: {
+            count: async () => 1,
+            create: async (input: unknown) => {
+              profitEntryCreates.push(input)
+              return input
+            },
+          },
+        }) as never
+      )
+    ).rejects.toThrow("Profit date cannot be in the future")
+
+    expect(profitEntryCreates).toHaveLength(0)
+  })
+
+  test("rejects a historical dividend period from another cooperative", async () => {
+    const profitEntryCreates: unknown[] = []
+
+    await expect(
+      createShareBusinessProfitEntry(
+        {
+          linkedDividendPeriodId: "other-tenant-period",
+          profitAmount: 10000,
+          profitDate: new Date("2025-12-31T00:00:00.000Z"),
+          shareBusinessId: "business-1",
+          sourceType: "backfill",
+          tenantId: "tenant-1",
+        },
+        currentAnnualSeasonTransaction({
+          dividendPeriod: {
+            findFirst: async () => null,
+          },
+          shareBusiness: {
+            findFirst: async () => ({
+              endDate: null,
+              startDate: new Date("2010-01-01T00:00:00.000Z"),
+            }),
+          },
+          shareBusinessProfitEntry: {
+            count: async () => 1,
+            create: async (input: unknown) => {
+              profitEntryCreates.push(input)
+              return input
+            },
+          },
+        }) as never
+      )
+    ).rejects.toThrow("Dividend period was not found in this cooperative")
+
+    expect(profitEntryCreates).toHaveLength(0)
   })
 
   test("blocks historical business profit rows after live operations begin", async () => {
@@ -1415,54 +1560,55 @@ describe("tenant finance queries", () => {
             allocatableProfitAmount: 10000,
             expenseAmount: 0,
             profitAmount: 10000,
-            profitDate: new Date("2026-01-31T00:00:00.000Z"),
+            profitDate: new Date("2026-08-01T00:00:00.000Z"),
             status: "completed",
           },
         ],
         sourceType: "manual",
-        startDate: new Date("2026-01-01T00:00:00.000Z"),
+        referenceDate: new Date("2026-08-02T00:00:00.000Z"),
+        startDate: new Date("2010-01-01T00:00:00.000Z"),
         status: "active",
         tenantId: "tenant-1",
       },
-      {
-        ...withMigrationState({
+      currentAnnualSeasonTransaction(
+        {
+          auditLog: {
+            create: async (input: unknown) => {
+              auditLogCreates.push(input)
+              return input
+            },
+          },
+          shareBusiness: {
+            create: async (input: any) => {
+              businessCreates.push(input)
+              return { id: "business-1", ...input.data }
+            },
+            findFirst: async () => ({
+              id: "business-1",
+              profitEntries: [],
+            }),
+          },
+          shareBusinessProfitEntry: {
+            create: async (input: unknown) => {
+              profitEntryCreates.push(input)
+              return { id: "profit-entry-1" }
+            },
+          },
+          shareBusinessProfitExpenseLine: {
+            create: async () => null,
+          },
+        },
+        {
           appliedBackfillBatches: 1,
           initialMigrationStatus: "live_operations",
-        }),
-        $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({
-            auditLog: {
-              create: async (input: unknown) => {
-                auditLogCreates.push(input)
-                return input
-              },
-            },
-            shareBusiness: {
-              create: async (input: any) => {
-                businessCreates.push(input)
-                return { id: "business-1", ...input.data }
-              },
-              findFirst: async () => ({
-                id: "business-1",
-                profitEntries: [],
-              }),
-            },
-            shareBusinessProfitEntry: {
-              create: async (input: unknown) => {
-                profitEntryCreates.push(input)
-                return { id: "profit-entry-1" }
-              },
-            },
-            shareBusinessProfitExpenseLine: {
-              create: async () => null,
-            },
-          }),
-      } as never
+        }
+      ) as never
     )
 
     expect(businessCreates).toHaveLength(1)
     expect(profitEntryCreates[0]).toMatchObject({
       data: {
+        linkedDividendPeriodId: "profit-season-2026",
         sourceType: "manual",
         status: "completed",
       },
@@ -1476,6 +1622,90 @@ describe("tenant finance queries", () => {
         tenantId: "tenant-1",
       },
     })
+  })
+
+  test("resolves the current profit season once for a multi-entry business transaction", async () => {
+    let seasonLookupCount = 0
+    const profitEntryCreates: unknown[] = []
+
+    await createShareBusiness(
+      {
+        capitalAmount: 50000,
+        name: "Multi-entry retail pool",
+        profitAmount: 30000,
+        profitEntries: [
+          {
+            allocatableProfitAmount: 10000,
+            expenseAmount: 0,
+            profitAmount: 10000,
+            profitDate: new Date("2026-06-01T00:00:00.000Z"),
+          },
+          {
+            allocatableProfitAmount: 10000,
+            expenseAmount: 0,
+            profitAmount: 10000,
+            profitDate: new Date("2026-07-01T00:00:00.000Z"),
+          },
+          {
+            allocatableProfitAmount: 10000,
+            expenseAmount: 0,
+            profitAmount: 10000,
+            profitDate: new Date("2026-08-01T00:00:00.000Z"),
+          },
+        ],
+        referenceDate: new Date("2026-08-02T00:00:00.000Z"),
+        sourceType: "manual",
+        startDate: new Date("2010-01-01T00:00:00.000Z"),
+        status: "active",
+        tenantId: "tenant-1",
+      },
+      currentAnnualSeasonTransaction({
+        auditLog: {
+          create: async (input: unknown) => input,
+        },
+        dividendPeriod: {
+          findFirst: async () => {
+            seasonLookupCount += 1
+
+            if (seasonLookupCount > 1) {
+              throw new Error(
+                "Transaction API error: A commit cannot be executed on an expired transaction."
+              )
+            }
+
+            return {
+              id: "profit-season-2026",
+              name: "2026 Annual profit season",
+              periodEnd: new Date("2026-12-31T00:00:00.000Z"),
+              periodStart: new Date("2026-01-01T00:00:00.000Z"),
+              status: "draft",
+            }
+          },
+        },
+        shareBusiness: {
+          create: async (input: any) => ({
+            id: "business-1",
+            ...input.data,
+          }),
+          findFirst: async () => ({
+            id: "business-1",
+            profitEntries: [],
+          }),
+        },
+        shareBusinessProfitEntry: {
+          create: async (input: unknown) => {
+            profitEntryCreates.push(input)
+            return { id: `profit-entry-${profitEntryCreates.length}` }
+          },
+        },
+        shareBusinessProfitExpenseLine: {
+          create: async () => null,
+        },
+      }) as never
+    )
+
+    expect(seasonLookupCount).toBe(1)
+    expect(profitEntryCreates).toHaveLength(3)
   })
 
   test("blocks historical business pool creation after live operations begin", async () => {

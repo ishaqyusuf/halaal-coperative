@@ -1,4 +1,5 @@
 import { getContributionFilterMetadata } from "@halaalvest/db"
+import { resolveDateFilter } from "@halaalvest/utils"
 import {
   ContributionsPageView,
   ContributionsUnavailableView,
@@ -59,19 +60,21 @@ export default async function ContributionsPage({
   const selectedBatchId =
     typeof params.batchId === "string" ? params.batchId : undefined
   const context = await getDashboardServerContext()
-  const [data, filterList, contributionTableSettings, caller] = await Promise.all([
-    loadContributionsPageData(filters, { selectedBatchId }),
-    context.tenant
-      ? getContributionFilterMetadata(context.tenant.id)
-      : Promise.resolve([]),
-    getInitialTableSettings("contributions"),
-    getServerCaller(),
-  ])
+  const [data, filterList, contributionTableSettings, caller] =
+    await Promise.all([
+      loadContributionsPageData(filters, { selectedBatchId }),
+      context.tenant
+        ? getContributionFilterMetadata(context.tenant.id)
+        : Promise.resolve([]),
+      getInitialTableSettings("contributions"),
+      getServerCaller(),
+    ])
 
   if (data.state !== "ready") {
     return <ContributionsUnavailableView />
   }
 
+  const dateRange = resolveDateFilter(filters.dateRange)
   const ledgerInput = {
     channel: getEnumValue(filters.channel, [
       "cash",
@@ -79,11 +82,11 @@ export default async function ContributionsPage({
       "payroll",
       "transfer",
     ] as const),
-    from: filters.from ?? undefined,
+    from: dateRange?.from,
     memberId: filters.memberId ?? undefined,
     q: filters.search ?? undefined,
     sort: getSort(sort),
-    to: filters.to ?? undefined,
+    to: dateRange?.to,
   }
   const ledgerOptions = trpc.contributions.ledger.infiniteQueryOptions(
     ledgerInput,

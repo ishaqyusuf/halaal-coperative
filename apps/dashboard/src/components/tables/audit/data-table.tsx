@@ -2,6 +2,7 @@
 
 import { closestCenter, DndContext } from "@dnd-kit/core"
 import type { ActivityReportEvent } from "@halaalvest/db"
+import { resolveDateFilter } from "@halaalvest/utils"
 import {
   Table,
   TableBody,
@@ -30,11 +31,7 @@ import { AuditTableHeader } from "./table-header"
 
 export type AuditTableRow = ActivityReportEvent
 
-type AuditSortField =
-  | "action"
-  | "actor"
-  | "entityType"
-  | "occurredAt"
+type AuditSortField = "action" | "actor" | "entityType" | "occurredAt"
 
 const COLUMN_IDS = getColumnIds(columns)
 
@@ -71,16 +68,17 @@ export function AuditDataTable({
   const parentRef = useRef<HTMLDivElement>(null)
   const { setColumns } = useAuditTableStore()
   const deferredSearch = useDeferredValue(filters.search)
-  const queryInput = useMemo(
-    () => ({
+  const queryInput = useMemo(() => {
+    const resolvedDateRange = resolveDateFilter(filters.dateRange)
+
+    return {
       action: filters.action || undefined,
-      from: filters.from ?? undefined,
+      from: resolvedDateRange?.from,
       q: deferredSearch || undefined,
       sort: getSort(params.sort),
-      to: filters.to ?? undefined,
-    }),
-    [deferredSearch, filters, params.sort]
-  )
+      to: resolvedDateRange?.to,
+    }
+  }, [deferredSearch, filters.action, filters.dateRange, params.sort])
 
   const infiniteQueryOptions = trpc.reports.auditEvents.infiniteQueryOptions(
     queryInput,
@@ -200,7 +198,7 @@ export function AuditDataTable({
     <div className="relative">
       <div className="w-full">
         <div
-          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          className="scrollbar-hide overflow-auto overscroll-contain border-x border-b border-border"
           ref={(element) => {
             parentRef.current = element
             tableScroll.containerRef.current = element

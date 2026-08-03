@@ -23,6 +23,25 @@ function displayEnum(value: string) {
   return value.replaceAll("_", " ")
 }
 
+type CurrentProfitSeason = {
+  canRecordProfit: boolean
+  id: string | null
+  label: string
+  periodEnd: string | null
+  periodStart: string | null
+  reason: string | null
+  status: "approved" | "closed" | "draft" | "published" | "unconfigured"
+}
+
+function currentLocalDate() {
+  const date = new Date()
+  const offsetDate = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60_000
+  )
+
+  return offsetDate.toISOString().slice(0, 10)
+}
+
 function getSelectedProfitEntry(
   business: { profitEntries: unknown[] } | undefined,
   profitEntryId: string | null
@@ -53,6 +72,7 @@ export function BusinessContent() {
     return (
       <div className="px-4 pb-6 sm:px-6">
         <ShareBusinessForm
+          currentProfitSeason={setup.currentProfitSeason}
           dividendPeriods={dividendPeriods}
           financeStartDate={financeStartDate}
           onSuccess={() => setParams(null)}
@@ -113,77 +133,74 @@ export function BusinessContent() {
     const latest = business.profitEntries[0]
 
     return (
-      <div className="grid gap-5 px-6">
-        <div className="grid gap-3 rounded-lg border p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-medium text-foreground">{business.name}</p>
-              <p className="text-sm text-muted-foreground">
+      <div className="px-4 pb-6 sm:px-6" data-business-details-flat>
+        <section className="border-b border-border/70 pb-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-medium text-foreground">
+                {business.name}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
                 {business.startDate} to {business.endDate ?? "Ongoing"}
               </p>
             </div>
-            <Badge variant="outline" className="capitalize">
+            <Badge className="shrink-0 capitalize" variant="outline">
               {displayEnum(business.status)}
             </Badge>
           </div>
-          {business.notes ? (
-            <p className="text-sm text-muted-foreground">{business.notes}</p>
-          ) : null}
-        </div>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {business.notes ?? "No internal note has been added."}
+          </p>
+        </section>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground">Capital</p>
-            <p className="mt-1 font-medium">
+        <dl className="divide-y divide-border/70 border-b border-border/70 py-1 sm:grid sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:py-5">
+          <div className="py-4 sm:py-0 sm:pr-5">
+            <dt className="text-xs text-muted-foreground">Capital</dt>
+            <dd className="mt-1 font-medium text-foreground tabular-nums">
               {formatCurrency(business.capitalAmount)}
-            </p>
+            </dd>
           </div>
-          <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground">Recorded profit</p>
-            <p className="mt-1 font-medium">
+          <div className="py-4 sm:py-0 sm:pl-5">
+            <dt className="text-xs text-muted-foreground">Recorded profit</dt>
+            <dd className="mt-1 font-medium text-foreground tabular-nums">
               {formatCurrency(business.profitAmount)}
-            </p>
+            </dd>
           </div>
-        </div>
+        </dl>
 
-        <div className="rounded-lg border p-4">
-          <p className="text-xs text-muted-foreground">Latest profit entry</p>
+        <section className="border-b border-border/70 py-5">
+          <p className="text-xs font-medium text-muted-foreground">
+            Latest profit entry
+          </p>
           {latest ? (
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <div>
-                <p className="font-medium">
+            <div className="mt-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-foreground tabular-nums">
                   {formatCurrency(latest.allocatableProfitAmount)}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {latest.profitDate} · {displayEnum(latest.status)}
                 </p>
+                {latest.linkedDividendPeriod ? (
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {latest.linkedDividendPeriod.name}
+                  </p>
+                ) : null}
               </div>
-              <Badge variant="outline" className="capitalize">
+              <Badge className="shrink-0 capitalize" variant="outline">
                 {displayEnum(latest.sourceType)}
               </Badge>
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-3 text-sm text-muted-foreground">
               No profit entry has been recorded yet.
             </p>
           )}
-        </div>
+        </section>
 
-        <div className="flex gap-2">
+        <div className="grid gap-2 pt-5 md:flex md:justify-end">
           <Button
-            disabled={isLocked}
-            onClick={() =>
-              setParams({
-                businessId: business.id,
-                businessType: "profit",
-                profitEntryId: null,
-              })
-            }
-            type="button"
-          >
-            Add profit entry
-          </Button>
-          <Button
+            className="h-11 w-full md:h-9 md:w-auto"
             disabled={isLocked}
             onClick={() =>
               setParams({
@@ -196,6 +213,20 @@ export function BusinessContent() {
             variant="outline"
           >
             Edit business
+          </Button>
+          <Button
+            className="h-11 w-full md:h-9 md:w-auto"
+            disabled={isLocked}
+            onClick={() =>
+              setParams({
+                businessId: business.id,
+                businessType: "profit",
+                profitEntryId: null,
+              })
+            }
+            type="button"
+          >
+            Add profit entry
           </Button>
         </div>
       </div>
@@ -215,11 +246,17 @@ export function BusinessContent() {
             <Input disabled value={business.name} />
           </label>
           <ProfitEntryFields
+            businessEndDate={business.endDate}
+            businessStartDate={business.startDate}
+            currentProfitSeason={setup.currentProfitSeason}
             dividendPeriods={dividendPeriods}
             financeStartDate={financeStartDate}
             isLocked={isLocked}
           />
-          <Button disabled={isLocked} type="submit">
+          <Button
+            disabled={isLocked || !setup.currentProfitSeason.canRecordProfit}
+            type="submit"
+          >
             Save profit entry
           </Button>
         </form>
@@ -276,7 +313,6 @@ export function BusinessContent() {
           <DatePickerInput
             defaultValue={business.startDate}
             disabled={isLocked}
-            min={financeStartDate ?? undefined}
             name="startDate"
             placeholder="Select start date"
             required
@@ -287,7 +323,7 @@ export function BusinessContent() {
           <DatePickerInput
             defaultValue={business.endDate ?? ""}
             disabled={isLocked}
-            min={business.startDate || financeStartDate || undefined}
+            min={business.startDate || undefined}
             name="endDate"
             placeholder="Select end date"
           />
@@ -334,13 +370,21 @@ export function BusinessContent() {
       >
         <input name="profitEntryId" type="hidden" value={profitEntry.id} />
         <ProfitEntryFields
+          businessEndDate={business?.endDate}
+          businessStartDate={business?.startDate}
+          currentProfitSeason={setup.currentProfitSeason}
           defaultValues={profitEntry}
           dividendPeriods={dividendPeriods}
           financeStartDate={financeStartDate}
           isLocked={isLocked}
         />
         <Button
-          disabled={isLocked || profitEntry.hasPublishedAllocations}
+          disabled={
+            isLocked ||
+            profitEntry.hasPublishedAllocations ||
+            (profitEntry.sourceType === "manual" &&
+              !setup.currentProfitSeason.canRecordProfit)
+          }
           type="submit"
         >
           Save changes
@@ -385,11 +429,17 @@ function BusinessDividendPeriodSelect({
 }
 
 function ProfitEntryFields({
+  businessEndDate,
+  businessStartDate,
+  currentProfitSeason,
   defaultValues,
   dividendPeriods,
   financeStartDate,
   isLocked,
 }: {
+  businessEndDate?: string | null
+  businessStartDate?: string | null
+  currentProfitSeason: CurrentProfitSeason
   defaultValues?: {
     allocatableProfitAmount: number
     expenseAmount: number
@@ -405,14 +455,56 @@ function ProfitEntryFields({
   financeStartDate?: string | null
   isLocked: boolean
 }) {
+  const isHistoricalEntry = Boolean(
+    defaultValues?.sourceType && defaultValues.sourceType !== "manual"
+  )
+  const isProfitCaptureBlocked =
+    !isHistoricalEntry && !currentProfitSeason.canRecordProfit
+  const minimumProfitDate = isHistoricalEntry
+    ? (financeStartDate ?? undefined)
+    : [currentProfitSeason.periodStart, businessStartDate]
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1)
+  const maximumProfitDate = isHistoricalEntry
+    ? (businessEndDate ?? undefined)
+    : [currentProfitSeason.periodEnd, businessEndDate, currentLocalDate()]
+        .filter((value): value is string => Boolean(value))
+        .sort()[0]
+
   return (
     <>
+      {!isHistoricalEntry ? (
+        <div
+          className="grid gap-1 border-b border-border/70 pb-4"
+          data-current-profit-season
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-medium text-foreground">
+              Current profit season
+            </span>
+            <span className="text-xs text-muted-foreground capitalize">
+              {currentProfitSeason.status}
+            </span>
+          </div>
+          <span className="text-sm text-foreground">
+            {currentProfitSeason.label}
+          </span>
+          <span className="text-xs leading-5 text-muted-foreground">
+            {currentProfitSeason.periodStart && currentProfitSeason.periodEnd
+              ? `Record realized profit from ${minimumProfitDate ?? currentProfitSeason.periodStart} to ${maximumProfitDate ?? currentProfitSeason.periodEnd}. Distribution review begins after ${currentProfitSeason.periodEnd}.`
+              : (currentProfitSeason.reason ??
+                "Configure an open profit season before recording realized profit.")}
+          </span>
+        </div>
+      ) : null}
       <label className="space-y-1 text-xs font-medium text-muted-foreground">
         Profit date
         <DatePickerInput
           defaultValue={defaultValues?.profitDate}
-          disabled={isLocked}
-          min={financeStartDate ?? undefined}
+          disabled={isLocked || isProfitCaptureBlocked}
+          max={maximumProfitDate}
+          min={minimumProfitDate}
           name="profitDate"
           placeholder="Select profit date"
           required
@@ -422,7 +514,7 @@ function ProfitEntryFields({
         Gross profit
         <CurrencyPrefixInput
           defaultValue={defaultValues?.profitAmount}
-          disabled={isLocked}
+          disabled={isLocked || isProfitCaptureBlocked}
           min="0"
           name="profitAmount"
           required
@@ -434,7 +526,7 @@ function ProfitEntryFields({
         Expense / charges
         <CurrencyPrefixInput
           defaultValue={defaultValues?.expenseAmount}
-          disabled={isLocked}
+          disabled={isLocked || isProfitCaptureBlocked}
           min="0"
           name="expenseAmount"
           step="0.01"
@@ -445,7 +537,7 @@ function ProfitEntryFields({
         Final allocatable profit
         <CurrencyPrefixInput
           defaultValue={defaultValues?.allocatableProfitAmount}
-          disabled={isLocked}
+          disabled={isLocked || isProfitCaptureBlocked}
           min="0"
           name="allocatableProfitAmount"
           required
@@ -453,28 +545,23 @@ function ProfitEntryFields({
           type="number"
         />
       </label>
-      <BusinessDividendPeriodSelect
-        defaultValue={defaultValues?.linkedDividendPeriod?.id ?? ""}
-        dividendPeriods={dividendPeriods}
-        disabled={isLocked}
-      />
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">
-        Source
-        <NativeSelect
-          defaultValue={defaultValues?.sourceType ?? "manual"}
+      {isHistoricalEntry ? (
+        <BusinessDividendPeriodSelect
+          defaultValue={defaultValues?.linkedDividendPeriod?.id ?? ""}
+          dividendPeriods={dividendPeriods}
           disabled={isLocked}
-          name="sourceType"
-        >
-          <option value="manual">Manual</option>
-          <option value="backfill">Backfill</option>
-          <option value="import">Import</option>
-        </NativeSelect>
-      </label>
+        />
+      ) : null}
+      <input
+        name="sourceType"
+        type="hidden"
+        value={isHistoricalEntry ? defaultValues?.sourceType : "manual"}
+      />
       <label className="space-y-1 text-xs font-medium text-muted-foreground">
         Status
         <NativeSelect
           defaultValue={defaultValues?.status ?? "draft"}
-          disabled={isLocked}
+          disabled={isLocked || isProfitCaptureBlocked}
           name="status"
         >
           <option value="draft">Draft</option>
@@ -487,7 +574,7 @@ function ProfitEntryFields({
         Reason
         <Input
           defaultValue={defaultValues?.reason ?? ""}
-          disabled={isLocked}
+          disabled={isLocked || isProfitCaptureBlocked}
           name="reason"
           placeholder="Board approval or source file"
         />
@@ -496,7 +583,7 @@ function ProfitEntryFields({
         Notes
         <Textarea
           defaultValue={defaultValues?.notes ?? ""}
-          disabled={isLocked}
+          disabled={isLocked || isProfitCaptureBlocked}
           name="notes"
           placeholder="Optional internal note"
         />

@@ -4,6 +4,10 @@ import {
   type BackfillProfitPeriod,
   type BuildBackfillDraftInput,
 } from "@halaalvest/backfill"
+import {
+  getBusinessProfitSeasonPeriod,
+  type BusinessProfitSeasonFrequency,
+} from "@halaalvest/domain"
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { applyCharge, applyLoanRequestChargesInTransaction } from "./charges"
@@ -63,7 +67,7 @@ function monthKeyFromDate(value: Date) {
 
 type BusinessProfitSeasonPolicy = {
   financialYearStartMonth: number
-  profitDistributionFrequency: string
+  profitDistributionFrequency: BusinessProfitSeasonFrequency
 }
 
 async function getBusinessProfitSeasonPolicy(
@@ -79,78 +83,32 @@ async function getBusinessProfitSeasonPolicy(
           profitDistributionFrequency: true,
         },
         where: { tenantId },
-      }),
+      })
   )
+
+  const profitDistributionFrequency = policy?.profitDistributionFrequency
 
   return {
     financialYearStartMonth: Number(policy?.financialYearStartMonth ?? 1),
-    profitDistributionFrequency: policy?.profitDistributionFrequency ?? "annual",
+    profitDistributionFrequency:
+      profitDistributionFrequency === "ad_hoc" ||
+      profitDistributionFrequency === "quarterly" ||
+      profitDistributionFrequency === "semi_annual"
+        ? profitDistributionFrequency
+        : "annual",
   }
-}
-
-function addUtcMonths(value: Date, months: number) {
-  return new Date(
-    Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + months, 1),
-  )
-}
-
-function monthDifference(start: Date, end: Date) {
-  return (
-    (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
-    (end.getUTCMonth() - start.getUTCMonth())
-  )
 }
 
 function getProfitSharingPeriodEnd(
   profitDate: Date,
-  policy: BusinessProfitSeasonPolicy,
+  policy: BusinessProfitSeasonPolicy
 ) {
-  const frequencyMonths =
-    policy.profitDistributionFrequency === "quarterly"
-      ? 3
-      : policy.profitDistributionFrequency === "semi_annual"
-        ? 6
-        : policy.profitDistributionFrequency === "annual"
-          ? 12
-          : null
-
-  if (!frequencyMonths) {
-    return profitDate
-  }
-
-  const financialYearStartMonth = Math.min(
-    Math.max(Math.trunc(policy.financialYearStartMonth), 1),
-    12,
-  )
-  const financialYearStartMonthIndex = financialYearStartMonth - 1
-  const profitMonth = startOfMonth(profitDate)
-  let financialYearStart = new Date(
-    Date.UTC(profitMonth.getUTCFullYear(), financialYearStartMonthIndex, 1),
-  )
-
-  if (profitMonth < financialYearStart) {
-    financialYearStart = new Date(
-      Date.UTC(profitMonth.getUTCFullYear() - 1, financialYearStartMonthIndex, 1),
-    )
-  }
-
-  const elapsedMonths = Math.max(
-    0,
-    monthDifference(financialYearStart, profitMonth),
-  )
-  const periodIndex = Math.floor(elapsedMonths / frequencyMonths)
-  const periodStart = addUtcMonths(
-    financialYearStart,
-    periodIndex * frequencyMonths,
-  )
-  const periodEndMonth = addUtcMonths(periodStart, frequencyMonths - 1)
-
-  return endOfMonth(periodEndMonth)
+  return getBusinessProfitSeasonPeriod(profitDate, policy).periodEnd
 }
 
 function getProfitSharingMonthKey(
   profitDate: Date,
-  policy: BusinessProfitSeasonPolicy,
+  policy: BusinessProfitSeasonPolicy
 ) {
   return monthKeyFromDate(getProfitSharingPeriodEnd(profitDate, policy))
 }
@@ -517,7 +475,7 @@ async function buildDividendEntries(
 ) {
   const businessPolicy = await getBusinessProfitSeasonPolicy(
     input.tenantId,
-    prisma,
+    prisma
   )
   const allocations = await prisma.dividendAllocation.findMany({
     where: {
@@ -608,7 +566,7 @@ async function buildDividendEntries(
       .filter((allocation: any) => {
         const profitMonth = getProfitSharingMonthKey(
           allocation.profitEntry.profitDate,
-          businessPolicy,
+          businessPolicy
         )
 
         return !publishedDividendPeriodMonths.has(profitMonth)
@@ -618,7 +576,7 @@ async function buildDividendEntries(
         label: `${allocation.profitEntry.shareBusiness.name} profit`,
         month: getProfitSharingMonthKey(
           allocation.profitEntry.profitDate,
-          businessPolicy,
+          businessPolicy
         ),
         profitEntryId: allocation.profitEntryId,
         sharePercentage: Number(allocation.sharePercentage),
@@ -638,7 +596,7 @@ async function buildDividendEntries(
         label: `${adjustment.profitEntry.shareBusiness.name} profit`,
         month: getProfitSharingMonthKey(
           adjustment.profitEntry.profitDate,
-          businessPolicy,
+          businessPolicy
         ),
         profitEntryId: adjustment.profitEntryId,
         sharePercentage:
@@ -660,7 +618,7 @@ async function buildProfitPeriods(
 ) {
   const businessPolicy = await getBusinessProfitSeasonPolicy(
     input.tenantId,
-    prisma,
+    prisma
   )
 
   if (typeof prisma.shareBusinessProfitEntry?.findMany === "function") {
@@ -712,7 +670,7 @@ async function buildProfitPeriods(
       distributableAmount: Number(business.profitAmount),
       month: getProfitSharingMonthKey(
         business.endDate ?? business.startDate,
-        businessPolicy,
+        businessPolicy
       ),
       notes: business.name,
       totalProfitAmount: Number(business.profitAmount),
@@ -1003,7 +961,7 @@ async function createLegacyBackfillLoanFromEvent(input: {
       sourceType: "backfill",
       tenantId: input.tenantId,
     },
-    input.tx as PrismaClient,
+    input.tx as PrismaClient
   )
 
   const loan = await input.tx.loan.create({

@@ -10,10 +10,7 @@ import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 type RoleAssignmentFormProps = Parameters<typeof RoleAssignmentForm>[0]
 
-export function RoleSettingsSheet({
-  devMode,
-  roles,
-}: RoleAssignmentFormProps) {
+export function RoleSettingsSheet({ devMode, roles }: RoleAssignmentFormProps) {
   const { roleSettingsSheetType, setParams } = useRoleSettingsParams()
   const isOpen = roleSettingsSheetType === "assign"
 
@@ -31,18 +28,18 @@ export function RoleSettingsSheet({
       open={isOpen}
       onOpenChange={handleOnOpenChange}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading role assignment form...
-              </div>
-            }
-          >
-            <RoleSettingsSheetHeader />
-            <RoleSettingsContent devMode={devMode} roles={roles} />
-          </Suspense>
-        ) : null}
+      {isOpen ? (
+        <Suspense
+          fallback={
+            <div className="px-6 text-sm text-muted-foreground">
+              Loading role assignment form...
+            </div>
+          }
+        >
+          <RoleSettingsSheetHeader />
+          <RoleSettingsContent devMode={devMode} roles={roles} />
+        </Suspense>
+      ) : null}
     </WorkflowPresentation>
   )
 }

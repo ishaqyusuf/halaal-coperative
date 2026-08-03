@@ -1,7 +1,4 @@
-import {
-  getTenantTrustProfile,
-  type TenantTrustProfile,
-} from "@halaalvest/db"
+import { getTenantTrustProfile, type TenantTrustProfile } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
@@ -39,14 +36,14 @@ function buildTrustReadinessItems(
   const monitoringConfigured = isMonitoringConfigured()
   const hasLegalEvidence = Boolean(
     trustProfile.legalTermsUrl ||
-      trustProfile.privacyPolicyUrl ||
-      trustProfile.dataProcessingUrl
+    trustProfile.privacyPolicyUrl ||
+    trustProfile.dataProcessingUrl
   )
   const hasRestoreEvidence = Boolean(
     trustProfile.backupRetentionNote ||
-      trustProfile.recoveryPointObjective ||
-      trustProfile.recoveryTimeObjective ||
-      trustProfile.incidentContactEmail
+    trustProfile.recoveryPointObjective ||
+    trustProfile.recoveryTimeObjective ||
+    trustProfile.incidentContactEmail
   )
 
   return [
@@ -63,14 +60,13 @@ function buildTrustReadinessItems(
       tone: "positive",
     },
     {
-      detail:
-        hasRestoreEvidence
-          ? "Restore evidence has been recorded for pilot discussions. " +
-            "Infrastructure and database-provider procedures still need to " +
-            "match the documented retention and recovery objectives."
-          : "Restore remains an infrastructure and database-operation " +
-            "responsibility. Pilot terms should name recovery responsibilities, " +
-            "retention windows, and escalation contacts before launch.",
+      detail: hasRestoreEvidence
+        ? "Restore evidence has been recorded for pilot discussions. " +
+          "Infrastructure and database-provider procedures still need to " +
+          "match the documented retention and recovery objectives."
+        : "Restore remains an infrastructure and database-operation " +
+          "responsibility. Pilot terms should name recovery responsibilities, " +
+          "retention windows, and escalation contacts before launch.",
       evidence: hasRestoreEvidence
         ? "Saved trust profile"
         : "Operational policy item",
@@ -80,14 +76,13 @@ function buildTrustReadinessItems(
       tone: hasRestoreEvidence ? "positive" : "warning",
     },
     {
-      detail:
-        hasLegalEvidence
-          ? "Legal document references have been recorded. Counsel still owns " +
-            "the final approved terms, privacy language, and data-processing " +
-            "scope before the pilot is contract-ready."
-          : "Final legal terms, privacy language, data-processing scope, and " +
-            "support responsibilities must be supplied by the legal team before " +
-            "the pilot is treated as contract-ready.",
+      detail: hasLegalEvidence
+        ? "Legal document references have been recorded. Counsel still owns " +
+          "the final approved terms, privacy language, and data-processing " +
+          "scope before the pilot is contract-ready."
+        : "Final legal terms, privacy language, data-processing scope, and " +
+          "support responsibilities must be supplied by the legal team before " +
+          "the pilot is treated as contract-ready.",
       evidence: hasLegalEvidence ? "Saved legal links" : "Legal readiness item",
       label: "Terms and conditions",
       owner: "Legal and founder",
@@ -163,9 +158,10 @@ export async function loadTrustReadinessPageData() {
     context.auth.membership?.role,
     workspaceAdminRoles
   )
-  const trustProfile = context.tenant
-    ? await getTenantTrustProfile(context.tenant.id)
-    : emptyTrustProfile
+  const trustProfile =
+    canViewTrustReadiness && context.tenant
+      ? await getTenantTrustProfile(context.tenant.id)
+      : emptyTrustProfile
   const items = buildTrustReadinessItems(trustProfile)
   const lastReviewedAt = trustProfile.reviewedAt
     ? trustProfile.reviewedAt.toISOString()

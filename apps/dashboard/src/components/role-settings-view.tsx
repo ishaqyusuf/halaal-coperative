@@ -6,29 +6,26 @@ import {
 } from "@halaalvest/auth/roles"
 import type { MembershipRole } from "@halaalvest/db"
 import {
-  DashboardSectionCard,
-  DashboardSectionHeader,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@halaalvest/ui/components/tabs"
+import { ChevronDownIcon } from "lucide-react"
+import {
   DashboardStatCard,
-  DashboardSurfaceCard,
   TrendPill,
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
 import { OpenRoleSettingsSheet } from "@/components/open-role-settings-sheet"
+import {
+  RoleSettingsUserList,
+  type RoleSettingsUser,
+} from "@/components/role-settings-user-list"
 import { RoleSettingsSheet } from "@/components/sheets/role-settings-sheet"
 
 type RoleSettingsSheetRoles = ComponentProps<typeof RoleSettingsSheet>["roles"]
-
-export type RoleSettingsUser = {
-  email: string
-  fullName: string
-  id: string
-  memberships: Array<{
-    id: string
-    isDefault: boolean
-    role: MembershipRole
-  }>
-}
 
 export type RolePermissionGroup = {
   label: string
@@ -78,11 +75,12 @@ export function RoleSettingsView({
 
   return (
     <WorkspacePageShell
+      actions={canManageRoles ? <OpenRoleSettingsSheet /> : undefined}
       description="Staff provisioning, default-role visibility, and module permission guidance for cooperative operators."
       eyebrow="Settings"
       title="Workspace roles"
     >
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="hidden gap-4 md:grid md:grid-cols-3">
         <DashboardStatCard
           detail="Users currently loaded for this cooperative workspace."
           label="Workspace users"
@@ -100,123 +98,117 @@ export function RoleSettingsView({
         />
       </section>
 
-      {canManageRoles ? (
-        <DashboardSectionCard>
-          <DashboardSectionHeader
-            actions={<OpenRoleSettingsSheet />}
-            description="Create or update staff/member login records and attach cooperative roles from a focused sheet."
-            eyebrow="Assignment"
-            title="Assign workspace roles"
-          />
-          <p className="mt-5 text-sm leading-6 text-muted-foreground">
-            Role assignment opens in a sheet so the page stays focused on
-            current users and permission visibility.
-          </p>
-        </DashboardSectionCard>
-      ) : null}
+      <Tabs className="gap-5" defaultValue="users">
+        <TabsList
+          aria-label="Workspace role settings"
+          className="h-auto w-full justify-start gap-5 border-b border-border/70 p-0 pb-3"
+          variant="line"
+        >
+          <TabsTrigger className="h-9 flex-none px-0 text-sm" value="users">
+            Workspace users
+            <span className="text-muted-foreground">{users.length}</span>
+          </TabsTrigger>
+          <TabsTrigger
+            className="h-9 flex-none px-0 text-sm"
+            value="permissions"
+          >
+            Permissions
+            <span className="text-muted-foreground">{permissionCount}</span>
+          </TabsTrigger>
+        </TabsList>
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={<TrendPill>{users.length} users</TrendPill>}
-          eyebrow="Users"
-          title="Workspace users and active roles"
-        />
-        <div className="mt-5 space-y-3">
-          {users.map((user) => {
-            const defaultMembership = user.memberships.find(
-              (membership) => membership.isDefault
-            )
+        <TabsContent className="text-sm" value="users">
+          <RoleSettingsUserList users={users} />
+        </TabsContent>
 
-            return (
-              <DashboardSurfaceCard key={user.id}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {user.fullName}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {user.email}
-                    </p>
+        <TabsContent className="text-sm" value="permissions">
+          <section aria-labelledby="permission-matrix-title">
+            <div className="pb-4">
+              <h3
+                className="text-base font-semibold text-foreground"
+                id="permission-matrix-title"
+              >
+                Module action matrix
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Expand a module to see the roles allowed to perform each
+                governed action.
+              </p>
+            </div>
+
+            <div className="border-y border-border/70">
+              {permissionGroups.map((group) => (
+                <details
+                  className="group border-b border-border/70 last:border-b-0"
+                  key={group.module}
+                >
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-left [&::-webkit-details-marker]:hidden">
+                    <span>
+                      <span className="block font-medium text-foreground">
+                        {group.label}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {group.permissions.length} governed actions
+                      </span>
+                    </span>
+                    <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="divide-y divide-border/70 border-t border-border/70 pb-1">
+                    {group.permissions.map((permission) => (
+                      <div
+                        className="grid gap-3 py-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)]"
+                        key={permission.action}
+                      >
+                        <div>
+                          <p className="font-medium text-foreground capitalize">
+                            {permission.action.replace(/_/g, " ")}
+                          </p>
+                          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                            {permission.summary}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                          {permission.allowedRoles.map((role) => (
+                            <TrendPill key={role}>
+                              {getRoleDisplayName(role)}
+                            </TrendPill>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {defaultMembership
-                      ? `Default: ${getRoleDisplayName(defaultMembership.role)}`
-                      : "No default role"}
-                  </p>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {user.memberships.map((membership) => (
-                    <TrendPill key={membership.id}>
-                      {getRoleDisplayName(membership.role)}
-                      {membership.isDefault ? " · default" : ""}
-                    </TrendPill>
-                  ))}
-                </div>
-              </DashboardSurfaceCard>
-            )
-          })}
-        </div>
-      </DashboardSectionCard>
+                </details>
+              ))}
+            </div>
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={<TrendPill>{permissionCount} actions</TrendPill>}
-          eyebrow="Permissions"
-          title="Module action matrix"
-        />
-        <div className="mt-5 space-y-4">
-          {permissionGroups.map((group) => (
-            <DashboardSurfaceCard key={group.module}>
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-medium text-foreground">{group.label}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {group.permissions.length} governed actions
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 divide-y divide-border/70">
-                {group.permissions.map((permission) => (
+            <div className="mt-8">
+              <h3 className="text-base font-semibold text-foreground">
+                Role scope guide
+              </h3>
+              <div className="mt-3 border-y border-border/70">
+                {cooperativeRoles.map((role) => (
                   <div
-                    className="grid gap-3 py-3 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)]"
-                    key={permission.action}
+                    className="border-b border-border/70 py-4 last:border-b-0 sm:grid sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:gap-6"
+                    key={role}
                   >
                     <div>
                       <p className="font-medium text-foreground">
-                        {permission.action.replace(/_/g, " ")}
+                        {getRoleDisplayName(role)}
                       </p>
-                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                        {permission.summary}
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {role}
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-2 lg:justify-end">
-                      {permission.allowedRoles.map((role) => (
-                        <TrendPill key={role}>
-                          {getRoleDisplayName(role)}
-                        </TrendPill>
-                      ))}
-                    </div>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground sm:mt-0">
+                      {getRoleScopeSummary(role)}
+                    </p>
                   </div>
                 ))}
               </div>
-            </DashboardSurfaceCard>
-          ))}
-        </div>
-      </DashboardSectionCard>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {cooperativeRoles.map((role) => (
-          <DashboardSectionCard key={role}>
-            <DashboardSectionHeader
-              eyebrow={role}
-              title={getRoleDisplayName(role)}
-            />
-            <p className="mt-5 text-sm leading-6 text-muted-foreground">
-              {getRoleScopeSummary(role)}
-            </p>
-          </DashboardSectionCard>
-        ))}
-      </section>
+            </div>
+          </section>
+        </TabsContent>
+      </Tabs>
 
       {canManageRoles ? (
         <RoleSettingsSheet devMode={devMode} roles={roleOptions} />

@@ -3310,11 +3310,7 @@ export function ChargeDefinitionForm({
       ) : null}
       {redirectTo ? (
         <GettingStartedFooterPortal>
-          <Button
-            disabled={isPending}
-            onClick={submitChargeRows}
-            type="button"
-          >
+          <Button disabled={isPending} onClick={submitChargeRows} type="button">
             Next
           </Button>
         </GettingStartedFooterPortal>
@@ -3690,6 +3686,15 @@ type ShareBusinessInitialBusiness = {
 }
 
 type ShareBusinessFormProps = {
+  currentProfitSeason?: {
+    canRecordProfit: boolean
+    id: string | null
+    label: string
+    periodEnd: string | null
+    periodStart: string | null
+    reason: string | null
+    status: "approved" | "closed" | "draft" | "published" | "unconfigured"
+  }
   dividendPeriods: Array<{ id: string; label: string }>
   financeStartDate?: string | null
   initialBusinesses?: ShareBusinessInitialBusiness[]
@@ -4600,279 +4605,283 @@ function ShareBusinessProfitHistoryTableForm({
         />
         {hasNoOngoingBusiness ? null : (
           <>
-        <div className="flex items-center gap-3">
-          <h3 className="shrink-0 text-sm font-medium">
-            {isBroughtForwardSetup
-              ? "Current-season businesses"
-              : "Business History"}
-          </h3>
-          <div className="min-w-10 flex-1 border-t border-border/70" />
-          <Button
-            disabled={isPending}
-            onClick={quickFillBusinessRows}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Quick fill
-          </Button>
-          <Button
-            disabled={isPending}
-            onClick={resetBusinessRows}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Clear
-          </Button>
-        </div>
-        <div className="grid gap-4">
-          {businessRows.map((businessRow) => (
-            <div
-              className={cn(
-                "grid gap-4 border-t border-border/70 pt-4 transition-colors duration-700",
-                flashBusinessRowId === businessRow.id && "bg-muted/70"
-              )}
-              key={businessRow.id}
-            >
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_9rem_9.5rem_9.5rem_2rem] xl:items-start">
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                  Title
-                  <Input
-                    disabled={isPending}
-                    onChange={(event) =>
-                      updateBusinessRow(businessRow.id, {
-                        name: event.target.value,
-                      })
-                    }
-                    placeholder="Title"
-                    value={businessRow.name}
-                  />
-                </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                  Amount
-                  <CurrencyInput
-                    allowNegative={false}
-                    decimalScale={2}
-                    disabled={isPending}
-                    inputMode="decimal"
-                    onValueChange={(values) =>
-                      updateBusinessRow(businessRow.id, {
-                        capitalAmount: values.value,
-                      })
-                    }
-                    placeholder="Amount"
-                    value={businessRow.capitalAmount}
-                    valueIsNumericString
-                  />
-                </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                  Start date
-                  <DatePickerInput
-                    allowClear={false}
-                    disabled={isPending}
-                    min={financeStartDate ?? undefined}
-                    onChange={(startDate) =>
-                      updateBusinessStartDate(businessRow.id, startDate)
-                    }
-                    placeholder="Start date"
-                    value={businessRow.startDate}
-                  />
-                </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                  End date
-                  <DatePickerInput
-                    disabled={isPending}
-                    min={businessRow.startDate || financeStartDate || undefined}
-                    onChange={(endDate) =>
-                      updateBusinessRow(businessRow.id, { endDate })
-                    }
-                    placeholder="End date"
-                    value={businessRow.endDate}
-                  />
-                </label>
-                <div className="pt-6">
-                  <DeleteInlineRowButton
-                    disabled={
-                      businessRow.saved ||
-                      isPending ||
-                      (!businessHistoryRowHasValue(businessRow) &&
-                        businessRows.filter((row) => !row.saved).length === 1)
-                    }
-                    label="business row"
-                    onDelete={() => deleteBusinessRow(businessRow.id)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-3 pl-0 md:pl-6">
-                <div className="flex items-center gap-3">
-                  <h4 className="shrink-0 text-xs font-medium text-muted-foreground">
-                    {isBroughtForwardSetup
-                      ? "Current-season profit"
-                      : "Profit History"}
-                  </h4>
-                  <div className="min-w-10 flex-1 border-t border-border/70" />
-                </div>
-                {businessRow.profitRows.map((profitRow) => {
-                  const shareableBalance = calculateShareableBalance(profitRow)
-
-                  return (
-                    <div
-                      className={cn(
-                        "grid gap-3 md:grid-cols-2 xl:items-start",
-                        isBroughtForwardSetup
-                          ? "xl:grid-cols-[9.5rem_9rem_9rem_8.5rem_minmax(0,1fr)_9rem_2rem]"
-                          : "xl:grid-cols-[9.5rem_9rem_9rem_minmax(0,1fr)_9rem_2rem]"
-                      )}
-                      key={profitRow.id}
-                    >
-                      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                        Date
-                        <DatePickerInput
-                          allowClear={false}
-                          disabled={isPending}
-                          min={
-                            businessRow.startDate ||
-                            financeStartDate ||
-                            undefined
-                          }
-                          onChange={(profitDate) =>
-                            updateBusinessProfitRow(
-                              businessRow.id,
-                              profitRow.id,
-                              { profitDate }
-                            )
-                          }
-                          placeholder="Date"
-                          value={profitRow.profitDate}
-                        />
-                      </label>
-                      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                        Amount
-                        <CurrencyInput
-                          allowNegative={false}
-                          decimalScale={2}
-                          disabled={isPending}
-                          inputMode="decimal"
-                          onValueChange={(values) =>
-                            updateBusinessProfitRow(
-                              businessRow.id,
-                              profitRow.id,
-                              { amount: values.value }
-                            )
-                          }
-                          placeholder="Amount"
-                          value={profitRow.amount}
-                          valueIsNumericString
-                        />
-                      </label>
-                      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                        Deduction
-                        <CurrencyInput
-                          allowNegative={false}
-                          decimalScale={2}
-                          disabled={isPending}
-                          inputMode="decimal"
-                          onValueChange={(values) =>
-                            updateBusinessProfitRow(
-                              businessRow.id,
-                              profitRow.id,
-                              { deductionAmount: values.value }
-                            )
-                          }
-                          placeholder="Deduction"
-                          value={profitRow.deductionAmount}
-                          valueIsNumericString
-                        />
-                      </label>
-                      {isBroughtForwardSetup ? (
-                        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                          Status
-                          <SelectFormInput
-                            disabled={isPending}
-                            onChange={(status) =>
-                              updateBusinessProfitRow(
-                                businessRow.id,
-                                profitRow.id,
-                                {
-                                  status:
-                                    status === "completed"
-                                      ? "completed"
-                                      : "pending",
-                                }
-                              )
-                            }
-                            options={broughtForwardProfitStatusOptions}
-                            value={
-                              profitRow.status === "completed"
-                                ? "completed"
-                                : "pending"
-                            }
-                          />
-                        </label>
-                      ) : null}
-                      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                        Reason
-                        <Input
-                          disabled={isPending}
-                          onChange={(event) =>
-                            updateBusinessProfitRow(
-                              businessRow.id,
-                              profitRow.id,
-                              { reason: event.target.value }
-                            )
-                          }
-                          placeholder="Reason"
-                          value={profitRow.reason}
-                        />
-                      </label>
-                      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                        Shareable
-                        <CurrencyInput
-                          decimalScale={2}
-                          disabled={isPending}
-                          fixedDecimalScale
-                          readOnly
-                          value={
-                            Number.isFinite(shareableBalance)
-                              ? shareableBalance.toFixed(2)
-                              : "0.00"
-                          }
-                          valueIsNumericString
-                        />
-                      </label>
-                      <div className="pt-6">
-                        <DeleteInlineRowButton
-                          disabled={
-                            isPending || Boolean(profitRow.profitEntryId)
-                          }
-                          label="profit row"
-                          onDelete={() =>
-                            deleteBusinessProfitRow(
-                              businessRow.id,
-                              profitRow.id
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
-                <AddInlineRowButton
-                  disabled={isPending}
-                  label="Add Profit"
-                  onAdd={() => addBusinessProfitRow(businessRow.id)}
-                />
-              </div>
+            <div className="flex items-center gap-3">
+              <h3 className="shrink-0 text-sm font-medium">
+                {isBroughtForwardSetup
+                  ? "Current-season businesses"
+                  : "Business History"}
+              </h3>
+              <div className="min-w-10 flex-1 border-t border-border/70" />
+              <Button
+                disabled={isPending}
+                onClick={quickFillBusinessRows}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                Quick fill
+              </Button>
+              <Button
+                disabled={isPending}
+                onClick={resetBusinessRows}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                Clear
+              </Button>
             </div>
-          ))}
-          <AddInlineRowButton
-            disabled={isPending}
-            label="Add Business"
-            onAdd={addBusinessRow}
-          />
-        </div>
+            <div className="grid gap-4">
+              {businessRows.map((businessRow) => (
+                <div
+                  className={cn(
+                    "grid gap-4 border-t border-border/70 pt-4 transition-colors duration-700",
+                    flashBusinessRowId === businessRow.id && "bg-muted/70"
+                  )}
+                  key={businessRow.id}
+                >
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_9rem_9.5rem_9.5rem_2rem] xl:items-start">
+                    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                      Title
+                      <Input
+                        disabled={isPending}
+                        onChange={(event) =>
+                          updateBusinessRow(businessRow.id, {
+                            name: event.target.value,
+                          })
+                        }
+                        placeholder="Title"
+                        value={businessRow.name}
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                      Amount
+                      <CurrencyInput
+                        allowNegative={false}
+                        decimalScale={2}
+                        disabled={isPending}
+                        inputMode="decimal"
+                        onValueChange={(values) =>
+                          updateBusinessRow(businessRow.id, {
+                            capitalAmount: values.value,
+                          })
+                        }
+                        placeholder="Amount"
+                        value={businessRow.capitalAmount}
+                        valueIsNumericString
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                      Start date
+                      <DatePickerInput
+                        allowClear={false}
+                        disabled={isPending}
+                        min={financeStartDate ?? undefined}
+                        onChange={(startDate) =>
+                          updateBusinessStartDate(businessRow.id, startDate)
+                        }
+                        placeholder="Start date"
+                        value={businessRow.startDate}
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                      End date
+                      <DatePickerInput
+                        disabled={isPending}
+                        min={
+                          businessRow.startDate || financeStartDate || undefined
+                        }
+                        onChange={(endDate) =>
+                          updateBusinessRow(businessRow.id, { endDate })
+                        }
+                        placeholder="End date"
+                        value={businessRow.endDate}
+                      />
+                    </label>
+                    <div className="pt-6">
+                      <DeleteInlineRowButton
+                        disabled={
+                          businessRow.saved ||
+                          isPending ||
+                          (!businessHistoryRowHasValue(businessRow) &&
+                            businessRows.filter((row) => !row.saved).length ===
+                              1)
+                        }
+                        label="business row"
+                        onDelete={() => deleteBusinessRow(businessRow.id)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 pl-0 md:pl-6">
+                    <div className="flex items-center gap-3">
+                      <h4 className="shrink-0 text-xs font-medium text-muted-foreground">
+                        {isBroughtForwardSetup
+                          ? "Current-season profit"
+                          : "Profit History"}
+                      </h4>
+                      <div className="min-w-10 flex-1 border-t border-border/70" />
+                    </div>
+                    {businessRow.profitRows.map((profitRow) => {
+                      const shareableBalance =
+                        calculateShareableBalance(profitRow)
+
+                      return (
+                        <div
+                          className={cn(
+                            "grid gap-3 md:grid-cols-2 xl:items-start",
+                            isBroughtForwardSetup
+                              ? "xl:grid-cols-[9.5rem_9rem_9rem_8.5rem_minmax(0,1fr)_9rem_2rem]"
+                              : "xl:grid-cols-[9.5rem_9rem_9rem_minmax(0,1fr)_9rem_2rem]"
+                          )}
+                          key={profitRow.id}
+                        >
+                          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                            Date
+                            <DatePickerInput
+                              allowClear={false}
+                              disabled={isPending}
+                              min={
+                                businessRow.startDate ||
+                                financeStartDate ||
+                                undefined
+                              }
+                              onChange={(profitDate) =>
+                                updateBusinessProfitRow(
+                                  businessRow.id,
+                                  profitRow.id,
+                                  { profitDate }
+                                )
+                              }
+                              placeholder="Date"
+                              value={profitRow.profitDate}
+                            />
+                          </label>
+                          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                            Amount
+                            <CurrencyInput
+                              allowNegative={false}
+                              decimalScale={2}
+                              disabled={isPending}
+                              inputMode="decimal"
+                              onValueChange={(values) =>
+                                updateBusinessProfitRow(
+                                  businessRow.id,
+                                  profitRow.id,
+                                  { amount: values.value }
+                                )
+                              }
+                              placeholder="Amount"
+                              value={profitRow.amount}
+                              valueIsNumericString
+                            />
+                          </label>
+                          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                            Deduction
+                            <CurrencyInput
+                              allowNegative={false}
+                              decimalScale={2}
+                              disabled={isPending}
+                              inputMode="decimal"
+                              onValueChange={(values) =>
+                                updateBusinessProfitRow(
+                                  businessRow.id,
+                                  profitRow.id,
+                                  { deductionAmount: values.value }
+                                )
+                              }
+                              placeholder="Deduction"
+                              value={profitRow.deductionAmount}
+                              valueIsNumericString
+                            />
+                          </label>
+                          {isBroughtForwardSetup ? (
+                            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                              Status
+                              <SelectFormInput
+                                disabled={isPending}
+                                onChange={(status) =>
+                                  updateBusinessProfitRow(
+                                    businessRow.id,
+                                    profitRow.id,
+                                    {
+                                      status:
+                                        status === "completed"
+                                          ? "completed"
+                                          : "pending",
+                                    }
+                                  )
+                                }
+                                options={broughtForwardProfitStatusOptions}
+                                value={
+                                  profitRow.status === "completed"
+                                    ? "completed"
+                                    : "pending"
+                                }
+                              />
+                            </label>
+                          ) : null}
+                          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                            Reason
+                            <Input
+                              disabled={isPending}
+                              onChange={(event) =>
+                                updateBusinessProfitRow(
+                                  businessRow.id,
+                                  profitRow.id,
+                                  { reason: event.target.value }
+                                )
+                              }
+                              placeholder="Reason"
+                              value={profitRow.reason}
+                            />
+                          </label>
+                          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                            Shareable
+                            <CurrencyInput
+                              decimalScale={2}
+                              disabled={isPending}
+                              fixedDecimalScale
+                              readOnly
+                              value={
+                                Number.isFinite(shareableBalance)
+                                  ? shareableBalance.toFixed(2)
+                                  : "0.00"
+                              }
+                              valueIsNumericString
+                            />
+                          </label>
+                          <div className="pt-6">
+                            <DeleteInlineRowButton
+                              disabled={
+                                isPending || Boolean(profitRow.profitEntryId)
+                              }
+                              label="profit row"
+                              onDelete={() =>
+                                deleteBusinessProfitRow(
+                                  businessRow.id,
+                                  profitRow.id
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <AddInlineRowButton
+                      disabled={isPending}
+                      label="Add Profit"
+                      onAdd={() => addBusinessProfitRow(businessRow.id)}
+                    />
+                  </div>
+                </div>
+              ))}
+              <AddInlineRowButton
+                disabled={isPending}
+                label="Add Business"
+                onAdd={addBusinessRow}
+              />
+            </div>
           </>
         )}
         {showSubmitButton ? (
@@ -4899,6 +4908,7 @@ function ShareBusinessProfitHistoryTableForm({
 }
 
 function ShareBusinessSingleForm({
+  currentProfitSeason,
   dividendPeriods,
   financeStartDate,
   onSuccess,
@@ -4928,6 +4938,20 @@ function ShareBusinessSingleForm({
   >(() => [createBusinessProfitHistoryRow("business-profit-history-initial")])
   const watchedStartDate = form.watch("startDate")
   const watchedEndDate = form.watch("endDate")
+  const todayDate = formatInputDate(new Date())
+  const isLiveProfitCaptureBlocked =
+    !isMigrationHistory && !currentProfitSeason?.canRecordProfit
+  const profitDateMin = isMigrationHistory
+    ? (financeStartDate ?? undefined)
+    : [currentProfitSeason?.periodStart, watchedStartDate]
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1)
+  const profitDateMax = isMigrationHistory
+    ? watchedEndDate || undefined
+    : [currentProfitSeason?.periodEnd, watchedEndDate || undefined, todayDate]
+        .filter((value): value is string => Boolean(value))
+        .sort()[0]
   const clearPreservedFormState = usePreservedFormState(form, {
     enabled: Boolean(preserveDraftKey),
     storageKey: `${preserveDraftKey ?? "tenant-finance:share-business"}:form`,
@@ -4943,6 +4967,50 @@ function ShareBusinessSingleForm({
     setProfitHistoryRows([
       createBusinessProfitHistoryRow("business-profit-history-initial"),
     ])
+  }
+
+  function quickFillBusinessDraft() {
+    const [draft] = createRandomBusinessHistoryRows(financeStartDate, "draft")
+
+    if (!draft) {
+      return
+    }
+
+    const totalProfitAmount = draft.profitRows.reduce(
+      (total, row) => total + parseOptionalFormAmount(row.amount),
+      0
+    )
+    const liveProfitStartDate = parseInputDate(profitDateMin)
+    const liveProfitEndDate = parseInputDate(profitDateMax)
+    const liveProfitRows =
+      !isMigrationHistory &&
+      currentProfitSeason?.canRecordProfit &&
+      liveProfitStartDate &&
+      liveProfitEndDate
+        ? createRandomBusinessProfitRows({
+            businessId: draft.id,
+            endDate: liveProfitEndDate,
+            startDate: liveProfitStartDate,
+          })
+        : draft.profitRows
+
+    form.reset({
+      capitalAmount: draft.capitalAmount,
+      endDate: isMigrationHistory ? draft.endDate : "",
+      linkedDividendPeriodId: isMigrationHistory
+        ? (dividendPeriods[0]?.id ?? "")
+        : "",
+      name: draft.name,
+      notes: "",
+      profitAmount: profitHistoryMode ? undefined : String(totalProfitAmount),
+      startDate: draft.startDate,
+      status: isMigrationHistory ? draft.status : "active",
+    })
+    setProfitHistoryRows(
+      isLiveProfitCaptureBlocked
+        ? [createBusinessProfitHistoryRow()]
+        : liveProfitRows
+    )
   }
 
   function updateProfitHistoryRow(
@@ -5012,15 +5080,51 @@ function ShareBusinessSingleForm({
       .filter(businessProfitHistoryRowIsComplete)
       .sort(sortBusinessProfitHistoryRowsByDate)
 
+    if (isLiveProfitCaptureBlocked && sortedRows.length > 0) {
+      showError(
+        "Profit season unavailable",
+        currentProfitSeason?.reason ??
+          "Open a writable profit season before recording realized profit."
+      )
+      return null
+    }
+
     for (const row of sortedRows) {
       const profitAmount = parseOptionalFormAmount(row.amount)
       const deductionAmount = parseOptionalFormAmount(row.deductionAmount)
       const shareableBalance = profitAmount - deductionAmount
 
-      if (isBeforeFinanceStartDate(row.profitDate, financeStartDate)) {
+      if (
+        isMigrationHistory &&
+        isBeforeFinanceStartDate(row.profitDate, financeStartDate)
+      ) {
         showError(
           "Date before start",
           `Profit date cannot be before the cooperative start date (${financeStartDate}).`
+        )
+        return null
+      }
+
+      if (
+        !isMigrationHistory &&
+        profitDateMin &&
+        row.profitDate < profitDateMin
+      ) {
+        showError(
+          "Date outside current season",
+          `Profit date cannot be before ${profitDateMin}.`
+        )
+        return null
+      }
+
+      if (
+        !isMigrationHistory &&
+        profitDateMax &&
+        row.profitDate > profitDateMax
+      ) {
+        showError(
+          "Date outside current season",
+          `Profit date cannot be after ${profitDateMax}.`
         )
         return null
       }
@@ -5051,7 +5155,10 @@ function ShareBusinessSingleForm({
   }
 
   function onSubmit(values: ShareBusinessValues) {
-    if (isBeforeFinanceStartDate(values.startDate, financeStartDate)) {
+    if (
+      isMigrationHistory &&
+      isBeforeFinanceStartDate(values.startDate, financeStartDate)
+    ) {
       setDateBeforeFinanceStartError(
         form,
         "startDate",
@@ -5061,13 +5168,24 @@ function ShareBusinessSingleForm({
       return
     }
 
-    if (isBeforeFinanceStartDate(values.endDate, financeStartDate)) {
+    if (
+      isMigrationHistory &&
+      isBeforeFinanceStartDate(values.endDate, financeStartDate)
+    ) {
       setDateBeforeFinanceStartError(
         form,
         "endDate",
         "End date",
         financeStartDate
       )
+      return
+    }
+
+    if (values.endDate && values.endDate < values.startDate) {
+      form.setError("endDate", {
+        message: "End date cannot be before the business start date.",
+        type: "manual",
+      })
       return
     }
 
@@ -5161,6 +5279,55 @@ function ShareBusinessSingleForm({
         className="grid gap-4 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        <div className="flex flex-col gap-3 border-b border-border/70 pb-4 sm:flex-row sm:items-center sm:justify-between md:col-span-2">
+          <p className="text-xs leading-5 text-muted-foreground">
+            Populate an editable business draft, then review every value before
+            saving.
+          </p>
+          <Button
+            aria-label="Quick fill business form"
+            className="h-11! w-full sm:w-auto! md:h-8!"
+            data-business-quick-fill
+            disabled={isPending}
+            onClick={quickFillBusinessDraft}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Quick fill
+          </Button>
+        </div>
+        {!isMigrationHistory ? (
+          <div
+            className="grid gap-1 border-b border-border/70 pb-4 md:col-span-2"
+            data-current-profit-season
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium text-foreground">
+                Current profit season
+              </p>
+              <span className="text-xs text-muted-foreground capitalize">
+                {currentProfitSeason?.status ?? "unconfigured"}
+              </span>
+            </div>
+            <p className="text-sm text-foreground">
+              {currentProfitSeason?.label ?? "Profit season unavailable"}
+            </p>
+            {currentProfitSeason?.periodStart &&
+            currentProfitSeason.periodEnd ? (
+              <p className="text-xs leading-5 text-muted-foreground">
+                Record realized profit from {currentProfitSeason.periodStart} to{" "}
+                {profitDateMax ?? currentProfitSeason.periodEnd}. Distribution
+                review begins after {currentProfitSeason.periodEnd}.
+              </p>
+            ) : (
+              <p className="text-xs leading-5 text-muted-foreground">
+                {currentProfitSeason?.reason ??
+                  "Configure an open profit season before recording realized profit."}
+              </p>
+            )}
+          </div>
+        ) : null}
         <FormField
           control={form.control}
           name="name"
@@ -5225,10 +5392,20 @@ function ShareBusinessSingleForm({
                   {...field}
                   allowClear={false}
                   className="h-11 md:h-8"
-                  min={financeStartDate ?? undefined}
+                  min={
+                    isMigrationHistory
+                      ? (financeStartDate ?? undefined)
+                      : undefined
+                  }
                   placeholder="Select start date"
                 />
               </FormControl>
+              {!isMigrationHistory ? (
+                <p className="text-xs leading-5 text-muted-foreground">
+                  The business may have started before the current profit
+                  season. Only profit dates are season-restricted.
+                </p>
+              ) : null}
               <FormMessage />
             </FormItem>
           )}
@@ -5243,7 +5420,11 @@ function ShareBusinessSingleForm({
                 <DatePickerInput
                   {...field}
                   className="h-11 md:h-8"
-                  min={watchedStartDate || financeStartDate || undefined}
+                  min={
+                    watchedStartDate ||
+                    (isMigrationHistory ? financeStartDate : undefined) ||
+                    undefined
+                  }
                   placeholder="Select end date"
                 />
               </FormControl>
@@ -5274,32 +5455,34 @@ function ShareBusinessSingleForm({
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="linkedDividendPeriodId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Linked dividend period</FormLabel>
-              <FormControl>
-                <SelectFormInput
-                  onChange={field.onChange}
-                  options={[
-                    { label: "Not linked yet", value: "" },
-                    ...dividendPeriods.map((period) => ({
-                      label: period.label,
-                      value: period.id,
-                    })),
-                  ]}
-                  triggerClassName="h-11! md:h-8!"
-                  value={field.value ?? ""}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {isMigrationHistory ? (
+          <FormField
+            control={form.control}
+            name="linkedDividendPeriodId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Linked dividend period</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    onChange={field.onChange}
+                    options={[
+                      { label: "Not linked yet", value: "" },
+                      ...dividendPeriods.map((period) => ({
+                        label: period.label,
+                        value: period.id,
+                      })),
+                    ]}
+                    triggerClassName="h-11! md:h-8!"
+                    value={field.value ?? ""}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
         {profitHistoryMode ? (
-          <section className="border-y border-border/70 py-4 md:col-span-2 md:border md:p-4">
+          <section className="border-t border-border/70 pt-4 md:col-span-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
                 <h3 className="text-sm font-medium">
@@ -5313,26 +5496,7 @@ function ShareBusinessSingleForm({
                     : "Register the business now, then add only realized profit supported by evidence."}
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0">
-                <QuickFill
-                  args={{
-                    createRow: createBusinessProfitHistoryRow,
-                    disabled: !watchedStartDate,
-                    hasValue: businessProfitHistoryRowHasValue,
-                    maxDate: watchedEndDate || undefined,
-                    minDate: watchedStartDate || financeStartDate,
-                    rows: profitHistoryRows,
-                    setRows: (updater) =>
-                      setProfitHistoryRows(
-                        (currentRows) =>
-                          updater(currentRows) as BusinessProfitHistoryRow[]
-                      ),
-                    sortRows: sortBusinessProfitHistoryRowsByDate,
-                  }}
-                  key={`${watchedStartDate || "no-start"}-${watchedEndDate || "no-end"}`}
-                  name="businessProfitHistory"
-                  triggerClassName="h-11 w-full sm:w-auto! md:h-8"
-                />
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
                 <Button
                   className="h-11 w-full sm:w-auto! md:h-8"
                   onClick={sortProfitHistoryRows}
@@ -5373,6 +5537,7 @@ function ShareBusinessSingleForm({
                       <Button
                         aria-label={`Remove profit entry ${index + 1}`}
                         className="size-11 text-muted-foreground md:size-8"
+                        disabled={isPending || isLiveProfitCaptureBlocked}
                         onClick={() => removeProfitHistoryRow(row.id)}
                         size="icon-sm"
                         type="button"
@@ -5389,8 +5554,10 @@ function ShareBusinessSingleForm({
                         <DatePickerInput
                           allowClear={false}
                           className="h-11 md:h-8"
+                          disabled={isPending || isLiveProfitCaptureBlocked}
                           id={`profit-history-date-${row.id}`}
-                          min={financeStartDate ?? undefined}
+                          max={profitDateMax}
+                          min={profitDateMin}
                           onChange={(profitDate) =>
                             updateProfitHistoryRow(row.id, { profitDate })
                           }
@@ -5404,6 +5571,7 @@ function ShareBusinessSingleForm({
                         </FieldLabel>
                         <CurrencyFormInput
                           className="h-11 md:h-8"
+                          disabled={isPending || isLiveProfitCaptureBlocked}
                           id={`profit-history-amount-${row.id}`}
                           onChange={(amount) =>
                             updateProfitHistoryRow(row.id, { amount })
@@ -5420,6 +5588,7 @@ function ShareBusinessSingleForm({
                         </FieldLabel>
                         <CurrencyFormInput
                           className="h-11 md:h-8"
+                          disabled={isPending || isLiveProfitCaptureBlocked}
                           id={`profit-history-deduction-${row.id}`}
                           onChange={(deductionAmount) =>
                             updateProfitHistoryRow(row.id, { deductionAmount })
@@ -5434,6 +5603,7 @@ function ShareBusinessSingleForm({
                         </FieldLabel>
                         <Input
                           className="h-11 md:h-8"
+                          disabled={isPending || isLiveProfitCaptureBlocked}
                           id={`profit-history-reason-${row.id}`}
                           onChange={(event) =>
                             updateProfitHistoryRow(row.id, {
@@ -5448,7 +5618,7 @@ function ShareBusinessSingleForm({
                         <span className="text-xs text-muted-foreground">
                           Shareable balance
                         </span>
-                        <span className="font-medium tabular-nums text-foreground">
+                        <span className="font-medium text-foreground tabular-nums">
                           ₦
                           {Number.isFinite(shareableBalance)
                             ? shareableBalance.toLocaleString("en-NG", {
@@ -5463,6 +5633,7 @@ function ShareBusinessSingleForm({
                 )
               })}
               <AddInlineRowButton
+                disabled={isPending || isLiveProfitCaptureBlocked}
                 label="Add profit entry"
                 onAdd={addProfitHistoryRow}
               />
@@ -5486,7 +5657,7 @@ function ShareBusinessSingleForm({
             </FormItem>
           )}
         />
-        <div className="md:col-span-2">
+        <div className="flex border-t border-border/70 pt-4 md:col-span-2 md:justify-end">
           <Button
             className="h-11 w-full md:h-9 md:w-auto"
             disabled={isPending}
@@ -5778,10 +5949,7 @@ export function ShareBusinessProfitEntryForm({
           )}
         />
         <div className="md:col-span-2">
-          <Button
-            disabled={isPending || businesses.length === 0}
-            type="submit"
-          >
+          <Button disabled={isPending || businesses.length === 0} type="submit">
             Record profit
           </Button>
         </div>

@@ -11,7 +11,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { Input } from "@halaalvest/ui/components/input"
 import type { ChangeEvent, FormEvent } from "react"
 import { useRef, useState } from "react"
 import {
@@ -21,6 +20,7 @@ import {
   businessStatusFilters,
 } from "@/components/business-filter-options"
 import { FinanceFilterList } from "@/components/finance-filter-list"
+import { DateRangeFilter } from "@/components/search-filter/date-range-filter"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useBusinessFilterParams } from "@/hooks/use-business-filter-params"
 
@@ -47,15 +47,12 @@ export function BusinessSearchFilter() {
   }
 
   const validFilters = {
+    dateRange: filter.dateRange,
     dividendPeriodId: filter.dividendPeriodId,
     hasProfitEntries:
-      filter.hasProfitEntries === null
-        ? null
-        : String(filter.hasProfitEntries),
+      filter.hasProfitEntries === null ? null : String(filter.hasProfitEntries),
     profitStatus: filter.profitStatus,
     sourceType: filter.sourceType,
-    startFrom: filter.startFrom,
-    startTo: filter.startTo,
     status: filter.status,
   }
   const hasValidFilters = Object.values(validFilters).some(
@@ -225,29 +222,13 @@ export function BusinessSearchFilter() {
             <DropdownMenuPortal>
               <DropdownMenuSubContent
                 alignOffset={-4}
-                className="w-64 space-y-3 p-3"
+                className="p-0"
                 sideOffset={14}
               >
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                  From
-                  <Input
-                    defaultValue={filter.startFrom ?? ""}
-                    onChange={(event) =>
-                      setFilter({ startFrom: event.target.value || null })
-                    }
-                    type="date"
-                  />
-                </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                  To
-                  <Input
-                    defaultValue={filter.startTo ?? ""}
-                    onChange={(event) =>
-                      setFilter({ startTo: event.target.value || null })
-                    }
-                    type="date"
-                  />
-                </label>
+                <DateRangeFilter
+                  onChange={(dateRange) => setFilter({ dateRange })}
+                  value={filter.dateRange}
+                />
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
           </DropdownMenuSub>
@@ -258,13 +239,12 @@ export function BusinessSearchFilter() {
             <DropdownMenuItem
               onClick={() =>
                 setFilter({
+                  dateRange: null,
                   dividendPeriodId: null,
                   hasProfitEntries: null,
                   profitStatus: null,
                   q: null,
                   sourceType: null,
-                  startFrom: null,
-                  startTo: null,
                   status: null,
                 })
               }

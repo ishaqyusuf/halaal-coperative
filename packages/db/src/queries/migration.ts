@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import {
   buildInitialMigrationSnapshot,
+  getBusinessProfitSeasonPeriod,
   type InitialMigrationStepKey,
   type InitialMigrationStatus,
 } from "@halaalvest/domain"
@@ -166,6 +167,26 @@ export async function getTenantInitialMigrationState(
     }
   }
 
+  const businessProfitPolicy = await readOptionalTenantBusinessPolicy(
+    prisma,
+    (tenantBusinessPolicy) =>
+      tenantBusinessPolicy.findUnique({
+        select: {
+          financialYearStartMonth: true,
+          historicalProfitMigrationMode: true,
+          profitDistributionFrequency: true,
+        },
+        where: { tenantId },
+      })
+  )
+  const currentProfitSeason = getBusinessProfitSeasonPeriod(startOfTodayUtc(), {
+    financialYearStartMonth: Number(
+      businessProfitPolicy?.financialYearStartMonth ?? 1
+    ),
+    profitDistributionFrequency:
+      businessProfitPolicy?.profitDistributionFrequency ?? "annual",
+  })
+
   const [
     tenant,
     chargeScheduleVersions,
@@ -177,7 +198,6 @@ export async function getTenantInitialMigrationState(
     legacyLoanMigrationDrafts,
     legacyLoanReviewMarkers,
     businessProfitReviewMarkers,
-    businessProfitPolicy,
     tenantPolicySetup,
     broughtForwardPendingPastProfitEntries,
     appliedBackfillBatches,
@@ -245,20 +265,12 @@ export async function getTenantInitialMigrationState(
           },
         })
       : 0,
-    readOptionalTenantBusinessPolicy(prisma, (tenantBusinessPolicy) =>
-      tenantBusinessPolicy.findUnique({
-        select: {
-          historicalProfitMigrationMode: true,
-        },
-        where: { tenantId },
-      })
-    ),
     readTenantPolicySetupSettings(prisma, tenantId),
     prisma.shareBusinessProfitEntry.count({
       where: {
         tenantId,
         profitDate: {
-          lt: startOfTodayUtc(),
+          lt: currentProfitSeason.periodStart,
         },
         status: "pending",
       },

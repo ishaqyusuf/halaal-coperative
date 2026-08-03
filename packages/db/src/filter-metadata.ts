@@ -1,5 +1,5 @@
 import {
-  dateFilter,
+  dateRangeFilter,
   inputFilter,
   optionFilter,
   type PageFilterData,
@@ -33,7 +33,9 @@ function getRoleDisplayName(role: (typeof cooperativeRoles)[number]) {
   }
 }
 
-function toMemberOptions(members: Array<{ fullName: string; id: string; memberNumber: string }>) {
+function toMemberOptions(
+  members: Array<{ fullName: string; id: string; memberNumber: string }>
+) {
   return members.map((member) => ({
     label: `${member.fullName} (${member.memberNumber})`,
     value: member.id,
@@ -66,56 +68,64 @@ export async function getMemberFilterMetadata(): Promise<PageFilterData[]> {
     optionFilter(
       "status",
       "Status",
-      ["pending", "active", "inactive", "suspended", "exited"].map(enumOption),
+      ["pending", "active", "inactive", "suspended", "exited"].map(enumOption)
     ),
     optionFilter(
       "memberType",
       "Member type",
-      ["individual", "civil_servant", "business"].map(enumOption),
+      ["individual", "civil_servant", "business"].map(enumOption)
     ),
     optionFilter(
       "kycStatus",
       "KYC",
-      ["not_started", "pending", "verified", "rejected"].map(enumOption),
+      ["not_started", "pending", "verified", "rejected"].map(enumOption)
     ),
-    dateFilter("joinedFrom", "Joined from"),
-    dateFilter("joinedTo", "Joined to"),
+    dateRangeFilter("dateRange", "Joined date"),
   ]
 }
 
 export async function getContributionFilterMetadata(
-  tenantId: string,
+  tenantId: string
 ): Promise<PageFilterData[]> {
   const runtime = createDbRuntime()
   const members =
     runtime.status === "database-configured"
-      ? await listMembers(tenantId, { page: 1, pageSize: 100 }).then((result) => result.items)
+      ? await listMembers(tenantId, { page: 1, pageSize: 100 }).then(
+          (result) => result.items
+        )
       : []
 
   return [
     inputFilter("search", "Search"),
     optionFilter("memberId", "Member", toMemberOptions(members)),
-    optionFilter("channel", "Channel", ["payroll", "transfer", "cash", "manual"]),
-    dateFilter("from", "From"),
-    dateFilter("to", "To"),
+    optionFilter("channel", "Channel", [
+      "payroll",
+      "transfer",
+      "cash",
+      "manual",
+    ]),
+    dateRangeFilter("dateRange", "Contribution date"),
   ]
 }
 
 export async function getNotificationFilterMetadata(
-  tenantId: string,
+  tenantId: string
 ): Promise<PageFilterData[]> {
   const runtime = createDbRuntime()
   const logs =
     runtime.status === "database-configured"
-      ? await listAuditLogs(tenantId, { action: "notification.email", limit: 100 })
+      ? await listAuditLogs(tenantId, {
+          action: "notification.email",
+          limit: 100,
+        })
       : []
 
   const types = Array.from(
     new Set(
       logs
         .map((log) => getMetadataString(log.metadata, "notificationType"))
-        .filter((value): value is string => Boolean(value)),
-    ),
+        .filter((value): value is string => Boolean(value))
+    )
   ).sort()
 
   return [
@@ -125,28 +135,33 @@ export async function getNotificationFilterMetadata(
   ]
 }
 
-export async function getAuditFilterMetadata(tenantId: string): Promise<PageFilterData[]> {
+export async function getAuditFilterMetadata(
+  tenantId: string
+): Promise<PageFilterData[]> {
   const runtime = createDbRuntime()
   const logs =
     runtime.status === "database-configured"
       ? await listAuditLogs(tenantId, { limit: 200 })
       : []
 
-  const actions = Array.from(new Set(logs.map((log) => log.action).filter(Boolean))).sort()
+  const actions = Array.from(
+    new Set(logs.map((log) => log.action).filter(Boolean))
+  ).sort()
 
   return [
     inputFilter("search", "Search"),
     optionFilter("action", "Action", actions),
-    dateFilter("from", "From"),
-    dateFilter("to", "To"),
+    dateRangeFilter("dateRange", "Activity date"),
   ]
 }
 
 export async function getReportsFilterMetadata(): Promise<PageFilterData[]> {
-  return [dateFilter("from", "From"), dateFilter("to", "To")]
+  return [dateRangeFilter("dateRange", "Reporting period")]
 }
 
-export async function getMembershipApprovalFilterMetadata(): Promise<PageFilterData[]> {
+export async function getMembershipApprovalFilterMetadata(): Promise<
+  PageFilterData[]
+> {
   return [
     inputFilter("search", "Search"),
     optionFilter("status", "Status", [
@@ -160,7 +175,7 @@ export async function getMembershipApprovalFilterMetadata(): Promise<PageFilterD
 }
 
 export async function getRepaymentFilterMetadata(
-  tenantId: string,
+  tenantId: string
 ): Promise<PageFilterData[]> {
   const runtime = createDbRuntime()
 
@@ -182,8 +197,7 @@ export async function getRepaymentFilterMetadata(
         "resolved",
       ]),
       optionFilter("resolutionStatus", "Resolution", ["open", "resolved"]),
-      dateFilter("from", "From"),
-      dateFilter("to", "To"),
+      dateRangeFilter("dateRange", "Due date"),
     ]
   }
 
@@ -193,16 +207,19 @@ export async function getRepaymentFilterMetadata(
   ])
 
   const uniqueMembers = Array.from(
-    new Map(loans.map((loan) => [loan.member.id, loan.member])).values(),
+    new Map(loans.map((loan) => [loan.member.id, loan.member])).values()
   )
 
   const assignees = tenantUsers
     .filter((user) =>
       user.memberships.some((membership) =>
-        ["super_admin", "tenant_admin", "finance_officer", "operations_officer"].includes(
-          membership.role,
-        ),
-      ),
+        [
+          "super_admin",
+          "tenant_admin",
+          "finance_officer",
+          "operations_officer",
+        ].includes(membership.role)
+      )
     )
     .map((user) => ({
       label: `${user.fullName} (${user.email})`,
@@ -226,8 +243,7 @@ export async function getRepaymentFilterMetadata(
       "resolved",
     ]),
     optionFilter("resolutionStatus", "Resolution", ["open", "resolved"]),
-    dateFilter("from", "From"),
-    dateFilter("to", "To"),
+    dateRangeFilter("dateRange", "Due date"),
   ]
 }
 
@@ -239,7 +255,7 @@ export async function getRoleFilterMetadata(): Promise<PageFilterData[]> {
       cooperativeRoles.map((role) => ({
         label: getRoleDisplayName(role),
         value: role,
-      })),
+      }))
     ),
   ]
 }

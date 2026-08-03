@@ -1,12 +1,10 @@
 "use client"
 
-import { Calendar } from "@halaalvest/ui/components/calendar"
 import {
   RadioGroup,
   RadioGroupItem,
 } from "@halaalvest/ui/components/radio-group"
 import { Separator } from "@halaalvest/ui/components/separator"
-import { formatISO, parseISO } from "date-fns"
 import { useState, type ReactNode } from "react"
 import {
   businessHasProfitEntryFilters,
@@ -16,18 +14,18 @@ import {
   businessStatusFilters,
 } from "@/components/business-filter-options"
 import { MobileFilterDrawer } from "@/components/search-filter/mobile-filter-drawer"
+import { DateRangeFilter } from "@/components/search-filter/date-range-filter"
 import { useBusinessFilterParams } from "@/hooks/use-business-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
 type BusinessFilterDraft = {
+  dateRange: string[] | null
   dividendPeriodId: string | null
   hasProfitEntries: boolean | null
   profitStatus: string | null
   q: string | null
   sort: string[] | null
   sourceType: string | null
-  startFrom: string | null
-  startTo: string | null
   status: string | null
 }
 
@@ -111,26 +109,24 @@ export function BusinessFilterDrawer({
 
   function clearFilters() {
     const cleared: BusinessFilterDraft = {
+      dateRange: null,
       dividendPeriodId: null,
       hasProfitEntries: null,
       profitStatus: null,
       q: null,
       sort: null,
       sourceType: null,
-      startFrom: null,
-      startTo: null,
       status: null,
     }
     setDraft(cleared)
     void Promise.all([
       setFilter({
+        dateRange: null,
         dividendPeriodId: null,
         hasProfitEntries: null,
         profitStatus: null,
         q: null,
         sourceType: null,
-        startFrom: null,
-        startTo: null,
         status: null,
       }),
       setParams({ sort: null }),
@@ -180,8 +176,7 @@ export function BusinessFilterDrawer({
             onValueChange={(value) =>
               setDraft((current) => ({
                 ...current,
-                hasProfitEntries:
-                  value === null ? null : value === "true",
+                hasProfitEntries: value === null ? null : value === "true",
               }))
             }
             options={businessHasProfitEntryFilters}
@@ -231,30 +226,12 @@ export function BusinessFilterDrawer({
         <Separator />
 
         <FilterSection title="Business start date">
-          <div className="overflow-x-auto border border-border">
-            <Calendar
-              defaultMonth={
-                draft.startFrom ? parseISO(draft.startFrom) : new Date()
+          <div className="border border-border">
+            <DateRangeFilter
+              onChange={(dateRange) =>
+                setDraft((current) => ({ ...current, dateRange }))
               }
-              mode="range"
-              numberOfMonths={1}
-              onSelect={(range) =>
-                setDraft((current) => ({
-                  ...current,
-                  startFrom: range?.from
-                    ? formatISO(range.from, { representation: "date" })
-                    : null,
-                  startTo: range?.to
-                    ? formatISO(range.to, { representation: "date" })
-                    : null,
-                }))
-              }
-              selected={{
-                from: draft.startFrom
-                  ? parseISO(draft.startFrom)
-                  : undefined,
-                to: draft.startTo ? parseISO(draft.startTo) : undefined,
-              }}
+              value={draft.dateRange}
             />
           </div>
         </FilterSection>
@@ -267,9 +244,7 @@ export function BusinessFilterDrawer({
               setDraft((current) => ({
                 ...current,
                 sort:
-                  nextSort === "startDate,desc"
-                    ? null
-                    : nextSort.split(","),
+                  nextSort === "startDate,desc" ? null : nextSort.split(","),
               }))
             }
             value={sortValue}

@@ -5,7 +5,14 @@ import type {
   ProfitEntryStatus,
   ShareBusinessStatus,
 } from "../../generated/prisma/client"
-import { allocateBusinessProfitByShare } from "@halaalvest/domain"
+import {
+  allocateBusinessProfitByShare,
+  getBusinessProfitSeasonKey,
+  getBusinessProfitSeasonLabel,
+  getBusinessProfitSeasonPeriod,
+  isBusinessProfitDateWithinPeriod,
+  toBusinessProfitDateOnly,
+} from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
 import { isPrismaMissingColumnError } from "../prisma-errors"
 import { createAuditLogEntry } from "./audit"
@@ -104,6 +111,16 @@ type BusinessProfitSeasonProfitEntry = {
 }
 
 type BusinessProfitSeasonBucket = BusinessProfitSeasonReviewRow
+
+export type CurrentBusinessProfitSeason = {
+  canRecordProfit: boolean
+  id: string | null
+  label: string
+  periodEnd: string | null
+  periodStart: string | null
+  reason: string | null
+  status: "approved" | "closed" | "draft" | "published" | "unconfigured"
+}
 
 const dividendPeriodReviewSelect = {
   id: true,
@@ -670,110 +687,8 @@ async function createOptionalAuditLogEntry(
   return createAuditLogEntry(input, prisma)
 }
 
-function toDateOnly(value: Date | string) {
-  return value instanceof Date
-    ? value.toISOString().slice(0, 10)
-    : value.slice(0, 10)
-}
-
 function dateFromDateOnly(value: string) {
   return new Date(`${value}T00:00:00.000Z`)
-}
-
-function monthIndexToDate(monthIndex: number) {
-  const year = Math.floor(monthIndex / 12)
-  const month = monthIndex % 12
-
-  return new Date(Date.UTC(year, month, 1))
-}
-
-function monthIndexToPeriodEnd(monthIndex: number) {
-  const year = Math.floor(monthIndex / 12)
-  const month = monthIndex % 12
-
-  return new Date(Date.UTC(year, month + 1, 0))
-}
-
-function formatSeasonDate(value: Date) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(value)
-}
-
-function getBusinessProfitSeasonSpanMonths(
-  frequency: BusinessProfitDistributionFrequency
-) {
-  if (frequency === "quarterly") return 3
-  if (frequency === "semi_annual") return 6
-  if (frequency === "annual") return 12
-
-  return 0
-}
-
-function getBusinessProfitSeasonPeriod(
-  profitDateValue: Date | string,
-  policy: TenantBusinessProfitPolicySettings
-) {
-  const profitDate = dateFromDateOnly(toDateOnly(profitDateValue))
-
-  if (policy.profitDistributionFrequency === "ad_hoc") {
-    return {
-      periodEnd: profitDate,
-      periodStart: profitDate,
-    }
-  }
-
-  const spanMonths = getBusinessProfitSeasonSpanMonths(
-    policy.profitDistributionFrequency
-  )
-  const profitMonthIndex =
-    profitDate.getUTCFullYear() * 12 + profitDate.getUTCMonth()
-  const fiscalStartMonthIndex = policy.financialYearStartMonth - 1
-  let fiscalStartIndex =
-    profitDate.getUTCFullYear() * 12 + fiscalStartMonthIndex
-
-  if (profitMonthIndex < fiscalStartIndex) {
-    fiscalStartIndex -= 12
-  }
-
-  const offset = profitMonthIndex - fiscalStartIndex
-  const seasonStartIndex =
-    fiscalStartIndex + Math.floor(offset / spanMonths) * spanMonths
-
-  return {
-    periodEnd: monthIndexToPeriodEnd(seasonStartIndex + spanMonths - 1),
-    periodStart: monthIndexToDate(seasonStartIndex),
-  }
-}
-
-function getBusinessProfitSeasonLabel(
-  policy: TenantBusinessProfitPolicySettings,
-  periodStart: Date,
-  periodEnd: Date
-) {
-  const range = `${formatSeasonDate(periodStart)} - ${formatSeasonDate(
-    periodEnd
-  )}`
-
-  if (policy.profitDistributionFrequency === "quarterly") {
-    return `Quarterly dividend (${range})`
-  }
-
-  if (policy.profitDistributionFrequency === "semi_annual") {
-    return `Bi-annual dividend (${range})`
-  }
-
-  if (policy.profitDistributionFrequency === "ad_hoc") {
-    return `Ad hoc dividend (${formatSeasonDate(periodEnd)})`
-  }
-
-  return `Yearly dividend (${range})`
-}
-
-function getBusinessProfitSeasonKey(periodStart: Date, periodEnd: Date) {
-  return `${toDateOnly(periodStart)}:${toDateOnly(periodEnd)}`
 }
 
 function buildBusinessProfitSeasonReviewRows(input: {
@@ -857,11 +772,7 @@ function buildBusinessProfitSeasonReviewRows(input: {
         key,
         label: existingPeriod?.name
           ? existingPeriod.name
-          : getBusinessProfitSeasonLabel(
-              input.policy,
-              bucket.periodStart,
-              bucket.periodEnd
-            ),
+          : getBusinessProfitSeasonLabel(input.policy, bucket),
         periodEnd: bucket.periodEnd,
         periodStart: bucket.periodStart,
         profitEntries: bucket.entries.map((entry) => ({
@@ -883,6 +794,288 @@ function buildBusinessProfitSeasonReviewRows(input: {
         a.periodStart.getTime() - b.periodStart.getTime() ||
         a.label.localeCompare(b.label)
     )
+}
+
+function startOfUtcDay(value: Date) {
+  return new Date(
+    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())
+  )
+}
+
+function serializeCurrentBusinessProfitSeason(input: {
+  canRecordProfit: boolean
+  id?: string | null
+  label: string
+  periodEnd?: Date | null
+  periodStart?: Date | null
+  reason?: string | null
+  status?: CurrentBusinessProfitSeason["status"]
+}): CurrentBusinessProfitSeason {
+  return {
+    canRecordProfit: input.canRecordProfit,
+    id: input.id ?? null,
+    label: input.label,
+    periodEnd: input.periodEnd
+      ? toBusinessProfitDateOnly(input.periodEnd)
+      : null,
+    periodStart: input.periodStart
+      ? toBusinessProfitDateOnly(input.periodStart)
+      : null,
+    reason: input.reason ?? null,
+    status: input.status ?? "draft",
+  }
+}
+
+export async function getCurrentBusinessProfitSeason(
+  tenantId: string,
+  prismaOverride?: PrismaClient,
+  referenceDate = new Date()
+): Promise<CurrentBusinessProfitSeason> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) {
+    return serializeCurrentBusinessProfitSeason({
+      canRecordProfit: false,
+      label: "Profit season unavailable",
+      reason: "Connect the database before recording business profit.",
+      status: "unconfigured",
+    })
+  }
+
+  const policy = await getTenantBusinessProfitPolicy(tenantId, prisma)
+  const today = startOfUtcDay(referenceDate)
+
+  if (policy.profitDistributionFrequency === "ad_hoc") {
+    const period = await prisma.dividendPeriod.findFirst({
+      orderBy: [{ periodStart: "desc" }, { createdAt: "desc" }],
+      where: {
+        periodEnd: { gte: today },
+        periodStart: { lte: today },
+        status: "draft",
+        tenantId,
+      },
+    })
+
+    if (!period) {
+      return serializeCurrentBusinessProfitSeason({
+        canRecordProfit: false,
+        label: "No open ad-hoc profit season",
+        reason:
+          "Open a draft ad-hoc profit season before recording realized profit.",
+        status: "unconfigured",
+      })
+    }
+
+    return serializeCurrentBusinessProfitSeason({
+      canRecordProfit: true,
+      id: period.id,
+      label: period.name,
+      periodEnd: period.periodEnd,
+      periodStart: period.periodStart,
+      status: period.status,
+    })
+  }
+
+  const period = getBusinessProfitSeasonPeriod(today, policy)
+  const existingPeriod = await prisma.dividendPeriod.findFirst({
+    where: {
+      periodEnd: period.periodEnd,
+      periodStart: period.periodStart,
+      tenantId,
+    },
+  })
+  const label =
+    existingPeriod?.name ?? getBusinessProfitSeasonLabel(policy, period)
+  const status = existingPeriod?.status ?? "draft"
+  const canRecordProfit = status === "draft"
+
+  return serializeCurrentBusinessProfitSeason({
+    canRecordProfit,
+    id: existingPeriod?.id,
+    label,
+    periodEnd: period.periodEnd,
+    periodStart: period.periodStart,
+    reason: canRecordProfit
+      ? null
+      : `${label} is ${status} and no longer accepts new profit entries.`,
+    status,
+  })
+}
+
+async function ensureWritableBusinessProfitSeason(
+  input: {
+    profitDate: Date
+    referenceDate?: Date
+    tenantId: string
+  },
+  prisma: any
+) {
+  const today = startOfUtcDay(input.referenceDate ?? new Date())
+  const season = await getCurrentBusinessProfitSeason(
+    input.tenantId,
+    prisma,
+    today
+  )
+
+  if (!season.canRecordProfit || !season.periodStart || !season.periodEnd) {
+    throw new Error(
+      season.reason ?? "No writable profit-sharing season is available."
+    )
+  }
+
+  const period = {
+    periodEnd: dateFromDateOnly(season.periodEnd),
+    periodStart: dateFromDateOnly(season.periodStart),
+  }
+
+  assertProfitDateWithinWritableBusinessSeason(
+    { profitDate: input.profitDate, referenceDate: today },
+    { label: season.label, ...period }
+  )
+
+  if (season.id) {
+    return {
+      id: season.id,
+      label: season.label,
+      ...period,
+    }
+  }
+
+  const overlappingPeriod = await prisma.dividendPeriod.findFirst({
+    where: {
+      periodEnd: { gte: period.periodStart },
+      periodStart: { lte: period.periodEnd },
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (overlappingPeriod) {
+    throw new Error(
+      `${overlappingPeriod.name} overlaps the current profit season and must be resolved before recording profit.`
+    )
+  }
+
+  const createdPeriod = await prisma.dividendPeriod.create({
+    data: {
+      deductionAmount: 0,
+      distributableAmount: 0,
+      name: season.label,
+      periodEnd: period.periodEnd,
+      periodStart: period.periodStart,
+      status: "draft",
+      tenantId: input.tenantId,
+      totalProfitAmount: 0,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+  })
+
+  return {
+    id: createdPeriod.id,
+    label: createdPeriod.name,
+    ...period,
+  }
+}
+
+function assertProfitDateWithinWritableBusinessSeason(
+  input: {
+    profitDate: Date
+    referenceDate: Date
+  },
+  season: {
+    label: string
+    periodEnd: Date
+    periodStart: Date
+  }
+) {
+  if (!isBusinessProfitDateWithinPeriod(input.profitDate, season)) {
+    throw new Error(
+      `Profit date must be between ${toBusinessProfitDateOnly(
+        season.periodStart
+      )} and ${toBusinessProfitDateOnly(season.periodEnd)} for ${season.label}.`
+    )
+  }
+
+  if (
+    toBusinessProfitDateOnly(input.profitDate) >
+    toBusinessProfitDateOnly(input.referenceDate)
+  ) {
+    throw new Error("Profit date cannot be in the future.")
+  }
+}
+
+async function resolveBusinessProfitPeriodId(
+  input: {
+    linkedDividendPeriodId?: string | null
+    profitDate: Date
+    referenceDate?: Date
+    sourceType?: BusinessProfitSourceType | string | null
+    tenantId: string
+  },
+  prisma: any
+) {
+  if (!isHistoricalBusinessProfitSource(input.sourceType)) {
+    const period = await ensureWritableBusinessProfitSeason(
+      {
+        profitDate: input.profitDate,
+        referenceDate: input.referenceDate,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+
+    return period.id
+  }
+
+  if (!input.linkedDividendPeriodId) {
+    return null
+  }
+
+  const period = await prisma.dividendPeriod.findFirst({
+    where: {
+      id: input.linkedDividendPeriodId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!period) {
+    throw new Error("Dividend period was not found in this cooperative.")
+  }
+
+  if (
+    !isBusinessProfitDateWithinPeriod(input.profitDate, {
+      periodEnd: period.periodEnd,
+      periodStart: period.periodStart,
+    })
+  ) {
+    throw new Error(
+      `Profit date must fall within the selected dividend period (${toBusinessProfitDateOnly(
+        period.periodStart
+      )} to ${toBusinessProfitDateOnly(period.periodEnd)}).`
+    )
+  }
+
+  return period.id
+}
+
+function assertProfitDateWithinBusiness(input: {
+  businessEndDate?: Date | null
+  businessStartDate: Date
+  profitDate: Date
+}) {
+  const profitDate = toBusinessProfitDateOnly(input.profitDate)
+
+  if (profitDate < toBusinessProfitDateOnly(input.businessStartDate)) {
+    throw new Error("Profit date cannot be before the business start date.")
+  }
+
+  if (
+    input.businessEndDate &&
+    profitDate > toBusinessProfitDateOnly(input.businessEndDate)
+  ) {
+    throw new Error("Profit date cannot be after the business end date.")
+  }
 }
 
 async function assertBusinessProfitMutationOpen(
@@ -2784,6 +2977,7 @@ export async function createShareBusiness(
     notes?: string
     linkedDividendPeriodId?: string
     createdByUserId?: string
+    referenceDate?: Date
     sourceType?: BusinessProfitSourceType
     profitEntries?: Array<{
       allocatableProfitAmount: number
@@ -2809,103 +3003,164 @@ export async function createShareBusiness(
     prisma
   )
 
-  return prisma.$transaction(async (tx: any) => {
-    const profitEntries =
-      input.profitEntries ??
-      (input.profitAmount > 0
-        ? [
-            {
-              allocatableProfitAmount: input.profitAmount,
-              expenseAmount: 0,
-              profitAmount: input.profitAmount,
-              profitDate: input.endDate ?? input.startDate,
-              reason: input.notes,
-            },
-          ]
-        : [])
-    const totalProfitAmount = profitEntries.reduce(
-      (total, entry) => total + entry.profitAmount,
-      0
-    )
-    const business = await tx.shareBusiness.create({
-      data: {
-        tenantId: input.tenantId,
-        name: input.name,
-        capitalAmount: input.capitalAmount,
-        profitAmount: input.profitEntries
-          ? totalProfitAmount
-          : input.profitAmount,
-        startDate: input.startDate,
-        endDate: input.endDate,
-        status: input.status ?? "planned",
-        notes: input.notes,
-        linkedDividendPeriodId: input.linkedDividendPeriodId,
-        createdByUserId: input.createdByUserId,
-      },
-    })
+  if (input.endDate && input.endDate < input.startDate) {
+    throw new Error("Business end date cannot be before the start date.")
+  }
 
-    for (const profitEntry of profitEntries) {
-      const createdProfitEntry = await tx.shareBusinessProfitEntry.create({
+  const profitEntries =
+    input.profitEntries ??
+    (input.profitAmount > 0
+      ? [
+          {
+            allocatableProfitAmount: input.profitAmount,
+            expenseAmount: 0,
+            profitAmount: input.profitAmount,
+            profitDate: input.endDate ?? input.startDate,
+            reason: input.notes,
+          },
+        ]
+      : [])
+  const totalProfitAmount = profitEntries.reduce(
+    (total, entry) => total + entry.profitAmount,
+    0
+  )
+
+  for (const profitEntry of profitEntries) {
+    assertProfitDateWithinBusiness({
+      businessEndDate: input.endDate,
+      businessStartDate: input.startDate,
+      profitDate: profitEntry.profitDate,
+    })
+  }
+
+  return prisma.$transaction(
+    async (tx: any) => {
+      const isHistoricalProfit = isHistoricalBusinessProfitSource(
+        input.sourceType
+      )
+      const manualProfitSeason =
+        !isHistoricalProfit && profitEntries[0]
+          ? await ensureWritableBusinessProfitSeason(
+              {
+                profitDate: profitEntries[0].profitDate,
+                referenceDate: input.referenceDate,
+                tenantId: input.tenantId,
+              },
+              tx
+            )
+          : null
+
+      if (manualProfitSeason) {
+        const referenceDate = startOfUtcDay(input.referenceDate ?? new Date())
+
+        for (const profitEntry of profitEntries) {
+          assertProfitDateWithinWritableBusinessSeason(
+            { profitDate: profitEntry.profitDate, referenceDate },
+            manualProfitSeason
+          )
+        }
+      }
+
+      const business = await tx.shareBusiness.create({
         data: {
           tenantId: input.tenantId,
-          shareBusinessId: business.id,
-          linkedDividendPeriodId: input.linkedDividendPeriodId,
-          profitAmount: profitEntry.profitAmount,
-          expenseAmount: profitEntry.expenseAmount,
-          allocatableProfitAmount: profitEntry.allocatableProfitAmount,
-          profitDate: profitEntry.profitDate,
+          name: input.name,
+          capitalAmount: input.capitalAmount,
+          profitAmount: input.profitEntries
+            ? totalProfitAmount
+            : input.profitAmount,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          status: input.status ?? "planned",
           notes: input.notes,
-          reason: profitEntry.reason,
-          status:
-            profitEntry.status ??
-            (input.status === "completed" ? "reviewed" : "draft"),
-          sourceType: input.sourceType ?? "manual",
+          linkedDividendPeriodId: isHistoricalBusinessProfitSource(
+            input.sourceType
+          )
+            ? input.linkedDividendPeriodId
+            : null,
           createdByUserId: input.createdByUserId,
         },
       })
 
-      if (profitEntry.expenseAmount > 0 && profitEntry.reason) {
-        await tx.shareBusinessProfitExpenseLine.create({
+      for (const profitEntry of profitEntries) {
+        const linkedDividendPeriodId = manualProfitSeason
+          ? manualProfitSeason.id
+          : await resolveBusinessProfitPeriodId(
+              {
+                linkedDividendPeriodId: input.linkedDividendPeriodId,
+                profitDate: profitEntry.profitDate,
+                referenceDate: input.referenceDate,
+                sourceType: input.sourceType ?? "manual",
+                tenantId: input.tenantId,
+              },
+              tx
+            )
+        const createdProfitEntry = await tx.shareBusinessProfitEntry.create({
           data: {
             tenantId: input.tenantId,
-            profitEntryId: createdProfitEntry.id,
+            shareBusinessId: business.id,
+            linkedDividendPeriodId,
+            profitAmount: profitEntry.profitAmount,
+            expenseAmount: profitEntry.expenseAmount,
+            allocatableProfitAmount: profitEntry.allocatableProfitAmount,
+            profitDate: profitEntry.profitDate,
+            notes: input.notes,
             reason: profitEntry.reason,
-            amount: profitEntry.expenseAmount,
+            status:
+              profitEntry.status ??
+              (input.status === "completed" ? "reviewed" : "draft"),
+            sourceType: input.sourceType ?? "manual",
+            createdByUserId: input.createdByUserId,
           },
         })
+
+        if (profitEntry.expenseAmount > 0 && profitEntry.reason) {
+          await tx.shareBusinessProfitExpenseLine.create({
+            data: {
+              tenantId: input.tenantId,
+              profitEntryId: createdProfitEntry.id,
+              reason: profitEntry.reason,
+              amount: profitEntry.expenseAmount,
+            },
+          })
+        }
       }
-    }
 
-    await createOptionalAuditLogEntry(
-      {
-        action: "share_business.created",
-        actorType: "user",
-        actorUserId: input.createdByUserId ?? null,
-        entityId: business.id,
-        entityType: "ShareBusiness",
-        metadata: {
-          capitalAmount: input.capitalAmount,
-          profitEntryCount: profitEntries.length,
-          sourceType: input.sourceType ?? "manual",
-          status: input.status ?? "planned",
-        },
-        tenantId: input.tenantId,
-      },
-      tx
-    )
-
-    return tx.shareBusiness.findFirst({
-      where: { id: business.id, tenantId: input.tenantId },
-      include: {
-        profitEntries: {
-          include: {
-            allocations: true,
+      await createOptionalAuditLogEntry(
+        {
+          action: "share_business.created",
+          actorType: "user",
+          actorUserId: input.createdByUserId ?? null,
+          entityId: business.id,
+          entityType: "ShareBusiness",
+          metadata: {
+            capitalAmount: input.capitalAmount,
+            profitEntryCount: profitEntries.length,
+            sourceType: input.sourceType ?? "manual",
+            status: input.status ?? "planned",
           },
-          orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
+          tenantId: input.tenantId,
         },
-      },
-    })
-  })
+        tx
+      )
+
+      return tx.shareBusiness.findFirst({
+        where: { id: business.id, tenantId: input.tenantId },
+        include: {
+          profitEntries: {
+            include: {
+              allocations: true,
+            },
+            orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
+          },
+        },
+      })
+    },
+    {
+      maxWait: 5000,
+      timeout: 15000,
+    }
+  )
 }
 
 export async function updateShareBusiness(
@@ -2953,8 +3208,8 @@ export async function updateShareBusiness(
   const nextEndDate = input.endDate ?? null
   const nextLinkedDividendPeriodId = input.linkedDividendPeriodId ?? null
   const nextStatus = input.status ?? existing.status
-  const hasHistoricalProfitEntries = existing.profitEntries.some(
-    (entry: any) => isHistoricalBusinessProfitSource(entry.sourceType)
+  const hasHistoricalProfitEntries = existing.profitEntries.some((entry: any) =>
+    isHistoricalBusinessProfitSource(entry.sourceType)
   )
   const isHistoricalMetadataOnlyUpdate =
     hasHistoricalProfitEntries &&
@@ -3305,6 +3560,7 @@ export async function createShareBusinessProfitEntry(
     linkedDividendPeriodId?: string
     notes?: string
     createdByUserId?: string
+    referenceDate?: Date
   },
   prismaOverride?: PrismaClient
 ) {
@@ -3332,42 +3588,76 @@ export async function createShareBusinessProfitEntry(
     )
   }
 
-  const profitEntry = await prisma.shareBusinessProfitEntry.create({
-    data: {
-      tenantId: input.tenantId,
-      shareBusinessId: input.shareBusinessId,
-      linkedDividendPeriodId: input.linkedDividendPeriodId,
-      profitAmount: input.profitAmount,
-      expenseAmount,
-      allocatableProfitAmount,
-      profitDate: input.profitDate,
-      reason: input.reason,
-      status: input.status ?? "draft",
-      sourceType: input.sourceType ?? "manual",
-      notes: input.notes,
-      createdByUserId: input.createdByUserId,
-    },
-  })
+  return prisma.$transaction(async (tx: any) => {
+    const business = await tx.shareBusiness.findFirst({
+      select: {
+        endDate: true,
+        startDate: true,
+      },
+      where: {
+        id: input.shareBusinessId,
+        tenantId: input.tenantId,
+      },
+    })
 
-  await createOptionalAuditLogEntry(
-    {
-      action: "share_business_profit_entry.created",
-      actorType: "user",
-      actorUserId: input.createdByUserId ?? null,
-      entityId: profitEntry.id,
-      entityType: "ShareBusinessProfitEntry",
-      metadata: {
+    if (!business) {
+      throw new Error("Share business not found")
+    }
+
+    assertProfitDateWithinBusiness({
+      businessEndDate: business.endDate,
+      businessStartDate: business.startDate,
+      profitDate: input.profitDate,
+    })
+
+    const linkedDividendPeriodId = await resolveBusinessProfitPeriodId(
+      {
+        linkedDividendPeriodId: input.linkedDividendPeriodId,
+        profitDate: input.profitDate,
+        referenceDate: input.referenceDate,
+        sourceType: input.sourceType ?? "manual",
+        tenantId: input.tenantId,
+      },
+      tx
+    )
+    const profitEntry = await tx.shareBusinessProfitEntry.create({
+      data: {
         allocatableProfitAmount,
+        createdByUserId: input.createdByUserId,
+        expenseAmount,
+        linkedDividendPeriodId,
+        notes: input.notes,
         profitAmount: input.profitAmount,
+        profitDate: input.profitDate,
+        reason: input.reason,
+        shareBusinessId: input.shareBusinessId,
         sourceType: input.sourceType ?? "manual",
         status: input.status ?? "draft",
+        tenantId: input.tenantId,
       },
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
+    })
 
-  return profitEntry
+    await createOptionalAuditLogEntry(
+      {
+        action: "share_business_profit_entry.created",
+        actorType: "user",
+        actorUserId: input.createdByUserId ?? null,
+        entityId: profitEntry.id,
+        entityType: "ShareBusinessProfitEntry",
+        metadata: {
+          allocatableProfitAmount,
+          linkedDividendPeriodId,
+          profitAmount: input.profitAmount,
+          sourceType: input.sourceType ?? "manual",
+          status: input.status ?? "draft",
+        },
+        tenantId: input.tenantId,
+      },
+      tx
+    )
+
+    return profitEntry
+  })
 }
 
 export async function updateShareBusinessProfitEntry(
@@ -3390,6 +3680,7 @@ export async function updateShareBusinessProfitEntry(
     linkedDividendPeriodId?: string | null
     notes?: string
     actorUserId?: string | null
+    referenceDate?: Date
   },
   prismaOverride?: PrismaClient
 ) {
@@ -3423,6 +3714,12 @@ export async function updateShareBusinessProfitEntry(
         allocations: {
           select: { status: true },
         },
+        shareBusiness: {
+          select: {
+            endDate: true,
+            startDate: true,
+          },
+        },
       },
     })
 
@@ -3430,11 +3727,13 @@ export async function updateShareBusinessProfitEntry(
       throw new Error("Business profit entry not found")
     }
 
+    const sourceType = isHistoricalBusinessProfitSource(existing.sourceType)
+      ? existing.sourceType
+      : (input.sourceType ?? existing.sourceType)
+
     await assertBusinessProfitMutationOpen(
       {
-        sourceType: isHistoricalBusinessProfitSource(existing.sourceType)
-          ? existing.sourceType
-          : (input.sourceType ?? existing.sourceType),
+        sourceType,
         tenantId: input.tenantId,
       },
       tx as PrismaClient
@@ -3447,6 +3746,23 @@ export async function updateShareBusinessProfitEntry(
     ) {
       throw new Error("Published profit allocations cannot be edited.")
     }
+
+    assertProfitDateWithinBusiness({
+      businessEndDate: existing.shareBusiness.endDate,
+      businessStartDate: existing.shareBusiness.startDate,
+      profitDate: input.profitDate,
+    })
+
+    const linkedDividendPeriodId = await resolveBusinessProfitPeriodId(
+      {
+        linkedDividendPeriodId: input.linkedDividendPeriodId,
+        profitDate: input.profitDate,
+        referenceDate: input.referenceDate,
+        sourceType,
+        tenantId: input.tenantId,
+      },
+      tx
+    )
 
     await tx.shareProfitAllocation.deleteMany({
       where: {
@@ -3464,12 +3780,12 @@ export async function updateShareBusinessProfitEntry(
       data: {
         allocatableProfitAmount,
         expenseAmount,
-        linkedDividendPeriodId: input.linkedDividendPeriodId ?? null,
+        linkedDividendPeriodId,
         notes: input.notes ?? null,
         profitAmount: input.profitAmount,
         profitDate: input.profitDate,
         reason: input.reason ?? null,
-        sourceType: input.sourceType ?? existing.sourceType,
+        sourceType,
         status: input.status ?? existing.status,
       },
     })
@@ -3484,7 +3800,8 @@ export async function updateShareBusinessProfitEntry(
         metadata: {
           allocatableProfitAmount,
           profitAmount: input.profitAmount,
-          sourceType: input.sourceType ?? existing.sourceType,
+          linkedDividendPeriodId,
+          sourceType,
           status: input.status ?? existing.status,
         },
         tenantId: input.tenantId,

@@ -30,18 +30,18 @@ export function TrustSettingsSheet({
       open={isOpen}
       onOpenChange={handleOnOpenChange}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading trust profile form...
-              </div>
-            }
-          >
-            <TrustSettingsSheetHeader />
-            <TrustSettingsContent defaultValues={defaultValues} />
-          </Suspense>
-        ) : null}
+      {isOpen ? (
+        <Suspense
+          fallback={
+            <div className="px-6 text-sm text-muted-foreground">
+              Loading trust profile form...
+            </div>
+          }
+        >
+          <TrustSettingsSheetHeader />
+          <TrustSettingsContent defaultValues={defaultValues} />
+        </Suspense>
+      ) : null}
     </WorkflowPresentation>
   )
 }

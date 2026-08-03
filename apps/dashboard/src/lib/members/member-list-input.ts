@@ -1,3 +1,4 @@
+import { resolveDateFilter } from "@halaalvest/utils"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
 import { getEnumValue } from "@/utils/enum"
 
@@ -35,9 +36,11 @@ export function getMembersListInput(
   sort?: string[] | null,
   search = filters.q
 ) {
+  const dateRange = resolveDateFilter(filters.dateRange)
+
   return {
-    joinedFrom: filters.joinedFrom ?? undefined,
-    joinedTo: filters.joinedTo ?? undefined,
+    joinedFrom: dateRange?.from,
+    joinedTo: dateRange?.to,
     kycStatus: getEnumValue(filters.kycStatus, [
       "not_started",
       "pending",

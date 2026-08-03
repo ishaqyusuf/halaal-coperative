@@ -70,9 +70,11 @@ type ProfileValues = z.infer<typeof profileSchema>
 export function CooperativeProfileForm({
   defaultValues,
   devMode,
+  onSuccess,
 }: {
   defaultValues: ProfileValues & { startDate?: string }
   devMode: boolean
+  onSuccess?: () => Promise<void> | void
 }) {
   const form = useZodForm<ProfileValues>(profileSchema, { defaultValues })
   const { showError, showSuccess } = useNotifications()
@@ -83,6 +85,7 @@ export function CooperativeProfileForm({
       try {
         await updateCooperativeProfileAction(objectToFormData(values))
         showSuccess("Profile saved", "Cooperative profile updated.")
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not save profile",
@@ -94,21 +97,11 @@ export function CooperativeProfileForm({
 
   return (
     <Form {...form}>
-      <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        <div className="flex items-start justify-between gap-4 md:col-span-2">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Update cooperative profile
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Standardized on the shared dashboard form system.
-            </p>
-          </div>
-          {devMode ? (
+      <form className="grid gap-6" onSubmit={form.handleSubmit(onSubmit)}>
+        {devMode ? (
+          <div className="flex justify-end">
             <Button
+              className="h-10 w-full sm:w-auto"
               type="button"
               variant="outline"
               onClick={() =>
@@ -117,176 +110,234 @@ export function CooperativeProfileForm({
             >
               Quick fill
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cooperative name</FormLabel>
-              <FormControl>
-                <Input {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="currentSize"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Current size</FormLabel>
-              <Select
-                value={field.value ? String(field.value) : ""}
-                onValueChange={(value) => field.onChange(value ?? "")}
-              >
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select cooperative size">
-                      {field.value
-                        ? formatCooperativeSizeRangeLabel(field.value, "")
-                        : undefined}
-                    </SelectValue>
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectGroup>
-                    {cooperativeSizeRanges.map((range) => (
-                      <SelectItem key={range.value} value={String(range.value)}>
-                        {range.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="memberNumberPrefix"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Member prefix</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  value={field.value ?? ""}
-                  placeholder="MEM-"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-          <p className="text-sm font-medium text-foreground">
-            Finance start date
+        <section aria-labelledby="profile-identity-form-title">
+          <h3
+            className="text-base font-semibold text-foreground"
+            id="profile-identity-form-title"
+          >
+            Identity
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Update the cooperative identity used across member records and
+            workspace communication.
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {defaultValues.startDate || "Not set yet"}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Cooperative name</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="currentSize"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Current size</FormLabel>
+                  <Select
+                    value={field.value ? String(field.value) : ""}
+                    onValueChange={(value) => field.onChange(value ?? "")}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select cooperative size">
+                          {field.value
+                            ? formatCooperativeSizeRangeLabel(field.value, "")
+                            : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectGroup>
+                        {cooperativeSizeRanges.map((range) => (
+                          <SelectItem
+                            key={range.value}
+                            value={String(range.value)}
+                          >
+                            {range.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="memberNumberPrefix"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Member prefix</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value ?? ""}
+                      placeholder="MEM-"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-3 sm:col-span-2">
+              <p className="text-sm font-medium text-foreground">
+                Finance start date
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {defaultValues.startDate || "Not set yet"}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Managed from Finance Setup because it controls historical
+                charges, shares, and member backfill calculations.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="profile-location-form-title"
+          className="border-t border-border/70 pt-6"
+        >
+          <h3
+            className="text-base font-semibold text-foreground"
+            id="profile-location-form-title"
+          >
+            Office location
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Record the primary address and location where the cooperative
+            operates.
           </p>
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            Managed from Finance setup because it controls historical charge,
-            share, and member backfill calculations.
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="officeAddress"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Office address</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>City</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value ?? ""}
+                      placeholder="Lagos Island"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="state"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>State</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value ?? ""}
+                      placeholder="Lagos"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Country</FormLabel>
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={(value) => field.onChange(value ?? "")}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectGroup>
+                        {cooperativeCountryOptions.map((country) => (
+                          <SelectItem key={country} value={country}>
+                            {country}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="profile-regional-form-title"
+          className="border-t border-border/70 pt-6"
+        >
+          <h3
+            className="text-base font-semibold text-foreground"
+            id="profile-regional-form-title"
+          >
+            Regional settings
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Set the timezone used when the workspace displays and records dates
+            and times.
           </p>
-        </div>
-        <FormField
-          control={form.control}
-          name="timezone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Timezone</FormLabel>
-              <FormControl>
-                <Input {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="city"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>City</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  value={field.value ?? ""}
-                  placeholder="Lagos Island"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="state"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>State</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  value={field.value ?? ""}
-                  placeholder="Lagos"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="country"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Country</FormLabel>
-              <Select
-                value={field.value ?? ""}
-                onValueChange={(value) => field.onChange(value ?? "")}
-              >
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select country" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectGroup>
-                    {cooperativeCountryOptions.map((country) => (
-                      <SelectItem key={country} value={country}>
-                        {country}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="officeAddress"
-          render={({ field }) => (
-            <FormItem className="md:col-span-2">
-              <FormLabel>Office address</FormLabel>
-              <FormControl>
-                <Textarea {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">
-            Save cooperative profile
+          <div className="mt-4">
+            <FormField
+              control={form.control}
+              name="timezone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Timezone</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </section>
+
+        <div className="border-t border-border/70 pt-4 sm:flex sm:justify-end">
+          <Button
+            className="h-11 w-full sm:h-9 sm:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
+            {isPending ? "Saving profile..." : "Save cooperative profile"}
           </Button>
         </div>
       </form>
@@ -338,8 +389,10 @@ type TrustProfileValues = z.infer<typeof trustProfileSchema>
 
 export function TenantTrustProfileForm({
   defaultValues,
+  onSuccess,
 }: {
   defaultValues: TrustProfileValues
+  onSuccess?: () => Promise<void> | void
 }) {
   const form = useZodForm<TrustProfileValues>(trustProfileSchema, {
     defaultValues,
@@ -352,6 +405,7 @@ export function TenantTrustProfileForm({
       try {
         await updateTenantTrustProfileAction(objectToFormData(values))
         showSuccess("Trust profile saved", "Pilot readiness evidence updated.")
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not save trust profile",
@@ -363,122 +417,175 @@ export function TenantTrustProfileForm({
 
   return (
     <Form {...form}>
-      <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        <FormField
-          control={form.control}
-          name="legalTermsUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Terms URL</FormLabel>
-              <FormControl>
-                <Input placeholder="https://example.com/terms" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="privacyPolicyUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Privacy URL</FormLabel>
-              <FormControl>
-                <Input placeholder="https://example.com/privacy" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="dataProcessingUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Data-processing URL</FormLabel>
-              <FormControl>
-                <Input placeholder="https://example.com/dpa" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="incidentContactEmail"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Incident email</FormLabel>
-              <FormControl>
-                <Input placeholder="support@example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="incidentContactName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Incident contact</FormLabel>
-              <FormControl>
-                <Input placeholder="Support desk" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="recoveryPointObjective"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Recovery point objective</FormLabel>
-              <FormControl>
-                <Input placeholder="24 hours" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="recoveryTimeObjective"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Recovery time objective</FormLabel>
-              <FormControl>
-                <Input placeholder="2 business days" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="md:col-span-2">
-          <FormField
-            control={form.control}
-            name="backupRetentionNote"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Backup retention note</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Daily database backups retained by the hosting provider."
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">
-            Save trust profile
+      <form className="grid gap-6" onSubmit={form.handleSubmit(onSubmit)}>
+        <section aria-labelledby="trust-legal-documents-title">
+          <h3
+            className="text-base font-semibold text-foreground"
+            id="trust-legal-documents-title"
+          >
+            Legal documents
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Record references to counsel-approved terms, privacy, and
+            data-processing documents.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="legalTermsUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Terms URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://example.com/terms" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="privacyPolicyUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Privacy URL</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="https://example.com/privacy"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dataProcessingUrl"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Data-processing URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://example.com/dpa" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="trust-incident-response-title"
+          className="border-t border-border/70 pt-6"
+        >
+          <h3
+            className="text-base font-semibold text-foreground"
+            id="trust-incident-response-title"
+          >
+            Incident response
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Name the operational contact responsible for incident escalation and
+            communication.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="incidentContactName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Incident contact</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Support desk" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="incidentContactEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Incident email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="support@example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="trust-recovery-planning-title"
+          className="border-t border-border/70 pt-6"
+        >
+          <h3
+            className="text-base font-semibold text-foreground"
+            id="trust-recovery-planning-title"
+          >
+            Recovery planning
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Record the recovery objectives and provider-backed retention
+            evidence used in pilot discussions.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="recoveryPointObjective"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Recovery point objective</FormLabel>
+                  <FormControl>
+                    <Input placeholder="24 hours" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="recoveryTimeObjective"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Recovery time objective</FormLabel>
+                  <FormControl>
+                    <Input placeholder="2 business days" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="backupRetentionNote"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Backup retention note</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Daily database backups retained by the hosting provider."
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </section>
+
+        <div className="border-t border-border/70 pt-4 md:flex md:justify-end">
+          <Button
+            className="h-11 w-full md:h-9 md:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
+            {isPending ? "Saving trust profile..." : "Save trust profile"}
           </Button>
         </div>
       </form>
@@ -497,9 +604,11 @@ type RoleValues = z.infer<typeof roleSchema>
 
 export function RoleAssignmentForm({
   devMode,
+  onSuccess,
   roles,
 }: {
   devMode: boolean
+  onSuccess?: () => void
   roles: Array<{ label: string; value: string }>
 }) {
   const quickFill = useQaQuickFill()
@@ -520,6 +629,7 @@ export function RoleAssignmentForm({
         await provisionTenantUserRoleAction(objectToFormData(values))
         showSuccess("Role saved", "Workspace role provisioned.")
         form.reset()
+        onSuccess?.()
       } catch (error) {
         showError(
           "Could not save role",
@@ -532,36 +642,25 @@ export function RoleAssignmentForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-start justify-between gap-4 md:col-span-2">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Assign workspace role
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Add a role to an existing tenant user or create the tenant user
-              and role together.
-            </p>
-          </div>
-          {devMode ? (
+        {devMode ? (
+          <div className="flex justify-end md:col-span-2">
             <Button
+              className="h-10 w-full sm:w-auto"
               type="button"
               variant="outline"
               onClick={() =>
-                applyDashboardDevFormFill(
-                  form,
-                  "role_assignment",
-                  undefined,
-                  { emailDomain: quickFill.emailDomain },
-                )
+                applyDashboardDevFormFill(form, "role_assignment", undefined, {
+                  emailDomain: quickFill.emailDomain,
+                })
               }
             >
               Quick fill
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <FormField
           control={form.control}
@@ -625,9 +724,13 @@ export function RoleAssignmentForm({
             </FormItem>
           )}
         />
-        <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">
-            Save workspace role
+        <div className="border-t border-border/70 pt-4 md:col-span-2 md:flex md:justify-end">
+          <Button
+            className="h-11 w-full md:h-9 md:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
+            {isPending ? "Saving role..." : "Save workspace role"}
           </Button>
         </div>
       </form>

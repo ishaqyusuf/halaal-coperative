@@ -39,6 +39,7 @@
 - Success state: show the verification email draft and, in dev mode, a direct continue link.
 - `/onboarding?token=...`: validate the token server-side, prefill verified contact details, and submit the simplified cooperative profile with `useZodForm`.
 - Onboarding fields now focus on cooperative name, current size range, office address, city, state, country, cooperative start date, and admin password setup.
+- `/settings/profile`: presents the persisted tenant profile as always-visible flat identity, office-location, and regional-setting sections. Summary cards are desktop-only, while authorized administrators edit the coupled profile fields from one URL-owned, full-width mobile sheet. The finance start date remains read-only in this workflow and points administrators to Finance Setup because it controls migration calculations.
 - Completion state: show dashboard/site hostnames and a workspace-ready email draft; in development, the Get Started action offers the supported tenant URL variants for local routing checks.
 
 ## API/Data Impact
@@ -60,6 +61,7 @@
 - Tenant-scoped workspace-ready email outcomes are still mirrored into `audit_logs` using `notification.email_sent|queued|failed` actions for operational history inside the tenant workspace.
 - `apps/marketing/.env.example` documents `MARKETING_EARLY_ACCESS_ENABLED`, `SIGNUP_TOKEN_SECRET`, `EARLY_ACCESS_TOKEN_SECRET`, and `MARKETING_ADMIN_EMAILS` for production-safe signing and approval routing.
 - Cooperative profile details beyond tenant name and primary contact are persisted on the tenant record as `currentSize`, `officeAddress`, `city`, `state`, `country`, and `startDate`; `currentSize` is selected from shared range options and stored as the existing representative integer, while `region` is mirrored from `state` for older readers.
+- Dashboard profile edits reuse the existing role-gated, tenant-scoped `updateCooperativeProfileAction` and audited `updateTenantProfile` query. Successful sheet saves close the URL workflow and refresh the server-owned profile snapshot; no profile API or database contract changed in the 2026-08-03 settings-page completion pass.
 - The onboarding API hashes the submitted admin password and stores it on the owner user created during `createTenantWorkspaceBootstrap`.
 
 ## Permissions

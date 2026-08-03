@@ -106,12 +106,17 @@ This file captures payload shapes, response conventions, and contract assumption
 - `trpc.business.setup`
   - Staff-only tenant finance setup and permission contract used by the business registry and URL-backed business sheet.
   - The setup determines allowed create/edit/review/allocation actions and preserves migration and published-allocation locks.
+  - Returns `currentProfitSeason` with `id`, `label`, `periodStart`, `periodEnd`, `status`, `canRecordProfit`, and an optional blocking `reason`, plus the saved migration setup mode.
 - `trpc.business.summary`
   - Staff-only tenant summary for business counts, capital, realized/allocatable profit, and linked dividend-period filter options.
   - The summary reads tenant finance setup directly and does not repeat the route's migration/setup loader work.
 - Dashboard business create/update actions
   - A manual live business may be created before profit is realized; profit entries are optional and can be added later with evidence.
+  - Business start/end dates describe the business lifecycle and may predate the current sharing season. End must not precede start.
+  - New or edited manual profit dates must be inside the business lifecycle, inside the current writable profit season, and no later than today. The server ignores client season selection and links the authoritative tenant season.
+  - Scheduled seasons are created as tenant-scoped drafts on first valid profit when absent. Non-draft, overlapping, or unavailable seasons reject the write.
   - Historical migration/backfill records retain source-specific profit-history behavior and migration controls.
+  - Explicit historical dividend-period IDs are accepted only when the period belongs to the authenticated tenant and contains the profit date.
   - Planned, active, completed, archived, manual, backfill, and import records remain in the unified `/business` registry rather than separate future/ongoing pages.
 - `trpc.contributions.list`
   - paginated contribution result with joined member display fields.

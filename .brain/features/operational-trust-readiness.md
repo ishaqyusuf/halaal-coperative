@@ -6,6 +6,8 @@
 
 ## Current Behavior
 - Tenant admins and super admins can open `/settings/trust`.
+- The route owns page metadata plus loading and error recovery boundaries, and tenant trust evidence is loaded only after the workspace-admin role guard passes.
+- The page follows a flat Midday settings layout: summary analytics are hidden below `md`, checklist items use full-width divided rows instead of nested cards, saved legal/contact/recovery evidence remains visible without opening the editor, and explicit non-promise boundaries remain visible in their own divided section.
 - The page summarizes readiness items for:
   - backup/export confidence through existing reports and CSV exports
   - restore posture that still needs infrastructure/provider confirmation
@@ -19,7 +21,9 @@
 - The dashboard error boundary now posts sanitized crash evidence to `/api/error-report`; database-backed tenant workspaces record `application.error_captured` audit entries with digest, route path, redacted message/stack evidence, source, and user-agent metadata when tenant context is available.
 - The trust readiness page separates external Sentry-compatible monitoring setup from internal crash evidence, linking admins to the activity report for `application.error_captured` audit entries.
 - Tenant admins can save a tenant trust profile from `/settings/trust` with legal terms URL, privacy URL, data-processing URL, incident contact name/email, backup-retention note, recovery point objective, and recovery time objective.
+- The page-header edit action opens a URL-owned, full-width-mobile sheet. Its form is divided into Legal documents, Incident response, and Recovery planning sections; successful saves close the workflow and refresh the readiness evidence, while unsaved changes participate in the shared discard guard.
 - Trust profile updates are audited through `tenant.trust_profile_updated`; the trust checklist turns legal/restore evidence positive when saved evidence exists.
+- `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` are declared in the Turborepo environment contract so monitoring posture is evaluated consistently by local and cached tasks.
 
 ## Safety Rules
 - This page documents posture and readiness evidence; it does not replace final legal terms, infrastructure backup policy, or incident-response procedures.

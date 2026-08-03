@@ -15,7 +15,9 @@ Historical backfill requires historical setup inputs, including business profit 
 
 Brought forward skips historical reconstruction where the current position is enough. Member creation routes directly to brought-forward current-position capture. Required member inputs are current savings, current special savings, and share position. Optional current obligations are active financing, procurement, and Food Purchase.
 
-Brought-forward business profit records use `Pending` and `Completed`. Completed means dividends have already been divided to members. Pending means they have not. Past pending profits can still require profit-season review; current or future pending profits do not force setup-time sharing.
+Brought-forward business profit records use `Pending` and `Completed`. Completed means dividends have already been divided to members. Pending means they have not. A pending profit is historical only when its date is before the start of the current configured profit season; pending profit inside the current season does not force setup-time sharing, and future profit dates are never accepted by live business actions.
+
+Business age does not define migration age. A brought-forward cooperative may register an old or ongoing business, but every new manual profit must fall within the current annual, semi-annual, quarterly, or explicitly opened ad-hoc sharing season. The server owns season resolution and linkage; backfill/import is the only path for older profit.
 
 ## Audit And Posting Boundaries
 

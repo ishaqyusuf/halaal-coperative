@@ -127,16 +127,12 @@ export function getCountTone(value: number) {
 
 export function withReportFilters(
   pathname: string,
-  filters: { from?: string | null; to?: string | null },
+  filters: { dateRange?: string[] | null }
 ) {
   const params = new URLSearchParams()
 
-  if (filters.from) {
-    params.set("from", filters.from)
-  }
-
-  if (filters.to) {
-    params.set("to", filters.to)
+  if (filters.dateRange?.length) {
+    params.set("dateRange", filters.dateRange.join(","))
   }
 
   const query = params.toString()

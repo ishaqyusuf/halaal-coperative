@@ -20,7 +20,7 @@
 - Audit preview rows use the normalized activity-report projection, including `actionLabel`, instead of exposing raw action slugs as the primary label.
 - Audit and collections previews are limited to five recent rows. Full activity and repayment work remain linked from the section headers.
 - Audit and collections evidence links use content-owned row heights so multi-line labels and evidence never overlap.
-- Date filters stay in URL state and are passed to the report summary and export links.
+- Reporting and audit dates use the shared GND Sales Orders preset rail and two-boundary range calendar. One canonical `dateRange` tuple stays in URL state, is passed unchanged through report and export links, and resolves to inclusive summary/export boundaries at the query edge.
 
 ## Mobile Contract
 

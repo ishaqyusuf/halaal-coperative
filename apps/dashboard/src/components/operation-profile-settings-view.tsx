@@ -1,65 +1,23 @@
 import type { ComponentProps } from "react"
-import type { TenantServiceKey } from "@halaalvest/db"
 import {
-  DashboardSectionCard,
-  DashboardSectionHeader,
   DashboardStatCard,
+  TrendPill,
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
 import { OpenOperationProfileSettingsSheet } from "@/components/open-operation-profile-settings-sheet"
 import { OperationProfileSettingsSheet } from "@/components/sheets/operation-profile-settings-sheet"
-
-const serviceRows = [
-  {
-    body: "Manual commitment proof, transfer receipts, cash office payments, and other payment evidence.",
-    key: "payment_receipts",
-    label: "Payment receipts",
-  },
-  {
-    body: "Member procurement requests and staff-recorded procurement workflows.",
-    key: "procurement",
-    label: "Procurement",
-  },
-  {
-    body: "Foodstuff Purchase applications and cycle participation.",
-    key: "food_purchase",
-    label: "Foodstuff Purchase",
-  },
-  {
-    body: "Member support cases and official responses.",
-    key: "support_cases",
-    label: "Member support",
-  },
-  {
-    body: "Ministry, employer, payroll, or other deduction-source records.",
-    key: "collection_sources",
-    label: "Collection sources",
-  },
-  {
-    body: "Monthly batch posting when a collection source has released deductions.",
-    key: "collection_source_batch_posting",
-    label: "Source batch posting",
-  },
-] satisfies Array<{ body: string; key: TenantServiceKey; label: string }>
-
-const accessModeOptions = [
-  ["disabled", "Not offered"],
-  ["office_only", "Office only"],
-  ["member_self_service", "Member self-service"],
-  ["read_only", "View only"],
-] as const
+import {
+  getOperationProfileAccessModeLabel,
+  getOperationProfileAccessModeSummary,
+  getOperationProfileService,
+  operationProfileServiceRows,
+  operationProfileServiceSections,
+} from "@/lib/settings/operation-profile-settings"
 
 type OperationProfileSettingsSheetProps = ComponentProps<
   typeof OperationProfileSettingsSheet
 >
-
-function accessModeLabel(value: string) {
-  return (
-    accessModeOptions.find(([optionValue]) => optionValue === value)?.[1] ??
-    value.replaceAll("_", " ")
-  )
-}
 
 export function OperationProfileSettingsUnavailableView({
   body,
@@ -88,12 +46,11 @@ export function OperationProfileSettingsView({
 }: OperationProfileSettingsSheetProps & {
   reviewedAt: Date | null
 }) {
-  const enabledServices = serviceRows.filter(
+  const enabledServices = operationProfileServiceRows.filter(
     (service) => services[service.key].accessMode !== "disabled"
   )
-  const memberSelfServiceCount = serviceRows.filter(
-    (service) =>
-      services[service.key].accessMode === "member_self_service"
+  const memberSelfServiceCount = operationProfileServiceRows.filter(
+    (service) => services[service.key].accessMode === "member_self_service"
   ).length
 
   return (
@@ -102,11 +59,11 @@ export function OperationProfileSettingsView({
       eyebrow="Settings"
       title="Operation profile"
     >
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="hidden gap-4 md:grid md:grid-cols-3">
         <DashboardStatCard
           detail="Services not disabled."
           label="Enabled services"
-          value={`${enabledServices.length}/${serviceRows.length}`}
+          value={`${enabledServices.length}/${operationProfileServiceRows.length}`}
         />
         <DashboardStatCard
           detail="Services where members can submit requests themselves."
@@ -125,30 +82,90 @@ export function OperationProfileSettingsView({
         />
       </section>
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={<OpenOperationProfileSettingsSheet />}
-          description="Use a focused sheet to change service access and capture the reason for audit history."
-          eyebrow="Service access"
-          title="Update operation profile"
-        />
-        <div className="mt-5 grid gap-3">
-          {serviceRows.map((service) => (
-            <div
-              className="border border-border/70 bg-background p-4"
-              key={service.key}
-            >
-              <p className="font-medium text-foreground">{service.label}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {service.body}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Current: {accessModeLabel(services[service.key].accessMode)}
+      <section
+        aria-labelledby="operation-profile-services-title"
+        className="space-y-8 md:space-y-10"
+      >
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">
+            Service access
+          </p>
+          <h2
+            className="mt-1 text-base font-semibold text-foreground"
+            id="operation-profile-services-title"
+          >
+            Cooperative services
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Review every current access mode at a glance. Editing one service
+            does not change the others.
+          </p>
+        </div>
+
+        {operationProfileServiceSections.map((section) => (
+          <section
+            aria-labelledby={`operation-profile-${section.key}-title`}
+            data-operation-profile-section={section.key}
+            key={section.key}
+          >
+            <div className="pb-4">
+              <h3
+                className="text-base font-semibold text-foreground"
+                id={`operation-profile-${section.key}-title`}
+              >
+                {section.label}
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                {section.body}
               </p>
             </div>
-          ))}
-        </div>
-      </DashboardSectionCard>
+
+            <div className="divide-y divide-border/70 border-y border-border/70">
+              {section.serviceKeys.map((serviceKey) => {
+                const service = getOperationProfileService(serviceKey)
+                const accessMode = services[service.key].accessMode
+
+                return (
+                  <div
+                    className="grid gap-4 py-5 md:grid-cols-[minmax(0,1fr)_minmax(15rem,auto)] md:items-center"
+                    data-operation-profile-service={service.key}
+                    key={service.key}
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground">
+                        {service.label}
+                      </p>
+                      <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                        {service.body}
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Current access
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <TrendPill>
+                            {getOperationProfileAccessModeLabel(accessMode)}
+                          </TrendPill>
+                          <span className="text-xs text-muted-foreground">
+                            {getOperationProfileAccessModeSummary(accessMode)}
+                          </span>
+                        </div>
+                      </div>
+                      <OpenOperationProfileSettingsSheet
+                        serviceKey={service.key}
+                        serviceLabel={service.label}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        ))}
+      </section>
 
       <OperationProfileSettingsSheet policy={policy} services={services} />
     </WorkspacePageShell>

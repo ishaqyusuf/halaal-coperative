@@ -21,6 +21,7 @@ function createMigrationStatePrismaStub(input: {
   businessProfitReviewMarkers?: number
   businessProfitSeasons?: number
   chargeScheduleVersions: number
+  financialYearStartMonth?: number
   initialMigrationStatus?: string | null
   historicalProfitMigrationMode?: string | null
   legacyLoanMigrationDrafts?: number
@@ -31,11 +32,17 @@ function createMigrationStatePrismaStub(input: {
   migrationEmergencyUnlockUntil?: Date | null
   migrationFinalizedAt?: Date | null
   migrationSetupMode?: "historical_backfill" | "brought_forward" | null
+  profitDistributionFrequency?:
+    | "annual"
+    | "semi_annual"
+    | "quarterly"
+    | "ad_hoc"
   shareCapitalPlans: number
   startDate: Date | null
   tenantBusinessPolicyFindError?: unknown
 }) {
   const auditLogCreates: unknown[] = []
+  const profitEntryCountQueries: any[] = []
   const tenantBusinessPolicyUpserts: unknown[] = []
   const tenantUpdateCalls: unknown[] = []
   const tenantState = {
@@ -117,12 +124,15 @@ function createMigrationStatePrismaStub(input: {
         ),
     },
     shareBusinessProfitEntry: {
-      count: async (query?: any) =>
-        query?.where?.status === "pending"
+      count: async (query?: any) => {
+        profitEntryCountQueries.push(query)
+
+        return query?.where?.status === "pending"
           ? (input.broughtForwardPendingPastProfitEntries ?? 0)
           : query?.where?.linkedDividendPeriodId
-          ? (input.businessProfitSeasons ?? input.businessProfitPools)
-          : input.businessProfitPools,
+            ? (input.businessProfitSeasons ?? input.businessProfitPools)
+            : input.businessProfitPools
+      },
     },
     tenant: {
       findUnique: async () => tenantState,
@@ -138,10 +148,15 @@ function createMigrationStatePrismaStub(input: {
           throw input.tenantBusinessPolicyFindError
         }
 
-        return input.historicalProfitMigrationMode
+        return input.historicalProfitMigrationMode ||
+          input.financialYearStartMonth ||
+          input.profitDistributionFrequency
           ? {
+              financialYearStartMonth: input.financialYearStartMonth ?? 1,
               historicalProfitMigrationMode:
-                input.historicalProfitMigrationMode,
+                input.historicalProfitMigrationMode ?? "manual_review_required",
+              profitDistributionFrequency:
+                input.profitDistributionFrequency ?? "annual",
             }
           : null
       },
@@ -151,6 +166,7 @@ function createMigrationStatePrismaStub(input: {
       },
     },
     tenantBusinessPolicyUpserts,
+    profitEntryCountQueries,
     tenantPolicy: {
       findUnique: async () => ({
         migrationSetupMode:
@@ -513,14 +529,44 @@ describe("tenant initial migration state query", () => {
       }) as never
     )
 
-    expect(state.snapshot.missingStepKeys).toContain(
-      "business_profit_seasons"
-    )
+    expect(state.snapshot.missingStepKeys).toContain("business_profit_seasons")
     expect(state.snapshot.missingStepKeys).not.toContain(
       "business_profit_pools"
     )
     expect(state.snapshot.missingStepKeys).not.toContain("legacy_loans")
     expect(state.snapshot.status).toBe("historical_setup_in_progress")
+  })
+
+  test("checks brought-forward pending profits against the current configured season", async () => {
+    const prisma = createMigrationStatePrismaStub({
+      appliedBackfillBatches: 0,
+      broughtForwardPendingPastProfitEntries: 0,
+      businessProfitPools: 1,
+      chargeScheduleVersions: 2,
+      financialYearStartMonth: 7,
+      initialMigrationStatus: null,
+      legacyLoans: 0,
+      memberProfiles: 3,
+      migrationSetupMode: "brought_forward",
+      profitDistributionFrequency: "annual",
+      shareCapitalPlans: 0,
+      startDate: new Date("2025-01-01T00:00:00.000Z"),
+    })
+
+    await getTenantInitialMigrationState("tenant-1", prisma as never)
+
+    const pendingProfitQuery = prisma.profitEntryCountQueries.find(
+      (query) => query?.where?.status === "pending"
+    )
+    const today = new Date()
+    const expectedYear =
+      today.getUTCMonth() + 1 >= 7
+        ? today.getUTCFullYear()
+        : today.getUTCFullYear() - 1
+
+    expect(pendingProfitQuery?.where?.profitDate?.lt).toEqual(
+      new Date(Date.UTC(expectedYear, 6, 1))
+    )
   })
 
   test("uses applied month ledger members as migration review evidence", async () => {

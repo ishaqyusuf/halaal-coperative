@@ -1,6 +1,7 @@
 "use client"
 
 import { useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
@@ -17,33 +18,16 @@ import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { DatePickerInput } from "@/components/date-picker-input"
+import { useMemberSignupLinkParams } from "@/hooks/use-member-signup-link-params"
 import {
   createMemberSignupLinkAction,
   updateMemberSignupAccessModeAction,
   updateMemberSignupLinkAction,
 } from "@/lib/dashboard-actions"
-
-export type SignupAccessMode = "disabled" | "hidden" | "in_office" | "public"
-
-export type MemberSignupLinkView = {
-  analytics: {
-    approvedCount: number
-    pendingApprovalCount: number
-    rejectedCount: number
-    remainingSlots: number | null
-    totalRequests: number
-    verifiedCount: number
-  }
-  createdAt: string
-  expiresAt: string | null
-  id: string
-  isEnabled: boolean
-  lastUsedAt: string | null
-  maxSignups: number | null
-  name: string
-  notes: string | null
-  signupUrl: string
-}
+import type {
+  MemberSignupLinkView,
+  SignupAccessMode,
+} from "@/lib/signup-links/member-signup-links"
 
 const accessModeSchema = z.object({
   memberSignupAccessMode: z.enum(["in_office", "public", "hidden", "disabled"]),
@@ -72,7 +56,13 @@ function accessModeSuccessDescription(mode: SignupAccessMode) {
   return "Member signup is now restricted to in-office use unless a staff link is issued."
 }
 
-function AccessModeForm({ defaultMode }: { defaultMode: SignupAccessMode }) {
+function AccessModeForm({
+  defaultMode,
+  onSuccess,
+}: {
+  defaultMode: SignupAccessMode
+  onSuccess: () => Promise<void>
+}) {
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const form = useZodForm<z.infer<typeof accessModeSchema>>(accessModeSchema, {
@@ -91,6 +81,7 @@ function AccessModeForm({ defaultMode }: { defaultMode: SignupAccessMode }) {
           "Signup access updated",
           accessModeSuccessDescription(values.memberSignupAccessMode)
         )
+        await onSuccess()
       } catch (error) {
         showError(
           "Could not update signup access",
@@ -101,54 +92,47 @@ function AccessModeForm({ defaultMode }: { defaultMode: SignupAccessMode }) {
   }
 
   return (
-    <section className="rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-2xl">
-          <p className="text-xs text-muted-foreground uppercase">
-            Access mode
-          </p>
-          <h3 className="mt-2 text-lg font-semibold text-foreground">
-            Member signup gate
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Choose whether signup is open, link-only, hidden from entry points,
-            or fully disabled. New applicants still require admin approval.
-          </p>
-        </div>
-        <Form {...form}>
-          <form
-            className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto"
-            onSubmit={form.handleSubmit(onSubmit)}
-          >
-            <FormField
-              control={form.control}
-              name="memberSignupAccessMode"
-              render={({ field }) => (
-                <FormItem className="min-w-[220px]">
-                  <FormLabel className="sr-only">Access mode</FormLabel>
-                  <FormControl>
-                    <NativeSelect {...field}>
-                      <option value="in_office">In-office only</option>
-                      <option value="public">Public signup</option>
-                      <option value="hidden">Hidden, links only</option>
-                      <option value="disabled">Disabled</option>
-                    </NativeSelect>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button disabled={isPending} type="submit">
-              Save access mode
+    <section>
+      <p className="text-sm leading-6 text-muted-foreground">
+        Choose whether signup is open, link-only, hidden from entry points, or
+        fully disabled. New applicants still require admin approval.
+      </p>
+      <Form {...form}>
+        <form className="mt-6" onSubmit={form.handleSubmit(onSubmit)}>
+          <FormField
+            control={form.control}
+            name="memberSignupAccessMode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Access mode</FormLabel>
+                <FormControl>
+                  <NativeSelect {...field}>
+                    <option value="in_office">In-office only</option>
+                    <option value="public">Public signup</option>
+                    <option value="hidden">Hidden, links only</option>
+                    <option value="disabled">Disabled</option>
+                  </NativeSelect>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="mt-8 flex justify-end border-t border-border/70 pt-4">
+            <Button
+              className="h-11 w-full md:h-9 md:w-auto"
+              disabled={isPending}
+              type="submit"
+            >
+              {isPending ? "Saving access mode..." : "Save access mode"}
             </Button>
-          </form>
-        </Form>
-      </div>
+          </div>
+        </form>
+      </Form>
     </section>
   )
 }
 
-function CreateLinkForm() {
+function CreateLinkForm({ onSuccess }: { onSuccess: () => Promise<void> }) {
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const form = useZodForm<z.infer<typeof signupLinkSchema>>(signupLinkSchema, {
@@ -174,6 +158,7 @@ function CreateLinkForm() {
           "A new member signup link is now available below."
         )
         form.reset()
+        await onSuccess()
       } catch (error) {
         showError(
           "Could not create signup link",
@@ -253,9 +238,13 @@ function CreateLinkForm() {
             />
           </div>
 
-          <div className="mt-4">
-            <Button disabled={isPending} type="submit">
-              Generate signup link
+          <div className="mt-8 flex justify-end border-t border-border/70 pt-4">
+            <Button
+              className="h-11 w-full md:h-9 md:w-auto"
+              disabled={isPending}
+              type="submit"
+            >
+              {isPending ? "Generating signup link..." : "Generate signup link"}
             </Button>
           </div>
         </form>
@@ -264,7 +253,13 @@ function CreateLinkForm() {
   )
 }
 
-function EditLinkForm({ link }: { link: MemberSignupLinkView }) {
+function EditLinkForm({
+  link,
+  onSuccess,
+}: {
+  link: MemberSignupLinkView
+  onSuccess: () => Promise<void>
+}) {
   const { showError, showSuccess } = useNotifications()
   const [isSaving, startSaveTransition] = useTransition()
   const form = useZodForm<z.infer<typeof signupLinkSchema>>(signupLinkSchema, {
@@ -287,6 +282,7 @@ function EditLinkForm({ link }: { link: MemberSignupLinkView }) {
         formData.set("notes", values.notes ?? "")
         await updateMemberSignupLinkAction(formData)
         showSuccess("Signup link saved", `${values.name} was updated.`)
+        await onSuccess()
       } catch (error) {
         showError(
           "Could not save signup link",
@@ -365,9 +361,15 @@ function EditLinkForm({ link }: { link: MemberSignupLinkView }) {
           </FormItem>
         </div>
 
-        <Button disabled={isSaving} type="submit">
-          Save changes
-        </Button>
+        <div className="mt-8 flex justify-end border-t border-border/70 pt-4">
+          <Button
+            className="h-11 w-full md:h-9 md:w-auto"
+            disabled={isSaving}
+            type="submit"
+          >
+            {isSaving ? "Saving changes..." : "Save changes"}
+          </Button>
+        </div>
       </form>
     </Form>
   )
@@ -382,16 +384,26 @@ export function MemberSignupLinkContent({
   selectedLink: MemberSignupLinkView | null
   signupLinkSheetType: "access" | "create" | "edit" | null
 }) {
+  const router = useRouter()
+  const { setParams } = useMemberSignupLinkParams()
+
+  async function handleSuccess() {
+    await setParams({ signupLinkId: null, signupLinkSheetType: null })
+    router.refresh()
+  }
+
   if (signupLinkSheetType === "access") {
-    return <AccessModeForm defaultMode={defaultMode} />
+    return (
+      <AccessModeForm defaultMode={defaultMode} onSuccess={handleSuccess} />
+    )
   }
 
   if (signupLinkSheetType === "create") {
-    return <CreateLinkForm />
+    return <CreateLinkForm onSuccess={handleSuccess} />
   }
 
   if (signupLinkSheetType === "edit" && selectedLink) {
-    return <EditLinkForm link={selectedLink} />
+    return <EditLinkForm link={selectedLink} onSuccess={handleSuccess} />
   }
 
   return (

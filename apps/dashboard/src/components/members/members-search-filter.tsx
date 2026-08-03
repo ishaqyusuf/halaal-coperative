@@ -1,7 +1,6 @@
 "use client"
 
 import type { TenantMigrationSetupMode } from "@halaalvest/db"
-import { Calendar } from "@halaalvest/ui/components/calendar"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -12,7 +11,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { formatISO, parseISO } from "date-fns"
 import {
   BadgeCheck,
   CalendarDays,
@@ -34,10 +32,10 @@ import {
   memberTypeFilters,
 } from "@/components/members/member-filter-options"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
+import { DateRangeFilter } from "@/components/search-filter/date-range-filter"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
 import { useMembersFilterParams } from "@/hooks/use-members-filter-params"
 import { hasActiveMemberFilters } from "@/lib/members/member-filters"
-import { useIsMobile } from "@/hooks/use-mobile"
 
 type FilterMenuItemProps = {
   children: ReactNode
@@ -95,45 +93,6 @@ function FilterCheckboxItem({
   )
 }
 
-function MemberDateRangeFilter({
-  end,
-  onSelect,
-  start,
-}: {
-  end: string | null | undefined
-  onSelect: (range: {
-    joinedFrom: string | null
-    joinedTo: string | null
-  }) => void
-  start: string | null | undefined
-}) {
-  const isMobile = useIsMobile()
-
-  return (
-    <div className="flex flex-col">
-      <Calendar
-        defaultMonth={start ? parseISO(start) : new Date()}
-        mode="range"
-        numberOfMonths={isMobile ? 1 : 2}
-        selected={{
-          from: start ? parseISO(start) : undefined,
-          to: end ? parseISO(end) : undefined,
-        }}
-        onSelect={(range) => {
-          onSelect({
-            joinedFrom: range?.from
-              ? formatISO(range.from, { representation: "date" })
-              : null,
-            joinedTo: range?.to
-              ? formatISO(range.to, { representation: "date" })
-              : null,
-          })
-        }}
-      />
-    </div>
-  )
-}
-
 export function MembersSearchFilter({
   migrationSetupMode = "historical_backfill",
 }: {
@@ -163,17 +122,9 @@ export function MembersSearchFilter({
     setFilters(update as Partial<MembersFilterParams>, { shallow: false })
   }
 
-  function setDateRangeFilter(update: {
-    joinedFrom: string | null
-    joinedTo: string | null
-  }) {
-    setFilters(update, { shallow: false })
-  }
-
   function processFiltersForList(): Partial<MemberFilterValue> {
     const processed = {
-      joinedFrom: filters.joinedFrom ?? undefined,
-      joinedTo: filters.joinedTo ?? undefined,
+      dateRange: filters.dateRange ?? undefined,
       kycStatus: filters.kycStatus ?? undefined,
       memberType: filters.memberType ?? undefined,
       migrationStatus: filters.migrationStatus ?? undefined,
@@ -287,10 +238,11 @@ export function MembersSearchFilter({
         </FilterMenuItem>
 
         <FilterMenuItem icon={CalendarDays} label="Joined date">
-          <MemberDateRangeFilter
-            end={filters.joinedTo}
-            onSelect={setDateRangeFilter}
-            start={filters.joinedFrom}
+          <DateRangeFilter
+            onChange={(dateRange) =>
+              setFilters({ dateRange }, { shallow: false })
+            }
+            value={filters.dateRange}
           />
         </FilterMenuItem>
       </DropdownMenuContent>

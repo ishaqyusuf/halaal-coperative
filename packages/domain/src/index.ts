@@ -1,4 +1,5 @@
 export * from "./modules/dashboard"
+export * from "./modules/business-profit-seasons"
 export * from "./modules/cooperative-location"
 export * from "./modules/cooperative-size"
 export * from "./modules/finance"

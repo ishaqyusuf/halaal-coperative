@@ -1,6 +1,17 @@
 "use client"
 
-import type { TenantServiceKey } from "@halaalvest/db"
+import {
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react"
+import type {
+  TenantOperationProfilePolicy,
+  TenantServiceAccessMode,
+  TenantServiceKey,
+} from "@halaalvest/db"
+import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import {
   Field,
@@ -10,105 +21,120 @@ import {
   FieldSet,
 } from "@halaalvest/ui/components/field"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { useRouter } from "next/navigation"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
+import { useOperationProfileSettingsParams } from "@/hooks/use-operation-profile-settings-params"
 import { updateTenantOperationProfileAction } from "@/lib/dashboard-actions"
-
-const serviceRows = [
-  {
-    body: "Manual commitment proof, transfer receipts, cash office payments, and other payment evidence.",
-    key: "payment_receipts",
-    label: "Payment receipts",
-  },
-  {
-    body: "Member procurement requests and staff-recorded procurement workflows.",
-    key: "procurement",
-    label: "Procurement",
-  },
-  {
-    body: "Foodstuff Purchase applications and cycle participation.",
-    key: "food_purchase",
-    label: "Foodstuff Purchase",
-  },
-  {
-    body: "Member support cases and official responses.",
-    key: "support_cases",
-    label: "Member support",
-  },
-  {
-    body: "Ministry, employer, payroll, or other deduction-source records.",
-    key: "collection_sources",
-    label: "Collection sources",
-  },
-  {
-    body: "Monthly batch posting when a collection source has released deductions.",
-    key: "collection_source_batch_posting",
-    label: "Source batch posting",
-  },
-] satisfies Array<{ body: string; key: TenantServiceKey; label: string }>
-
-const accessModeOptions = [
-  ["disabled", "Not offered"],
-  ["office_only", "Office only"],
-  ["member_self_service", "Member self-service"],
-  ["read_only", "View only"],
-] as const
-
-function serviceAccessInputName(serviceKey: TenantServiceKey) {
-  return `${serviceKey}AccessMode`
-}
+import {
+  getOperationProfileService,
+  getOperationProfileServiceInputName,
+  isRestrictiveOperationProfileAccessChange,
+  operationProfileAccessModeOptions,
+} from "@/lib/settings/operation-profile-settings"
 
 export function OperationProfileSettingsContent({
+  currentAccessMode,
   policy,
-  services,
+  serviceKey,
 }: {
-  policy: {
-    foodPurchaseMaximumActiveObligationsPerMember: number
-    foodPurchaseRequiresOpenCycle: boolean
-    procurementMaximumActiveObligationsPerMember: number
-  }
-  services: Record<TenantServiceKey, { accessMode: string }>
+  currentAccessMode: TenantServiceAccessMode
+  policy: TenantOperationProfilePolicy
+  serviceKey: TenantServiceKey
 }) {
+  const router = useRouter()
+  const { setParams } = useOperationProfileSettingsParams()
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
+  const [nextAccessMode, setNextAccessMode] =
+    useState<TenantServiceAccessMode>(currentAccessMode)
+  const service = getOperationProfileService(serviceKey)
+  const selectedMode = operationProfileAccessModeOptions.find(
+    (option) => option.value === nextAccessMode
+  )!
+  const requiresChangeReason = isRestrictiveOperationProfileAccessChange({
+    next: nextAccessMode,
+    previous: currentAccessMode,
+  })
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+
+    startTransition(async () => {
+      try {
+        await updateTenantOperationProfileAction(formData)
+        showSuccess(
+          "Service access saved",
+          `${service.label} is now ${selectedMode.label.toLowerCase()}.`
+        )
+        await setParams(null)
+        router.refresh()
+      } catch (error) {
+        showError(
+          "Could not save service access",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
   return (
     <form
-      action={updateTenantOperationProfileAction}
-      className="grid gap-5 px-6"
+      className="grid gap-5 px-4 pb-1 sm:px-6"
+      onSubmit={handleSubmit}
+      ref={formRef}
     >
       <FieldSet>
         <FieldGroup>
-          {serviceRows.map((service) => {
-            const currentAccessMode = services[service.key].accessMode
+          <Field>
+            <FieldLabel htmlFor={getOperationProfileServiceInputName(serviceKey)}>
+              Access mode
+            </FieldLabel>
+            <FieldDescription>{service.body}</FieldDescription>
+            <LabeledSelectInput
+              disabled={isPending}
+              id={getOperationProfileServiceInputName(serviceKey)}
+              name={getOperationProfileServiceInputName(serviceKey)}
+              onValueChange={(value) => {
+                const option = operationProfileAccessModeOptions.find(
+                  (candidate) => candidate.value === value
+                )
 
-            return (
-              <Field key={service.key}>
-                <FieldLabel htmlFor={serviceAccessInputName(service.key)}>
-                  {service.label}
-                </FieldLabel>
-                <FieldDescription>{service.body}</FieldDescription>
-                <LabeledSelectInput
-                  defaultValue={currentAccessMode}
-                  id={serviceAccessInputName(service.key)}
-                  name={serviceAccessInputName(service.key)}
-                  options={accessModeOptions.map(([value, label]) => ({
-                    label,
-                    value,
-                  }))}
-                />
-              </Field>
-            )
-          })}
+                if (option) {
+                  setNextAccessMode(option.value)
+                  formRef.current?.dispatchEvent(
+                    new Event("input", { bubbles: true })
+                  )
+                }
+              }}
+              options={operationProfileAccessModeOptions.map((option) => ({
+                label: option.label,
+                value: option.value,
+              }))}
+              triggerClassName="h-11 md:h-9"
+              value={nextAccessMode}
+            />
+            <FieldDescription>{selectedMode.description}</FieldDescription>
+          </Field>
         </FieldGroup>
       </FieldSet>
 
       <Field>
-        <FieldLabel htmlFor="changeReason">Change reason</FieldLabel>
+        <FieldLabel htmlFor="changeReason">
+          Change reason{requiresChangeReason ? " (required)" : " (optional)"}
+        </FieldLabel>
         <Textarea
+          disabled={isPending}
           id="changeReason"
           name="changeReason"
-          placeholder="Required when reducing access. Example: Procurement is paused while the new cycle policy is approved."
+          placeholder="Example: This service is paused while the new operating policy is approved."
+          required={requiresChangeReason}
         />
         <FieldDescription>
-          Reasons are saved to the audit log with the before and after operation
-          profile.
+          {requiresChangeReason
+            ? "Reducing access requires an audit reason before this change can be saved."
+            : "Any reason provided is saved to the audit log with the before and after access mode."}
         </FieldDescription>
       </Field>
 
@@ -128,9 +154,15 @@ export function OperationProfileSettingsContent({
         value={policy.foodPurchaseRequiresOpenCycle ? "true" : "false"}
       />
 
-      <Button className="w-fit" type="submit">
-        Save operation profile
-      </Button>
+      <div className="flex border-t border-border/70 pt-4 sm:justify-end">
+        <Button
+          className="h-11 w-full sm:h-9 sm:w-auto"
+          disabled={isPending}
+          type="submit"
+        >
+          {isPending ? "Saving..." : "Save access"}
+        </Button>
+      </div>
     </form>
   )
 }

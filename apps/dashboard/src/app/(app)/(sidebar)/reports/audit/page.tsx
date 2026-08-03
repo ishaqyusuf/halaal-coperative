@@ -1,4 +1,5 @@
 import { getAuditFilterMetadata } from "@halaalvest/db"
+import { resolveDateFilter } from "@halaalvest/utils"
 import {
   AuditReportUnavailableView,
   AuditReportView,
@@ -58,6 +59,7 @@ export default async function AuditViewerPage({
 
   const search = params.search ?? ""
   const action = params.action ?? ""
+  const resolvedDateRange = resolveDateFilter(params.dateRange)
   const [filterList, initialTableSettings, caller] = await Promise.all([
     getAuditFilterMetadata(context.tenant.id),
     getInitialTableSettings("audit"),
@@ -65,10 +67,10 @@ export default async function AuditViewerPage({
   ])
   const auditListInput = {
     action: action || undefined,
-    from: params.from ?? undefined,
+    from: resolvedDateRange?.from,
     q: search || undefined,
     sort: getSort(sort),
-    to: params.to ?? undefined,
+    to: resolvedDateRange?.to,
   }
   const auditListOptions = trpc.reports.auditEvents.infiniteQueryOptions(
     auditListInput,

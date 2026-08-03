@@ -1,13 +1,19 @@
+import { resolveDateFilter } from "@halaalvest/utils"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 export { toCsv } from "@/lib/reports/csv"
 
-type ReportsExportContext = Awaited<ReturnType<typeof getDashboardServerContext>>
+type ReportsExportContext = Awaited<
+  ReturnType<typeof getDashboardServerContext>
+>
 
 export async function requireReportsExportContext(): Promise<ReportsExportContext | null> {
   const context = await getDashboardServerContext()
 
-  if (!context.tenant || !hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)) {
+  if (
+    !context.tenant ||
+    !hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)
+  ) {
     return null
   }
 
@@ -32,7 +38,10 @@ function normalizeSearchParamValue(value: string | string[] | undefined) {
   return value ?? ""
 }
 
-export function parseOptionalDateInput(value: string | string[] | undefined, endOfDay?: boolean) {
+export function parseOptionalDateInput(
+  value: string | string[] | undefined,
+  endOfDay?: boolean
+) {
   const normalized = normalizeSearchParamValue(value).trim()
 
   if (!normalized) {
@@ -47,25 +56,28 @@ export function parseOptionalDateInput(value: string | string[] | undefined, end
 }
 
 export function getReportsDateFilters(
-  searchParams: Record<string, string | string[] | undefined>,
+  searchParams: Record<string, string | string[] | undefined>
 ) {
+  const rawDateRange = normalizeSearchParamValue(searchParams.dateRange)
+  const dateRange = rawDateRange ? rawDateRange.split(",") : null
+  const resolvedDateRange = resolveDateFilter(dateRange)
+
   return {
-    from: normalizeSearchParamValue(searchParams.from),
-    to: normalizeSearchParamValue(searchParams.to),
-    fromDate: parseOptionalDateInput(searchParams.from, false) ?? undefined,
-    toDate: parseOptionalDateInput(searchParams.to, true) ?? undefined,
+    dateRange,
+    fromDate:
+      parseOptionalDateInput(resolvedDateRange?.from, false) ?? undefined,
+    toDate: parseOptionalDateInput(resolvedDateRange?.to, true) ?? undefined,
   }
 }
 
-export function withReportFilters(pathname: string, filters: { from?: string; to?: string }) {
+export function withReportFilters(
+  pathname: string,
+  filters: { dateRange?: string[] | null }
+) {
   const params = new URLSearchParams()
 
-  if (filters.from) {
-    params.set("from", filters.from)
-  }
-
-  if (filters.to) {
-    params.set("to", filters.to)
+  if (filters.dateRange?.length) {
+    params.set("dateRange", filters.dateRange.join(","))
   }
 
   const query = params.toString()

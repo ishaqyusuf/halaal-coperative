@@ -17,6 +17,7 @@ This file explains important entity relationships and tenant boundaries.
 - Financial events may create one or more ledger entries.
 - A tenant can have one cooperative-wide brought-forward snapshot; the snapshot has no member relation and does not create financial ledger entries.
 - A member can have many special-savings withdrawals; each withdrawal belongs to one tenant and member and links one-to-one to its originating support case and balanced ledger transaction.
+- A share business can span multiple tenant-wide dividend periods through dated profit entries. Manual profit entries link to the authoritative current writable period; historical backfill/import entries may explicitly link only to a same-tenant period containing their profit date.
 
 ## Current Scaffold State
 - Prisma relations are now implemented in grouped schema files under `packages/db/prisma/models`.

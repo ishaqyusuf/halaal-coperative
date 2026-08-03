@@ -10,6 +10,7 @@ const percentFormatter = new Intl.NumberFormat("en-NG", {
 })
 
 export * from "./tenant-domains"
+export * from "./date-filter"
 export * from "./filters"
 export * from "./qa-testing"
 export * from "./runtime-url"

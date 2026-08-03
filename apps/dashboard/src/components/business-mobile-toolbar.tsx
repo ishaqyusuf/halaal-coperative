@@ -18,13 +18,12 @@ import { useBusinessParams } from "@/hooks/use-business-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
 const clearedBusinessFilters = {
+  dateRange: null,
   dividendPeriodId: null,
   hasProfitEntries: null,
   profitStatus: null,
   q: null,
   sourceType: null,
-  startFrom: null,
-  startTo: null,
   status: null,
 } as const
 
@@ -73,9 +72,7 @@ export function BusinessMobileToolbar({
               autoCapitalize="none"
               autoComplete="off"
               autoCorrect="off"
-              onChange={(event) =>
-                setFilter({ q: event.target.value || null })
-              }
+              onChange={(event) => setFilter({ q: event.target.value || null })}
               placeholder="Search businesses..."
               spellCheck="false"
               type="search"

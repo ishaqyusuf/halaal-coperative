@@ -4,6 +4,7 @@ import { DatePickerInput } from "@/components/date-picker-input"
 import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import type { PageFilterData } from "@halaalvest/utils"
+import { DateRangeFilter } from "./date-range-filter"
 import type { SearchFilterValue } from "./types"
 
 export function SearchFilterField({
@@ -20,31 +21,12 @@ export function SearchFilterField({
   const filterValue = Array.isArray(value) ? value : (value ?? "")
 
   if (filter.type === "date-range") {
-    const [from = "", to = ""] = Array.isArray(value) ? value : []
-
     return (
       <div className="space-y-2">
         <p className="text-sm font-medium text-foreground">
           {filter.label ?? filter.value}
         </p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <DatePickerInput
-            onChange={(date) => {
-              const next = [date, to].filter(Boolean)
-              onChange(next.length ? next : null)
-            }}
-            placeholder="From date"
-            value={from}
-          />
-          <DatePickerInput
-            onChange={(date) => {
-              const next = [from, date].filter(Boolean)
-              onChange(next.length ? next : null)
-            }}
-            placeholder="To date"
-            value={to}
-          />
-        </div>
+        <DateRangeFilter onChange={onChange} value={value} />
       </div>
     )
   }

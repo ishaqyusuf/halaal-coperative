@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { createDbRuntime } from "@halaalvest/db"
+import { resolveDateFilter } from "@halaalvest/utils"
 import {
   ReportsUnavailableView,
   ReportsView,
@@ -21,6 +22,7 @@ export default async function ReportsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const filters = loadReportsFilterParams(await searchParams)
+  const resolvedDateRange = resolveDateFilter(filters.dateRange)
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
 
@@ -45,8 +47,8 @@ export default async function ReportsPage({
   await Promise.all([
     prefetch(
       trpc.reports.summary.queryOptions({
-        from: filters.from ?? undefined,
-        to: filters.to ?? undefined,
+        from: resolvedDateRange?.from,
+        to: resolvedDateRange?.to,
       })
     ),
     prefetch(trpc.filters.reports.queryOptions()),

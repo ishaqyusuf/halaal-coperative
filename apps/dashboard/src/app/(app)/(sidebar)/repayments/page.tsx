@@ -6,6 +6,7 @@ import {
   listRepayments,
   listTenantUsersWithMemberships,
 } from "@halaalvest/db"
+import { resolveDateFilter } from "@halaalvest/utils"
 import {
   RepaymentsPageView,
   RepaymentsUnavailableView,
@@ -71,49 +72,101 @@ export default async function RepaymentsPage({
   const resolutionStatus = params.resolutionStatus ?? ""
   const scheduleStatus = params.scheduleStatus ?? ""
   const stage = params.stage ?? ""
-  const from = params.from ?? ""
-  const to = params.to ?? ""
+  const dateRange = resolveDateFilter(params.dateRange)
 
   if (!context.tenant || runtime.status !== "database-configured") {
     return <RepaymentsUnavailableView />
   }
 
-  const [
-    filterList,
-    rawLoans,
-    rawScheduleItems,
-    rawRepayments,
-    tenantUsers,
-  ] = await Promise.all([
-    getRepaymentFilterMetadata(context.tenant.id),
-    listLoans(context.tenant.id),
-    listRepaymentScheduleItems(context.tenant.id, {
-      assignedToUserId: assignedToUserId || undefined,
-      fromDate: from ? new Date(`${from}T00:00:00.000Z`) : undefined,
-      memberId: memberId || undefined,
-      resolutionStatus: resolutionStatus || undefined,
-      stage: stage || undefined,
-      status: scheduleStatus ? (scheduleStatus as "due" | "overdue" | "paid" | "partially_paid" | "pending") : undefined,
-      toDate: to ? new Date(`${to}T23:59:59.999Z`) : undefined,
-    }),
-    listRepayments(context.tenant.id),
-    listTenantUsersWithMemberships(context.tenant.id),
-  ])
+  const [filterList, rawLoans, rawScheduleItems, rawRepayments, tenantUsers] =
+    await Promise.all([
+      getRepaymentFilterMetadata(context.tenant.id),
+      listLoans(context.tenant.id),
+      listRepaymentScheduleItems(context.tenant.id, {
+        assignedToUserId: assignedToUserId || undefined,
+        fromDate: dateRange?.from
+          ? new Date(`${dateRange.from}T00:00:00.000Z`)
+          : undefined,
+        memberId: memberId || undefined,
+        resolutionStatus: resolutionStatus || undefined,
+        stage: stage || undefined,
+        status: scheduleStatus
+          ? (scheduleStatus as
+              | "due"
+              | "overdue"
+              | "paid"
+              | "partially_paid"
+              | "pending")
+          : undefined,
+        toDate: dateRange?.to
+          ? new Date(`${dateRange.to}T23:59:59.999Z`)
+          : undefined,
+      }),
+      listRepayments(context.tenant.id),
+      listTenantUsersWithMemberships(context.tenant.id),
+    ])
   const loans = toClientValue(rawLoans)
   const scheduleItems = toClientValue(rawScheduleItems)
   const repayments = toClientValue(rawRepayments)
 
-  const uniqueMembers = Array.from(new Map(loans.map((loan) => [loan.member.id, loan.member])).values())
+  const uniqueMembers = Array.from(
+    new Map(loans.map((loan) => [loan.member.id, loan.member])).values()
+  )
   const assignees = tenantUsers
-    .filter((user) => user.memberships.some((membership) => ["super_admin", "tenant_admin", "finance_officer", "operations_officer"].includes(membership.role)))
+    .filter((user) =>
+      user.memberships.some((membership) =>
+        [
+          "super_admin",
+          "tenant_admin",
+          "finance_officer",
+          "operations_officer",
+        ].includes(membership.role)
+      )
+    )
     .map((user) => ({ id: user.id, label: `${user.fullName} (${user.email})` }))
-  const canPostRepayment = hasAnyRole(context.auth.membership?.role, financeManagementRoles)
+  const canPostRepayment = hasAnyRole(
+    context.auth.membership?.role,
+    financeManagementRoles
+  )
   const overdueItems = scheduleItems.filter((item) => item.status === "overdue")
-  const openCases = overdueItems.filter((item) => item.collectionFollowUps[0]?.resolutionStatus !== "resolved")
-  const promiseTrackingItems = overdueItems.filter((item) => item.collectionFollowUps[0]?.caseStage === "promise_tracking")
-  const escalatedItems = overdueItems.filter((item) => item.collectionFollowUps[0]?.caseStage === "escalated")
-  const highPriorityItems = overdueItems.filter((item) => item.collectionFollowUps[0]?.priority === "high")
-  const resolvedCases = overdueItems.filter((item) => item.collectionFollowUps[0]?.resolutionStatus === "resolved")
+  const openCases = overdueItems.filter(
+    (item) => item.collectionFollowUps[0]?.resolutionStatus !== "resolved"
+  )
+  const promiseTrackingItems = overdueItems.filter(
+    (item) => item.collectionFollowUps[0]?.caseStage === "promise_tracking"
+  )
+  const escalatedItems = overdueItems.filter(
+    (item) => item.collectionFollowUps[0]?.caseStage === "escalated"
+  )
+  const highPriorityItems = overdueItems.filter(
+    (item) => item.collectionFollowUps[0]?.priority === "high"
+  )
+  const resolvedCases = overdueItems.filter(
+    (item) => item.collectionFollowUps[0]?.resolutionStatus === "resolved"
+  )
 
-  return <RepaymentsPageView assignedToUserId={assignedToUserId} assignees={assignees} canPostRepayment={canPostRepayment} dashboard={dashboard} escalatedItems={escalatedItems} filterList={filterList} from={from} highPriorityItems={highPriorityItems} loans={loans} memberId={memberId} openCases={openCases} overdueItems={overdueItems} promiseTrackingItems={promiseTrackingItems} quickFillEnabled={canShowQuickFill(context)} repayments={repayments} resolutionStatus={resolutionStatus} resolvedCases={resolvedCases} scheduleItems={scheduleItems} scheduleStatus={scheduleStatus} stage={stage} to={to} uniqueMembers={uniqueMembers} />
+  return (
+    <RepaymentsPageView
+      assignedToUserId={assignedToUserId}
+      assignees={assignees}
+      canPostRepayment={canPostRepayment}
+      dashboard={dashboard}
+      escalatedItems={escalatedItems}
+      filterList={filterList}
+      highPriorityItems={highPriorityItems}
+      loans={loans}
+      memberId={memberId}
+      openCases={openCases}
+      overdueItems={overdueItems}
+      promiseTrackingItems={promiseTrackingItems}
+      quickFillEnabled={canShowQuickFill(context)}
+      repayments={repayments}
+      resolutionStatus={resolutionStatus}
+      resolvedCases={resolvedCases}
+      scheduleItems={scheduleItems}
+      scheduleStatus={scheduleStatus}
+      stage={stage}
+      uniqueMembers={uniqueMembers}
+    />
+  )
 }

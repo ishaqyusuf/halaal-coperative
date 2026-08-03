@@ -1,15 +1,14 @@
 "use client"
 
 import type { TenantMigrationSetupMode } from "@halaalvest/db"
-import { Calendar } from "@halaalvest/ui/components/calendar"
 import {
   RadioGroup,
   RadioGroupItem,
 } from "@halaalvest/ui/components/radio-group"
 import { Separator } from "@halaalvest/ui/components/separator"
-import { formatISO, parseISO } from "date-fns"
 import { useState, type ReactNode } from "react"
 import { MobileFilterDrawer } from "@/components/search-filter/mobile-filter-drawer"
+import { DateRangeFilter } from "@/components/search-filter/date-range-filter"
 import {
   getMigrationStatusFilters,
   kycStatusFilters,
@@ -88,8 +87,7 @@ export function MembersFilterDrawer({
 }) {
   const { params, setParams } = useMembersControlsParams()
   const [draft, setDraft] = useState<MembersControlDraft>({
-    joinedFrom: params.joinedFrom,
-    joinedTo: params.joinedTo,
+    dateRange: params.dateRange,
     kycStatus: params.kycStatus,
     memberType: params.memberType,
     migrationStatus: params.migrationStatus,
@@ -176,28 +174,12 @@ export function MembersFilterDrawer({
         <Separator />
 
         <FilterSection title="Joined date">
-          <div className="overflow-x-auto border border-border">
-            <Calendar
-              defaultMonth={
-                draft.joinedFrom ? parseISO(draft.joinedFrom) : new Date()
+          <div className="border border-border">
+            <DateRangeFilter
+              onChange={(dateRange) =>
+                setDraft((current) => ({ ...current, dateRange }))
               }
-              mode="range"
-              numberOfMonths={1}
-              onSelect={(range) =>
-                setDraft((current) => ({
-                  ...current,
-                  joinedFrom: range?.from
-                    ? formatISO(range.from, { representation: "date" })
-                    : null,
-                  joinedTo: range?.to
-                    ? formatISO(range.to, { representation: "date" })
-                    : null,
-                }))
-              }
-              selected={{
-                from: draft.joinedFrom ? parseISO(draft.joinedFrom) : undefined,
-                to: draft.joinedTo ? parseISO(draft.joinedTo) : undefined,
-              }}
+              value={draft.dateRange}
             />
           </div>
         </FilterSection>

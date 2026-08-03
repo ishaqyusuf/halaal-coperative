@@ -31,21 +31,21 @@ export function ProfileSettingsSheet({
       open={isOpen}
       onOpenChange={handleOnOpenChange}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading profile form...
-              </div>
-            }
-          >
-            <ProfileSettingsSheetHeader />
-            <ProfileSettingsContent
-              defaultValues={defaultValues}
-              devMode={devMode}
-            />
-          </Suspense>
-        ) : null}
+      {isOpen ? (
+        <Suspense
+          fallback={
+            <div className="px-4 text-sm text-muted-foreground sm:px-6">
+              Loading profile form...
+            </div>
+          }
+        >
+          <ProfileSettingsSheetHeader />
+          <ProfileSettingsContent
+            defaultValues={defaultValues}
+            devMode={devMode}
+          />
+        </Suspense>
+      ) : null}
     </WorkflowPresentation>
   )
 }

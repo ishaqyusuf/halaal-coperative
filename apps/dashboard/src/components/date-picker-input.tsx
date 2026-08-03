@@ -98,7 +98,7 @@ export function DatePickerInput({
   }
 
   return (
-    <div className="flex gap-2">
+    <div className="flex min-w-0 gap-2">
       {name ? (
         <input
           disabled={disabled}
@@ -114,7 +114,7 @@ export function DatePickerInput({
             <Button
               {...props}
               className={cn(
-                "w-full justify-start text-left font-normal",
+                "min-w-0 flex-1 justify-start text-left font-normal",
                 !currentValue && "text-muted-foreground",
                 className
               )}
@@ -148,6 +148,7 @@ export function DatePickerInput({
       </Popover>
       {allowClear && currentValue ? (
         <Button
+          className="h-11 shrink-0 md:h-8"
           disabled={disabled}
           onClick={() => updateValue("")}
           type="button"

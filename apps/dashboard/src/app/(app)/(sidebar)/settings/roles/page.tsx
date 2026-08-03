@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import {
   cooperativePermissionModules,
   cooperativeRolePermissions,
@@ -11,8 +12,15 @@ import {
   RoleSettingsView,
 } from "@/components/role-settings-view"
 import { loadRoleSettingsParams } from "@/hooks/use-role-settings-params"
-import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
+
+export const metadata: Metadata = {
+  title: "Workspace roles | Halaalvest",
+}
 
 export default async function RolesPage({
   searchParams,

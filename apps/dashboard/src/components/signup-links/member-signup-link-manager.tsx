@@ -1,27 +1,62 @@
 "use client"
 
-import { useTransition } from "react"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { useNotifications } from "@halaalvest/notifications-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@halaalvest/ui/components/alert-dialog"
 import { Button } from "@halaalvest/ui/components/button"
+import {
+  CopyIcon,
+  PencilIcon,
+  RefreshCwIcon,
+  Settings2Icon,
+} from "lucide-react"
+import { TrendPill } from "@/components/dashboard"
 import { MemberSignupLinkSheet } from "@/components/sheets/member-signup-link-sheet"
-import type {
-  MemberSignupLinkView,
-  SignupAccessMode,
-} from "@/components/signup-links/member-signup-link-content"
 import { useMemberSignupLinkParams } from "@/hooks/use-member-signup-link-params"
 import {
   rotateMemberSignupLinkAction,
   toggleMemberSignupLinkAction,
 } from "@/lib/dashboard-actions"
+import {
+  signupAccessModeLabels,
+  signupLinkAvailabilityLabels,
+  type MemberSignupLinkView,
+  type SignupAccessMode,
+} from "@/lib/signup-links/member-signup-links"
 
-function MemberSignupLinkCard({
+function availabilityTone(link: MemberSignupLinkView) {
+  if (link.availability === "available") {
+    return "positive" as const
+  }
+
+  if (link.availability === "disabled") {
+    return "neutral" as const
+  }
+
+  return "warning" as const
+}
+
+function MemberSignupLinkRow({
   link,
   onEdit,
 }: {
   link: MemberSignupLinkView
   onEdit: () => void
 }) {
+  const router = useRouter()
   const { showError, showSuccess } = useNotifications()
+  const [isRotateOpen, setIsRotateOpen] = useState(false)
   const [isRotating, startRotateTransition] = useTransition()
   const [isToggling, startToggleTransition] = useTransition()
 
@@ -36,6 +71,8 @@ function MemberSignupLinkCard({
           link.isEnabled ? "Signup link disabled" : "Signup link enabled",
           `${link.name} is now ${link.isEnabled ? "disabled" : "enabled"}.`
         )
+        setIsRotateOpen(false)
+        router.refresh()
       } catch (error) {
         showError(
           "Could not update signup link",
@@ -53,8 +90,9 @@ function MemberSignupLinkCard({
         await rotateMemberSignupLinkAction(formData)
         showSuccess(
           "Signup link regenerated",
-          "The previous token is now invalid."
+          "The previous token is now invalid. Copy the replacement link before sharing it."
         )
+        router.refresh()
       } catch (error) {
         showError(
           "Could not regenerate signup link",
@@ -74,92 +112,135 @@ function MemberSignupLinkCard({
     } catch {
       showError(
         "Could not copy signup link",
-        "Copy the link manually from the field."
+        "Open Edit link to copy the URL manually."
       )
     }
   }
 
   return (
-    <article className="rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div>
+    <article className="py-6" data-signup-link-row={link.id}>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(30rem,auto)] xl:items-start">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-lg font-semibold text-foreground">
-              {link.name}
-            </p>
-            <span
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${link.isEnabled ? "bg-emerald-100 text-emerald-900" : "bg-muted text-muted-foreground"}`}
-            >
-              {link.isEnabled ? "Enabled" : "Disabled"}
-            </span>
+            <h3 className="font-semibold text-foreground">{link.name}</h3>
+            <TrendPill tone={availabilityTone(link)}>
+              {signupLinkAvailabilityLabels[link.availability]}
+            </TrendPill>
           </div>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Created on {link.createdAt}.{" "}
-            {link.lastUsedAt
-              ? `Last used on ${link.lastUsedAt}.`
-              : "Not used yet."}
+            Created {link.createdAt}. {link.notes ?? "No internal note."}
           </p>
+          <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+            <div>
+              <dt className="text-xs text-muted-foreground">Last used</dt>
+              <dd className="mt-0.5 text-foreground">
+                {link.lastUsedAt ?? "Not used yet"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Expiry</dt>
+              <dd className="mt-0.5 text-foreground">
+                {link.expiresAt ?? "No expiry"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Capacity</dt>
+              <dd className="mt-0.5 text-foreground">
+                {link.maxSignups ?? "Unlimited"}
+              </dd>
+            </div>
+          </dl>
         </div>
 
-        <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 xl:min-w-[360px]">
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase">Signups</p>
-            <p className="mt-2 text-xl font-semibold text-foreground">
-              {link.analytics.totalRequests}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase">Remaining</p>
-            <p className="mt-2 text-xl font-semibold text-foreground">
-              {link.analytics.remainingSlots === null
-                ? "Unlimited"
-                : link.analytics.remainingSlots}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase">Verified</p>
-            <p className="mt-2 text-xl font-semibold text-foreground">
-              {link.analytics.verifiedCount}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase">Approved</p>
-            <p className="mt-2 text-xl font-semibold text-foreground">
-              {link.analytics.approvedCount}
-            </p>
-          </div>
-        </div>
+        <dl className="grid grid-cols-2 border-y border-border/70 md:grid-cols-4">
+          {[
+            ["Signups", link.analytics.totalRequests],
+            ["Remaining", link.analytics.remainingSlots ?? "Unlimited"],
+            ["Verified", link.analytics.verifiedCount],
+            ["Approved", link.analytics.approvedCount],
+          ].map(([label, value]) => (
+            <div className="px-3 py-3 first:pl-0 md:first:pl-3" key={label}>
+              <dt className="text-[11px] font-medium text-muted-foreground uppercase">
+                {label}
+              </dt>
+              <dd className="mt-1 text-lg font-semibold text-foreground">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-3">
-        <Button type="button" onClick={onEdit}>
+      <p className="mt-4 text-xs text-muted-foreground">
+        Pending approval: {link.analytics.pendingApprovalCount} · Rejected:{" "}
+        {link.analytics.rejectedCount}
+      </p>
+
+      <div className="mt-5 grid grid-cols-2 gap-2 md:flex md:flex-wrap">
+        <Button
+          className="h-11 w-full md:h-9 md:w-auto"
+          onClick={onEdit}
+          type="button"
+        >
+          <PencilIcon />
           Edit link
         </Button>
-        <Button type="button" variant="outline" onClick={onCopy}>
+        <Button
+          className="h-11 w-full md:h-9 md:w-auto"
+          onClick={onCopy}
+          type="button"
+          variant="outline"
+        >
+          <CopyIcon />
           Copy link
         </Button>
+        <AlertDialog open={isRotateOpen} onOpenChange={setIsRotateOpen}>
+          <AlertDialogTrigger
+            render={
+              <Button
+                className="h-11 w-full md:h-9 md:w-auto"
+                disabled={isRotating}
+                type="button"
+                variant="outline"
+              />
+            }
+          >
+            <RefreshCwIcon />
+            Regenerate
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Regenerate {link.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                The currently shared URL will stop working immediately. Anyone
+                who still needs to apply must receive the replacement link.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep current link</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isRotating}
+                onClick={onRotate}
+                variant="destructive"
+              >
+                {isRotating ? "Regenerating..." : "Regenerate link"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <Button
-          disabled={isRotating}
-          type="button"
-          variant="outline"
-          onClick={onRotate}
-        >
-          Regenerate token
-        </Button>
-        <Button
+          className="h-11 w-full md:h-9 md:w-auto"
           disabled={isToggling}
+          onClick={onToggle}
           type="button"
           variant="outline"
-          onClick={onToggle}
         >
-          {link.isEnabled ? "Disable link" : "Enable link"}
+          {isToggling
+            ? "Updating..."
+            : link.isEnabled
+              ? "Disable link"
+              : "Enable link"}
         </Button>
-      </div>
-
-      <div className="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
-        <p>Pending approval: {link.analytics.pendingApprovalCount}</p>
-        <p>Rejected: {link.analytics.rejectedCount}</p>
-        <p>Expiry: {link.expiresAt ?? "No expiry"}</p>
       </div>
     </article>
   )
@@ -182,70 +263,72 @@ export function MemberSignupLinkManager({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <section
+        className="grid gap-4 border-y border-border/70 py-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
         id="signup-access-mode"
-        className="rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm"
       >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-xs font-medium text-muted-foreground uppercase">
-              Access mode
-            </p>
-            <h3 className="mt-2 text-lg font-semibold text-foreground">
-              Member signup gate
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Current mode:{" "}
-              <span className="font-medium text-foreground">
-                {defaultMode.replaceAll("_", " ")}
-              </span>
-            </p>
-          </div>
-          <Button type="button" onClick={() => openSheet("access")}>
-            Edit access mode
-          </Button>
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">Member signup gate</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Current access: {signupAccessModeLabels[defaultMode]}. New
+            applicants still require admin approval.
+          </p>
         </div>
+        <Button
+          className="h-11 w-full md:h-10 md:w-auto"
+          onClick={() => openSheet("access")}
+          type="button"
+          variant="outline"
+        >
+          <Settings2Icon />
+          Edit access mode
+        </Button>
       </section>
 
       <section
+        aria-labelledby="staff-signup-links-title"
         id="create-signup-link"
-        className="rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm"
       >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-xs font-medium text-muted-foreground uppercase">
-              Generator
-            </p>
-            <h3 className="mt-2 text-lg font-semibold text-foreground">
+        <div className="flex flex-col gap-3 pb-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h3
+              className="text-base font-semibold text-foreground"
+              id="staff-signup-links-title"
+            >
               Staff signup links
             </h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Generate controlled signup URLs from a focused modal.
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Each URL can have its own expiry and signup capacity. Regenerating
+              a token immediately invalidates the previously shared URL.
             </p>
           </div>
-          <Button type="button" onClick={() => openSheet("create")}>
+          <Button
+            className="h-11 w-full md:h-10 md:w-auto"
+            onClick={() => openSheet("create")}
+            type="button"
+          >
             Generate signup link
           </Button>
         </div>
-      </section>
 
-      <div className="space-y-4">
         {links.length > 0 ? (
-          links.map((link) => (
-            <MemberSignupLinkCard
-              key={link.id}
-              link={link}
-              onEdit={() => openSheet("edit", link.id)}
-            />
-          ))
+          <div className="divide-y divide-border/70 border-y border-border/70">
+            {links.map((link) => (
+              <MemberSignupLinkRow
+                key={link.id}
+                link={link}
+                onEdit={() => openSheet("edit", link.id)}
+              />
+            ))}
+          </div>
         ) : (
-          <section className="rounded-lg border border-dashed border-border/70 bg-background/92 p-6 text-sm text-muted-foreground shadow-sm">
+          <div className="border-y border-dashed border-border/70 py-8 text-sm leading-6 text-muted-foreground">
             No signup links yet. Generate one when you need controlled remote
             member signup.
-          </section>
+          </div>
         )}
-      </div>
+      </section>
 
       <MemberSignupLinkSheet defaultMode={defaultMode} links={links} />
     </div>

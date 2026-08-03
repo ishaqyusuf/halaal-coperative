@@ -1,4 +1,5 @@
 import {
+  getCurrentBusinessProfitSeason,
   getShareBusinessById,
   getTenantFinanceSetup,
   getTenantInitialMigrationState,
@@ -10,12 +11,20 @@ import { listBusinessesSchema } from "../schemas/business"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
 
 function toDividendPeriodOptions(
-  periods: Array<{ id: string; name: string; status: string }>
+  periods: Array<{
+    id: string
+    name: string
+    periodEnd: Date
+    periodStart: Date
+    status: string
+  }>
 ) {
   return periods.map((period) => ({
     id: period.id,
     label: `${period.name} - ${period.status}`,
     name: period.name,
+    periodEnd: period.periodEnd.toISOString().slice(0, 10),
+    periodStart: period.periodStart.toISOString().slice(0, 10),
     status: period.status,
   }))
 }
@@ -29,7 +38,9 @@ function getBusinessSummary(
     .filter((row) => row.status === "active")
     .reduce((total, row) => total + row.capitalAmount, 0)
   const reviewedProfit = profitEntries
-    .filter((entry) => entry.status === "reviewed" || entry.status === "approved")
+    .filter(
+      (entry) => entry.status === "reviewed" || entry.status === "approved"
+    )
     .reduce((total, entry) => total + entry.allocatableProfitAmount, 0)
   const allocatableProfit = profitEntries.reduce(
     (total, entry) =>
@@ -59,11 +70,13 @@ function getBusinessSummary(
 }
 
 async function getBusinessSetup(tenantId: string) {
-  const [data, migrationState, firstPage] = await Promise.all([
-    getTenantFinanceSetup(tenantId),
-    getTenantInitialMigrationState(tenantId),
-    listShareBusinessesTable(tenantId, { pageSize: 1 }),
-  ])
+  const [data, migrationState, firstPage, currentProfitSeason] =
+    await Promise.all([
+      getTenantFinanceSetup(tenantId),
+      getTenantInitialMigrationState(tenantId),
+      listShareBusinessesTable(tenantId, { pageSize: 1 }),
+      getCurrentBusinessProfitSeason(tenantId),
+    ])
   const hasAppliedMemberBackfill =
     migrationState.counts.appliedBackfillBatches > 0 ||
     migrationState.counts.appliedBackfillMembers > 0 ||
@@ -86,10 +99,12 @@ async function getBusinessSetup(tenantId: string) {
       !businessProfitPoolsReviewed &&
       firstPage.data.length === 0 &&
       !isHistoricalSetupLocked,
+    currentProfitSeason,
     dividendPeriods,
     financeStartDate:
       data.tenant?.startDate?.toISOString().slice(0, 10) ?? null,
     isLocked,
+    migrationSetupMode: data.migrationSetup.mode,
   }
 }
 
@@ -124,7 +139,9 @@ export const businessRouter = createTRPCRouter({
       getTenantFinanceSetup(ctx.tenant.current.id),
       listShareBusinessesForTableSummary(ctx.tenant.current.id),
     ])
-    const dividendPeriods = toDividendPeriodOptions(financeSetup.dividendPeriods)
+    const dividendPeriods = toDividendPeriodOptions(
+      financeSetup.dividendPeriods
+    )
 
     return getBusinessSummary(businesses, dividendPeriods)
   }),

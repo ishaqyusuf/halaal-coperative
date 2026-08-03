@@ -1,11 +1,10 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsArrayOf, parseAsString } from "nuqs/server"
 import { hasActiveFilters } from "@/lib/filters/utils"
 import { sortParamsSchema } from "@/hooks/use-sort-params"
 
 export type MembersFilterParams = {
-  joinedFrom: string | null
-  joinedTo: string | null
+  dateRange: string[] | null
   kycStatus: string | null
   memberType: string | null
   migrationStatus: string | null
@@ -14,8 +13,7 @@ export type MembersFilterParams = {
 }
 
 export const membersFilterParamsSchema = {
-  joinedFrom: parseAsString,
-  joinedTo: parseAsString,
+  dateRange: parseAsArrayOf(parseAsString),
   kycStatus: parseAsString,
   memberType: parseAsString,
   migrationStatus: parseAsString,
@@ -29,8 +27,7 @@ export const membersControlsParamsSchema = {
 }
 
 export const clearedMembersControlsParams = {
-  joinedFrom: null,
-  joinedTo: null,
+  dateRange: null,
   kycStatus: null,
   memberType: null,
   migrationStatus: null,

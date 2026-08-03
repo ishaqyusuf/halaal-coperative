@@ -4,7 +4,7 @@ import { MemberSignupLinkContent } from "@/components/signup-links/member-signup
 import type {
   MemberSignupLinkView,
   SignupAccessMode,
-} from "@/components/signup-links/member-signup-link-content"
+} from "@/lib/signup-links/member-signup-links"
 import { MemberSignupLinkSheetHeader } from "@/components/signup-links/member-signup-link-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useMemberSignupLinkParams } from "@/hooks/use-member-signup-link-params"
@@ -54,24 +54,24 @@ export function MemberSignupLinkSheet({
       open={isOpen}
       onOpenChange={(open) => !open && closeSheet()}
     >
-        {isOpen ? (
-          <>
-            <MemberSignupLinkSheetHeader
-              description={description}
-              presentation={
-                presentation.presentation === "sheet" ? "sheet" : "dialog"
-              }
-              title={title}
+      {isOpen ? (
+        <>
+          <MemberSignupLinkSheetHeader
+            description={description}
+            presentation={
+              presentation.presentation === "sheet" ? "sheet" : "dialog"
+            }
+            title={title}
+          />
+          <div className="px-6 pb-6">
+            <MemberSignupLinkContent
+              defaultMode={defaultMode}
+              selectedLink={selectedLink}
+              signupLinkSheetType={signupLinkSheetType}
             />
-            <div className="px-6">
-              <MemberSignupLinkContent
-                defaultMode={defaultMode}
-                selectedLink={selectedLink}
-                signupLinkSheetType={signupLinkSheetType}
-              />
-            </div>
-          </>
-        ) : null}
+          </div>
+        </>
+      ) : null}
     </WorkflowPresentation>
   )
 }

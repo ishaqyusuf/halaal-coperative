@@ -1,13 +1,14 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
+import { formatDateFilterValue } from "@/components/search-filter/search-filter-utils"
 
 type FilterOption = {
   id: string
   name: string
 }
 
-type FilterValue = string | null | undefined
+type FilterValue = string | string[] | null | undefined
 
 export function FinanceFilterList({
   filters,
@@ -19,11 +20,19 @@ export function FinanceFilterList({
   options: Record<string, FilterOption[]>
 }) {
   const renderFilter = (key: string, value: FilterValue) => {
-    if (!value) {
+    if (!value || (Array.isArray(value) && value.length === 0)) {
       return null
     }
 
-    return options[key]?.find((filter) => filter.id === value)?.name ?? value
+    if (key === "dateRange") {
+      return formatDateFilterValue(value)
+    }
+
+    const scalarValue = Array.isArray(value) ? value[0] : value
+    return (
+      options[key]?.find((filter) => filter.id === scalarValue)?.name ??
+      scalarValue
+    )
   }
 
   return (

@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@halaalvest/ui/components/table"
 import { useInfiniteQuery } from "@tanstack/react-query"
+import { resolveDateFilter } from "@halaalvest/utils"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useDeferredValue, useEffect, useMemo, useRef } from "react"
@@ -72,22 +73,23 @@ export function ContributionsDataTable({
   const parentRef = useRef<HTMLDivElement>(null)
   const { setColumns } = useContributionsTableStore()
   const deferredSearch = useDeferredValue(filters.search)
-  const queryInput = useMemo(
-    () => ({
+  const queryInput = useMemo(() => {
+    const dateRange = resolveDateFilter(filters.dateRange)
+
+    return {
       channel: getEnumValue(filters.channel, [
         "cash",
         "manual",
         "payroll",
         "transfer",
       ] as const),
-      from: filters.from ?? undefined,
+      from: dateRange?.from,
       memberId: filters.memberId ?? undefined,
       q: deferredSearch || undefined,
       sort: getSort(params.sort),
-      to: filters.to ?? undefined,
-    }),
-    [deferredSearch, filters, params.sort]
-  )
+      to: dateRange?.to,
+    }
+  }, [deferredSearch, filters, params.sort])
   const infiniteQueryOptions = trpc.contributions.ledger.infiniteQueryOptions(
     queryInput,
     {
@@ -199,7 +201,7 @@ export function ContributionsDataTable({
     <div className="relative">
       <div className="w-full">
         <div
-          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          className="scrollbar-hide overflow-auto overscroll-contain border-x border-b border-border"
           ref={(element) => {
             parentRef.current = element
             tableScroll.containerRef.current = element

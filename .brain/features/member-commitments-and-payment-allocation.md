@@ -110,6 +110,7 @@
 - `/reports/special-savings-export` exports rows where `Contribution.extraSavingsAmount` is above zero.
 - `/contributions` now includes a current-month staged contribution section sourced from generated monthly-record member rows.
 - `/contributions` includes a Collection Source batch posting panel when the Operation Profile enables source batch posting for staff.
+- Contribution and repayment date filters share the GND Sales Orders preset-and-range control and canonical `dateRange` URL tuple. Each workspace resolves the tuple to its existing contribution-date or repayment-due-date query boundaries, and the contribution current-month staged-row rule uses the same resolver.
 - Staff and member navigation hides disabled, unused Operation Profile service paths while preserving routes that have existing records or pending work.
 - Mobile member home and More surfaces use Operation Profile service visibility for receipts, procurement, Foodstuff Purchase, and support tiles/sections.
 - `/monthly-records` labels pending monthly-record member rows as staged for operators.

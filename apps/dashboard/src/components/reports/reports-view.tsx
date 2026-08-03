@@ -1,7 +1,11 @@
 "use client"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { formatCurrency, formatPercent } from "@halaalvest/utils"
+import {
+  formatCurrency,
+  formatPercent,
+  resolveDateFilter,
+} from "@halaalvest/utils"
 import { ReportsHeader } from "@/components/reports-header"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { useTRPC } from "@/trpc/client"
@@ -297,9 +301,10 @@ function CollectionsEvidence({
 
 export function ReportsView({ filters }: { filters: ReportsFilterParams }) {
   const trpc = useTRPC()
+  const resolvedDateRange = resolveDateFilter(filters.dateRange)
   const queryInput = {
-    from: filters.from ?? undefined,
-    to: filters.to ?? undefined,
+    from: resolvedDateRange?.from,
+    to: resolvedDateRange?.to,
   }
   const { data } = useSuspenseQuery(
     trpc.reports.summary.queryOptions(queryInput)

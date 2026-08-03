@@ -1,23 +1,15 @@
 import {
-  DashboardActionLink,
-  DashboardSectionCard,
-  DashboardSectionHeader,
   DashboardStatCard,
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
 import { MemberSignupLinkManager } from "@/components/signup-links/member-signup-link-manager"
-import type {
-  MemberSignupLinkView,
-  SignupAccessMode,
-} from "@/components/signup-links/member-signup-link-content"
-
-const accessModeLabels = {
-  disabled: "Disabled",
-  hidden: "Hidden",
-  in_office: "In-office",
-  public: "Public",
-} as const
+import { MemberSignupLinksHeaderActions } from "@/components/signup-links/member-signup-links-header-actions"
+import {
+  signupAccessModeLabels,
+  type MemberSignupLinkView,
+  type SignupAccessMode,
+} from "@/lib/signup-links/member-signup-links"
 
 export function MemberSignupLinksUnavailableView({
   body,
@@ -38,45 +30,36 @@ export function MemberSignupLinksUnavailableView({
 }
 
 export function MemberSignupLinksView({
+  availableLinks,
   defaultMode,
-  enabledLinks,
   links,
   totalApproved,
   totalSignups,
 }: {
+  availableLinks: number
   defaultMode: SignupAccessMode
-  enabledLinks: number
   links: MemberSignupLinkView[]
   totalApproved: number
   totalSignups: number
 }) {
   return (
     <WorkspacePageShell
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          <DashboardActionLink href="#create-signup-link">
-            Create link
-          </DashboardActionLink>
-          <DashboardActionLink href="#signup-access-mode">
-            Signup gate
-          </DashboardActionLink>
-        </div>
-      }
+      actions={<MemberSignupLinksHeaderActions />}
       description="Keep member signup in-office by default, issue controlled signup links when needed, and watch how each link performs."
       eyebrow="Membership"
       title="Member signup links"
     >
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="hidden gap-4 md:grid md:grid-cols-4">
         <DashboardStatCard
           detail="Current cooperative-wide signup gate."
           label="Signup access"
           tone={defaultMode === "public" ? "positive" : "warning"}
-          value={accessModeLabels[defaultMode]}
+          value={signupAccessModeLabels[defaultMode]}
         />
         <DashboardStatCard
-          detail="Staff-issued links that can still be used right now."
-          label="Enabled links"
-          value={enabledLinks.toString()}
+          detail="Staff-issued links that applicants can use right now."
+          label="Available links"
+          value={availableLinks.toString()}
         />
         <DashboardStatCard
           detail="All onboarding requests created through staff links."
@@ -91,16 +74,25 @@ export function MemberSignupLinksView({
         />
       </section>
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          description="Adjust the cooperative signup gate, create staff links, regenerate compromised tokens, and update expiry or capacity without reopening public signup."
-          eyebrow="Control center"
-          title="Gate and link management"
-        />
-        <div className="mt-5">
-          <MemberSignupLinkManager defaultMode={defaultMode} links={links} />
+      <section aria-labelledby="signup-link-management-title">
+        <div className="pb-4">
+          <p className="text-xs font-medium text-muted-foreground">
+            Control center
+          </p>
+          <h2
+            className="mt-1 text-base font-semibold text-foreground"
+            id="signup-link-management-title"
+          >
+            Gate and link management
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Adjust the cooperative signup gate, create staff links, regenerate
+            compromised tokens, and update expiry or capacity without reopening
+            public signup.
+          </p>
         </div>
-      </DashboardSectionCard>
+        <MemberSignupLinkManager defaultMode={defaultMode} links={links} />
+      </section>
     </WorkspacePageShell>
   )
 }

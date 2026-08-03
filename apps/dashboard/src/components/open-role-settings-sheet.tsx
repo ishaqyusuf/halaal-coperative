@@ -9,6 +9,7 @@ export function OpenRoleSettingsSheet() {
 
   return (
     <Button
+      className="h-10 w-full sm:w-auto"
       onClick={() => setParams({ roleSettingsSheetType: "assign" })}
       type="button"
     >

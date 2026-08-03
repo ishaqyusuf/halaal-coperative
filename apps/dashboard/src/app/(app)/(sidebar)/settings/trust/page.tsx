@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import {
   TrustSettingsUnavailableView,
   TrustSettingsView,
@@ -5,12 +6,16 @@ import {
 import { loadTrustSettingsParams } from "@/hooks/use-trust-settings-params"
 import { loadTrustReadinessPageData } from "@/lib/settings/load-trust-readiness-page"
 
+export const metadata: Metadata = {
+  title: "Trust readiness | Halaalvest",
+}
+
 export default async function TrustReadinessPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  loadTrustSettingsParams(await searchParams)
+  await loadTrustSettingsParams(await searchParams)
   const data = await loadTrustReadinessPageData()
 
   if (!data.canViewTrustReadiness) {

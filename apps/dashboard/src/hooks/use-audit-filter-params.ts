@@ -1,19 +1,17 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsArrayOf, parseAsString } from "nuqs/server"
 import { hasActiveFilters } from "@/lib/filters/utils"
 
 export type AuditFilterParams = {
   action: string | null
-  from: string | null
+  dateRange: string[] | null
   search: string | null
-  to: string | null
 }
 
 export const auditFilterParamsSchema = {
   action: parseAsString,
-  from: parseAsString,
+  dateRange: parseAsArrayOf(parseAsString),
   search: parseAsString,
-  to: parseAsString,
 }
 
 export function useAuditFilterParams() {

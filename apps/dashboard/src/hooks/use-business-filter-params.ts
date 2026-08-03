@@ -1,14 +1,18 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsBoolean, parseAsString } from "nuqs/server"
+import {
+  createLoader,
+  parseAsArrayOf,
+  parseAsBoolean,
+  parseAsString,
+} from "nuqs/server"
 
 const businessFilterParamsSchema = {
   dividendPeriodId: parseAsString,
+  dateRange: parseAsArrayOf(parseAsString),
   hasProfitEntries: parseAsBoolean,
   profitStatus: parseAsString,
   q: parseAsString,
   sourceType: parseAsString,
-  startFrom: parseAsString,
-  startTo: parseAsString,
   status: parseAsString,
 }
 

@@ -1,11 +1,12 @@
+import { resolveDateFilter } from "@halaalvest/utils"
+
 type BusinessFilters = {
+  dateRange: string[] | null
   dividendPeriodId: string | null
   hasProfitEntries: boolean | null
   profitStatus: string | null
   q: string | null
   sourceType: string | null
-  startFrom: string | null
-  startTo: string | null
   status: string | null
 }
 
@@ -49,6 +50,8 @@ export function getBusinessesListInput(
   sort?: string[] | null,
   search = filters.q
 ) {
+  const dateRange = resolveDateFilter(filters.dateRange)
+
   return {
     dividendPeriodId: filters.dividendPeriodId ?? undefined,
     hasProfitEntries: filters.hasProfitEntries ?? undefined,
@@ -67,8 +70,8 @@ export function getBusinessesListInput(
       "backfill",
       "import",
     ] as const),
-    startFrom: filters.startFrom ?? undefined,
-    startTo: filters.startTo ?? undefined,
+    startFrom: dateRange?.from,
+    startTo: dateRange?.to,
     status: getEnumValue(filters.status, [
       "planned",
       "active",

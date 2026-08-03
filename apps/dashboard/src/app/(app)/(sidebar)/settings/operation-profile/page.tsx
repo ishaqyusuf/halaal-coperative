@@ -1,51 +1,38 @@
-import { getTenantOperationProfile } from "@halaalvest/db"
+import type { Metadata } from "next"
 import {
   OperationProfileSettingsUnavailableView,
   OperationProfileSettingsView,
 } from "@/components/operation-profile-settings-view"
 import { loadOperationProfileSettingsParams } from "@/hooks/use-operation-profile-settings-params"
-import { getDashboardServerContext } from "@/lib/server-context"
-import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
+import { loadOperationProfileSettingsPage } from "@/lib/settings/load-operation-profile-settings-page"
+
+export const metadata: Metadata = {
+  title: "Operation profile | Halaalvest",
+}
 
 export default async function OperationProfileSettingsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  loadOperationProfileSettingsParams(await searchParams)
-  const context = await getDashboardServerContext()
+  await loadOperationProfileSettingsParams(await searchParams)
+  const state = await loadOperationProfileSettingsPage()
 
-  if (!context.tenant) {
+  if (state.status === "unavailable") {
     return (
       <OperationProfileSettingsUnavailableView
-        description="Service activation and member access settings are available from a cooperative workspace."
-        body="Open a cooperative workspace before editing service access."
-        title="Choose a cooperative workspace first."
-      />
-    )
-  }
-
-  const canManageOperationProfile = hasAnyRole(
-    context.auth.membership?.role,
-    workspaceAdminRoles
-  )
-  const operationProfile = await getTenantOperationProfile(context.tenant.id)
-
-  if (!canManageOperationProfile) {
-    return (
-      <OperationProfileSettingsUnavailableView
-        description="Only cooperative admins and super admins can change service activation."
-        body="Ask a cooperative admin to review service access settings."
-        title="Operation profile access is limited."
+        body={state.body}
+        description={state.description}
+        title={state.title}
       />
     )
   }
 
   return (
     <OperationProfileSettingsView
-      policy={operationProfile.policy}
-      reviewedAt={operationProfile.reviewedAt}
-      services={operationProfile.services}
+      policy={state.profile.policy}
+      reviewedAt={state.profile.reviewedAt}
+      services={state.profile.services}
     />
   )
 }

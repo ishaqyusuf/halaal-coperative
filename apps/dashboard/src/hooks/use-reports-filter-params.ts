@@ -1,15 +1,13 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsArrayOf, parseAsString } from "nuqs/server"
 import { hasActiveFilters } from "@/lib/filters/utils"
 
 export type ReportsFilterParams = {
-  from: string | null
-  to: string | null
+  dateRange: string[] | null
 }
 
 export const reportsFilterParamsSchema = {
-  from: parseAsString,
-  to: parseAsString,
+  dateRange: parseAsArrayOf(parseAsString),
 }
 
 export function useReportsFilterParams() {

@@ -1,10 +1,6 @@
 export type WorkflowPresentation = "sheet" | "dialog" | "alert-dialog"
 
-export type WorkflowPresentationWidth =
-  | "compact"
-  | "form"
-  | "review"
-  | "wide"
+export type WorkflowPresentationWidth = "compact" | "form" | "review" | "wide"
 
 export type WorkflowPresentationConfig = {
   presentation: WorkflowPresentation
@@ -135,7 +131,7 @@ export const workflowPresentations = {
     "self-service": sheet("review"),
   },
   profile: {
-    edit: dialog("form"),
+    edit: sheet("form"),
   },
   projectFinancing: {
     create: sheet("review"),
@@ -178,12 +174,9 @@ export const workflowPresentations = {
     startDate: sheet(),
   },
   trust: {
-    edit: dialog("form"),
+    edit: sheet("form"),
   },
-} as const satisfies Record<
-  string,
-  Record<string, WorkflowPresentationConfig>
->
+} as const satisfies Record<string, Record<string, WorkflowPresentationConfig>>
 
 export function getWorkflowPresentation(
   workflow: keyof typeof workflowPresentations,

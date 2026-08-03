@@ -1,27 +1,28 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsArrayOf, parseAsString } from "nuqs/server"
 import { hasActiveFilters } from "@/lib/filters/utils"
 
 export type ContributionsFilterParams = {
   channel: string | null
-  from: string | null
+  dateRange: string[] | null
   memberId: string | null
   search: string | null
-  to: string | null
 }
 
 export const contributionsFilterParamsSchema = {
   channel: parseAsString,
-  from: parseAsString,
+  dateRange: parseAsArrayOf(parseAsString),
   memberId: parseAsString,
   search: parseAsString,
-  to: parseAsString,
 }
 
 export function useContributionsFilterParams() {
-  const [filters, setFilters] = useQueryStates(contributionsFilterParamsSchema, {
-    shallow: false,
-  })
+  const [filters, setFilters] = useQueryStates(
+    contributionsFilterParamsSchema,
+    {
+      shallow: false,
+    }
+  )
 
   return {
     filters,
@@ -30,4 +31,6 @@ export function useContributionsFilterParams() {
   }
 }
 
-export const loadContributionsFilterParams = createLoader(contributionsFilterParamsSchema)
+export const loadContributionsFilterParams = createLoader(
+  contributionsFilterParamsSchema
+)

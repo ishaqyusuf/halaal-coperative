@@ -2649,6 +2649,7 @@ export async function updateTenantOperationProfileAction(formData: FormData) {
   revalidatePath("/getting-started")
   revalidatePath("/onboarding")
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/operation-profile")
 
   const redirectTo = (formData.get("redirectTo") as string | null)?.trim()
 
@@ -2937,11 +2938,14 @@ export async function createShareBusinessAction(formData: FormData) {
   const startDate = getRequiredString(formData, "startDate")
   const profitHistoryRows = getShareBusinessProfitHistoryRows(formData)
 
-  requireDateOnOrAfterTenantStartDate(actor, startDate, "Start date")
-  requireDateOnOrAfterTenantStartDate(actor, endDate, "End date")
+  if (endDate && endDate < startDate) {
+    throw new Error("Business end date cannot be before the start date.")
+  }
 
   const profitEntries = profitHistoryRows.map((row) => {
-    requireDateOnOrAfterTenantStartDate(actor, row.profitDate, "Profit date")
+    if (sourceType === "backfill" || sourceType === "import") {
+      requireDateOnOrAfterTenantStartDate(actor, row.profitDate, "Profit date")
+    }
 
     if (row.profitDate < startDate) {
       throw new Error("Profit date cannot be before the business start date.")
@@ -3020,8 +3024,9 @@ export async function updateShareBusinessAction(formData: FormData) {
   const endDate = (formData.get("endDate") as string | null)?.trim()
   const startDate = getRequiredString(formData, "startDate")
 
-  requireDateOnOrAfterTenantStartDate(actor, startDate, "Start date")
-  requireDateOnOrAfterTenantStartDate(actor, endDate, "End date")
+  if (endDate && endDate < startDate) {
+    throw new Error("Business end date cannot be before the start date.")
+  }
 
   await updateShareBusiness({
     actorUserId: actor.user.id,
@@ -3057,7 +3062,9 @@ export async function createShareBusinessProfitEntryAction(formData: FormData) {
   await requireBusinessProfitOperationOpen(actor, sourceType)
   const profitDate = getRequiredString(formData, "profitDate")
 
-  requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
+  if (sourceType === "backfill" || sourceType === "import") {
+    requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
+  }
 
   await createShareBusinessProfitEntry({
     allocatableProfitAmount: Number(
@@ -3099,7 +3106,9 @@ export async function updateShareBusinessProfitEntryAction(formData: FormData) {
   await requireBusinessProfitOperationOpen(actor, sourceType)
   const profitDate = getRequiredString(formData, "profitDate")
 
-  requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
+  if (sourceType === "backfill" || sourceType === "import") {
+    requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
+  }
 
   await updateShareBusinessProfitEntry({
     actorUserId: actor.user.id,

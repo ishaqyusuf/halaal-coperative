@@ -63,6 +63,7 @@
 - Domains now list tenant hostnames, allow admin roles to register additional custom domains, and let admins choose the primary hostname within a domain kind.
 - Domains now track verification state and allow admins to explicitly move custom domains between pending DNS and verified states before primary promotion.
 - Settings now allow cooperative profile updates and tenant-user role provisioning through the same role-based architecture, and the roles page now shows the module/action permission matrix for staff and member boundaries.
+- `/settings/roles` follows the Midday members-settings pattern: page metadata plus route loading/error boundaries wrap a flat tabbed workspace, the locally searchable user directory and permission matrix are separated, summary analytics stay desktop-only, and permission modules collapse into touch-sized disclosure rows on small screens. Role assignment remains URL-owned, uses the shared form dialog presentation, and closes plus refreshes the directory after a successful save.
 - The permission matrix now separates food-purchase fund release, application review, committee accounting submission, accounting review, and member application so committee work is distinct from finance approval responsibilities.
 - Settings now include a tenant-admin trust readiness page covering exports, restore/legal/monitoring readiness, feature-request triage, beta reliability messaging, and safe error disclosure.
 - Procurement is visible to staff for request review and to members for self-scoped item-purchase requests.

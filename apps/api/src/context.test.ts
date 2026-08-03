@@ -7,15 +7,15 @@ import {
 import { buildRequestContext } from "./context"
 
 describe("buildRequestContext mobile bearer sessions", () => {
-  const originalDatabaseUrl = process.env.DATABASE_URL
+  const originalDatabaseUrl = process.env.HALAALVEST_DATABASE_URL
 
   beforeAll(() => {
-    delete process.env.DATABASE_URL
+    delete process.env.HALAALVEST_DATABASE_URL
   })
 
   afterAll(() => {
     if (originalDatabaseUrl) {
-      process.env.DATABASE_URL = originalDatabaseUrl
+      process.env.HALAALVEST_DATABASE_URL = originalDatabaseUrl
     }
   })
 

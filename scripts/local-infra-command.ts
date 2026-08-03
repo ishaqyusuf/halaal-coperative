@@ -11,6 +11,7 @@ export type LocalInfraMode = "local" | "dev" | "preview" | "prod"
 type CommandEnv = Record<string, string | undefined>
 
 const PROFILE = "halaalvest"
+const PROFILE_DATABASE_URL = "HALAALVEST_DATABASE_URL"
 const PROFILE_ENV_MODE = "HALAALVEST_ENV_MODE"
 const POSTGRES_CONTAINER = "halaalvest-postgres"
 const LOCAL_DATABASE_HOSTS = new Set([
@@ -88,7 +89,7 @@ export function envForMode(
     )
   }
 
-  const fileEnv = loadModeEnv(workspaceRoot, mode)
+  const fileEnv = loadModeEnv(workspaceRoot, mode, PROFILE)
 
   return {
     ...processEnv,
@@ -99,11 +100,11 @@ export function envForMode(
 }
 
 export function validateDatabaseForMode(mode: LocalInfraMode, env: CommandEnv) {
-  const databaseUrl = env.DATABASE_URL
+  const databaseUrl = env[PROFILE_DATABASE_URL]
 
   if (!databaseUrl) {
     throw new Error(
-      `Missing DATABASE_URL for ${mode} mode. Check the standard mode env file.`
+      `Missing ${PROFILE_DATABASE_URL} for ${mode} mode. Check the standard mode env file.`
     )
   }
 
@@ -114,15 +115,17 @@ export function validateDatabaseForMode(mode: LocalInfraMode, env: CommandEnv) {
       throw error
     }
 
-    throw new Error(`Invalid DATABASE_URL for ${mode} mode.`)
+    throw new Error(`Invalid ${PROFILE_DATABASE_URL} for ${mode} mode.`)
   }
 }
 
 export function localDatabasePort(env: CommandEnv) {
-  const databaseUrl = env.DATABASE_URL
+  const databaseUrl = env[PROFILE_DATABASE_URL]
 
   if (!databaseUrl) {
-    throw new Error("Missing DATABASE_URL for local mode. Check .env.local.")
+    throw new Error(
+      `Missing ${PROFILE_DATABASE_URL} for local mode. Check .env.local.`
+    )
   }
 
   try {
@@ -133,7 +136,9 @@ export function localDatabasePort(env: CommandEnv) {
     const port = Number(url.port || "5432")
 
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      throw new Error("Invalid local PostgreSQL port in DATABASE_URL.")
+      throw new Error(
+        `Invalid local PostgreSQL port in ${PROFILE_DATABASE_URL}.`
+      )
     }
 
     return port
@@ -144,12 +149,13 @@ export function localDatabasePort(env: CommandEnv) {
 
     if (
       error instanceof Error &&
-      error.message === "Invalid local PostgreSQL port in DATABASE_URL."
+      error.message ===
+        `Invalid local PostgreSQL port in ${PROFILE_DATABASE_URL}.`
     ) {
       throw error
     }
 
-    throw new Error("Invalid DATABASE_URL for local mode.")
+    throw new Error(`Invalid ${PROFILE_DATABASE_URL} for local mode.`)
   }
 }
 

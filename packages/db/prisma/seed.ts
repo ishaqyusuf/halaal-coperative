@@ -3,14 +3,16 @@ import { PrismaClient } from "@prisma/client"
 import { buildTenantSiteHostname } from "@halaalvest/utils"
 import { normalizePostgresConnectionString } from "../src/postgres-connection"
 
-const DATABASE_URL = process.env.DATABASE_URL
-if (!DATABASE_URL) {
-  throw new Error("DATABASE_URL is required for seeding")
+const HALAALVEST_DATABASE_URL = process.env.HALAALVEST_DATABASE_URL
+if (!HALAALVEST_DATABASE_URL) {
+  throw new Error("HALAALVEST_DATABASE_URL is required for seeding")
 }
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
-    connectionString: normalizePostgresConnectionString(DATABASE_URL),
+    connectionString: normalizePostgresConnectionString(
+      HALAALVEST_DATABASE_URL,
+    ),
   }),
 })
 

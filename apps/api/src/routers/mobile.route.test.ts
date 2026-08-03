@@ -9,16 +9,16 @@ import { createCallerFactory } from "../lib.trpc"
 import { appRouter } from "./_app"
 
 describe("mobileRouter", () => {
-  const originalDatabaseUrl = process.env.DATABASE_URL
+  const originalDatabaseUrl = process.env.HALAALVEST_DATABASE_URL
   const createCaller = createCallerFactory(appRouter)
 
   beforeAll(() => {
-    delete process.env.DATABASE_URL
+    delete process.env.HALAALVEST_DATABASE_URL
   })
 
   afterAll(() => {
     if (originalDatabaseUrl) {
-      process.env.DATABASE_URL = originalDatabaseUrl
+      process.env.HALAALVEST_DATABASE_URL = originalDatabaseUrl
     }
   })
 

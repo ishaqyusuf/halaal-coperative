@@ -1,7 +1,9 @@
 export type DbRuntimeStatus = "seed-only" | "database-configured"
 
 export function getDbRuntimeStatus(): DbRuntimeStatus {
-  return process.env.DATABASE_URL ? "database-configured" : "seed-only"
+  return process.env.HALAALVEST_DATABASE_URL
+    ? "database-configured"
+    : "seed-only"
 }
 
 export function createDbRuntime() {

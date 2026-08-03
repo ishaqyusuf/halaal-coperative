@@ -45,28 +45,30 @@ describe("Halaalvest local-infra safety launcher", () => {
     for (const mode of ["local", "dev", "preview", "prod"] as const) {
       expect(() =>
         validateDatabaseForMode(mode, {
-          DATABASE_URL:
+          HALAALVEST_DATABASE_URL:
             "postgresql://postgres:postgres@127.0.0.1:55432/halaalvest",
         })
       ).not.toThrow()
       expect(() =>
         validateDatabaseForMode(mode, {
-          DATABASE_URL: "postgresql://hosted.example.com/halaalvest",
+          HALAALVEST_DATABASE_URL:
+            "postgresql://hosted.example.com/halaalvest",
         })
       ).not.toThrow()
     }
   })
 
-  test("derives the local PostgreSQL port from DATABASE_URL", () => {
+  test("derives the local PostgreSQL port from HALAALVEST_DATABASE_URL", () => {
     expect(
       localDatabasePort({
-        DATABASE_URL:
+        HALAALVEST_DATABASE_URL:
           "postgresql://postgres:postgres@127.0.0.1:55434/halaalvest",
       })
     ).toBe(55434)
     expect(
       localDatabasePort({
-        DATABASE_URL: "postgresql://hosted.example.com/halaalvest",
+        HALAALVEST_DATABASE_URL:
+          "postgresql://hosted.example.com/halaalvest",
       })
     ).toBeUndefined()
   })
@@ -77,22 +79,23 @@ describe("Halaalvest local-infra safety launcher", () => {
     try {
       writeFileSync(
         join(root, ".env.local"),
-        "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55434/halaalvest\nAPP_ENV=development\n"
+        "HALAALVEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55434/halaalvest\nAPP_ENV=development\n"
       )
       writeFileSync(
         join(root, ".env.preview"),
-        "DATABASE_URL=postgresql://preview.example.com/halaalvest\nAPP_ENV=preview\n"
+        "HALAALVEST_DATABASE_URL=postgresql://preview.example.com/halaalvest\nAPP_ENV=preview\n"
       )
 
       const env = envForMode("preview", root, {
-        DATABASE_URL:
+        HALAALVEST_DATABASE_URL:
           "postgresql://postgres:postgres@127.0.0.1:55434/halaalvest",
         APP_ENV: "development",
       })
 
-      expect(env.DATABASE_URL).toBe(
+      expect(env.HALAALVEST_DATABASE_URL).toBe(
         "postgresql://preview.example.com/halaalvest"
       )
+      expect(env.DATABASE_URL).toBeUndefined()
       expect(env.APP_ENV).toBe("preview")
       expect(env.HALAALVEST_ENV_MODE).toBe("preview")
       expect(env.HALAALVEST_DB_MODE).toBe("preview")

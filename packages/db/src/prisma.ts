@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as typeof globalThis & {
 }
 
 export function createPrismaClient() {
-  if (!process.env.DATABASE_URL) {
+  if (!process.env.HALAALVEST_DATABASE_URL) {
     return null
   }
 
@@ -15,7 +15,7 @@ export function createPrismaClient() {
     globalForPrisma.__halaalVestPrisma = new PrismaClient({
       adapter: new PrismaPg({
         connectionString: normalizePostgresConnectionString(
-          process.env.DATABASE_URL,
+          process.env.HALAALVEST_DATABASE_URL,
         ),
       }),
     })

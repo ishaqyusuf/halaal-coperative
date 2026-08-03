@@ -96,7 +96,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/db/src/queries/auth.ts`: tenant user, membership, and role-provisioning query layer for the simplified workspace role system.
 - `packages/db/src/queries/audit.ts`: tenant audit-log listing and reporting-summary query layer for admin reporting routes.
 - `packages/db/src/queries/imports.ts`: bulk import, staged import-batch persistence, and historical migration query layer for members, deduction sources, loan products, contributions, charges, loans, and repayments.
-- `packages/db/src/prisma.ts`: optional Prisma 7 runtime singleton using the Postgres driver adapter when `DATABASE_URL` is configured.
+- `packages/db/src/prisma.ts`: optional Prisma 7 runtime singleton using the Postgres driver adapter when `HALAALVEST_DATABASE_URL` is configured.
 - `packages/domain/src/modules/`: platform, policy, finance, product, marketing, and dashboard modules.
 
 ## Notes

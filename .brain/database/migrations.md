@@ -10,7 +10,7 @@ This file records migration history, rationale, and rollout notes.
 ## Current Status
 - Prisma has been selected and configured with `prisma.config.ts`.
 - Multi-file schema loading is configured via `schema: "prisma"`.
-- `packages/db/prisma.config.ts` is intentionally thin and reads the `DATABASE_URL` already selected by the root router. The router loads `.env` plus exactly one of `.env.local`, `.env.dev`, `.env.preview`, or `.env.production`; it does not scan package paths or legacy aliases.
+- `packages/db/prisma.config.ts` is intentionally thin and reads `HALAALVEST_DATABASE_URL` directly. The router loads `.env` plus exactly one of `.env.local`, `.env.dev`, `.env.preview`, or `.env.production`; local-infra resolves that profile-specific name first but does not rewrite it to `DATABASE_URL` for Halaalvest.
 - Local PostgreSQL is configured by `.env.local` at `127.0.0.1:55434/halaalvest` on the existing `halaalvest-postgres-data` volume. The shared toolkit derives Compose settings from that URL, so School Clerk may continue using `55432`. A validated custom-format backup of `amanah_cooperative` remains under ignored `.local/db-backups/`; on 2026-07-29, the preserved local database was renamed in place from `amanah_cooperative` to `halaalvest` so the retained volume matches the environment-authoritative connection contract.
 - The initial schema migration exists at `packages/db/prisma/migrations/20260413115737_init/`.
 - Notification outbox persistence was added in `packages/db/prisma/migrations/20260414093000_add_notification_outbox/`.

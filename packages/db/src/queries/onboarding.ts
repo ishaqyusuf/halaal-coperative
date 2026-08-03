@@ -470,7 +470,7 @@ export async function createTenantWorkspaceBootstrap(
 
   if (!prisma) {
     throw new Error(
-      "Cooperative bootstrap requires DATABASE_URL to be configured"
+      "Cooperative bootstrap requires HALAALVEST_DATABASE_URL to be configured"
     )
   }
 

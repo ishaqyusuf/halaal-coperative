@@ -54,10 +54,10 @@ describe("Halaalvest local-infra contract", () => {
 
     expect(compose).toContain("postgres:16-alpine")
     expect(compose).toContain(
-      '"${DB_HOST_PORT:?DATABASE_URL must include a local PostgreSQL port}:5432"'
+      '"${DB_HOST_PORT:?HALAALVEST_DATABASE_URL must include a local PostgreSQL port}:5432"'
     )
     expect(compose).toContain(
-      'POSTGRES_DB: "${DB_NAME:?DATABASE_URL must include a database name}"'
+      'POSTGRES_DB: "${DB_NAME:?HALAALVEST_DATABASE_URL must include a database name}"'
     )
     expect(compose).toContain(
       "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"
@@ -103,6 +103,9 @@ describe("Halaalvest local-infra contract", () => {
     expect(activeEnvSources).toContain(".env.production")
 
     expect(activeEnvSources).not.toMatch(/\.env\.prod(?!uction)/)
+
+    expect(activeEnvSources).toContain("HALAALVEST_DATABASE_URL")
+    expect(activeEnvSources).not.toMatch(/["'(]DATABASE_URL["')]/)
 
     for (const legacyName of [
       ".env.production.local",

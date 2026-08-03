@@ -43,7 +43,7 @@ Development commands use the shared `local-infra-kit` profile router:
 - `bun run dev --prod` loads `.env` plus `.env.production` and runs the production-profile development task.
 - `bun run dev -f dashboard api` accepts Turbo filter aliases and bare package names such as `marketing`, `dashboard`, `api`, and `jobs`.
 
-The local profile uses the exact `DATABASE_URL` from `.env.local`, currently
+The local profile uses the exact `HALAALVEST_DATABASE_URL` from `.env.local`, currently
 `127.0.0.1:55434/halaalvest`. The shared toolkit parses that URL and passes its
 port, database name, user, and password to Docker Compose for the startup
 process. Run only the database with:
@@ -74,7 +74,7 @@ Generate, migrate, pull, push, studio, and shell each use one command with an op
 Use the same application-facing variable names in each mode:
 
 ```txt
-.env               shared defaults (never the profile DATABASE_URL)
+.env               shared defaults (never HALAALVEST_DATABASE_URL)
 .env.local         local development
 .env.dev           hosted development
 .env.preview       hosted preview
@@ -84,9 +84,9 @@ Use the same application-facing variable names in each mode:
 Root tooling loads `.env` plus exactly one profile file. Package-local env files,
 legacy aliases, and cross-profile fallback are intentionally unsupported.
 
-Each mode uses `DATABASE_URL`; legacy profile-specific database URL aliases,
-generated connection fallbacks, and central port registries are not part of the
-contract.
+Each mode uses `HALAALVEST_DATABASE_URL` directly. The shared local-infra
+toolkit may still resolve `DATABASE_URL` for other, unmigrated projects, but
+Halaalvest Prisma and runtime code do not support that legacy name.
 
 ## Portless
 

@@ -67,7 +67,7 @@ This file tracks the evolving database design and current source of truth at a c
 - `audit_logs` is also being reused for tenant-scoped operational delivery tracking, including notification email outcomes after tenant bootstrap.
 - `notification_outbox` stores durable email delivery attempts before and after tenant creation, with optional `tenantId`, delivery status, message id, attempts, source, and rendered email payload fields.
 - `packages/db` now exposes repository-style query scaffolding for tenants, tenant domains, users, memberships, and runtime status through `src/queries/` and `src/runtime.ts`.
-- Prisma client generation is now wired and `packages/db/src/prisma.ts` provides an optional adapter-backed runtime when `DATABASE_URL` is configured.
+- Prisma client generation is now wired and `packages/db/src/prisma.ts` provides an optional adapter-backed runtime when `HALAALVEST_DATABASE_URL` is configured.
 - Query functions currently fall back to seed-backed data when no database runtime is configured, but can read from Prisma when the environment is available.
 - `tenant_domains` now also store `verification_details` so DNS checks can surface resolved records, lookup method, and failure reasons in the dashboard.
 

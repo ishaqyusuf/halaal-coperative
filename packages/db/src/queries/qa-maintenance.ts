@@ -32,7 +32,9 @@ function requirePrisma() {
   const prisma = createPrismaClient()
 
   if (!prisma) {
-    throw new Error("QA maintenance requires DATABASE_URL to be configured.")
+    throw new Error(
+      "QA maintenance requires HALAALVEST_DATABASE_URL to be configured."
+    )
   }
 
   return prisma

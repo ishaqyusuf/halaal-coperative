@@ -2,7 +2,7 @@ import { syncEnvVars } from "@trigger.dev/build/extensions/core"
 import { defineConfig } from "@trigger.dev/sdk/v3"
 
 const syncedProductionEnvVars = [
-  "DATABASE_URL",
+  "HALAALVEST_DATABASE_URL",
   "EMAIL_DELIVERY_MODE",
   "EMAIL_FROM_ADDRESS",
   "EMAIL_QA_DOMAIN_ROUTES",

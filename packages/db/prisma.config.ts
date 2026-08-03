@@ -2,7 +2,7 @@ import { defineConfig, env } from "prisma/config"
 
 export default defineConfig({
   datasource: {
-    url: env("DATABASE_URL"),
+    url: env("HALAALVEST_DATABASE_URL"),
   },
   migrations: {
     path: "prisma/migrations",

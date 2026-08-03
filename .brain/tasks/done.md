@@ -11,6 +11,7 @@ This file records completed work and important outcomes.
 
 ## Completed
 
+- 2026-08-03: Standardized root environment selection on `.env` plus exactly one of `.env.local`, `.env.dev`, `.env.preview`, or `.env.production`; simplified Prisma configuration; and allowed non-production schema tooling to use hosted database URLs while retaining exact production-target and data-sync guards.
 - 2026-08-01: Completed Safa end-to-end QA at 100/100: brought-forward onboarding, four current charge schedules, unit shares at NGN 10,000 with 1 compulsory and 16 maximum units, three additional members, portal access, member/admin login, accessibility and artifact semantics, registry refresh, remote member transactions, deterministic readiness checks, and green repository gates (716 tests, 16 typecheck tasks, 16 lint tasks).
 - 2026-07-23: Completed the ACAC full-flow local QA fixture and added a tenant-level brought-forward reconciliation snapshot so the full 1,000-member cooperative can retain ₦100m member savings, ₦1m special savings, and 5,000 share units while the detailed QA import remains a 20-member sample and member share caps remain enforced.
 - 2026-07-23: Added approved support-linked special-savings refund settlement with a dedicated withdrawal record, balanced ledger posting, member balance update, audit evidence, dashboard form, and automatic case resolution; completed the ACAC ₦50,000 excess-payment refund with zero remaining sampled special savings.

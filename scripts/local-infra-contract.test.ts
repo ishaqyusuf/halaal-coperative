@@ -21,7 +21,7 @@ function packageScripts(path: string): Record<string, string> {
   )
 }
 
-describe("School Clerk local-infra contract", () => {
+describe("Halaalvest local-infra contract", () => {
   test("all shared-toolkit commands select Halaalvest without Bun env preloading", () => {
     for (const packageFile of packageFiles) {
       for (const [name, command] of Object.entries(
@@ -94,15 +94,19 @@ describe("School Clerk local-infra contract", () => {
     const activeEnvSources = [
       "package.json",
       "turbo.json",
-      "scripts/eas-account-runner.ts",
       "scripts/local-infra-command.ts",
       "packages/db/prisma.config.ts",
     ]
       .map((path) => readFileSync(resolve(root, path), "utf8"))
       .join("\n")
 
+    expect(activeEnvSources).toContain(".env.production")
+
+    expect(activeEnvSources).not.toMatch(/\.env\.prod(?!uction)/)
+
     for (const legacyName of [
-      ".env.production",
+      ".env.production.local",
+      ".env.development",
       ".env.remote.local",
       ".env.remote-dev",
       "LOCAL_DATABASE_URL",

@@ -22,10 +22,12 @@ Bun and Turbo monorepo scaffold for `halaalvest`, a multi-tenant interest-free c
 ```bash
 bun install
 bun run dev
+bun run dev --dev
 bun run dev --preview
 bun run dev --prod
 bun run db:start
 bun run db:migrate
+bun run db:migrate --dev
 bun run db:migrate --preview
 bun run db:migrate --prod
 bun run dev -f marketing dashboard api
@@ -35,9 +37,10 @@ bun run typecheck
 
 Development commands use the shared `local-infra-kit` profile router:
 
-- `bun run dev` loads `.env.local`, starts the local Docker PostgreSQL service, and forwards to Turbo `dev`.
-- `bun run dev --preview` overlays `.env.preview` and uses the hosted preview database without starting local PostgreSQL.
-- `bun run dev --prod` loads `.env.prod` and runs the production-profile development task.
+- `bun run dev` loads `.env` plus `.env.local`, starts local Docker PostgreSQL only when that URL points at it, and forwards to Turbo `dev`.
+- `bun run dev --dev` loads `.env` plus `.env.dev` for a hosted development database without starting local PostgreSQL.
+- `bun run dev --preview` loads `.env` plus `.env.preview` without inheriting local profile values.
+- `bun run dev --prod` loads `.env` plus `.env.production` and runs the production-profile development task.
 - `bun run dev -f dashboard api` accepts Turbo filter aliases and bare package names such as `marketing`, `dashboard`, `api`, and `jobs`.
 
 The local profile uses the exact `DATABASE_URL` from `.env.local`, currently
@@ -59,21 +62,27 @@ Database migrations are explicit and are not applied automatically during `bun r
 
 ```bash
 bun run db:migrate
+bun run db:migrate --dev
 bun run db:migrate --preview
 bun run db:migrate --prod
 ```
 
-Generate, migrate, pull, push, studio, and shell each use one command with an optional mode flag: no flag (or `--local`) selects local development, `--preview` selects hosted preview, and `--prod` selects production. `bun run db:sync` defaults to production → local; `--from-local --to-preview` publishes local data to preview, and `--to-prod` is never accepted.
+Generate, migrate, pull, push, studio, and shell each use one command with an optional mode flag: no flag (or `--local`) selects local development, `--dev` selects hosted development, `--preview` selects hosted preview, and `--prod` selects production. Non-production structure commands may target local or hosted databases; a target matching the production database is blocked outside production mode. `bun run db:sync` defaults to production → local; `--from-local --to-preview` publishes local data to preview, and `--to-prod` is never accepted.
 
 ## Environment modes
 
 Use the same application-facing variable names in each mode:
 
 ```txt
+.env               shared defaults (never the profile DATABASE_URL)
 .env.local         local development
-.env.preview       preview overrides loaded over .env.local
-.env.prod          production
+.env.dev           hosted development
+.env.preview       hosted preview
+.env.production    production
 ```
+
+Root tooling loads `.env` plus exactly one profile file. Package-local env files,
+legacy aliases, and cross-profile fallback are intentionally unsupported.
 
 Each mode uses `DATABASE_URL`; legacy profile-specific database URL aliases,
 generated connection fallbacks, and central port registries are not part of the

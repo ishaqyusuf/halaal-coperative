@@ -23,7 +23,7 @@ This file tracks chosen and proposed technologies for the platform.
 - Frontend: Next.js 16 App Router.
 - Backend HTTP framework: Hono.
 - API contract layer: tRPC with `superjson`.
-- Local development infrastructure: the sibling `local-infra-kit` owns the standard dev router, mode-based env loading, application-port cleanup, Docker service readiness, and Portless startup (`bun run dev`, `bun run dev --preview`, `bun run dev -f dashboard api`).
+- Local development infrastructure: the sibling `local-infra-kit` owns the standard dev router, exact base-plus-one-profile env loading, application-port cleanup, Docker service readiness, and Portless startup (`bun run dev`, `bun run dev --dev`, `bun run dev --preview`, `bun run dev -f dashboard api`).
 - Styling: Tailwind CSS v4 plus shadcn/base preset styling.
 - Shared UI primitives: `@halaalvest/ui`.
 - Shared notifications core: `@halaalvest/notifications`.

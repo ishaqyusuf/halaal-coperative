@@ -10,7 +10,7 @@ This file records migration history, rationale, and rollout notes.
 ## Current Status
 - Prisma has been selected and configured with `prisma.config.ts`.
 - Multi-file schema loading is configured via `schema: "prisma"`.
-- `packages/db/prisma.config.ts` resolves `.env.local`, `.env.preview`, or `.env.prod` from `HALAALVEST_DB_MODE` / `HALAALVEST_ENV_MODE`, while `local-infra-kit/bin/db.ts` provides guarded local, preview, and production Prisma commands.
+- `packages/db/prisma.config.ts` is intentionally thin and reads the `DATABASE_URL` already selected by the root router. The router loads `.env` plus exactly one of `.env.local`, `.env.dev`, `.env.preview`, or `.env.production`; it does not scan package paths or legacy aliases.
 - Local PostgreSQL is configured by `.env.local` at `127.0.0.1:55434/halaalvest` on the existing `halaalvest-postgres-data` volume. The shared toolkit derives Compose settings from that URL, so School Clerk may continue using `55432`. A validated custom-format backup of `amanah_cooperative` remains under ignored `.local/db-backups/`; on 2026-07-29, the preserved local database was renamed in place from `amanah_cooperative` to `halaalvest` so the retained volume matches the environment-authoritative connection contract.
 - The initial schema migration exists at `packages/db/prisma/migrations/20260413115737_init/`.
 - Notification outbox persistence was added in `packages/db/prisma/migrations/20260414093000_add_notification_outbox/`.
@@ -25,7 +25,7 @@ This file records migration history, rationale, and rollout notes.
 - Collection Source contribution batch posting was added in `packages/db/prisma/migrations/20260712130000_add_collection_source_contribution_batches/`.
 - 2026-07-15: `member_opening_balances` gained detailed brought-forward obligation columns for active financing, procurement, and Foodstuff Purchase current/last obligations. Local `bun run db:push --local` was applied after `bun run db:migrate` stopped on pre-existing local drift; a formal migration should be generated once that drift is resolved safely.
 - 2026-07-23: Added `tenant_brought_forward_snapshots` for cooperative-wide brought-forward reconciliation totals. `bun db:migrate` was attempted but stopped on the same pre-existing local drift without resetting data; `bun db:push` then applied the additive table successfully.
-- 2026-07-31: Standardized database commands on local, preview, and production. Each root action defaults to local and accepts only `--local`, `--preview`, or `--prod`; `db:sync` defaults to production → local and also supports explicit local → preview publishing. The shared implementation owns profile env isolation and target guards.
+- 2026-08-03: Extended the standardized database commands to local, hosted development, preview, and production. Each root action defaults to local and accepts only `--local`, `--dev`, `--preview`, or `--prod`. Non-production structure actions accept any valid local or hosted database URL except the production database identity; `db:sync` retains its stricter data-transfer destination rules.
 
 ## History
 - 2026-04-13: Generated `20260413115737_init` as the first full cooperative schema migration.

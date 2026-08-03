@@ -6,7 +6,7 @@ import { resolve } from "node:path"
 import { loadModeEnv } from "../../local-infra-kit/src/env"
 
 export type LocalInfraEntrypoint = "dev" | "dev-services" | "with-env"
-export type LocalInfraMode = "local" | "preview" | "prod"
+export type LocalInfraMode = "local" | "dev" | "preview" | "prod"
 
 type CommandEnv = Record<string, string | undefined>
 
@@ -35,9 +35,12 @@ export function modeForCommand(
 
     if (entrypoint === "dev") {
       if (arg === "--remote" || arg === "--remote-dev") {
-        throw new Error(`Unknown local-infra mode flag: ${arg}. Use --preview.`)
+        throw new Error(
+          `Unknown local-infra mode flag: ${arg}. Use --dev or --preview.`
+        )
       }
       if (arg === "--local") modes.add("local")
+      if (arg === "--dev") modes.add("dev")
       if (arg === "--preview") modes.add("preview")
       if (arg === "--prod") modes.add("prod")
       continue
@@ -62,12 +65,13 @@ export function modeForCommand(
 }
 
 function normalizeMode(value: string | undefined): LocalInfraMode {
-  if (value === "local" || value === "development") return "local"
+  if (value === "local") return "local"
+  if (value === "dev" || value === "development") return "dev"
   if (value === "preview") return "preview"
   if (value === "prod" || value === "production") return "prod"
 
   throw new Error(
-    `Unknown local-infra mode "${value ?? ""}". Use local, preview, or prod.`
+    `Unknown local-infra mode "${value ?? ""}". Use local, dev, preview, or prod.`
   )
 }
 
@@ -76,11 +80,11 @@ export function envForMode(
   workspaceRoot: string,
   processEnv: CommandEnv
 ) {
-  const prodFile = resolve(workspaceRoot, ".env.prod")
+  const prodFile = resolve(workspaceRoot, ".env.production")
 
   if (mode === "prod" && !existsSync(prodFile)) {
     throw new Error(
-      "Missing .env.prod. Production local-infra commands do not load legacy env files."
+      "Missing .env.production. Production local-infra commands do not load filename aliases."
     )
   }
 
@@ -89,7 +93,7 @@ export function envForMode(
   return {
     ...processEnv,
     ...fileEnv,
-    HALAALVEST_DB_MODE: mode === "preview" ? "preview" : mode,
+    HALAALVEST_DB_MODE: mode,
     HALAALVEST_ENV_MODE: mode,
   }
 }
@@ -104,19 +108,7 @@ export function validateDatabaseForMode(mode: LocalInfraMode, env: CommandEnv) {
   }
 
   try {
-    const isLocal = LOCAL_DATABASE_HOSTS.has(new URL(databaseUrl).hostname)
-
-    if (mode === "local" && !isLocal) {
-      throw new Error(
-        "Refusing local mode with a non-local DATABASE_URL. Check .env.local."
-      )
-    }
-
-    if (mode !== "local" && isLocal) {
-      throw new Error(
-        `Refusing ${mode} mode with a local DATABASE_URL. Check the standard mode env file.`
-      )
-    }
+    new URL(databaseUrl)
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("Refusing ")) {
       throw error
@@ -136,11 +128,7 @@ export function localDatabasePort(env: CommandEnv) {
   try {
     const url = new URL(databaseUrl)
 
-    if (!LOCAL_DATABASE_HOSTS.has(url.hostname)) {
-      throw new Error(
-        "Refusing local mode with a non-local DATABASE_URL. Check .env.local."
-      )
-    }
+    if (!LOCAL_DATABASE_HOSTS.has(url.hostname)) return undefined
 
     const port = Number(url.port || "5432")
 
@@ -255,11 +243,14 @@ async function main() {
 
   if (mode === "local" && entrypointValue !== "with-env") {
     const postgresPort = localDatabasePort(effectiveEnv)
-    validatePortOwner(
-      postgresPort,
-      await portIsOccupied(postgresPort),
-      await dockerContainerOwningPort(postgresPort)
-    )
+
+    if (postgresPort !== undefined) {
+      validatePortOwner(
+        postgresPort,
+        await portIsOccupied(postgresPort),
+        await dockerContainerOwningPort(postgresPort)
+      )
+    }
   }
 
   const toolkitBin = resolve(

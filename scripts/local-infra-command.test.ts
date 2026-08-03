@@ -14,6 +14,7 @@ describe("Halaalvest local-infra safety launcher", () => {
   test("resolves public dev and service mode flags", () => {
     expect(modeForCommand("dev", [])).toBe("local")
     expect(modeForCommand("dev", ["--preview"])).toBe("preview")
+    expect(modeForCommand("dev", ["--dev"])).toBe("dev")
     expect(() => modeForCommand("dev", ["--remote"])).toThrow(
       "Unknown local-infra mode flag"
     )
@@ -40,14 +41,19 @@ describe("Halaalvest local-infra safety launcher", () => {
     )
   })
 
-  test("rejects local database URLs in preview and production modes", () => {
-    for (const mode of ["preview", "prod"] as const) {
+  test("allows local or hosted database URLs in every profile", () => {
+    for (const mode of ["local", "dev", "preview", "prod"] as const) {
       expect(() =>
         validateDatabaseForMode(mode, {
           DATABASE_URL:
             "postgresql://postgres:postgres@127.0.0.1:55432/halaalvest",
         })
-      ).toThrow(`Refusing ${mode} mode with a local DATABASE_URL`)
+      ).not.toThrow()
+      expect(() =>
+        validateDatabaseForMode(mode, {
+          DATABASE_URL: "postgresql://hosted.example.com/halaalvest",
+        })
+      ).not.toThrow()
     }
   })
 
@@ -58,19 +64,11 @@ describe("Halaalvest local-infra safety launcher", () => {
           "postgresql://postgres:postgres@127.0.0.1:55434/halaalvest",
       })
     ).toBe(55434)
-  })
-
-  test("accepts non-local database URLs in preview and production modes", () => {
-    expect(() =>
-      validateDatabaseForMode("preview", {
-        DATABASE_URL: "postgresql://preview.example.com/halaalvest",
+    expect(
+      localDatabasePort({
+        DATABASE_URL: "postgresql://hosted.example.com/halaalvest",
       })
-    ).not.toThrow()
-    expect(() =>
-      validateDatabaseForMode("prod", {
-        DATABASE_URL: "postgresql://prod.example.com/halaalvest",
-      })
-    ).not.toThrow()
+    ).toBeUndefined()
   })
 
   test("standard mode files override Bun-preloaded local values", () => {

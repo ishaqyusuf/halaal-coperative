@@ -15,9 +15,13 @@ export function normalizeWorkspaceSlug(value: string) {
 }
 
 export function createWorkspaceSlugSuggestion(value: string) {
-  return normalizeWorkspaceSlug(
-    value.replace(/\bco[-\s]?operative\b/gi, " ").replace(/\bcoop\b/gi, " ")
-  )
+  return normalizeWorkspaceSlug(value)
+    .split("-")
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("-")
+    .slice(0, 63)
+    .replace(/-+$/g, "")
 }
 
 export function isReservedWorkspaceSlug(value: string) {

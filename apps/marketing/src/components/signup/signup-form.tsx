@@ -119,12 +119,9 @@ export function SignupForm({
   workspaceUrlSuffix: string
 }) {
   const approvalLocked = Boolean(approvalToken)
-  const approvedQaWorkspaceSlug =
-    approvalLocked && quickFill.enabled
-      ? normalizeWorkspaceSlug(
-          defaultValues?.primaryContactEmail?.split("@")[0] ?? ""
-        )
-      : ""
+  const initialWorkspaceSlug = defaultValues?.workspaceSlug
+    ? normalizeWorkspaceSlug(defaultValues.workspaceSlug)
+    : createWorkspaceSlugSuggestion(defaultValues?.cooperativeName ?? "")
   const form = useZodForm<SignupIntentInput>(signupIntentSchema, {
     defaultValues: {
       cooperativeName: defaultValues?.cooperativeName ?? "",
@@ -132,7 +129,7 @@ export function SignupForm({
       primaryContactEmail: defaultValues?.primaryContactEmail ?? "",
       primaryContactFullName: defaultValues?.primaryContactFullName ?? "",
       primaryContactMemberNumber: "",
-      workspaceSlug: approvedQaWorkspaceSlug,
+      workspaceSlug: initialWorkspaceSlug,
     },
   })
   const { publishQaPreviews, showError, showSuccess } = useNotifications()
@@ -140,7 +137,7 @@ export function SignupForm({
   useSignupJourneyStage(result ? "verify" : "workspace")
   const [submitting, setSubmitting] = useState(false)
   const [workspaceSlugEdited, setWorkspaceSlugEdited] = useState(
-    Boolean(approvedQaWorkspaceSlug)
+    Boolean(defaultValues?.workspaceSlug)
   )
   const [availability, setAvailability] = useState<AvailabilityState>({
     status: "idle",
@@ -395,7 +392,12 @@ export function SignupForm({
                   void applyDevFormFill(
                     form,
                     "signup",
-                    approvalLocked ? defaultValues : undefined,
+                    approvalLocked
+                      ? {
+                          ...defaultValues,
+                          workspaceSlug: initialWorkspaceSlug,
+                        }
+                      : undefined,
                     { emailDomain: quickFill.emailDomain }
                   )
                 }

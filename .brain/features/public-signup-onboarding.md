@@ -35,6 +35,7 @@
 - Early access, approved signup, verification, profile, and ready states are presented as one five-stage setup journey. Stateful forms advance the shared shell to verification and ready after successful requests; signed-token gates and existing API contracts remain authoritative.
 - `/api/early-access/approve?token=...`: platform admin approval link sends the cooperative primary contact an approved setup link.
 - `/signup?approvalToken=...`: the private setup form opens only from an approved setup link when early access mode is enabled and locks the approved cooperative/contact fields.
+- The workspace address suggestion is derived from the first two normalized words of the cooperative name (or the available single word), including for approved setup links. It never derives from the admin email, and the customer may edit the suggestion before continuing.
 - `/signup`: when early access mode is enabled and no token is present, redirects to `/#early-access` instead of exposing the setup form. When early access mode is disabled, the same route can be used for direct development setup.
 - Success state: show the verification email draft and, in dev mode, a direct continue link.
 - `/onboarding?token=...`: validate the token server-side, prefill verified contact details, and submit the simplified cooperative profile with `useZodForm`.

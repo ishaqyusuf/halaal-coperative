@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { cooperativeSizeRanges } from "@halaalvest/domain"
-import { onboardingFormSchema } from "./signup-flow"
+import {
+  createWorkspaceSlugSuggestion,
+  onboardingFormSchema,
+} from "./signup-flow"
 
 const validOnboardingInput = {
   city: "Lagos Island",
@@ -18,6 +21,24 @@ const validOnboardingInput = {
   startDate: "2025-01-01",
   token: "signed-token",
 }
+
+describe("createWorkspaceSlugSuggestion", () => {
+  test("joins a two-word cooperative name with a hyphen", () => {
+    expect(createWorkspaceSlugSuggestion("Amanah Unity")).toBe("amanah-unity")
+  })
+
+  test("uses only the first two words of a longer cooperative name", () => {
+    expect(
+      createWorkspaceSlugSuggestion("Amanah Unity Multipurpose Cooperative")
+    ).toBe("amanah-unity")
+  })
+
+  test("normalizes punctuation before selecting the first two words", () => {
+    expect(createWorkspaceSlugSuggestion("Amanah & Unity Cooperative")).toBe(
+      "amanah-unity"
+    )
+  })
+})
 
 describe("onboardingFormSchema", () => {
   test("accepts valid cooperative location fields", () => {

@@ -1,10 +1,7 @@
 import type { ComponentProps } from "react"
 import {
   DashboardActionLink,
-  DashboardSectionCard,
-  DashboardSectionHeader,
   DashboardStatCard,
-  DashboardSurfaceCard,
   ScrollableContent,
   TrendPill,
   WorkspaceEmptyState,
@@ -83,6 +80,32 @@ function getImportKind(section: ImportSettingsSection) {
   return section !== "overview" && section !== "batches" ? section : undefined
 }
 
+function ImportReadinessRow({
+  detail,
+  status,
+  title,
+  tone,
+}: {
+  detail: string
+  status: string
+  title: string
+  tone: "neutral" | "positive" | "warning"
+}) {
+  return (
+    <div className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6">
+      <div className="min-w-0">
+        <h3 className="font-medium text-foreground">{title}</h3>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          {detail}
+        </p>
+      </div>
+      <div className="sm:justify-self-end">
+        <TrendPill tone={tone}>{status}</TrendPill>
+      </div>
+    </div>
+  )
+}
+
 export function ImportsRuntimeUnavailable() {
   return (
     <ScrollableContent>
@@ -132,6 +155,12 @@ export function ImportsSettingsView({
   const isBatches = section === "batches"
   const importKind = getImportKind(section)
   const sectionCopy = importKind ? importPageCopy[importKind] : null
+  const hasActiveBlockers = Boolean(
+    migrationToolsLockedReason ||
+      backfillLockedReason ||
+      historicalSetupBlockingLabels.length ||
+      memberProfilesBlockingLabels.length
+  )
 
   return (
     <ScrollableContent>
@@ -139,7 +168,7 @@ export function ImportsSettingsView({
         <SecondaryMenu items={importMenuItems} />
 
         <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase">
+          <p className="text-xs font-medium text-muted-foreground">
             Import settings
           </p>
           <h1 className="mt-2 text-2xl font-semibold text-foreground">
@@ -161,7 +190,7 @@ export function ImportsSettingsView({
 
         {isOverview ? (
           <>
-            <section className="grid gap-4 md:grid-cols-3">
+            <section className="hidden gap-4 md:grid md:grid-cols-3">
               <DashboardStatCard
                 detail="Import batches currently staged for review or apply."
                 label="Staged batches"
@@ -189,147 +218,118 @@ export function ImportsSettingsView({
               />
             </section>
 
-            <DashboardSectionCard>
-              <DashboardSectionHeader
-                description="Follow this sequence before member ledger backfill. Server-side gates enforce the same order when batches are staged or applied."
-                eyebrow="Migration import order"
-                title="One-time import sequence"
-              />
-              <div className="mt-5 grid gap-3 lg:grid-cols-4">
-                <DashboardSurfaceCard className="bg-background/70">
-                  <p className="text-sm font-semibold text-foreground">
-                    1. Historical finance setup
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Finance start date, dated charge schedules, business profit
-                    pools, and share capital plan.
-                  </p>
-                  <div className="mt-3">
-                    <TrendPill
-                      tone={historicalSetupReady ? "positive" : "warning"}
-                    >
-                      {historicalSetupReady ? "Ready" : "Required first"}
-                    </TrendPill>
-                  </div>
-                </DashboardSurfaceCard>
-                <DashboardSurfaceCard className="bg-background/70">
-                  <p className="text-sm font-semibold text-foreground">
-                    2. Members and registries
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Member profiles, deduction sources, and loan products used
-                    by later records.
-                  </p>
-                  <div className="mt-3">
-                    <TrendPill
-                      tone={memberProfilesReady ? "positive" : "neutral"}
-                    >
-                      {memberProfilesReady ? "Members loaded" : "Load members"}
-                    </TrendPill>
-                  </div>
-                </DashboardSurfaceCard>
-                <DashboardSurfaceCard className="bg-background/70">
-                  <p className="text-sm font-semibold text-foreground">
-                    3. Historical records
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Savings, charges, legacy loan positions, and repayment
-                    migrations.
-                  </p>
-                  <div className="mt-3">
-                    <TrendPill
-                      tone={historicalSetupReady ? "neutral" : "warning"}
-                    >
-                      {historicalSetupReady
-                        ? "Open after setup"
-                        : "Blocked by setup"}
-                    </TrendPill>
-                  </div>
-                </DashboardSurfaceCard>
-                <DashboardSurfaceCard className="bg-background/70">
-                  <p className="text-sm font-semibold text-foreground">
-                    4. Loan review then backfill
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Confirm legacy loan balances or mark no legacy loans before
-                    posting member ledger history.
-                  </p>
-                  <div className="mt-3">
-                    <TrendPill
-                      tone={legacyLoanReviewReady ? "positive" : "warning"}
-                    >
-                      {legacyLoanReviewReady ? "Reviewed" : "Review required"}
-                    </TrendPill>
-                  </div>
-                </DashboardSurfaceCard>
+            <section aria-labelledby="import-sequence-title">
+              <div className="pb-4">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Migration import order
+                </p>
+                <h2
+                  className="mt-1 text-base font-semibold text-foreground"
+                  id="import-sequence-title"
+                >
+                  One-time import sequence
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  Follow this sequence before member ledger backfill. Server-side
+                  gates enforce the same order when batches are staged or
+                  applied.
+                </p>
               </div>
-            </DashboardSectionCard>
-
-            {migrationToolsLockedReason ||
-            backfillLockedReason ||
-            historicalSetupBlockingLabels.length ||
-            memberProfilesBlockingLabels.length ? (
-              <DashboardSectionCard>
-                <DashboardSectionHeader
-                  actions={
-                    <DashboardActionLink
-                      href="/settings/finance"
-                      variant="secondary"
-                    >
-                      Open finance setup
-                    </DashboardActionLink>
-                  }
-                  description="These are the active blockers that decide which import cards are available."
-                  eyebrow="Setup blockers"
-                  title="Imports currently need attention"
+              <div className="divide-y divide-border/70 border-y border-border/70">
+                <ImportReadinessRow
+                  detail="Finance start date, dated charge schedules, business profit pools, and share capital plan."
+                  status={historicalSetupReady ? "Ready" : "Required first"}
+                  title="1. Historical finance setup"
+                  tone={historicalSetupReady ? "positive" : "warning"}
                 />
-                <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                <ImportReadinessRow
+                  detail="Member profiles, deduction sources, and loan products used by later records."
+                  status={memberProfilesReady ? "Members loaded" : "Load members"}
+                  title="2. Members and registries"
+                  tone={memberProfilesReady ? "positive" : "neutral"}
+                />
+                <ImportReadinessRow
+                  detail="Savings, charges, legacy loan positions, and repayment migrations."
+                  status={
+                    historicalSetupReady
+                      ? "Open after setup"
+                      : "Blocked by setup"
+                  }
+                  title="3. Historical records"
+                  tone={historicalSetupReady ? "neutral" : "warning"}
+                />
+                <ImportReadinessRow
+                  detail="Confirm legacy loan balances or mark no legacy loans before posting member ledger history."
+                  status={
+                    legacyLoanReviewReady ? "Reviewed" : "Review required"
+                  }
+                  title="4. Loan review then backfill"
+                  tone={legacyLoanReviewReady ? "positive" : "warning"}
+                />
+              </div>
+            </section>
+
+            {hasActiveBlockers ? (
+              <section aria-labelledby="import-blockers-title">
+                <div className="flex flex-col gap-4 pb-4 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Setup blockers
+                    </p>
+                    <h2
+                      className="mt-1 text-base font-semibold text-foreground"
+                      id="import-blockers-title"
+                    >
+                      Imports currently need attention
+                    </h2>
+                    <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                      These active blockers decide which import workflows are
+                      available.
+                    </p>
+                  </div>
+                  <DashboardActionLink
+                    className="h-11 w-full md:h-9 md:w-auto"
+                    href="/settings/finance"
+                    variant="secondary"
+                  >
+                    Open finance setup
+                  </DashboardActionLink>
+                </div>
+                <div className="divide-y divide-border/70 border-y border-border/70">
                   {migrationToolsLockedReason ? (
-                    <DashboardSurfaceCard className="border-amber-200 bg-amber-50 text-amber-950">
-                      <p className="text-sm font-semibold">
-                        Migration tools locked
-                      </p>
-                      <p className="mt-2 text-sm leading-6">
-                        {migrationToolsLockedReason}
-                      </p>
-                    </DashboardSurfaceCard>
+                    <ImportReadinessRow
+                      detail={migrationToolsLockedReason}
+                      status="Blocked"
+                      title="Migration tools locked"
+                      tone="warning"
+                    />
                   ) : null}
                   {backfillLockedReason ? (
-                    <DashboardSurfaceCard className="border-amber-200 bg-amber-50 text-amber-950">
-                      <p className="text-sm font-semibold">
-                        Historical imports locked
-                      </p>
-                      <p className="mt-2 text-sm leading-6">
-                        {backfillLockedReason}
-                      </p>
-                    </DashboardSurfaceCard>
+                    <ImportReadinessRow
+                      detail={backfillLockedReason}
+                      status="Blocked"
+                      title="Historical imports locked"
+                      tone="warning"
+                    />
                   ) : null}
                   {historicalSetupBlockingLabels.length ? (
-                    <DashboardSurfaceCard className="bg-background/70">
-                      <p className="text-sm font-semibold text-foreground">
-                        Historical finance setup
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        Complete {historicalSetupBlockingLabels.join(", ")}{" "}
-                        before member profiles, savings, loan, and repayment
-                        history are imported.
-                      </p>
-                    </DashboardSurfaceCard>
+                    <ImportReadinessRow
+                      detail={`Complete ${historicalSetupBlockingLabels.join(", ")} before member profiles, savings, loan, and repayment history are imported.`}
+                      status="Required first"
+                      title="Historical finance setup"
+                      tone="warning"
+                    />
                   ) : null}
                   {memberProfilesBlockingLabels.length ? (
-                    <DashboardSurfaceCard className="bg-background/70">
-                      <p className="text-sm font-semibold text-foreground">
-                        Member profiles
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        Import members before savings, loan, and repayment
-                        records so every historical row has a canonical member
-                        record.
-                      </p>
-                    </DashboardSurfaceCard>
+                    <ImportReadinessRow
+                      detail="Import members before savings, loan, and repayment records so every historical row has a canonical member record."
+                      status="Required first"
+                      title="Member profiles"
+                      tone="warning"
+                    />
                   ) : null}
                 </div>
-              </DashboardSectionCard>
+              </section>
             ) : null}
           </>
         ) : canManageImports ? (

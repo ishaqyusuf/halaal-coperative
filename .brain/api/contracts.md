@@ -90,7 +90,8 @@ This file captures payload shapes, response conventions, and contract assumption
   - Generated development URLs use the configured marketing origin such as `https://halaalvest.localhost` rather than the direct `http://localhost:1440` fallback when Portless is configured.
 - `POST /api/onboarding`
   - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, selected cooperative size range in `currentSize`, `officeAddress`, required `city`, `state`, `country`, `startDate`, and the signed `token`.
-  - The route derives the slug from `cooperativeName` and applies server-side tenant policy defaults instead of asking for public policy fields.
+  - The signed token is authoritative for cooperative name, workspace slug, cooperative admin identity, and membership number. The route returns HTTP 410 with `The verification link has expired.` when that verified cooperative/workspace identity is no longer available after tenant creation.
+  - The route applies server-side tenant policy defaults instead of asking for public policy fields.
   - The selected `currentSize` range is persisted as the existing representative integer, while `officeAddress`, `city`, `state`, `country`, and `startDate` are persisted directly on the tenant record during workspace bootstrap; `region` is also written from `state` for legacy readers.
 - `trpc.notifications.list`
   - array of shared notification payloads built from `@halaalvest/notifications` types.

@@ -24,6 +24,7 @@ import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -270,10 +271,14 @@ export function EarlyAccessForm({
                 name="primaryContactFullName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Primary contact</FormLabel>
+                    <FormLabel>Cooperative admin name</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter full name" {...field} />
                     </FormControl>
+                    <FormDescription>
+                      This person will receive the setup link and become the
+                      first workspace owner.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -284,7 +289,7 @@ export function EarlyAccessForm({
                 name="primaryContactEmail"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Primary contact email</FormLabel>
+                    <FormLabel>Cooperative admin email</FormLabel>
                     <FormControl>
                       <Input
                         type="email"

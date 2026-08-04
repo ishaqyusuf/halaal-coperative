@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import type { QaNotificationPreview } from "@halaalvest/notifications"
 import {
@@ -64,6 +64,7 @@ import { ChevronDownIcon, ExternalLinkIcon } from "lucide-react"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
+  createCompletedOnboardingPath,
   getOnboardingDefaultsFromVerification,
   onboardingFormSchema,
   type OnboardingFormInput,
@@ -119,6 +120,30 @@ export function OnboardingForm({
   const [result, setResult] = useState<OnboardingResult | null>(null)
   useSignupJourneyStage(result ? "ready" : "profile")
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!result) {
+      return
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      "",
+      createCompletedOnboardingPath(window.location.href)
+    )
+
+    const refreshRestoredPage = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        window.location.reload()
+      }
+    }
+
+    window.addEventListener("pageshow", refreshRestoredPage)
+
+    return () => {
+      window.removeEventListener("pageshow", refreshRestoredPage)
+    }
+  }, [result])
 
   async function onSubmit(values: OnboardingFormInput) {
     try {

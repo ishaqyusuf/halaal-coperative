@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import {
-  checkTenantSignupAvailability,
   createTenantWorkspaceBootstrap,
   recordNotificationDeliveryAudit,
   resolveConfiguredQaDomain,
@@ -18,7 +17,7 @@ import {
 } from "@/lib/signup-flow"
 import { hashPassword } from "@/lib/password"
 import { createServerNotificationService } from "@/lib/server-notifications"
-import { verifySignedSignupToken } from "@/lib/signup-token"
+import { resolveSignupVerification } from "@/lib/signup-verification.server"
 import { buildOnboardingWorkspaceUrls } from "@/lib/tenant-workspace-urls"
 import { provisionTenantDomainOnVercel } from "@/lib/vercel-domains.server"
 
@@ -37,39 +36,30 @@ function formatOnboardingError(error: unknown) {
 export async function POST(request: Request) {
   try {
     const input = onboardingFormSchema.parse(await request.json())
-    const verification = verifySignedSignupToken(input.token)
-    const availability = await checkTenantSignupAvailability({
-      cooperativeName: input.cooperativeName,
-      workspaceSlug: verification.workspaceSlug,
-    })
+    const verificationResult = await resolveSignupVerification(input.token)
 
-    if (
-      !availability.cooperativeName.available ||
-      !availability.workspaceSlug.available
-    ) {
+    if (verificationResult.status === "invalid") {
       return NextResponse.json(
         {
-          availability,
-          error: !availability.cooperativeName.available
-            ? "That cooperative name is already in use."
-            : "That workspace subdomain is not available.",
+          error: verificationResult.errorMessage,
         },
-        { status: 409 }
+        { status: 410 }
       )
     }
 
+    const verification = verificationResult.value
     const result = await createTenantWorkspaceBootstrap({
       city: input.city,
       country: input.country,
       currentSize: input.currentSize,
-      name: input.cooperativeName,
+      name: verification.cooperativeName,
       officeAddress: input.officeAddress,
-      memberNumberPrefix: input.memberNumberPrefix || null,
+      memberNumberPrefix: verification.memberNumberPrefix || null,
       ownerEmail: verification.primaryContactEmail,
-      ownerFullName: input.primaryContactFullName,
+      ownerFullName: verification.primaryContactFullName,
       ownerMemberNumber: composeMemberNumber(
-        input.memberNumberPrefix,
-        input.primaryContactMemberNumber
+        verification.memberNumberPrefix,
+        verification.primaryContactMemberNumber
       ),
       ownerPasswordHash: hashPassword(input.password),
       qaSourceDomain: resolveConfiguredQaDomain(
@@ -109,7 +99,7 @@ export async function POST(request: Request) {
     const workspaceReadyEmail = createWorkspaceReadyEmail({
       dashboardUrl,
       recipientEmail: verification.primaryContactEmail,
-      recipientName: input.primaryContactFullName,
+      recipientName: verification.primaryContactFullName,
       siteUrl,
       tenantName: result.tenant.name,
       tenantSlug: result.tenant.slug,

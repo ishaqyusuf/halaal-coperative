@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { cooperativeSizeRanges } from "@halaalvest/domain"
 import {
+  createCompletedOnboardingPath,
   createWorkspaceSlugSuggestion,
   onboardingFormSchema,
 } from "./signup-flow"
@@ -21,6 +22,16 @@ const validOnboardingInput = {
   startDate: "2025-01-01",
   token: "signed-token",
 }
+
+describe("createCompletedOnboardingPath", () => {
+  test("removes the bearer token and marks the onboarding history entry completed", () => {
+    expect(
+      createCompletedOnboardingPath(
+        "https://halaalvest.localhost/onboarding?token=signed-token"
+      )
+    ).toBe("/onboarding?status=completed")
+  })
+})
 
 describe("createWorkspaceSlugSuggestion", () => {
   test("joins a two-word cooperative name with a hyphen", () => {

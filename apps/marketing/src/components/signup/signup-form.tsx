@@ -24,6 +24,7 @@ import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -456,7 +457,7 @@ export function SignupForm({
                 name="primaryContactFullName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Admin full name</FormLabel>
+                    <FormLabel>Cooperative admin name</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Enter your name"
@@ -464,6 +465,9 @@ export function SignupForm({
                         {...field}
                       />
                     </FormControl>
+                    <FormDescription>
+                      This person will become the first workspace owner.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -474,7 +478,7 @@ export function SignupForm({
                 name="primaryContactEmail"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Admin email</FormLabel>
+                    <FormLabel>Cooperative admin email</FormLabel>
                     <FormControl>
                       <Input
                         type="email"

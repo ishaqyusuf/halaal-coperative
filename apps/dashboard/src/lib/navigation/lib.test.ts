@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { getVisibleDashboardNav } from "./lib"
+import { getDashboardRouteTitle, getVisibleDashboardNav } from "./lib"
 
 function visibleHrefs(
   hiddenPaths: string[] = [],
@@ -39,5 +39,19 @@ describe("dashboard navigation operation profile filtering", () => {
     const hrefs = visibleHrefs([], "member")
 
     expect(hrefs).toContain("/loans")
+  })
+})
+
+describe("dashboard navigation route titles", () => {
+  test.each([
+    ["/settings/imports", "Imports"],
+    ["/settings/imports/batches", "Imports"],
+    ["/settings/imports/members", "Imports"],
+    ["/settings/finance", "Finance setup"],
+    ["/settings/finance/business", "Finance setup"],
+  ])("uses the parent title for nested route %s", (pathname, title) => {
+    const route = getDashboardRouteTitle(pathname, "tenant_admin")
+
+    expect(route.activeItem?.title).toBe(title)
   })
 })

@@ -73,10 +73,22 @@ export function getActiveDashboardNavItem(
   const items = modules.flatMap((module) =>
     module.sections.flatMap((section) => section.links)
   )
+  const directItem = items.find(
+    (item) =>
+      item.name === active.name && isPathActive(pathname, item.href ?? "")
+  )
+
+  if (directItem) {
+    return directItem
+  }
+
   return (
-    items.find(
-      (item) =>
-        item.name === active.name && isPathActive(pathname, item.href ?? "")
+    items.find((item) =>
+      item.subLinks?.some(
+        (subLink) =>
+          subLink.name === active.name &&
+          isPathActive(pathname, subLink.href ?? "")
+      )
     ) ?? null
   )
 }

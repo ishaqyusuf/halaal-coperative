@@ -58,7 +58,7 @@ This file tracks the public and internal API surface of the platform.
   - Notes: the link is bearer-style and sends the approval email when opened. Local development links should use the configured marketing host, e.g. `http://halaalvest.localhost/api/early-access/approve?...`.
 - `POST /api/onboarding`
   - Purpose: verify the signed signup token and provision the tenant workspace from a simplified cooperative profile payload.
-  - Notes: implemented as `apps/marketing/app/api/onboarding/route.ts` and backed directly by `createTenantWorkspaceBootstrap`.
+  - Notes: implemented as `apps/marketing/app/api/onboarding/route.ts` and backed directly by `createTenantWorkspaceBootstrap`; returns HTTP 410 when the verified cooperative name or reserved workspace slug has already been used, making a completed workspace link single-use.
 - `TRPC /trpc/notifications.list`
   - Purpose: return sample notification payloads using the shared notification registry.
 - `TRPC /trpc/members.list|get|create|update|updateStatus`

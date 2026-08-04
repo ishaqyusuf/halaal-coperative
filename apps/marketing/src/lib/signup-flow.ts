@@ -28,6 +28,14 @@ export function isReservedWorkspaceSlug(value: string) {
   return isReservedTenantSubdomainLabel(value)
 }
 
+export function createCompletedOnboardingPath(value: string) {
+  const completedUrl = new URL(value)
+  completedUrl.searchParams.delete("token")
+  completedUrl.searchParams.set("status", "completed")
+
+  return `${completedUrl.pathname}${completedUrl.search}${completedUrl.hash}`
+}
+
 const workspaceSlugSchema = z
   .string()
   .trim()

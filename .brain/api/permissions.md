@@ -32,7 +32,7 @@ This file documents who can do what across the platform.
 - Marketing early access request submission is public.
 - Marketing admin approval links are signed bearer links sent to configured platform admins; possession of the unexpired link can trigger the cooperative approval email.
 - Early-access-gated cooperative setup requires a signed early access approval token matching the cooperative name and primary contact email.
-- Tenant onboarding still requires the signed email-verification token generated after approved setup.
+- Tenant onboarding still requires the signed email-verification token generated after approved setup. A token cannot be reused after its verified cooperative name or reserved workspace slug has created a tenant.
 - Members can view only their own financial records.
 - Member financial and operational mutations require an operationally ready member profile: active member status, verified KYC, and completion of any migration evidence required by the tenant's historical-backfill or brought-forward setup mode.
 - Readiness enforcement covers dashboard member submissions and mobile receipt, financing, procurement, project-financing, Foodstuff Purchase, share, and guarantor-response mutations. Member login, member-scoped reads, support create/reply, and document remediation remain available while action is required.

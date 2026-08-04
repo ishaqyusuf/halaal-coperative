@@ -3,24 +3,10 @@ import { buttonVariants } from "@halaalvest/ui/components/button"
 import { resolveQaQuickFillContext } from "@halaalvest/utils"
 import { OnboardingForm } from "@/components/signup/onboarding-form"
 import { SignupShell } from "@/components/signup/signup-shell"
-import { verifySignedSignupToken } from "@/lib/signup-token"
 import { getServerQaEmailDomains } from "@/lib/server-notifications"
+import { resolveSignupVerification } from "@/lib/signup-verification.server"
 
-function getVerificationErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "The verification link is no longer valid."
-}
-
-type SignupTokenVerificationResult =
-  | {
-      status: "valid"
-      value: ReturnType<typeof verifySignedSignupToken>
-    }
-  | {
-      errorMessage: string
-      status: "invalid"
-    }
+export const dynamic = "force-dynamic"
 
 export default async function OnboardingPage({
   searchParams,
@@ -29,8 +15,24 @@ export default async function OnboardingPage({
 }) {
   const params = await searchParams
   const token = typeof params.token === "string" ? params.token : ""
+  const completed = params.status === "completed"
 
   if (!token) {
+    if (completed) {
+      return (
+        <SignupShell
+          eyebrow="Verified setup"
+          stage="verify"
+          title="This verification link has expired."
+          description="This link was already used to create a cooperative workspace and can’t be used again."
+        >
+          <Link className={buttonVariants({ size: "lg" })} href="/signup">
+            Start a new signup
+          </Link>
+        </SignupShell>
+      )
+    }
+
     return (
       <SignupShell
         eyebrow="Verified setup"
@@ -45,26 +47,21 @@ export default async function OnboardingPage({
     )
   }
 
-  const verificationResult = ((): SignupTokenVerificationResult => {
-    try {
-      return {
-        status: "valid",
-        value: verifySignedSignupToken(token),
-      }
-    } catch (error) {
-      return {
-        errorMessage: getVerificationErrorMessage(error),
-        status: "invalid",
-      }
-    }
-  })()
+  const verificationResult = await resolveSignupVerification(token)
 
   if (verificationResult.status === "invalid") {
+    const linkExpired =
+      verificationResult.errorMessage === "The verification link has expired."
+
     return (
       <SignupShell
         eyebrow="Verified setup"
         stage="verify"
-        title="This verification link can’t be used."
+        title={
+          linkExpired
+            ? "This verification link has expired."
+            : "This verification link can’t be used."
+        }
         description={verificationResult.errorMessage}
       >
         <Link className={buttonVariants({ size: "lg" })} href="/signup">

@@ -321,7 +321,9 @@ export const dashboardNavRegistry: NavModule[] = [
             "operations_officer"
           ),
         ]
-      ).title("Imports").data,
+      )
+        .childPaths("/settings/imports")
+        .title("Imports").data,
     ]),
   ]),
 ]

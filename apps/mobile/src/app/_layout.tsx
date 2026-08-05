@@ -4,6 +4,12 @@ import { Text } from "@/components/ui/text"
 import { AuthProvider } from "@/hooks/use-auth"
 import { useColorScheme } from "@/hooks/use-color"
 import { nativewindThemeVars } from "@/lib/nativewind-theme-vars"
+import {
+  captureMobileError,
+  initializeMobileSentry,
+  runMobileObservabilitySmokeTest,
+} from "@/lib/sentry"
+import { getMobileErrorReport } from "@/lib/sentry-policy"
 import { NAV_THEME } from "@/lib/theme"
 import { getThemeOverride } from "@/lib/theme-preference"
 import { TRPCReactProvider } from "@/trpc/client"
@@ -26,8 +32,22 @@ import Toast from "react-native-toast-message"
 import { View } from "react-native"
 import "@/styles/global.css"
 
+initializeMobileSentry()
+runMobileObservabilitySmokeTest()
+
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
-  const presentation = useMemo(() => getErrorPresentation(error), [error])
+  const classifiedError = useMemo(
+    () => getMobileErrorReport(error, "mobile.error_boundary").classified,
+    [error]
+  )
+  const presentation = useMemo(
+    () => getErrorPresentation(classifiedError),
+    [classifiedError]
+  )
+
+  useEffect(() => {
+    captureMobileError(classifiedError, "mobile.error_boundary")
+  }, [classifiedError])
 
   return (
     <View className="flex-1 items-center justify-center bg-background px-6">

@@ -5,19 +5,20 @@ import type {
   PrismaClient,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { stopRemainingScheduleForClearedLoan } from "./loans"
 import { getTenantInitialMigrationState } from "./migration"
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
-      "Live financial record writes are locked until initial migration is finalized.",
+    throw ExpectedQueryError.precondition(
+      "Live financial record writes are locked until initial migration is finalized."
     )
   }
 }
@@ -50,7 +51,7 @@ async function assertCommitmentReductionAllowed(input: {
     })
 
     if (activeFinancingCount > 0) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Strict commitment policy is enabled, so this member's commitment cannot be reduced while serving financing."
       )
     }
@@ -69,7 +70,7 @@ async function assertCommitmentReductionAllowed(input: {
       : 0
 
   if (activeProcurementCount > 0) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Procurement commitment policy is fixed, so this member's commitment cannot be reduced while serving procurement."
     )
   }
@@ -88,7 +89,7 @@ async function assertCommitmentReductionAllowed(input: {
       : 0
 
   if (activeFoodPurchaseCount > 0) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Foodstuff Purchase commitment policy is fixed, so this member's commitment cannot be reduced while serving Foodstuff Purchase."
     )
   }
@@ -119,7 +120,7 @@ export type ContributionSortField =
 export async function listContributions(
   tenantId: string,
   filters?: ListContributionsFilters,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -133,23 +134,41 @@ export async function listContributions(
       : sortField === "committedAmount"
         ? [{ committedAmount: sortDirection }, { postedAt: "desc" as const }]
         : sortField === "extraSavingsAmount"
-          ? [{ extraSavingsAmount: sortDirection }, { postedAt: "desc" as const }]
+          ? [
+              { extraSavingsAmount: sortDirection },
+              { postedAt: "desc" as const },
+            ]
           : sortField === "memberName"
-            ? [{ member: { fullName: sortDirection } }, { postedAt: "desc" as const }]
+            ? [
+                { member: { fullName: sortDirection } },
+                { postedAt: "desc" as const },
+              ]
             : [{ postedAt: sortDirection }, { id: sortDirection }]
 
   const where = {
     tenantId,
     ...(filters?.channel && { channel: filters.channel }),
-    ...(filters?.contributionPlanId && { contributionPlanId: filters.contributionPlanId }),
+    ...(filters?.contributionPlanId && {
+      contributionPlanId: filters.contributionPlanId,
+    }),
     ...(filters?.memberId && { memberId: filters.memberId }),
     ...(filters?.specialSavingsOnly && { extraSavingsAmount: { gt: 0 } }),
     ...(filters?.status && { status: filters.status }),
     ...(filters?.search && {
       member: {
         OR: [
-          { fullName: { contains: filters.search, mode: "insensitive" as const } },
-          { memberNumber: { contains: filters.search, mode: "insensitive" as const } },
+          {
+            fullName: {
+              contains: filters.search,
+              mode: "insensitive" as const,
+            },
+          },
+          {
+            memberNumber: {
+              contains: filters.search,
+              mode: "insensitive" as const,
+            },
+          },
         ],
       },
     }),
@@ -180,7 +199,10 @@ export async function listContributions(
   return { items, total, page, pageSize }
 }
 
-export async function listContributionPlans(tenantId: string, prismaOverride?: PrismaClient) {
+export async function listContributionPlans(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
@@ -236,7 +258,7 @@ export async function setMemberContributionPlan(
     startsAt: Date
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -260,11 +282,16 @@ export async function setMemberContributionPlan(
     })
 
     if (!member) {
-      throw new Error("Member not found.")
+      throw ExpectedQueryError.notFound("Member not found.")
     }
 
-    if (member._count.contributionPlans === 0 && input.startsAt > member.joinedAt) {
-      throw new Error("The first commitment history date cannot be later than the member start date.")
+    if (
+      member._count.contributionPlans === 0 &&
+      input.startsAt > member.joinedAt
+    ) {
+      throw ExpectedQueryError.validation(
+        "The first commitment history date cannot be later than the member start date."
+      )
     }
 
     const activePlan = await tx.contributionPlan.findFirst({
@@ -339,7 +366,7 @@ export async function updateContributionPlan(
     planId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -360,7 +387,7 @@ export async function updateContributionPlan(
     })
 
     if (!existingPlan) {
-      throw new Error("Contribution plan not found.")
+      throw ExpectedQueryError.notFound("Contribution plan not found.")
     }
 
     if (existingPlan.isActive) {
@@ -380,7 +407,9 @@ export async function updateContributionPlan(
       },
       data: {
         amount: input.amount,
-        ...(input.name !== undefined ? { name: input.name.trim() || "Monthly commitment" } : {}),
+        ...(input.name !== undefined
+          ? { name: input.name.trim() || "Monthly commitment" }
+          : {}),
       },
     })
 
@@ -411,7 +440,7 @@ export async function closeContributionPlan(
     planId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -456,7 +485,7 @@ export async function updateMemberPaymentAllocationPreference(
     preference: PaymentAllocationPreference
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -511,7 +540,7 @@ type RecordContributionInput = {
 
 export async function recordContribution(
   input: RecordContributionInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -519,11 +548,21 @@ export async function recordContribution(
     await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   }
 
-  const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
-  const savingsAccount = await getLedgerAccountByCode(input.tenantId, "1000", prisma)
+  const cashAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "2000",
+    prisma
+  )
+  const savingsAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "1000",
+    prisma
+  )
 
   if (!cashAccount || !savingsAccount) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
   }
 
   return prisma.$transaction(async (tx) => {
@@ -554,11 +593,19 @@ export async function recordContribution(
         narration: `Contribution from member${input.periodLabel ? ` for ${input.periodLabel}` : ""}`,
         sourceType: input.sourceType,
         entries: [
-          { ledgerAccountId: cashAccount.id, direction: "debit", amount: input.amount },
-          { ledgerAccountId: savingsAccount.id, direction: "credit", amount: input.amount },
+          {
+            ledgerAccountId: cashAccount.id,
+            direction: "debit",
+            amount: input.amount,
+          },
+          {
+            ledgerAccountId: savingsAccount.id,
+            direction: "credit",
+            amount: input.amount,
+          },
         ],
       },
-      tx as unknown as PrismaClient,
+      tx as unknown as PrismaClient
     )
 
     await tx.member.update({
@@ -603,7 +650,7 @@ export type SettleSupportCaseSpecialSavingsRefundInput = {
 
 function normalizePositiveMoney(value: number, label: string) {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${label} must be greater than 0.`)
+    throw ExpectedQueryError.validation(`${label} must be greater than 0.`)
   }
 
   return Math.round(value * 100) / 100
@@ -611,7 +658,7 @@ function normalizePositiveMoney(value: number, label: string) {
 
 export async function settleSupportCaseSpecialSavingsRefund(
   input: SettleSupportCaseSpecialSavingsRefundInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -623,18 +670,28 @@ export async function settleSupportCaseSpecialSavingsRefund(
   const notes = input.notes?.trim() || null
 
   if (!reference) {
-    throw new Error("Payment reference is required.")
+    throw ExpectedQueryError.validation("Payment reference is required.")
   }
 
   if (Number.isNaN(input.paidAt.getTime())) {
-    throw new Error("Refund payment date is required.")
+    throw ExpectedQueryError.validation("Refund payment date is required.")
   }
 
-  const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
-  const savingsAccount = await getLedgerAccountByCode(input.tenantId, "1000", prisma)
+  const cashAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "2000",
+    prisma
+  )
+  const savingsAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "1000",
+    prisma
+  )
 
   if (!cashAccount || !savingsAccount) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
   }
 
   return prisma.$transaction(async (tx) => {
@@ -665,35 +722,45 @@ export async function settleSupportCaseSpecialSavingsRefund(
     })
 
     if (!actor) {
-      throw new Error("Refund processor does not belong to this cooperative.")
+      throw ExpectedQueryError.permission(
+        "Refund processor does not belong to this cooperative."
+      )
     }
 
     if (!supportCase) {
-      throw new Error("Support case not found.")
+      throw ExpectedQueryError.notFound("Support case not found.")
     }
 
     if (!supportCase.memberId) {
-      throw new Error("A member must be linked before posting a savings refund.")
+      throw ExpectedQueryError.precondition(
+        "A member must be linked before posting a savings refund."
+      )
     }
 
     if (supportCase.specialSavingsWithdrawal) {
-      throw new Error("A special-savings refund has already been posted for this case.")
+      throw ExpectedQueryError.conflict(
+        "A special-savings refund has already been posted for this case."
+      )
     }
 
     if (supportCase.status === "closed") {
-      throw new Error("A refund cannot be posted to a closed support case.")
+      throw ExpectedQueryError.conflict(
+        "A refund cannot be posted to a closed support case."
+      )
     }
 
     if (!supportCase.moneyImpactRequested) {
-      throw new Error("This support case does not request a money-impact action.")
+      throw ExpectedQueryError.precondition(
+        "This support case does not request a money-impact action."
+      )
     }
 
     if (
       !supportCase.requiresFinancialAdjustment ||
       supportCase.financialAdjustmentApprovalStatus !== "approved"
     ) {
-      throw new Error(
-        "Approved financial adjustment review is required before posting a special-savings refund.",
+      throw ExpectedQueryError.precondition(
+        "Approved financial adjustment review is required before posting a special-savings refund."
       )
     }
 
@@ -729,7 +796,7 @@ export async function settleSupportCaseSpecialSavingsRefund(
     })
 
     if (!member) {
-      throw new Error("Member not found.")
+      throw ExpectedQueryError.notFound("Member not found.")
     }
 
     const availableSpecialSavings =
@@ -738,13 +805,15 @@ export async function settleSupportCaseSpecialSavingsRefund(
       Number(withdrawalTotals._sum.amount ?? 0)
 
     if (amount > availableSpecialSavings) {
-      throw new Error(
-        `Refund amount exceeds available special savings of ${availableSpecialSavings.toFixed(2)}.`,
+      throw ExpectedQueryError.validation(
+        `Refund amount exceeds available special savings of ${availableSpecialSavings.toFixed(2)}.`
       )
     }
 
     if (amount > Number(member.totalSavingsSnapshot)) {
-      throw new Error("Refund amount exceeds the member's total savings balance.")
+      throw ExpectedQueryError.validation(
+        "Refund amount exceeds the member's total savings balance."
+      )
     }
 
     const ledgerTransaction = await postLedgerTransaction(
@@ -760,7 +829,7 @@ export async function settleSupportCaseSpecialSavingsRefund(
         tenantId: input.tenantId,
         transactionType: "adjustment",
       },
-      tx as unknown as PrismaClient,
+      tx as unknown as PrismaClient
     )
 
     const withdrawal = await tx.memberSpecialSavingsWithdrawal.create({
@@ -888,7 +957,7 @@ export type RecordMemberPaymentResult = {
 
 export async function recordMemberPaymentMutation(
   input: RecordMemberPaymentInput,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ): Promise<RecordMemberPaymentResult> {
   const member = await prisma.member.findFirst({
     where: {
@@ -901,7 +970,7 @@ export async function recordMemberPaymentMutation(
   })
 
   if (!member) {
-    throw new Error("Member not found.")
+    throw ExpectedQueryError.notFound("Member not found.")
   }
 
   const committedSavingsAmount = input.committedSavingsAmount
@@ -909,18 +978,25 @@ export async function recordMemberPaymentMutation(
   const scheduledLoanServicingAmount = input.scheduledLoanServicingAmount ?? 0
   let extraLoanPaymentAmount = input.extraLoanPaymentAmount ?? 0
   const explicitTotal =
-    committedSavingsAmount + extraSavingsAmount + scheduledLoanServicingAmount + extraLoanPaymentAmount
+    committedSavingsAmount +
+    extraSavingsAmount +
+    scheduledLoanServicingAmount +
+    extraLoanPaymentAmount
 
   if (input.totalAmount !== undefined && input.totalAmount !== null) {
     if (input.totalAmount < explicitTotal) {
-      throw new Error("Total payment cannot be less than the explicitly allocated savings and loan amounts.")
+      throw ExpectedQueryError.validation(
+        "Total payment cannot be less than the explicitly allocated savings and loan amounts."
+      )
     }
 
     const leftover = input.totalAmount - explicitTotal
 
     if (leftover > 0) {
       if (member.paymentAllocationPreference === "manual_split") {
-        throw new Error("This member uses manual split. Allocate the remaining payment explicitly.")
+        throw ExpectedQueryError.precondition(
+          "This member uses manual split. Allocate the remaining payment explicitly."
+        )
       }
 
       if (member.paymentAllocationPreference === "loan_first" && input.loanId) {
@@ -935,15 +1011,31 @@ export async function recordMemberPaymentMutation(
   const totalLoanAmount = scheduledLoanServicingAmount + extraLoanPaymentAmount
 
   if (totalSavingsAmount <= 0 && totalLoanAmount <= 0) {
-    throw new Error("Enter a savings or loan amount to record this payment.")
+    throw ExpectedQueryError.validation(
+      "Enter a savings or loan amount to record this payment."
+    )
   }
 
-  const cashAccount = await getLedgerAccountByCode(input.tenantId, "2000", prisma)
-  const savingsAccount = await getLedgerAccountByCode(input.tenantId, "1000", prisma)
-  const loanReceivableAccount = await getLedgerAccountByCode(input.tenantId, "1100", prisma)
+  const cashAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "2000",
+    prisma
+  )
+  const savingsAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "1000",
+    prisma
+  )
+  const loanReceivableAccount = await getLedgerAccountByCode(
+    input.tenantId,
+    "1100",
+    prisma
+  )
 
   if (!cashAccount || !savingsAccount || !loanReceivableAccount) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
   }
 
   let contributionId: string | null = null
@@ -958,12 +1050,16 @@ export async function recordMemberPaymentMutation(
         channel: input.channel,
         postedAt: input.postedAt,
         status: "posted",
-        committedAmount: committedSavingsAmount > 0 ? committedSavingsAmount : null,
+        committedAmount:
+          committedSavingsAmount > 0 ? committedSavingsAmount : null,
         contributionPlanId: input.contributionPlanId,
         extraSavingsAmount,
         periodLabel: input.periodLabel,
         reference: input.reference,
-        notes: extraSavingsAmount > 0 ? "Includes voluntary extra savings." : undefined,
+        notes:
+          extraSavingsAmount > 0
+            ? "Includes voluntary extra savings."
+            : undefined,
       },
     })
 
@@ -979,11 +1075,19 @@ export async function recordMemberPaymentMutation(
         reference: input.reference,
         narration: `Member savings payment${input.periodLabel ? ` for ${input.periodLabel}` : ""}`,
         entries: [
-          { ledgerAccountId: cashAccount.id, direction: "debit", amount: totalSavingsAmount },
-          { ledgerAccountId: savingsAccount.id, direction: "credit", amount: totalSavingsAmount },
+          {
+            ledgerAccountId: cashAccount.id,
+            direction: "debit",
+            amount: totalSavingsAmount,
+          },
+          {
+            ledgerAccountId: savingsAccount.id,
+            direction: "credit",
+            amount: totalSavingsAmount,
+          },
         ],
       },
-      prisma,
+      prisma
     )
 
     await prisma.member.update({
@@ -996,19 +1100,31 @@ export async function recordMemberPaymentMutation(
 
   if (totalLoanAmount > 0) {
     if (!input.loanId) {
-      throw new Error("A loan must be selected when allocating payment to loan servicing.")
+      throw ExpectedQueryError.validation(
+        "A loan must be selected when allocating payment to loan servicing."
+      )
     }
 
     const loan = await prisma.loan.findFirst({
-      where: { id: input.loanId, tenantId: input.tenantId, memberId: input.memberId },
+      where: {
+        id: input.loanId,
+        tenantId: input.tenantId,
+        memberId: input.memberId,
+      },
     })
-    if (!loan) throw new Error("Loan not found for the selected member.")
+    if (!loan)
+      throw ExpectedQueryError.notFound(
+        "Loan not found for the selected member."
+      )
     const previousOutstandingPrincipal = Number(loan.outstandingPrincipal)
-    const nextOutstandingPrincipal = previousOutstandingPrincipal - totalLoanAmount
+    const nextOutstandingPrincipal =
+      previousOutstandingPrincipal - totalLoanAmount
     const repaymentClearsLoan = nextOutstandingPrincipal <= 0
 
     if (totalLoanAmount > previousOutstandingPrincipal) {
-      throw new Error("Loan servicing amount exceeds the outstanding loan balance.")
+      throw ExpectedQueryError.validation(
+        "Loan servicing amount exceeds the outstanding loan balance."
+      )
     }
 
     const repayment = await prisma.repayment.create({
@@ -1063,11 +1179,19 @@ export async function recordMemberPaymentMutation(
         reference: input.reference,
         narration: "Loan servicing payment received",
         entries: [
-          { ledgerAccountId: cashAccount.id, direction: "debit", amount: totalLoanAmount },
-          { ledgerAccountId: loanReceivableAccount.id, direction: "credit", amount: totalLoanAmount },
+          {
+            ledgerAccountId: cashAccount.id,
+            direction: "debit",
+            amount: totalLoanAmount,
+          },
+          {
+            ledgerAccountId: loanReceivableAccount.id,
+            direction: "credit",
+            amount: totalLoanAmount,
+          },
         ],
       },
-      prisma,
+      prisma
     )
 
     if (repaymentClearsLoan) {
@@ -1085,8 +1209,7 @@ export async function recordMemberPaymentMutation(
             repaymentAmount: totalLoanAmount,
             previousOutstandingPrincipal,
             closedAt: input.postedAt.toISOString(),
-            waivedScheduleItemCount:
-              settlement?.waivedScheduleItemCount ?? 0,
+            waivedScheduleItemCount: settlement?.waivedScheduleItemCount ?? 0,
             waivedScheduleItemIds: settlement?.waivedScheduleItemIds ?? [],
             waivedScheduleOutstandingAmount:
               settlement?.waivedOutstandingAmount ?? 0,
@@ -1126,21 +1249,21 @@ export async function recordMemberPaymentMutation(
 
 export async function recordMemberPayment(
   input: RecordMemberPaymentInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   return prisma.$transaction((tx) =>
-    recordMemberPaymentMutation(input, tx as unknown as PrismaClient),
+    recordMemberPaymentMutation(input, tx as unknown as PrismaClient)
   )
 }
 
 export async function getContributionHistory(
   tenantId: string,
   memberId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -1155,7 +1278,7 @@ export async function getContributionHistory(
 export async function getMemberSavingsTotal(
   tenantId: string,
   memberId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")

@@ -3,6 +3,7 @@ import type {
   MemberStatus,
   PrismaClient,
 } from "../../generated/prisma/client"
+import { AppError } from "@halaalvest/errors"
 import { createPrismaClient } from "../prisma"
 import { getExpectedMemberBackfillMonthKeys } from "./migration"
 import type { TenantMigrationSetupMode } from "./tenant-finance"
@@ -292,13 +293,18 @@ export async function assertMemberOperationalReadiness(
   const readiness = await getMemberOperationalReadiness(input, prismaOverride)
 
   if (!readiness) {
-    throw new Error("Member profile needs linking before continuing.")
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage: "Member profile needs linking before continuing.",
+    })
   }
 
   if (!readiness.isReady) {
-    throw new Error(
-      "Member verification is required before financial or operational actions can continue."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Member verification is required before financial or operational actions can continue.",
+    })
   }
 
   return readiness

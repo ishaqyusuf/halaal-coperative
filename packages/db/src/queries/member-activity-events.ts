@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { assertMigrationAdjustmentMutationOpen } from "./migration-backfill-adjustments"
 
@@ -13,7 +14,9 @@ function assertMemberActivityStatus(
   status: string
 ): asserts status is MemberActivityEventStatus {
   if (status !== "active" && status !== "inactive") {
-    throw new Error("Member activity status must be active or inactive.")
+    throw ExpectedQueryError.validation(
+      "Member activity status must be active or inactive."
+    )
   }
 }
 
@@ -88,7 +91,7 @@ export async function upsertMemberActivityEvent(
     : null
 
   if (input.eventId && !existingById) {
-    throw new Error("Member activity event not found.")
+    throw ExpectedQueryError.notFound("Member activity event not found.")
   }
 
   let event
@@ -155,7 +158,7 @@ export async function deleteMemberActivityEvent(
   })
 
   if (!event) {
-    throw new Error("Member activity event not found.")
+    throw ExpectedQueryError.notFound("Member activity event not found.")
   }
 
   await prisma.memberActivityEvent.delete({

@@ -1,7 +1,12 @@
 "use client"
 
 import { getErrorPresentation } from "@halaalvest/errors"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
+import { captureMarketingError } from "@/lib/sentry"
+import {
+  getMarketingErrorReport,
+  isServerCapturedMarketingError,
+} from "@/lib/sentry-policy"
 
 export default function MarketingError({
   error,
@@ -10,7 +15,20 @@ export default function MarketingError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  const presentation = useMemo(() => getErrorPresentation(error), [error])
+  const classifiedError = useMemo(
+    () => getMarketingErrorReport(error, "marketing.error_boundary").classified,
+    [error]
+  )
+  const presentation = useMemo(
+    () => getErrorPresentation(classifiedError),
+    [classifiedError]
+  )
+
+  useEffect(() => {
+    if (!isServerCapturedMarketingError(error)) {
+      captureMarketingError(classifiedError, "marketing.error_boundary")
+    }
+  }, [classifiedError, error])
 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-6 text-center">

@@ -34,6 +34,10 @@ function nestedPublicError(error: unknown) {
   return isPublicError(nested) ? nested : null
 }
 
+export function hasPublicErrorEnvelope(error: unknown) {
+  return nestedPublicError(error) !== null
+}
+
 export function toPublicError(
   error: unknown,
   options: ErrorClassificationOptions = {}

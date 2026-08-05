@@ -1,5 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { signupVerificationPayloadSchema, type SignupVerificationPayload } from "./signup-flow"
+import { AppError } from "@halaalvest/errors"
+import {
+  signupVerificationPayloadSchema,
+  type SignupVerificationPayload,
+} from "./signup-flow"
 
 function getSignupTokenSecret() {
   const configuredSecret = process.env.SIGNUP_TOKEN_SECRET?.trim()
@@ -12,11 +16,17 @@ function getSignupTokenSecret() {
     return "halaalvest-dev-signup-secret"
   }
 
-  throw new Error("SIGNUP_TOKEN_SECRET must be configured in production.")
+  throw new AppError({
+    code: "PROVIDER_UNAVAILABLE",
+    internalMessage: "SIGNUP_TOKEN_SECRET must be configured in production.",
+    publicMessage: "Signup verification is temporarily unavailable.",
+  })
 }
 
 function sign(body: string) {
-  return createHmac("sha256", getSignupTokenSecret()).update(body).digest("base64url")
+  return createHmac("sha256", getSignupTokenSecret())
+    .update(body)
+    .digest("base64url")
 }
 
 export function createSignedSignupToken(payload: SignupVerificationPayload) {
@@ -45,7 +55,7 @@ export function verifySignedSignupToken(token: string) {
   }
 
   const parsed = signupVerificationPayloadSchema.safeParse(
-    JSON.parse(Buffer.from(body, "base64url").toString("utf8")),
+    JSON.parse(Buffer.from(body, "base64url").toString("utf8"))
   )
 
   if (!parsed.success) {

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 
@@ -51,19 +52,28 @@ export type MemberSignupLinkAccessRecord = {
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
-      "Live financial record writes are locked until initial migration is finalized.",
+    throw ExpectedQueryError.precondition(
+      "Live financial record writes are locked until initial migration is finalized."
     )
   }
 }
 
 function mapAnalytics(
-  counts: Map<string, { approvedCount: number; pendingApprovalCount: number; rejectedCount: number; totalRequests: number; verifiedCount: number }>,
+  counts: Map<
+    string,
+    {
+      approvedCount: number
+      pendingApprovalCount: number
+      rejectedCount: number
+      totalRequests: number
+      verifiedCount: number
+    }
+  >,
   input: {
     id: string
     tenantId: string
@@ -78,7 +88,7 @@ function mapAnalytics(
     createdByUserId: string | null
     createdAt: Date
     updatedAt: Date
-  },
+  }
 ): MemberSignupLinkRecord {
   const analytics = counts.get(input.id) ?? {
     approvedCount: 0,
@@ -93,7 +103,9 @@ function mapAnalytics(
     analytics: {
       ...analytics,
       remainingSlots:
-        input.maxSignups === null ? null : Math.max(0, input.maxSignups - analytics.totalRequests),
+        input.maxSignups === null
+          ? null
+          : Math.max(0, input.maxSignups - analytics.totalRequests),
     },
   }
 }
@@ -103,7 +115,7 @@ function buildAnalyticsMap(
     _count: { _all: number }
     signupLinkId: string | null
     status: string
-  }>,
+  }>
 ) {
   const counts = new Map<
     string,
@@ -151,7 +163,7 @@ function buildAnalyticsMap(
 
 export async function getTenantMemberSignupSettings(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<TenantMemberSignupSettings> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -172,8 +184,9 @@ export async function getTenantMemberSignupSettings(
 
   return {
     memberSignupAccessMode:
-      (policy?.memberSignupAccessMode as MemberSignupAccessModeValue | undefined) ??
-      "in_office",
+      (policy?.memberSignupAccessMode as
+        | MemberSignupAccessModeValue
+        | undefined) ?? "in_office",
   }
 }
 
@@ -183,7 +196,7 @@ export async function updateTenantMemberSignupSettings(
     memberSignupAccessMode: MemberSignupAccessModeValue
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -218,7 +231,7 @@ export async function updateTenantMemberSignupSettings(
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return policy
@@ -226,7 +239,7 @@ export async function updateTenantMemberSignupSettings(
 
 export async function listMemberSignupLinks(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MemberSignupLinkRecord[]> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -265,7 +278,7 @@ export async function getMemberSignupLinkById(
     linkId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MemberSignupLinkRecord | null> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -306,7 +319,7 @@ export async function getMemberSignupLinkAccess(
     tenantId: string
     tokenVersion: number
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MemberSignupLinkAccessRecord | null> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -358,7 +371,7 @@ export async function createMemberSignupLink(
     notes?: string | null
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -395,7 +408,7 @@ export async function createMemberSignupLink(
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return link
@@ -411,7 +424,7 @@ export async function updateMemberSignupLink(
     notes?: string | null
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -432,7 +445,7 @@ export async function updateMemberSignupLink(
   })
 
   if (!existingLink) {
-    throw new Error("Signup link not found.")
+    throw ExpectedQueryError.notFound("Signup link not found.")
   }
 
   const link = await prisma.memberSignupLink.update({
@@ -462,7 +475,7 @@ export async function updateMemberSignupLink(
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return link
@@ -475,7 +488,7 @@ export async function setMemberSignupLinkEnabled(
     linkId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -496,7 +509,7 @@ export async function setMemberSignupLinkEnabled(
   })
 
   if (!existingLink) {
-    throw new Error("Signup link not found.")
+    throw ExpectedQueryError.notFound("Signup link not found.")
   }
 
   const link = await prisma.memberSignupLink.update({
@@ -510,7 +523,9 @@ export async function setMemberSignupLinkEnabled(
 
   await createAuditLogEntry(
     {
-      action: input.enabled ? "member_signup_link.enabled" : "member_signup_link.disabled",
+      action: input.enabled
+        ? "member_signup_link.enabled"
+        : "member_signup_link.disabled",
       actorType: "user",
       actorUserId: input.actorUserId,
       entityId: link.id,
@@ -523,7 +538,7 @@ export async function setMemberSignupLinkEnabled(
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return link
@@ -535,7 +550,7 @@ export async function rotateMemberSignupLinkToken(
     linkId: string
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -556,7 +571,7 @@ export async function rotateMemberSignupLinkToken(
   })
 
   if (!existingLink) {
-    throw new Error("Signup link not found.")
+    throw ExpectedQueryError.notFound("Signup link not found.")
   }
 
   const link = await prisma.memberSignupLink.update({
@@ -583,7 +598,7 @@ export async function rotateMemberSignupLinkToken(
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return link

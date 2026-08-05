@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 
 export const tenantServiceAccessModes = [
@@ -110,7 +111,9 @@ function normalizeInputPositiveInteger(
   const numberValue = Number(value)
 
   if (!Number.isInteger(numberValue) || numberValue <= 0) {
-    throw new Error(`${label} must be a positive whole number.`)
+    throw ExpectedQueryError.validation(
+      `${label} must be a positive whole number.`
+    )
   }
 
   return numberValue
@@ -170,7 +173,7 @@ function assertTenantServiceAccessMode(
   value: unknown
 ): asserts value is TenantServiceAccessMode {
   if (!isTenantServiceAccessMode(value)) {
-    throw new Error("Invalid tenant service access mode.")
+    throw ExpectedQueryError.validation("Invalid tenant service access mode.")
   }
 }
 
@@ -179,11 +182,12 @@ function normalizeInputPolicy(
   fallback: TenantOperationProfilePolicy
 ) {
   return {
-    foodPurchaseMaximumActiveObligationsPerMember: normalizeInputPositiveInteger(
-      input?.foodPurchaseMaximumActiveObligationsPerMember,
-      fallback.foodPurchaseMaximumActiveObligationsPerMember,
-      "Foodstuff Purchase active obligation limit"
-    ),
+    foodPurchaseMaximumActiveObligationsPerMember:
+      normalizeInputPositiveInteger(
+        input?.foodPurchaseMaximumActiveObligationsPerMember,
+        fallback.foodPurchaseMaximumActiveObligationsPerMember,
+        "Foodstuff Purchase active obligation limit"
+      ),
     foodPurchaseRequiresOpenCycle:
       typeof input?.foodPurchaseRequiresOpenCycle === "boolean"
         ? input.foodPurchaseRequiresOpenCycle
@@ -295,7 +299,9 @@ export async function ensureTenantOperationProfileDefaults(
   }
 
   if (!profile) {
-    throw new Error("Could not initialize tenant operation profile.")
+    throw new QueryInfrastructureError(
+      "Could not initialize tenant operation profile."
+    )
   }
 
   await Promise.all(
@@ -373,7 +379,7 @@ export async function updateTenantOperationProfile(
 
   for (const [serviceKey, accessMode] of Object.entries(input.services ?? {})) {
     if (!isTenantServiceKey(serviceKey)) {
-      throw new Error("Invalid tenant service key.")
+      throw ExpectedQueryError.validation("Invalid tenant service key.")
     }
 
     assertTenantServiceAccessMode(accessMode)
@@ -389,7 +395,7 @@ export async function updateTenantOperationProfile(
   const changeReason = input.changeReason?.trim() ?? ""
 
   if (restrictiveServiceKeys.length > 0 && changeReason.length === 0) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "A reason is required when disabling a service, making it view-only, or removing member self-service access."
     )
   }

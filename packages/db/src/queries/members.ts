@@ -7,6 +7,7 @@ import type {
   RepaymentScheduleStatus,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { getMemberTransactions } from "./ledger"
 import {
   getMembersOperationalReadiness,
@@ -257,7 +258,7 @@ export async function ensureMemberPortalAccess(
     })
 
     if (!member) {
-      throw new Error("Member not found.")
+      throw ExpectedQueryError.notFound("Member not found.")
     }
 
     const email = (member.user?.email ?? member.email ?? "")
@@ -265,7 +266,7 @@ export async function ensureMemberPortalAccess(
       .toLowerCase()
 
     if (!email) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Add an email address to this member before sending portal access."
       )
     }
@@ -311,7 +312,9 @@ export async function ensureMemberPortalAccess(
     })
 
     if (linkedMember && linkedMember.id !== member.id) {
-      throw new Error("This email is already linked to another member profile.")
+      throw ExpectedQueryError.conflict(
+        "This email is already linked to another member profile."
+      )
     }
 
     if (member.userId !== user.id) {
@@ -507,7 +510,7 @@ async function assertMemberProfileMutationOpen(
   }
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member profile writes are locked until initial migration is finalized."
     )
   }
@@ -523,7 +526,7 @@ async function assertMemberProfileMutationOpen(
       .filter((step) => blockingStepKeys.has(step.key))
       .map((step) => step.label)
 
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       `Member profiles cannot be created until these setup steps are complete: ${labels.join(", ")}.`
     )
   }
@@ -533,7 +536,7 @@ async function assertMemberProfileMutationOpen(
     migrationState.counts.appliedBackfillMembers > 0 ||
     migrationState.counts.appliedBackfillMonths > 0
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member profiles are locked because member ledger backfill has already started. Finish migration or create new members after go-live."
     )
   }
@@ -549,7 +552,7 @@ async function assertLiveFinancialWritesOpen(
   )
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
   }
@@ -628,7 +631,7 @@ async function assertCollectionSourceAssignmentAllowed(input: {
   )
 
   if (!operationProfile.services.collection_sources.canStaffCreate) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Collection Source assignment is not enabled for this cooperative."
     )
   }
@@ -645,7 +648,7 @@ async function assertCollectionSourceAssignmentAllowed(input: {
   )
 
   if (!deductionSource) {
-    throw new Error(
+    throw ExpectedQueryError.permission(
       "Collection Source does not belong to this cooperative or is inactive."
     )
   }
@@ -910,13 +913,10 @@ export async function createMember(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  return prisma.$transaction(
-    async (tx) => createMemberWithState(tx, input),
-    {
-      maxWait: 10_000,
-      timeout: 30_000,
-    }
-  )
+  return prisma.$transaction(async (tx) => createMemberWithState(tx, input), {
+    maxWait: 10_000,
+    timeout: 30_000,
+  })
 }
 
 export type UpdateMemberInput = {
@@ -1186,7 +1186,7 @@ export async function updateMemberDocumentReview(
     })
 
     if (!existingDocument) {
-      throw new Error("Member document not found")
+      throw ExpectedQueryError.notFound("Member document not found")
     }
 
     const document = await tx.memberDocument.update({

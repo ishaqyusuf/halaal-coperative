@@ -3,6 +3,7 @@ import type {
   RepaymentScheduleStatus,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { applyLoanRequestChargesInTransaction } from "./charges"
 import { getDashboardMetrics } from "./dashboard"
 import {
@@ -19,7 +20,7 @@ async function assertLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
   }
@@ -467,7 +468,9 @@ function calculateEstimatedMonthlyServicing(
   requestedTermMonths: number
 ) {
   if (requestedTermMonths <= 0) {
-    throw new Error("Repayment term must be at least one month.")
+    throw ExpectedQueryError.validation(
+      "Repayment term must be at least one month."
+    )
   }
 
   return Number((requestedAmount / requestedTermMonths).toFixed(2))
@@ -564,10 +567,10 @@ export async function submitLoanRequest(
     getDashboardMetrics(input.tenantId, prisma),
   ])
 
-  if (!member) throw new Error("Member not found")
-  if (!loanProduct) throw new Error("Loan product not found")
+  if (!member) throw ExpectedQueryError.notFound("Member not found")
+  if (!loanProduct) throw ExpectedQueryError.notFound("Loan product not found")
   if (input.requestedTermMonths > loanProduct.termMonths) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       `Requested term exceeds the product limit of ${loanProduct.termMonths} months.`
     )
   }
@@ -577,7 +580,9 @@ export async function submitLoanRequest(
   )
 
   if (guarantorMemberIds.includes(input.memberId)) {
-    throw new Error("A member cannot guarantee their own financing request.")
+    throw ExpectedQueryError.validation(
+      "A member cannot guarantee their own financing request."
+    )
   }
 
   const guarantorMembers = guarantorMemberIds.length
@@ -597,7 +602,9 @@ export async function submitLoanRequest(
     : []
 
   if (guarantorMembers.length !== guarantorMemberIds.length) {
-    throw new Error("One or more guarantor members could not be found.")
+    throw ExpectedQueryError.notFound(
+      "One or more guarantor members could not be found."
+    )
   }
 
   const specialSavingsCountsForEligibility =
@@ -617,7 +624,9 @@ export async function submitLoanRequest(
     eligibilitySavingsBase * Math.min(policyMultiple, productMultiple)
 
   if (input.requestedAmount > eligibleAmount) {
-    throw new Error("Requested amount exceeds the member eligibility snapshot.")
+    throw ExpectedQueryError.validation(
+      "Requested amount exceeds the member eligibility snapshot."
+    )
   }
 
   if (
@@ -633,7 +642,7 @@ export async function submitLoanRequest(
     })
 
     if (activeFinancingCount > 0) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "This cooperative blocks emergency financing while the member has active financing."
       )
     }
@@ -787,11 +796,11 @@ export async function reviewLoanGuarantorApproval(
     })
 
     if (!existingApproval) {
-      throw new Error("Loan guarantor approval not found.")
+      throw ExpectedQueryError.notFound("Loan guarantor approval not found.")
     }
 
     if (existingApproval.loanRequest.status === "approved") {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "Approved loan requests cannot change guarantor evidence."
       )
     }
@@ -875,17 +884,17 @@ export async function respondMemberLoanGuarantorApproval(
     })
 
     if (!existingApproval) {
-      throw new Error("Loan guarantor approval not found.")
+      throw ExpectedQueryError.notFound("Loan guarantor approval not found.")
     }
 
     if (existingApproval.loanRequest.status === "approved") {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "Approved loan requests cannot change guarantor evidence."
       )
     }
 
     if (existingApproval.status !== "pending") {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "Only pending guarantor approvals can be answered by the guarantor."
       )
     }
@@ -963,7 +972,8 @@ export async function reviewLoanRequest(
     const existingRequest = await tx.loanRequest.findFirst({
       where: { id: input.loanRequestId, tenantId: input.tenantId },
     })
-    if (!existingRequest) throw new Error("Loan request not found")
+    if (!existingRequest)
+      throw ExpectedQueryError.notFound("Loan request not found")
 
     const policy = await tx.tenantPolicy.findUnique({
       where: { tenantId: input.tenantId },
@@ -993,7 +1003,7 @@ export async function reviewLoanRequest(
       )
 
       if (rejectedGuarantor) {
-        throw new Error(
+        throw ExpectedQueryError.conflict(
           "Loan request cannot be approved because a guarantor rejected it."
         )
       }
@@ -1003,7 +1013,7 @@ export async function reviewLoanRequest(
       )
 
       if (pendingGuarantor) {
-        throw new Error(
+        throw ExpectedQueryError.precondition(
           "Loan request cannot be approved until all guarantors approve."
         )
       }
@@ -1147,7 +1157,7 @@ export async function recordCollectionFollowUp(
   })
 
   if (!item) {
-    throw new Error("Repayment schedule item not found")
+    throw ExpectedQueryError.notFound("Repayment schedule item not found")
   }
 
   const followUp = await prisma.collectionFollowUp.create({
@@ -1343,7 +1353,7 @@ export async function disburseLoan(
   const existingLoan = await prisma.loan.findFirst({
     where: { id: input.loanId, tenantId: input.tenantId },
   })
-  if (!existingLoan) throw new Error("Loan not found")
+  if (!existingLoan) throw ExpectedQueryError.notFound("Loan not found")
 
   const policy = await prisma.tenantPolicy.findUnique({
     where: { tenantId: input.tenantId },
@@ -1362,7 +1372,7 @@ export async function disburseLoan(
     requiresDeployableFunds &&
     Number(existingLoan.principalAmount) > deployableFunds.deployableFunds
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       `Deployable funds are insufficient for this disbursement. Available: ${deployableFunds.deployableFunds.toLocaleString("en-NG")}.`
     )
   }
@@ -1379,7 +1389,9 @@ export async function disburseLoan(
   )
 
   if (!cashAccount || !loanReceivableAccount) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
   }
 
   return prisma.$transaction(async (tx) => {
@@ -1511,21 +1523,25 @@ export async function postRepayment(
   )
 
   if (!cashAccount || !loanReceivableAccount) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
   }
 
   return prisma.$transaction(async (tx) => {
     const loan = await tx.loan.findFirst({
       where: { id: input.loanId, tenantId: input.tenantId },
     })
-    if (!loan) throw new Error("Loan not found")
+    if (!loan) throw ExpectedQueryError.notFound("Loan not found")
     const previousOutstandingPrincipal = Number(loan.outstandingPrincipal)
     const nextOutstandingPrincipal = previousOutstandingPrincipal - input.amount
     const repaymentClearsLoan = nextOutstandingPrincipal <= 0
     const postedAt = new Date()
 
     if (input.amount > previousOutstandingPrincipal) {
-      throw new Error("Repayment amount exceeds the outstanding loan balance.")
+      throw ExpectedQueryError.validation(
+        "Repayment amount exceeds the outstanding loan balance."
+      )
     }
 
     const repayment = await tx.repayment.create({

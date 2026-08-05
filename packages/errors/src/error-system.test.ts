@@ -2,13 +2,22 @@ import { describe, expect, it } from "bun:test"
 import {
   AppError,
   classifyError,
+  createErrorReferenceFromDigest,
   getErrorPresentation,
   getPublicError,
   getPublicErrorHttpStatus,
+  hasPublicErrorEnvelope,
   toPublicError,
 } from "."
 
 describe("shared error contract", () => {
+  it("derives a stable safe reference from a Next.js digest", () => {
+    const reference = createErrorReferenceFromDigest("123456789")
+    expect(reference).toBe(createErrorReferenceFromDigest("123456789"))
+    expect(reference).toMatch(/^ERR-NEXT-[A-Z0-9]{14}$/)
+    expect(reference).not.toContain("123456789")
+  })
+
   it.each([
     ["P2028", "DATABASE_TRANSACTION_TIMEOUT", true],
     ["P2024", "DATABASE_POOL_TIMEOUT", true],
@@ -83,6 +92,8 @@ describe("shared error contract", () => {
     })
 
     expect(getPublicError(clientError)).toEqual(appError)
+    expect(hasPublicErrorEnvelope(clientError)).toBe(true)
+    expect(hasPublicErrorEnvelope(appError)).toBe(false)
     expect(getPublicError(appError)).toBe(appError)
     expect(getErrorPresentation(appError).reference).toBe("Reference: ERR-AUTH")
   })

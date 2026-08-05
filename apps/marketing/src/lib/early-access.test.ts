@@ -22,6 +22,49 @@ const requestInput = {
 }
 
 describe("early access tokens", () => {
+  test("treats a missing production token secret as reportable configuration failure", () => {
+    const previousNodeEnvironment = process.env.NODE_ENV
+    const previousEarlyAccessSecret = process.env.EARLY_ACCESS_TOKEN_SECRET
+    const previousSignupSecret = process.env.SIGNUP_TOKEN_SECRET
+    let captured: unknown
+
+    try {
+      Reflect.set(process.env, "NODE_ENV", "production")
+      Reflect.deleteProperty(process.env, "EARLY_ACCESS_TOKEN_SECRET")
+      Reflect.deleteProperty(process.env, "SIGNUP_TOKEN_SECRET")
+      createSignedEarlyAccessRequestToken(
+        createEarlyAccessRequestPayload(requestInput)
+      )
+    } catch (error) {
+      captured = error
+    } finally {
+      if (previousNodeEnvironment === undefined) {
+        Reflect.deleteProperty(process.env, "NODE_ENV")
+      } else {
+        Reflect.set(process.env, "NODE_ENV", previousNodeEnvironment)
+      }
+      if (previousEarlyAccessSecret === undefined) {
+        Reflect.deleteProperty(process.env, "EARLY_ACCESS_TOKEN_SECRET")
+      } else {
+        Reflect.set(
+          process.env,
+          "EARLY_ACCESS_TOKEN_SECRET",
+          previousEarlyAccessSecret
+        )
+      }
+      if (previousSignupSecret === undefined) {
+        Reflect.deleteProperty(process.env, "SIGNUP_TOKEN_SECRET")
+      } else {
+        Reflect.set(process.env, "SIGNUP_TOKEN_SECRET", previousSignupSecret)
+      }
+    }
+
+    expect(captured).toMatchObject({
+      code: "PROVIDER_UNAVAILABLE",
+      reportable: true,
+    })
+  })
+
   test("round-trips early access approval payloads", () => {
     const payload = createEarlyAccessRequestPayload(requestInput)
     const token = createSignedEarlyAccessRequestToken(payload)

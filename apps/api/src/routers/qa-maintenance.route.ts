@@ -6,6 +6,7 @@ import {
   getQaMaintenancePreview,
   getQaPurgeRun,
 } from "@halaalvest/db"
+import { AppError } from "@halaalvest/errors"
 import {
   previewQaUploads,
   getQaHostingCredentialBlocker,
@@ -23,17 +24,19 @@ const previewTtlMs = 10 * 60 * 1_000
 
 function getMaintenanceSecret() {
   const secret =
-    process.env.QA_MAINTENANCE_SECRET?.trim() ??
-    process.env.AUTH_SECRET?.trim()
+    process.env.QA_MAINTENANCE_SECRET?.trim() ?? process.env.AUTH_SECRET?.trim()
 
   if (secret) return secret
   if (process.env.NODE_ENV !== "production") {
     return "development-only-qa-maintenance-secret"
   }
 
-  throw new Error(
-    "QA_MAINTENANCE_SECRET or AUTH_SECRET is required in production.",
-  )
+  throw new AppError({
+    code: "UNEXPECTED",
+    internalMessage:
+      "QA_MAINTENANCE_SECRET or AUTH_SECRET is required in production.",
+    operation: "qaMaintenance.secret",
+  })
 }
 
 function signPreview(fingerprint: string, expiresAt: number) {
@@ -73,7 +76,7 @@ function verifyPreviewToken(token: string, fingerprint: string) {
 async function buildPreview() {
   const preview = await getQaMaintenancePreview()
   const uploads = await previewQaUploads(
-    preview.tenants.map((tenant) => tenant.id),
+    preview.tenants.map((tenant) => tenant.id)
   )
   const credentialBlocker = getQaHostingCredentialBlocker()
 
@@ -98,7 +101,7 @@ async function buildPreview() {
 
 export const qaMaintenanceRouter = createTRPCRouter({
   candidates: platformOwnerProcedure.query(() =>
-    discoverQaTenantCandidates(getServerQaEmailDomains()),
+    discoverQaTenantCandidates(getServerQaEmailDomains())
   ),
 
   adopt: platformOwnerProcedure
@@ -107,7 +110,7 @@ export const qaMaintenanceRouter = createTRPCRouter({
       adoptQaTenantCandidates({
         domains: getServerQaEmailDomains(),
         tenantIds: input.tenantIds,
-      }),
+      })
     ),
 
   preview: platformOwnerProcedure.query(async () => {
@@ -126,7 +129,7 @@ export const qaMaintenanceRouter = createTRPCRouter({
       z.object({
         confirmation: z.literal(QA_PURGE_CONFIRMATION),
         previewToken: z.string().min(1),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       const preview = await buildPreview()
@@ -156,7 +159,7 @@ export const qaMaintenanceRouter = createTRPCRouter({
         async (payload) => {
           await qaPurgeHandler(payload)
         },
-        { runId: run.id },
+        { runId: run.id }
       )
 
       return run

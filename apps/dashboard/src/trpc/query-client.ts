@@ -1,4 +1,7 @@
-import { getErrorPresentation } from "@halaalvest/errors"
+import {
+  getErrorPresentation,
+  hasPublicErrorEnvelope,
+} from "@halaalvest/errors"
 import {
   defaultShouldDehydrateQuery,
   isServer,
@@ -8,6 +11,8 @@ import {
 } from "@tanstack/react-query"
 import { toast } from "@halaalvest/ui/components/use-toast"
 import superjson from "superjson"
+import { captureDashboardError } from "@/lib/sentry"
+import { getDashboardErrorReport } from "@/lib/sentry-policy"
 
 function isUnauthorizedError(error: Error) {
   return (
@@ -22,7 +27,13 @@ export function makeQueryClient() {
     mutationCache: new MutationCache({
       onError: (error, _variables, _context, mutation) => {
         if (isServer || mutation.options.onError) return
-        const presentation = getErrorPresentation(error)
+        const report = hasPublicErrorEnvelope(error)
+          ? null
+          : getDashboardErrorReport(error, "dashboard.mutation_cache")
+        if (report) {
+          captureDashboardError(report.classified, "dashboard.mutation_cache")
+        }
+        const presentation = getErrorPresentation(report?.classified ?? error)
         toast({
           description: `${presentation.description} ${presentation.reference}`,
           title: presentation.title,
@@ -33,7 +44,13 @@ export function makeQueryClient() {
     queryCache: new QueryCache({
       onError: (error, query) => {
         if (isServer || query.state.data !== undefined) return
-        const presentation = getErrorPresentation(error)
+        const report = hasPublicErrorEnvelope(error)
+          ? null
+          : getDashboardErrorReport(error, "dashboard.query_cache")
+        if (report) {
+          captureDashboardError(report.classified, "dashboard.query_cache")
+        }
+        const presentation = getErrorPresentation(report?.classified ?? error)
         toast({
           description: `${presentation.description} ${presentation.reference}`,
           title: presentation.title,

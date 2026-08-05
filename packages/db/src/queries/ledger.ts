@@ -1,5 +1,11 @@
-import type { EntryDirection, LedgerAccountType, LedgerTransactionType, PrismaClient } from "../../generated/prisma/client"
+import type {
+  EntryDirection,
+  LedgerAccountType,
+  LedgerTransactionType,
+  PrismaClient,
+} from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { getTenantInitialMigrationState } from "./migration"
 
 export type LedgerAccountSeed = {
@@ -10,24 +16,49 @@ export type LedgerAccountSeed = {
 }
 
 const STANDARD_CHART_OF_ACCOUNTS: LedgerAccountSeed[] = [
-  { code: "1000", name: "Member Savings", accountType: "liability", isSystem: true },
-  { code: "1100", name: "Loan Receivable", accountType: "asset", isSystem: true },
+  {
+    code: "1000",
+    name: "Member Savings",
+    accountType: "liability",
+    isSystem: true,
+  },
+  {
+    code: "1100",
+    name: "Loan Receivable",
+    accountType: "asset",
+    isSystem: true,
+  },
   { code: "2000", name: "Cash / Bank", accountType: "asset", isSystem: true },
-  { code: "3000", name: "Charge Income", accountType: "income", isSystem: true },
+  {
+    code: "3000",
+    name: "Charge Income",
+    accountType: "income",
+    isSystem: true,
+  },
   { code: "3100", name: "Levy Income", accountType: "income", isSystem: true },
-  { code: "3200", name: "Member Share Capital", accountType: "equity", isSystem: true },
-  { code: "4000", name: "Cooperative Equity", accountType: "equity", isSystem: true },
+  {
+    code: "3200",
+    name: "Member Share Capital",
+    accountType: "equity",
+    isSystem: true,
+  },
+  {
+    code: "4000",
+    name: "Cooperative Equity",
+    accountType: "equity",
+    isSystem: true,
+  },
 ]
 
 export async function ensureTenantLedgerAccounts(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
   const standardAccountCodes = STANDARD_CHART_OF_ACCOUNTS.map(
-    (account) => account.code,
+    (account) => account.code
   )
 
   await prisma.ledgerAccount.createMany({
@@ -61,7 +92,7 @@ export async function ensureTenantLedgerAccounts(
     const missingCodes = standardAccountCodes.filter((code) => !accounts[code])
 
     throw new Error(
-      `Ledger bootstrap failed for account codes: ${missingCodes.join(", ")}`,
+      `Ledger bootstrap failed for account codes: ${missingCodes.join(", ")}`
     )
   }
 
@@ -71,7 +102,7 @@ export async function ensureTenantLedgerAccounts(
 export async function getLedgerAccountByCode(
   tenantId: string,
   code: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -83,7 +114,7 @@ export async function getLedgerAccountByCode(
 
 export async function getLedgerAccountsByTenant(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -117,7 +148,7 @@ export type PostLedgerTransactionInput = {
 
 export async function postLedgerTransaction(
   input: PostLedgerTransactionInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -125,18 +156,20 @@ export async function postLedgerTransaction(
   if (input.sourceType !== "backfill" && input.sourceType !== "import") {
     const migrationState = await getTenantInitialMigrationState(
       input.tenantId,
-      prisma,
+      prisma
     )
 
     if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-      throw new Error(
-        "Ledger transaction writes are locked until initial migration is finalized.",
+      throw ExpectedQueryError.precondition(
+        "Ledger transaction writes are locked until initial migration is finalized."
       )
     }
   }
 
   if (input.entries.length < 2) {
-    throw new Error("A ledger transaction requires at least two entries")
+    throw new QueryInfrastructureError(
+      "A ledger transaction requires at least two entries"
+    )
   }
 
   const debitTotal = input.entries
@@ -150,7 +183,7 @@ export async function postLedgerTransaction(
   const tolerance = 0.005
   if (Math.abs(debitTotal - creditTotal) > tolerance) {
     throw new Error(
-      `Unbalanced ledger transaction: debits=${debitTotal}, credits=${creditTotal}`,
+      `Unbalanced ledger transaction: debits=${debitTotal}, credits=${creditTotal}`
     )
   }
 
@@ -182,7 +215,7 @@ export async function postLedgerTransaction(
 export async function getAccountBalance(
   tenantId: string,
   ledgerAccountId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -208,7 +241,7 @@ export async function getAccountBalance(
 export async function getMemberTransactions(
   tenantId: string,
   memberId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -234,7 +267,7 @@ export async function listLedgerTransactions(
     toDate?: Date
     transactionType?: LedgerTransactionType
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -243,8 +276,10 @@ export async function listLedgerTransactions(
     where: {
       tenantId,
       ...(input?.memberId ? { memberId: input.memberId } : {}),
-      ...(input?.transactionType ? { transactionType: input.transactionType } : {}),
-      ...((input?.fromDate || input?.toDate)
+      ...(input?.transactionType
+        ? { transactionType: input.transactionType }
+        : {}),
+      ...(input?.fromDate || input?.toDate
         ? {
             postedAt: {
               ...(input?.fromDate ? { gte: input.fromDate } : {}),

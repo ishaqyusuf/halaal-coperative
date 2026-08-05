@@ -4,9 +4,31 @@ import {
 } from "@halaalvest/db"
 import {
   createNotificationEmailDraft,
+  getNotificationEmailDeliveryErrorCause,
+  type NotificationEmailDelivery,
   type NotificationEmailDraft,
 } from "@halaalvest/notifications"
 import { createServerNotificationService } from "@halaalvest/notifications/server"
+import { AppError } from "@halaalvest/errors"
+import { captureApiNotificationError } from "../observability/sentry"
+
+export function captureFailedNotificationDelivery(
+  delivery: NotificationEmailDelivery
+) {
+  if (delivery.status !== "failed") return undefined
+
+  const retainedCause = getNotificationEmailDeliveryErrorCause(delivery)
+  return captureApiNotificationError(
+    new AppError({
+      cause:
+        retainedCause ??
+        new Error("Notification delivery failed without a retained cause."),
+      code: "PROVIDER_UNAVAILABLE",
+      internalMessage: "Notification email delivery failed.",
+      operation: "notifications.email.send",
+    })
+  )
+}
 
 export async function sendEmailDraftWithAudit(input: {
   draft: NotificationEmailDraft
@@ -15,6 +37,7 @@ export async function sendEmailDraftWithAudit(input: {
 }) {
   const notificationService = createServerNotificationService()
   const delivery = await notificationService.tryEmail(input.draft)
+  captureFailedNotificationDelivery(delivery)
 
   await recordNotificationDeliveryAudit({
     attempts: delivery.attempts,

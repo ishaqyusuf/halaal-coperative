@@ -84,4 +84,28 @@ describe("tRPC public error contract", () => {
     )
     expect(getTrpcPublicError(normalized).code).toBe("PRECONDITION_FAILED")
   })
+
+  it("does not demote untyped workflow, configuration, or invariant failures", () => {
+    const messages = [
+      "Member onboarding writes are locked until initial migration is finalized.",
+      "Name, email, member number, and password are required.",
+      "EMAIL_TEST_MODE requires TEST_EMAIL to be configured.",
+      "EMAIL_QA_DOMAIN_ROUTES must be a valid JSON object.",
+      "QA email delivery requires RESEND_API_KEY and EMAIL_FROM_ADDRESS.",
+      "Notification type workspace_ready requires an email recipient.",
+      "Cannot read properties of undefined",
+    ]
+
+    for (const message of messages) {
+      expect(
+        normalizeTrpcError(
+          new Error(message),
+          "dashboardActions.sendNotification"
+        ).cause
+      ).toMatchObject({
+        code: "UNEXPECTED",
+        reportable: true,
+      })
+    }
+  })
 })

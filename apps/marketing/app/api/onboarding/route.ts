@@ -9,6 +9,7 @@ import {
 import {
   createQaNotificationPreviews,
   createWorkspaceReadyEmail,
+  getNotificationEmailDeliveryErrorCause,
 } from "@halaalvest/notifications"
 import { getServerQaEmailDomains } from "@halaalvest/notifications/server"
 import {
@@ -22,10 +23,13 @@ import { resolveSignupVerification } from "@/lib/signup-verification.server"
 import { buildOnboardingWorkspaceUrls } from "@/lib/tenant-workspace-urls"
 import { provisionTenantDomainOnVercel } from "@/lib/vercel-domains.server"
 import { getMarketingErrorResponse } from "@/lib/error-response"
+import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
+import { parseMarketingJson } from "@/lib/parse-json.server"
+import { captureMarketingError } from "@/lib/sentry"
 
 export async function POST(request: Request) {
   try {
-    const input = onboardingFormSchema.parse(await request.json())
+    const input = onboardingFormSchema.parse(await parseMarketingJson(request))
     const verificationResult = await resolveSignupVerification(input.token)
 
     if (verificationResult.status === "invalid") {
@@ -112,25 +116,57 @@ export async function POST(request: Request) {
       tenantId: result.tenant.id,
     })
 
+    if (workspaceReadyDelivery.status === "failed") {
+      captureMarketingError(
+        new AppError({
+          cause: getNotificationEmailDeliveryErrorCause(workspaceReadyDelivery),
+          code: "PROVIDER_UNAVAILABLE",
+          publicMessage: "The workspace-ready email could not be sent.",
+        }),
+        "marketing.provider",
+        { method: "POST", provider: "email" }
+      )
+    }
+
+    const exposeQaArtifacts = process.env.NODE_ENV !== "production"
+    const domainPublicMessage =
+      vercelDomainProvisioning.status === "failed"
+        ? "The cooperative domain could not be configured automatically."
+        : vercelDomainProvisioning.status === "pending_verification"
+          ? "The cooperative domain was accepted and still needs verification."
+          : null
+
     return NextResponse.json({
       dashboardUrl,
       devDashboardUrlVariants,
       primaryDashboardHostname: siteHostname,
       primarySiteHostname: siteHostname,
-      qaPreviews: createQaNotificationPreviews([workspaceReadyDelivery]),
+      qaPreviews: exposeQaArtifacts
+        ? createQaNotificationPreviews([workspaceReadyDelivery])
+        : [],
       siteUrl,
       tenantId: result.tenant.id,
       tenantName: result.tenant.name,
-      vercelDomainProvisioning,
+      vercelDomainProvisioning: {
+        publicMessage: domainPublicMessage,
+        status: vercelDomainProvisioning.status,
+      },
       workspaceReadyDeliveryError:
         workspaceReadyDelivery.status === "failed"
-          ? workspaceReadyDelivery.errorMessage
+          ? "Email delivery failed."
           : null,
-      workspaceReadyDelivery,
-      workspaceReadyEmail: workspaceReadyDelivery.draft,
+      workspaceReadyDelivery: {
+        attempts: workspaceReadyDelivery.attempts,
+        messageId: workspaceReadyDelivery.messageId,
+        routingMode: workspaceReadyDelivery.routing?.mode,
+        status: workspaceReadyDelivery.status,
+      },
+      workspaceReadyEmail: exposeQaArtifacts
+        ? workspaceReadyDelivery.draft
+        : undefined,
     })
   } catch (error) {
-    const response = getMarketingErrorResponse(error)
+    const response = getMarketingServerErrorResponse(error, { method: "POST" })
     return NextResponse.json(response.body, { status: response.status })
   }
 }

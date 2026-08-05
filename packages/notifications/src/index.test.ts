@@ -3,6 +3,7 @@ import {
   createMarketingEarlyAccessRequestEmail,
   createResendEmailTransport,
   createSignupVerificationEmail,
+  getNotificationEmailDeliveryErrorCause,
   NotificationService,
   type NotificationEmailDraft,
 } from "./index"
@@ -316,6 +317,9 @@ describe("Resend email transport routing", () => {
       mode: "qa_domain",
       originalRecipient: "member@unmapped.qa.test",
     })
+    expect(getNotificationEmailDeliveryErrorCause(delivery)).toBeInstanceOf(
+      Error
+    )
   })
 })
 

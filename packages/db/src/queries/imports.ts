@@ -8,6 +8,7 @@ import type {
   PrismaClient,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { applyCharge } from "./charges"
 import { recordContribution } from "./contributions"
@@ -60,7 +61,7 @@ function castImportRows(kind: ImportKind, rows: Prisma.JsonValue[]) {
         typeof importRepaymentMigrations
       >[0]["rows"]
     default:
-      throw new Error("Unsupported import kind")
+      throw new QueryInfrastructureError("Unsupported import kind")
   }
 }
 
@@ -84,7 +85,7 @@ async function assertMemberRecordImportsOpen(
     tenant?.initialMigrationStatus === "finalized" ||
     tenant?.initialMigrationStatus === "live_operations"
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member record imports are locked because initial migration is finalized. Use live correction workflows after go-live."
     )
   }
@@ -110,7 +111,7 @@ async function assertMemberRecordImportsOpen(
       : []
 
   if (appliedMonths.length || appliedBatches.length) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member record imports are locked because member ledger backfill has already started. Finish migration or use live correction workflows after go-live."
     )
   }
@@ -292,15 +293,19 @@ export async function listImportBatches(
     importType?: ImportKind
     pageSize?: number
     search?: string | null
-    sort?: [
-      | "createdAt"
-      | "createdBy"
-      | "importType"
-      | "reviewCount"
-      | "status"
-      | "totalRows",
-      "asc" | "desc",
-    ] | null
+    sort?:
+      | [
+          (
+            | "createdAt"
+            | "createdBy"
+            | "importType"
+            | "reviewCount"
+            | "status"
+            | "totalRows"
+          ),
+          "asc" | "desc",
+        ]
+      | null
     status?: "draft" | "applied" | "failed" | null
   } = {},
   prismaOverride?: PrismaClient
@@ -399,7 +404,7 @@ export async function getImportBatchKind(
   })
 
   if (!batch) {
-    throw new Error("Import batch not found")
+    throw ExpectedQueryError.notFound("Import batch not found")
   }
 
   return batch.importType as ImportKind
@@ -429,11 +434,13 @@ export async function applyImportBatch(
   })
 
   if (!batch) {
-    throw new Error("Import batch not found")
+    throw ExpectedQueryError.notFound("Import batch not found")
   }
 
   if (batch.status === "applied") {
-    throw new Error("This import batch has already been applied.")
+    throw ExpectedQueryError.conflict(
+      "This import batch has already been applied."
+    )
   }
 
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
@@ -934,7 +941,7 @@ export async function importContributions(
     })
 
     if (!member) {
-      throw new Error(
+      throw ExpectedQueryError.notFound(
         `Member not found for contribution import: ${row.memberNumber}`
       )
     }
@@ -1006,7 +1013,9 @@ export async function importCharges(
     })
 
     if (!member) {
-      throw new Error(`Member not found for charge import: ${row.memberNumber}`)
+      throw ExpectedQueryError.notFound(
+        `Member not found for charge import: ${row.memberNumber}`
+      )
     }
 
     const chargeDefinition = await prisma.chargeDefinition.upsert({
@@ -1102,7 +1111,9 @@ export async function importLoanMigrations(
     })
 
     if (!member) {
-      throw new Error(`Member not found for loan import: ${row.memberNumber}`)
+      throw ExpectedQueryError.notFound(
+        `Member not found for loan import: ${row.memberNumber}`
+      )
     }
 
     const loanProduct = await prisma.loanProduct.upsert({
@@ -1272,7 +1283,7 @@ export async function importRepaymentMigrations(
     })
 
     if (!loan) {
-      throw new Error(
+      throw ExpectedQueryError.notFound(
         `Loan not found for repayment import: ${row.memberNumber} / ${row.loanProductName}`
       )
     }

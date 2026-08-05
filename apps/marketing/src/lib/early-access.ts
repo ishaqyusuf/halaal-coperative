@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { z } from "zod"
+import { AppError } from "@halaalvest/errors"
 
 const DAY_MS = 1000 * 60 * 60 * 24
 
@@ -166,9 +167,12 @@ function getEarlyAccessTokenSecret() {
     return "halaalvest-dev-early-access-secret"
   }
 
-  throw new Error(
-    "EARLY_ACCESS_TOKEN_SECRET or SIGNUP_TOKEN_SECRET must be configured in production."
-  )
+  throw new AppError({
+    code: "PROVIDER_UNAVAILABLE",
+    internalMessage:
+      "EARLY_ACCESS_TOKEN_SECRET or SIGNUP_TOKEN_SECRET must be configured in production.",
+    publicMessage: "Early access approval is temporarily unavailable.",
+  })
 }
 
 function sign(body: string) {

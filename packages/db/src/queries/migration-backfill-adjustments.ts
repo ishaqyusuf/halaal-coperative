@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 
@@ -33,7 +34,7 @@ export async function assertMigrationAdjustmentMutationOpen(
     !migrationState.snapshot.canUseMigrationTools &&
     !migrationState.snapshot.canUseLiveFinancialWrites
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Migration adjustments are locked because initial migration is finalized."
     )
   }
@@ -63,7 +64,7 @@ export async function assertMigrationAdjustmentMutationOpen(
   ])
 
   if (appliedMonths.length > 0 || appliedBatches.length > 0) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "This member's historical ledger has already been applied. Use correction workflows instead of migration adjustment edits."
     )
   }
@@ -99,17 +100,21 @@ export async function upsertMigrationBackfillAdjustment(
     input.loanRepaymentOnTime == null &&
     input.rowStatus == null
   ) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Set a savings contribution, loan repayment amount, loan repayment status, or row status adjustment."
     )
   }
 
   if (input.savingsContribution != null && input.savingsContribution < 0) {
-    throw new Error("Savings contribution cannot be negative.")
+    throw ExpectedQueryError.validation(
+      "Savings contribution cannot be negative."
+    )
   }
 
   if (input.loanRepaymentAmount != null && input.loanRepaymentAmount < 0) {
-    throw new Error("Loan repayment amount cannot be negative.")
+    throw ExpectedQueryError.validation(
+      "Loan repayment amount cannot be negative."
+    )
   }
 
   const month = startOfMonth(input.month)

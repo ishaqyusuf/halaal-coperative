@@ -22,6 +22,7 @@
     "@prisma/client": "^7.0.0",
     "@halaalvest/backfill": "workspace:*",
     "@halaalvest/domain": "workspace:*",
+    "@halaalvest/errors": "workspace:*",
     "@halaalvest/utils": "workspace:*"
   },
   "prisma": {

@@ -11,3 +11,8 @@ export {
   resolveObservabilityEnvironment,
   type ObservabilityEnvironmentInput,
 } from "./environment"
+export {
+  getSourceMapUploadConfig,
+  sanitizeSentryEvent,
+  type SentryEventSanitizerOptions,
+} from "./sentry-event"

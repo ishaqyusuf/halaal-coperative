@@ -13,7 +13,8 @@ export function resolveObservabilityEnvironment({
 
 export function isObservabilityEnabled(input: ObservabilityEnvironmentInput) {
   return (
-    resolveObservabilityEnvironment(input) === "production" &&
-    Boolean(input.dsn)
+    input.deploymentEnvironment === "production" &&
+    input.nodeEnvironment === "production" &&
+    Boolean(input.dsn?.trim())
   )
 }

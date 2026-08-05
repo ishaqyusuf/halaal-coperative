@@ -6,9 +6,13 @@ export {
   getPublicError,
   getPublicErrorHttpStatus,
   getUserErrorMessage,
+  hasPublicErrorEnvelope,
   toPublicError,
 } from "./public-error"
-export { createErrorReference } from "./reference"
+export {
+  createErrorReference,
+  createErrorReferenceFromDigest,
+} from "./reference"
 export type {
   ErrorAction,
   ErrorCategory,

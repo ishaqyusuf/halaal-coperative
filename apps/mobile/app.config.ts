@@ -23,6 +23,24 @@ const autoUpdateOnForeground =
 const autoUpdateForegroundCooldownMs = Number(
   process.env.EXPO_PUBLIC_AUTO_UPDATE_FOREGROUND_COOLDOWN_MS ?? 5 * 60 * 1000
 )
+const sentrySourceMapsEnabled =
+  process.env.NODE_ENV === "production" &&
+  process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT_MOBILE === "production" &&
+  Boolean(process.env.SENTRY_AUTH_TOKEN?.trim()) &&
+  Boolean(process.env.SENTRY_ORG?.trim()) &&
+  Boolean(process.env.SENTRY_PROJECT_MOBILE?.trim()) &&
+  Boolean(process.env.EXPO_PUBLIC_SENTRY_RELEASE_MOBILE?.trim())
+const sentryPlugins: ExpoConfig["plugins"] = sentrySourceMapsEnabled
+  ? [
+      [
+        "@sentry/react-native/expo",
+        {
+          organization: process.env.SENTRY_ORG,
+          project: process.env.SENTRY_PROJECT_MOBILE,
+        },
+      ],
+    ]
+  : []
 
 const variantConfig = isDevelopmentBuild
   ? {
@@ -91,6 +109,7 @@ const config: ExpoConfig = {
     output: "single",
   },
   plugins: [
+    ...sentryPlugins,
     "expo-router",
     "expo-font",
     "expo-web-browser",

@@ -6,6 +6,7 @@ import type {
   PrismaClient,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { recordMemberPaymentMutation } from "./contributions"
 import { getTenantInitialMigrationState } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
@@ -169,7 +170,7 @@ const payableProcurementScheduleStatuses = [
 
 function assertReceiptStatus(value: MemberPaymentReceiptStatus) {
   if (!receiptStatuses.has(value)) {
-    throw new Error("Unsupported receipt status.")
+    throw ExpectedQueryError.validation("Unsupported receipt status.")
   }
 }
 
@@ -180,7 +181,7 @@ function normalizeOptionalString(value: string | null | undefined) {
 
 function normalizeAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${label} must be greater than 0.`)
+    throw ExpectedQueryError.validation(`${label} must be greater than 0.`)
   }
 
   return Math.round(value * 100) / 100
@@ -201,7 +202,7 @@ async function assertLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
   }
@@ -212,16 +213,20 @@ function normalizeAllocationInput(
   index: number
 ) {
   if (!allocationCategories.has(allocation.category)) {
-    throw new Error(`Allocation ${index + 1} has an unsupported category.`)
+    throw ExpectedQueryError.validation(
+      `Allocation ${index + 1} has an unsupported category.`
+    )
   }
 
   const periodIntent = allocation.periodIntent ?? "unspecified"
   if (!periodIntents.has(periodIntent)) {
-    throw new Error(`Allocation ${index + 1} has an unsupported period intent.`)
+    throw ExpectedQueryError.validation(
+      `Allocation ${index + 1} has an unsupported period intent.`
+    )
   }
 
   if (loanCategories.has(allocation.category) && !allocation.loanId) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       `Allocation ${index + 1} needs a loan before it can be posted.`
     )
   }
@@ -240,7 +245,7 @@ function normalizeAllocationInput(
     procurementCategories.has(allocation.category) &&
     !procurementRepaymentScheduleItemId
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       `Allocation ${index + 1} needs a procurement schedule item before it can be posted.`
     )
   }
@@ -249,7 +254,7 @@ function normalizeAllocationInput(
     foodPurchaseCategories.has(allocation.category) &&
     !foodPurchaseApplicationId
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       `Allocation ${index + 1} needs a Foodstuff Purchase application before it can be posted.`
     )
   }
@@ -258,7 +263,7 @@ function normalizeAllocationInput(
     projectFinancingCategories.has(allocation.category) &&
     !projectFinancingRequestId
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       `Allocation ${index + 1} needs a project financing request before it can be posted.`
     )
   }
@@ -285,7 +290,9 @@ function normalizeAllocations(
   totalAmount: number
 ) {
   if (!allocations.length) {
-    throw new Error("At least one payment allocation is required.")
+    throw ExpectedQueryError.validation(
+      "At least one payment allocation is required."
+    )
   }
 
   const normalized = allocations.map(normalizeAllocationInput)
@@ -295,7 +302,9 @@ function normalizeAllocations(
   )
 
   if (!moneyEquals(allocationTotal, totalAmount)) {
-    throw new Error("Receipt allocation total must match the receipt amount.")
+    throw ExpectedQueryError.validation(
+      "Receipt allocation total must match the receipt amount."
+    )
   }
 
   return normalized
@@ -481,7 +490,7 @@ async function validateAllocationReferences(input: {
     })
 
     if (count !== contributionPlanIds.length) {
-      throw new Error(
+      throw ExpectedQueryError.permission(
         "One or more contribution plans do not belong to this member."
       )
     }
@@ -498,7 +507,7 @@ async function validateAllocationReferences(input: {
     })
 
     if (count !== loanIds.length) {
-      throw new Error(
+      throw ExpectedQueryError.permission(
         "One or more loans do not belong to this member or are not serviceable."
       )
     }
@@ -515,7 +524,7 @@ async function validateAllocationReferences(input: {
     })
 
     if (count !== procurementRepaymentScheduleItemIds.length) {
-      throw new Error(
+      throw ExpectedQueryError.permission(
         "One or more procurement schedule items do not belong to this member or are not payable."
       )
     }
@@ -532,7 +541,7 @@ async function validateAllocationReferences(input: {
     })
 
     if (count !== foodPurchaseApplicationIds.length) {
-      throw new Error(
+      throw ExpectedQueryError.permission(
         "One or more Foodstuff Purchase applications do not belong to this member or are not approved."
       )
     }
@@ -550,7 +559,7 @@ async function validateAllocationReferences(input: {
     })
 
     if (count !== projectFinancingRequestIds.length) {
-      throw new Error(
+      throw ExpectedQueryError.permission(
         "One or more project financing requests do not belong to this member or are not payable repayable facilities."
       )
     }
@@ -626,7 +635,7 @@ async function approveReceiptAllocations(input: {
       new Set(unsupportedCategories.map((allocation) => allocation.category))
     ).join(", ")
 
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       `These receipt categories are staged but not yet postable: ${labels}. Request correction or wait for that product ledger.`
     )
   }
@@ -726,7 +735,9 @@ async function approveReceiptAllocations(input: {
     if (!first) continue
 
     if (!first.loanId || first.loanId === "none") {
-      throw new Error("Loan allocations need a selected loan before approval.")
+      throw ExpectedQueryError.precondition(
+        "Loan allocations need a selected loan before approval."
+      )
     }
 
     const scheduledLoanServicingAmount = group
@@ -794,7 +805,7 @@ async function approveReceiptAllocations(input: {
 
   for (const allocation of foodPurchaseAllocations) {
     if (!allocation.foodPurchaseApplicationId) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Foodstuff Purchase allocations need a selected application before approval."
       )
     }
@@ -814,7 +825,7 @@ async function approveReceiptAllocations(input: {
     })
 
     if (!application) {
-      throw new Error(
+      throw ExpectedQueryError.notFound(
         "Foodstuff Purchase application was not found or is no longer payable."
       )
     }
@@ -824,13 +835,13 @@ async function approveReceiptAllocations(input: {
     const remainingAmount = roundMoney(approvedAmount - paidAmount)
 
     if (approvedAmount <= 0 || remainingAmount <= 0) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Foodstuff Purchase application has no payable approved amount."
       )
     }
 
     if (allocation.amount - remainingAmount > 0.005) {
-      throw new Error(
+      throw ExpectedQueryError.validation(
         "Foodstuff Purchase allocation exceeds the remaining approved application amount."
       )
     }
@@ -850,7 +861,7 @@ async function approveReceiptAllocations(input: {
 
   for (const allocation of projectFinancingAllocations) {
     if (!allocation.projectFinancingRequestId) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Project financing allocations need a selected request before approval."
       )
     }
@@ -871,7 +882,7 @@ async function approveReceiptAllocations(input: {
     })
 
     if (!request) {
-      throw new Error(
+      throw ExpectedQueryError.notFound(
         "Project financing request was not found or is no longer payable."
       )
     }
@@ -881,13 +892,13 @@ async function approveReceiptAllocations(input: {
     const remainingAmount = roundMoney(approvedAmount - paidAmount)
 
     if (approvedAmount <= 0 || remainingAmount <= 0) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Project financing request has no payable approved amount."
       )
     }
 
     if (allocation.amount - remainingAmount > 0.005) {
-      throw new Error(
+      throw ExpectedQueryError.validation(
         "Project financing allocation exceeds the remaining approved request amount."
       )
     }
@@ -909,7 +920,7 @@ async function approveReceiptAllocations(input: {
 
   for (const allocation of procurementAllocations) {
     if (!allocation.procurementRepaymentScheduleItemId) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Procurement allocations need a selected schedule item before approval."
       )
     }
@@ -931,7 +942,7 @@ async function approveReceiptAllocations(input: {
       })
 
     if (!scheduleItem) {
-      throw new Error(
+      throw ExpectedQueryError.notFound(
         "Procurement schedule item was not found or is no longer payable."
       )
     }
@@ -941,7 +952,7 @@ async function approveReceiptAllocations(input: {
     const remainingAmount = roundMoney(scheduleAmount - paidAmount)
 
     if (allocation.amount - remainingAmount > 0.005) {
-      throw new Error(
+      throw ExpectedQueryError.validation(
         "Procurement allocation exceeds the remaining schedule item amount."
       )
     }
@@ -1007,7 +1018,9 @@ export async function listMemberPaymentReceipts(
 
   const limit = filters?.limit ?? 100
   if (!Number.isInteger(limit) || limit <= 0) {
-    throw new Error("Receipt list limit must be a positive whole number.")
+    throw ExpectedQueryError.validation(
+      "Receipt list limit must be a positive whole number."
+    )
   }
 
   const rows = await prisma.memberPaymentReceipt.findMany({
@@ -1173,7 +1186,9 @@ export async function listMemberPaymentReceiptPage(
   const page = filters?.page ?? 1
   const pageSize = filters?.pageSize ?? filters?.limit ?? 50
   if (!Number.isInteger(pageSize) || pageSize <= 0) {
-    throw new Error("Receipt page size must be a positive whole number.")
+    throw ExpectedQueryError.validation(
+      "Receipt page size must be a positive whole number."
+    )
   }
 
   const where = getPaymentReceiptWhere(tenantId, filters)
@@ -1320,7 +1335,9 @@ export async function createMemberPaymentReceipt(
   })
 
   if (!member) {
-    throw new Error("Member does not belong to this cooperative.")
+    throw ExpectedQueryError.permission(
+      "Member does not belong to this cooperative."
+    )
   }
 
   if (input.submittedByUserId) {
@@ -1333,7 +1350,9 @@ export async function createMemberPaymentReceipt(
     })
 
     if (!user) {
-      throw new Error("Submitting user does not belong to this cooperative.")
+      throw ExpectedQueryError.permission(
+        "Submitting user does not belong to this cooperative."
+      )
     }
   }
 
@@ -1355,7 +1374,7 @@ export async function createMemberPaymentReceipt(
     })
 
     if (duplicate) {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "A non-rejected receipt already uses this payment reference."
       )
     }
@@ -1372,7 +1391,7 @@ export async function createMemberPaymentReceipt(
     })
 
     if (duplicate) {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "A non-rejected receipt already uses this proof document."
       )
     }
@@ -1453,7 +1472,9 @@ export async function reviewMemberPaymentReceipt(
   assertReceiptStatus(input.decision)
 
   if (input.decision === "submitted") {
-    throw new Error("Receipt reviews cannot move a receipt back to submitted.")
+    throw ExpectedQueryError.conflict(
+      "Receipt reviews cannot move a receipt back to submitted."
+    )
   }
 
   if (input.decision === "approved") {
@@ -1469,7 +1490,9 @@ export async function reviewMemberPaymentReceipt(
   })
 
   if (!actor) {
-    throw new Error("Reviewing user does not belong to this cooperative.")
+    throw ExpectedQueryError.permission(
+      "Reviewing user does not belong to this cooperative."
+    )
   }
 
   const existing = await prisma.memberPaymentReceipt.findFirst({
@@ -1481,11 +1504,13 @@ export async function reviewMemberPaymentReceipt(
   })
 
   if (!existing) {
-    throw new Error("Receipt submission not found.")
+    throw ExpectedQueryError.notFound("Receipt submission not found.")
   }
 
   if (existing.status === "approved" || existing.status === "rejected") {
-    throw new Error("Approved or rejected receipts cannot be reviewed again.")
+    throw ExpectedQueryError.conflict(
+      "Approved or rejected receipts cannot be reviewed again."
+    )
   }
 
   if (
@@ -1493,7 +1518,7 @@ export async function reviewMemberPaymentReceipt(
       input.decision === "correction_requested") &&
     !normalizeOptionalString(input.reviewNotes)
   ) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Review notes are required for rejected or correction-requested receipts."
     )
   }
@@ -1526,7 +1551,7 @@ export async function reviewMemberPaymentReceipt(
   const adjustmentReason = normalizeOptionalString(input.adjustmentReason)
 
   if (allocationsChanged && !adjustmentReason) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "An adjustment reason is required when receipt allocations are changed."
     )
   }

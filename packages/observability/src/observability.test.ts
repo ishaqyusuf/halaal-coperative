@@ -18,6 +18,19 @@ describe("observability policy", () => {
         nodeEnvironment: "production",
       })
     ).toBe(false)
+    expect(
+      isObservabilityEnabled({
+        dsn: "https://dsn",
+        nodeEnvironment: "production",
+      })
+    ).toBe(false)
+    expect(
+      isObservabilityEnabled({
+        deploymentEnvironment: "production",
+        dsn: "https://dsn",
+        nodeEnvironment: "development",
+      })
+    ).toBe(false)
   })
 
   it("builds bounded operational context and removes cooperative data", () => {

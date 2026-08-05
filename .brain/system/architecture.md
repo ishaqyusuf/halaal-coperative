@@ -94,4 +94,4 @@ This file documents the intended high-level architecture, service boundaries, an
 - `apps/api` normalizes all tRPC procedures, exposes `data.appError`, returns safe REST envelopes, and propagates `x-request-id`.
 - Dashboard crash audit evidence is deliberately separate from technical diagnostics and contains only an allowlisted classification receipt.
 - Dashboard, marketing, mobile, and background jobs render the same public presentation contract; jobs retry only classified retryable failures and return a safe terminal receipt.
-- Production telemetry is designed as one capture boundary per runtime. External SDK transmission is not active until explicitly approved and configured; see ADR-018.
+- Production telemetry is implemented as isolated API, dashboard, marketing, jobs, and mobile capture boundaries. It is active only for explicitly configured production deployments, reconstructs final events from a strict allowlist, and never forwards events between runtime projects; see ADR-018 and the observability transmission policy.

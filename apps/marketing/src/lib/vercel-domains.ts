@@ -19,7 +19,11 @@ type VercelProjectDomain = {
   verified: boolean
 }
 
-type VercelProvisioningStatus = "failed" | "pending_verification" | "skipped" | "verified"
+type VercelProvisioningStatus =
+  | "failed"
+  | "pending_verification"
+  | "skipped"
+  | "verified"
 
 export type VercelTenantDomainProvisioningResult = {
   checkedAt: string
@@ -34,6 +38,17 @@ export type VercelTenantDomainProvisioningResult = {
   teamId: string | null
   teamSlug: string | null
   verification: VercelProjectDomainVerification[]
+}
+
+const vercelProvisioningErrorCauses = new WeakMap<
+  VercelTenantDomainProvisioningResult,
+  unknown
+>()
+
+export function getVercelProvisioningErrorCause(
+  result: VercelTenantDomainProvisioningResult
+) {
+  return vercelProvisioningErrorCauses.get(result)
 }
 
 function getVercelProvisioningConfig() {
@@ -51,7 +66,10 @@ function getVercelProvisioningConfig() {
   }
 }
 
-function buildQueryString(input: { teamId: string | null; teamSlug: string | null }) {
+function buildQueryString(input: {
+  teamId: string | null
+  teamSlug: string | null
+}) {
   const params = new URLSearchParams()
 
   if (input.teamId) {
@@ -71,7 +89,7 @@ async function requestVercel<T>(
   input: {
     body?: Record<string, unknown>
     method?: "GET" | "POST"
-  },
+  }
 ) {
   const config = getVercelProvisioningConfig()
 
@@ -106,8 +124,9 @@ function toFailureResult(input: {
   projectIdOrName: string | null
   teamId: string | null
   teamSlug: string | null
+  cause?: unknown
 }): VercelTenantDomainProvisioningResult {
-  return {
+  const result: VercelTenantDomainProvisioningResult = {
     checkedAt: input.checkedAt,
     errorCode: input.errorCode,
     errorMessage: input.errorMessage,
@@ -121,10 +140,14 @@ function toFailureResult(input: {
     teamSlug: input.teamSlug,
     verification: [],
   }
+  if (input.cause !== undefined) {
+    vercelProvisioningErrorCauses.set(result, input.cause)
+  }
+  return result
 }
 
 export async function provisionTenantDomainOnVercel(
-  hostname: string,
+  hostname: string
 ): Promise<VercelTenantDomainProvisioningResult> {
   const checkedAt = new Date().toISOString()
   const config = getVercelProvisioningConfig()
@@ -133,7 +156,8 @@ export async function provisionTenantDomainOnVercel(
     return {
       checkedAt,
       errorCode: null,
-      errorMessage: "Vercel domain provisioning is not configured for this environment.",
+      errorMessage:
+        "Vercel domain provisioning is not configured for this environment.",
       hostname,
       lookupMethod: "vercel_api",
       projectDomain: null,
@@ -157,28 +181,30 @@ export async function provisionTenantDomainOnVercel(
   try {
     let projectDomain: VercelProjectDomain | null = null
 
-    const created = await requestVercel<VercelProjectDomain | { error?: { code?: string; message?: string } }>(
-      addDomainPath,
-      {
-        body: { name: hostname },
-        method: "POST",
-      },
-    )
+    const created = await requestVercel<
+      VercelProjectDomain | { error?: { code?: string; message?: string } }
+    >(addDomainPath, {
+      body: { name: hostname },
+      method: "POST",
+    })
 
     if (created.ok) {
       projectDomain = created.payload as VercelProjectDomain
     } else if (created.status === 400 || created.status === 409) {
-      const existing = await requestVercel<VercelProjectDomain | { error?: { code?: string; message?: string } }>(
-        projectDomainPath,
-        { method: "GET" },
-      )
+      const existing = await requestVercel<
+        VercelProjectDomain | { error?: { code?: string; message?: string } }
+      >(projectDomainPath, { method: "GET" })
 
       if (!existing.ok) {
-        const errorPayload = existing.payload as { error?: { code?: string; message?: string } }
+        const errorPayload = existing.payload as {
+          error?: { code?: string; message?: string }
+        }
         return toFailureResult({
           checkedAt,
           errorCode: errorPayload.error?.code ?? `HTTP_${existing.status}`,
-          errorMessage: errorPayload.error?.message ?? "The domain could not be read from Vercel.",
+          errorMessage:
+            errorPayload.error?.message ??
+            "The domain could not be read from Vercel.",
           hostname,
           projectIdOrName: config.projectIdOrName,
           teamId: config.teamId,
@@ -188,11 +214,15 @@ export async function provisionTenantDomainOnVercel(
 
       projectDomain = existing.payload as VercelProjectDomain
     } else {
-      const errorPayload = created.payload as { error?: { code?: string; message?: string } }
+      const errorPayload = created.payload as {
+        error?: { code?: string; message?: string }
+      }
       return toFailureResult({
         checkedAt,
         errorCode: errorPayload.error?.code ?? `HTTP_${created.status}`,
-        errorMessage: errorPayload.error?.message ?? "The domain could not be added to the Vercel project.",
+        errorMessage:
+          errorPayload.error?.message ??
+          "The domain could not be added to the Vercel project.",
         hostname,
         projectIdOrName: config.projectIdOrName,
         teamId: config.teamId,
@@ -213,22 +243,23 @@ export async function provisionTenantDomainOnVercel(
     }
 
     if (!projectDomain.verified) {
-      const verified = await requestVercel<VercelProjectDomain | { error?: { code?: string; message?: string } }>(
-        `${projectDomainPath}/verify`,
-        { method: "POST" },
-      )
+      const verified = await requestVercel<
+        VercelProjectDomain | { error?: { code?: string; message?: string } }
+      >(`${projectDomainPath}/verify`, { method: "POST" })
 
       if (verified.ok) {
         projectDomain = verified.payload as VercelProjectDomain
       } else {
-        const errorPayload = verified.payload as { error?: { code?: string; message?: string } }
+        const errorPayload = verified.payload as {
+          error?: { code?: string; message?: string }
+        }
 
         return {
           checkedAt,
           errorCode: errorPayload.error?.code ?? `HTTP_${verified.status}`,
           errorMessage:
-            errorPayload.error?.message
-            ?? "Vercel accepted the domain but it still needs verification.",
+            errorPayload.error?.message ??
+            "Vercel accepted the domain but it still needs verification.",
           hostname,
           lookupMethod: "vercel_api",
           projectDomain,
@@ -245,7 +276,9 @@ export async function provisionTenantDomainOnVercel(
     return {
       checkedAt,
       errorCode: null,
-      errorMessage: projectDomain.verified ? null : "Vercel domain verification is still pending.",
+      errorMessage: projectDomain.verified
+        ? null
+        : "Vercel domain verification is still pending.",
       hostname,
       lookupMethod: "vercel_api",
       projectDomain,
@@ -258,9 +291,13 @@ export async function provisionTenantDomainOnVercel(
     }
   } catch (error) {
     return toFailureResult({
+      cause: error,
       checkedAt,
       errorCode: "REQUEST_FAILED",
-      errorMessage: error instanceof Error ? error.message : "The Vercel domain request failed.",
+      errorMessage:
+        error instanceof Error
+          ? error.message
+          : "The Vercel domain request failed.",
       hostname,
       projectIdOrName: config.projectIdOrName,
       teamId: config.teamId,

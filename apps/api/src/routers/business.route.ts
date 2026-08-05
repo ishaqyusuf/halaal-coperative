@@ -6,6 +6,7 @@ import {
   listShareBusinessesForTableSummary,
   listShareBusinessesTable,
 } from "@halaalvest/db"
+import { AppError } from "@halaalvest/errors"
 import { z } from "zod"
 import { listBusinessesSchema } from "../schemas/business"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
@@ -118,7 +119,11 @@ export const businessRouter = createTRPCRouter({
       )
 
       if (!business) {
-        throw new Error("Business not found")
+        throw new AppError({
+          code: "NOT_FOUND",
+          operation: "business.getById",
+          publicMessage: "Business not found.",
+        })
       }
 
       return business

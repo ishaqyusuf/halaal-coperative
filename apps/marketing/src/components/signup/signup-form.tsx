@@ -63,7 +63,7 @@ type SignupApiSuccess = {
   devMode: boolean
   emailDeliveryConfigured: boolean
   expiresAt: string
-  onboardingUrl: string
+  onboardingUrl?: string
   qaPreviews?: QaNotificationPreview[]
   verificationDelivery: {
     attempts: number
@@ -71,7 +71,7 @@ type SignupApiSuccess = {
     messageId: string
     status: "failed" | "queued" | "sent"
   }
-  verificationEmail: {
+  verificationEmail?: {
     actionLabel: string
     actionUrl: string
     bodyText: string
@@ -256,7 +256,7 @@ export function SignupForm({
         | SignupApiSuccess
         | MarketingErrorEnvelope
 
-      if (!response.ok || !("verificationEmail" in payload)) {
+      if (!response.ok || !("verificationDelivery" in payload)) {
         throw new Error(
           getMarketingErrorMessage(
             payload,
@@ -338,7 +338,8 @@ export function SignupForm({
             <div className="border-l-2 border-primary bg-muted/30 py-2 pl-3">
               <p className="text-xs text-muted-foreground">Recipient</p>
               <p className="mt-1 truncate text-sm font-medium">
-                {result.verificationEmail.recipient.value}
+                {result.verificationEmail?.recipient.value ??
+                  "Cooperative administrator"}
               </p>
             </div>
             <div className="border-l-2 border-primary bg-muted/30 py-2 pl-3">
@@ -355,7 +356,7 @@ export function SignupForm({
           {qaPreview ? <QaNotificationPreviewCard preview={qaPreview} /> : null}
         </CardContent>
         <CardFooter className="flex flex-wrap items-center gap-2">
-          {showSecureLink ? (
+          {showSecureLink && result.verificationEmail?.actionUrl ? (
             <Link
               className={buttonVariants({ size: "lg" })}
               href={result.verificationEmail.actionUrl}

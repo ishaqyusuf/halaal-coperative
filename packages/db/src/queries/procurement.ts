@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../../generated/prisma/client"
+import { AppError } from "@halaalvest/errors"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 import { applyApplicableWorkflowChargesInTransaction } from "./charges"
@@ -132,7 +133,10 @@ function trimRequired(value: string, label: string) {
   const trimmed = value.trim()
 
   if (!trimmed) {
-    throw new Error(`${label} is required.`)
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: `${label} is required.`,
+    })
   }
 
   return trimmed
@@ -140,13 +144,19 @@ function trimRequired(value: string, label: string) {
 
 function assertPositiveAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${label} must be greater than zero.`)
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: `${label} must be greater than zero.`,
+    })
   }
 }
 
 function assertPositiveInteger(value: number, label: string) {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${label} must be a positive whole number.`)
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: `${label} must be a positive whole number.`,
+    })
   }
 }
 
@@ -166,19 +176,27 @@ function assertProcurementRequestCreationAllowed(input: {
     }
 
     if (input.accessMode === "office_only") {
-      throw new Error(
-        "Procurement requests must be submitted through the cooperative office."
-      )
+      throw new AppError({
+        code: "PRECONDITION_FAILED",
+        publicMessage:
+          "Procurement requests must be submitted through the cooperative office.",
+      })
     }
   } else if (input.canStaffCreate) {
     return
   }
 
   if (input.accessMode === "read_only") {
-    throw new Error("Procurement is currently read-only for this cooperative.")
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage: "Procurement is currently read-only for this cooperative.",
+    })
   }
 
-  throw new Error("Procurement is not enabled for this cooperative.")
+  throw new AppError({
+    code: "PRECONDITION_FAILED",
+    publicMessage: "Procurement is not enabled for this cooperative.",
+  })
 }
 
 function calculateMonthlyRepayment(amount: number, months: number) {
@@ -369,9 +387,11 @@ async function assertLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
-      "Live financial record writes are locked until initial migration is finalized."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Live financial record writes are locked until initial migration is finalized.",
+    })
   }
 }
 
@@ -391,7 +411,10 @@ async function readProcurementRequest(
   })
 
   if (!request) {
-    throw new Error("Procurement request was not found.")
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage: "Procurement request was not found.",
+    })
   }
 
   return request
@@ -410,7 +433,10 @@ export async function listProcurementRequests(
   if (!prisma) return []
 
   if (input.status && !procurementRequestStatuses.has(input.status)) {
-    throw new Error("Procurement request status is not supported.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Procurement request status is not supported.",
+    })
   }
 
   const requests = await prisma.procurementRequest.findMany({
@@ -490,14 +516,12 @@ function getProcurementRequestOrderBy(
   ]
 }
 
-function getProcurementRequestWhere(
-  input: {
-    memberId?: string
-    search?: string
-    status?: ProcurementRequestStatus
-    tenantId: string
-  }
-) {
+function getProcurementRequestWhere(input: {
+  memberId?: string
+  search?: string
+  status?: ProcurementRequestStatus
+  tenantId: string
+}) {
   return {
     tenantId: input.tenantId,
     ...(input.memberId ? { memberId: input.memberId } : {}),
@@ -557,13 +581,19 @@ export async function listProcurementRequestPage(
   if (!prisma) throw new Error("Database not configured")
 
   if (input.status && !procurementRequestStatuses.has(input.status)) {
-    throw new Error("Procurement request status is not supported.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Procurement request status is not supported.",
+    })
   }
 
   const page = input.page ?? 1
   const pageSize = input.pageSize ?? input.limit ?? 50
   if (!Number.isInteger(pageSize) || pageSize <= 0) {
-    throw new Error("Procurement page size must be a positive whole number.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Procurement page size must be a positive whole number.",
+    })
   }
 
   const where = getProcurementRequestWhere(input)
@@ -735,7 +765,10 @@ export async function createProcurementRequest(
   })
 
   if (!member) {
-    throw new Error("Member does not belong to this cooperative.")
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage: "Member does not belong to this cooperative.",
+    })
   }
 
   const procurementMaximumPaybackMonths = Number(
@@ -743,9 +776,10 @@ export async function createProcurementRequest(
   )
 
   if (input.requestedRepaymentMonths > procurementMaximumPaybackMonths) {
-    throw new Error(
-      `Requested procurement repayment months cannot exceed ${procurementMaximumPaybackMonths}.`
-    )
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: `Requested procurement repayment months cannot exceed ${procurementMaximumPaybackMonths}.`,
+    })
   }
 
   const procurementMaximumActiveObligationsPerMember = Number(
@@ -773,9 +807,10 @@ export async function createProcurementRequest(
     activeProcurementObligationCount >=
     procurementMaximumActiveObligationsPerMember
   ) {
-    throw new Error(
-      `This member has reached the active procurement obligation limit (${procurementMaximumActiveObligationsPerMember}). Settle an active procurement obligation before creating another request.`
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage: `This member has reached the active procurement obligation limit (${procurementMaximumActiveObligationsPerMember}). Settle an active procurement obligation before creating another request.`,
+    })
   }
 
   if (policy?.activeFinancingBlocksProcurement ?? true) {
@@ -788,9 +823,11 @@ export async function createProcurementRequest(
     })
 
     if (activeFinancingCount > 0) {
-      throw new Error(
-        "This cooperative blocks procurement while the member has active financing."
-      )
+      throw new AppError({
+        code: "PRECONDITION_FAILED",
+        publicMessage:
+          "This cooperative blocks procurement while the member has active financing.",
+      })
     }
   }
 
@@ -876,7 +913,10 @@ export async function reviewProcurementRequest(
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
   if (!procurementRequestStatuses.has(input.status)) {
-    throw new Error("Procurement request status is not supported.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Procurement request status is not supported.",
+    })
   }
 
   return prisma.$transaction(async (tx: any) => {
@@ -918,9 +958,10 @@ export async function reviewProcurementRequest(
       )
 
       if (approvedRequestRepaymentMonths > procurementMaximumPaybackMonths) {
-        throw new Error(
-          `Approved procurement repayment months cannot exceed ${procurementMaximumPaybackMonths}.`
-        )
+        throw new AppError({
+          code: "VALIDATION_FAILED",
+          publicMessage: `Approved procurement repayment months cannot exceed ${procurementMaximumPaybackMonths}.`,
+        })
       }
 
       approvedMonthlyRepayment = calculateMonthlyRepayment(
@@ -1026,9 +1067,11 @@ export async function recordProcurementPurchase(
   const purchaseNotes = input.purchaseNotes?.trim() || null
 
   if (firstDueDate < startOfDayUtc(purchaseDate)) {
-    throw new Error(
-      "First procurement repayment due date cannot be before the purchase date."
-    )
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage:
+        "First procurement repayment due date cannot be before the purchase date.",
+    })
   }
 
   return prisma.$transaction(async (tx: any) => {
@@ -1041,18 +1084,22 @@ export async function recordProcurementPurchase(
     )
 
     if (existingRequest.status !== "approved") {
-      throw new Error(
-        "Only approved procurement requests can be marked purchased."
-      )
+      throw new AppError({
+        code: "CONFLICT",
+        publicMessage:
+          "Only approved procurement requests can be marked purchased.",
+      })
     }
 
     const approvedCost = Number(existingRequest.approvedCost ?? 0)
     const approvedRepaymentMonths = existingRequest.approvedRepaymentMonths
 
     if (approvedCost <= 0 || !approvedRepaymentMonths) {
-      throw new Error(
-        "Approved procurement cost and repayment months are required before purchase."
-      )
+      throw new AppError({
+        code: "PRECONDITION_FAILED",
+        publicMessage:
+          "Approved procurement cost and repayment months are required before purchase.",
+      })
     }
 
     const existingScheduleCount =
@@ -1066,9 +1113,11 @@ export async function recordProcurementPurchase(
         : 0
 
     if (existingScheduleCount > 0) {
-      throw new Error(
-        "This procurement request already has a repayment schedule."
-      )
+      throw new AppError({
+        code: "CONFLICT",
+        publicMessage:
+          "This procurement request already has a repayment schedule.",
+      })
     }
 
     const scheduleAmounts = buildScheduleAmounts(

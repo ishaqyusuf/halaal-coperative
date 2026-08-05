@@ -16,8 +16,8 @@ This file tracks work currently being executed.
 - Priority: High
 - Description: Adopt the GND-derived shared error envelope and privacy-bounded observability policy across API, dashboard, marketing, jobs, and mobile.
 - Related Decision: `.brain/decisions/ADR-018-adopt-safe-error-contract-and-separated-observability.md`
-- Status: In Progress — runtime-neutral contract, UI/API adoption, audit minimization, tests, and environment contracts are implemented. External Sentry SDK initialization/capture, source-map upload, alerts, and production smoke events are paused pending explicit authorization to transmit sanitized diagnostics to configured Sentry projects.
-- Approval contract: `.brain/system/observability-transmission-policy.md` defines the exact event allowlist, prohibited features, separate runtime projects, source-map handling, ownership/retention prerequisites, and verification checklist. Resuming the task alone is not approval.
+- Status: Awaiting Review — the runtime-neutral contract, safe UI/API adoption, audit minimization, five isolated SDK integrations, strict final-event sanitizer, environment contracts, private source-map gates, and local verification are implemented. Production project provisioning, access/retention ownership, alerts, and one controlled synthetic smoke event per runtime remain deployment operations because no real credentials or external calls are used locally.
+- Approval contract: The owner explicitly approved external production diagnostics on 2026-08-05. `.brain/system/observability-transmission-policy.md` remains the normative event allowlist, prohibited-feature list, project-isolation rule, source-map contract, and production verification checklist.
 - Safety gate: No later project in the cross-project rollout starts until Halaalvest completes verification and user review.
 
 - Dashboard depth slice on the new `src/` architecture: deepen analytics, staged imports, collections queues, and reporting inside the standardized Midday-style structure without reintroducing `features/` or `primitives/`.

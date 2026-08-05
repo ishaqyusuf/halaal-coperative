@@ -4,6 +4,7 @@ export type ErrorMetadataValue = boolean | number | string | null | undefined
 export type ErrorReportContext = {
   extra?: Record<string, ErrorMetadataValue>
   operation?: string
+  referenceId?: string
   requestId?: string
   runtime: "api" | "dashboard" | "jobs" | "marketing" | "mobile"
   source: string
@@ -54,7 +55,10 @@ export function shouldReportError(error: unknown) {
   return classifyError(error).reportable
 }
 export function buildErrorReport(error: unknown, context: ErrorReportContext) {
-  const classified = classifyError(error, { operation: context.operation })
+  const classified = classifyError(error, {
+    operation: context.operation,
+    referenceId: context.referenceId,
+  })
   const operation = classified.operation ?? context.operation
   return {
     captureContext: {

@@ -1,4 +1,5 @@
 import { checkTenantSignupAvailability } from "@halaalvest/db"
+import { AppError } from "@halaalvest/errors"
 import type { SignupVerificationPayload } from "./signup-flow"
 import { verifySignedSignupToken } from "./signup-token"
 
@@ -37,6 +38,7 @@ export async function resolveSignupVerification(
   try {
     verification = dependencies.verifyToken(token)
   } catch (error) {
+    if (error instanceof AppError && error.reportable) throw error
     return {
       errorMessage: getVerificationErrorMessage(error),
       status: "invalid",

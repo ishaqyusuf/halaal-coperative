@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { ensureTenantLedgerAccounts, postLedgerTransaction } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
@@ -229,17 +230,22 @@ function startOfDay(value: Date) {
 
 function assertNonNegativeAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`${label} cannot be negative.`)
+    throw ExpectedQueryError.validation(`${label} cannot be negative.`)
   }
 }
 
-function assertWholeNumberOrNull(value: number | null | undefined, label: string) {
+function assertWholeNumberOrNull(
+  value: number | null | undefined,
+  label: string
+) {
   if (value == null) {
     return
   }
 
   if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${label} must be a whole number 0 or greater.`)
+    throw ExpectedQueryError.validation(
+      `${label} must be a whole number 0 or greater.`
+    )
   }
 }
 
@@ -267,7 +273,9 @@ function validateOpeningObligationPlan({
     outstandingAmount != null &&
     outstandingAmount > originalAmount
   ) {
-    throw new Error(`${label} outstanding amount cannot exceed original amount.`)
+    throw ExpectedQueryError.validation(
+      `${label} outstanding amount cannot exceed original amount.`
+    )
   }
 
   if (
@@ -276,13 +284,19 @@ function validateOpeningObligationPlan({
     installmentsPaid != null &&
     installmentsPaid > repaymentMonths
   ) {
-    throw new Error(`${label} paid installments cannot exceed repayment months.`)
+    throw ExpectedQueryError.validation(
+      `${label} paid installments cannot exceed repayment months.`
+    )
   }
 }
 
 function addUtcMonths(date: Date, months: number) {
   return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate())
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth() + months,
+      date.getUTCDate()
+    )
   )
 }
 
@@ -414,7 +428,7 @@ async function createOpeningFinancingObligation(
   const monthlyServicing =
     installmentAmount > 0
       ? installmentAmount
-      : remainingInstallments[0]?.amount ?? activeFinancingOutstanding
+      : (remainingInstallments[0]?.amount ?? activeFinancingOutstanding)
   const guarantorMemberIds = Array.from(
     new Set(
       [
@@ -617,7 +631,9 @@ async function reverseOpeningFinancingObligation(
   })
 
   if (!loan) {
-    throw new Error("Linked opening financing obligation was not found.")
+    throw ExpectedQueryError.notFound(
+      "Linked opening financing obligation was not found."
+    )
   }
 
   const repaymentTotal = (loan.repayments ?? []).reduce(
@@ -630,7 +646,7 @@ async function reverseOpeningFinancingObligation(
   )
 
   if (repaymentTotal > 0 || schedulePaidTotal > 0) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "Opening balance reversal cannot cancel a financing obligation that already has repayment activity."
     )
   }
@@ -759,8 +775,7 @@ async function createOpeningProcurementObligation(
 
   const policy = await readOpeningProcurementPolicy(input.tenantId, prisma)
   const openedAt =
-    input.openingBalance.procurementOpenedAt ??
-    input.openingBalance.openingDate
+    input.openingBalance.procurementOpenedAt ?? input.openingBalance.openingDate
   const originalAmount =
     Number(input.openingBalance.procurementOriginalAmount ?? 0) ||
     procurementOutstanding
@@ -785,7 +800,7 @@ async function createOpeningProcurementObligation(
   const monthlyRepayment =
     installmentAmount > 0
       ? installmentAmount
-      : remainingInstallments[0]?.amount ?? procurementOutstanding
+      : (remainingInstallments[0]?.amount ?? procurementOutstanding)
   const itemName =
     input.openingBalance.procurementItemName?.trim() ||
     "Brought-forward procurement balance"
@@ -1048,11 +1063,13 @@ async function reverseOpeningFoodPurchaseObligation(
   })
 
   if (!application) {
-    throw new Error("Linked opening Food Purchase obligation was not found.")
+    throw ExpectedQueryError.notFound(
+      "Linked opening Food Purchase obligation was not found."
+    )
   }
 
   if (Number(application.paidAmount ?? 0) > 0) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "Opening balance reversal cannot cancel a Food Purchase obligation that already has repayment activity."
     )
   }
@@ -1132,7 +1149,9 @@ async function reverseOpeningProcurementObligation(
   })
 
   if (!request) {
-    throw new Error("Linked opening procurement obligation was not found.")
+    throw ExpectedQueryError.notFound(
+      "Linked opening procurement obligation was not found."
+    )
   }
 
   const scheduleItems = request.repaymentScheduleItems ?? []
@@ -1142,7 +1161,7 @@ async function reverseOpeningProcurementObligation(
   )
 
   if (paidAmount > 0) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "Opening balance reversal cannot cancel a procurement obligation that already has repayment activity."
     )
   }
@@ -1268,7 +1287,9 @@ function validateOpeningBalanceInput(input: MemberOpeningBalanceInput) {
     input.shareUnits != null &&
     (!Number.isInteger(input.shareUnits) || input.shareUnits < 0)
   ) {
-    throw new Error("Share units must be a whole number 0 or greater.")
+    throw ExpectedQueryError.validation(
+      "Share units must be a whole number 0 or greater."
+    )
   }
 
   if (
@@ -1277,7 +1298,9 @@ function validateOpeningBalanceInput(input: MemberOpeningBalanceInput) {
     input.activeFinancingGuarantorOneMemberId ===
       input.activeFinancingGuarantorTwoMemberId
   ) {
-    throw new Error("Opening financing guarantors must be different members.")
+    throw ExpectedQueryError.validation(
+      "Opening financing guarantors must be different members."
+    )
   }
 }
 
@@ -1404,7 +1427,9 @@ async function assertActorBelongsToTenant(
   })
 
   if (!user) {
-    throw new Error("Opening balance actor does not belong to this tenant.")
+    throw ExpectedQueryError.permission(
+      "Opening balance actor does not belong to this tenant."
+    )
   }
 }
 
@@ -1426,7 +1451,9 @@ async function assertMemberBelongsToTenant(
   })
 
   if (!member) {
-    throw new Error("Opening balance member does not belong to this tenant.")
+    throw ExpectedQueryError.permission(
+      "Opening balance member does not belong to this tenant."
+    )
   }
 }
 
@@ -1446,7 +1473,7 @@ async function assertOpeningBalanceMutationOpen(
     !migrationState.snapshot.canUseMigrationTools &&
     !migrationState.snapshot.canUseLiveFinancialWrites
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member opening balances are locked because migration tools and live financial writes are closed."
     )
   }
@@ -1492,7 +1519,7 @@ async function assertOpeningBalanceMutationOpen(
     appliedBatches.length > 0 ||
     appliedOpeningBalances.length > 0
   ) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "This member's historical ledger has already been applied. Use correction workflows instead of opening-balance edits."
     )
   }
@@ -1508,7 +1535,7 @@ async function assertOpeningBalanceCorrectionOpen(
     !migrationState.snapshot.canUseMigrationTools &&
     !migrationState.snapshot.canUseLiveFinancialWrites
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member opening balance corrections are locked because migration tools and live financial writes are closed."
     )
   }
@@ -1533,7 +1560,9 @@ export async function listMemberOpeningBalances(
   }
 
   if (input.status && !memberOpeningBalanceStatuses.has(input.status)) {
-    throw new Error("Opening balance status is not supported.")
+    throw ExpectedQueryError.validation(
+      "Opening balance status is not supported."
+    )
   }
 
   const rows = await prisma.memberOpeningBalance.findMany({
@@ -1594,7 +1623,7 @@ export async function createMemberOpeningBalance(
     if (
       !["pending_review", "rejected", "cancelled"].includes(existing.status)
     ) {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "An opening position already exists for this member and date. Review or reverse the existing position before staging another one."
       )
     }
@@ -1641,7 +1670,7 @@ export async function createMemberOpeningBalance(
     })
   } catch (error) {
     if ((error as { code?: unknown }).code === "P2002") {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "An opening position already exists for this member and date. Refresh the page and edit the existing staged position."
       )
     }
@@ -1679,7 +1708,9 @@ export async function reviewMemberOpeningBalance(
   if (!prisma) throw new Error("Database not configured")
 
   if (input.decision !== "approved" && input.decision !== "rejected") {
-    throw new Error("Opening balance review must be approved or rejected.")
+    throw ExpectedQueryError.validation(
+      "Opening balance review must be approved or rejected."
+    )
   }
 
   await assertActorBelongsToTenant(input, prisma)
@@ -1693,7 +1724,7 @@ export async function reviewMemberOpeningBalance(
   })
 
   if (!existing) {
-    throw new Error("Opening balance was not found.")
+    throw ExpectedQueryError.notFound("Opening balance was not found.")
   }
 
   await assertOpeningBalanceMutationOpen(
@@ -1705,7 +1736,9 @@ export async function reviewMemberOpeningBalance(
   )
 
   if (existing.status !== "pending_review") {
-    throw new Error("Only pending opening balances can be reviewed.")
+    throw ExpectedQueryError.conflict(
+      "Only pending opening balances can be reviewed."
+    )
   }
 
   const reviewedAt = new Date()
@@ -1765,7 +1798,7 @@ export async function cancelMemberOpeningBalance(
   })
 
   if (!existing) {
-    throw new Error("Opening balance was not found.")
+    throw ExpectedQueryError.notFound("Opening balance was not found.")
   }
 
   await assertOpeningBalanceMutationOpen(
@@ -1777,7 +1810,9 @@ export async function cancelMemberOpeningBalance(
   )
 
   if (existing.status !== "pending_review") {
-    throw new Error("Only pending opening balances can be cancelled.")
+    throw ExpectedQueryError.conflict(
+      "Only pending opening balances can be cancelled."
+    )
   }
 
   const updated = await prisma.memberOpeningBalance.update({
@@ -1841,7 +1876,7 @@ export async function applyMemberOpeningBalance(
     })
 
     if (!existing) {
-      throw new Error("Opening balance was not found.")
+      throw ExpectedQueryError.notFound("Opening balance was not found.")
     }
 
     await assertOpeningBalanceMutationOpen(
@@ -1853,7 +1888,9 @@ export async function applyMemberOpeningBalance(
     )
 
     if (existing.status !== "approved") {
-      throw new Error("Only approved opening balances can be applied.")
+      throw ExpectedQueryError.conflict(
+        "Only approved opening balances can be applied."
+      )
     }
 
     const alreadyApplied = await tx.memberOpeningBalance.findFirst({
@@ -1867,7 +1904,7 @@ export async function applyMemberOpeningBalance(
     })
 
     if (alreadyApplied) {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "This member already has an applied opening balance. Use correction workflows for later changes."
       )
     }
@@ -2065,7 +2102,9 @@ export async function reverseMemberOpeningBalance(
 
   const reversalNotes = input.reversalNotes.trim()
   if (!reversalNotes) {
-    throw new Error("Opening balance reversal notes are required.")
+    throw ExpectedQueryError.validation(
+      "Opening balance reversal notes are required."
+    )
   }
 
   await assertActorBelongsToTenant(input, prisma)
@@ -2080,13 +2119,15 @@ export async function reverseMemberOpeningBalance(
     })
 
     if (!existing) {
-      throw new Error("Opening balance was not found.")
+      throw ExpectedQueryError.notFound("Opening balance was not found.")
     }
 
     await assertOpeningBalanceCorrectionOpen(input.tenantId, tx)
 
     if (existing.status !== "applied") {
-      throw new Error("Only applied opening balances can be reversed.")
+      throw ExpectedQueryError.conflict(
+        "Only applied opening balances can be reversed."
+      )
     }
 
     const commitmentSavingsBalance = Number(
@@ -2148,13 +2189,13 @@ export async function reverseMemberOpeningBalance(
       })
 
       if (!member) {
-        throw new Error(
+        throw ExpectedQueryError.permission(
           "Opening balance member does not belong to this tenant."
         )
       }
 
       if (Number(member.totalSavingsSnapshot ?? 0) < savingsTotal) {
-        throw new Error(
+        throw ExpectedQueryError.precondition(
           "Opening balance reversal would make the member savings snapshot negative. Use a controlled correction workflow instead."
         )
       }

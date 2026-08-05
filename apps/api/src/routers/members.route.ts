@@ -5,6 +5,7 @@ import {
   updateMember,
   updateMemberStatus,
 } from "@halaalvest/db"
+import { AppError } from "@halaalvest/errors"
 import { z } from "zod"
 import { listMembersSchema } from "../schemas/members"
 import { createTRPCRouter, minRoleProcedure } from "../lib.trpc"
@@ -22,7 +23,11 @@ export const membersRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const member = await getMemberById(ctx.tenant.current.id, input.memberId)
       if (!member) {
-        throw new Error("Member not found")
+        throw new AppError({
+          code: "NOT_FOUND",
+          operation: "members.getById",
+          publicMessage: "Member not found.",
+        })
       }
       return member
     }),

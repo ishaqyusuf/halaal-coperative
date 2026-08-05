@@ -6,6 +6,7 @@ import {
   type InitialMigrationStatus,
 } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { isPrismaMissingColumnError } from "../prisma-errors"
 import { createAuditLogEntry } from "./audit"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
@@ -454,7 +455,7 @@ export async function finalizeTenantInitialMigration(
     migrationState.snapshot.status === "finalized" ||
     migrationState.snapshot.status === "live_operations"
   ) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "Initial migration has already been finalized for this cooperative."
     )
   }
@@ -464,7 +465,7 @@ export async function finalizeTenantInitialMigration(
   )
 
   if (missingStepKeys.length > 0) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       `Initial setup cannot be finalized until these steps are complete: ${missingStepKeys.join(", ")}.`
     )
   }
@@ -516,7 +517,9 @@ export async function markTenantLegacyLoansReviewed(
   )
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error("Initial migration tools are locked for this cooperative.")
+    throw ExpectedQueryError.precondition(
+      "Initial migration tools are locked for this cooperative."
+    )
   }
 
   if (
@@ -524,7 +527,7 @@ export async function markTenantLegacyLoansReviewed(
     migrationState.counts.appliedBackfillMembers > 0 ||
     migrationState.counts.appliedBackfillMonths > 0
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Legacy loan review is locked because member ledger backfill has already started."
     )
   }
@@ -561,7 +564,9 @@ export async function markTenantBusinessProfitPoolsReviewed(
   )
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error("Initial migration tools are locked for this cooperative.")
+    throw ExpectedQueryError.precondition(
+      "Initial migration tools are locked for this cooperative."
+    )
   }
 
   if (
@@ -569,7 +574,7 @@ export async function markTenantBusinessProfitPoolsReviewed(
     migrationState.counts.appliedBackfillMembers > 0 ||
     migrationState.counts.appliedBackfillMonths > 0
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Business profit pool review is locked because member ledger backfill has already started."
     )
   }
@@ -620,7 +625,7 @@ export async function setTenantInitialMigrationEmergencyUnlock(
   )
 
   if (migrationState.snapshot.canUseMigrationTools) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Emergency unlock is only available after initial migration has been finalized."
     )
   }
@@ -629,7 +634,9 @@ export async function setTenantInitialMigrationEmergencyUnlock(
     Number.isNaN(input.unlockUntil.getTime()) ||
     input.unlockUntil.getTime() <= Date.now()
   ) {
-    throw new Error("Emergency unlock expiry must be a future date and time.")
+    throw ExpectedQueryError.validation(
+      "Emergency unlock expiry must be a future date and time."
+    )
   }
 
   const tenant = await prisma.tenant.update({

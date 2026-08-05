@@ -513,7 +513,8 @@ describe("support case queries", () => {
               },
               findFirst: async () =>
                 supportCaseRow({
-                  description: "This receipt was allocated to the wrong category.",
+                  description:
+                    "This receipt was allocated to the wrong category.",
                   linkedRecordId: "receipt-1",
                   linkedRecordType: "receipt",
                   messages: [],
@@ -761,7 +762,11 @@ describe("support case queries", () => {
           },
         } as never
       )
-    ).rejects.toThrow("Resolution summary is required")
+    ).rejects.toMatchObject({
+      code: "VALIDATION_FAILED",
+      message: expect.stringContaining("Resolution summary is required"),
+      reportable: false,
+    })
 
     expect(updates).toHaveLength(0)
   })
@@ -1007,7 +1012,11 @@ describe("support case queries", () => {
           },
         } as never
       )
-    ).rejects.toThrow("Closed support cases cannot receive new messages")
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Closed support cases cannot receive new messages.",
+      reportable: false,
+    })
 
     expect(messageCreates).toHaveLength(0)
   })

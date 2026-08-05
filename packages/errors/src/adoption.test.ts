@@ -78,9 +78,54 @@ describe("Halaalvest error-system adoption", () => {
     expect(routes).toContain("getMarketingErrorResponse")
   })
 
+  test("keeps production signup tokens and provider details out of responses", () => {
+    const signup = read("apps/marketing/app/api/signup/route.ts")
+    const onboarding = read("apps/marketing/app/api/onboarding/route.ts")
+    const signupForm = read(
+      "apps/marketing/src/components/signup/signup-form.tsx"
+    )
+
+    expect(signup).toContain(
+      "onboardingUrl: exposeQaArtifacts ? onboardingUrl.toString() : undefined"
+    )
+    expect(signup).toContain(
+      "verificationEmail: exposeQaArtifacts ? verificationEmail : undefined"
+    )
+    expect(signupForm).toContain('"verificationDelivery" in payload')
+    expect(onboarding).toContain("vercelDomainProvisioning: {")
+    expect(onboarding).toContain('? "Email delivery failed."')
+  })
+
   test("returns safe terminal job receipts", () => {
     const queue = read("packages/jobs/src/queue.ts")
     expect(queue).toContain("toPublicError")
     expect(queue).not.toContain("lastError?.message")
+  })
+
+  test("types every member-onboarding failure at its source", () => {
+    const onboarding = read("packages/db/src/queries/member-onboarding.ts")
+
+    expect(onboarding).toContain("new AppError({")
+    expect(onboarding).toContain('"PRECONDITION_FAILED"')
+    expect(onboarding).not.toContain("throw new Error(")
+  })
+
+  test("forbids generic errors in API router and dashboard validation sources", () => {
+    const routerSources = sourceFiles("apps/api/src/routers")
+      .filter((path) => path.endsWith(".ts") && !path.endsWith(".test.ts"))
+      .map(read)
+      .join("\n")
+    const dashboardActions = read(
+      "apps/api/src/routers/dashboard-actions.route.ts"
+    )
+
+    expect(routerSources).not.toContain("throw new Error(")
+    expect(dashboardActions).toContain(
+      "class DashboardActionExpectedError extends AppError"
+    )
+    expect(dashboardActions).toContain('operation: "dashboardActions.validate"')
+    expect(dashboardActions).toContain(
+      'operation: "dashboardActions.passwordSetup"'
+    )
   })
 })

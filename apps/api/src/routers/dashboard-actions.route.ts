@@ -4,6 +4,7 @@ import { z } from "zod"
 import type { TRPCContext } from "../context"
 import { authenticatedProcedure, createTRPCRouter } from "../lib.trpc"
 import { buildBackfillDraft } from "@halaalvest/backfill"
+import { AppError } from "@halaalvest/errors"
 import {
   assertMemberOperationalReadiness,
   addMemberSupportCaseMessage,
@@ -197,6 +198,17 @@ type DashboardActionState = {
   revalidatePaths: string[]
 }
 
+class DashboardActionExpectedError extends AppError {
+  constructor(publicMessage: string) {
+    super({
+      code: "VALIDATION_FAILED",
+      internalMessage: publicMessage,
+      operation: "dashboardActions.validate",
+      publicMessage,
+    })
+  }
+}
+
 const dashboardActionState = new AsyncLocalStorage<DashboardActionState>()
 
 function revalidatePath(path: string) {
@@ -246,7 +258,11 @@ function getPasswordSetupSecret() {
     return "halaalvest-dev-password-reset-secret"
   }
 
-  throw new Error("AUTH_SECRET must be configured in production.")
+  throw new AppError({
+    code: "UNEXPECTED",
+    internalMessage: "AUTH_SECRET must be configured in production.",
+    operation: "dashboardActions.passwordSetup",
+  })
 }
 
 function signPasswordSetupToken(body: string) {
@@ -448,7 +464,10 @@ async function requireDashboardActor(allowedRoles: MembershipRole[]) {
     !user ||
     !hasAnyRole(membership.role, allowedRoles)
   ) {
-    throw new Error("You do not have access to perform this workspace action.")
+    throw new AppError({
+      code: "PERMISSION_DENIED",
+      publicMessage: "You do not have access to perform this workspace action.",
+    })
   }
 
   return {
@@ -467,7 +486,10 @@ async function requireActorMember(
   })
 
   if (!member) {
-    throw new Error("Your user account is not linked to a member profile.")
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage: "Your user account is not linked to a member profile.",
+    })
   }
 
   return member
@@ -492,9 +514,11 @@ async function requireInitialMigrationToolsOpen(
   const migrationState = await getTenantInitialMigrationState(actor.tenant.id)
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error(
-      "Initial migration tools are locked for this tenant. Use normal live adjustment or reversal workflows instead."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Initial migration tools are locked for this tenant. Use normal live adjustment or reversal workflows instead.",
+    })
   }
 
   return migrationState
@@ -506,9 +530,11 @@ async function requireLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(actor.tenant.id)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
-      "Live record creation and updates are locked until initial migration is finalized."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Live record creation and updates are locked until initial migration is finalized.",
+    })
   }
 
   return migrationState
@@ -523,9 +549,11 @@ async function requireInitialMigrationOrLiveWritesOpen(
     !migrationState.snapshot.canUseMigrationTools &&
     !migrationState.snapshot.canUseLiveFinancialWrites
   ) {
-    throw new Error(
-      "This tenant is locked until initial migration is finalized or temporarily unlocked."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "This tenant is locked until initial migration is finalized or temporarily unlocked.",
+    })
   }
 
   return migrationState
@@ -547,9 +575,11 @@ async function requireHistoricalFinanceSetupMutable(
   const migrationState = await requireInitialMigrationToolsOpen(actor)
 
   if (hasAppliedInitialMigrationBackfill(migrationState)) {
-    throw new Error(
-      "Historical finance setup is locked because member ledger backfill has already started. Use member corrections or emergency remediation workflows instead."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Historical finance setup is locked because member ledger backfill has already started. Use member corrections or emergency remediation workflows instead.",
+    })
   }
 
   return migrationState
@@ -571,15 +601,19 @@ async function requireBusinessProfitOperationOpen(
 
   if (isHistoricalBusinessProfitActionSource(sourceType)) {
     if (!migrationState.snapshot.canUseMigrationTools) {
-      throw new Error(
-        "Historical business profit migration records are locked because initial migration is finalized."
-      )
+      throw new AppError({
+        code: "PRECONDITION_FAILED",
+        publicMessage:
+          "Historical business profit migration records are locked because initial migration is finalized.",
+      })
     }
 
     if (hasAppliedInitialMigrationBackfill(migrationState)) {
-      throw new Error(
-        "Historical business profit migration records are locked because member ledger backfill has already started."
-      )
+      throw new AppError({
+        code: "PRECONDITION_FAILED",
+        publicMessage:
+          "Historical business profit migration records are locked because member ledger backfill has already started.",
+      })
     }
 
     return migrationState
@@ -593,15 +627,19 @@ async function requireBusinessProfitOperationOpen(
   }
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error(
-      "Business profit records are locked until live operations are available."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Business profit records are locked until live operations are available.",
+    })
   }
 
   if (hasAppliedInitialMigrationBackfill(migrationState)) {
-    throw new Error(
-      "Business profit records are locked because member ledger backfill has already started. Finish migration or create live business records after go-live."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Business profit records are locked because member ledger backfill has already started. Finish migration or create live business records after go-live.",
+    })
   }
 
   return migrationState
@@ -613,9 +651,11 @@ async function requireImportWindowOpen(
   const migrationState = await requireInitialMigrationToolsOpen(actor)
 
   if (hasAppliedInitialMigrationBackfill(migrationState)) {
-    throw new Error(
-      "Historical imports are locked because member ledger backfill has already started. Finish migration or use live correction workflows after go-live."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Historical imports are locked because member ledger backfill has already started. Finish migration or use live correction workflows after go-live.",
+    })
   }
 
   return migrationState
@@ -646,9 +686,10 @@ async function requireMemberDataImportPrerequisitesComplete(
       .filter((step) => blockingStepKeys.has(step.key))
       .map((step) => step.label)
 
-    throw new Error(
-      `Member data imports cannot start until these setup steps are complete: ${labels.join(", ")}.`
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage: `Member data imports cannot start until these setup steps are complete: ${labels.join(", ")}.`,
+    })
   }
 
   return migrationState
@@ -664,9 +705,11 @@ async function requireChargeDefinitionWritesOpen(
     !migrationState.snapshot.canUseLiveFinancialWrites &&
     hasAppliedInitialMigrationBackfill(migrationState)
   ) {
-    throw new Error(
-      "Historical charge schedules are locked because member ledger backfill has already started. Finish migration or use live charge management after go-live."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Historical charge schedules are locked because member ledger backfill has already started. Finish migration or use live charge management after go-live.",
+    })
   }
 
   return migrationState
@@ -696,18 +739,21 @@ async function requireMemberProfileWritesOpen(
       .filter((step) => blockingStepKeys.has(step.key))
       .map((step) => step.label)
 
-    throw new Error(
-      `Member profiles cannot be created until these setup steps are complete: ${labels.join(", ")}.`
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage: `Member profiles cannot be created until these setup steps are complete: ${labels.join(", ")}.`,
+    })
   }
 
   if (
     migrationState.snapshot.canUseMigrationTools &&
     hasAppliedInitialMigrationBackfill(migrationState)
   ) {
-    throw new Error(
-      "Member profiles are locked because member ledger backfill has already started. Finish migration or create new members after go-live."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Member profiles are locked because member ledger backfill has already started. Finish migration or create new members after go-live.",
+    })
   }
 
   return migrationState
@@ -733,9 +779,11 @@ async function requireMemberContributionPlanWritesOpen(
     (memberReview?.appliedBackfillBatches ?? 0) > 0 ||
     (memberReview?.appliedBackfillMonths ?? 0) > 0
   ) {
-    throw new Error(
-      "This member's contribution plan is locked because historical ledger backfill has already been applied. Use correction workflows instead."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "This member's contribution plan is locked because historical ledger backfill has already been applied. Use correction workflows instead.",
+    })
   }
 
   return migrationState
@@ -757,9 +805,11 @@ async function requireMemberMigrationDraftMutable(
     (memberReview?.appliedBackfillBatches ?? 0) > 0 ||
     (memberReview?.appliedBackfillMonths ?? 0) > 0
   ) {
-    throw new Error(
-      "This member's historical ledger has already been applied. Use correction workflows instead of migration draft edits."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "This member's historical ledger has already been applied. Use correction workflows instead of migration draft edits.",
+    })
   }
 
   return memberReview
@@ -785,9 +835,10 @@ async function requireMemberBackfillPrerequisitesComplete(
       .filter((step) => blockingStepKeys.has(step.key))
       .map((step) => step.label)
 
-    throw new Error(
-      `Member ledger backfill cannot start until these setup steps are complete: ${labels.join(", ")}.`
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage: `Member ledger backfill cannot start until these setup steps are complete: ${labels.join(", ")}.`,
+    })
   }
 
   return migrationState
@@ -796,7 +847,7 @@ async function requireMemberBackfillPrerequisitesComplete(
 function getRequiredString(formData: FormData, key: string) {
   const value = formData.get(key)
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`Missing required field: ${key}`)
+    throw new DashboardActionExpectedError(`Missing required field: ${key}`)
   }
 
   return value.trim()
@@ -852,7 +903,7 @@ function requireDateOnOrAfterTenantStartDate(
     return
   }
 
-  throw new Error(
+  throw new DashboardActionExpectedError(
     `${label} cannot be before the cooperative start date (${minDate}).`
   )
 }
@@ -888,7 +939,9 @@ function requireImportRowsOnOrAfterTenantStartDate(
   )
 
   if (errors.length > 0) {
-    throw new Error(errors[0])
+    throw new DashboardActionExpectedError(
+      errors[0] ?? "An import row is invalid."
+    )
   }
 }
 
@@ -896,7 +949,9 @@ function requireDirectImportConfirmation(formData: FormData) {
   const confirmation = getRequiredString(formData, "confirmation")
 
   if (confirmation !== "IMPORT NOW") {
-    throw new Error("Type IMPORT NOW to run a direct import without staging.")
+    throw new DashboardActionExpectedError(
+      "Type IMPORT NOW to run a direct import without staging."
+    )
   }
 }
 
@@ -925,7 +980,9 @@ function getTenantServiceAccessMode(
   const value = getRequiredString(formData, key)
 
   if (!tenantServiceAccessModes.includes(value as TenantServiceAccessMode)) {
-    throw new Error(`Invalid service access mode for ${key}.`)
+    throw new DashboardActionExpectedError(
+      `Invalid service access mode for ${key}.`
+    )
   }
 
   return value as TenantServiceAccessMode
@@ -942,7 +999,9 @@ function getOptionalTenantServiceAccessMode(
   }
 
   if (!tenantServiceAccessModes.includes(value as TenantServiceAccessMode)) {
-    throw new Error(`Invalid service access mode for ${key}.`)
+    throw new DashboardActionExpectedError(
+      `Invalid service access mode for ${key}.`
+    )
   }
 
   return value as TenantServiceAccessMode
@@ -966,7 +1025,9 @@ function getGuidedServiceAccessMode(
   }
 
   if (offered !== "yes") {
-    throw new Error(`Invalid offered value for ${serviceKey}.`)
+    throw new DashboardActionExpectedError(
+      `Invalid offered value for ${serviceKey}.`
+    )
   }
 
   const channel = (
@@ -981,7 +1042,9 @@ function getGuidedServiceAccessMode(
     return "office_only"
   }
 
-  throw new Error(`Invalid request channel for ${serviceKey}.`)
+  throw new DashboardActionExpectedError(
+    `Invalid request channel for ${serviceKey}.`
+  )
 }
 
 function parseOptionalJsonArray(formData: FormData, key: string) {
@@ -993,7 +1056,7 @@ function parseOptionalJsonArray(formData: FormData, key: string) {
   try {
     const parsed = JSON.parse(value)
     if (!Array.isArray(parsed)) {
-      throw new Error(`${key} must be an array.`)
+      throw new DashboardActionExpectedError(`${key} must be an array.`)
     }
 
     return parsed as Record<string, unknown>[]
@@ -1002,7 +1065,7 @@ function parseOptionalJsonArray(formData: FormData, key: string) {
       throw error
     }
 
-    throw new Error(`${key} is not valid JSON.`)
+    throw new DashboardActionExpectedError(`${key} is not valid JSON.`)
   }
 }
 
@@ -1026,12 +1089,12 @@ function getRowRequiredDate(
 ) {
   const value = getRowString(row, key)
   if (!value) {
-    throw new Error(`${label} date is required.`)
+    throw new DashboardActionExpectedError(`${label} date is required.`)
   }
 
   const date = new Date(`${value}T00:00:00.000Z`)
   if (Number.isNaN(date.getTime())) {
-    throw new Error(`${label} date is invalid.`)
+    throw new DashboardActionExpectedError(`${label} date is invalid.`)
   }
 
   return date
@@ -1045,7 +1108,7 @@ function getRowOptionalDate(row: Record<string, unknown>, key: string) {
 
   const date = new Date(`${value}T00:00:00.000Z`)
   if (Number.isNaN(date.getTime())) {
-    throw new Error(`${key} date is invalid.`)
+    throw new DashboardActionExpectedError(`${key} date is invalid.`)
   }
 
   return date
@@ -1058,12 +1121,12 @@ function getRowRequiredNumber(
 ) {
   const value = getRowString(row, key)
   if (!value) {
-    throw new Error(`${label} is required.`)
+    throw new DashboardActionExpectedError(`${label} is required.`)
   }
 
   const numberValue = Number(value)
   if (!Number.isFinite(numberValue) || numberValue <= 0) {
-    throw new Error(`${label} must be greater than 0.`)
+    throw new DashboardActionExpectedError(`${label} must be greater than 0.`)
   }
 
   return numberValue
@@ -1077,7 +1140,7 @@ function getRowOptionalNumber(row: Record<string, unknown>, key: string) {
 
   const numberValue = Number(value)
   if (!Number.isFinite(numberValue) || numberValue < 0) {
-    throw new Error(`${key} cannot be negative.`)
+    throw new DashboardActionExpectedError(`${key} cannot be negative.`)
   }
 
   return numberValue
@@ -1097,7 +1160,9 @@ function parsePaymentReceiptAllocations(
       targetPeriodStartValue &&
       Number.isNaN(targetPeriodStart?.getTime() ?? Number.NaN)
     ) {
-      throw new Error(`Allocation row ${index + 1} target period is invalid.`)
+      throw new DashboardActionExpectedError(
+        `Allocation row ${index + 1} target period is invalid.`
+      )
     }
 
     return {
@@ -1137,7 +1202,9 @@ function requireDateOnOrAfterJoinedAt(
   const minDate = joinedAt.toISOString().slice(0, 10)
 
   if (actualDate < minDate) {
-    throw new Error(`${label} cannot be before the member joined date.`)
+    throw new DashboardActionExpectedError(
+      `${label} cannot be before the member joined date.`
+    )
   }
 }
 
@@ -1258,23 +1325,25 @@ function getMemberStateFromFormData(formData: FormData, joinedAt?: Date) {
       !loanPaymentMonths ||
       !loanMonthlyCommitment
     ) {
-      throw new Error(
+      throw new DashboardActionExpectedError(
         "Loan start date, amount, payment months, and monthly commitment are required when serving loan is enabled."
       )
     }
 
     if (loanServed < 0 || loanServed > loanAmount) {
-      throw new Error(
+      throw new DashboardActionExpectedError(
         "Served amount must be between 0 and the total loan amount."
       )
     }
 
     if (!Number.isInteger(loanPaymentMonths) || loanPaymentMonths <= 0) {
-      throw new Error("Payment months must be greater than 0.")
+      throw new DashboardActionExpectedError(
+        "Payment months must be greater than 0."
+      )
     }
 
     if (loanTopupAmount < 0) {
-      throw new Error("Topup amount cannot be negative.")
+      throw new DashboardActionExpectedError("Topup amount cannot be negative.")
     }
 
     const parsedLoanStartDate = new Date(`${loanStartDate}T00:00:00.000Z`)
@@ -1324,7 +1393,9 @@ export async function createMemberAction(formData: FormData) {
     !Number.isFinite(monthlyCommitment) ||
     monthlyCommitment <= 0
   ) {
-    throw new Error("Starting commitment must be greater than 0.")
+    throw new DashboardActionExpectedError(
+      "Starting commitment must be greater than 0."
+    )
   }
 
   const member = await createMember({
@@ -2046,7 +2117,9 @@ function getChargeDefinitionHistoryRows(formData: FormData) {
   )
 
   if (incompleteHistoryRow) {
-    throw new Error("Every charge history row needs both a date and amount.")
+    throw new DashboardActionExpectedError(
+      "Every charge history row needs both a date and amount."
+    )
   }
 
   return historyRows.sort((a, b) =>
@@ -2161,7 +2234,9 @@ function parseChargeHistoryAmount(value: string) {
   const amount = Number(value)
 
   if (!Number.isFinite(amount)) {
-    throw new Error("Charge history amount must be a valid number.")
+    throw new DashboardActionExpectedError(
+      "Charge history amount must be a valid number."
+    )
   }
 
   return amount
@@ -2172,7 +2247,9 @@ function normalizeShareHistoryValueType(value: string) {
     return value
   }
 
-  throw new Error("Share history rule must be fixed amount or percentage.")
+  throw new DashboardActionExpectedError(
+    "Share history rule must be fixed amount or percentage."
+  )
 }
 
 function getShareStructureHistoryRows(
@@ -2229,7 +2306,9 @@ function getShareStructureHistoryRows(
   )
 
   if (incompleteHistoryRow) {
-    throw new Error("Every share history row needs a date, rule, and value.")
+    throw new DashboardActionExpectedError(
+      "Every share history row needs a date, rule, and value."
+    )
   }
 
   return historyRows.sort((a, b) =>
@@ -2241,7 +2320,9 @@ function parseShareHistoryAmount(value: string) {
   const amount = Number(value)
 
   if (!Number.isFinite(amount)) {
-    throw new Error("Share history value must be a valid number.")
+    throw new DashboardActionExpectedError(
+      "Share history value must be a valid number."
+    )
   }
 
   return amount
@@ -2265,7 +2346,7 @@ export async function createChargeDefinitionAction(formData: FormData) {
   const initialHistoryRow = historyRows[0]
 
   if (!initialHistoryRow) {
-    throw new Error("Charge history is required.")
+    throw new DashboardActionExpectedError("Charge history is required.")
   }
 
   for (const historyRow of historyRows) {
@@ -2301,7 +2382,11 @@ export async function createChargeDefinitionAction(formData: FormData) {
   })
 
   if (!chargeDefinition?.id) {
-    throw new Error("Charge definition could not be created.")
+    throw new AppError({
+      code: "UNEXPECTED",
+      internalMessage: "Charge definition could not be created.",
+      operation: "dashboardActions.createChargeDefinition",
+    })
   }
 
   for (const historyRow of historyRows.slice(1)) {
@@ -2596,7 +2681,9 @@ export async function updateTenantOperationProfileAction(formData: FormData) {
       serviceAccessModes.collection_sources = "office_only"
       serviceAccessModes.collection_source_batch_posting = "office_only"
     } else {
-      throw new Error("Invalid commitment collection style.")
+      throw new DashboardActionExpectedError(
+        "Invalid commitment collection style."
+      )
     }
   }
 
@@ -2618,7 +2705,7 @@ export async function updateTenantOperationProfileAction(formData: FormData) {
   } else if (supportAccess === "member") {
     serviceAccessModes.support_cases = "member_self_service"
   } else if (supportAccess && supportAccess !== "keep") {
-    throw new Error("Invalid member support access.")
+    throw new DashboardActionExpectedError("Invalid member support access.")
   }
 
   await updateTenantOperationProfile({
@@ -2911,7 +2998,7 @@ function getShareBusinessProfitHistoryRows(formData: FormData) {
   )
 
   if (incompleteHistoryRow) {
-    throw new Error(
+    throw new DashboardActionExpectedError(
       "Every started business profit history row needs a profit date and amount."
     )
   }
@@ -2923,7 +3010,7 @@ function parseBusinessProfitHistoryAmount(value: string, label: string) {
   const amount = Number(value || 0)
 
   if (!Number.isFinite(amount)) {
-    throw new Error(`${label} must be a valid number.`)
+    throw new DashboardActionExpectedError(`${label} must be a valid number.`)
   }
 
   return amount
@@ -2939,7 +3026,9 @@ export async function createShareBusinessAction(formData: FormData) {
   const profitHistoryRows = getShareBusinessProfitHistoryRows(formData)
 
   if (endDate && endDate < startDate) {
-    throw new Error("Business end date cannot be before the start date.")
+    throw new DashboardActionExpectedError(
+      "Business end date cannot be before the start date."
+    )
   }
 
   const profitEntries = profitHistoryRows.map((row) => {
@@ -2948,11 +3037,15 @@ export async function createShareBusinessAction(formData: FormData) {
     }
 
     if (row.profitDate < startDate) {
-      throw new Error("Profit date cannot be before the business start date.")
+      throw new DashboardActionExpectedError(
+        "Profit date cannot be before the business start date."
+      )
     }
 
     if (endDate && row.profitDate > endDate) {
-      throw new Error("Profit date cannot be after the business end date.")
+      throw new DashboardActionExpectedError(
+        "Profit date cannot be after the business end date."
+      )
     }
 
     const profitAmount = parseBusinessProfitHistoryAmount(
@@ -2966,15 +3059,21 @@ export async function createShareBusinessAction(formData: FormData) {
     const allocatableProfitAmount = profitAmount - expenseAmount
 
     if (expenseAmount < 0) {
-      throw new Error("Deduction amount cannot be negative.")
+      throw new DashboardActionExpectedError(
+        "Deduction amount cannot be negative."
+      )
     }
 
     if (allocatableProfitAmount < 0) {
-      throw new Error("Deduction cannot be greater than profit amount.")
+      throw new DashboardActionExpectedError(
+        "Deduction cannot be greater than profit amount."
+      )
     }
 
     if (expenseAmount > 0 && !row.reason.trim()) {
-      throw new Error("Deduction reason is required when deduction is set.")
+      throw new DashboardActionExpectedError(
+        "Deduction reason is required when deduction is set."
+      )
     }
 
     return {
@@ -3025,7 +3124,9 @@ export async function updateShareBusinessAction(formData: FormData) {
   const startDate = getRequiredString(formData, "startDate")
 
   if (endDate && endDate < startDate) {
-    throw new Error("Business end date cannot be before the start date.")
+    throw new DashboardActionExpectedError(
+      "Business end date cannot be before the start date."
+    )
   }
 
   await updateShareBusiness({
@@ -3203,13 +3304,17 @@ export async function saveBusinessProfitMigrationWorksheetAction(
   requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
 
   if (allocationMode !== "percentage" && allocationMode !== "value") {
-    throw new Error("Allocation mode must be value or percentage.")
+    throw new DashboardActionExpectedError(
+      "Allocation mode must be value or percentage."
+    )
   }
 
   const profitAmount = Number(getRequiredString(formData, "profitAmount"))
 
   if (!Number.isFinite(profitAmount) || profitAmount < 0) {
-    throw new Error("Profit amount must be a valid positive number.")
+    throw new DashboardActionExpectedError(
+      "Profit amount must be a valid positive number."
+    )
   }
 
   const expenseIndexes = Array.from(
@@ -3742,12 +3847,14 @@ export async function updateCooperativeProfileAction(formData: FormData) {
     currentSize = parseCooperativeSizeRangeValue(rawCurrentSize)
 
     if (currentSize === null) {
-      throw new Error("Select a valid cooperative size.")
+      throw new DashboardActionExpectedError("Select a valid cooperative size.")
     }
   }
 
   if (country && !isCooperativeCountry(country)) {
-    throw new Error("Select a valid cooperative country.")
+    throw new DashboardActionExpectedError(
+      "Select a valid cooperative country."
+    )
   }
 
   await updateTenantProfile({
@@ -3838,7 +3945,7 @@ export async function finalizeInitialMigrationAction(formData: FormData) {
   const confirmation = getRequiredString(formData, "confirmation")
 
   if (confirmation !== "FINALIZE MIGRATION") {
-    throw new Error(
+    throw new DashboardActionExpectedError(
       "Type FINALIZE MIGRATION to confirm the historical lock and go-live transition."
     )
   }
@@ -3862,7 +3969,9 @@ export async function unlockInitialMigrationAction(formData: FormData) {
     Number.isNaN(unlockUntil.getTime()) ||
     unlockUntil.getTime() <= Date.now()
   ) {
-    throw new Error("Emergency unlock expiry must be a future date and time.")
+    throw new DashboardActionExpectedError(
+      "Emergency unlock expiry must be a future date and time."
+    )
   }
 
   await setTenantInitialMigrationEmergencyUnlock({
@@ -4500,7 +4609,9 @@ function buildMemberAmountLogRows(formData: FormData) {
     }
 
     if (!row.amount || !row.effectiveFrom) {
-      throw new Error("Each started commitment row needs a date and amount.")
+      throw new DashboardActionExpectedError(
+        "Each started commitment row needs a date and amount."
+      )
     }
 
     rows.push(row)
@@ -4547,11 +4658,15 @@ function buildMemberActivityEventRows(formData: FormData) {
     }
 
     if (!row.effectiveMonth || !row.status) {
-      throw new Error("Each started activity row needs a month and status.")
+      throw new DashboardActionExpectedError(
+        "Each started activity row needs a month and status."
+      )
     }
 
     if (row.status !== "active" && row.status !== "inactive") {
-      throw new Error("Member activity status must be active or inactive.")
+      throw new DashboardActionExpectedError(
+        "Member activity status must be active or inactive."
+      )
     }
 
     rows.push({
@@ -4660,7 +4775,7 @@ function buildLegacyLoanMigrationRows(formData: FormData) {
       !row.scheduledMonthlyPrincipalRepayment ||
       !row.savingsDuringLoan
     ) {
-      throw new Error(
+      throw new DashboardActionExpectedError(
         "Each started loan row needs a date, amount, repayment, and commitment."
       )
     }
@@ -4723,7 +4838,7 @@ async function resolveMigrationGuarantorMemberId({
   }
 
   if (!fullName || !memberNumber || !joinedAtValue) {
-    throw new Error(
+    throw new DashboardActionExpectedError(
       `${label} quick-create needs full name, member number, and joined date.`
     )
   }
@@ -4768,7 +4883,7 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
       return
     }
 
-    throw new Error("Add at least one loan history row.")
+    throw new DashboardActionExpectedError("Add at least one loan history row.")
   }
 
   for (const row of rows) {
@@ -4799,7 +4914,9 @@ export async function createLegacyLoanMigrationDraftAction(formData: FormData) {
       guarantorTwoMemberId &&
       guarantorOneMemberId === guarantorTwoMemberId
     ) {
-      throw new Error("Guarantor 1 and Guarantor 2 cannot be the same member.")
+      throw new DashboardActionExpectedError(
+        "Guarantor 1 and Guarantor 2 cannot be the same member."
+      )
     }
 
     const principalAmount = Number(row.principalAmount)
@@ -4893,7 +5010,9 @@ export async function upsertMemberAmountLogAction(formData: FormData) {
       return
     }
 
-    throw new Error("Add at least one commitment history row.")
+    throw new DashboardActionExpectedError(
+      "Add at least one commitment history row."
+    )
   }
 
   for (const row of rows) {
@@ -4923,7 +5042,7 @@ export async function markLegacyLoansReviewedAction(formData: FormData) {
   const confirmation = getRequiredString(formData, "confirmation")
 
   if (confirmation !== "NO LEGACY LOANS") {
-    throw new Error(
+    throw new DashboardActionExpectedError(
       "Type NO LEGACY LOANS to confirm there are no historical loan balances to migrate."
     )
   }
@@ -4946,7 +5065,7 @@ export async function markBusinessProfitPoolsReviewedAction(
   const confirmation = getRequiredString(formData, "confirmation")
 
   if (confirmation !== "NO BUSINESS PROFITS") {
-    throw new Error(
+    throw new DashboardActionExpectedError(
       "Type NO BUSINESS PROFITS to confirm there are no historical business profit pools to migrate."
     )
   }
@@ -5012,7 +5131,9 @@ export async function setMigrationBackfillDefaultingMonthsAction(
     )
 
   if (allMonthValues.length === 0) {
-    throw new Error("Select at least one migration month.")
+    throw new DashboardActionExpectedError(
+      "Select at least one migration month."
+    )
   }
 
   await setMigrationBackfillDefaultingMonths({
@@ -5148,7 +5269,9 @@ function getOptionalPositiveInteger(formData: FormData, key: string) {
   const parsed = Number(rawValue)
 
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${key} must be a whole number greater than 0.`)
+    throw new DashboardActionExpectedError(
+      `${key} must be a whole number greater than 0.`
+    )
   }
 
   return parsed
@@ -5164,7 +5287,7 @@ function getOptionalDateValue(formData: FormData, key: string) {
   const parsed = new Date(`${rawValue}T23:59:59.999Z`)
 
   if (Number.isNaN(parsed.getTime())) {
-    throw new Error(`${key} must be a valid date.`)
+    throw new DashboardActionExpectedError(`${key} must be a valid date.`)
   }
 
   return parsed
@@ -5183,7 +5306,9 @@ export async function updateMemberSignupAccessModeAction(formData: FormData) {
       memberSignupAccessMode
     )
   ) {
-    throw new Error("Choose a valid member signup access mode.")
+    throw new DashboardActionExpectedError(
+      "Choose a valid member signup access mode."
+    )
   }
 
   await updateTenantMemberSignupSettings({
@@ -6087,7 +6212,7 @@ export async function createOwnMemberPaymentReceiptAction(formData: FormData) {
   const operationProfile = await getTenantOperationProfile(actor.tenant.id)
 
   if (!operationProfile.services.payment_receipts.canMemberCreate) {
-    throw new Error(
+    throw new DashboardActionExpectedError(
       "Payment receipt self-service is not enabled for this cooperative."
     )
   }
@@ -6170,7 +6295,9 @@ export async function importMembersCsvAction(formData: FormData) {
   >("members", getRequiredString(formData, "csvText"))
 
   if (!parsed.ok) {
-    throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
+    throw new DashboardActionExpectedError(
+      parsed.errors[0] ?? "CSV import validation failed."
+    )
   }
   requireImportRowsOnOrAfterTenantStartDate(
     actor,
@@ -6197,7 +6324,9 @@ export async function importDeductionSourcesCsvAction(formData: FormData) {
   >("deduction_sources", getRequiredString(formData, "csvText"))
 
   if (!parsed.ok) {
-    throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
+    throw new DashboardActionExpectedError(
+      parsed.errors[0] ?? "CSV import validation failed."
+    )
   }
 
   await importDeductionSources({
@@ -6219,7 +6348,9 @@ export async function importLoanProductsCsvAction(formData: FormData) {
   >("loan_products", getRequiredString(formData, "csvText"))
 
   if (!parsed.ok) {
-    throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
+    throw new DashboardActionExpectedError(
+      parsed.errors[0] ?? "CSV import validation failed."
+    )
   }
 
   await importLoanProducts({
@@ -6241,7 +6372,9 @@ export async function importContributionsCsvAction(formData: FormData) {
   >("contributions", getRequiredString(formData, "csvText"))
 
   if (!parsed.ok) {
-    throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
+    throw new DashboardActionExpectedError(
+      parsed.errors[0] ?? "CSV import validation failed."
+    )
   }
   requireImportRowsOnOrAfterTenantStartDate(
     actor,
@@ -6269,7 +6402,9 @@ export async function importChargesCsvAction(formData: FormData) {
   >("charges", getRequiredString(formData, "csvText"))
 
   if (!parsed.ok) {
-    throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
+    throw new DashboardActionExpectedError(
+      parsed.errors[0] ?? "CSV import validation failed."
+    )
   }
   requireImportRowsOnOrAfterTenantStartDate(
     actor,
@@ -6297,7 +6432,9 @@ export async function importLoanMigrationsCsvAction(formData: FormData) {
   >("loan_migrations", getRequiredString(formData, "csvText"))
 
   if (!parsed.ok) {
-    throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
+    throw new DashboardActionExpectedError(
+      parsed.errors[0] ?? "CSV import validation failed."
+    )
   }
   requireImportRowsOnOrAfterTenantStartDate(
     actor,
@@ -6329,7 +6466,9 @@ export async function importRepaymentMigrationsCsvAction(formData: FormData) {
   >("repayment_migrations", getRequiredString(formData, "csvText"))
 
   if (!parsed.ok) {
-    throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
+    throw new DashboardActionExpectedError(
+      parsed.errors[0] ?? "CSV import validation failed."
+    )
   }
 
   await importRepaymentMigrations({
@@ -6367,7 +6506,9 @@ export async function stageImportBatchAction(formData: FormData) {
   )
 
   if (!parsed.ok) {
-    throw new Error(parsed.errors[0] ?? "CSV import validation failed.")
+    throw new DashboardActionExpectedError(
+      parsed.errors[0] ?? "CSV import validation failed."
+    )
   }
   requireImportRowsOnOrAfterTenantStartDate(actor, importKind, parsed.rows)
 
@@ -6425,7 +6566,9 @@ export async function applyImportBatchAction(formData: FormData) {
   const confirmation = getRequiredString(formData, "confirmation")
 
   if (confirmation !== "APPLY IMPORT") {
-    throw new Error("Type APPLY IMPORT to apply the staged import batch.")
+    throw new DashboardActionExpectedError(
+      "Type APPLY IMPORT to apply the staged import batch."
+    )
   }
 
   const importKind = await getImportBatchKind({
@@ -6512,7 +6655,7 @@ export async function queueBackfillApplyAction(formData: FormData) {
     (formData.get("endMonth") as string | null)?.trim() || undefined
 
   if (confirmation !== "APPLY BACKFILL") {
-    throw new Error(
+    throw new DashboardActionExpectedError(
       "Type APPLY BACKFILL to post the selected member's historical ledger."
     )
   }

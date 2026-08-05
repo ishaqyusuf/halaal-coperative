@@ -445,7 +445,11 @@ describe("procurement request workflow", () => {
         },
         prisma as never
       )
-    ).rejects.toThrow("read-only")
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("read-only"),
+      reportable: false,
+    })
 
     expect(prisma.procurementRequestCreates).toHaveLength(0)
   })

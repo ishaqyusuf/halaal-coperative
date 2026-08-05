@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed and implementation-ready. No external transmission is authorized by this document. Sentry SDK dependencies, initialization, capture calls, source-map uploads, alert creation, and smoke events remain disabled until the project owner explicitly selects the external-production mode described below.
+Approved and implemented behind fail-closed production gates. The project owner explicitly approved external production diagnostics on 2026-08-05. No runtime transmits without its own production environment and DSN, and no source-map upload runs without the complete runtime-specific production credential set.
 
 ## Purpose
 
@@ -117,19 +117,23 @@ Before enabling the first production DSN, the owner must record:
 
 External mode is not complete until every runtime passes all applicable checks:
 
-- [ ] disabled without a DSN;
-- [ ] disabled in development, test, preview, staging, and QA;
-- [ ] expected failures produce no event;
+- [x] disabled without a DSN;
+- [x] disabled in development, test, preview, staging, and QA;
+- [x] expected failures produce no event;
 - [ ] one synthetic unexpected failure produces exactly one event;
 - [ ] event routes to the correct runtime project, environment, and release;
-- [ ] raw exception message is absent;
-- [ ] request, user, breadcrumb, context, payload, URL, header, cookie, and device fields are absent;
-- [ ] only allowlisted tags and extras remain;
-- [ ] support reference and fingerprint correlate with the public receipt;
+- [x] raw exception message is absent in final-event regression coverage;
+- [x] request, user, breadcrumb, context, payload, URL, header, cookie, and device fields are absent in final-event regression coverage;
+- [x] only allowlisted tags and extras remain in final-event regression coverage;
+- [x] support reference and fingerprint correlate in shared contract coverage;
 - [ ] source-mapped stack resolves without exposing a public source map;
-- [ ] replay, logs, tracing, profiling, feedback, and sessions remain disabled;
+- [x] replay, logs, tracing, profiling, feedback, breadcrumbs, default request/device capture, and sessions are disabled in runtime configuration;
 - [ ] the synthetic smoke flag is removed immediately after verification.
 
 ## Approval record
 
 Approval must be an explicit user statement in the implementation task, such as `Approve Halaalvest external production diagnostics under the observability transmission policy`. Resuming the goal without that statement is not approval. If internal-only mode is selected, ADR-018 and the master tracker are updated to record that external diagnostics are intentionally out of scope for Halaalvest.
+
+Approval received on 2026-08-05 with the exact statement: `Approve Halaalvest external production diagnostics under the observability transmission policy`.
+
+Implementation does not contain a DSN, auth token, organization value, or external project identifier. The remaining unchecked verification items are production operations requiring the five private projects, real deployment credentials, access/retention ownership, and controlled synthetic events; they are not performed from local development.

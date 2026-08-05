@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 
@@ -44,7 +45,7 @@ async function assertMigrationAdjustmentMutationOpen(
     !migrationState.snapshot.canUseMigrationTools &&
     !migrationState.snapshot.canUseLiveFinancialWrites
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Migration adjustments are locked because initial migration is finalized."
     )
   }
@@ -74,7 +75,7 @@ async function assertMigrationAdjustmentMutationOpen(
   ])
 
   if (appliedMonths.length > 0 || appliedBatches.length > 0) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "This member's historical ledger has already been applied. Use correction workflows instead of migration adjustment edits."
     )
   }
@@ -245,7 +246,7 @@ export async function saveMigrationProfitSeasonAdjustments(
       }
 
       if (allocatedProfitAmount != null && sharePercentage != null) {
-        throw new Error(
+        throw ExpectedQueryError.validation(
           "Set either a member profit amount or a share percentage, not both."
         )
       }
@@ -253,7 +254,7 @@ export async function saveMigrationProfitSeasonAdjustments(
       const seasonEntries = entriesBySeasonKey.get(season.key)
 
       if (!seasonEntries || seasonEntries.length === 0) {
-        throw new Error("Dividend season not found.")
+        throw ExpectedQueryError.notFound("Dividend season not found.")
       }
 
       if (sharePercentage != null) {
@@ -283,17 +284,21 @@ export async function saveMigrationProfitSeasonAdjustments(
       )
 
       if (!Number.isFinite(seasonAmount) || seasonAmount < 0) {
-        throw new Error("Member profit amount cannot be negative.")
+        throw ExpectedQueryError.validation(
+          "Member profit amount cannot be negative."
+        )
       }
 
       if (seasonAmount > totalEditableAvailableAmount) {
-        throw new Error(
+        throw ExpectedQueryError.validation(
           "Member profit adjustment cannot exceed the remaining available season profit amount."
         )
       }
 
       if (seasonAmount > 0 && totalEditableAvailableAmount <= 0) {
-        throw new Error("Dividend season has no available profit to allocate.")
+        throw ExpectedQueryError.precondition(
+          "Dividend season has no available profit to allocate."
+        )
       }
 
       let remainingAmount = seasonAmount
@@ -360,24 +365,30 @@ export async function upsertMigrationProfitAdjustment(
   }
 
   if (input.allocatedProfitAmount == null && input.sharePercentage == null) {
-    throw new Error("Set a member profit amount or a share percentage.")
+    throw ExpectedQueryError.validation(
+      "Set a member profit amount or a share percentage."
+    )
   }
 
   if (input.allocatedProfitAmount != null && input.sharePercentage != null) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Set either a member profit amount or a share percentage, not both."
     )
   }
 
   if (input.allocatedProfitAmount != null && input.allocatedProfitAmount < 0) {
-    throw new Error("Member profit amount cannot be negative.")
+    throw ExpectedQueryError.validation(
+      "Member profit amount cannot be negative."
+    )
   }
 
   if (
     input.sharePercentage != null &&
     (input.sharePercentage < 0 || input.sharePercentage > 100)
   ) {
-    throw new Error("Share percentage must be between 0 and 100.")
+    throw ExpectedQueryError.validation(
+      "Share percentage must be between 0 and 100."
+    )
   }
 
   const profitEntry = await prisma.shareBusinessProfitEntry.findFirst({
@@ -392,7 +403,7 @@ export async function upsertMigrationProfitAdjustment(
   })
 
   if (!profitEntry) {
-    throw new Error("Business profit entry not found.")
+    throw ExpectedQueryError.notFound("Business profit entry not found.")
   }
 
   const adjustedAmount =
@@ -404,7 +415,7 @@ export async function upsertMigrationProfitAdjustment(
   )
 
   if (adjustedAmount > allocatableProfitAmount) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Member profit adjustment cannot exceed the allocatable profit amount."
     )
   }
@@ -435,7 +446,7 @@ export async function upsertMigrationProfitAdjustment(
   )
 
   if (adjustedAmount > availableAmount) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Member profit adjustment cannot exceed the remaining available profit amount."
     )
   }

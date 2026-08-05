@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { applyApplicableWorkflowChargesInTransaction } from "./charges"
 import { getTenantInitialMigrationState } from "./migration"
@@ -135,19 +136,21 @@ function trimOptional(value?: string | null) {
 
 function assertPositiveAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${label} must be greater than zero.`)
+    throw ExpectedQueryError.validation(`${label} must be greater than zero.`)
   }
 }
 
 function assertPositiveInteger(value: number, label: string) {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${label} must be a positive whole number.`)
+    throw ExpectedQueryError.validation(
+      `${label} must be a positive whole number.`
+    )
   }
 }
 
 function assertNonNegativeAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`${label} cannot be negative.`)
+    throw ExpectedQueryError.validation(`${label} cannot be negative.`)
   }
 }
 
@@ -167,7 +170,7 @@ function assertFoodPurchaseCreationAllowed(input: {
     }
 
     if (input.accessMode === "office_only") {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Foodstuff Purchase applications must be submitted through the cooperative office."
       )
     }
@@ -176,12 +179,14 @@ function assertFoodPurchaseCreationAllowed(input: {
   }
 
   if (input.accessMode === "read_only") {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Foodstuff Purchase is currently read-only for this cooperative."
     )
   }
 
-  throw new Error("Foodstuff Purchase is not enabled for this cooperative.")
+  throw ExpectedQueryError.precondition(
+    "Foodstuff Purchase is not enabled for this cooperative."
+  )
 }
 
 function normalizePeriodMonth(value: Date) {
@@ -340,7 +345,7 @@ async function assertLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
   }
@@ -370,7 +375,9 @@ async function assertActorBelongsToTenant(
   })
 
   if (!user) {
-    throw new Error("Foodstuff Purchase actor does not belong to this tenant.")
+    throw ExpectedQueryError.permission(
+      "Foodstuff Purchase actor does not belong to this tenant."
+    )
   }
 }
 
@@ -391,7 +398,7 @@ async function assertMemberBelongsToTenant(
   })
 
   if (!member) {
-    throw new Error(
+    throw ExpectedQueryError.permission(
       "Foodstuff Purchase member does not belong to this cooperative."
     )
   }
@@ -413,7 +420,7 @@ async function readFoodPurchaseCycle(
   })
 
   if (!cycle) {
-    throw new Error("Foodstuff Purchase cycle was not found.")
+    throw ExpectedQueryError.notFound("Foodstuff Purchase cycle was not found.")
   }
 
   return cycle
@@ -435,7 +442,9 @@ async function readFoodPurchaseApplication(
   })
 
   if (!application) {
-    throw new Error("Foodstuff Purchase application was not found.")
+    throw ExpectedQueryError.notFound(
+      "Foodstuff Purchase application was not found."
+    )
   }
 
   return application
@@ -517,7 +526,9 @@ export async function listFoodPurchaseCycles(
   }
 
   if (input.status && !foodPurchaseCycleStatuses.has(input.status)) {
-    throw new Error("Foodstuff Purchase cycle status is not supported.")
+    throw ExpectedQueryError.validation(
+      "Foodstuff Purchase cycle status is not supported."
+    )
   }
 
   const cycles = await prisma.foodPurchaseCycle.findMany({
@@ -582,7 +593,9 @@ export async function createFoodPurchaseCycle(
   })
 
   if (existingCycle) {
-    throw new Error("Foodstuff Purchase cycle already exists for this month.")
+    throw ExpectedQueryError.conflict(
+      "Foodstuff Purchase cycle already exists for this month."
+    )
   }
 
   return prisma.$transaction(async (tx: any) => {
@@ -639,7 +652,9 @@ export async function listFoodPurchaseApplications(
   }
 
   if (input.status && !foodPurchaseApplicationStatuses.has(input.status)) {
-    throw new Error("Foodstuff Purchase application status is not supported.")
+    throw ExpectedQueryError.validation(
+      "Foodstuff Purchase application status is not supported."
+    )
   }
 
   const applications = await prisma.foodPurchaseApplication.findMany({
@@ -712,15 +727,13 @@ function getFoodPurchaseApplicationOrderBy(
   ]
 }
 
-function getFoodPurchaseApplicationWhere(
-  input: {
-    cycleId?: string
-    memberId?: string
-    search?: string
-    status?: FoodPurchaseApplicationStatus
-    tenantId: string
-  }
-) {
+function getFoodPurchaseApplicationWhere(input: {
+  cycleId?: string
+  memberId?: string
+  search?: string
+  status?: FoodPurchaseApplicationStatus
+  tenantId: string
+}) {
   return {
     tenantId: input.tenantId,
     ...(input.cycleId ? { cycleId: input.cycleId } : {}),
@@ -779,13 +792,15 @@ export async function listFoodPurchaseApplicationPage(
   }
 
   if (input.status && !foodPurchaseApplicationStatuses.has(input.status)) {
-    throw new Error("Foodstuff Purchase application status is not supported.")
+    throw ExpectedQueryError.validation(
+      "Foodstuff Purchase application status is not supported."
+    )
   }
 
   const page = input.page ?? 1
   const pageSize = input.pageSize ?? input.limit ?? 50
   if (!Number.isInteger(pageSize) || pageSize <= 0) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Foodstuff Purchase application page size must be a positive whole number."
     )
   }
@@ -869,7 +884,7 @@ export async function submitFoodPurchaseApplication(
   )
 
   if (input.requestedPaybackMonths > foodPurchaseMaximumPaybackMonths) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       `Requested Foodstuff Purchase payback months cannot exceed ${foodPurchaseMaximumPaybackMonths}.`
     )
   }
@@ -894,7 +909,7 @@ export async function submitFoodPurchaseApplication(
     activeFoodPurchaseObligationCount >=
     foodPurchaseMaximumActiveObligationsPerMember
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       `This member has reached the active Foodstuff Purchase obligation limit (${foodPurchaseMaximumActiveObligationsPerMember}). Settle an active Foodstuff Purchase obligation before creating another application.`
     )
   }
@@ -912,7 +927,7 @@ export async function submitFoodPurchaseApplication(
       (policy?.foodPurchaseRequiresOpenCycle ?? true) &&
       cycle.status !== "open"
     ) {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "Foodstuff Purchase applications can only be submitted for an open cycle."
       )
     }
@@ -995,7 +1010,9 @@ export async function reviewFoodPurchaseApplication(
   await assertActorBelongsToTenant(input, prisma)
 
   if (!foodPurchaseApplicationStatuses.has(input.status)) {
-    throw new Error("Foodstuff Purchase application status is not supported.")
+    throw ExpectedQueryError.validation(
+      "Foodstuff Purchase application status is not supported."
+    )
   }
 
   return prisma.$transaction(async (tx: any) => {
@@ -1014,13 +1031,13 @@ export async function reviewFoodPurchaseApplication(
     )
 
     if (!["submitted", "under_review"].includes(existingApplication.status)) {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "Only pending Foodstuff Purchase applications can be reviewed."
       )
     }
 
     if (existingApplication.cycle.status !== "open") {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "Foodstuff Purchase applications can only be reviewed while the cycle is open."
       )
     }
@@ -1051,7 +1068,7 @@ export async function reviewFoodPurchaseApplication(
       )
 
       if (approvedApplicationPaybackMonths > foodPurchaseMaximumPaybackMonths) {
-        throw new Error(
+        throw ExpectedQueryError.validation(
           `Approved Foodstuff Purchase payback months cannot exceed ${foodPurchaseMaximumPaybackMonths}.`
         )
       }
@@ -1068,7 +1085,7 @@ export async function reviewFoodPurchaseApplication(
         Number(existingApplication.cycle.releasedAmount) - alreadyApprovedTotal
 
       if (approvedApplicationAmount > availableAmount) {
-        throw new Error(
+        throw ExpectedQueryError.validation(
           "Approved Foodstuff Purchase amount exceeds the remaining released committee funds."
         )
       }
@@ -1187,7 +1204,7 @@ export async function recordFoodPurchaseAccounting(
     )
 
     if (!["accounting_rejected", "open"].includes(existingCycle.status)) {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "Foodstuff Purchase accounting can only be submitted for an open or correction cycle."
       )
     }
@@ -1261,7 +1278,7 @@ export async function reviewFoodPurchaseAccounting(
     )
 
     if (existingCycle.status !== "accounting_submitted") {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         "Only submitted Foodstuff Purchase accounting can be reviewed."
       )
     }

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
 
@@ -64,7 +65,9 @@ function normalizeHistoricalSharePurchase(
 
 function assertShareUnits(value: number) {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error("Share units must be a positive whole number.")
+    throw ExpectedQueryError.validation(
+      "Share units must be a positive whole number."
+    )
   }
 }
 
@@ -74,14 +77,16 @@ async function readUnitShareAmount(tenantId: string, prisma: any) {
   })
 
   if (policy?.shareConfigurationMode !== "unit_based") {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Historical share purchases are only available for unit-based share configuration."
     )
   }
 
   const unitAmount = Number(policy.shareUnitAmount ?? 0)
   if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
-    throw new Error("Tenant share unit amount must be configured first.")
+    throw ExpectedQueryError.precondition(
+      "Tenant share unit amount must be configured first."
+    )
   }
 
   return unitAmount
@@ -103,7 +108,9 @@ async function assertMemberBelongsToTenant(
   })
 
   if (!member) {
-    throw new Error("Share purchase member does not belong to this tenant.")
+    throw ExpectedQueryError.permission(
+      "Share purchase member does not belong to this tenant."
+    )
   }
 }
 

@@ -10,6 +10,7 @@ import {
 } from "@halaalvest/domain"
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { applyCharge, applyLoanRequestChargesInTransaction } from "./charges"
 import { recordContribution } from "./contributions"
 import { createAuditLogEntry } from "./audit"
@@ -34,7 +35,7 @@ async function assertBackfillMutationOpen(
       migrationState.snapshot.canUseLiveFinancialWrites)
 
   if (!mutationOpen) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member ledger backfill is locked because migration tools and live financial writes are closed."
     )
   }
@@ -132,7 +133,7 @@ function monthDateFromKey(value: string) {
 
 function parseBackfillMonthKey(value: string, label: string) {
   if (!/^\d{4}-\d{2}$/.test(value)) {
-    throw new Error(`${label} must use YYYY-MM format.`)
+    throw ExpectedQueryError.validation(`${label} must use YYYY-MM format.`)
   }
 
   const [yearText, monthText] = value.split("-")
@@ -145,7 +146,7 @@ function parseBackfillMonthKey(value: string, label: string) {
     month < 1 ||
     month > 12
   ) {
-    throw new Error(`${label} must be a valid month.`)
+    throw ExpectedQueryError.validation(`${label} must be a valid month.`)
   }
 
   return new Date(Date.UTC(year, month - 1, 1))
@@ -160,7 +161,7 @@ function assertBackfillDraftRowsMatchRange(input: {
   const rangeEnd = parseBackfillMonthKey(input.endMonth, "endMonth")
 
   if (rangeStart > rangeEnd) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Backfill draft startMonth must be before or equal to endMonth."
     )
   }
@@ -172,13 +173,13 @@ function assertBackfillDraftRowsMatchRange(input: {
     const rowMonth = parseBackfillMonthKey(row.month, "Backfill row month")
 
     if (rowMonth < rangeStart || rowMonth > rangeEnd) {
-      throw new Error(
+      throw ExpectedQueryError.validation(
         `Backfill draft row ${row.month} falls outside the declared ${input.startMonth} to ${input.endMonth} range.`
       )
     }
 
     if (seenMonths.has(row.month)) {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         `Backfill draft contains duplicate row month ${row.month}.`
       )
     }
@@ -187,7 +188,7 @@ function assertBackfillDraftRowsMatchRange(input: {
   }
 
   if (seenMonths.size !== expectedMonthCount) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Backfill draft must contain exactly one row for every month in the declared range."
     )
   }
@@ -225,7 +226,7 @@ async function assertMemberBackfillDraftNotAlreadyApplied(input: {
       : []
 
   if (appliedMonths.length || appliedBatches.length) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "This member's historical ledger has already been applied. Use correction workflows instead of regenerating migration drafts."
     )
   }
@@ -794,7 +795,7 @@ async function assertNoExistingMemberFinancialRecordsForRange(input: {
     contributions.length ||
     repayments.length
   ) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "Existing live financial records were found in this member backfill range. Use correction or reversal workflows instead of applying migration history over posted records."
     )
   }
@@ -1082,9 +1083,10 @@ async function postBackfillRepayment(input: {
     where: { id: input.loanId, tenantId: input.tenantId },
   })
 
-  if (!loan) throw new Error("Loan not found for backfill repayment.")
+  if (!loan)
+    throw ExpectedQueryError.notFound("Loan not found for backfill repayment.")
   if (input.amount > Number(loan.outstandingPrincipal)) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Backfill repayment amount exceeds the outstanding loan balance."
     )
   }
@@ -1319,7 +1321,7 @@ export async function upsertMemberAmountLog(
   }
 
   if (input.amount < 0) {
-    throw new Error("Commitment amount cannot be negative.")
+    throw ExpectedQueryError.validation("Commitment amount cannot be negative.")
   }
 
   await assertBackfillMutationOpen(input.tenantId, prisma, {
@@ -1348,7 +1350,9 @@ export async function upsertMemberAmountLog(
       })
 
   if (input.rowId && !existing) {
-    throw new Error("Member commitment history row not found.")
+    throw ExpectedQueryError.notFound(
+      "Member commitment history row not found."
+    )
   }
 
   const data = {
@@ -1422,7 +1426,7 @@ export async function buildBackfillDraftInputForMember(
   })
 
   if (!member) {
-    throw new Error("Member not found")
+    throw ExpectedQueryError.notFound("Member not found")
   }
 
   const amountLogs = await prisma.memberAmountLog.findMany({
@@ -1974,7 +1978,7 @@ export async function applyBackfillBatch(
         })
 
     if (!batch) {
-      throw new Error("Backfill batch not found")
+      throw ExpectedQueryError.notFound("Backfill batch not found")
     }
 
     const candidateMonthKeys = new Set(
@@ -1993,7 +1997,7 @@ export async function applyBackfillBatch(
     }
 
     if (!["generated", "approved"].includes(batch.status)) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Backfill batch must be generated or approved before it can be applied."
       )
     }
@@ -2056,7 +2060,7 @@ export async function applyBackfillBatch(
     }
 
     if (duplicateMonthKeys.length > 0) {
-      throw new Error(
+      throw ExpectedQueryError.conflict(
         `Backfill has already been applied for ${duplicateMonthKeys.slice(0, 3).join(", ")}. Use correction or reversal workflows instead of applying another migration batch for the same member/month.`
       )
     }
@@ -2380,7 +2384,7 @@ export async function generateBackfillBatch(
     })
 
     if (!batch) {
-      throw new Error("Backfill batch not found")
+      throw ExpectedQueryError.notFound("Backfill batch not found")
     }
 
     await tx.backfillActivity.deleteMany({

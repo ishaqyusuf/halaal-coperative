@@ -5,6 +5,7 @@ import {
   normalizeSubdomainLabel,
 } from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { ensureTenantLedgerAccounts } from "./ledger"
 import { listSeedMemberships, listSeedUsers } from "./auth"
 import { ensureTenantOperationProfileDefaults } from "./operation-profile"
@@ -476,11 +477,13 @@ export async function createTenantWorkspaceBootstrap(
 
   const slug = normalizeSubdomainLabel(input.slug)
   if (!slug) {
-    throw new Error("A valid cooperative slug is required")
+    throw ExpectedQueryError.validation("A valid cooperative slug is required")
   }
 
   if (isReservedTenantSubdomainLabel(slug)) {
-    throw new Error("That workspace subdomain is not available.")
+    throw ExpectedQueryError.conflict(
+      "That workspace subdomain is not available."
+    )
   }
 
   const primarySiteHostname = buildTenantSiteHostname(slug)
@@ -509,11 +512,15 @@ export async function createTenantWorkspaceBootstrap(
       })
 
       if (existingTenant?.slug === slug) {
-        throw new Error("That workspace subdomain is not available.")
+        throw ExpectedQueryError.conflict(
+          "That workspace subdomain is not available."
+        )
       }
 
       if (existingTenant) {
-        throw new Error("That cooperative name is already in use.")
+        throw ExpectedQueryError.conflict(
+          "That cooperative name is already in use."
+        )
       }
 
       const createdTenant = await tx.tenant.create({

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 
@@ -41,42 +42,54 @@ function validateLegacyLoanMigrationDraftInput(
   input: LegacyLoanMigrationDraftInput
 ) {
   if (input.principalAmount <= 0) {
-    throw new Error("Principal amount must be greater than 0.")
+    throw ExpectedQueryError.validation(
+      "Principal amount must be greater than 0."
+    )
   }
 
   if (input.scheduledMonthlyPrincipalRepayment <= 0) {
-    throw new Error("Monthly principal repayment must be greater than 0.")
+    throw ExpectedQueryError.validation(
+      "Monthly principal repayment must be greater than 0."
+    )
   }
 
   if (input.savingsDuringLoan < 0) {
-    throw new Error("Savings during loan cannot be negative.")
+    throw ExpectedQueryError.validation(
+      "Savings during loan cannot be negative."
+    )
   }
 
   if (
     input.outstandingPrincipalBalance < 0 ||
     input.outstandingPrincipalBalance > input.principalAmount
   ) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Outstanding principal balance must be between 0 and the principal amount."
     )
   }
 
   if (input.closedAt && input.closedAt < input.openedAt) {
-    throw new Error("Closed date cannot be before the loan date.")
+    throw ExpectedQueryError.validation(
+      "Closed date cannot be before the loan date."
+    )
   }
 
   if (
     input.guarantorOneMemberId &&
     input.guarantorOneMemberId === input.memberId
   ) {
-    throw new Error("Guarantor 1 cannot be the borrowing member.")
+    throw ExpectedQueryError.validation(
+      "Guarantor 1 cannot be the borrowing member."
+    )
   }
 
   if (
     input.guarantorTwoMemberId &&
     input.guarantorTwoMemberId === input.memberId
   ) {
-    throw new Error("Guarantor 2 cannot be the borrowing member.")
+    throw ExpectedQueryError.validation(
+      "Guarantor 2 cannot be the borrowing member."
+    )
   }
 
   if (
@@ -84,7 +97,9 @@ function validateLegacyLoanMigrationDraftInput(
     input.guarantorTwoMemberId &&
     input.guarantorOneMemberId === input.guarantorTwoMemberId
   ) {
-    throw new Error("Guarantor 1 and guarantor 2 must be different members.")
+    throw ExpectedQueryError.validation(
+      "Guarantor 1 and guarantor 2 must be different members."
+    )
   }
 }
 
@@ -104,7 +119,7 @@ async function assertLegacyLoanMigrationDraftMutationOpen(
     !migrationState.snapshot.canUseMigrationTools &&
     !migrationState.snapshot.canUseLiveFinancialWrites
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Legacy loan migration drafts are locked because initial migration is finalized."
     )
   }
@@ -134,7 +149,7 @@ async function assertLegacyLoanMigrationDraftMutationOpen(
   ])
 
   if (appliedMonths.length > 0 || appliedBatches.length > 0) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "This member's historical ledger has already been applied. Use correction workflows instead of migration draft edits."
     )
   }
@@ -274,7 +289,7 @@ export async function updateLegacyLoanMigrationDraft(
   })
 
   if (!existing) {
-    throw new Error("Legacy loan migration draft not found.")
+    throw ExpectedQueryError.notFound("Legacy loan migration draft not found.")
   }
 
   const updated = await prisma.legacyLoanMigrationDraft.update({

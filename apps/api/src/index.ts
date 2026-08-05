@@ -1,3 +1,5 @@
+import "./instrument"
+
 import { serve } from "@hono/node-server"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
@@ -5,6 +7,8 @@ import { randomUUID } from "node:crypto"
 
 import { buildRequestContext } from "./context"
 import { handleTrpcRequest } from "./internal-api"
+import { captureApiError } from "./observability/sentry"
+import { getSafeObservabilityRequestId } from "./observability/sentry-policy"
 import { getRestErrorResponse } from "./rest/error-response"
 
 const app = new Hono()
@@ -12,10 +16,7 @@ const dashboardOrigin = process.env.DASHBOARD_APP_URL ?? "http://localhost:1441"
 
 app.use("*", async (c, next) => {
   const supplied = c.req.header("x-request-id")?.trim()
-  const requestId =
-    supplied && /^[A-Za-z0-9._:-]{1,128}$/.test(supplied)
-      ? supplied
-      : randomUUID()
+  const requestId = getSafeObservabilityRequestId(supplied) ?? randomUUID()
 
   c.req.raw.headers.set("x-request-id", requestId)
   c.header("x-request-id", requestId)
@@ -23,7 +24,11 @@ app.use("*", async (c, next) => {
 })
 
 app.onError((error, c) => {
-  const response = getRestErrorResponse(error)
+  const report = captureApiError(error, {
+    method: c.req.method,
+    requestId: c.req.header("x-request-id"),
+  })
+  const response = getRestErrorResponse(report.classified)
   return c.json(response.body, response.status)
 })
 

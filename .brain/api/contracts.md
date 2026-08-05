@@ -220,3 +220,5 @@ This file captures payload shapes, response conventions, and contract assumption
 - Database, provider, stack, query, payload, tenant, member, financial, and identity details never appear in the public envelope.
 - Marketing form APIs use the same `{ error: PublicError }` envelope, including deliberately authored validation, conflict, expired-link, and provider-unavailability branches. Form clients read public guidance from `error.message`.
 - `POST /api/error-report` accepts only an allowlisted dashboard source plus a valid shared error code and `ERR-*` reference from an authenticated user with an active membership in the resolved tenant. Its audit metadata excludes message, stack, path, component stack, user agent, payload, and identity.
+- API request correlation is returned in `x-request-id`. Unexpected Hono failures are owned by the Hono fallback, while tRPC procedure failures are owned by the tRPC adapter and are not recaptured by the outer boundary.
+- Marketing caught-route diagnostics are a private operational side effect only; response status and `{ error: PublicError }` remain the complete public contract.

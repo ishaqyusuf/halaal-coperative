@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { AppError } from "@halaalvest/errors"
 import type { SignupVerificationPayload } from "./signup-flow"
 import { resolveSignupVerification } from "./signup-verification.server"
 
@@ -34,6 +35,22 @@ function createDependencies(input?: {
 }
 
 describe("resolveSignupVerification", () => {
+  test("rethrows reportable token configuration failures", async () => {
+    const failure = new AppError({
+      code: "PROVIDER_UNAVAILABLE",
+      publicMessage: "Signup verification is temporarily unavailable.",
+    })
+
+    await expect(
+      resolveSignupVerification("signed-token", {
+        ...createDependencies(),
+        verifyToken: () => {
+          throw failure
+        },
+      })
+    ).rejects.toBe(failure)
+  })
+
   test("accepts an unexpired link while its workspace identity is available", async () => {
     const result = await resolveSignupVerification(
       "signed-token",

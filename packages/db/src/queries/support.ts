@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../../generated/prisma/client"
+import { AppError } from "@halaalvest/errors"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 
@@ -181,7 +182,10 @@ function trimRequired(value: string, label: string) {
   const trimmed = value.trim()
 
   if (!trimmed) {
-    throw new Error(`${label} is required.`)
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: `${label} is required.`,
+    })
   }
 
   return trimmed
@@ -189,7 +193,10 @@ function trimRequired(value: string, label: string) {
 
 function assertChoice(value: string, validValues: Set<string>, label: string) {
   if (!validValues.has(value)) {
-    throw new Error(`${label} is not supported.`)
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: `${label} is not supported.`,
+    })
   }
 }
 
@@ -233,13 +240,14 @@ function normalizeSupportCase(supportCase: any): SupportCaseRow {
       (supportCase.requiresFinancialAdjustment ? "pending" : "not_required"),
     financialAdjustmentApprovedAt:
       supportCase.financialAdjustmentApprovedAt ?? null,
-    financialAdjustmentApprovedByUser: supportCase.financialAdjustmentApprovedByUser
-      ? {
-          email: supportCase.financialAdjustmentApprovedByUser.email,
-          fullName: supportCase.financialAdjustmentApprovedByUser.fullName,
-          id: supportCase.financialAdjustmentApprovedByUser.id,
-        }
-      : null,
+    financialAdjustmentApprovedByUser:
+      supportCase.financialAdjustmentApprovedByUser
+        ? {
+            email: supportCase.financialAdjustmentApprovedByUser.email,
+            fullName: supportCase.financialAdjustmentApprovedByUser.fullName,
+            id: supportCase.financialAdjustmentApprovedByUser.id,
+          }
+        : null,
     financialAdjustmentApprovedByUserId:
       supportCase.financialAdjustmentApprovedByUserId ?? null,
     id: supportCase.id,
@@ -346,7 +354,10 @@ async function assertMemberBelongsToTenant(
   })
 
   if (!member) {
-    throw new Error("Member does not belong to this cooperative.")
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage: "Member does not belong to this cooperative.",
+    })
   }
 
   return member
@@ -376,7 +387,10 @@ async function assertUserBelongsToTenant(
   })
 
   if (!user) {
-    throw new Error(`${input.label} does not belong to this cooperative.`)
+    throw new AppError({
+      code: "PERMISSION_DENIED",
+      publicMessage: `${input.label} does not belong to this cooperative.`,
+    })
   }
 
   return user
@@ -396,7 +410,10 @@ async function assertLinkedRecordBelongsToTenant(
   }
 
   if (!input.linkedRecordId || !input.linkedRecordType) {
-    throw new Error("Linked record type and id are required together.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Linked record type and id are required together.",
+    })
   }
 
   if (input.linkedRecordType !== "receipt") {
@@ -415,7 +432,10 @@ async function assertLinkedRecordBelongsToTenant(
   })
 
   if (!receipt) {
-    throw new Error("Linked receipt does not belong to this member profile.")
+    throw new AppError({
+      code: "PERMISSION_DENIED",
+      publicMessage: "Linked receipt does not belong to this member profile.",
+    })
   }
 }
 
@@ -437,7 +457,10 @@ async function readSupportCase(
   })
 
   if (!supportCase) {
-    throw new Error("Support case was not found.")
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage: "Support case was not found.",
+    })
   }
 
   return supportCase
@@ -566,19 +589,17 @@ function getSupportCaseOrderBy(
   ]
 }
 
-function getSupportCaseWhere(
-  input: {
-    assignedToUserId?: string
-    category?: SupportCaseCategory
-    fromDate?: Date
-    memberId?: string
-    priority?: SupportCasePriority
-    search?: string
-    status?: SupportCaseStatus
-    tenantId: string
-    toDate?: Date
-  }
-) {
+function getSupportCaseWhere(input: {
+  assignedToUserId?: string
+  category?: SupportCaseCategory
+  fromDate?: Date
+  memberId?: string
+  priority?: SupportCasePriority
+  search?: string
+  status?: SupportCaseStatus
+  tenantId: string
+  toDate?: Date
+}) {
   return {
     tenantId: input.tenantId,
     ...(input.fromDate || input.toDate
@@ -673,7 +694,10 @@ export async function listSupportCasePage(
   const page = input.page ?? 1
   const pageSize = input.pageSize ?? input.limit ?? 50
   if (!Number.isInteger(pageSize) || pageSize <= 0) {
-    throw new Error("Support case page size must be a positive whole number.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Support case page size must be a positive whole number.",
+    })
   }
 
   const where = getSupportCaseWhere(input)
@@ -876,7 +900,10 @@ export async function createSupportCase(
   )
 
   if (openedByAuthorType === "member" && !input.memberId) {
-    throw new Error("Member-opened support cases must be linked to a member.")
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage: "Member-opened support cases must be linked to a member.",
+    })
   }
 
   if (input.linkedRecordType) {
@@ -1021,7 +1048,8 @@ export async function addSupportCaseMessage(
   if (!prisma) throw new Error("Database not configured")
 
   const message = trimRequired(input.message, "Support message")
-  const authorType = input.authorType ?? (input.authorUserId ? "staff" : "system")
+  const authorType =
+    input.authorType ?? (input.authorUserId ? "staff" : "system")
   assertChoice(authorType, supportCaseMessageAuthorTypes, "Message author type")
 
   await assertUserBelongsToTenant(
@@ -1035,7 +1063,10 @@ export async function addSupportCaseMessage(
   const supportCase = await readSupportCase(input, prisma)
 
   if (supportCase.status === "closed") {
-    throw new Error("Closed support cases cannot receive new messages.")
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage: "Closed support cases cannot receive new messages.",
+    })
   }
 
   const created = await prisma.supportCaseMessage.create({
@@ -1144,8 +1175,7 @@ export async function updateSupportCaseStatus(
   const existing = await readSupportCase(input, prisma)
   const resolutionSummary = input.resolutionSummary?.trim() || null
   const now = new Date()
-  const resolving =
-    input.status === "resolved" || input.status === "closed"
+  const resolving = input.status === "resolved" || input.status === "closed"
   const nextRequiresFinancialAdjustment =
     input.requiresFinancialAdjustment ?? existing.requiresFinancialAdjustment
   const existingFinancialAdjustmentApprovalStatus =
@@ -1161,7 +1191,10 @@ export async function updateSupportCaseStatus(
         : "not_required"
 
   if (resolving && !resolutionSummary && !existing.resolutionSummary) {
-    throw new Error("Resolution summary is required before closing a case.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Resolution summary is required before closing a case.",
+    })
   }
 
   if (
@@ -1169,9 +1202,11 @@ export async function updateSupportCaseStatus(
     nextRequiresFinancialAdjustment &&
     nextFinancialAdjustmentApprovalStatus !== "approved"
   ) {
-    throw new Error(
-      "Financial adjustment approval is required before resolving a money-impact support case."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Financial adjustment approval is required before resolving a money-impact support case.",
+    })
   }
 
   const updated = await prisma.supportCase.update({
@@ -1182,14 +1217,15 @@ export async function updateSupportCaseStatus(
       ...(input.priority ? { priority: input.priority } : {}),
       ...(input.requiresFinancialAdjustment !== undefined
         ? {
-            requiresFinancialAdjustment:
-              input.requiresFinancialAdjustment,
-            financialAdjustmentApprovalNotes:
-              input.requiresFinancialAdjustment ? undefined : null,
+            requiresFinancialAdjustment: input.requiresFinancialAdjustment,
+            financialAdjustmentApprovalNotes: input.requiresFinancialAdjustment
+              ? undefined
+              : null,
             financialAdjustmentApprovalStatus:
               nextFinancialAdjustmentApprovalStatus,
-            financialAdjustmentApprovedAt:
-              input.requiresFinancialAdjustment ? undefined : null,
+            financialAdjustmentApprovedAt: input.requiresFinancialAdjustment
+              ? undefined
+              : null,
             financialAdjustmentApprovedByUserId:
               input.requiresFinancialAdjustment ? undefined : null,
           }
@@ -1224,8 +1260,7 @@ export async function updateSupportCaseStatus(
         nextStatus: input.status,
         previousStatus: existing.status,
         priority: input.priority ?? existing.priority,
-        requiresFinancialAdjustment:
-          nextRequiresFinancialAdjustment,
+        requiresFinancialAdjustment: nextRequiresFinancialAdjustment,
         financialAdjustmentApprovalStatus:
           nextFinancialAdjustmentApprovalStatus,
         resolutionSummary,
@@ -1264,7 +1299,11 @@ export async function reviewSupportCaseFinancialAdjustment(
     input.approvalStatus !== "approved" &&
     input.approvalStatus !== "rejected"
   ) {
-    throw new Error("Financial adjustment review must be approved or rejected.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage:
+        "Financial adjustment review must be approved or rejected.",
+    })
   }
 
   await assertUserBelongsToTenant(
@@ -1278,9 +1317,11 @@ export async function reviewSupportCaseFinancialAdjustment(
   const existing = await readSupportCase(input, prisma)
 
   if (!existing.requiresFinancialAdjustment) {
-    throw new Error(
-      "Financial adjustment approval is only available when the support case requires an adjustment."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Financial adjustment approval is only available when the support case requires an adjustment.",
+    })
   }
 
   const approvalNotes = input.approvalNotes?.trim() || null

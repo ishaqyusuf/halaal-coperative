@@ -14,7 +14,10 @@ export type TrustReadinessItem = {
 }
 
 function isMonitoringConfigured() {
-  return Boolean(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN)
+  return Boolean(
+    process.env.SENTRY_DSN_DASHBOARD ||
+    process.env.NEXT_PUBLIC_SENTRY_DSN_DASHBOARD
+  )
 }
 
 const emptyTrustProfile: TenantTrustProfile = {

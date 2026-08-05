@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 
 export type QaMaintenanceCounts = {
   auditLogs: number
@@ -75,8 +76,7 @@ export async function assertQaIdentityLane(input: {
   }
   tenantId: string
 }) {
-  const emailDomain =
-    input.email?.trim().toLowerCase().split("@").pop() ?? null
+  const emailDomain = input.email?.trim().toLowerCase().split("@").pop() ?? null
 
   if (!emailDomain) return
 
@@ -88,19 +88,20 @@ export async function assertQaIdentityLane(input: {
     where: { id: input.tenantId },
   })
 
-  if (!tenant) throw new Error("Workspace not found.")
+  if (!tenant) throw ExpectedQueryError.notFound("Workspace not found.")
 
   if (
     tenant.dataClassification === "qa" &&
     emailDomain !== tenant.qaSourceDomain
   ) {
-    throw new Error("Normal identities cannot be added to a QA workspace.")
+    throw ExpectedQueryError.permission(
+      "Normal identities cannot be added to a QA workspace."
+    )
   }
-  if (
-    tenant.dataClassification === "live" &&
-    emailDomain.endsWith(".test")
-  ) {
-    throw new Error("QA identities cannot be added to a live workspace.")
+  if (tenant.dataClassification === "live" && emailDomain.endsWith(".test")) {
+    throw ExpectedQueryError.permission(
+      "QA identities cannot be added to a live workspace."
+    )
   }
 }
 
@@ -172,7 +173,7 @@ export async function adoptQaTenantCandidates(input: {
   )
 
   if (selected.length !== requestedIds.size) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "One or more selected workspaces no longer qualify as QA candidates."
     )
   }
@@ -265,9 +266,9 @@ export async function getQaMaintenancePreview(): Promise<QaMaintenancePreview> {
             `${tenant.id}:${tenant.updatedAt.toISOString()}:${tenant.domains
               .map(
                 (domain) =>
-                  `${domain.hostname}:${domain.updatedAt.toISOString()}`,
+                  `${domain.hostname}:${domain.updatedAt.toISOString()}`
               )
-              .join(",")}`,
+              .join(",")}`
         )
         .join("|")
     )
@@ -358,7 +359,9 @@ export async function beginQaPurgeRun(id: string) {
       },
       where: { id },
     })
-    throw new Error("QA purge is blocked by live custom-domain resources.")
+    throw ExpectedQueryError.precondition(
+      "QA purge is blocked by live custom-domain resources."
+    )
   }
 
   const startedAt = new Date()

@@ -3,6 +3,7 @@ import type {
   PrismaClient,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { recordMemberPaymentMutation } from "./contributions"
 import { getTenantInitialMigrationState } from "./migration"
 import { getTenantOperationProfile } from "./operation-profile"
@@ -83,17 +84,20 @@ async function assertLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
   }
 }
 
-async function assertBatchPostingEnabled(tenantId: string, prisma: PrismaClient) {
+async function assertBatchPostingEnabled(
+  tenantId: string,
+  prisma: PrismaClient
+) {
   const profile = await getTenantOperationProfile(tenantId, prisma)
 
   if (!profile.services.collection_source_batch_posting.canStaffCreate) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Collection Source batch posting is not enabled for this cooperative."
     )
   }
@@ -101,11 +105,11 @@ async function assertBatchPostingEnabled(tenantId: string, prisma: PrismaClient)
 
 function assertPeriod(year: number, month: number) {
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-    throw new Error("Enter a valid batch year.")
+    throw ExpectedQueryError.validation("Enter a valid batch year.")
   }
 
   if (!Number.isInteger(month) || month < 1 || month > 12) {
-    throw new Error("Enter a valid batch month.")
+    throw ExpectedQueryError.validation("Enter a valid batch month.")
   }
 }
 
@@ -187,9 +191,15 @@ function serializeBatch(batch: any): CollectionSourceBatchView {
       blockedRows: blockedRows.length,
       collectedRows: collectedRows.length,
       exceptionRows: exceptionRows.length,
-      expectedAmount: rows.reduce((total, row) => total + row.expectedAmount, 0),
+      expectedAmount: rows.reduce(
+        (total, row) => total + row.expectedAmount,
+        0
+      ),
       paidAmount: rows.reduce((total, row) => total + row.paidAmount, 0),
-      postedAmount: postedRows.reduce((total, row) => total + row.paidAmount, 0),
+      postedAmount: postedRows.reduce(
+        (total, row) => total + row.paidAmount,
+        0
+      ),
       postedRows: postedRows.length,
       rowCount: rows.length,
       skippedRows: skippedRows.length,
@@ -203,7 +213,9 @@ async function getBatchOrThrow(input: {
   tenantId: string
   tx: PrismaClient
 }) {
-  const batch = await (input.tx as any).collectionSourceContributionBatch.findFirst({
+  const batch = await (
+    input.tx as any
+  ).collectionSourceContributionBatch.findFirst({
     where: {
       id: input.batchId,
       tenantId: input.tenantId,
@@ -211,11 +223,13 @@ async function getBatchOrThrow(input: {
   })
 
   if (!batch) {
-    throw new Error("Collection Source batch not found.")
+    throw ExpectedQueryError.notFound("Collection Source batch not found.")
   }
 
   if (batch.status === "cancelled") {
-    throw new Error("Cancelled Collection Source batches cannot be changed.")
+    throw ExpectedQueryError.conflict(
+      "Cancelled Collection Source batches cannot be changed."
+    )
   }
 
   return batch
@@ -226,7 +240,9 @@ async function getBatchDetail(
   batchId: string,
   prisma: PrismaClient
 ): Promise<CollectionSourceBatchView | null> {
-  const batch = await (prisma as any).collectionSourceContributionBatch.findFirst({
+  const batch = await (
+    prisma as any
+  ).collectionSourceContributionBatch.findFirst({
     include: {
       deductionSource: true,
       rows: {
@@ -260,7 +276,9 @@ async function refreshBatchStatus(input: {
   tenantId: string
   tx: PrismaClient
 }) {
-  const rows = await (input.tx as any).collectionSourceContributionBatchRow.findMany({
+  const rows = await (
+    input.tx as any
+  ).collectionSourceContributionBatchRow.findMany({
     select: { status: true },
     where: {
       batchId: input.batchId,
@@ -297,7 +315,9 @@ export async function listCollectionSourceContributionBatches(
   prismaOverride?: PrismaClient
 ): Promise<Array<Omit<CollectionSourceBatchView, "rows">>> {
   const prisma = getPrisma(prismaOverride)
-  const batches = await (prisma as any).collectionSourceContributionBatch.findMany({
+  const batches = await (
+    prisma as any
+  ).collectionSourceContributionBatch.findMany({
     include: {
       deductionSource: true,
       rows: {
@@ -371,10 +391,14 @@ export async function stageCollectionSourceContributionBatch(
     })
 
     if (!source) {
-      throw new Error("Collection Source does not belong to this cooperative or is inactive.")
+      throw ExpectedQueryError.permission(
+        "Collection Source does not belong to this cooperative or is inactive."
+      )
     }
 
-    const stagedBatch = await (tx as any).collectionSourceContributionBatch.upsert({
+    const stagedBatch = await (
+      tx as any
+    ).collectionSourceContributionBatch.upsert({
       create: {
         createdByUserId: input.actorUserId,
         deductionSourceId: input.deductionSourceId,
@@ -399,7 +423,9 @@ export async function stageCollectionSourceContributionBatch(
       },
     })
 
-    const existingRowCount = await (tx as any).collectionSourceContributionBatchRow.count({
+    const existingRowCount = await (
+      tx as any
+    ).collectionSourceContributionBatchRow.count({
       where: {
         batchId: stagedBatch.id,
         tenantId: input.tenantId,
@@ -479,7 +505,7 @@ export async function stageCollectionSourceContributionBatch(
   const detail = await getBatchDetail(input.tenantId, batch.id, prisma)
 
   if (!detail) {
-    throw new Error("Collection Source batch not found.")
+    throw ExpectedQueryError.notFound("Collection Source batch not found.")
   }
 
   return detail
@@ -497,7 +523,9 @@ export async function updateCollectionSourceContributionBatchRows(
   const prisma = getPrisma(prismaOverride)
 
   if (input.rows.length === 0) {
-    throw new Error("Select at least one batch row to update.")
+    throw ExpectedQueryError.validation(
+      "Select at least one batch row to update."
+    )
   }
 
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
@@ -511,7 +539,9 @@ export async function updateCollectionSourceContributionBatchRows(
     })
 
     for (const update of input.rows) {
-      const row = await (tx as any).collectionSourceContributionBatchRow.findFirst({
+      const row = await (
+        tx as any
+      ).collectionSourceContributionBatchRow.findFirst({
         where: {
           batchId: input.batchId,
           id: update.rowId,
@@ -520,15 +550,21 @@ export async function updateCollectionSourceContributionBatchRows(
       })
 
       if (!row) {
-        throw new Error("Collection Source batch row not found.")
+        throw ExpectedQueryError.notFound(
+          "Collection Source batch row not found."
+        )
       }
 
       if (row.status === "posted" || row.contributionId) {
-        throw new Error("Posted Collection Source batch rows cannot be changed.")
+        throw ExpectedQueryError.conflict(
+          "Posted Collection Source batch rows cannot be changed."
+        )
       }
 
       if (row.blocker && update.status === "collected") {
-        throw new Error("Blocked Collection Source batch rows cannot be marked collected.")
+        throw ExpectedQueryError.conflict(
+          "Blocked Collection Source batch rows cannot be marked collected."
+        )
       }
 
       const expectedAmount = Number(row.expectedAmount)
@@ -537,7 +573,10 @@ export async function updateCollectionSourceContributionBatchRows(
         update.status === "collected"
           ? {
               exceptionReason,
-              paidAmount: normalizePositiveMoney(update.paidAmount, expectedAmount),
+              paidAmount: normalizePositiveMoney(
+                update.paidAmount,
+                expectedAmount
+              ),
               status: "collected",
             }
           : update.status === "exception"
@@ -545,7 +584,9 @@ export async function updateCollectionSourceContributionBatchRows(
                 exceptionReason:
                   exceptionReason ??
                   (() => {
-                    throw new Error("Enter an exception reason for exception rows.")
+                    throw ExpectedQueryError.validation(
+                      "Enter an exception reason for exception rows."
+                    )
                   })(),
                 paidAmount: 0,
                 status: "exception",
@@ -598,7 +639,7 @@ export async function updateCollectionSourceContributionBatchRows(
   const detail = await getBatchDetail(input.tenantId, input.batchId, prisma)
 
   if (!detail) {
-    throw new Error("Collection Source batch not found.")
+    throw ExpectedQueryError.notFound("Collection Source batch not found.")
   }
 
   return detail
@@ -619,32 +660,40 @@ export async function postCollectionSourceContributionBatchRows(
   const prisma = getPrisma(prismaOverride)
 
   if (input.rowIds.length === 0) {
-    throw new Error("Select at least one collected row to post.")
+    throw ExpectedQueryError.validation(
+      "Select at least one collected row to post."
+    )
   }
 
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   await assertBatchPostingEnabled(input.tenantId, prisma)
 
   await prisma.$transaction(async (tx) => {
-    const batch = await (tx as any).collectionSourceContributionBatch.findFirst({
-      include: {
-        deductionSource: true,
-      },
-      where: {
-        id: input.batchId,
-        tenantId: input.tenantId,
-      },
-    })
+    const batch = await (tx as any).collectionSourceContributionBatch.findFirst(
+      {
+        include: {
+          deductionSource: true,
+        },
+        where: {
+          id: input.batchId,
+          tenantId: input.tenantId,
+        },
+      }
+    )
 
     if (!batch) {
-      throw new Error("Collection Source batch not found.")
+      throw ExpectedQueryError.notFound("Collection Source batch not found.")
     }
 
     if (batch.status === "cancelled") {
-      throw new Error("Cancelled Collection Source batches cannot be posted.")
+      throw ExpectedQueryError.conflict(
+        "Cancelled Collection Source batches cannot be posted."
+      )
     }
 
-    const rows = await (tx as any).collectionSourceContributionBatchRow.findMany({
+    const rows = await (
+      tx as any
+    ).collectionSourceContributionBatchRow.findMany({
       include: {
         member: {
           select: {
@@ -662,10 +711,13 @@ export async function postCollectionSourceContributionBatchRows(
     })
 
     if (rows.length !== input.rowIds.length) {
-      throw new Error("One or more selected batch rows were not found.")
+      throw ExpectedQueryError.notFound(
+        "One or more selected batch rows were not found."
+      )
     }
 
-    const postedAt = input.postedAt ?? getPeriodStart(batch.periodYear, batch.periodMonth)
+    const postedAt =
+      input.postedAt ?? getPeriodStart(batch.periodYear, batch.periodMonth)
     const referencePrefix =
       normalizeOptionalText(input.reference) ??
       normalizeOptionalText(batch.reference) ??
@@ -675,26 +727,37 @@ export async function postCollectionSourceContributionBatchRows(
 
     for (const row of rows) {
       if (row.status !== "collected") {
-        throw new Error("Only collected Collection Source batch rows can be posted.")
+        throw ExpectedQueryError.conflict(
+          "Only collected Collection Source batch rows can be posted."
+        )
       }
 
       if (row.contributionId) {
-        throw new Error("This Collection Source batch row has already been posted.")
+        throw ExpectedQueryError.conflict(
+          "This Collection Source batch row has already been posted."
+        )
       }
 
       if (row.blocker) {
-        throw new Error("Blocked Collection Source batch rows cannot be posted.")
+        throw ExpectedQueryError.conflict(
+          "Blocked Collection Source batch rows cannot be posted."
+        )
       }
 
       const paidAmount = Number(row.paidAmount)
 
       if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
-        throw new Error("Collected batch rows must have a paid amount greater than zero.")
+        throw ExpectedQueryError.validation(
+          "Collected batch rows must have a paid amount greater than zero."
+        )
       }
 
       const expectedAmount = Number(row.expectedAmount)
       const committedSavingsAmount = Math.min(paidAmount, expectedAmount)
-      const extraSavingsAmount = Math.max(0, paidAmount - committedSavingsAmount)
+      const extraSavingsAmount = Math.max(
+        0,
+        paidAmount - committedSavingsAmount
+      )
       const result = await recordMemberPaymentMutation(
         {
           actorUserId: input.actorUserId,
@@ -767,7 +830,7 @@ export async function postCollectionSourceContributionBatchRows(
   const detail = await getBatchDetail(input.tenantId, input.batchId, prisma)
 
   if (!detail) {
-    throw new Error("Collection Source batch not found.")
+    throw ExpectedQueryError.notFound("Collection Source batch not found.")
   }
 
   return detail

@@ -123,6 +123,11 @@ function publishUpdate(nextVersion) {
 		],
 		{
 			cwd: appRoot,
+			env: {
+				...process.env,
+				EXPO_PUBLIC_SENTRY_ENABLED_MOBILE: "false",
+				SENTRY_DISABLE_AUTO_UPLOAD: "true",
+			},
 			stdio: "inherit",
 		},
 	);

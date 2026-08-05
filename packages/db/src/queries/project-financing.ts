@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../../generated/prisma/client"
+import { AppError } from "@halaalvest/errors"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
 import { applyApplicableWorkflowChargesInTransaction } from "./charges"
@@ -121,7 +122,10 @@ function trimRequired(value: string, label: string) {
   const trimmed = value.trim()
 
   if (!trimmed) {
-    throw new Error(`${label} is required.`)
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: `${label} is required.`,
+    })
   }
 
   return trimmed
@@ -134,7 +138,10 @@ function trimOptional(value?: string | null) {
 
 function assertPositiveAmount(value: number | null | undefined, label: string) {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-    throw new Error(`${label} must be greater than zero.`)
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: `${label} must be greater than zero.`,
+    })
   }
 }
 
@@ -143,7 +150,10 @@ function assertPositiveInteger(
   label: string
 ) {
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`${label} must be a positive whole number.`)
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: `${label} must be a positive whole number.`,
+    })
   }
 }
 
@@ -259,9 +269,11 @@ async function assertLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
-      "Live financial record writes are locked until initial migration is finalized."
-    )
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Live financial record writes are locked until initial migration is finalized.",
+    })
   }
 }
 
@@ -289,7 +301,10 @@ async function assertActorBelongsToTenant(
   })
 
   if (!user) {
-    throw new Error("Project financing actor does not belong to this tenant.")
+    throw new AppError({
+      code: "PERMISSION_DENIED",
+      publicMessage: "Project financing actor does not belong to this tenant.",
+    })
   }
 }
 
@@ -310,9 +325,11 @@ async function assertMemberBelongsToTenant(
   })
 
   if (!member) {
-    throw new Error(
-      "Project financing member does not belong to this cooperative."
-    )
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage:
+        "Project financing member does not belong to this cooperative.",
+    })
   }
 }
 
@@ -322,7 +339,10 @@ function normalizeStructure(
   const structure = value ?? "undecided"
 
   if (!projectFinancingStructures.has(structure)) {
-    throw new Error("Project financing structure is not supported.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Select a supported project financing structure.",
+    })
   }
 
   return structure
@@ -344,7 +364,10 @@ async function readProjectFinancingRequest(
   })
 
   if (!request) {
-    throw new Error("Project financing request was not found.")
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage: "Project financing request was not found.",
+    })
   }
 
   return request
@@ -367,7 +390,10 @@ export async function listProjectFinancingRequests(
   }
 
   if (input.status && !projectFinancingRequestStatuses.has(input.status)) {
-    throw new Error("Project financing request status is not supported.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Project financing request status is not supported.",
+    })
   }
 
   const requests = await prisma.projectFinancingRequest.findMany({
@@ -439,14 +465,12 @@ function getProjectFinancingRequestOrderBy(
   ]
 }
 
-function getProjectFinancingRequestWhere(
-  input: {
-    memberId?: string
-    search?: string
-    status?: ProjectFinancingRequestStatus
-    tenantId: string
-  }
-) {
+function getProjectFinancingRequestWhere(input: {
+  memberId?: string
+  search?: string
+  status?: ProjectFinancingRequestStatus
+  tenantId: string
+}) {
   return {
     tenantId: input.tenantId,
     ...(input.memberId ? { memberId: input.memberId } : {}),
@@ -516,15 +540,20 @@ export async function listProjectFinancingRequestPage(
   }
 
   if (input.status && !projectFinancingRequestStatuses.has(input.status)) {
-    throw new Error("Project financing request status is not supported.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Project financing request status is not supported.",
+    })
   }
 
   const page = input.page ?? 1
   const pageSize = input.pageSize ?? input.limit ?? 50
   if (!Number.isInteger(pageSize) || pageSize <= 0) {
-    throw new Error(
-      "Project financing request page size must be a positive whole number."
-    )
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage:
+        "Project financing request page size must be a positive whole number.",
+    })
   }
 
   const where = getProjectFinancingRequestWhere(input)
@@ -733,7 +762,10 @@ export async function reviewProjectFinancingRequest(
   await assertActorBelongsToTenant(input, prisma)
 
   if (!projectFinancingRequestStatuses.has(input.status)) {
-    throw new Error("Project financing request status is not supported.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Project financing request status is not supported.",
+    })
   }
 
   return prisma.$transaction(async (tx: any) => {
@@ -746,9 +778,11 @@ export async function reviewProjectFinancingRequest(
     )
 
     if (!["submitted", "under_review"].includes(existingRequest.status)) {
-      throw new Error(
-        "Only pending project financing requests can be reviewed."
-      )
+      throw new AppError({
+        code: "CONFLICT",
+        publicMessage:
+          "Only pending project financing requests can be reviewed.",
+      })
     }
 
     const approvedStructure =
@@ -771,9 +805,11 @@ export async function reviewProjectFinancingRequest(
 
     if (input.status === "approved") {
       if (approvedStructure === "undecided") {
-        throw new Error(
-          "Project financing structure must be clarified before approval."
-        )
+        throw new AppError({
+          code: "VALIDATION_FAILED",
+          publicMessage:
+            "Project financing structure must be clarified before approval.",
+        })
       }
 
       const approvedRequestAmount =
@@ -886,16 +922,20 @@ export async function recordProjectFinancingDisbursement(
     )
 
     if (existingRequest.status !== "approved") {
-      throw new Error(
-        "Only approved project financing requests can be recorded as disbursed."
-      )
+      throw new AppError({
+        code: "CONFLICT",
+        publicMessage:
+          "Only approved project financing requests can be recorded as disbursed.",
+      })
     }
 
     const approvedAmount = Number(existingRequest.approvedAmount ?? 0)
     if (approvedAmount <= 0) {
-      throw new Error(
-        "Project financing needs an approved amount before disbursement."
-      )
+      throw new AppError({
+        code: "PRECONDITION_FAILED",
+        publicMessage:
+          "Project financing needs an approved amount before disbursement.",
+      })
     }
 
     const disbursedAt = input.disbursedAt ?? new Date()

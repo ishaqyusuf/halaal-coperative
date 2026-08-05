@@ -15,6 +15,7 @@ import {
 } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
 import { isPrismaMissingColumnError } from "../prisma-errors"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
@@ -431,13 +432,17 @@ function normalizeMemberShareApplication(
 
 function assertShareConfigurationMode(value: string) {
   if (!shareConfigurationModes.has(value)) {
-    throw new Error("Share configuration mode is not supported.")
+    throw ExpectedQueryError.validation(
+      "Share configuration mode is not supported."
+    )
   }
 }
 
 function assertTenantMigrationSetupMode(value: string) {
   if (!tenantMigrationSetupModes.has(value)) {
-    throw new Error("Tenant migration setup mode is not supported.")
+    throw ExpectedQueryError.validation(
+      "Tenant migration setup mode is not supported."
+    )
   }
 }
 
@@ -478,37 +483,41 @@ function assertBusinessPolicyChoice(
   label: string
 ) {
   if (!validValues.has(value)) {
-    throw new Error(`${label} is not supported.`)
+    throw ExpectedQueryError.validation(`${label} is not supported.`)
   }
 }
 
 function assertPercentage(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0 || value > 100) {
-    throw new Error(`${label} must be between 0 and 100.`)
+    throw ExpectedQueryError.validation(`${label} must be between 0 and 100.`)
   }
 }
 
 function assertPositiveAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${label} must be greater than 0.`)
+    throw ExpectedQueryError.validation(`${label} must be greater than 0.`)
   }
 }
 
 function assertNonNegativeAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`${label} must be 0 or greater.`)
+    throw ExpectedQueryError.validation(`${label} must be 0 or greater.`)
   }
 }
 
 function assertNonNegativeInteger(value: number, label: string) {
   if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${label} must be a whole number 0 or greater.`)
+    throw ExpectedQueryError.validation(
+      `${label} must be a whole number 0 or greater.`
+    )
   }
 }
 
 function assertPositiveInteger(value: number, label: string) {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${label} must be a positive whole number.`)
+    throw ExpectedQueryError.validation(
+      `${label} must be a positive whole number.`
+    )
   }
 }
 
@@ -540,7 +549,7 @@ function resolveShareUnitSettingsForMode(
   assertPositiveInteger(maximumShareUnits, "Maximum share units")
 
   if (maximumShareUnits < compulsoryShareUnits) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Maximum share units cannot be below compulsory share units."
     )
   }
@@ -605,7 +614,7 @@ async function assertMonthlyShareHistoryModelSelected(
   )
 
   if (configurationMode !== "monthly_history") {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Dated share history can only be edited when the monthly share history model is selected."
     )
   }
@@ -618,7 +627,7 @@ async function assertHistoricalFinanceSetupMutationOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Historical finance setup is locked because initial migration is finalized."
     )
   }
@@ -628,7 +637,7 @@ async function assertHistoricalFinanceSetupMutationOpen(
     migrationState.counts.appliedBackfillMembers > 0 ||
     migrationState.counts.appliedBackfillMonths > 0
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Historical finance setup is locked because member ledger backfill has already started."
     )
   }
@@ -641,7 +650,7 @@ async function assertBusinessProfitSeasonReviewMutationOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Historical finance setup is locked because initial migration is finalized."
     )
   }
@@ -665,7 +674,7 @@ async function assertBusinessProfitSeasonReviewMutationOpen(
     return
   }
 
-  throw new Error(
+  throw ExpectedQueryError.precondition(
     "Historical finance setup is locked because member ledger backfill has already started."
   )
 }
@@ -917,7 +926,7 @@ async function ensureWritableBusinessProfitSeason(
   )
 
   if (!season.canRecordProfit || !season.periodStart || !season.periodEnd) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       season.reason ?? "No writable profit-sharing season is available."
     )
   }
@@ -949,7 +958,7 @@ async function ensureWritableBusinessProfitSeason(
   })
 
   if (overlappingPeriod) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       `${overlappingPeriod.name} overlaps the current profit season and must be resolved before recording profit.`
     )
   }
@@ -990,7 +999,7 @@ function assertProfitDateWithinWritableBusinessSeason(
   }
 ) {
   if (!isBusinessProfitDateWithinPeriod(input.profitDate, season)) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       `Profit date must be between ${toBusinessProfitDateOnly(
         season.periodStart
       )} and ${toBusinessProfitDateOnly(season.periodEnd)} for ${season.label}.`
@@ -1001,7 +1010,7 @@ function assertProfitDateWithinWritableBusinessSeason(
     toBusinessProfitDateOnly(input.profitDate) >
     toBusinessProfitDateOnly(input.referenceDate)
   ) {
-    throw new Error("Profit date cannot be in the future.")
+    throw ExpectedQueryError.validation("Profit date cannot be in the future.")
   }
 }
 
@@ -1040,7 +1049,9 @@ async function resolveBusinessProfitPeriodId(
   })
 
   if (!period) {
-    throw new Error("Dividend period was not found in this cooperative.")
+    throw ExpectedQueryError.notFound(
+      "Dividend period was not found in this cooperative."
+    )
   }
 
   if (
@@ -1049,7 +1060,7 @@ async function resolveBusinessProfitPeriodId(
       periodStart: period.periodStart,
     })
   ) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       `Profit date must fall within the selected dividend period (${toBusinessProfitDateOnly(
         period.periodStart
       )} to ${toBusinessProfitDateOnly(period.periodEnd)}).`
@@ -1067,14 +1078,18 @@ function assertProfitDateWithinBusiness(input: {
   const profitDate = toBusinessProfitDateOnly(input.profitDate)
 
   if (profitDate < toBusinessProfitDateOnly(input.businessStartDate)) {
-    throw new Error("Profit date cannot be before the business start date.")
+    throw ExpectedQueryError.validation(
+      "Profit date cannot be before the business start date."
+    )
   }
 
   if (
     input.businessEndDate &&
     profitDate > toBusinessProfitDateOnly(input.businessEndDate)
   ) {
-    throw new Error("Profit date cannot be after the business end date.")
+    throw ExpectedQueryError.validation(
+      "Profit date cannot be after the business end date."
+    )
   }
 }
 
@@ -1092,7 +1107,7 @@ async function assertBusinessProfitMutationOpen(
 
   if (isHistoricalBusinessProfitSource(input.sourceType)) {
     if (!migrationState.snapshot.canUseMigrationTools) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Historical business profit migration records are locked because initial migration is finalized."
       )
     }
@@ -1102,7 +1117,7 @@ async function assertBusinessProfitMutationOpen(
       migrationState.counts.appliedBackfillMembers > 0 ||
       migrationState.counts.appliedBackfillMonths > 0
     ) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Historical business profit migration records are locked because member ledger backfill has already started."
       )
     }
@@ -1118,7 +1133,7 @@ async function assertBusinessProfitMutationOpen(
   }
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Business profit records are locked until live operations are available."
     )
   }
@@ -1128,7 +1143,7 @@ async function assertBusinessProfitMutationOpen(
     migrationState.counts.appliedBackfillMembers > 0 ||
     migrationState.counts.appliedBackfillMonths > 0
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Business profit records are locked because member ledger backfill has already started. Finish migration or create live business records after go-live."
     )
   }
@@ -1141,7 +1156,7 @@ async function assertLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
   }
@@ -1445,17 +1460,21 @@ export async function saveBusinessProfitSeasonReviews(
       )
 
       if (!Number.isFinite(deductionAmount) || deductionAmount < 0) {
-        throw new Error(`${season.label} deduction must be a positive number.`)
+        throw ExpectedQueryError.validation(
+          `${season.label} deduction must be a positive number.`
+        )
       }
 
       if (deductionAmount > baseAllocatableAmount) {
-        throw new Error(
+        throw ExpectedQueryError.validation(
           `${season.label} deduction cannot exceed its shareable profit.`
         )
       }
 
       if (deductionAmount > 0 && !deductionReason) {
-        throw new Error(`${season.label} needs a deduction reason.`)
+        throw ExpectedQueryError.validation(
+          `${season.label} needs a deduction reason.`
+        )
       }
 
       const existingPeriod = await tx.dividendPeriod.findFirst({
@@ -1470,7 +1489,7 @@ export async function saveBusinessProfitSeasonReviews(
         existingPeriod?.status === "published" ||
         existingPeriod?.status === "closed"
       ) {
-        throw new Error(
+        throw ExpectedQueryError.conflict(
           `${existingPeriod.name} is already ${existingPeriod.status} and cannot be edited.`
         )
       }
@@ -1607,7 +1626,9 @@ export async function updateTenantBusinessProfitPolicy(
     input.financialYearStartMonth < 1 ||
     input.financialYearStartMonth > 12
   ) {
-    throw new Error("Financial year start month must be between 1 and 12.")
+    throw ExpectedQueryError.validation(
+      "Financial year start month must be between 1 and 12."
+    )
   }
 
   assertPercentage(
@@ -1623,7 +1644,7 @@ export async function updateTenantBusinessProfitPolicy(
         100
     ) > Number.EPSILON
   ) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Distributable percentage plus reserve retention must equal 100%."
     )
   }
@@ -1825,7 +1846,7 @@ export async function upsertTenantBroughtForwardSnapshot(
   ])
 
   if (migrationSetup.mode !== "brought_forward") {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "A cooperative-wide opening snapshot is only available for brought-forward setup."
     )
   }
@@ -1847,7 +1868,7 @@ export async function upsertTenantBroughtForwardSnapshot(
       : dateFromDateOnly(input.asOfDate)
 
   if (Number.isNaN(asOfDate.getTime())) {
-    throw new Error("Opening snapshot date is invalid.")
+    throw ExpectedQueryError.validation("Opening snapshot date is invalid.")
   }
 
   const shareUnitAmountSnapshot = sharePolicy.unitAmount
@@ -1908,7 +1929,7 @@ async function assertUnitShareApplicationModelSelected(
   const policy = await getTenantSharePolicy(tenantId, prisma)
 
   if (policy.configurationMode !== "unit_based") {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Share applications are only available when the unit-based shareholding model is selected."
     )
   }
@@ -1936,7 +1957,9 @@ async function assertMemberInTenant(
   })
 
   if (!member) {
-    throw new Error("Member does not belong to this cooperative.")
+    throw ExpectedQueryError.permission(
+      "Member does not belong to this cooperative."
+    )
   }
 
   return member
@@ -2220,7 +2243,7 @@ export async function createMemberShareApplication(
     totals.pendingOptionalUnits
 
   if (input.requestedUnits > availableUnits) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Requested shares exceed the member's available optional share units."
     )
   }
@@ -2286,7 +2309,9 @@ export async function reviewMemberShareApplication(
   if (!prisma) throw new Error("Database not configured")
 
   if (input.decision !== "approved" && input.decision !== "rejected") {
-    throw new Error("Share application review decision is not supported.")
+    throw ExpectedQueryError.validation(
+      "Share application review decision is not supported."
+    )
   }
 
   const application = await prisma.memberShareApplication.findFirst({
@@ -2306,11 +2331,13 @@ export async function reviewMemberShareApplication(
   })
 
   if (!application) {
-    throw new Error("Share application was not found.")
+    throw ExpectedQueryError.notFound("Share application was not found.")
   }
 
   if (application.status !== "pending") {
-    throw new Error("Only pending share applications can be reviewed.")
+    throw ExpectedQueryError.conflict(
+      "Only pending share applications can be reviewed."
+    )
   }
 
   const reviewedAt = new Date()
@@ -2366,7 +2393,9 @@ export async function reviewMemberShareApplication(
   assertPositiveInteger(approvedUnits, "Approved share units")
 
   if (approvedUnits > Number(application.requestedUnits)) {
-    throw new Error("Approved share units cannot exceed requested units.")
+    throw ExpectedQueryError.validation(
+      "Approved share units cannot exceed requested units."
+    )
   }
 
   const totals = await getMemberShareApplicationUnitTotals(
@@ -2382,7 +2411,9 @@ export async function reviewMemberShareApplication(
     policy.compulsoryShareUnits + totals.approvedOptionalUnits + approvedUnits >
     policy.maximumShareUnits
   ) {
-    throw new Error("Approved shares would exceed the member share cap.")
+    throw ExpectedQueryError.validation(
+      "Approved shares would exceed the member share cap."
+    )
   }
 
   const approvedAmount = roundCurrency(
@@ -2562,7 +2593,7 @@ export async function updateTenantShareStructureVersion(
   })
 
   if (!existing) {
-    throw new Error("Share structure version not found")
+    throw ExpectedQueryError.notFound("Share structure version not found")
   }
 
   return prisma.tenantShareStructureVersion.update({
@@ -2683,7 +2714,7 @@ export async function updateChargeDefinitionVersion(
     })
 
     if (!existing) {
-      throw new Error("Charge version not found")
+      throw ExpectedQueryError.notFound("Charge version not found")
     }
 
     const chargeValueType =
@@ -3004,7 +3035,9 @@ export async function createShareBusiness(
   )
 
   if (input.endDate && input.endDate < input.startDate) {
-    throw new Error("Business end date cannot be before the start date.")
+    throw ExpectedQueryError.validation(
+      "Business end date cannot be before the start date."
+    )
   }
 
   const profitEntries =
@@ -3202,7 +3235,7 @@ export async function updateShareBusiness(
   })
 
   if (!existing) {
-    throw new Error("Share business not found")
+    throw ExpectedQueryError.notFound("Share business not found")
   }
 
   const nextEndDate = input.endDate ?? null
@@ -3229,7 +3262,9 @@ export async function updateShareBusiness(
       )
     )
   ) {
-    throw new Error("Published profit allocations cannot be edited.")
+    throw ExpectedQueryError.conflict(
+      "Published profit allocations cannot be edited."
+    )
   }
 
   if (!isHistoricalMetadataOnlyUpdate) {
@@ -3576,14 +3611,14 @@ export async function createShareBusinessProfitEntry(
     Math.max(0, input.profitAmount - expenseAmount)
 
   if (expenseAmount < 0) {
-    throw new Error("Expense amount cannot be negative.")
+    throw ExpectedQueryError.validation("Expense amount cannot be negative.")
   }
 
   if (
     allocatableProfitAmount < 0 ||
     allocatableProfitAmount > input.profitAmount
   ) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Allocatable profit must be between zero and the recorded profit amount."
     )
   }
@@ -3601,7 +3636,7 @@ export async function createShareBusinessProfitEntry(
     })
 
     if (!business) {
-      throw new Error("Share business not found")
+      throw ExpectedQueryError.notFound("Share business not found")
     }
 
     assertProfitDateWithinBusiness({
@@ -3692,14 +3727,14 @@ export async function updateShareBusinessProfitEntry(
     Math.max(0, input.profitAmount - expenseAmount)
 
   if (expenseAmount < 0) {
-    throw new Error("Expense amount cannot be negative.")
+    throw ExpectedQueryError.validation("Expense amount cannot be negative.")
   }
 
   if (
     allocatableProfitAmount < 0 ||
     allocatableProfitAmount > input.profitAmount
   ) {
-    throw new Error(
+    throw ExpectedQueryError.validation(
       "Allocatable profit must be between zero and the recorded profit amount."
     )
   }
@@ -3724,7 +3759,7 @@ export async function updateShareBusinessProfitEntry(
     })
 
     if (!existing) {
-      throw new Error("Business profit entry not found")
+      throw ExpectedQueryError.notFound("Business profit entry not found")
     }
 
     const sourceType = isHistoricalBusinessProfitSource(existing.sourceType)
@@ -3744,7 +3779,9 @@ export async function updateShareBusinessProfitEntry(
         (allocation: { status: string }) => allocation.status === "published"
       )
     ) {
-      throw new Error("Published profit allocations cannot be edited.")
+      throw ExpectedQueryError.conflict(
+        "Published profit allocations cannot be edited."
+      )
     }
 
     assertProfitDateWithinBusiness({
@@ -3832,7 +3869,9 @@ export async function generateShareProfitAllocations(
       },
     })
 
-    if (!profitEntry) throw new Error("Business profit entry not found")
+    if (!profitEntry) {
+      throw ExpectedQueryError.notFound("Business profit entry not found")
+    }
     await assertBusinessProfitMutationOpen(
       { sourceType: profitEntry.sourceType, tenantId: input.tenantId },
       tx as PrismaClient
@@ -3849,7 +3888,9 @@ export async function generateShareProfitAllocations(
     )
 
     if (totalShareBalance <= 0) {
-      throw new Error("No member share balances exist on this profit date.")
+      throw ExpectedQueryError.precondition(
+        "No member share balances exist on this profit date."
+      )
     }
 
     const allocations = allocateBusinessProfitByShare({
@@ -3936,13 +3977,13 @@ export async function generateHistoricalBackfillShareProfitAllocations(
   })
 
   if (policy?.migrationSetupMode !== "historical_backfill") {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Historical backfill dividend calculation requires historical backfill setup mode."
     )
   }
 
   if (policy?.shareConfigurationMode !== "unit_based") {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Historical backfill dividend calculation requires unit-based shares."
     )
   }
@@ -3960,7 +4001,9 @@ export async function generateHistoricalBackfillShareProfitAllocations(
   })
 
   if (profitEntries.length === 0) {
-    throw new Error("No historical business profit entries are available.")
+    throw ExpectedQueryError.precondition(
+      "No historical business profit entries are available."
+    )
   }
 
   const generatedAllocations = []
@@ -4104,18 +4147,22 @@ export async function publishShareProfitAllocations(
       },
     })
 
-    if (!profitEntry) throw new Error("Business profit entry not found")
+    if (!profitEntry) {
+      throw ExpectedQueryError.notFound("Business profit entry not found")
+    }
     await assertBusinessProfitMutationOpen(
       { sourceType: profitEntry.sourceType, tenantId: input.tenantId },
       tx as PrismaClient
     )
     if (!profitEntry.linkedDividendPeriodId) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "Link this profit entry to a dividend period before publishing."
       )
     }
     if (profitEntry.allocations.length === 0) {
-      throw new Error("Generate share profit allocations before publishing.")
+      throw ExpectedQueryError.precondition(
+        "Generate share profit allocations before publishing."
+      )
     }
 
     await tx.shareProfitAllocation.updateMany({
@@ -4219,7 +4266,7 @@ export async function getBusinessProfitMigrationWorksheet(
   })
 
   if (!profitEntry) {
-    throw new Error("Business profit entry not found")
+    throw ExpectedQueryError.notFound("Business profit entry not found")
   }
 
   const eligibilityDate = profitEntry.shareBusiness.startDate
@@ -4352,7 +4399,7 @@ export async function saveBusinessProfitMigrationWorksheet(
     })
 
     if (!profitEntry) {
-      throw new Error("Business profit entry not found")
+      throw ExpectedQueryError.notFound("Business profit entry not found")
     }
 
     await assertBusinessProfitMutationOpen(
@@ -4365,7 +4412,9 @@ export async function saveBusinessProfitMigrationWorksheet(
         (allocation: any) => allocation.status === "published"
       )
     ) {
-      throw new Error("Published profit allocations cannot be edited.")
+      throw ExpectedQueryError.conflict(
+        "Published profit allocations cannot be edited."
+      )
     }
 
     const normalizedExpenseLines = input.expenseLines
@@ -4377,11 +4426,15 @@ export async function saveBusinessProfitMigrationWorksheet(
 
     for (const line of normalizedExpenseLines) {
       if (!line.reason) {
-        throw new Error("Every expense line needs a charge reason.")
+        throw ExpectedQueryError.validation(
+          "Every expense line needs a charge reason."
+        )
       }
 
       if (line.amount < 0) {
-        throw new Error("Expense line amounts cannot be negative.")
+        throw ExpectedQueryError.validation(
+          "Expense line amounts cannot be negative."
+        )
       }
     }
 
@@ -4391,7 +4444,9 @@ export async function saveBusinessProfitMigrationWorksheet(
     const shareableDividend = roundCurrency(input.profitAmount - expenseTotal)
 
     if (shareableDividend < 0) {
-      throw new Error("Shareable dividend cannot be negative.")
+      throw ExpectedQueryError.validation(
+        "Shareable dividend cannot be negative."
+      )
     }
 
     const eligibleMembers = await getEligibleMemberShareBalancesAtDate(
@@ -4407,7 +4462,7 @@ export async function saveBusinessProfitMigrationWorksheet(
     )
 
     if (eligibleMembers.length === 0 || totalShareBalance <= 0) {
-      throw new Error(
+      throw ExpectedQueryError.precondition(
         "No eligible member share balances exist on this business start date."
       )
     }
@@ -4434,11 +4489,15 @@ export async function saveBusinessProfitMigrationWorksheet(
             : roundCurrency(Number(allocation.allocatedProfitAmount ?? 0))
 
         if (sharePercentage < 0 || sharePercentage > 100) {
-          throw new Error("Member percentage must be between 0 and 100.")
+          throw ExpectedQueryError.validation(
+            "Member percentage must be between 0 and 100."
+          )
         }
 
         if (allocatedProfitAmount < 0) {
-          throw new Error("Member dividend value cannot be negative.")
+          throw ExpectedQueryError.validation(
+            "Member dividend value cannot be negative."
+          )
         }
 
         return {
@@ -4459,7 +4518,9 @@ export async function saveBusinessProfitMigrationWorksheet(
     )
 
     if (Math.abs(allocatedTotal - shareableDividend) > 0.01) {
-      throw new Error("Allocated total must equal the shareable dividend.")
+      throw ExpectedQueryError.validation(
+        "Allocated total must equal the shareable dividend."
+      )
     }
 
     await tx.shareBusinessProfitEntry.update({

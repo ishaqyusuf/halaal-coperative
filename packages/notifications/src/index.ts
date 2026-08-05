@@ -310,7 +310,7 @@ export class NotificationService {
     try {
       return await this.email(draft)
     } catch (error) {
-      return {
+      const delivery = {
         attempts: 1,
         draft,
         errorMessage:
@@ -321,8 +321,21 @@ export class NotificationService {
         routing: getEmailRoutingFromError(error),
         status: "failed",
       } satisfies NotificationEmailDelivery
+      notificationDeliveryErrorCauses.set(delivery, error)
+      return delivery
     }
   }
+}
+
+const notificationDeliveryErrorCauses = new WeakMap<
+  NotificationEmailDelivery,
+  unknown
+>()
+
+export function getNotificationEmailDeliveryErrorCause(
+  delivery: NotificationEmailDelivery
+) {
+  return notificationDeliveryErrorCauses.get(delivery)
 }
 
 export function createConsoleEmailTransport(): NotificationEmailTransport {

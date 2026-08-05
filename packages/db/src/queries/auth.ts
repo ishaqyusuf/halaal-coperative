@@ -1,4 +1,5 @@
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { assertQaIdentityLane } from "./qa-maintenance"
 
 const uuidPattern =
@@ -350,7 +351,7 @@ export async function provisionTenantUserRole(input: {
   const normalizedFullName = input.fullName.trim()
 
   if (!normalizedEmail || !normalizedFullName) {
-    throw new Error("Full name and email are required.")
+    throw ExpectedQueryError.validation("Full name and email are required.")
   }
 
   return prisma.$transaction(async (tx) => {

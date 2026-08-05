@@ -91,11 +91,11 @@ type OnboardingResult = {
   tenantId: string
   tenantName: string
   vercelDomainProvisioning?: {
-    errorMessage: string | null
+    publicMessage: string | null
     status: "failed" | "pending_verification" | "skipped" | "verified"
   }
   workspaceReadyDeliveryError: string | null
-  workspaceReadyEmail: {
+  workspaceReadyEmail?: {
     bodyText: string
     subject: string
   }
@@ -257,7 +257,7 @@ export function OnboardingForm({
             <Alert>
               <AlertTitle>Cooperative domain still needs attention</AlertTitle>
               <AlertDescription>
-                {result.vercelDomainProvisioning?.errorMessage ??
+                {result.vercelDomainProvisioning?.publicMessage ??
                   "Vercel accepted the cooperative hostname, but verification is still pending."}
               </AlertDescription>
             </Alert>

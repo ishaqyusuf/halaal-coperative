@@ -3,6 +3,7 @@ import { AppError } from "@halaalvest/errors"
 import {
   createMarketingEarlyAccessApprovedEmail,
   createQaNotificationPreviews,
+  getNotificationEmailDeliveryErrorCause,
 } from "@halaalvest/notifications"
 import { isEmailAtQaDomain } from "@halaalvest/utils"
 import {
@@ -17,6 +18,8 @@ import {
 } from "@/lib/early-access"
 import { getMarketingAppOrigin } from "@/lib/runtime-url"
 import { setQaPreviewFlash } from "@/lib/qa-preview-flash.server"
+import { captureMarketingError } from "@/lib/sentry"
+import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
 
 function buildSignupUrl(requestUrl: string, token: string) {
   const url = new URL("/signup", getMarketingAppOrigin(requestUrl))
@@ -59,20 +62,46 @@ function escapeHtml(value: string) {
 }
 
 export async function GET(request: Request) {
-  try {
-    const url = new URL(request.url)
-    const token = url.searchParams.get("token")
-    const continueToSetup = url.searchParams.get("continue") === "1"
+  const url = new URL(request.url)
+  const token = url.searchParams.get("token")
+  const continueToSetup = url.searchParams.get("continue") === "1"
 
-    if (!token) {
+  if (!token) {
+    return htmlResponse({
+      body: "The approval token is missing from this link.",
+      status: 400,
+      title: "Approval link missing",
+    })
+  }
+
+  let requestPayload: ReturnType<typeof verifySignedEarlyAccessRequestToken>
+  try {
+    requestPayload = verifySignedEarlyAccessRequestToken(token)
+  } catch (cause) {
+    if (cause instanceof AppError && cause.reportable) {
+      const response = getMarketingServerErrorResponse(cause, {
+        method: "GET",
+      })
+      const { message, referenceId } = response.body.error
       return htmlResponse({
-        body: "The approval token is missing from this link.",
-        status: 400,
-        title: "Approval link missing",
+        body: `${message} Reference: ${referenceId}`,
+        status: response.status,
+        title: "Approval temporarily unavailable",
       })
     }
+    const publicError = new AppError({
+      cause,
+      code: "VALIDATION_FAILED",
+      publicMessage: "This early access approval link could not be used.",
+    })
+    return htmlResponse({
+      body: publicError.publicMessage,
+      status: 400,
+      title: "Approval link invalid",
+    })
+  }
 
-    const requestPayload = verifySignedEarlyAccessRequestToken(token)
+  try {
     const isQaRequest = isEmailAtQaDomain(
       requestPayload.primaryContactEmail,
       getServerQaEmailDomains()
@@ -99,6 +128,15 @@ export async function GET(request: Request) {
       process.env.NODE_ENV === "production" &&
       (!isServerEmailDeliveryConfigured() || delivery.status !== "sent")
     ) {
+      captureMarketingError(
+        new AppError({
+          cause: getNotificationEmailDeliveryErrorCause(delivery),
+          code: "PROVIDER_UNAVAILABLE",
+          publicMessage: "The approval email could not be sent.",
+        }),
+        "marketing.provider",
+        { method: "GET", provider: "email" }
+      )
       return htmlResponse({
         body: "The approval email could not be sent. Please try again.",
         status: 502,
@@ -129,15 +167,14 @@ export async function GET(request: Request) {
       title: "Early access approved",
     })
   } catch (error) {
-    const publicError = new AppError({
-      cause: error,
-      code: "VALIDATION_FAILED",
-      publicMessage: "This early access approval link could not be used.",
+    const response = getMarketingServerErrorResponse(error, {
+      method: "GET",
     })
+    const { message, referenceId } = response.body.error
     return htmlResponse({
-      body: publicError.publicMessage,
-      status: 400,
-      title: "Approval link invalid",
+      body: `${message} Reference: ${referenceId}`,
+      status: response.status,
+      title: "Approval temporarily unavailable",
     })
   }
 }

@@ -96,19 +96,20 @@ function createProjectFinancingPrismaStub(input?: {
       findFirst: async () => existingProjectFinancingRequest,
       update: async (args: any) => {
         projectFinancingRequestUpdates.push(args)
-    return {
-      ...existingProjectFinancingRequest,
-      ...args.data,
-      disbursedByUser: args.data.disbursedByUserId ? reviewerUser : null,
-      reviewedByUser: reviewerUser,
-    }
+        return {
+          ...existingProjectFinancingRequest,
+          ...args.data,
+          disbursedByUser: args.data.disbursedByUserId ? reviewerUser : null,
+          reviewedByUser: reviewerUser,
+        }
       },
     },
   }
 
   return {
-    $transaction: async (callback: (transaction: typeof tx) => Promise<unknown>) =>
-      callback(tx),
+    $transaction: async (
+      callback: (transaction: typeof tx) => Promise<unknown>
+    ) => callback(tx),
     appliedBackfillMonth: {
       findMany: async () => [],
     },
@@ -180,7 +181,13 @@ describe("project financing request workflow", () => {
         },
         prisma as never
       )
-    ).rejects.toThrow("Live financial record writes are locked")
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining(
+        "Live financial record writes are locked"
+      ),
+      reportable: false,
+    })
 
     expect(prisma.projectFinancingRequestCreates).toHaveLength(0)
   })
@@ -297,7 +304,10 @@ describe("project financing request workflow", () => {
       },
     }
 
-    const summary = await getProjectFinancingSummary("tenant-1", prisma as never)
+    const summary = await getProjectFinancingSummary(
+      "tenant-1",
+      prisma as never
+    )
 
     expect(summary).toEqual({
       approvedRequests: 3,

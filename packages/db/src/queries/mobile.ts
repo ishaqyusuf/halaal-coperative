@@ -1,4 +1,5 @@
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import {
   listActivityReportEvents,
   listAuditLogs,
@@ -3130,7 +3131,7 @@ export async function createMobileMemberProcurementRequest(input: {
   const member = await getMemberByUserId(input, prisma)
 
   if (!member) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member profile needs linking before submitting procurement requests."
     )
   }
@@ -3218,7 +3219,7 @@ export async function createMobileMemberProjectFinancingRequest(input: {
   const member = await getMemberByUserId(input, prisma)
 
   if (!member) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member profile needs linking before submitting project financing requests."
     )
   }
@@ -3320,7 +3321,7 @@ export async function createMobileMemberFoodPurchaseApplication(input: {
   const member = await getMemberByUserId(input, prisma)
 
   if (!member) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member profile needs linking before submitting Foodstuff Purchase applications."
     )
   }
@@ -3399,7 +3400,7 @@ export async function respondMobileMemberGuarantorApproval(input: {
   const member = await getMemberByUserId(input, prisma)
 
   if (!member) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member profile needs linking before answering guarantor requests."
     )
   }
@@ -3427,7 +3428,7 @@ export async function respondMobileMemberGuarantorApproval(input: {
   ).find((item) => item.id === input.guarantorApprovalId)
 
   if (!approval) {
-    throw new Error("Loan guarantor approval not found.")
+    throw ExpectedQueryError.notFound("Loan guarantor approval not found.")
   }
 
   return toMobileGuarantorApproval(approval)
@@ -3509,7 +3510,7 @@ export async function createMobileMemberFinancingRequest(input: {
   const member = await getMemberByUserId(input, prisma)
 
   if (!member) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member profile needs linking before submitting financing requests."
     )
   }
@@ -3533,7 +3534,7 @@ export async function createMobileMemberFinancingRequest(input: {
   )
 
   if (!request) {
-    throw new Error("Financing request not found.")
+    throw ExpectedQueryError.notFound("Financing request not found.")
   }
 
   return toMobileFinancingRequest(request)
@@ -3637,7 +3638,7 @@ export async function createMobileMemberShareApplication(input: {
   const member = await getMemberByUserId(input, prisma)
 
   if (!member) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member profile needs linking before requesting optional shares."
     )
   }
@@ -3677,7 +3678,9 @@ export async function createMobileMemberReceipt(input: {
   const member = await getMemberByUserId(input, prisma)
 
   if (!member) {
-    throw new Error("Member profile needs linking before submitting receipts.")
+    throw ExpectedQueryError.precondition(
+      "Member profile needs linking before submitting receipts."
+    )
   }
 
   const operationProfile = await getTenantOperationProfile(
@@ -3686,7 +3689,7 @@ export async function createMobileMemberReceipt(input: {
   )
 
   if (!operationProfile.services.payment_receipts.canMemberCreate) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Payment receipt self-service is not enabled for this cooperative."
     )
   }
@@ -3786,7 +3789,7 @@ export async function createMobileMemberSupportCase(input: {
   const member = await getMemberByUserId(input, prisma)
 
   if (!member) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Member profile needs linking before creating support cases."
     )
   }
@@ -3825,7 +3828,9 @@ export async function replyMobileMemberSupportCase(input: {
   const member = await getMemberByUserId(input, prisma)
 
   if (!member) {
-    throw new Error("Member profile needs linking before replying to support.")
+    throw ExpectedQueryError.precondition(
+      "Member profile needs linking before replying to support."
+    )
   }
 
   await addMemberSupportCaseMessage(
@@ -3873,7 +3878,9 @@ export async function inviteMobileAdminAccessUser(input: {
   requireMobileAdminPrisma("Workspace invitation")
 
   if (input.role === "super_admin") {
-    throw new Error("Super admin access cannot be invited from mobile.")
+    throw ExpectedQueryError.permission(
+      "Super admin access cannot be invited from mobile."
+    )
   }
 
   const result = await provisionTenantUserRole({
@@ -3908,7 +3915,7 @@ export async function registerMobileDeviceSession(input: {
   const normalizedBuildVariant = input.buildVariant.trim()
 
   if (!normalizedDeviceId || !normalizedPlatform) {
-    throw new Error("Device id and platform are required.")
+    throw ExpectedQueryError.validation("Device id and platform are required.")
   }
 
   const log = await prisma.auditLog.create({

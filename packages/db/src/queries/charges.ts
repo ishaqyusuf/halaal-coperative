@@ -1,5 +1,6 @@
 import type { ChargeKind, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { postLedgerTransaction, getLedgerAccountByCode } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
@@ -73,7 +74,7 @@ async function getChargeDefinitionMutationMode(
   }
 
   if (!migrationState.snapshot.canUseMigrationTools) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Charge definition writes are locked until initial migration is finalized."
     )
   }
@@ -83,7 +84,7 @@ async function getChargeDefinitionMutationMode(
     migrationState.counts.appliedBackfillMembers > 0 ||
     migrationState.counts.appliedBackfillMonths > 0
   ) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Historical charge setup is locked because member ledger backfill has already started."
     )
   }
@@ -93,7 +94,7 @@ async function getChargeDefinitionMutationMode(
 
 function assertLiveChargeEffectiveDateNotBackdated(effectiveFrom: Date) {
   if (effectiveFrom.getTime() < startOfUtcDay(new Date()).getTime()) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Live charge definition updates cannot be backdated. Use correction workflows for past periods."
     )
   }
@@ -106,7 +107,7 @@ async function assertLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
   }
@@ -662,7 +663,7 @@ export async function deleteChargeDefinition(
   })
 
   if (applicationCount > 0) {
-    throw new Error(
+    throw ExpectedQueryError.conflict(
       "This charge has member records and cannot be deleted. Deactivate it instead."
     )
   }
@@ -686,7 +687,7 @@ export async function deleteChargeDefinitionVersion(
   })
 
   if (!version) {
-    throw new Error("Charge history row not found.")
+    throw ExpectedQueryError.notFound("Charge history row not found.")
   }
 
   const versionCount = await prisma.chargeDefinitionVersion.count({
@@ -694,7 +695,9 @@ export async function deleteChargeDefinitionVersion(
   })
 
   if (versionCount <= 1) {
-    throw new Error("A charge must keep at least one dated amount.")
+    throw ExpectedQueryError.precondition(
+      "A charge must keep at least one dated amount."
+    )
   }
 
   return prisma.chargeDefinitionVersion.delete({
@@ -758,7 +761,7 @@ export async function updateChargeDefinition(
     })
 
     if (!currentDefinition) {
-      throw new Error("Charge definition not found")
+      throw ExpectedQueryError.notFound("Charge definition not found")
     }
 
     const definition =
@@ -897,7 +900,8 @@ async function applyChargeInTransaction(
   const chargeDef = await tx.chargeDefinition.findFirst({
     where: { id: input.chargeDefinitionId, tenantId: input.tenantId },
   })
-  if (!chargeDef) throw new Error("Charge definition not found")
+  if (!chargeDef)
+    throw ExpectedQueryError.notFound("Charge definition not found")
 
   const collectionMode = input.collectionMode ?? "deduct_from_savings"
   const shouldPostToSavings = collectionMode === "deduct_from_savings"
@@ -915,7 +919,9 @@ async function applyChargeInTransaction(
     : null
 
   if (shouldPostToSavings && (!savingsAccount || !incomeAccount)) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
   }
 
   const application = await txAny.chargeApplication.create({
@@ -1273,7 +1279,9 @@ async function restoreChargeToMemberSavings(input: {
   )
 
   if (!savingsAccount || !incomeAccount) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
   }
 
   await postLedgerTransaction(
@@ -1343,9 +1351,12 @@ export async function waiveChargeApplication(
       include: { chargeDefinition: true },
     })
 
-    if (!application) throw new Error("Charge application not found")
+    if (!application)
+      throw ExpectedQueryError.notFound("Charge application not found")
     if (application.status !== "posted")
-      throw new Error("Only posted charge applications can be waived.")
+      throw ExpectedQueryError.conflict(
+        "Only posted charge applications can be waived."
+      )
 
     const updated = await tx.chargeApplication.update({
       where: { id: application.id },
@@ -1405,9 +1416,12 @@ export async function reverseChargeApplication(
       include: { chargeDefinition: true },
     })
 
-    if (!application) throw new Error("Charge application not found")
+    if (!application)
+      throw ExpectedQueryError.notFound("Charge application not found")
     if (application.status !== "posted")
-      throw new Error("Only posted charge applications can be reversed.")
+      throw ExpectedQueryError.conflict(
+        "Only posted charge applications can be reversed."
+      )
 
     const updated = await tx.chargeApplication.update({
       where: { id: application.id },

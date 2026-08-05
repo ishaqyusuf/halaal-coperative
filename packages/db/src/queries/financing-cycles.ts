@@ -7,6 +7,7 @@ import type {
   PrismaClient,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 
 export type FinancingPolicySnapshot = {
   activeFinancingBlocksEmergency: boolean
@@ -235,7 +236,7 @@ function roundMoney(value: number) {
 
 function assertPercentage(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0 || value > 100) {
-    throw new Error(`${label} must be between 0 and 100.`)
+    throw ExpectedQueryError.validation(`${label} must be between 0 and 100.`)
   }
 }
 
@@ -244,25 +245,29 @@ function assertAllocationPercentages(quick: number, normal: number) {
   assertPercentage(normal, "Normal loan allocation percentage")
 
   if (roundMoney(quick + normal) !== 100) {
-    throw new Error("Quick and normal loan allocation percentages must total 100.")
+    throw ExpectedQueryError.validation(
+      "Quick and normal loan allocation percentages must total 100."
+    )
   }
 }
 
 function assertPositiveInteger(value: number, label: string) {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${label} must be a positive whole number.`)
+    throw ExpectedQueryError.validation(
+      `${label} must be a positive whole number.`
+    )
   }
 }
 
 function assertPositiveNumber(value: number, label: string) {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${label} must be greater than 0.`)
+    throw ExpectedQueryError.validation(`${label} must be greater than 0.`)
   }
 }
 
 function assertNonNegativeAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`${label} must be 0 or greater.`)
+    throw ExpectedQueryError.validation(`${label} must be 0 or greater.`)
   }
 }
 
@@ -309,44 +314,44 @@ function normalizePolicy(policy: unknown): FinancingPolicySnapshot {
             DEFAULT_FINANCING_POLICY.foodPurchaseAllowsCommitmentReductionDuringPayback,
           foodPurchaseMaximumPaybackMonths: Number(
             candidate.foodPurchaseMaximumPaybackMonths ??
-              DEFAULT_FINANCING_POLICY.foodPurchaseMaximumPaybackMonths,
+              DEFAULT_FINANCING_POLICY.foodPurchaseMaximumPaybackMonths
           ),
           loanIntakeReservationMode:
             candidate.loanIntakeReservationMode ??
             DEFAULT_FINANCING_POLICY.loanIntakeReservationMode,
           loanEligibilityMultiple: Number(
             candidate.loanEligibilityMultiple ??
-              DEFAULT_FINANCING_POLICY.loanEligibilityMultiple,
+              DEFAULT_FINANCING_POLICY.loanEligibilityMultiple
           ),
           normalLoanAllocationPercentage: Number(
             candidate.normalLoanAllocationPercentage ??
-              DEFAULT_FINANCING_POLICY.normalLoanAllocationPercentage,
+              DEFAULT_FINANCING_POLICY.normalLoanAllocationPercentage
           ),
           normalLoanTermMonths: Number(
             candidate.normalLoanTermMonths ??
-              DEFAULT_FINANCING_POLICY.normalLoanTermMonths,
+              DEFAULT_FINANCING_POLICY.normalLoanTermMonths
           ),
           procurementAllowsCommitmentReductionDuringPayback:
             candidate.procurementAllowsCommitmentReductionDuringPayback ??
             DEFAULT_FINANCING_POLICY.procurementAllowsCommitmentReductionDuringPayback,
           procurementMaximumPaybackMonths: Number(
             candidate.procurementMaximumPaybackMonths ??
-              DEFAULT_FINANCING_POLICY.procurementMaximumPaybackMonths,
+              DEFAULT_FINANCING_POLICY.procurementMaximumPaybackMonths
           ),
           quickLoanAllocationPercentage: Number(
             candidate.quickLoanAllocationPercentage ??
-              DEFAULT_FINANCING_POLICY.quickLoanAllocationPercentage,
+              DEFAULT_FINANCING_POLICY.quickLoanAllocationPercentage
           ),
           quickLoanTermMonths: Number(
             candidate.quickLoanTermMonths ??
-              DEFAULT_FINANCING_POLICY.quickLoanTermMonths,
+              DEFAULT_FINANCING_POLICY.quickLoanTermMonths
           ),
           requiresDualLoanApproval:
             candidate.requiresDualLoanApproval ??
             DEFAULT_FINANCING_POLICY.requiresDualLoanApproval,
           reserveBufferAmount: Number(
             candidate.reserveBufferAmount ??
-              DEFAULT_FINANCING_POLICY.reserveBufferAmount,
+              DEFAULT_FINANCING_POLICY.reserveBufferAmount
           ),
           specialSavingsCountsForEligibility:
             candidate.specialSavingsCountsForEligibility ??
@@ -360,27 +365,27 @@ function normalizePolicy(policy: unknown): FinancingPolicySnapshot {
 
   assertAllocationPercentages(
     normalized.quickLoanAllocationPercentage,
-    normalized.normalLoanAllocationPercentage,
+    normalized.normalLoanAllocationPercentage
   )
   assertPositiveNumber(
     normalized.loanEligibilityMultiple,
-    "Loan eligibility multiple",
+    "Loan eligibility multiple"
   )
   assertPositiveInteger(
     normalized.quickLoanTermMonths,
-    "Quick loan term months",
+    "Quick loan term months"
   )
   assertPositiveInteger(
     normalized.normalLoanTermMonths,
-    "Normal loan term months",
+    "Normal loan term months"
   )
   assertPositiveInteger(
     normalized.procurementMaximumPaybackMonths,
-    "Procurement maximum payback months",
+    "Procurement maximum payback months"
   )
   assertPositiveInteger(
     normalized.foodPurchaseMaximumPaybackMonths,
-    "Foodstuff purchase maximum payback months",
+    "Foodstuff purchase maximum payback months"
   )
   assertNonNegativeAmount(normalized.reserveBufferAmount, "Reserve buffer")
 
@@ -390,10 +395,10 @@ function normalizePolicy(policy: unknown): FinancingPolicySnapshot {
 function resolveMonthlyPeriod(periodStart?: Date): FinancingCyclePeriod {
   const source = periodStart ?? new Date()
   const start = new Date(
-    Date.UTC(source.getUTCFullYear(), source.getUTCMonth(), 1),
+    Date.UTC(source.getUTCFullYear(), source.getUTCMonth(), 1)
   )
   const end = new Date(
-    Date.UTC(source.getUTCFullYear(), source.getUTCMonth() + 1, 0),
+    Date.UTC(source.getUTCFullYear(), source.getUTCMonth() + 1, 0)
   )
 
   return { periodEnd: end, periodStart: start }
@@ -404,14 +409,14 @@ function getExclusivePeriodEnd(periodEnd: Date) {
     Date.UTC(
       periodEnd.getUTCFullYear(),
       periodEnd.getUTCMonth(),
-      periodEnd.getUTCDate() + 1,
-    ),
+      periodEnd.getUTCDate() + 1
+    )
   )
 }
 
 function defaultLoanProductSettingsRow(
   loanType: LoanType,
-  policy: FinancingPolicySnapshot,
+  policy: FinancingPolicySnapshot
 ): LoanProductSettingsRow {
   return {
     code: null,
@@ -438,7 +443,7 @@ function toLoanProductSettingsRow(
     termMonths: number
   } | null,
   loanType: LoanType,
-  policy: FinancingPolicySnapshot,
+  policy: FinancingPolicySnapshot
 ): LoanProductSettingsRow {
   if (!product) return defaultLoanProductSettingsRow(loanType, policy)
 
@@ -466,7 +471,7 @@ async function getFinancingCycleUsage(
     quickBudgetAmount: number
     tenantId: string
   },
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ): Promise<{
   normal: FinancingCycleUsageByType
   quick: FinancingCycleUsageByType
@@ -529,25 +534,25 @@ async function getFinancingCycleUsage(
 
   function summarize(
     loanType: LoanType,
-    budgetAmount: number,
+    budgetAmount: number
   ): FinancingCycleUsageByType {
     const productRequests = requestGroups[loanType]
     const requestedReservedAmount = roundMoney(
       productRequests
         .filter((request) => REQUEST_RESERVED_STATUSES.includes(request.status))
-        .reduce((sum, request) => sum + request.amount, 0),
+        .reduce((sum, request) => sum + request.amount, 0)
     )
     const approvedAmount = roundMoney(
       productRequests
         .filter((request) => request.status === "approved")
-        .reduce((sum, request) => sum + request.amount, 0),
+        .reduce((sum, request) => sum + request.amount, 0)
     )
     const disbursedAmount = roundMoney(
-      loanGroups[loanType].reduce((sum, loan) => sum + loan.amount, 0),
+      loanGroups[loanType].reduce((sum, loan) => sum + loan.amount, 0)
     )
     const heldAmount = roundMoney(Math.max(0, approvedAmount - disbursedAmount))
     const remainingAmount = roundMoney(
-      Math.max(0, budgetAmount - requestedReservedAmount),
+      Math.max(0, budgetAmount - requestedReservedAmount)
     )
 
     return {
@@ -568,7 +573,7 @@ async function getFinancingCycleUsage(
 
 async function getFinancingCycleSnapshotForPeriod(
   input: MonthlyFinancingCycleInput,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const period = resolveMonthlyPeriod(input.periodStart)
   const cycle = await prisma.financingCycle.findUnique({
@@ -654,7 +659,7 @@ function buildFinancingCycleWarnings(input: {
 
 export async function getDeployableFundsSnapshot(
   input: DeployableFundsInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<DeployableFundsSnapshot> {
   const prisma = getPrisma(prismaOverride)
   const [contributionSum, outstandingLoanSum, approvedHoldSum, policy] =
@@ -683,16 +688,16 @@ export async function getDeployableFundsSnapshot(
       }),
     ])
   const totalContributionAmount = roundMoney(
-    Number(contributionSum._sum.amount ?? 0),
+    Number(contributionSum._sum.amount ?? 0)
   )
   const outstandingFinancingAmount = roundMoney(
-    Number(outstandingLoanSum._sum.outstandingPrincipal ?? 0),
+    Number(outstandingLoanSum._sum.outstandingPrincipal ?? 0)
   )
   const approvedHoldAmount = roundMoney(
-    Number(approvedHoldSum._sum.principalAmount ?? 0),
+    Number(approvedHoldSum._sum.principalAmount ?? 0)
   )
   const reserveBufferAmount = roundMoney(
-    Number(policy?.reserveBufferAmount ?? 0),
+    Number(policy?.reserveBufferAmount ?? 0)
   )
 
   return {
@@ -703,8 +708,8 @@ export async function getDeployableFundsSnapshot(
         totalContributionAmount -
           outstandingFinancingAmount -
           approvedHoldAmount -
-          reserveBufferAmount,
-      ),
+          reserveBufferAmount
+      )
     ),
     outstandingFinancingAmount,
     reserveBufferAmount,
@@ -714,7 +719,7 @@ export async function getDeployableFundsSnapshot(
 
 export async function getMonthlyFinancingCycleHealth(
   input: MonthlyFinancingCycleInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MonthlyFinancingCycleHealth> {
   const prisma = getPrisma(prismaOverride)
   const [{ cycle, periodEnd, periodStart }, preview, deployableFunds] =
@@ -752,13 +757,13 @@ export async function getMonthlyFinancingCycleHealth(
       quickBudgetAmount,
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
   const projectedCommitmentAmount = roundMoney(
-    Number(cycle.projectedCommitmentAmount),
+    Number(cycle.projectedCommitmentAmount)
   )
   const receivedContributionAmount = roundMoney(
-    Number(cycle.receivedContributionAmount),
+    Number(cycle.receivedContributionAmount)
   )
   const warnings = buildFinancingCycleWarnings({
     cycle,
@@ -795,7 +800,7 @@ export async function getMonthlyFinancingCycleHealth(
 
 export async function assertLoanRequestIntakeCapacity(
   input: LoanRequestCapacityInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<LoanRequestCapacityCheck> {
   const prisma = getPrisma(prismaOverride)
   const { cycle, periodEnd, periodStart } =
@@ -804,18 +809,18 @@ export async function assertLoanRequestIntakeCapacity(
         periodStart: input.requestedAt,
         tenantId: input.tenantId,
       },
-      prisma,
+      prisma
     )
 
   if (!cycle) {
-    throw new Error(
-      "Current monthly financing cycle is not open. Open the cycle before accepting loan requests.",
+    throw ExpectedQueryError.precondition(
+      "Current monthly financing cycle is not open. Open the cycle before accepting loan requests."
     )
   }
 
   if (cycle.status !== "open") {
-    throw new Error(
-      `Current monthly financing cycle is ${cycle.status}; loan request intake is closed.`,
+    throw ExpectedQueryError.precondition(
+      `Current monthly financing cycle is ${cycle.status}; loan request intake is closed.`
     )
   }
 
@@ -827,13 +832,13 @@ export async function assertLoanRequestIntakeCapacity(
       quickBudgetAmount: Number(cycle.quickBudgetAmount),
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
   const selectedUsage = usage[input.loanProduct.loanType]
 
   if (input.requestedAmount > selectedUsage.remainingAmount) {
-    throw new Error(
-      `${input.loanProduct.loanType === "quick" ? "Quick" : "Normal"} financing allocation has ${selectedUsage.remainingAmount.toLocaleString("en-NG")} remaining for this cycle.`,
+    throw ExpectedQueryError.precondition(
+      `${input.loanProduct.loanType === "quick" ? "Quick" : "Normal"} financing allocation has ${selectedUsage.remainingAmount.toLocaleString("en-NG")} remaining for this cycle.`
     )
   }
 
@@ -851,78 +856,82 @@ export async function assertLoanRequestIntakeCapacity(
 
 export async function previewMonthlyFinancingCycle(
   input: MonthlyFinancingCycleInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<MonthlyFinancingCyclePreview> {
   const prisma = getPrisma(prismaOverride)
   const period = resolveMonthlyPeriod(input.periodStart)
   const exclusivePeriodEnd = getExclusivePeriodEnd(period.periodEnd)
 
-  const [policyRow, projectedCommitments, receivedContributions, existingCycle] =
-    await Promise.all([
-      prisma.tenantPolicy.findUnique({ where: { tenantId: input.tenantId } }),
-      prisma.contributionPlan.aggregate({
-        _sum: {
-          amount: true,
+  const [
+    policyRow,
+    projectedCommitments,
+    receivedContributions,
+    existingCycle,
+  ] = await Promise.all([
+    prisma.tenantPolicy.findUnique({ where: { tenantId: input.tenantId } }),
+    prisma.contributionPlan.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        tenantId: input.tenantId,
+        interval: "monthly",
+        isActive: true,
+        startsAt: {
+          lt: exclusivePeriodEnd,
         },
-        where: {
-          tenantId: input.tenantId,
-          interval: "monthly",
-          isActive: true,
-          startsAt: {
-            lt: exclusivePeriodEnd,
+        OR: [
+          {
+            endsAt: null,
           },
-          OR: [
-            {
-              endsAt: null,
+          {
+            endsAt: {
+              gte: period.periodStart,
             },
-            {
-              endsAt: {
-                gte: period.periodStart,
-              },
-            },
-          ],
+          },
+        ],
+      },
+    }),
+    prisma.contribution.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        tenantId: input.tenantId,
+        postedAt: {
+          gte: period.periodStart,
+          lt: exclusivePeriodEnd,
         },
-      }),
-      prisma.contribution.aggregate({
-        _sum: {
-          amount: true,
-        },
-        where: {
+        status: "posted",
+      },
+    }),
+    prisma.financingCycle.findUnique({
+      select: {
+        id: true,
+        status: true,
+      },
+      where: {
+        tenantId_periodStart_periodEnd: {
           tenantId: input.tenantId,
-          postedAt: {
-            gte: period.periodStart,
-            lt: exclusivePeriodEnd,
-          },
-          status: "posted",
+          periodStart: period.periodStart,
+          periodEnd: period.periodEnd,
         },
-      }),
-      prisma.financingCycle.findUnique({
-        select: {
-          id: true,
-          status: true,
-        },
-        where: {
-          tenantId_periodStart_periodEnd: {
-            tenantId: input.tenantId,
-            periodStart: period.periodStart,
-            periodEnd: period.periodEnd,
-          },
-        },
-      }),
-    ])
+      },
+    }),
+  ])
 
   const policy = normalizePolicy(policyRow)
   const projectedCommitmentAmount = roundMoney(
-    Number(projectedCommitments._sum.amount ?? 0),
+    Number(projectedCommitments._sum.amount ?? 0)
   )
   const receivedContributionAmount = roundMoney(
-    Number(receivedContributions._sum.amount ?? 0),
+    Number(receivedContributions._sum.amount ?? 0)
   )
   const totalCapacityAmount = roundMoney(
-    Math.max(0, projectedCommitmentAmount - policy.reserveBufferAmount),
+    Math.max(0, projectedCommitmentAmount - policy.reserveBufferAmount)
   )
   const quickBudgetAmount = roundMoney(
-    (totalCapacityAmount * policy.quickLoanAllocationPercentage) / 100,
+    (totalCapacityAmount * policy.quickLoanAllocationPercentage) / 100
   )
   const normalBudgetAmount = roundMoney(totalCapacityAmount - quickBudgetAmount)
   const usage = await getFinancingCycleUsage(
@@ -932,7 +941,7 @@ export async function previewMonthlyFinancingCycle(
       quickBudgetAmount,
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return {
@@ -957,7 +966,7 @@ export async function previewMonthlyFinancingCycle(
 
 export async function getTenantFinancingSettingsWorkspace(
   input: MonthlyFinancingCycleInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<TenantFinancingSettingsWorkspace> {
   const prisma = getPrisma(prismaOverride)
   const [policyRow, loanProducts, currentCyclePreview] = await Promise.all([
@@ -980,7 +989,7 @@ export async function getTenantFinancingSettingsWorkspace(
       maxSavingsMultiple: product.maxSavingsMultiple,
       name: product.name,
       termMonths: product.termMonths,
-    })),
+    }))
   )
   const quickProduct =
     productsByType.quick.find((product) => product.isActive) ??
@@ -1009,7 +1018,7 @@ export async function openMonthlyFinancingCycle(
     actorUserId: string
     statusNote?: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
   const preview = await previewMonthlyFinancingCycle(input, prisma)
@@ -1090,7 +1099,7 @@ export async function openMonthlyFinancingCycle(
 
 export async function updateMonthlyFinancingCycleStatus(
   input: MonthlyFinancingCycleStatusInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
   const timestampField =
@@ -1135,7 +1144,7 @@ export async function updateMonthlyFinancingCycleStatus(
 
 export async function updateTenantFinancingCyclePolicy(
   input: TenantFinancingCyclePolicyInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
   const existingPolicy = await prisma.tenantPolicy.findUnique({
@@ -1145,7 +1154,8 @@ export async function updateTenantFinancingCyclePolicy(
   const quickLoanAllocationPercentage =
     input.quickLoanAllocationPercentage ?? current.quickLoanAllocationPercentage
   const normalLoanAllocationPercentage =
-    input.normalLoanAllocationPercentage ?? current.normalLoanAllocationPercentage
+    input.normalLoanAllocationPercentage ??
+    current.normalLoanAllocationPercentage
   const loanEligibilityMultiple =
     input.loanEligibilityMultiple ?? current.loanEligibilityMultiple
   const quickLoanTermMonths =
@@ -1163,18 +1173,18 @@ export async function updateTenantFinancingCyclePolicy(
 
   assertAllocationPercentages(
     quickLoanAllocationPercentage,
-    normalLoanAllocationPercentage,
+    normalLoanAllocationPercentage
   )
   assertPositiveNumber(loanEligibilityMultiple, "Loan eligibility multiple")
   assertPositiveInteger(quickLoanTermMonths, "Quick loan term months")
   assertPositiveInteger(normalLoanTermMonths, "Normal loan term months")
   assertPositiveInteger(
     procurementMaximumPaybackMonths,
-    "Procurement maximum payback months",
+    "Procurement maximum payback months"
   )
   assertPositiveInteger(
     foodPurchaseMaximumPaybackMonths,
-    "Foodstuff purchase maximum payback months",
+    "Foodstuff purchase maximum payback months"
   )
   assertNonNegativeAmount(reserveBufferAmount, "Reserve buffer")
 
@@ -1262,14 +1272,16 @@ export async function updateTenantFinancingCyclePolicy(
             }
           : {}),
         procurementMaximumPaybackMonths,
-        ...(input.procurementAllowsCommitmentReductionDuringPayback !== undefined
+        ...(input.procurementAllowsCommitmentReductionDuringPayback !==
+        undefined
           ? {
               procurementAllowsCommitmentReductionDuringPayback:
                 input.procurementAllowsCommitmentReductionDuringPayback,
             }
           : {}),
         foodPurchaseMaximumPaybackMonths,
-        ...(input.foodPurchaseAllowsCommitmentReductionDuringPayback !== undefined
+        ...(input.foodPurchaseAllowsCommitmentReductionDuringPayback !==
+        undefined
           ? {
               foodPurchaseAllowsCommitmentReductionDuringPayback:
                 input.foodPurchaseAllowsCommitmentReductionDuringPayback,
@@ -1293,8 +1305,7 @@ export async function updateTenantFinancingCyclePolicy(
         entityType: "TenantPolicy",
         entityId: policy.id,
         metadata: {
-          activeFinancingBlocksEmergency:
-            policy.activeFinancingBlocksEmergency,
+          activeFinancingBlocksEmergency: policy.activeFinancingBlocksEmergency,
           activeFinancingBlocksProcurement:
             policy.activeFinancingBlocksProcurement,
           procurementMaximumPaybackMonths:
@@ -1311,11 +1322,11 @@ export async function updateTenantFinancingCyclePolicy(
           loanIntakeReservationMode: policy.loanIntakeReservationMode,
           loanEligibilityMultiple: Number(policy.loanEligibilityMultiple),
           normalLoanAllocationPercentage: Number(
-            policy.normalLoanAllocationPercentage,
+            policy.normalLoanAllocationPercentage
           ),
           normalLoanTermMonths: policy.normalLoanTermMonths,
           quickLoanAllocationPercentage: Number(
-            policy.quickLoanAllocationPercentage,
+            policy.quickLoanAllocationPercentage
           ),
           quickLoanTermMonths: policy.quickLoanTermMonths,
           requiresDualLoanApproval: policy.requiresDualLoanApproval,
@@ -1335,24 +1346,24 @@ export async function updateTenantFinancingCyclePolicy(
 
 export async function updateLoanProductSettings(
   input: LoanProductSettingsInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
   const code = input.code?.trim().toUpperCase() || null
   const name = input.name.trim()
 
   if (!name) {
-    throw new Error("Loan product name is required.")
+    throw ExpectedQueryError.validation("Loan product name is required.")
   }
 
   if (input.loanType !== "quick" && input.loanType !== "normal") {
-    throw new Error("Loan product type is not supported.")
+    throw ExpectedQueryError.validation("Loan product type is not supported.")
   }
 
   assertPositiveInteger(input.termMonths, "Loan product term months")
   assertPositiveNumber(
     input.maxSavingsMultiple,
-    "Loan product savings multiple",
+    "Loan product savings multiple"
   )
 
   const existingProduct = input.loanProductId

@@ -1,5 +1,6 @@
 import type { LoanStatus, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import {
   applyApplicableWorkflowCharges,
   quoteApplicableCharges,
@@ -24,7 +25,7 @@ async function assertLiveFinancialWritesOpen(
   const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (!migrationState.snapshot.canUseLiveFinancialWrites) {
-    throw new Error(
+    throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
   }
@@ -219,17 +220,19 @@ function summarizeRows(record: {
 
 function assertPeriod(year: number, month: number) {
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-    throw new Error("Enter a valid record year.")
+    throw ExpectedQueryError.validation("Enter a valid record year.")
   }
 
   if (!Number.isInteger(month) || month < 1 || month > 12) {
-    throw new Error("Enter a valid record month.")
+    throw ExpectedQueryError.validation("Enter a valid record month.")
   }
 }
 
 function clampGenerationDay(day: number) {
   if (!Number.isInteger(day) || day < 1 || day > 28) {
-    throw new Error("Monthly record generation day must be between 1 and 28.")
+    throw ExpectedQueryError.validation(
+      "Monthly record generation day must be between 1 and 28."
+    )
   }
 
   return day
@@ -958,7 +961,9 @@ export async function applyMonthlyRecordMember(
   if (!prisma) throw new Error("Database not configured")
 
   if (!Number.isFinite(input.totalPaidAmount) || input.totalPaidAmount <= 0) {
-    throw new Error("Enter a payment amount greater than zero.")
+    throw ExpectedQueryError.validation(
+      "Enter a payment amount greater than zero."
+    )
   }
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
@@ -972,11 +977,17 @@ export async function applyMonthlyRecordMember(
     },
   })
 
-  if (!row) throw new Error("Monthly record member row not found.")
+  if (!row) {
+    throw ExpectedQueryError.notFound("Monthly record member row not found.")
+  }
   if (row.status === "applied")
-    throw new Error("This monthly record row has already been applied.")
+    throw ExpectedQueryError.conflict(
+      "This monthly record row has already been applied."
+    )
   if (row.monthlyRecord.status === "closed")
-    throw new Error("Closed monthly records cannot be changed.")
+    throw ExpectedQueryError.conflict(
+      "Closed monthly records cannot be changed."
+    )
 
   const member = await prisma.member.findFirst({
     where: {
@@ -988,7 +999,7 @@ export async function applyMonthlyRecordMember(
     },
   })
 
-  if (!member) throw new Error("Member not found.")
+  if (!member) throw ExpectedQueryError.notFound("Member not found.")
 
   const {
     contributionAmount,
@@ -1084,7 +1095,9 @@ async function reverseMonthlyContribution(input: {
   )
 
   if (!cashAccount || !savingsAccount) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
   }
 
   await input.tx.contribution.update({
@@ -1196,7 +1209,9 @@ async function reverseMonthlyRepayment(input: {
   )
 
   if (!cashAccount || !loanReceivableAccount) {
-    throw new Error("Ledger accounts not initialized for this cooperative")
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
   }
 
   await input.tx.repayment.update({
@@ -1281,11 +1296,16 @@ export async function cancelMonthlyRecordMember(
       include: { monthlyRecord: true },
     })
 
-    if (!row) throw new Error("Monthly record member row not found.")
+    if (!row)
+      throw ExpectedQueryError.notFound("Monthly record member row not found.")
     if (row.status === "cancelled")
-      throw new Error("This monthly record row is already cancelled.")
+      throw ExpectedQueryError.conflict(
+        "This monthly record row is already cancelled."
+      )
     if (row.monthlyRecord.status === "closed") {
-      throw new Error("Closed monthly records cannot be changed.")
+      throw ExpectedQueryError.conflict(
+        "Closed monthly records cannot be changed."
+      )
     }
 
     if (row.status === "applied") {

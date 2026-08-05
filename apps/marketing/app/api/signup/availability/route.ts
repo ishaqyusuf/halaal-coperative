@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { checkTenantSignupAvailability } from "@halaalvest/db"
-import { getMarketingErrorResponse } from "@/lib/error-response"
+import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
 import { normalizeWorkspaceSlug } from "@/lib/signup-flow"
 
 export async function handleSignupAvailabilityRequest(
@@ -20,7 +20,7 @@ export async function handleSignupAvailabilityRequest(
 
     return NextResponse.json(availability)
   } catch (error) {
-    const response = getMarketingErrorResponse(error)
+    const response = getMarketingServerErrorResponse(error, { method: "GET" })
     return NextResponse.json(response.body, { status: response.status })
   }
 }

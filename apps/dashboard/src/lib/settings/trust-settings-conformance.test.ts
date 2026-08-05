@@ -30,8 +30,8 @@ describe("trust settings Midday conformance", () => {
     expect(
       loader.indexOf("canViewTrustReadiness && context.tenant")
     ).toBeLessThan(loader.indexOf("getTenantTrustProfile(context.tenant.id)"))
-    expect(turbo).toContain('"SENTRY_DSN"')
-    expect(turbo).toContain('"NEXT_PUBLIC_SENTRY_DSN"')
+    expect(turbo).toContain('"SENTRY_DSN_DASHBOARD"')
+    expect(turbo).toContain('"NEXT_PUBLIC_SENTRY_DSN_DASHBOARD"')
   })
 
   test("renders flat responsive checklist and saved-evidence sections", () => {

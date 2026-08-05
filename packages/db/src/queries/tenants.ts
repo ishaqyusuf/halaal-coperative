@@ -7,6 +7,7 @@ import {
   platformAppHostname,
 } from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 
@@ -166,17 +167,26 @@ export function findTenantBySlug(slug: string | null | undefined) {
     return null
   }
 
-  return seedTenants.find((tenant) => tenant.slug === slug.trim().toLowerCase()) ?? null
+  return (
+    seedTenants.find((tenant) => tenant.slug === slug.trim().toLowerCase()) ??
+    null
+  )
 }
 
-export function findTenantDomainByHostname(hostname: string | null | undefined) {
+export function findTenantDomainByHostname(
+  hostname: string | null | undefined
+) {
   if (!hostname) {
     return null
   }
 
   const normalizedHostname = hostname.trim().toLowerCase()
 
-  return seedTenantDomains.find((domain) => domain.hostname === normalizedHostname) ?? null
+  return (
+    seedTenantDomains.find(
+      (domain) => domain.hostname === normalizedHostname
+    ) ?? null
+  )
 }
 
 export function resolveTenantByHostname(hostname: string | null | undefined) {
@@ -214,7 +224,9 @@ export function resolveTenant(input: {
     }
   }
 
-  const fallbackTenant = input.fallbackTenantId ? getTenantById(input.fallbackTenantId) : null
+  const fallbackTenant = input.fallbackTenantId
+    ? getTenantById(input.fallbackTenantId)
+    : null
 
   if (fallbackTenant) {
     return {
@@ -260,7 +272,9 @@ function mapPrismaTenantRecord(input: {
     city: input.city ?? null,
     state: resolveTenantState(input),
     country: input.country ?? null,
-    startDate: input.startDate ? input.startDate.toISOString().slice(0, 10) : null,
+    startDate: input.startDate
+      ? input.startDate.toISOString().slice(0, 10)
+      : null,
     region: input.region,
     currencyCode: input.currencyCode,
     timezone: input.timezone,
@@ -294,10 +308,13 @@ function getTenantDomainVerificationGuide(input: {
 
   const details = input.verificationDetails
   const dnsSummary =
-    details && Array.isArray(details.resolvedRecords) && details.resolvedRecords.length > 0
+    details &&
+    Array.isArray(details.resolvedRecords) &&
+    details.resolvedRecords.length > 0
       ? `Resolved: ${details.resolvedRecords.join(", ")}.`
       : null
-  const errorSummary = typeof details?.errorMessage === "string" ? details.errorMessage : null
+  const errorSummary =
+    typeof details?.errorMessage === "string" ? details.errorMessage : null
 
   if (input.kind !== "custom") {
     return {
@@ -320,7 +337,7 @@ function getTenantDomainVerificationGuide(input: {
           : "DNS target looks ready and the domain is approved for promotion within its routing scope."
         : input.verificationStatus === "failed" && errorSummary
           ? `Verification failed. ${errorSummary}`
-        : `Point this canonical cooperative hostname to ${platformIngressHostname}, then run a verification check before making it primary.`,
+          : `Point this canonical cooperative hostname to ${platformIngressHostname}, then run a verification check before making it primary.`,
   }
 }
 
@@ -357,9 +374,11 @@ function mapTenantDomainRecord(input: {
     verificationCheckedAt:
       input.verificationCheckedAt instanceof Date
         ? input.verificationCheckedAt.toISOString()
-        : input.verificationCheckedAt ?? null,
+        : (input.verificationCheckedAt ?? null),
     verifiedAt:
-      input.verifiedAt instanceof Date ? input.verifiedAt.toISOString() : input.verifiedAt ?? null,
+      input.verifiedAt instanceof Date
+        ? input.verifiedAt.toISOString()
+        : (input.verifiedAt ?? null),
     verificationRecordType: guide.verificationRecordType,
     verificationTarget: guide.verificationTarget,
     verificationNote: guide.verificationNote,
@@ -370,7 +389,9 @@ function mapTenantDomainRecord(input: {
 async function verifyCustomHostnameDns(hostname: string) {
   try {
     const cnameRecords = await resolveCname(hostname)
-    const normalizedRecords = cnameRecords.map((record) => record.replace(/\.$/, "").toLowerCase())
+    const normalizedRecords = cnameRecords.map((record) =>
+      record.replace(/\.$/, "").toLowerCase()
+    )
     const matchedTarget = normalizedRecords.includes(platformIngressHostname)
 
     return {
@@ -385,8 +406,12 @@ async function verifyCustomHostnameDns(hostname: string) {
       status: matchedTarget ? "verified" : "failed",
     } as const
   } catch (error) {
-    const code = typeof error === "object" && error && "code" in error ? String(error.code) : "UNKNOWN"
-    const isPendingDns = code === "ENODATA" || code === "ENOTFOUND" || code === "ESERVFAIL"
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String(error.code)
+        : "UNKNOWN"
+    const isPendingDns =
+      code === "ENODATA" || code === "ENOTFOUND" || code === "ESERVFAIL"
 
     return {
       checkedAt: new Date().toISOString(),
@@ -440,7 +465,9 @@ export async function checkTenantSignupAvailability(input: {
   if (!prisma) {
     const nameLower = normalizedName.toLowerCase()
     const existingTenantByName = normalizedName
-      ? listSeedTenants().some((tenant) => tenant.name.trim().toLowerCase() === nameLower)
+      ? listSeedTenants().some(
+          (tenant) => tenant.name.trim().toLowerCase() === nameLower
+        )
       : false
     const existingTenantBySlug = normalizedSlug
       ? listSeedTenants().some((tenant) => tenant.slug === normalizedSlug)
@@ -466,41 +493,42 @@ export async function checkTenantSignupAvailability(input: {
     }
   }
 
-  const [existingTenantByName, existingTenantBySlug, existingDomain] = await Promise.all([
-    normalizedName
-      ? prisma.tenant.findFirst({
-          where: {
-            name: {
-              equals: normalizedName,
-              mode: "insensitive",
+  const [existingTenantByName, existingTenantBySlug, existingDomain] =
+    await Promise.all([
+      normalizedName
+        ? prisma.tenant.findFirst({
+            where: {
+              name: {
+                equals: normalizedName,
+                mode: "insensitive",
+              },
             },
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null,
-    normalizedSlug
-      ? prisma.tenant.findUnique({
-          where: {
-            slug: normalizedSlug,
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null,
-    hostname
-      ? prisma.tenantDomain.findUnique({
-          where: {
-            hostname,
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null,
-  ])
+            select: {
+              id: true,
+            },
+          })
+        : null,
+      normalizedSlug
+        ? prisma.tenant.findUnique({
+            where: {
+              slug: normalizedSlug,
+            },
+            select: {
+              id: true,
+            },
+          })
+        : null,
+      hostname
+        ? prisma.tenantDomain.findUnique({
+            where: {
+              hostname,
+            },
+            select: {
+              id: true,
+            },
+          })
+        : null,
+    ])
 
   return {
     cooperativeName: {
@@ -569,7 +597,9 @@ export async function findTenantBySlugAsync(slug: string | null | undefined) {
   return tenant ? mapPrismaTenantRecord(tenant) : null
 }
 
-export async function findTenantDomainByHostnameAsync(hostname: string | null | undefined) {
+export async function findTenantDomainByHostnameAsync(
+  hostname: string | null | undefined
+) {
   if (!hostname) {
     return null
   }
@@ -641,7 +671,9 @@ export async function listTenantDomainsByTenantId(tenantId: string) {
   const prisma = createPrismaClient()
 
   if (!prisma) {
-    return listSeedTenantDomains().filter((domain) => domain.tenantId === tenantId)
+    return listSeedTenantDomains().filter(
+      (domain) => domain.tenantId === tenantId
+    )
   }
 
   const domains = await prisma.tenantDomain.findMany({
@@ -670,11 +702,11 @@ function normalizeTrustUrl(value: string | null | undefined, label: string) {
   try {
     url = new URL(normalized)
   } catch {
-    throw new Error(`${label} must be a valid URL.`)
+    throw ExpectedQueryError.validation(`${label} must be a valid URL.`)
   }
 
   if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error(`${label} must use http or https.`)
+    throw ExpectedQueryError.validation(`${label} must use http or https.`)
   }
 
   return url.toString()
@@ -688,7 +720,9 @@ function normalizeTrustEmail(value: string | null | undefined) {
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-    throw new Error("Incident contact email must be a valid email address.")
+    throw ExpectedQueryError.validation(
+      "Incident contact email must be a valid email address."
+    )
   }
 
   return normalized.toLowerCase()
@@ -735,7 +769,7 @@ const tenantTrustProfileSelect = {
 
 export async function getTenantTrustProfile(
   tenantId: string,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<TenantTrustProfile> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -760,7 +794,7 @@ export async function getTenantTrustProfile(
   })
 
   if (!tenant) {
-    throw new Error("Tenant not found.")
+    throw ExpectedQueryError.notFound("Tenant not found.")
   }
 
   return mapTenantTrustProfile(tenant)
@@ -779,7 +813,7 @@ export async function updateTenantTrustProfile(
     recoveryTimeObjective?: string | null
     tenantId: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<TenantTrustProfile> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -789,26 +823,26 @@ export async function updateTenantTrustProfile(
 
   const trustProfileData = {
     trustBackupRetentionNote: normalizeTrustOptionalString(
-      input.backupRetentionNote,
+      input.backupRetentionNote
     ),
     trustDataProcessingUrl: normalizeTrustUrl(
       input.dataProcessingUrl,
-      "Data-processing URL",
+      "Data-processing URL"
     ),
     trustIncidentContactEmail: normalizeTrustEmail(input.incidentContactEmail),
     trustIncidentContactName: normalizeTrustOptionalString(
-      input.incidentContactName,
+      input.incidentContactName
     ),
     trustLegalTermsUrl: normalizeTrustUrl(input.legalTermsUrl, "Terms URL"),
     trustPrivacyPolicyUrl: normalizeTrustUrl(
       input.privacyPolicyUrl,
-      "Privacy policy URL",
+      "Privacy policy URL"
     ),
     trustRecoveryPointObjective: normalizeTrustOptionalString(
-      input.recoveryPointObjective,
+      input.recoveryPointObjective
     ),
     trustRecoveryTimeObjective: normalizeTrustOptionalString(
-      input.recoveryTimeObjective,
+      input.recoveryTimeObjective
     ),
     trustReviewedAt: new Date(),
     trustReviewedByUserId: input.actorUserId,
@@ -830,7 +864,7 @@ export async function updateTenantTrustProfile(
       metadata: trustProfileData,
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return mapTenantTrustProfile(tenant)
@@ -851,7 +885,7 @@ export async function updateTenantProfile(
     tenantId: string
     timezone: string
   },
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -875,12 +909,12 @@ export async function updateTenantProfile(
   if (nextStartDate !== currentStartDate) {
     const migrationState = await getTenantInitialMigrationState(
       input.tenantId,
-      prisma,
+      prisma
     )
 
     if (!migrationState.snapshot.canUseMigrationTools) {
-      throw new Error(
-        "Finance start date is locked because initial migration is finalized.",
+      throw ExpectedQueryError.precondition(
+        "Finance start date is locked because initial migration is finalized."
       )
     }
 
@@ -889,8 +923,8 @@ export async function updateTenantProfile(
       migrationState.counts.appliedBackfillMembers > 0 ||
       migrationState.counts.appliedBackfillMonths > 0
     ) {
-      throw new Error(
-        "Finance start date is locked because member ledger backfill has already started.",
+      throw ExpectedQueryError.precondition(
+        "Finance start date is locked because member ledger backfill has already started."
       )
     }
   }
@@ -908,7 +942,9 @@ export async function updateTenantProfile(
       officeAddress: input.officeAddress ?? null,
       region: input.state?.trim() || input.region?.trim() || null,
       state: input.state?.trim() || input.region?.trim() || null,
-      startDate: input.startDate ? new Date(`${input.startDate}T00:00:00.000Z`) : null,
+      startDate: input.startDate
+        ? new Date(`${input.startDate}T00:00:00.000Z`)
+        : null,
       timezone: input.timezone,
     },
   })
@@ -934,7 +970,7 @@ export async function updateTenantProfile(
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return tenant
@@ -954,7 +990,7 @@ export async function createTenantCustomDomain(input: {
   const hostname = input.hostname.trim().toLowerCase()
 
   if (!hostname) {
-    throw new Error("Hostname is required")
+    throw ExpectedQueryError.validation("Hostname is required")
   }
 
   const domain = await prisma.tenantDomain.create({
@@ -993,7 +1029,7 @@ export async function createTenantCustomDomain(input: {
       },
       tenantId: input.tenantId,
     },
-    prisma,
+    prisma
   )
 
   return mapTenantDomainRecord(domain)
@@ -1019,11 +1055,13 @@ export async function setTenantDomainPrimary(input: {
     })
 
     if (!domain) {
-      throw new Error("Domain not found")
+      throw ExpectedQueryError.notFound("Domain not found")
     }
 
     if (domain.kind === "custom" && domain.verificationStatus !== "verified") {
-      throw new Error("Custom domains must be verified before they can become primary.")
+      throw ExpectedQueryError.precondition(
+        "Custom domains must be verified before they can become primary."
+      )
     }
 
     const scopedDomains = await tx.tenantDomain.findMany({
@@ -1097,7 +1135,7 @@ export async function updateTenantDomainVerificationStatus(input: {
   })
 
   if (!domain) {
-    throw new Error("Domain not found")
+    throw ExpectedQueryError.notFound("Domain not found")
   }
 
   const updated = await prisma.tenantDomain.update({
@@ -1173,7 +1211,10 @@ export async function syncTenantDomainVerificationByHostname(input: {
       verificationCheckedAt: new Date(),
       verificationDetails: input.verificationDetails,
       verificationStatus: input.verificationStatus,
-      verifiedAt: input.verificationStatus === "verified" ? domain.verifiedAt ?? new Date() : null,
+      verifiedAt:
+        input.verificationStatus === "verified"
+          ? (domain.verifiedAt ?? new Date())
+          : null,
     },
   })
 
@@ -1183,7 +1224,12 @@ export async function syncTenantDomainVerificationByHostname(input: {
 function isValidHostname(hostname: string) {
   const normalized = hostname.trim().toLowerCase()
 
-  if (!normalized || normalized.length > 253 || normalized.includes("://") || normalized.includes("/")) {
+  if (
+    !normalized ||
+    normalized.length > 253 ||
+    normalized.includes("://") ||
+    normalized.includes("/")
+  ) {
     return false
   }
 
@@ -1192,7 +1238,12 @@ function isValidHostname(hostname: string) {
     return false
   }
 
-  return labels.every((label) => /^[a-z0-9-]+$/.test(label) && !label.startsWith("-") && !label.endsWith("-"))
+  return labels.every(
+    (label) =>
+      /^[a-z0-9-]+$/.test(label) &&
+      !label.startsWith("-") &&
+      !label.endsWith("-")
+  )
 }
 
 export async function runTenantDomainVerificationCheck(input: {
@@ -1214,7 +1265,7 @@ export async function runTenantDomainVerificationCheck(input: {
   })
 
   if (!domain) {
-    throw new Error("Domain not found")
+    throw ExpectedQueryError.notFound("Domain not found")
   }
 
   const verificationResult =
@@ -1248,7 +1299,10 @@ export async function runTenantDomainVerificationCheck(input: {
       verificationStatus: verificationResult.status,
       verificationDetails: verificationResult satisfies Prisma.InputJsonValue,
       verificationCheckedAt: new Date(),
-      verifiedAt: verificationResult.status === "verified" ? domain.verifiedAt ?? new Date() : null,
+      verifiedAt:
+        verificationResult.status === "verified"
+          ? (domain.verifiedAt ?? new Date())
+          : null,
     },
   })
 

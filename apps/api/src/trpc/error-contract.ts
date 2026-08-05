@@ -41,7 +41,6 @@ const APPROVED_WORKFLOW_MESSAGES = new Set([
   "There are no marked QA workspaces to purge.",
   "Your user account is not linked to a member profile.",
 ])
-
 function getApprovedUnavailableMessage(message: string) {
   const publicMessage = message.replace(" without database configuration.", ".")
   return APPROVED_UNAVAILABLE_MESSAGES.has(publicMessage)

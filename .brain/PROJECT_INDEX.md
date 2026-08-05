@@ -1,19 +1,23 @@
 # Project Index
 
 ## Purpose
+
 This file is a fast map of the repository so contributors can quickly find important code and documentation.
 
 ## How To Use
+
 - Update this when new major app folders, packages, or services are added.
 - Keep entries short and practical.
 
 ## Current Repository Map
+
 - `brain/`: project memory and planning system.
 - `brain/plans/ongoing.md`: active resumable execution plans for long-running implementation tracks.
 - `brain/product/halaal-cooperative-operating-model.md`: durable domain model for Halaal cooperative finance, admin operations, compliance, and trust decisions.
 - `brain/product/mobile-ui-template-direction.md`: selected Nusuk-style mobile UI template adaptation for the Halaalvest white-label app.
 - `brain/product/pricing-and-packaging.md`: public pricing posture, plan bands, Free Beta rules, pass-through fee treatment, and packaging guardrails.
 - `brain/product/admin-dashboard-kpi-framework.md`: source of truth for admin dashboard metrics, sections, and exception-led content hierarchy.
+- `.brain/system/observability-transmission-policy.md`: approval-gated allowlist, privacy controls, runtime isolation, source-map rules, and production verification contract for external diagnostics.
 - `brain/features/member-commitments-and-payment-allocation.md`: source of truth for member-specific commitments, loan servicing estimates, and split payment allocation.
 - `apps/marketing/`: Next.js SaaS marketing application published as `@halaalvest/marketing`.
 - `apps/marketing/app/signup/page.tsx`: public signup route that captures cooperative primary-contact details and prepares a verification link.
@@ -100,5 +104,6 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/domain/src/modules/`: platform, policy, finance, product, marketing, and dashboard modules.
 
 ## Notes
+
 - The repository now uses a simplified surface model: marketing app, one tenant-hosted dashboard/public app, and a shared API.
 - Keep this document synchronized with real folder structure, not aspirational structure alone.

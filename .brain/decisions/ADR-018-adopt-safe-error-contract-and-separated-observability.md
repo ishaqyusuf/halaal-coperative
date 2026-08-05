@@ -16,6 +16,7 @@ Halaalvest spans Hono/tRPC, two Next.js deployments, Trigger.dev jobs, and Expo.
 - Tenant audit evidence stores only category, code, reference ID, retryability, and an allowlisted source. Stacks, messages, URLs, user agents, component stacks, and request payloads are prohibited.
 - Expected authentication, permission, validation, not-found, ordinary conflict, rate-limit, offline/network, and readiness failures remain user-actionable and non-reportable by default.
 - External exception diagnostics belong in independently configured production Sentry projects, with replay and default PII disabled. SDK initialization, capture calls, source-map upload, and smoke events require explicit authorization for external transmission.
+- `.brain/system/observability-transmission-policy.md` is the normative external-event allowlist and operational approval contract. It is intentionally stricter than the GND reference: raw exception messages, replay, SDK logs, tracing, profiling, feedback, breadcrumbs, sessions, and SDK-generated request/user/device context are prohibited.
 
 ## Consequences
 

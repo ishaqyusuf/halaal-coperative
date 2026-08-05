@@ -9,6 +9,7 @@
 - Added placeholder-only environment contracts and Trigger runtime synchronization keys. No real DSN or private source-map credential was written.
 - Verification at this stage: the complete repository suite passed with 816 tests and 3,003 assertions; errors, observability, API, dashboard, marketing, jobs, and mobile typechecks passed; touched-file ESLint passed; and the dashboard production build passed with four pre-existing filesystem-tracing warnings. The marketing Turbopack build remains blocked by an existing local worker-port restriction, while its Webpack fallback reaches the existing client import of `node:crypto` in `early-access.ts`.
 - Remaining gate: external Sentry initialization, capture hooks, source maps, alerts, and synthetic production smoke tests require explicit approval to transmit sanitized exception diagnostics. The Halaalvest review gate has not yet been reached.
+- Added an exact approval-gated observability transmission policy. It tightens the GND reference by disabling replay, SDK logs, performance tracing, profiling, feedback, breadcrumbs, sessions, raw exception messages, and SDK-generated request/user/device context; it also defines five isolated runtime projects, source-map controls, retention/ownership prerequisites, and synthetic verification criteria. This documentation does not authorize or enable external transmission.
 
 ## 2026-07-14
 

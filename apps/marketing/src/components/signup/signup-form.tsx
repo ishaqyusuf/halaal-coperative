@@ -54,6 +54,10 @@ import {
 } from "@/lib/signup-flow"
 import { useSignupJourneyStage } from "./signup-journey-state"
 import { SetupContextStrip } from "./setup-context-strip"
+import {
+  getMarketingErrorMessage,
+  type MarketingErrorEnvelope,
+} from "@/lib/error-response"
 
 type SignupApiSuccess = {
   devMode: boolean
@@ -250,12 +254,14 @@ export function SignupForm({
 
       const payload = (await response.json()) as
         | SignupApiSuccess
-        | { error?: string }
+        | MarketingErrorEnvelope
 
       if (!response.ok || !("verificationEmail" in payload)) {
         throw new Error(
-          ("error" in payload && payload.error) ||
+          getMarketingErrorMessage(
+            payload,
             "We could not prepare the verification step."
+          )
         )
       }
 

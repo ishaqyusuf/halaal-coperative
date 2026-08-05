@@ -104,6 +104,16 @@ export const ERROR_DESCRIPTORS: Record<ErrorCode, ErrorDescriptor> = {
     title: "Permission required",
     transportCode: "FORBIDDEN",
   },
+  PRECONDITION_FAILED: {
+    category: "conflict",
+    code: "PRECONDITION_FAILED",
+    publicMessage: "Complete the required setup before trying again.",
+    reportable: false,
+    retryable: false,
+    severity: "warning",
+    title: "More setup is required",
+    transportCode: "PRECONDITION_FAILED",
+  },
   PROVIDER_UNAVAILABLE: {
     action: "retry",
     category: "provider",

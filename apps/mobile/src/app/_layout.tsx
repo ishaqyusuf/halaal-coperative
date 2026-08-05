@@ -27,7 +27,7 @@ import { View } from "react-native"
 import "@/styles/global.css"
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
-  const presentation = getErrorPresentation(error)
+  const presentation = useMemo(() => getErrorPresentation(error), [error])
 
   return (
     <View className="flex-1 items-center justify-center bg-background px-6">

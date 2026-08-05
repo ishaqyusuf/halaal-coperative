@@ -10,7 +10,10 @@ export default function DashboardHomeError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useDashboardErrorReceipt(error, "dashboard.home_error_boundary")
+  const publicError = useDashboardErrorReceipt(
+    error,
+    "dashboard.home_error_boundary"
+  )
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
@@ -24,6 +27,9 @@ export default function DashboardHomeError({
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           No workspace records were changed. Retry the overview request to
           continue.
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Support reference: {publicError.referenceId}
         </p>
         <div className="mt-5 flex justify-center">
           <Button onClick={reset} type="button">

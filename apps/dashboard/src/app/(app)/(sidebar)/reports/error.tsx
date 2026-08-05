@@ -16,7 +16,10 @@ export default function ReportsError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useDashboardErrorReceipt(error, "dashboard.reports_error_boundary")
+  const publicError = useDashboardErrorReceipt(
+    error,
+    "dashboard.reports_error_boundary"
+  )
 
   return (
     <WorkspacePageShell
@@ -30,6 +33,9 @@ export default function ReportsError({
           eyebrow="Reports"
           title="Something went wrong"
         />
+        <p className="mt-3 text-xs text-muted-foreground">
+          Support reference: {publicError.referenceId}
+        </p>
         <div className="mt-5 flex flex-col gap-2 md:flex-row">
           <Button className="h-11 md:h-9" onClick={reset} type="button">
             Try again

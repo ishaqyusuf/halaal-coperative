@@ -32,6 +32,15 @@ const APPROVED_UNAVAILABLE_MESSAGES = new Set([
   "Collection follow-up is unavailable.",
   "Workspace invitation is unavailable.",
 ])
+const APPROVED_WORKFLOW_MESSAGES = new Set([
+  "Member verification is required before financial or operational actions can continue.",
+  "Resolve all live provider blockers before purging QA data.",
+  "This account is not active for the selected cooperative.",
+  "This QA workspace is being purged and no longer accepts writes.",
+  "The QA purge preview expired or changed. Preview again.",
+  "There are no marked QA workspaces to purge.",
+  "Your user account is not linked to a member profile.",
+])
 
 function getApprovedUnavailableMessage(message: string) {
   const publicMessage = message.replace(" without database configuration.", ".")
@@ -47,6 +56,7 @@ function getApprovedPublicMessage(
   if (!(error instanceof Error) || depth > 3) return undefined
   const unavailableMessage = getApprovedUnavailableMessage(error.message)
   if (unavailableMessage) return unavailableMessage
+  if (APPROVED_WORKFLOW_MESSAGES.has(error.message)) return error.message
   if (
     APPROVED_PUBLIC_MESSAGE_PATTERNS.some((pattern) =>
       pattern.test(error.message)

@@ -51,7 +51,9 @@ export function getPublicError(
   error: unknown,
   options: ErrorClassificationOptions = {}
 ) {
-  return nestedPublicError(error) ?? toPublicError(error, options)
+  return isPublicError(error)
+    ? error
+    : (nestedPublicError(error) ?? toPublicError(error, options))
 }
 export function getUserErrorMessage(
   error: unknown,

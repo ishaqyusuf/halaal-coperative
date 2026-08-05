@@ -11,8 +11,11 @@ export default function DashboardErrorBoundary({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  const presentation = getErrorPresentation(error)
-  useDashboardErrorReceipt(error, "dashboard.error_boundary")
+  const publicError = useDashboardErrorReceipt(
+    error,
+    "dashboard.error_boundary"
+  )
+  const presentation = getErrorPresentation(publicError)
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">

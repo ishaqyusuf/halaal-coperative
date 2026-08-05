@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { AppError } from "@halaalvest/errors"
 import {
   createMarketingEarlyAccessRequestEmail,
   createQaNotificationPreviews,
@@ -51,21 +52,25 @@ export async function POST(request: Request) {
     const adminRecipients = getMarketingAdminRecipients()
 
     if (process.env.NODE_ENV === "production" && !emailDeliveryConfigured) {
-      return NextResponse.json(
-        {
-          error: "Email delivery is temporarily unavailable.",
-        },
+      const response = getMarketingErrorResponse(
+        new AppError({
+          code: "PROVIDER_UNAVAILABLE",
+          publicMessage: "Email delivery is temporarily unavailable.",
+        }),
         { status: 503 }
       )
+      return NextResponse.json(response.body, { status: response.status })
     }
 
     if (process.env.NODE_ENV === "production" && adminRecipients.length === 0) {
-      return NextResponse.json(
-        {
-          error: "Early access requests are temporarily unavailable.",
-        },
+      const response = getMarketingErrorResponse(
+        new AppError({
+          code: "PROVIDER_UNAVAILABLE",
+          publicMessage: "Early access requests are temporarily unavailable.",
+        }),
         { status: 503 }
       )
+      return NextResponse.json(response.body, { status: response.status })
     }
 
     const payload = createEarlyAccessRequestPayload(input)
@@ -117,13 +122,15 @@ export async function POST(request: Request) {
       process.env.NODE_ENV === "production" &&
       deliveries.every((delivery) => delivery.status !== "sent")
     ) {
-      return NextResponse.json(
-        {
-          error:
+      const response = getMarketingErrorResponse(
+        new AppError({
+          code: "PROVIDER_UNAVAILABLE",
+          publicMessage:
             "We could not send the early access request. Please try again.",
-        },
+        }),
         { status: 502 }
       )
+      return NextResponse.json(response.body, { status: response.status })
     }
 
     const qaPreviews: QaNotificationPreview[] = isQaRequest

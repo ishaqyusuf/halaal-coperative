@@ -72,6 +72,10 @@ import {
 } from "@/lib/signup-flow"
 import { useSignupJourneyStage } from "./signup-journey-state"
 import { SetupContextStrip } from "./setup-context-strip"
+import {
+  getMarketingErrorMessage,
+  type MarketingErrorEnvelope,
+} from "@/lib/error-response"
 
 type OnboardingResult = {
   dashboardUrl: string
@@ -159,12 +163,14 @@ export function OnboardingForm({
 
       const payload = (await response.json()) as
         | OnboardingResult
-        | { error?: string }
+        | MarketingErrorEnvelope
 
       if (!response.ok || !("tenantId" in payload)) {
         throw new Error(
-          ("error" in payload && payload.error) ||
+          getMarketingErrorMessage(
+            payload,
             "We could not provision the workspace."
+          )
         )
       }
 

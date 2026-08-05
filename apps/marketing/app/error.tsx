@@ -1,6 +1,7 @@
 "use client"
 
 import { getErrorPresentation } from "@halaalvest/errors"
+import { useMemo } from "react"
 
 export default function MarketingError({
   error,
@@ -9,7 +10,7 @@ export default function MarketingError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  const presentation = getErrorPresentation(error)
+  const presentation = useMemo(() => getErrorPresentation(error), [error])
 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-6 text-center">

@@ -17,7 +17,7 @@ export type ErrorCaptureContext = {
 }
 
 const SENSITIVE_KEY_PATTERN =
-  /(?:address|authorization|balance|bank|body|charge|contribution|cookie|cooperative|customer|deduction|email|employer|financ|guarantor|input|ledger|loan|member|message|password|payload|payment|payroll|phone|repayment|secret|statement|tenant|token|user)/i
+  /(?:address|authorization|balance|bank|body|charge|contribution|cookie|cooperative|customer|deduction|document|email|employer|financ|guarantor|header|identity|input|ledger|loan|media|member|message|password|payload|payment|payroll|phone|query|recipient|repayment|request|secret|statement|tenant|token|transcript|url|user)/i
 
 function allowed(key: string) {
   return !SENSITIVE_KEY_PATTERN.test(key)

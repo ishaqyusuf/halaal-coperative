@@ -27,10 +27,16 @@ describe("observability policy", () => {
     const report = buildErrorReport(error, {
       extra: {
         attempt: 2,
+        documentUrl: "https://private.test/member.pdf",
+        identityNumber: "ID-PRIVATE",
         memberId: "member-1",
+        mediaUrl: "https://private.test/photo.jpg",
         contributionAmount: 5000,
         paymentReference: "private-payment",
+        recipientName: "Private Recipient",
+        requestUrl: "https://private.test/members/member-1",
         runId: "run-123",
+        transcriptText: "private support conversation",
       },
       operation: "contributions.record",
       requestId: "request-123",
@@ -61,6 +67,14 @@ describe("observability policy", () => {
     })
     expect(report.captureContext.tags).not.toHaveProperty("tenantId")
     expect(report.captureContext.tags).not.toHaveProperty("userEmail")
+    expect(JSON.stringify(report.captureContext)).not.toContain("private.test")
+    expect(JSON.stringify(report.captureContext)).not.toContain("ID-PRIVATE")
+    expect(JSON.stringify(report.captureContext)).not.toContain(
+      "Private Recipient"
+    )
+    expect(JSON.stringify(report.captureContext)).not.toContain(
+      "private support conversation"
+    )
   })
 
   it("reports a typed failure using its original cause", () => {

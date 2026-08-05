@@ -1,9 +1,10 @@
 "use client"
 
 import { getErrorPresentation } from "@halaalvest/errors"
+import { useMemo } from "react"
 
 export default function MarketingGlobalError({ error }: { error: Error }) {
-  const presentation = getErrorPresentation(error)
+  const presentation = useMemo(() => getErrorPresentation(error), [error])
 
   return (
     <html lang="en">

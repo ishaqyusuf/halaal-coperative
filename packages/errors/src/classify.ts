@@ -7,7 +7,7 @@ const TRPC_CODE_MAP: Partial<Record<string, ErrorCode>> = {
   CONFLICT: "CONFLICT",
   FORBIDDEN: "PERMISSION_DENIED",
   NOT_FOUND: "NOT_FOUND",
-  PRECONDITION_FAILED: "CONFLICT",
+  PRECONDITION_FAILED: "PRECONDITION_FAILED",
   TOO_MANY_REQUESTS: "RATE_LIMITED",
   UNAUTHORIZED: "AUTHENTICATION_REQUIRED",
 }
@@ -24,7 +24,7 @@ const HTTP_STATUS_MAP: Partial<Record<number, ErrorCode>> = {
   403: "PERMISSION_DENIED",
   404: "NOT_FOUND",
   409: "CONFLICT",
-  412: "CONFLICT",
+  412: "PRECONDITION_FAILED",
   422: "VALIDATION_FAILED",
   429: "RATE_LIMITED",
 }
@@ -98,7 +98,7 @@ export function classifyError(
 
   const code = codeOf(error)
   const prismaLike =
-    Boolean(code?.startsWith("P")) ||
+    Boolean(code && /^P\d{4}$/.test(code)) ||
     (typeof record?.name === "string" && record.name.startsWith("PrismaClient"))
   if (prismaLike) {
     return classified(

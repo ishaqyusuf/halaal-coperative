@@ -46,7 +46,9 @@ export async function runWithRetry<TPayload>(
     } catch (error) {
       lastError = error
       const classified = classifyError(error, { operation: "job.run" })
-      if (attempt < maxAttempts && classified.retryable) {
+      const shouldRetry =
+        classified.retryable || classified.code === "UNEXPECTED"
+      if (attempt < maxAttempts && shouldRetry) {
         await sleep(exponentialBackoff(attempt, baseDelayMs))
         continue
       }

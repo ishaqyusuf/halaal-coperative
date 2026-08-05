@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { AppError } from "@halaalvest/errors"
 import {
   createTenantWorkspaceBootstrap,
   recordNotificationDeliveryAudit,
@@ -28,12 +29,14 @@ export async function POST(request: Request) {
     const verificationResult = await resolveSignupVerification(input.token)
 
     if (verificationResult.status === "invalid") {
-      return NextResponse.json(
-        {
-          error: verificationResult.errorMessage,
-        },
+      const response = getMarketingErrorResponse(
+        new AppError({
+          code: "VALIDATION_FAILED",
+          publicMessage: verificationResult.errorMessage,
+        }),
         { status: 410 }
       )
+      return NextResponse.json(response.body, { status: response.status })
     }
 
     const verification = verificationResult.value

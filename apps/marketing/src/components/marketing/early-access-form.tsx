@@ -56,6 +56,10 @@ import {
 } from "@/lib/early-access"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import { SetupContextStrip } from "@/components/signup/setup-context-strip"
+import {
+  getMarketingErrorMessage,
+  type MarketingErrorEnvelope,
+} from "@/lib/error-response"
 
 type EarlyAccessResponse = {
   approveAndContinueUrl?: string
@@ -98,22 +102,26 @@ export function EarlyAccessForm({
         },
         method: "POST",
       })
-      const payload = (await response.json()) as EarlyAccessResponse & {
-        error?: string
-      }
+      const payload = (await response.json()) as
+        | EarlyAccessResponse
+        | MarketingErrorEnvelope
 
       if (!response.ok) {
         throw new Error(
-          payload.error ?? "We could not submit the early access request."
+          getMarketingErrorMessage(
+            payload,
+            "We could not submit the early access request."
+          )
         )
       }
 
-      setResult(payload)
-      publishQaPreviews(payload.qaPreviews)
+      const success = payload as EarlyAccessResponse
+      setResult(success)
+      publishQaPreviews(success.qaPreviews)
       form.reset()
       showSuccess(
         "Early access request received",
-        payload.message ?? "We will email you after approval."
+        success.message ?? "We will email you after approval."
       )
     } catch (error) {
       showError(

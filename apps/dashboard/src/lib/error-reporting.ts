@@ -73,3 +73,14 @@ export function sanitizeDashboardErrorReport(
 export function hasDashboardErrorReportDetails(report: DashboardErrorReport) {
   return Boolean(report.code && report.referenceId && report.source)
 }
+
+export function canRecordDashboardErrorReceipt(input: {
+  hasMembership: boolean
+  hasSession: boolean
+  hasTenant: boolean
+  hasUser: boolean
+}) {
+  return (
+    input.hasMembership && input.hasSession && input.hasTenant && input.hasUser
+  )
+}

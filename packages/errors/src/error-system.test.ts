@@ -83,6 +83,8 @@ describe("shared error contract", () => {
     })
 
     expect(getPublicError(clientError)).toEqual(appError)
+    expect(getPublicError(appError)).toBe(appError)
+    expect(getErrorPresentation(appError).reference).toBe("Reference: ERR-AUTH")
   })
 
   it("uses professional fallback copy and a support reference", () => {

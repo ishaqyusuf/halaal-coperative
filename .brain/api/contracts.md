@@ -218,5 +218,5 @@ This file captures payload shapes, response conventions, and contract assumption
 - tRPC failures replace arbitrary transport messages with professional public copy and include the same envelope at `data.appError`.
 - API responses expose `x-request-id`; a valid inbound value is preserved and an invalid or absent value is replaced with a generated UUID.
 - Database, provider, stack, query, payload, tenant, member, financial, and identity details never appear in the public envelope.
-- Marketing form APIs retain the legacy top-level `error` string for client compatibility and add `appError` for the shared typed contract.
-- `POST /api/error-report` accepts only an allowlisted dashboard source plus a valid shared error code and `ERR-*` reference. Its audit metadata excludes message, stack, path, component stack, user agent, payload, and identity.
+- Marketing form APIs use the same `{ error: PublicError }` envelope, including deliberately authored validation, conflict, expired-link, and provider-unavailability branches. Form clients read public guidance from `error.message`.
+- `POST /api/error-report` accepts only an allowlisted dashboard source plus a valid shared error code and `ERR-*` reference from an authenticated user with an active membership in the resolved tenant. Its audit metadata excludes message, stack, path, component stack, user agent, payload, and identity.

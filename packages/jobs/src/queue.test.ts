@@ -46,4 +46,24 @@ describe("job retry error contract", () => {
     expect(JSON.stringify(result)).not.toContain("Prisma")
     expect(JSON.stringify(result)).not.toContain("member-1")
   })
+
+  test("preserves retries for an untyped operational failure", async () => {
+    let calls = 0
+    const result = await runWithRetry(
+      async () => {
+        calls += 1
+        throw new Error("temporary provider failure with private details")
+      },
+      {},
+      { baseDelayMs: 0, maxAttempts: 3 }
+    )
+
+    expect(calls).toBe(3)
+    expect(result.attempts).toBe(3)
+    expect(result.error).toMatchObject({
+      code: "UNEXPECTED",
+      retryable: false,
+    })
+    expect(JSON.stringify(result)).not.toContain("private details")
+  })
 })

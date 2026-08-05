@@ -70,24 +70,29 @@ export async function POST(request: Request) {
       !availability.cooperativeName.available ||
       !availability.workspaceSlug.available
     ) {
-      return NextResponse.json(
-        {
-          availability,
-          error: !availability.cooperativeName.available
+      const response = getMarketingErrorResponse(
+        new AppError({
+          code: "CONFLICT",
+          publicMessage: !availability.cooperativeName.available
             ? "That cooperative name is already in use."
             : "That workspace subdomain is not available.",
-        },
-        { status: 409 }
+        })
+      )
+      return NextResponse.json(
+        { ...response.body, availability },
+        { status: response.status }
       )
     }
 
     if (process.env.NODE_ENV === "production" && !emailDeliveryConfigured) {
-      return NextResponse.json(
-        {
-          error: "Email delivery is temporarily unavailable.",
-        },
+      const response = getMarketingErrorResponse(
+        new AppError({
+          code: "PROVIDER_UNAVAILABLE",
+          publicMessage: "Email delivery is temporarily unavailable.",
+        }),
         { status: 503 }
       )
+      return NextResponse.json(response.body, { status: response.status })
     }
 
     const payload = createSignupVerificationPayload(input)
@@ -113,12 +118,15 @@ export async function POST(request: Request) {
       process.env.NODE_ENV === "production" &&
       verificationDelivery.status !== "sent"
     ) {
-      return NextResponse.json(
-        {
-          error: "We could not send the verification email. Please try again.",
-        },
+      const response = getMarketingErrorResponse(
+        new AppError({
+          code: "PROVIDER_UNAVAILABLE",
+          publicMessage:
+            "We could not send the verification email. Please try again.",
+        }),
         { status: 502 }
       )
+      return NextResponse.json(response.body, { status: response.status })
     }
 
     return NextResponse.json({

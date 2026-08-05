@@ -11,7 +11,7 @@ describe("marketing API error response", () => {
     )
 
     expect(response.status).toBe(500)
-    expect(response.body.appError.code).toBe("DATABASE_TRANSACTION_TIMEOUT")
+    expect(response.body.error.code).toBe("DATABASE_TRANSACTION_TIMEOUT")
     expect(JSON.stringify(response.body)).not.toContain("Prisma")
     expect(JSON.stringify(response.body)).not.toContain("member-1")
   })
@@ -25,6 +25,8 @@ describe("marketing API error response", () => {
     )
 
     expect(response.status).toBe(400)
-    expect(response.body.error).toBe("This approval link is no longer valid.")
+    expect(response.body.error.message).toBe(
+      "This approval link is no longer valid."
+    )
   })
 })

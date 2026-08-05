@@ -49,4 +49,39 @@ describe("tRPC public error contract", () => {
 
     expect(normalized.message).toBe("Something went wrong. Please try again.")
   })
+
+  it("preserves bounded readiness guidance", () => {
+    const messages = [
+      "Member verification is required before financial or operational actions can continue.",
+      "This account is not active for the selected cooperative.",
+      "This QA workspace is being purged and no longer accepts writes.",
+      "The QA purge preview expired or changed. Preview again.",
+      "There are no marked QA workspaces to purge.",
+    ]
+
+    for (const message of messages) {
+      expect(
+        normalizeTrpcError(
+          new TRPCError({ code: "CONFLICT", message }),
+          "member.readiness"
+        ).message
+      ).toBe(message)
+    }
+  })
+
+  it("preserves precondition semantics and QA recovery guidance", () => {
+    const normalized = normalizeTrpcError(
+      new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Resolve all live provider blockers before purging QA data.",
+      }),
+      "qaMaintenance.startPurge"
+    )
+
+    expect(normalized.code).toBe("PRECONDITION_FAILED")
+    expect(normalized.message).toBe(
+      "Resolve all live provider blockers before purging QA data."
+    )
+    expect(getTrpcPublicError(normalized).code).toBe("PRECONDITION_FAILED")
+  })
 })

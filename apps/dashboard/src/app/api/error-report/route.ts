@@ -1,6 +1,7 @@
 import { createAuditLogEntry, createDbRuntime } from "@halaalvest/db"
 import { NextResponse, type NextRequest } from "next/server"
 import {
+  canRecordDashboardErrorReceipt,
   hasDashboardErrorReportDetails,
   sanitizeDashboardErrorReport,
 } from "@/lib/error-reporting"
@@ -28,14 +29,25 @@ export async function POST(request: NextRequest) {
   try {
     const context = await getDashboardServerContext()
 
-    if (!context.tenant) {
-      return NextResponse.json({ ok: true, recorded: false })
+    if (!context.auth.sessionToken || !context.auth.user) {
+      return NextResponse.json({ ok: false, recorded: false }, { status: 401 })
+    }
+
+    if (
+      !canRecordDashboardErrorReceipt({
+        hasMembership: Boolean(context.auth.membership),
+        hasSession: Boolean(context.auth.sessionToken),
+        hasTenant: Boolean(context.tenant),
+        hasUser: Boolean(context.auth.user),
+      })
+    ) {
+      return NextResponse.json({ ok: false, recorded: false }, { status: 403 })
     }
 
     await createAuditLogEntry({
       action: "application.error_captured",
-      actorType: context.auth.user ? "user" : "system",
-      actorUserId: context.auth.user?.id ?? null,
+      actorType: "user",
+      actorUserId: context.auth.user.id,
       entityId: report.referenceId,
       entityType: "DashboardError",
       metadata: {
@@ -45,7 +57,7 @@ export async function POST(request: NextRequest) {
         retryable: report.retryable,
         source: report.source,
       },
-      tenantId: context.tenant.id,
+      tenantId: context.tenant!.id,
     })
 
     return NextResponse.json({ ok: true, recorded: true })

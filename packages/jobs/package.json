@@ -22,7 +22,6 @@
     "@halaalvest/errors": "workspace:*",
     "@halaalvest/observability": "workspace:*",
     "@halaalvest/notifications": "workspace:*",
-    "@sentry/node": "10.32.1",
     "@trigger.dev/build": "4.0.1",
     "@trigger.dev/sdk": "4.0.1",
     "trigger.dev": "4.0.1"
@@ -31,7 +30,6 @@
     "@types/node": "^25.1.0",
     "@halaalvest/eslint-config": "workspace:*",
     "@halaalvest/tsconfig": "workspace:*",
-    "@sentry/esbuild-plugin": "4.6.1",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   }

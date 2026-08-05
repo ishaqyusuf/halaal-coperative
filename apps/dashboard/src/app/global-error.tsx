@@ -8,8 +8,8 @@ export default function GlobalError({
 }: {
   error: Error & { digest?: string }
 }) {
-  const presentation = getErrorPresentation(error)
-  useDashboardErrorReceipt(error, "dashboard.global_error")
+  const publicError = useDashboardErrorReceipt(error, "dashboard.global_error")
+  const presentation = getErrorPresentation(publicError)
 
   return (
     <html lang="en">

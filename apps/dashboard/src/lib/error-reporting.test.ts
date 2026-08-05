@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  canRecordDashboardErrorReceipt,
   hasDashboardErrorReportDetails,
   sanitizeDashboardErrorReport,
 } from "./error-reporting"
@@ -49,5 +50,32 @@ describe("dashboard error audit receipt", () => {
     })
 
     expect(hasDashboardErrorReportDetails(report)).toBe(true)
+  })
+
+  test("requires an authenticated active tenant membership", () => {
+    expect(
+      canRecordDashboardErrorReceipt({
+        hasMembership: true,
+        hasSession: true,
+        hasTenant: true,
+        hasUser: true,
+      })
+    ).toBe(true)
+    expect(
+      canRecordDashboardErrorReceipt({
+        hasMembership: false,
+        hasSession: true,
+        hasTenant: true,
+        hasUser: true,
+      })
+    ).toBe(false)
+    expect(
+      canRecordDashboardErrorReceipt({
+        hasMembership: true,
+        hasSession: false,
+        hasTenant: true,
+        hasUser: true,
+      })
+    ).toBe(false)
   })
 })

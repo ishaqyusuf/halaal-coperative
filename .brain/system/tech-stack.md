@@ -27,6 +27,8 @@ This file tracks chosen and proposed technologies for the platform.
 - Styling: Tailwind CSS v4 plus shadcn/base preset styling.
 - Shared UI primitives: `@halaalvest/ui`.
 - Shared notifications core: `@halaalvest/notifications`.
+- Shared error contract: `@halaalvest/errors`.
+- Shared telemetry policy and redaction: `@halaalvest/observability`.
 - Shared React notifications adapter: `@halaalvest/notifications-react`.
 - Linting: ESLint with shared workspace config.
 - Formatting: Prettier with Tailwind plugin.
@@ -34,6 +36,7 @@ This file tracks chosen and proposed technologies for the platform.
 - Database ORM: Prisma 7 with a file-grouped schema layout in `packages/db/prisma` and a package-local generated client in `packages/db/generated/prisma`.
 - PostgreSQL adapter connections normalize legacy strict TLS modes (`prefer`, `require`, and `verify-ca`) to explicit `verify-full` semantics before `pg` parses the URL, preserving certificate verification across the upcoming `pg` behavior change.
 - Mobile: Expo Router app in `apps/mobile` with EAS build/update scripts for development and preview Android artifacts, an Expo Updates management screen, preview auto-update checks on launch and foreground resume, and Expo project identity supplied by `HALAALVEST_EXPO_PROJECT_ID`, `EXPO_PROJECT_ID`, or `EAS_PROJECT_ID`. The Halaalvest Expo project is `cipron-startups/halaalvest` with project id `3fb3e5e2-bd84-4308-8739-e9f4436d0da9`. The mobile NativeWind/Tailwind CSS toolchain is pinned to the EwaTrade-aligned package set (`nativewind` 5.0.0-preview.3, `react-native-css` 3.0.1, `react-native-css-interop` 0.2.1, Tailwind packages 4.1.18, and root `lightningcss` override 1.30.1) to avoid EAS bundling drift.
+- Approved SDK dependencies are pinned for the planned production integrations: `@sentry/bun` for the API, `@sentry/nextjs` for dashboard/marketing, `@sentry/node` plus the Sentry esbuild plugin for Trigger jobs, and `@sentry/react-native` for Expo. External initialization and capture remain disabled until transmission approval and per-deployment credentials are supplied.
 
 ## Proposed Stack
 

@@ -211,3 +211,12 @@ This file captures payload shapes, response conventions, and contract assumption
 - Candidate discovery never grants purge eligibility; adoption stores the QA marker.
 - A purge start revalidates the signed preview fingerprint and rejects empty, stale, or provider-blocked work.
 - Run responses contain status and aggregate counts only.
+
+# Shared error contract
+
+- REST failures return `{ error: { code, message, referenceId, retryable, action? } }` with an HTTP status derived from the classified transport code.
+- tRPC failures replace arbitrary transport messages with professional public copy and include the same envelope at `data.appError`.
+- API responses expose `x-request-id`; a valid inbound value is preserved and an invalid or absent value is replaced with a generated UUID.
+- Database, provider, stack, query, payload, tenant, member, financial, and identity details never appear in the public envelope.
+- Marketing form APIs retain the legacy top-level `error` string for client compatibility and add `appError` for the shared typed contract.
+- `POST /api/error-report` accepts only an allowlisted dashboard source plus a valid shared error code and `ERR-*` reference. Its audit metadata excludes message, stack, path, component stack, user agent, payload, and identity.

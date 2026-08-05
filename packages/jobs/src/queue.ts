@@ -1,14 +1,24 @@
+import {
+  classifyError,
+  toPublicError,
+  type PublicError,
+} from "@halaalvest/errors"
+
 export type JobStatus = "pending" | "running" | "completed" | "failed"
 
 export type JobHandler<TPayload = unknown> = (
   payload: TPayload,
-  attempt: number,
+  attempt: number
 ) => Promise<void>
 
 export type RetryOptions = {
   baseDelayMs?: number
   maxAttempts?: number
 }
+
+export type JobResult =
+  | { attempts: number; success: true }
+  | { attempts: number; error: PublicError; success: false }
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -21,27 +31,33 @@ function exponentialBackoff(attempt: number, baseDelayMs = 1500) {
 export async function runWithRetry<TPayload>(
   handler: JobHandler<TPayload>,
   payload: TPayload,
-  options: RetryOptions = {},
+  options: RetryOptions = {}
 ) {
   const maxAttempts = options.maxAttempts ?? 4
   const baseDelayMs = options.baseDelayMs ?? 1500
 
-  let lastError: Error | undefined
+  let lastError: unknown
+  let attempts = 0
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    attempts = attempt
     try {
       await handler(payload, attempt)
       return { attempts: attempt, success: true as const }
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error))
-      if (attempt < maxAttempts) {
+      lastError = error
+      const classified = classifyError(error, { operation: "job.run" })
+      if (attempt < maxAttempts && classified.retryable) {
         await sleep(exponentialBackoff(attempt, baseDelayMs))
+        continue
       }
+
+      break
     }
   }
 
   return {
-    attempts: maxAttempts,
-    error: lastError?.message ?? "Unknown job error",
+    attempts,
+    error: toPublicError(lastError, { operation: "job.run" }),
     success: false as const,
   }
 }
@@ -50,8 +66,8 @@ export async function runInBackground<TPayload>(
   handler: JobHandler<TPayload>,
   payload: TPayload,
   options: RetryOptions & {
-    onComplete?: (result: { attempts: number; error?: string; success: boolean }) => void
-  } = {},
+    onComplete?: (result: JobResult) => void
+  } = {}
 ) {
   setImmediate(async () => {
     const result = await runWithRetry(handler, payload, options)

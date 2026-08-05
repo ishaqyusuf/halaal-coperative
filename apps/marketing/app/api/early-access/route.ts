@@ -20,6 +20,7 @@ import {
 } from "@/lib/early-access"
 import { formatCooperativeSizeRangeLabel } from "@halaalvest/domain"
 import { getMarketingAppOrigin } from "@/lib/runtime-url"
+import { getMarketingErrorResponse } from "@/lib/error-response"
 
 function getMarketingAdminRecipients() {
   const configured =
@@ -52,8 +53,7 @@ export async function POST(request: Request) {
     if (process.env.NODE_ENV === "production" && !emailDeliveryConfigured) {
       return NextResponse.json(
         {
-          error:
-            "Email delivery is not configured. Set RESEND_API_KEY and EMAIL_FROM_ADDRESS before enabling early access.",
+          error: "Email delivery is temporarily unavailable.",
         },
         { status: 503 }
       )
@@ -62,8 +62,7 @@ export async function POST(request: Request) {
     if (process.env.NODE_ENV === "production" && adminRecipients.length === 0) {
       return NextResponse.json(
         {
-          error:
-            "Marketing admin recipients are not configured. Set MARKETING_ADMIN_EMAILS before enabling early access.",
+          error: "Early access requests are temporarily unavailable.",
         },
         { status: 503 }
       )
@@ -75,7 +74,7 @@ export async function POST(request: Request) {
     const qaDomains = getServerQaEmailDomains()
     const isQaRequest = isEmailAtQaDomain(
       payload.primaryContactEmail,
-      qaDomains,
+      qaDomains
     )
     const approveAndContinueUrl = new URL(approvalUrl)
     approveAndContinueUrl.searchParams.set("continue", "1")
@@ -121,8 +120,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            deliveries.find((delivery) => delivery.errorMessage)
-              ?.errorMessage ??
             "We could not send the early access request. Please try again.",
         },
         { status: 502 }
@@ -141,7 +138,7 @@ export async function POST(request: Request) {
               },
             ],
             deliveryStatus: deliveries.some(
-              (delivery) => delivery.status === "sent",
+              (delivery) => delivery.status === "sent"
             )
               ? "sent"
               : deliveries.some((delivery) => delivery.status === "queued")
@@ -165,7 +162,8 @@ export async function POST(request: Request) {
           : undefined,
       deliveries: deliveries.map((delivery) => ({
         attempts: delivery.attempts,
-        errorMessage: delivery.errorMessage,
+        errorMessage:
+          delivery.status === "failed" ? "Email delivery failed." : null,
         messageId: delivery.messageId,
         routingMode: delivery.routing?.mode,
         status: delivery.status,
@@ -177,14 +175,7 @@ export async function POST(request: Request) {
       qaPreviews,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "We could not submit the early access request.",
-      },
-      { status: 400 }
-    )
+    const response = getMarketingErrorResponse(error)
+    return NextResponse.json(response.body, { status: response.status })
   }
 }

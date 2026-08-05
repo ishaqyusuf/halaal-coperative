@@ -20,18 +20,7 @@ import { createServerNotificationService } from "@/lib/server-notifications"
 import { resolveSignupVerification } from "@/lib/signup-verification.server"
 import { buildOnboardingWorkspaceUrls } from "@/lib/tenant-workspace-urls"
 import { provisionTenantDomainOnVercel } from "@/lib/vercel-domains.server"
-
-function formatOnboardingError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return "We could not provision the workspace."
-  }
-
-  if (error.message.includes("Unique constraint failed")) {
-    return "That cooperative name or primary contact email is already in use. Try a different value."
-  }
-
-  return error.message
-}
+import { getMarketingErrorResponse } from "@/lib/error-response"
 
 export async function POST(request: Request) {
   try {
@@ -138,11 +127,7 @@ export async function POST(request: Request) {
       workspaceReadyEmail: workspaceReadyDelivery.draft,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: formatOnboardingError(error),
-      },
-      { status: 400 }
-    )
+    const response = getMarketingErrorResponse(error)
+    return NextResponse.json(response.body, { status: response.status })
   }
 }

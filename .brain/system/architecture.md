@@ -86,3 +86,12 @@ This file documents the intended high-level architecture, service boundaries, an
 - Payment and disbursement integrations strategy.
 - Exact ledger model and posting rules.
 - TODO: define offline sync conflict-resolution strategy for money-related events.
+
+## Error And Observability Boundary
+
+- `packages/errors` owns typed classification, original-cause preservation, safe transport envelopes, support references, and user presentation helpers. It has no framework or telemetry dependency.
+- `packages/observability` owns production/DSN gating and bounded redacted capture context. It never accepts nested request or domain payloads.
+- `apps/api` normalizes all tRPC procedures, exposes `data.appError`, returns safe REST envelopes, and propagates `x-request-id`.
+- Dashboard crash audit evidence is deliberately separate from technical diagnostics and contains only an allowlisted classification receipt.
+- Dashboard, marketing, mobile, and background jobs render the same public presentation contract; jobs retry only classified retryable failures and return a safe terminal receipt.
+- Production telemetry is designed as one capture boundary per runtime. External SDK transmission is not active until explicitly approved and configured; see ADR-018.

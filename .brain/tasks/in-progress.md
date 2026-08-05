@@ -11,6 +11,14 @@ This file tracks work currently being executed.
 
 ## Current In Progress
 
+### Safe Error And Production Observability
+
+- Priority: High
+- Description: Adopt the GND-derived shared error envelope and privacy-bounded observability policy across API, dashboard, marketing, jobs, and mobile.
+- Related Decision: `.brain/decisions/ADR-018-adopt-safe-error-contract-and-separated-observability.md`
+- Status: In Progress — runtime-neutral contract, UI/API adoption, audit minimization, tests, and environment contracts are implemented. External Sentry SDK initialization/capture, source-map upload, alerts, and production smoke events are paused pending explicit authorization to transmit sanitized diagnostics to configured Sentry projects.
+- Safety gate: No later project in the cross-project rollout starts until Halaalvest completes verification and user review.
+
 - Dashboard depth slice on the new `src/` architecture: deepen analytics, staged imports, collections queues, and reporting inside the standardized Midday-style structure without reintroducing `features/` or `primitives/`.
 
 ### Refactor Finance Tables To Midday Pattern

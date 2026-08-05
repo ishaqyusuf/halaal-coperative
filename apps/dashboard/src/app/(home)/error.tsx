@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import { useEffect } from "react"
+import { useDashboardErrorReceipt } from "@/lib/use-error-receipt"
 
 export default function DashboardHomeError({
   error,
@@ -10,22 +10,7 @@ export default function DashboardHomeError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    void fetch("/api/error-report", {
-      body: JSON.stringify({
-        digest: error.digest,
-        message: error.message,
-        path: window.location.pathname,
-        source: "dashboard.home_error_boundary",
-        stack: error.stack,
-      }),
-      headers: {
-        "content-type": "application/json",
-      },
-      keepalive: true,
-      method: "POST",
-    }).catch(() => undefined)
-  }, [error.digest, error.message, error.stack])
+  useDashboardErrorReceipt(error, "dashboard.home_error_boundary")
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">

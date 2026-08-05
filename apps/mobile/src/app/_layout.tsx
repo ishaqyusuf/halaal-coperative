@@ -1,68 +1,93 @@
-import { AppAutoUpdateModal } from "@/components/app-auto-update-modal";
-import { AuthProvider } from "@/hooks/use-auth";
-import { useColorScheme } from "@/hooks/use-color";
-import { nativewindThemeVars } from "@/lib/nativewind-theme-vars";
-import { NAV_THEME } from "@/lib/theme";
-import { getThemeOverride } from "@/lib/theme-preference";
-import { TRPCReactProvider } from "@/trpc/client";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { ThemeProvider } from "@react-navigation/native";
-import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo } from "react";
-import { VariableContextProvider } from "nativewind";
-import FlashMessage from "react-native-flash-message";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
-import "react-native-reanimated";
-import Toast from "react-native-toast-message";
-import { View } from "react-native";
-import "@/styles/global.css";
+import { AppAutoUpdateModal } from "@/components/app-auto-update-modal"
+import { Button } from "@/components/ui/button"
+import { Text } from "@/components/ui/text"
+import { AuthProvider } from "@/hooks/use-auth"
+import { useColorScheme } from "@/hooks/use-color"
+import { nativewindThemeVars } from "@/lib/nativewind-theme-vars"
+import { NAV_THEME } from "@/lib/theme"
+import { getThemeOverride } from "@/lib/theme-preference"
+import { TRPCReactProvider } from "@/trpc/client"
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
+import { getErrorPresentation } from "@halaalvest/errors"
+import FontAwesome from "@expo/vector-icons/FontAwesome"
+import { ThemeProvider } from "@react-navigation/native"
+import { useFonts } from "expo-font"
+import { Stack } from "expo-router"
+import type { ErrorBoundaryProps } from "expo-router"
+import * as SplashScreen from "expo-splash-screen"
+import { StatusBar } from "expo-status-bar"
+import { useEffect, useMemo } from "react"
+import { VariableContextProvider } from "nativewind"
+import FlashMessage from "react-native-flash-message"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
+import { KeyboardProvider } from "react-native-keyboard-controller"
+import "react-native-reanimated"
+import Toast from "react-native-toast-message"
+import { View } from "react-native"
+import "@/styles/global.css"
 
-export { ErrorBoundary } from "expo-router";
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const presentation = getErrorPresentation(error)
 
-SplashScreen.preventAutoHideAsync();
+  return (
+    <View className="flex-1 items-center justify-center bg-background px-6">
+      <View className="w-full max-w-md items-center rounded-xl border border-border bg-card p-6">
+        <Text className="text-center text-xl font-semibold">
+          {presentation.title}
+        </Text>
+        <Text className="mt-3 text-center text-sm text-muted-foreground">
+          {presentation.description}
+        </Text>
+        <Text className="mt-2 text-center text-xs text-muted-foreground">
+          {presentation.reference}
+        </Text>
+        <Button className="mt-6" onPress={() => void retry()}>
+          <Text>Try again</Text>
+        </Button>
+      </View>
+    </View>
+  )
+}
+
+SplashScreen.preventAutoHideAsync()
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require("../../assets/fonts/SpaceMono-Regular.ttf"),
     ...FontAwesome.font,
-  });
+  })
 
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+    if (error) throw error
+  }, [error])
 
   useEffect(() => {
-    if (loaded) void SplashScreen.hideAsync();
-  }, [loaded]);
+    if (loaded) void SplashScreen.hideAsync()
+  }, [loaded])
 
-  if (!loaded) return null;
+  if (!loaded) return null
 
-  return <RootLayoutNav />;
+  return <RootLayoutNav />
 }
 
 function RootLayoutNav() {
-  const { colorScheme, setColorScheme } = useColorScheme();
+  const { colorScheme, setColorScheme } = useColorScheme()
   const navigationTheme =
-    colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light;
+    colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
   const themeVariables = useMemo(
     () => nativewindThemeVars(colorScheme),
-    [colorScheme],
-  );
+    [colorScheme]
+  )
 
   useEffect(() => {
-    let mounted = true;
+    let mounted = true
     void getThemeOverride().then((override) => {
-      if (mounted) setColorScheme(override);
-    });
+      if (mounted) setColorScheme(override)
+    })
     return () => {
-      mounted = false;
-    };
-  }, [setColorScheme]);
+      mounted = false
+    }
+  }, [setColorScheme])
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -75,7 +100,9 @@ function RootLayoutNav() {
                   <BottomSheetModalProvider>
                     <FlashMessage position="top" />
                     <AppAutoUpdateModal />
-                    <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+                    <StatusBar
+                      style={colorScheme === "dark" ? "light" : "dark"}
+                    />
                     <Stack
                       screenOptions={{
                         headerShadowVisible: false,
@@ -99,5 +126,5 @@ function RootLayoutNav() {
         </VariableContextProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>
-  );
+  )
 }

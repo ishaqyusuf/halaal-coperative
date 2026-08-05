@@ -15,9 +15,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, recorded: false }, { status: 400 })
   }
 
-  const report = sanitizeDashboardErrorReport(payload, {
-    userAgent: request.headers.get("user-agent"),
-  })
+  const report = sanitizeDashboardErrorReport(payload)
 
   if (!hasDashboardErrorReportDetails(report)) {
     return NextResponse.json({ ok: false, recorded: false }, { status: 400 })
@@ -38,16 +36,14 @@ export async function POST(request: NextRequest) {
       action: "application.error_captured",
       actorType: context.auth.user ? "user" : "system",
       actorUserId: context.auth.user?.id ?? null,
-      entityId: report.digest,
+      entityId: report.referenceId,
       entityType: "DashboardError",
       metadata: {
-        componentStack: report.componentStack,
-        digest: report.digest,
-        message: report.message,
-        path: report.path,
+        category: report.category,
+        code: report.code,
+        referenceId: report.referenceId,
+        retryable: report.retryable,
         source: report.source,
-        stack: report.stack,
-        userAgent: report.userAgent,
       },
       tenantId: context.tenant.id,
     })

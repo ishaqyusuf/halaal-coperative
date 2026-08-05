@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import {
@@ -8,6 +7,7 @@ import {
   DashboardSectionHeader,
   WorkspacePageShell,
 } from "@/components/dashboard"
+import { useDashboardErrorReceipt } from "@/lib/use-error-receipt"
 
 export default function BusinessError({
   error,
@@ -16,22 +16,7 @@ export default function BusinessError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    void fetch("/api/error-report", {
-      body: JSON.stringify({
-        digest: error.digest,
-        message: error.message,
-        path: window.location.pathname,
-        source: "dashboard.business_error_boundary",
-        stack: error.stack,
-      }),
-      headers: {
-        "content-type": "application/json",
-      },
-      keepalive: true,
-      method: "POST",
-    }).catch(() => undefined)
-  }, [error.digest, error.message, error.stack])
+  useDashboardErrorReceipt(error, "dashboard.business_error_boundary")
 
   return (
     <WorkspacePageShell

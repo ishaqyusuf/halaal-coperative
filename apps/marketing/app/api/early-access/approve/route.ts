@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { AppError } from "@halaalvest/errors"
 import {
   createMarketingEarlyAccessApprovedEmail,
   createQaNotificationPreviews,
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
     const requestPayload = verifySignedEarlyAccessRequestToken(token)
     const isQaRequest = isEmailAtQaDomain(
       requestPayload.primaryContactEmail,
-      getServerQaEmailDomains(),
+      getServerQaEmailDomains()
     )
     const approvalPayload = createSignupApprovalPayload(requestPayload)
     const signupApprovalToken = createSignedSignupApprovalToken(approvalPayload)
@@ -99,9 +100,7 @@ export async function GET(request: Request) {
       (!isServerEmailDeliveryConfigured() || delivery.status !== "sent")
     ) {
       return htmlResponse({
-        body:
-          delivery.errorMessage ??
-          "The approval email could not be sent. Check email delivery configuration and try again.",
+        body: "The approval email could not be sent. Please try again.",
         status: 502,
         title: "Approval email failed",
       })
@@ -111,9 +110,7 @@ export async function GET(request: Request) {
       if (delivery.status !== "sent") {
         return htmlResponse({
           actionUrl: signupUrl,
-          body:
-            delivery.errorMessage ??
-            "The QA setup email was not sent. Use the approval link again after email delivery is available.",
+          body: "The QA setup email was not sent. Use the approval link again after email delivery is available.",
           status: 502,
           title: "QA setup email failed",
         })
@@ -132,11 +129,13 @@ export async function GET(request: Request) {
       title: "Early access approved",
     })
   } catch (error) {
+    const publicError = new AppError({
+      cause: error,
+      code: "VALIDATION_FAILED",
+      publicMessage: "This early access approval link could not be used.",
+    })
     return htmlResponse({
-      body:
-        error instanceof Error
-          ? error.message
-          : "This early access approval link could not be used.",
+      body: publicError.publicMessage,
       status: 400,
       title: "Approval link invalid",
     })

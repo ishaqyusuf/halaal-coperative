@@ -4,49 +4,50 @@ import {
   sanitizeDashboardErrorReport,
 } from "./error-reporting"
 
-describe("dashboard error reporting", () => {
-  test("redacts sensitive values and normalizes route paths", () => {
-    const report = sanitizeDashboardErrorReport(
-      {
-        digest: "next-digest-123",
-        message: "Request failed with token=abc123",
-        path: "https://coop.example.test/members?token=secret",
-        stack: "Error: failed\nAuthorization: Bearer abc.def.ghi\nBearer xyz",
-      },
-      {
-        userAgent: "Browser secret=client-token",
-      },
-    )
-
-    expect(report.digest).toBe("next-digest-123")
-    expect(report.message).toBe("Request failed with token=[redacted]")
-    expect(report.path).toBe("/members")
-    expect(report.stack).toContain("Authorization=[redacted]")
-    expect(report.stack).toContain("Bearer [redacted]")
-    expect(report.userAgent).toBe("Browser secret=[redacted]")
-  })
-
-  test("truncates long stack fields before audit storage", () => {
+describe("dashboard error audit receipt", () => {
+  test("keeps only bounded classification metadata", () => {
     const report = sanitizeDashboardErrorReport({
-      componentStack: "Component".repeat(300),
-      stack: "Stack".repeat(500),
+      code: "DATABASE_TRANSACTION_TIMEOUT",
+      message: "Member balance and token=abc123",
+      path: "/members/member-1/statement",
+      referenceId: "ERR-01HZY8W1D4W8R0D8A90M5ZXYZZ",
+      retryable: false,
+      source: "dashboard.error_boundary",
+      stack: "Authorization: Bearer abc.def.ghi",
+      userAgent: "Private browser fingerprint",
     })
 
-    expect(report.componentStack?.length).toBeLessThanOrEqual(1800)
-    expect(report.stack?.length).toBeLessThanOrEqual(1800)
-    expect(report.stack?.endsWith("...")).toBe(true)
-  })
-
-  test("requires at least one usable error detail", () => {
-    const emptyReport = sanitizeDashboardErrorReport({
-      path: "/settings",
+    expect(report).toEqual({
+      category: "database",
+      code: "DATABASE_TRANSACTION_TIMEOUT",
+      referenceId: "ERR-01HZY8W1D4W8R0D8A90M5ZXYZZ",
+      retryable: true,
       source: "dashboard.error_boundary",
     })
-    const usefulReport = sanitizeDashboardErrorReport({
-      message: "Something failed",
+    expect(JSON.stringify(report)).not.toContain("Member")
+    expect(JSON.stringify(report)).not.toContain("Authorization")
+    expect(JSON.stringify(report)).not.toContain("member-1")
+  })
+
+  test("rejects forged codes, references, and sources", () => {
+    expect(
+      hasDashboardErrorReportDetails(
+        sanitizeDashboardErrorReport({
+          code: "CUSTOM_PRIVATE_ERROR",
+          referenceId: "member@example.test",
+          source: "/members/member-1",
+        })
+      )
+    ).toBe(false)
+  })
+
+  test("accepts a complete safe receipt", () => {
+    const report = sanitizeDashboardErrorReport({
+      code: "UNEXPECTED",
+      referenceId: "ERR-01HZY8W1D4W8R0D8A90M5ZXYZZ",
+      source: "dashboard.global_error",
     })
 
-    expect(hasDashboardErrorReportDetails(emptyReport)).toBe(false)
-    expect(hasDashboardErrorReportDetails(usefulReport)).toBe(true)
+    expect(hasDashboardErrorReportDetails(report)).toBe(true)
   })
 })

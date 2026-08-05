@@ -8,15 +8,38 @@ import { initTRPC, TRPCError } from "@trpc/server"
 import superjson from "superjson"
 
 import type { TRPCContext } from "./context"
+import { getTrpcPublicError, normalizeTrpcError } from "./trpc/error-contract"
 
 const t = initTRPC.context<TRPCContext>().create({
+  errorFormatter({ error, shape }) {
+    const appError = getTrpcPublicError(error)
+
+    return {
+      ...shape,
+      message: appError.message,
+      data: {
+        ...shape.data,
+        appError,
+      },
+    }
+  },
   transformer: superjson,
 })
 
 export const createTRPCRouter = t.router
 export const createCallerFactory = t.createCallerFactory
-export const publicProcedure = t.procedure
-export const authenticatedProcedure = t.procedure.use(({ ctx, next }) => {
+const withErrorContract = t.middleware(async (opts) => {
+  const result = await opts.next()
+
+  if (!result.ok) {
+    throw normalizeTrpcError(result.error, opts.path)
+  }
+
+  return result
+})
+
+export const publicProcedure = t.procedure.use(withErrorContract)
+export const authenticatedProcedure = publicProcedure.use(({ ctx, next }) => {
   if (!ctx.auth.session) {
     throw new TRPCError({
       code: "UNAUTHORIZED",

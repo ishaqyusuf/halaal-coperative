@@ -1,8 +1,12 @@
+import { getErrorPresentation } from "@halaalvest/errors"
 import {
   defaultShouldDehydrateQuery,
   isServer,
+  MutationCache,
+  QueryCache,
   QueryClient,
 } from "@tanstack/react-query"
+import { toast } from "@halaalvest/ui/components/use-toast"
 import superjson from "superjson"
 
 function isUnauthorizedError(error: Error) {
@@ -15,6 +19,28 @@ function isUnauthorizedError(error: Error) {
 
 export function makeQueryClient() {
   return new QueryClient({
+    mutationCache: new MutationCache({
+      onError: (error, _variables, _context, mutation) => {
+        if (isServer || mutation.options.onError) return
+        const presentation = getErrorPresentation(error)
+        toast({
+          description: `${presentation.description} ${presentation.reference}`,
+          title: presentation.title,
+          variant: "error",
+        })
+      },
+    }),
+    queryCache: new QueryCache({
+      onError: (error, query) => {
+        if (isServer || query.state.data !== undefined) return
+        const presentation = getErrorPresentation(error)
+        toast({
+          description: `${presentation.description} ${presentation.reference}`,
+          title: presentation.title,
+          variant: "error",
+        })
+      },
+    }),
     defaultOptions: {
       dehydrate: {
         serializeData: superjson.serialize,

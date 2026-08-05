@@ -11,6 +11,9 @@ const syncedProductionEnvVars = [
   "EMAIL_TEST_MODE",
   "APP_ENV",
   "RESEND_API_KEY",
+  "SENTRY_DSN",
+  "SENTRY_ENVIRONMENT",
+  "SENTRY_RELEASE",
   "TEST_EMAIL",
 ] as const
 
@@ -23,7 +26,7 @@ function getSyncedProductionEnv() {
     syncedProductionEnvVars.flatMap((key) => {
       const value = process.env[key]?.trim()
       return value ? [[key, value]] : []
-    }),
+    })
   )
 }
 

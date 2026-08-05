@@ -13,6 +13,14 @@ import {
   resolveTenantAsync,
   type MembershipRecord,
 } from "@halaalvest/db"
+import { randomUUID } from "node:crypto"
+
+function getRequestId(headers: Headers) {
+  const supplied = headers.get("x-request-id")?.trim()
+  return supplied && /^[A-Za-z0-9._:-]{1,128}$/.test(supplied)
+    ? supplied
+    : randomUUID()
+}
 
 function getBearerToken(headers: Headers) {
   const authorization = headers.get("authorization")
@@ -113,6 +121,7 @@ export async function buildRequestContext(headers: Headers) {
     request: {
       host: requestHost,
       receivedAt: new Date().toISOString(),
+      requestId: getRequestId(headers),
       sessionScope,
       tenantResolution,
     },

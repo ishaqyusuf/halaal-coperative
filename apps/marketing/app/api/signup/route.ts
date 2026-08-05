@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { AppError } from "@halaalvest/errors"
 import { checkTenantSignupAvailability } from "@halaalvest/db"
 import {
   createQaNotificationPreviews,
@@ -16,6 +17,7 @@ import {
 import { verifySignedSignupApprovalToken } from "@/lib/early-access"
 import { getMarketingConfig } from "@/lib/marketing-config"
 import { getMarketingAppOrigin } from "@/lib/runtime-url"
+import { getMarketingErrorResponse } from "@/lib/error-response"
 
 function normalizeComparableText(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase()
@@ -31,7 +33,10 @@ function verifyEarlyAccessApproval(input: {
   }
 
   if (!input.approvalToken) {
-    throw new Error("Early access approval is required before setup.")
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Early access approval is required before setup.",
+    })
   }
 
   const approval = verifySignedSignupApprovalToken(input.approvalToken)
@@ -43,9 +48,11 @@ function verifyEarlyAccessApproval(input: {
     normalizeComparableText(input.cooperativeName)
 
   if (!emailMatches || !cooperativeMatches) {
-    throw new Error(
-      "This setup request does not match the approved early access request."
-    )
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage:
+        "This setup request does not match the approved early access request.",
+    })
   }
 }
 
@@ -77,8 +84,7 @@ export async function POST(request: Request) {
     if (process.env.NODE_ENV === "production" && !emailDeliveryConfigured) {
       return NextResponse.json(
         {
-          error:
-            "Email delivery is not configured. Set RESEND_API_KEY and EMAIL_FROM_ADDRESS before enabling approved setup.",
+          error: "Email delivery is temporarily unavailable.",
         },
         { status: 503 }
       )
@@ -109,9 +115,7 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         {
-          error:
-            verificationDelivery.errorMessage ??
-            "We could not send the verification email. Please try again.",
+          error: "We could not send the verification email. Please try again.",
         },
         { status: 502 }
       )
@@ -127,14 +131,7 @@ export async function POST(request: Request) {
       verificationEmail,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "We could not prepare setup verification.",
-      },
-      { status: 400 }
-    )
+    const response = getMarketingErrorResponse(error)
+    return NextResponse.json(response.body, { status: response.status })
   }
 }

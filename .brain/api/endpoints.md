@@ -64,6 +64,9 @@ This file tracks the public and internal API surface of the platform.
 - `TRPC /trpc/members.list|get|create|update|updateStatus`
   - Purpose: list and manage tenant member records.
   - Notes: `list` and `get` require an operations-officer-or-higher staff role; tenant identity is derived from the authenticated context. Member-role accounts do not receive tenant-wide member records. `list` accepts the URL-backed, mode-aware `migrationStatus=pending|finalized` filter and preserves derived filtering across cursor pagination.
+- `TRPC /trpc/imports.batches|batch`
+  - Purpose: page tenant import batches and resolve the exact URL-selected batch for review or apply workflows.
+  - Notes: tenant identity is derived from authenticated context. `batches` accepts import type, status, search, sort, cursor, and page size; `batch` accepts only the batch id and rejects records outside the active tenant.
 - `TRPC /trpc/contributions.list|record|memberHistory|memberSavings`
   - Purpose: list and post contributions plus retrieve member savings history.
 - `TRPC /trpc/charges.listDefinitions|createDefinition|updateDefinition`

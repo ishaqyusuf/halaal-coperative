@@ -74,6 +74,12 @@ This file captures payload shapes, response conventions, and contract assumption
   - Input accepts optional cursor, page size, search text, request status, and sort tuple. Supported sort fields are `emailVerifiedAt`, `fullName`, `memberNumber`, `phoneNumber`, `status`, and `submittedAt`.
 - `trpc.onboarding.membershipApprovalSummary`
   - Member-management-only tenant summary for pending approval, awaiting verification, approved, rejected, and total request counts.
+- `trpc.imports.batches`
+  - Tenant-scoped infinite result with a `data` array and `meta.cursor`; input accepts optional cursor, page size, import type, search text, batch status, and a supported sort tuple.
+  - Batch rows expose author identity, import type/status, valid and total row counts, existing-match and duplicate counts, a five-row review preview, and any recorded error message.
+- `trpc.imports.batch`
+  - Request accepts `batchId`; tenant scope comes only from authenticated context.
+  - Response returns the same import batch row shape used by the list, including its review preview. Unknown or cross-tenant ids return not found.
 - `POST /api/signup`
   - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, `primaryContactMemberNumber`, `memberNumberPrefix`, `workspaceSlug`, and optional `approvalToken`.
   - When `MARKETING_EARLY_ACCESS_ENABLED=true`, `approvalToken` is required and must verify to the same cooperative name and primary contact email before the route sends verification email.

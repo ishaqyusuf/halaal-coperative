@@ -383,6 +383,42 @@ export async function listImportBatches(
   })
 }
 
+export async function getImportBatch(
+  input: {
+    batchId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const batch = await prisma.importBatch.findFirst({
+    include: {
+      createdByUser: { select: { id: true, fullName: true, email: true } },
+      rows: {
+        orderBy: { rowIndex: "asc" },
+        take: 5,
+      },
+      _count: {
+        select: {
+          rows: true,
+        },
+      },
+    },
+    where: {
+      id: input.batchId,
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!batch) {
+    throw ExpectedQueryError.notFound("Import batch not found")
+  }
+
+  return batch
+}
+
 export async function getImportBatchKind(
   input: {
     batchId: string

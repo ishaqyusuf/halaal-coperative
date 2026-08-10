@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useTransition } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
@@ -34,6 +35,7 @@ import {
   type DashboardImportReferenceData,
 } from "@/lib/import-csv"
 import { objectToFormData } from "@/lib/form-submit"
+import { useTRPC } from "@/trpc/client"
 
 const csvImportSchema = z.object({
   confirmExistingMatches: z.boolean().default(false),
@@ -258,6 +260,8 @@ export function DashboardImportForm({
   onSuccess?: () => void
   referenceData: DashboardImportReferenceData
 }) {
+  const queryClient = useQueryClient()
+  const trpc = useTRPC()
   const config = dashboardImportConfigs[importKind]
   const form = useZodForm<CsvImportValues>(csvImportSchema, {
     defaultValues: {
@@ -276,6 +280,22 @@ export function DashboardImportForm({
   const confirmedInFileDuplicates = form.watch("confirmInFileDuplicates")
   const latestBatch = batches.find((batch) => batch.importType === importKind)
   const isLocked = !availability.isAvailable
+
+  async function refreshImportQueries() {
+    const invalidations = [
+      queryClient.invalidateQueries(
+        trpc.imports.batches.infiniteQueryFilter()
+      ),
+    ]
+
+    if (importKind === "members") {
+      invalidations.push(
+        queryClient.invalidateQueries(trpc.members.list.infiniteQueryFilter())
+      )
+    }
+
+    await Promise.all(invalidations)
+  }
 
   const preview = useMemo(
     () => parseDashboardImportCsv(importKind, csvText),
@@ -370,6 +390,7 @@ export function DashboardImportForm({
             csvText: values.csvText,
           })
         )
+        await refreshImportQueries()
         showSuccess(
           `${config.title} imported`,
           `${preview.ok ? preview.rows.length : 0} rows processed successfully.`
@@ -402,6 +423,7 @@ export function DashboardImportForm({
         await stageImportBatchAction(
           objectToFormData({ csvText: values.csvText, importKind })
         )
+        await refreshImportQueries()
         showSuccess(
           `${config.title} staged`,
           "Import batch saved for later review and apply."

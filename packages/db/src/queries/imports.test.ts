@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   applyImportBatch,
   createImportBatch,
+  getImportBatch,
   getImportBatchKind,
   importCharges,
   importContributions,
@@ -52,6 +53,34 @@ function createFinalizedImportPrismaStub() {
 }
 
 describe("import batch queries", () => {
+  test("returns one tenant-scoped import batch for URL-owned review", async () => {
+    const batch = await getImportBatch(
+      {
+        batchId: "batch-1",
+        tenantId: "tenant-1",
+      },
+      {
+        importBatch: {
+          findFirst: async (input: unknown) => {
+            expect(input).toMatchObject({
+              where: {
+                id: "batch-1",
+                tenantId: "tenant-1",
+              },
+            })
+
+            return {
+              id: "batch-1",
+              importType: "members",
+            }
+          },
+        },
+      } as never,
+    )
+
+    expect(batch.id).toBe("batch-1")
+  })
+
   test("returns the staged import batch kind", async () => {
     const importType = await getImportBatchKind(
       {

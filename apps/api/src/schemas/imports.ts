@@ -21,6 +21,10 @@ const importSortFieldSchema = z.enum([
 
 const importBatchStatusSchema = z.enum(["draft", "applied", "failed"])
 
+export const getImportBatchSchema = z.object({
+  batchId: z.string().min(1),
+})
+
 export const listImportBatchesSchema = z
   .object({
     cursor: z.string().nullable().optional(),

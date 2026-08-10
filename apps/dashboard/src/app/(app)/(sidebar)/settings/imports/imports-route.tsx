@@ -14,25 +14,17 @@ import type { ImportAvailability } from "@/components/forms/import-forms"
 import { loadImportFilterParams } from "@/hooks/use-import-filter-params"
 import { loadImportParams } from "@/hooks/use-import-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
+import { getImportListInput } from "@/lib/imports/import-list-input"
 import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import {
-  getQueryClient,
-  getServerCaller,
+  batchPrefetch,
   HydrateClient,
   trpc,
 } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
-import { getEnumValue } from "@/utils/enum"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
 type RawImportBatch = Awaited<ReturnType<typeof listImportBatches>>[number]
-type ImportSortField =
-  | "createdAt"
-  | "createdBy"
-  | "importType"
-  | "reviewCount"
-  | "status"
-  | "totalRows"
 
 function getMissingLabels(
   missingStepKeys: string[],
@@ -111,30 +103,6 @@ function mapBatch(batch: RawImportBatch): ImportBatchRow {
   }
 }
 
-function getImportSort(
-  sort?: string[] | null
-): [ImportSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "createdAt",
-    "createdBy",
-    "importType",
-    "reviewCount",
-    "status",
-    "totalRows",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as ImportSortField, direction]
-}
-
 export async function ImportsSettingsRoute({
   searchParams,
   section = "overview",
@@ -163,7 +131,9 @@ export async function ImportsSettingsRoute({
     await Promise.all([
       getInitialTableSettings("imports"),
       getImportReferenceData(context.tenant.id),
-      listImportBatches(context.tenant.id),
+      section === "overview"
+        ? listImportBatches(context.tenant.id)
+        : Promise.resolve([]),
       getTenantInitialMigrationState(context.tenant.id),
     ])
   const batches = rawBatches.map(mapBatch)
@@ -218,29 +188,19 @@ export async function ImportsSettingsRoute({
   const shouldHydrateTable = canManageImports && !isOverview
 
   if (shouldHydrateTable) {
-    const importInput = {
-      importType: importKind,
-      q: filter.q ?? undefined,
-      sort: getImportSort(sort),
-      status: getEnumValue(filter.status, [
-        "applied",
-        "draft",
-        "failed",
-      ] as const),
-    }
+    const importInput = getImportListInput({
+      importKind,
+      q: filter.q,
+      sort,
+      status: filter.status,
+    })
     const importOptions = trpc.imports.batches.infiniteQueryOptions(
       importInput,
       {
         getNextPageParam: ({ meta }) => meta?.cursor,
       }
     )
-    const caller = await getServerCaller()
-    const initialImportPage = await caller.imports.batches(importInput)
-
-    getQueryClient().setQueryData(importOptions.queryKey, {
-      pageParams: [importOptions.initialPageParam],
-      pages: [initialImportPage],
-    })
+    void batchPrefetch([importOptions])
   }
 
   return (

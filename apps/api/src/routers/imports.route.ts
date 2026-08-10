@@ -1,8 +1,19 @@
-import { listImportBatches } from "@halaalvest/db"
+import { getImportBatch, listImportBatches } from "@halaalvest/db"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
-import { listImportBatchesSchema } from "../schemas/imports"
+import {
+  getImportBatchSchema,
+  listImportBatchesSchema,
+} from "../schemas/imports"
 
 export const importsRouter = createTRPCRouter({
+  batch: tenantProcedure
+    .input(getImportBatchSchema)
+    .query(({ ctx, input }) =>
+      getImportBatch({
+        batchId: input.batchId,
+        tenantId: ctx.tenant.current.id,
+      })
+    ),
   batches: tenantProcedure
     .input(listImportBatchesSchema)
     .query(async ({ ctx, input }) => {

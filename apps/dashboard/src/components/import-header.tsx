@@ -1,5 +1,6 @@
 import type { DashboardImportKind } from "@/lib/import-csv"
 import { ImportColumnVisibility } from "@/components/import-column-visibility"
+import { ImportMobileToolbar } from "@/components/import-mobile-toolbar"
 import { ImportSearchFilter } from "@/components/import-search-filter"
 import { OpenImportSheet } from "@/components/open-import-sheet"
 
@@ -13,18 +14,26 @@ export function ImportHeader({
   isLocked: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <ImportSearchFilter />
+    <>
+      <ImportMobileToolbar
+        canManageImports={canManageImports}
+        importKind={importKind}
+        isLocked={isLocked}
+      />
 
-      <div className="flex shrink-0 items-center gap-2">
-        <ImportColumnVisibility />
-        {importKind ? (
-          <OpenImportSheet
-            disabled={!canManageImports || isLocked}
-            importKind={importKind}
-          />
-        ) : null}
+      <div className="hidden items-center justify-between gap-3 md:flex">
+        <ImportSearchFilter />
+
+        <div className="flex shrink-0 items-center gap-2">
+          <ImportColumnVisibility />
+          {importKind ? (
+            <OpenImportSheet
+              disabled={!canManageImports || isLocked}
+              importKind={importKind}
+            />
+          ) : null}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

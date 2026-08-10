@@ -68,6 +68,7 @@ The staff member workspace provides one tenant-scoped operating surface for find
 - Staff can configure and reorder columns, download the current Excel template, upload CSV/XLS/XLSX, edit rows in a scrollable grid, review existing matches and in-file duplicates, import immediately, or stage a batch.
 - Successful imports invalidate the member infinite query; staged or direct imports invalidate the import-batch infinite query.
 - Header controls, the editable grid, review gates, and footer actions adapt to phone widths without forcing the presentation beyond the viewport.
+- The full-page `/settings/imports/members` batch history shares the canonical import Suspense query and switches below `md` from the desktop virtual table to flat divided shadcn Items, a mobile filter drawer, touch-sized actions, and a non-table loading skeleton. Its settings navigation becomes a shadcn bottom-sheet selector on the same breakpoint.
 
 ## Permissions and Isolation
 

@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react"
+import { Suspense, type ComponentProps } from "react"
 import {
   DashboardActionLink,
   DashboardStatCard,
@@ -11,6 +11,7 @@ import { ImportHeader } from "@/components/import-header"
 import { SecondaryMenu } from "@/components/secondary-menu"
 import { DataTable as ImportDataTable } from "@/components/tables/imports/data-table"
 import type { ImportBatchRow } from "@/components/tables/imports/data-table"
+import { Loading as ImportTableLoading } from "@/components/tables/imports/skeleton"
 import type { DashboardImportKind } from "@/lib/import-csv"
 
 export type ImportSettingsSection =
@@ -341,19 +342,15 @@ export function ImportsSettingsView({
                 importKind ? !importAvailability[importKind].isAvailable : false
               }
             />
-            <ImportDataTable
-              devMode={quickFillEnabled}
-              hasSourceRows={
-                importKind
-                  ? batches.some((batch) => batch.importType === importKind)
-                  : batches.length > 0
-              }
-              importAvailability={importAvailability}
-              importKind={importKind}
-              initialSettings={initialSettings}
-              referenceData={referenceData}
-              sheetBatches={batches}
-            />
+            <Suspense fallback={<ImportTableLoading />}>
+              <ImportDataTable
+                devMode={quickFillEnabled}
+                importAvailability={importAvailability}
+                importKind={importKind}
+                initialSettings={initialSettings}
+                referenceData={referenceData}
+              />
+            </Suspense>
           </>
         ) : (
           <WorkspaceEmptyState

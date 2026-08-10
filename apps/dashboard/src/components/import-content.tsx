@@ -1,5 +1,9 @@
 "use client"
 
+import { useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "next/navigation"
+import { useTransition, type FormEvent } from "react"
+import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { DashboardImportForm } from "@/components/forms/import-forms"
@@ -13,6 +17,7 @@ import type {
   DashboardImportKind,
   DashboardImportReferenceData,
 } from "@/lib/import-csv"
+import { useTRPC } from "@/trpc/client"
 
 export function ImportContent({
   activeKind,
@@ -37,6 +42,46 @@ export function ImportContent({
   referenceData: DashboardImportReferenceData
   selectedBatch: ImportBatchRow | null
 }) {
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const trpc = useTRPC()
+  const { showError, showSuccess } = useNotifications()
+  const [isApplying, startApplying] = useTransition()
+
+  function handleApply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+
+    startApplying(async () => {
+      try {
+        await applyImportBatchAction(formData)
+        const invalidations = [
+          queryClient.invalidateQueries(
+            trpc.imports.batches.infiniteQueryFilter()
+          ),
+        ]
+
+        if (activeKind === "members") {
+          invalidations.push(
+            queryClient.invalidateQueries(
+              trpc.members.list.infiniteQueryFilter()
+            )
+          )
+        }
+
+        await Promise.all(invalidations)
+        router.refresh()
+        showSuccess("Import applied", "The staged batch was applied.")
+        onSuccess()
+      } catch (error) {
+        showError(
+          "Could not apply import",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
   if (isCreateOpen && activeKind) {
     return (
       <div className="px-6 pb-6">
@@ -57,8 +102,8 @@ export function ImportContent({
   }
 
   return (
-    <div className="space-y-4 px-6 pb-6">
-      <div className="rounded-lg border border-border/70 bg-background p-4 text-sm">
+    <div className="space-y-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
+      <div className="border-y border-border py-4 text-sm">
         <p className="font-medium text-foreground">
           {selectedBatch.status} · {selectedBatch.validRows}/
           {selectedBatch.totalRows ?? selectedBatch._count.rows} rows
@@ -84,10 +129,10 @@ export function ImportContent({
       </div>
 
       {selectedBatch.rows?.length ? (
-        <div className="space-y-2">
+        <div className="divide-y divide-border border-y border-border">
           {selectedBatch.rows.map((row) => (
             <div
-              className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
+              className="px-1 py-3 text-xs text-muted-foreground"
               key={row.id}
             >
               Row {row.rowIndex}
@@ -104,16 +149,18 @@ export function ImportContent({
           This batch has already been applied.
         </p>
       ) : isBatchLocked ? null : (
-        <form action={applyImportBatchAction} className="grid gap-3">
+        <form className="grid gap-3" onSubmit={handleApply}>
           <input name="batchId" type="hidden" value={selectedBatch.id} />
           <Input
+            className="h-11"
+            disabled={isApplying}
             name="confirmation"
             placeholder="APPLY IMPORT"
             required
             type="text"
           />
-          <Button type="submit" variant="outline">
-            Apply batch
+          <Button className="h-11" disabled={isApplying} type="submit">
+            {isApplying ? "Applying…" : "Apply batch"}
           </Button>
         </form>
       )}

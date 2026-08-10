@@ -451,6 +451,21 @@ function isMemberDataImportKind(
   return memberDataImportKinds.has(importKind)
 }
 
+function getImportManagementRoles(importKind: DashboardImportKind) {
+  switch (importKind) {
+    case "members":
+    case "deduction_sources":
+    case "loan_products":
+      return workspaceConfigurationRoles
+    case "charges":
+    case "loan_migrations":
+    case "repayment_migrations":
+      return financeManagementRoles
+    case "contributions":
+      return allStaffRoles
+  }
+}
+
 async function requireDashboardActor(allowedRoles: MembershipRole[]) {
   const state = dashboardActionState.getStore()
   const context = state?.context
@@ -6337,6 +6352,7 @@ export async function importDeductionSourcesCsvAction(formData: FormData) {
 
   revalidateImportSettingsPaths()
   revalidatePath("/members")
+  revalidatePath("/contributions")
 }
 
 export async function importLoanProductsCsvAction(formData: FormData) {
@@ -6484,8 +6500,6 @@ export async function importRepaymentMigrationsCsvAction(formData: FormData) {
 }
 
 export async function stageImportBatchAction(formData: FormData) {
-  const actor = await requireDashboardActor(allStaffRoles)
-  await requireImportWindowOpen(actor)
   const importKind = getRequiredString(formData, "importKind") as
     | "members"
     | "deduction_sources"
@@ -6494,6 +6508,10 @@ export async function stageImportBatchAction(formData: FormData) {
     | "charges"
     | "loan_migrations"
     | "repayment_migrations"
+  const actor = await requireDashboardActor(
+    getImportManagementRoles(importKind)
+  )
+  await requireImportWindowOpen(actor)
 
   if (isMemberDataImportKind(importKind)) {
     await requireMemberDataImportPrerequisitesComplete(actor, importKind)
@@ -6521,14 +6539,24 @@ export async function stageImportBatchAction(formData: FormData) {
     if (!primaryValue) {
       return
     }
+    const comparisonValue =
+      importKind === "deduction_sources"
+        ? primaryValue.trim().toLowerCase()
+        : primaryValue
 
-    if (seen.has(primaryValue)) {
+    if (seen.has(comparisonValue)) {
       duplicateKeys.add(primaryValue)
       return
     }
 
-    seen.add(primaryValue)
+    seen.add(comparisonValue)
   })
+
+  if (importKind === "deduction_sources" && duplicateKeys.size > 0) {
+    throw new DashboardActionExpectedError(
+      "Remove duplicate collection-source names before staging this import."
+    )
+  }
 
   await createImportBatch({
     actorUserId: actor.user.id,
@@ -6558,6 +6586,9 @@ export async function stageImportBatchAction(formData: FormData) {
 
   revalidateImportSettingsPaths()
   revalidatePath("/members")
+  if (importKind === "deduction_sources") {
+    revalidatePath("/contributions")
+  }
 }
 
 export async function applyImportBatchAction(formData: FormData) {
@@ -6575,17 +6606,23 @@ export async function applyImportBatchAction(formData: FormData) {
     batchId,
     tenantId: actor.tenant.id,
   })
+  const authorizedActor = await requireDashboardActor(
+    getImportManagementRoles(importKind)
+  )
 
   if (isMemberDataImportKind(importKind)) {
-    await requireMemberDataImportPrerequisitesComplete(actor, importKind)
+    await requireMemberDataImportPrerequisitesComplete(
+      authorizedActor,
+      importKind
+    )
   } else {
-    await requireImportWindowOpen(actor)
+    await requireImportWindowOpen(authorizedActor)
   }
 
   await applyImportBatch({
-    actorUserId: actor.user.id,
+    actorUserId: authorizedActor.user.id,
     batchId,
-    tenantId: actor.tenant.id,
+    tenantId: authorizedActor.tenant.id,
   })
 
   revalidateImportSettingsPaths()

@@ -13,10 +13,16 @@ import {
 import { MoreHorizontal } from "lucide-react"
 import { useState, type KeyboardEvent } from "react"
 import { MobileActionsDrawer } from "@/components/tables/core/mobile-actions-drawer"
+import {
+  dashboardImportConfigs,
+  type DashboardImportKind,
+} from "@/lib/import-csv"
 import type { ImportBatchRow } from "./data-table"
 
 function formatImportKind(kind: string) {
-  return kind.replaceAll("_", " ")
+  return kind in dashboardImportConfigs
+    ? dashboardImportConfigs[kind as DashboardImportKind].title
+    : kind.replaceAll("_", " ")
 }
 
 function ImportStatusBadge({ status }: { status: string }) {

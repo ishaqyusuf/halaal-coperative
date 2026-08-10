@@ -6,6 +6,7 @@ export type ImportBatchRow = ImportBatchSummary & {
     duplicateInFile: boolean
     existingMatch: boolean
     id: string
+    payload?: unknown
     primaryValue: string | null
     rowIndex: number
   }>

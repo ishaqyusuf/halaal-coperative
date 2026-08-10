@@ -80,6 +80,8 @@ This file captures payload shapes, response conventions, and contract assumption
 - `trpc.imports.batch`
   - Request accepts `batchId`; tenant scope comes only from authenticated context.
   - Response returns the same import batch row shape used by the list, including its review preview. Unknown or cross-tenant ids return not found.
+- Import staging and apply actions derive authorization from the import kind. Member, collection-source, and loan-product imports require workspace-configuration roles; finance-history imports require finance-management roles.
+- Collection-source CSV rows use `name`, `type`, and `externalReference`. Names are compared case-insensitively for in-file duplicates, which are rejected before a batch or registry write. Apply is atomic and returns audit evidence containing created and updated source ids. Existing sources already referenced by collection-source contribution batches cannot have their type or external reference changed through the migration importer.
 - `POST /api/signup`
   - Request validates `cooperativeName`, `primaryContactFullName`, `primaryContactEmail`, `primaryContactMemberNumber`, `memberNumberPrefix`, `workspaceSlug`, and optional `approvalToken`.
   - When `MARKETING_EARLY_ACCESS_ENABLED=true`, `approvalToken` is required and must verify to the same cooperative name and primary contact email before the route sends verification email.

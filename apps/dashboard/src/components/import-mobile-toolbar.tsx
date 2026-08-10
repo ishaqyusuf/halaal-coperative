@@ -14,7 +14,10 @@ import { OpenImportSheet } from "@/components/open-import-sheet"
 import { MiddayFilterIcon } from "@/components/search-filter-dropdown-input"
 import { useImportFilterParams } from "@/hooks/use-import-filter-params"
 import { useMobileViewport } from "@/hooks/use-mobile"
-import type { DashboardImportKind } from "@/lib/import-csv"
+import {
+  getDashboardImportBatchLabel,
+  type DashboardImportKind,
+} from "@/lib/import-csv"
 
 export function ImportMobileToolbar({
   canManageImports,
@@ -51,6 +54,9 @@ function ImportMobileToolbarContent({
 }) {
   const { filter, hasFilters, setFilter } = useImportFilterParams()
   const [filterOpen, setFilterOpen] = useState(false)
+  const batchLabel = importKind
+    ? getDashboardImportBatchLabel(importKind)
+    : "import"
 
   function clearFilters() {
     void setFilter({ q: null, status: null })
@@ -65,14 +71,14 @@ function ImportMobileToolbarContent({
               <Search aria-hidden="true" className="size-4" />
             </InputGroupAddon>
             <InputGroupInput
-              aria-label="Search import batches"
+              aria-label={`Search ${batchLabel} batches`}
               autoCapitalize="none"
               autoComplete="off"
               autoCorrect="off"
               onChange={(event) =>
                 setFilter({ q: event.target.value || null })
               }
-              placeholder="Search import batches..."
+              placeholder={`Search ${batchLabel} batches...`}
               spellCheck="false"
               type="search"
               value={filter.q ?? ""}
@@ -120,6 +126,7 @@ function ImportMobileToolbarContent({
 
       {filterOpen ? (
         <ImportFilterDrawer
+          importKind={importKind}
           onOpenChange={setFilterOpen}
           open={filterOpen}
         />

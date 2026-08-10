@@ -49,15 +49,20 @@ export function ImportSheet({
       { enabled: isBatchRoute }
     )
   )
-  const selectedImportKind =
-    importKind ?? (isDashboardImportKind(importType) ? importType : null)
+  const urlImportKind = isDashboardImportKind(importType) ? importType : null
+  const selectedImportKind = importKind ?? urlImportKind
   const selectedBatch =
     queriedBatch ?? batches.find((batch) => batch.id === importBatchId) ?? null
   const isCreateOpen =
     importSheetType === "create" &&
     Boolean(selectedImportKind) &&
-    (!importKind || selectedImportKind === importKind)
-  const isBatchOpen = isBatchRoute
+    (!importKind || !urlImportKind || urlImportKind === importKind)
+  const routeTypeMismatch = Boolean(
+    importKind &&
+      ((urlImportKind && urlImportKind !== importKind) ||
+        (selectedBatch && selectedBatch.importType !== importKind))
+  )
+  const isBatchOpen = isBatchRoute && !routeTypeMismatch
   const isOpen = isCreateOpen || isBatchOpen
   const presentation = getWorkflowPresentation("import", importSheetType)
   const selectedBatchKind = selectedBatch?.importType ?? null
@@ -82,6 +87,8 @@ export function ImportSheet({
   return (
     <WorkflowPresentation
       config={presentation}
+      contentClassName="min-w-0"
+      mobileFullScreen
       open={isOpen}
       onOpenChange={(open) => !open && close()}
     >

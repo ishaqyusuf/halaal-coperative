@@ -53,6 +53,7 @@ const canonicalHeaderNames: Record<string, string> = {
   deductionsourcename: "deductionSourceName",
   disbursedat: "disbursedAt",
   documenttype: "kycDocumentType",
+  externalreference: "externalReference",
   extramonthlysavingsamount: "extraMonthlySavingsAmount",
   extrasavingsamount: "extraSavingsAmount",
   firstrepaymentdueat: "firstRepaymentDueAt",
@@ -497,9 +498,9 @@ export const dashboardImportConfigs: Record<
     ].join("\n"),
   },
   deduction_sources: {
-    title: "Deduction sources",
+    title: "Collection sources",
     description:
-      "Quick setup for payroll desks and other deduction source records.",
+      "Create or update the sources used for member mapping and collection batches. This does not post deductions.",
     schema: deductionSourcesRowSchema,
     sampleCsv: [
       "name,type,externalReference",
@@ -562,6 +563,20 @@ export const dashboardImportConfigs: Record<
       "MEM-1002,Emergency Support,10000,LEGACY-RPY-002",
     ].join("\n"),
   },
+}
+
+const dashboardImportBatchLabels: Record<DashboardImportKind, string> = {
+  charges: "charge",
+  contributions: "contribution",
+  deduction_sources: "collection-source",
+  loan_migrations: "loan-migration",
+  loan_products: "loan-product",
+  members: "member",
+  repayment_migrations: "repayment-migration",
+}
+
+export function getDashboardImportBatchLabel(kind: DashboardImportKind) {
+  return dashboardImportBatchLabels[kind]
 }
 
 export function parseDashboardImportCsv<T = unknown>(

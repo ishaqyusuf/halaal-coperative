@@ -67,6 +67,9 @@ This file tracks the public and internal API surface of the platform.
 - `TRPC /trpc/imports.batches|batch`
   - Purpose: page tenant import batches and resolve the exact URL-selected batch for review or apply workflows.
   - Notes: tenant identity is derived from authenticated context. `batches` accepts import type, status, search, sort, cursor, and page size; `batch` accepts only the batch id and rejects records outside the active tenant.
+- `Dashboard actions /imports/stage|apply|deduction-sources`
+  - Purpose: stage, review, and atomically apply migration CSV data under the import-kind permission policy.
+  - Notes: collection-source imports require workspace-configuration authorization, reject duplicate names server-side, preserve canonical external references, protect sources already used by posted collection batches from semantic mutation, and revalidate contribution/source consumers after success.
 - `TRPC /trpc/contributions.list|record|memberHistory|memberSavings`
   - Purpose: list and post contributions plus retrieve member savings history.
 - `TRPC /trpc/charges.listDefinitions|createDefinition|updateDefinition`

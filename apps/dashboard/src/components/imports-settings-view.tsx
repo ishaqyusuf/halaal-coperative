@@ -24,7 +24,7 @@ type ImportDataTableProps = ComponentProps<typeof ImportDataTable>
 export const importMenuItems = [
   { path: "/settings/imports", label: "Overview" },
   { path: "/settings/imports/members", label: "Members" },
-  { path: "/settings/imports/deduction-sources", label: "Deduction sources" },
+  { path: "/settings/imports/deduction-sources", label: "Collection sources" },
   { path: "/settings/imports/loan-products", label: "Loan products" },
   { path: "/settings/imports/contributions", label: "Contributions" },
   { path: "/settings/imports/charges", label: "Charges" },
@@ -52,8 +52,8 @@ const importPageCopy: Record<
   },
   deduction_sources: {
     description:
-      "Stage and review payroll, employer, or other deduction source registries.",
-    title: "Deduction sources",
+      "Stage sources used to link members to payroll, employer, transfer, cash, or manual collection batches. This does not post deductions.",
+    title: "Collection sources",
   },
   loan_migrations: {
     description:

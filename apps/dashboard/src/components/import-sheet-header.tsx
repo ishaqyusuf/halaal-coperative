@@ -10,7 +10,9 @@ import { dashboardImportConfigs } from "@/lib/import-csv"
 import type { ImportBatchRow } from "@/components/import-sheet-types"
 
 function formatImportKind(kind: string) {
-  return kind.replace(/_/g, " ")
+  return kind in dashboardImportConfigs
+    ? dashboardImportConfigs[kind as DashboardImportKind].title
+    : kind.replaceAll("_", " ")
 }
 
 export function ImportSheetHeader({

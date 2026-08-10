@@ -22,6 +22,7 @@ import type {
   ImportBatchSummary,
 } from "@/components/forms/import-forms"
 import { ImportSheet } from "@/components/sheets/import-sheet"
+import { OpenImportSheet } from "@/components/open-import-sheet"
 import { ResponsiveDataView } from "@/components/tables/core/responsive-data-view"
 import { VirtualRow } from "@/components/tables/core"
 import { useImportFilterParams } from "@/hooks/use-import-filter-params"
@@ -35,7 +36,7 @@ import { useTableSettings } from "@/hooks/use-table-settings"
 import {
   type DashboardImportKind,
   type DashboardImportReferenceData,
-  dashboardImportConfigs,
+  getDashboardImportBatchLabel,
 } from "@/lib/import-csv"
 import { getImportListInput } from "@/lib/imports/import-list-input"
 import { useImportStore } from "@/store/imports"
@@ -54,6 +55,7 @@ export type ImportBatchRow = ImportBatchSummary & {
     duplicateInFile: boolean
     existingMatch: boolean
     id: string
+    payload?: unknown
     primaryValue: string | null
     rowIndex: number
   }>
@@ -80,16 +82,6 @@ type DesktopTableProps = {
 
 const NON_CLICKABLE_COLUMNS = new Set(["actions"])
 const COLUMN_IDS = getColumnIds(columns)
-
-function formatImportKind(kind: string) {
-  return kind.replaceAll("_", " ")
-}
-
-function getImportTitle(kind: string) {
-  return kind in dashboardImportConfigs
-    ? dashboardImportConfigs[kind as DashboardImportKind].title
-    : formatImportKind(kind)
-}
 
 function ImportDesktopTable({
   batches,
@@ -301,9 +293,21 @@ export function DataTable({
   } else if (!batches.length) {
     dataView = (
       <ImportEmptyState
-        title={`No ${
-          importKind ? getImportTitle(importKind).toLowerCase() : "import"
-        } batches yet.`}
+        action={
+          importKind ? (
+            <OpenImportSheet
+              className="h-11 w-full md:h-9 md:w-auto"
+              disabled={!importAvailability[importKind].isAvailable}
+              display="label"
+              importKind={importKind}
+            />
+          ) : null
+        }
+        title={
+          importKind
+            ? `No ${getDashboardImportBatchLabel(importKind)} import batches yet.`
+            : "No import batches yet."
+        }
       />
     )
   } else {

@@ -553,7 +553,6 @@ export async function getImportReferenceData(
         where: { tenantId },
         select: { id: true, name: true },
         orderBy: { createdAt: "desc" },
-        take: 200,
       }),
       prisma.loanProduct.findMany({
         where: { tenantId },
@@ -657,45 +656,97 @@ export async function importDeductionSources(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
-
-  let processed = 0
-
-  for (const row of input.rows) {
-    await prisma.deductionSource.upsert({
-      where: {
-        tenantId_name: {
-          name: row.name,
-          tenantId: input.tenantId,
-        },
-      },
-      update: {
-        externalReference: row.externalReference ?? null,
-        type: row.type,
-      },
-      create: {
-        externalReference: row.externalReference ?? null,
-        isActive: true,
-        name: row.name,
-        tenantId: input.tenantId,
-        type: row.type,
-      },
-    })
-    processed += 1
-  }
-
-  await createAuditLogEntry(
-    {
-      action: "import.deduction_sources",
-      actorType: "user",
-      actorUserId: input.actorUserId,
-      entityType: "DeductionSource",
-      metadata: { processed },
-      tenantId: input.tenantId,
-    },
-    prisma
+  const normalizedNames = input.rows.map((row) => row.name.trim().toLowerCase())
+  const duplicateNames = normalizedNames.filter(
+    (name, index) => normalizedNames.indexOf(name) !== index
   )
 
-  return { processed }
+  if (duplicateNames.length > 0) {
+    throw ExpectedQueryError.precondition(
+      "Remove duplicate collection-source names before importing."
+    )
+  }
+
+  return prisma.$transaction(
+    async (tx) => {
+      const existingSources = await tx.deductionSource.findMany({
+        include: {
+          _count: {
+            select: { collectionSourceContributionBatches: true },
+          },
+        },
+        where: {
+          name: { in: input.rows.map((row) => row.name) },
+          tenantId: input.tenantId,
+        },
+      })
+      const existingByName = new Map(
+        existingSources.map((source) => [source.name, source])
+      )
+      const createdIds: string[] = []
+      const updatedIds: string[] = []
+
+      for (const row of input.rows) {
+        const existing = existingByName.get(row.name)
+        const externalReference = row.externalReference?.trim() || null
+
+        if (existing) {
+          const changesHistoricalMeaning =
+            existing.type !== row.type ||
+            existing.externalReference !== externalReference
+
+          if (
+            changesHistoricalMeaning &&
+            existing._count.collectionSourceContributionBatches > 0
+          ) {
+            throw ExpectedQueryError.precondition(
+              `${row.name} already has collection batches. Use the live correction workflow instead of changing its imported type or external reference.`
+            )
+          }
+
+          const updated = await tx.deductionSource.update({
+            data: {
+              externalReference,
+              type: row.type,
+            },
+            where: { id: existing.id },
+          })
+          updatedIds.push(updated.id)
+          continue
+        }
+
+        const created = await tx.deductionSource.create({
+          data: {
+            externalReference,
+            isActive: true,
+            name: row.name,
+            tenantId: input.tenantId,
+            type: row.type,
+          },
+        })
+        createdIds.push(created.id)
+      }
+
+      await createAuditLogEntry(
+        {
+          action: "import.deduction_sources",
+          actorType: "user",
+          actorUserId: input.actorUserId,
+          entityType: "DeductionSource",
+          metadata: {
+            createdIds,
+            processed: input.rows.length,
+            updatedIds,
+          },
+          tenantId: input.tenantId,
+        },
+        tx as unknown as PrismaClient
+      )
+
+      return { processed: input.rows.length }
+    },
+    { timeout: 15_000 }
+  )
 }
 
 export async function importLoanProducts(

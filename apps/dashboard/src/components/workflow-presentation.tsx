@@ -26,6 +26,16 @@ const dialogWidthClasses: Record<WorkflowPresentationWidth, string> = {
   wide: "sm:max-w-[calc(100vw-4rem)] lg:max-w-[92rem]",
 }
 
+const mobileFullScreenDialogWidthClasses: Record<
+  WorkflowPresentationWidth,
+  string
+> = {
+  compact: "md:max-w-[455px]",
+  form: "md:max-w-[640px]",
+  review: "md:max-w-[768px]",
+  wide: "md:max-w-[calc(100vw-4rem)] lg:max-w-[92rem]",
+}
+
 const sheetWidthClasses: Record<WorkflowPresentationWidth, string> = {
   compact: "sm:max-w-[455px]!",
   form: "sm:max-w-2xl!",
@@ -38,6 +48,7 @@ export function WorkflowPresentation({
   className,
   config,
   contentClassName,
+  mobileFullScreen = false,
   onOpenChange,
   open,
 }: {
@@ -45,6 +56,7 @@ export function WorkflowPresentation({
   className?: string
   config: WorkflowPresentationConfig
   contentClassName?: string
+  mobileFullScreen?: boolean
   onOpenChange: (open: boolean) => void
   open: boolean
 }) {
@@ -131,7 +143,11 @@ export function WorkflowPresentation({
         <DialogContent
           className={cn(
             "max-h-[calc(100dvh-2rem)] overflow-y-auto",
-            dialogWidthClasses[config.width],
+            mobileFullScreen
+              ? mobileFullScreenDialogWidthClasses[config.width]
+              : dialogWidthClasses[config.width],
+            mobileFullScreen &&
+              "top-0 left-0 h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto p-0 ring-0 sm:max-w-none md:top-1/2 md:left-1/2 md:h-auto md:max-h-[calc(100dvh-2rem)] md:w-full md:-translate-x-1/2 md:-translate-y-1/2 md:p-4 md:ring-1",
             className
           )}
           role={

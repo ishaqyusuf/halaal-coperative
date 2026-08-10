@@ -6,6 +6,7 @@ import {
   getImportBatchKind,
   importCharges,
   importContributions,
+  importDeductionSources,
   importLoanProducts,
   importLoanMigrations,
   importMembers,
@@ -53,6 +54,159 @@ function createFinalizedImportPrismaStub() {
 }
 
 describe("import batch queries", () => {
+  test("rejects duplicate collection-source names before writing", async () => {
+    let transactionCalls = 0
+    const prisma = {
+      $transaction: async () => {
+        transactionCalls += 1
+      },
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+      tenant: {
+        findUnique: async () => ({ initialMigrationStatus: "in_progress" }),
+      },
+    }
+
+    await expect(
+      importDeductionSources(
+        {
+          actorUserId: "user-1",
+          rows: [
+            { name: "Kaduna Payroll", type: "ministry_payroll" },
+            { name: "kaduna payroll", type: "bank_transfer" },
+          ],
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("Remove duplicate collection-source names")
+
+    expect(transactionCalls).toBe(0)
+  })
+
+  test("imports collection sources atomically with created and updated audit ids", async () => {
+    const creates: unknown[] = []
+    const updates: unknown[] = []
+    const auditEntries: unknown[] = []
+    const tx = {
+      auditLog: {
+        create: async (input: unknown) => {
+          auditEntries.push(input)
+          return input
+        },
+      },
+      deductionSource: {
+        create: async (input: unknown) => {
+          creates.push(input)
+          return { id: "source-created" }
+        },
+        findMany: async () => [
+          {
+            _count: { collectionSourceContributionBatches: 0 },
+            externalReference: "OLD",
+            id: "source-existing",
+            name: "Existing desk",
+            type: "manual",
+          },
+        ],
+        update: async (input: unknown) => {
+          updates.push(input)
+          return { id: "source-existing" }
+        },
+      },
+    }
+    const prisma = {
+      $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
+        callback(tx),
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+      tenant: {
+        findUnique: async () => ({ initialMigrationStatus: "in_progress" }),
+      },
+    }
+
+    const result = await importDeductionSources(
+      {
+        actorUserId: "user-1",
+        rows: [
+          {
+            externalReference: "NEW",
+            name: "Existing desk",
+            type: "employer_payroll",
+          },
+          {
+            externalReference: "CASH-1",
+            name: "Cash desk",
+            type: "cash",
+          },
+        ],
+        tenantId: "tenant-1",
+      },
+      prisma as never,
+    )
+
+    expect(result).toEqual({ processed: 2 })
+    expect(creates).toHaveLength(1)
+    expect(updates).toHaveLength(1)
+    expect(auditEntries[0]).toMatchObject({
+      data: {
+        metadata: {
+          createdIds: ["source-created"],
+          processed: 2,
+          updatedIds: ["source-existing"],
+        },
+      },
+    })
+  })
+
+  test("protects collection-source meaning after contribution batches exist", async () => {
+    let updateCalls = 0
+    const tx = {
+      deductionSource: {
+        findMany: async () => [
+          {
+            _count: { collectionSourceContributionBatches: 1 },
+            externalReference: "PAY-OLD",
+            id: "source-existing",
+            name: "Payroll desk",
+            type: "ministry_payroll",
+          },
+        ],
+        update: async () => {
+          updateCalls += 1
+        },
+      },
+    }
+    const prisma = {
+      $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
+        callback(tx),
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+      tenant: {
+        findUnique: async () => ({ initialMigrationStatus: "in_progress" }),
+      },
+    }
+
+    await expect(
+      importDeductionSources(
+        {
+          actorUserId: "user-1",
+          rows: [
+            {
+              externalReference: "PAY-NEW",
+              name: "Payroll desk",
+              type: "employer_payroll",
+            },
+          ],
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("already has collection batches")
+
+    expect(updateCalls).toBe(0)
+  })
+
   test("returns one tenant-scoped import batch for URL-owned review", async () => {
     const batch = await getImportBatch(
       {

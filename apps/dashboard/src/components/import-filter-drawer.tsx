@@ -7,6 +7,10 @@ import {
 import { useState } from "react"
 import { MobileFilterDrawer } from "@/components/search-filter/mobile-filter-drawer"
 import { useImportFilterParams } from "@/hooks/use-import-filter-params"
+import {
+  getDashboardImportBatchLabel,
+  type DashboardImportKind,
+} from "@/lib/import-csv"
 
 const statusFilters = [
   { id: "draft", name: "Draft" },
@@ -15,14 +19,19 @@ const statusFilters = [
 ] as const
 
 export function ImportFilterDrawer({
+  importKind,
   onOpenChange,
   open,
 }: {
+  importKind?: DashboardImportKind
   onOpenChange: (open: boolean) => void
   open: boolean
 }) {
   const { filter, setFilter } = useImportFilterParams()
   const [status, setStatus] = useState(filter.status ?? "all")
+  const batchLabel = importKind
+    ? getDashboardImportBatchLabel(importKind)
+    : "import"
 
   function applyFilters() {
     void setFilter({ status: status === "all" ? null : status })
@@ -37,7 +46,7 @@ export function ImportFilterDrawer({
 
   return (
     <MobileFilterDrawer
-      description="Filter staged member import batches by review status."
+      description={`Filter ${batchLabel} import batches by review status.`}
       onApply={applyFilters}
       onClear={clearFilters}
       onOpenChange={onOpenChange}

@@ -56,6 +56,23 @@ describe("imports settings Midday conformance", () => {
     expect(sheet).toContain("trpc.imports.batch.queryOptions")
   })
 
+  test("keeps import type isolation declarative and mobile workflows full screen", () => {
+    const sheet = read("../../components/sheets/import-sheet.tsx")
+    const presentation = read("../../components/workflow-presentation.tsx")
+    const form = read("../../components/forms/import-forms.tsx")
+    const content = read("../../components/import-content.tsx")
+
+    expect(sheet).toContain("routeTypeMismatch")
+    expect(sheet).toContain("isBatchRoute && !routeTypeMismatch")
+    expect(sheet).toContain("mobileFullScreen")
+    expect(sheet).not.toContain("useEffect")
+    expect(presentation).toContain("mobileFullScreenDialogWidthClasses")
+    expect(presentation).toContain("md:top-1/2")
+    expect(presentation).not.toContain("sm:top-1/2")
+    expect(form).toContain('surface === "card"')
+    expect(content).toContain('surface="sheet"')
+  })
+
   test("uses a shadcn bottom sheet for mobile settings navigation", () => {
     const menu = read("../../components/secondary-menu.tsx")
 

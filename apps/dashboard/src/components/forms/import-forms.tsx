@@ -2,6 +2,7 @@
 
 import { useMemo, useTransition } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
@@ -16,6 +17,7 @@ import {
 } from "@halaalvest/ui/components/form"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
+import { cn } from "@halaalvest/ui/lib/utils"
 import {
   importChargesCsvAction,
   importContributionsCsvAction,
@@ -74,7 +76,7 @@ function ImportPreviewTable({
   }
 
   return (
-    <div className="mt-3 w-full overflow-x-auto rounded-xl bg-background/80">
+    <div className="mt-3 max-w-full overflow-x-auto border-y border-border/60 bg-background/80">
       <div
         className="grid min-w-max text-xs"
         style={{
@@ -249,6 +251,7 @@ export function DashboardImportForm({
   importKind,
   onSuccess,
   referenceData,
+  surface = "card",
 }: {
   availability: {
     blockedReason?: string
@@ -259,8 +262,10 @@ export function DashboardImportForm({
   importKind: DashboardImportKind
   onSuccess?: () => void
   referenceData: DashboardImportReferenceData
+  surface?: "card" | "sheet"
 }) {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const trpc = useTRPC()
   const config = dashboardImportConfigs[importKind]
   const form = useZodForm<CsvImportValues>(csvImportSchema, {
@@ -308,6 +313,7 @@ export function DashboardImportForm({
     if (!preview.ok) {
       return {
         duplicateCount: 0,
+        existingMatches: [] as string[],
         existingMatchCount: 0,
         duplicates: [] as string[],
       }
@@ -315,6 +321,7 @@ export function DashboardImportForm({
 
     const seen = new Set<string>()
     const duplicates = new Set<string>()
+    const existingMatches = new Set<string>()
     let existingMatchCount = 0
 
     preview.rows.forEach((row) => {
@@ -338,12 +345,14 @@ export function DashboardImportForm({
         )
       ) {
         existingMatchCount += 1
+        if (primaryValue) existingMatches.add(primaryValue)
       }
     })
 
     return {
       duplicateCount: duplicates.size,
       duplicates: Array.from(duplicates).slice(0, 4),
+      existingMatches: Array.from(existingMatches).slice(0, 4),
       existingMatchCount,
     }
   }, [importKind, preview, referenceData])
@@ -391,6 +400,7 @@ export function DashboardImportForm({
           })
         )
         await refreshImportQueries()
+        router.refresh()
         showSuccess(
           `${config.title} imported`,
           `${preview.ok ? preview.rows.length : 0} rows processed successfully.`
@@ -424,6 +434,7 @@ export function DashboardImportForm({
           objectToFormData({ csvText: values.csvText, importKind })
         )
         await refreshImportQueries()
+        router.refresh()
         showSuccess(
           `${config.title} staged`,
           "Import batch saved for later review and apply."
@@ -438,11 +449,22 @@ export function DashboardImportForm({
     })
   }
 
+  const isDeductionSourceImport = importKind === "deduction_sources"
+  const hasUnsafeDeductionSourceDuplicates =
+    isDeductionSourceImport && reconciliation.duplicateCount > 0
+
   return (
-    <article className="rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm">
+    <article
+      className={cn(
+        "min-w-0",
+        surface === "card"
+          ? "rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm"
+          : "w-full bg-transparent"
+      )}
+    >
       <Form {...form}>
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <h4 className="text-lg font-semibold text-foreground">
                 {config.title}
@@ -451,8 +473,9 @@ export function DashboardImportForm({
                 {config.description}
               </p>
             </div>
-            <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:flex-wrap sm:justify-end">
               <Button
+                className="h-11 md:h-9"
                 disabled={isLocked}
                 type="button"
                 variant="outline"
@@ -467,6 +490,7 @@ export function DashboardImportForm({
               </Button>
               {devMode ? (
                 <Button
+                  className="h-11 md:h-9"
                   disabled={isLocked}
                   type="button"
                   variant="outline"
@@ -485,7 +509,7 @@ export function DashboardImportForm({
             </div>
           ) : null}
 
-          <details className="rounded-md border border-border/60 bg-muted/30 p-4">
+          <details className="border-y border-border py-4">
             <summary className="cursor-pointer list-none text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
               CSV template
             </summary>
@@ -494,7 +518,7 @@ export function DashboardImportForm({
                 <p className="text-xs font-medium text-muted-foreground">
                   Required header
                 </p>
-                <pre className="mt-2 overflow-x-auto rounded-xl border border-border/60 bg-background/80 p-3 text-xs text-muted-foreground">
+                <pre className="mt-2 max-w-full overflow-x-auto border-y border-border/60 bg-background/80 p-3 text-xs text-muted-foreground">
                   {templateHeader}
                 </pre>
               </div>
@@ -503,7 +527,7 @@ export function DashboardImportForm({
                   <p className="text-xs font-medium text-muted-foreground">
                     Example rows
                   </p>
-                  <pre className="mt-2 overflow-x-auto rounded-xl border border-border/60 bg-background/80 p-3 text-xs text-muted-foreground">
+                  <pre className="mt-2 max-w-full overflow-x-auto border-y border-border/60 bg-background/80 p-3 text-xs text-muted-foreground">
                     {templateRows.join("\n")}
                   </pre>
                 </div>
@@ -520,7 +544,7 @@ export function DashboardImportForm({
                 <FormControl>
                   <Textarea
                     {...field}
-                    className="min-h-[220px] font-mono text-xs"
+                    className="min-h-[220px] min-w-0 max-w-full font-mono text-xs"
                     disabled={isLocked}
                     placeholder={config.sampleCsv}
                   />
@@ -530,7 +554,7 @@ export function DashboardImportForm({
             )}
           />
 
-          <div className="rounded-md border border-border/60 bg-muted/30 p-4">
+          <div className="min-w-0 border-y border-border py-4">
             <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
               <span>
                 {preview.headers.length > 0
@@ -584,10 +608,10 @@ export function DashboardImportForm({
             {preview.ok ? (
               <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
                 <p>
-                  Existing matches in workspace:{" "}
-                  {reconciliation.existingMatchCount}. Matching keys will be
-                  updated or linked where the import path supports idempotent
-                  upserts.
+                  Existing matches in workspace: {reconciliation.existingMatchCount}.{" "}
+                  {isDeductionSourceImport
+                    ? `Matching source names will update their type and external reference${reconciliation.existingMatches.length ? `: ${reconciliation.existingMatches.join(", ")}.` : "."}`
+                    : "Matching keys will be updated or linked where the import path supports idempotent upserts."}
                 </p>
                 <p>
                   In-file duplicates: {reconciliation.duplicateCount}
@@ -595,6 +619,13 @@ export function DashboardImportForm({
                     ? ` (${reconciliation.duplicates.join(", ")})`
                     : "."}
                 </p>
+                {isDeductionSourceImport ? (
+                  <p className="md:col-span-2">
+                    Allowed source types: ministry payroll, employer payroll,
+                    bank transfer, card, cash, and manual. This import creates
+                    collection sources; it does not post deductions.
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -602,7 +633,7 @@ export function DashboardImportForm({
           {preview.ok &&
           (reconciliation.existingMatchCount > 0 ||
             reconciliation.duplicateCount > 0) ? (
-            <div className="space-y-3 rounded-md border border-border/60 bg-background/80 p-4">
+            <div className="space-y-3 border-y border-border py-4">
               <p className="text-sm font-medium text-foreground">
                 Import review gate
               </p>
@@ -622,8 +653,9 @@ export function DashboardImportForm({
                       </FormControl>
                       <div className="space-y-1">
                         <FormLabel>
-                          I reviewed the {reconciliation.existingMatchCount}{" "}
-                          rows that will match existing workspace records.
+                          {isDeductionSourceImport
+                            ? `I reviewed the ${reconciliation.existingMatchCount} collection sources whose type or external reference may be updated.`
+                            : `I reviewed the ${reconciliation.existingMatchCount} rows that will match existing workspace records.`}
                         </FormLabel>
                         <FormMessage />
                       </div>
@@ -631,7 +663,14 @@ export function DashboardImportForm({
                   )}
                 />
               ) : null}
-              {reconciliation.duplicateCount > 0 ? (
+              {reconciliation.duplicateCount > 0 &&
+              isDeductionSourceImport ? (
+                <p className="text-sm leading-6 text-destructive">
+                  Remove duplicate collection-source names before staging or
+                  importing. Duplicate configuration rows cannot be safely
+                  applied.
+                </p>
+              ) : reconciliation.duplicateCount > 0 ? (
                 <FormField
                   control={form.control}
                   name="confirmInFileDuplicates"
@@ -660,7 +699,7 @@ export function DashboardImportForm({
           ) : null}
 
           {latestBatch ? (
-            <div className="rounded-md border border-border/60 bg-background/80 p-4 text-xs text-muted-foreground">
+            <div className="border-y border-border py-4 text-xs text-muted-foreground">
               Latest staged batch: {latestBatch.status} ·{" "}
               {latestBatch.validRows}/{latestBatch._count.rows} rows ·{" "}
               {latestBatch.createdAt.toISOString().slice(0, 10)}
@@ -676,7 +715,7 @@ export function DashboardImportForm({
                 <FormControl>
                   <input
                     {...field}
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground md:h-9"
                     disabled={isLocked}
                     placeholder="IMPORT NOW"
                     type="text"
@@ -687,12 +726,12 @@ export function DashboardImportForm({
             )}
           />
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 border-t border-border pt-4 md:flex-row md:items-center md:justify-between">
             <p className="text-xs leading-6 text-muted-foreground">
               Stage a valid file for later review, or type the direct import
               confirmation to post immediately.
             </p>
-            <div className="flex gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto">
               <StageBatchButton
                 disabled={
                   isPending ||
@@ -700,6 +739,7 @@ export function DashboardImportForm({
                   isLocked ||
                   !preview.ok ||
                   preview.rows.length === 0 ||
+                  hasUnsafeDeductionSourceDuplicates ||
                   (reconciliation.existingMatchCount > 0 &&
                     !confirmedExistingMatches) ||
                   (reconciliation.duplicateCount > 0 &&
@@ -708,6 +748,7 @@ export function DashboardImportForm({
                 onStage={() => onStageBatch(form.getValues())}
               />
               <Button
+                className="h-11 w-full md:h-9 md:w-auto"
                 disabled={
                   isPending ||
                   isStaging ||
@@ -715,6 +756,7 @@ export function DashboardImportForm({
                   !preview.ok ||
                   preview.rows.length === 0 ||
                   importConfirmation !== "IMPORT NOW" ||
+                  hasUnsafeDeductionSourceDuplicates ||
                   (reconciliation.existingMatchCount > 0 &&
                     !confirmedExistingMatches) ||
                   (reconciliation.duplicateCount > 0 &&
@@ -741,6 +783,7 @@ function StageBatchButton({
 }) {
   return (
     <Button
+      className="h-11 w-full md:h-9 md:w-auto"
       disabled={disabled}
       onClick={onStage}
       type="button"

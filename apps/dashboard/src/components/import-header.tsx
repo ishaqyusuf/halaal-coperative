@@ -22,7 +22,7 @@ export function ImportHeader({
       />
 
       <div className="hidden items-center justify-between gap-3 md:flex">
-        <ImportSearchFilter />
+        <ImportSearchFilter importKind={importKind} />
 
         <div className="flex shrink-0 items-center gap-2">
           <ImportColumnVisibility />

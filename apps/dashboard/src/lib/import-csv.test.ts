@@ -7,6 +7,22 @@ import {
 } from "./import-csv"
 
 describe("dashboard CSV imports", () => {
+  test("preserves collection-source external references from camel-case headers", () => {
+    const parsed = parseDashboardImportCsv("deduction_sources", [
+      "name,type,externalReference",
+      "Kaduna Payroll Desk,ministry_payroll,KD-PAY-01",
+    ].join("\n"))
+
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+
+    expect(parsed.rows[0]).toMatchObject({
+      externalReference: "KD-PAY-01",
+      name: "Kaduna Payroll Desk",
+      type: "ministry_payroll",
+    })
+  })
+
   test("parses member opening savings and KYC fields from common headers", () => {
     const parsed = parseDashboardImportCsv("members", [
       "member_number,full_name,member_type,joined_at,status,opening_savings_balance,email,phone_number,address,occupation,kyc_status,government_id_number,kyc_document_type,kyc_review_notes",

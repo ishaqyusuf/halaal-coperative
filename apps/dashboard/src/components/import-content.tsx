@@ -19,6 +19,28 @@ import type {
 } from "@/lib/import-csv"
 import { useTRPC } from "@/trpc/client"
 
+function formatCollectionSourceType(value: unknown) {
+  return typeof value === "string"
+    ? value.replaceAll("_", " ")
+    : "Not provided"
+}
+
+function getCollectionSourcePayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null
+  }
+
+  const value = payload as Record<string, unknown>
+  return {
+    externalReference:
+      typeof value.externalReference === "string" && value.externalReference
+        ? value.externalReference
+        : "Not provided",
+    name: typeof value.name === "string" ? value.name : "Unnamed source",
+    type: formatCollectionSourceType(value.type),
+  }
+}
+
 export function ImportContent({
   activeKind,
   batches,
@@ -84,7 +106,7 @@ export function ImportContent({
 
   if (isCreateOpen && activeKind) {
     return (
-      <div className="px-6 pb-6">
+      <div className="min-w-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
         <DashboardImportForm
           availability={importAvailability[activeKind]}
           batches={batches}
@@ -92,6 +114,7 @@ export function ImportContent({
           importKind={activeKind}
           onSuccess={onSuccess}
           referenceData={referenceData}
+          surface="sheet"
         />
       </div>
     )
@@ -130,17 +153,38 @@ export function ImportContent({
 
       {selectedBatch.rows?.length ? (
         <div className="divide-y divide-border border-y border-border">
-          {selectedBatch.rows.map((row) => (
-            <div
-              className="px-1 py-3 text-xs text-muted-foreground"
-              key={row.id}
-            >
-              Row {row.rowIndex}
-              {row.primaryValue ? ` · ${row.primaryValue}` : ""}
-              {row.existingMatch ? " · existing match" : ""}
-              {row.duplicateInFile ? " · duplicate in file" : ""}
-            </div>
-          ))}
+          {selectedBatch.rows.map((row) => {
+            const source =
+              selectedBatch.importType === "deduction_sources"
+                ? getCollectionSourcePayload(row.payload)
+                : null
+
+            return source ? (
+              <div className="grid gap-2 px-1 py-3 text-xs" key={row.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-medium text-foreground">{source.name}</p>
+                  <p className="capitalize text-muted-foreground">
+                    {source.type}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                  <span>Reference: {source.externalReference}</span>
+                  {row.existingMatch ? <span>Existing source update</span> : null}
+                  {row.duplicateInFile ? <span>Duplicate in file</span> : null}
+                </div>
+              </div>
+            ) : (
+              <div
+                className="px-1 py-3 text-xs text-muted-foreground"
+                key={row.id}
+              >
+                Row {row.rowIndex}
+                {row.primaryValue ? ` · ${row.primaryValue}` : ""}
+                {row.existingMatch ? " · existing match" : ""}
+                {row.duplicateInFile ? " · duplicate in file" : ""}
+              </div>
+            )
+          })}
         </div>
       ) : null}
 

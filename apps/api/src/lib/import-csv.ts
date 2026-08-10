@@ -50,6 +50,7 @@ const canonicalHeaderNames: Record<string, string> = {
   deductionsourcename: "deductionSourceName",
   disbursedat: "disbursedAt",
   documenttype: "kycDocumentType",
+  externalreference: "externalReference",
   extramonthlysavingsamount: "extraMonthlySavingsAmount",
   extrasavingsamount: "extraSavingsAmount",
   firstrepaymentdueat: "firstRepaymentDueAt",
@@ -468,9 +469,9 @@ export const dashboardImportConfigs: Record<
     ].join("\n"),
   },
   deduction_sources: {
-    title: "Deduction sources",
+    title: "Collection sources",
     description:
-      "Quick setup for payroll desks and other deduction source records.",
+      "Create or update the sources used for member mapping and collection batches. This does not post deductions.",
     schema: deductionSourcesRowSchema,
     sampleCsv: [
       "name,type,externalReference",

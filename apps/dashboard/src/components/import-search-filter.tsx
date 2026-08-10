@@ -2,7 +2,6 @@
 
 import type { ChangeEvent, FormEvent } from "react"
 import { useState } from "react"
-import { Input } from "@halaalvest/ui/components/input"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -17,6 +16,10 @@ import {
 import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useImportFilterParams } from "@/hooks/use-import-filter-params"
+import {
+  getDashboardImportBatchLabel,
+  type DashboardImportKind,
+} from "@/lib/import-csv"
 
 const statusFilters = [
   { id: "draft", name: "Draft" },
@@ -24,7 +27,11 @@ const statusFilters = [
   { id: "failed", name: "Failed" },
 ]
 
-export function ImportSearchFilter() {
+export function ImportSearchFilter({
+  importKind,
+}: {
+  importKind?: DashboardImportKind
+}) {
   const { filter, hasFilters, setFilter } = useImportFilterParams()
   const [input, setInput] = useState(filter.q ?? "")
   const [isOpen, setIsOpen] = useState(false)
@@ -63,7 +70,11 @@ export function ImportSearchFilter() {
             filterActive={hasValidFilters}
             filterOpen={isOpen}
             onChange={handleSearch}
-            placeholder="Search import batches..."
+            placeholder={
+              importKind
+                ? `Search ${getDashboardImportBatchLabel(importKind)} batches...`
+                : "Search import batches..."
+            }
             spellCheck="false"
             value={input}
           />

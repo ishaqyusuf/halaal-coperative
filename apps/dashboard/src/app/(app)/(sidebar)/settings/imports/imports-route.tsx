@@ -22,7 +22,12 @@ import {
   trpc,
 } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
-import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
+import {
+  allStaffRoles,
+  financeManagementRoles,
+  hasAnyRole,
+  workspaceConfigurationRoles,
+} from "@/lib/workspace-access"
 
 type RawImportBatch = Awaited<ReturnType<typeof listImportBatches>>[number]
 
@@ -38,11 +43,15 @@ function getMissingLabels(
 
 function buildImportAvailability({
   backfillLockedReason,
+  canConfigureWorkspace,
+  canManageFinance,
   historicalSetupBlockedReason,
   memberProfilesBlockedReason,
   migrationToolsLockedReason,
 }: {
   backfillLockedReason?: string | null
+  canConfigureWorkspace: boolean
+  canManageFinance: boolean
   historicalSetupBlockedReason?: string | null
   memberProfilesBlockedReason?: string | null
   migrationToolsLockedReason?: string | null
@@ -56,10 +65,17 @@ function buildImportAvailability({
       : {
           isAvailable: true,
         }
+  const configurationRoleReason = canConfigureWorkspace
+    ? null
+    : "Only workspace configuration staff can import members, collection sources, or loan products."
+  const financeRoleReason = canManageFinance
+    ? null
+    : "Only cooperative finance staff can import charges, loan migrations, or repayment migrations."
 
   return {
     charges: available(
-      migrationToolsLockedReason ??
+      financeRoleReason ??
+        migrationToolsLockedReason ??
         backfillLockedReason ??
         historicalSetupBlockedReason ??
         memberProfilesBlockedReason
@@ -71,24 +87,31 @@ function buildImportAvailability({
         memberProfilesBlockedReason
     ),
     deduction_sources: available(
-      migrationToolsLockedReason ?? backfillLockedReason
+      configurationRoleReason ??
+        migrationToolsLockedReason ??
+        backfillLockedReason
     ),
     loan_migrations: available(
-      migrationToolsLockedReason ??
+      financeRoleReason ??
+        migrationToolsLockedReason ??
         backfillLockedReason ??
         historicalSetupBlockedReason ??
         memberProfilesBlockedReason
     ),
     loan_products: available(
-      migrationToolsLockedReason ?? backfillLockedReason
+      configurationRoleReason ??
+        migrationToolsLockedReason ??
+        backfillLockedReason
     ),
     members: available(
-      migrationToolsLockedReason ??
+      configurationRoleReason ??
+        migrationToolsLockedReason ??
         backfillLockedReason ??
         historicalSetupBlockedReason
     ),
     repayment_migrations: available(
-      migrationToolsLockedReason ??
+      financeRoleReason ??
+        migrationToolsLockedReason ??
         backfillLockedReason ??
         historicalSetupBlockedReason ??
         memberProfilesBlockedReason
@@ -120,6 +143,14 @@ export async function ImportsSettingsRoute({
   const canManageImports = hasAnyRole(
     context.auth.membership?.role,
     allStaffRoles
+  )
+  const canConfigureWorkspace = hasAnyRole(
+    context.auth.membership?.role,
+    workspaceConfigurationRoles
+  )
+  const canManageFinance = hasAnyRole(
+    context.auth.membership?.role,
+    financeManagementRoles
   )
   const quickFillEnabled = canShowQuickFill(context)
 
@@ -178,6 +209,8 @@ export async function ImportsSettingsRoute({
     : null
   const importAvailability = buildImportAvailability({
     backfillLockedReason,
+    canConfigureWorkspace,
+    canManageFinance,
     historicalSetupBlockedReason,
     memberProfilesBlockedReason,
     migrationToolsLockedReason,

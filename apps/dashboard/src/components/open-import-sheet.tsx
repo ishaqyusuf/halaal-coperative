@@ -13,10 +13,12 @@ import {
 export function OpenImportSheet({
   className,
   disabled,
+  display = "icon",
   importKind,
 }: {
   className?: string
   disabled: boolean
+  display?: "icon" | "label"
   importKind: DashboardImportKind
 }) {
   const { setParams } = useImportParams()
@@ -33,11 +35,14 @@ export function OpenImportSheet({
           importType: importKind,
         })
       }
-      size="icon"
+      size={display === "icon" ? "icon" : "default"}
       type="button"
       variant="outline"
     >
       <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
+      {display === "label" ? (
+        <span>Import {dashboardImportConfigs[importKind].title.toLowerCase()}</span>
+      ) : null}
     </Button>
   )
 }

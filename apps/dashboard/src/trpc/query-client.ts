@@ -1,3 +1,4 @@
+import { halaalvestDataTransformer } from "@halaalvest/api/trpc/transformer"
 import {
   getErrorPresentation,
   hasPublicErrorEnvelope,
@@ -10,7 +11,6 @@ import {
   QueryClient,
 } from "@tanstack/react-query"
 import { toast } from "@halaalvest/ui/components/use-toast"
-import superjson from "superjson"
 import { captureDashboardError } from "@/lib/sentry"
 import { getDashboardErrorReport } from "@/lib/sentry-policy"
 
@@ -60,13 +60,13 @@ export function makeQueryClient() {
     }),
     defaultOptions: {
       dehydrate: {
-        serializeData: superjson.serialize,
+        serializeData: halaalvestDataTransformer.serialize,
         shouldDehydrateQuery: (query) =>
           defaultShouldDehydrateQuery(query) ||
           query.state.status === "pending",
       },
       hydrate: {
-        deserializeData: superjson.deserialize,
+        deserializeData: halaalvestDataTransformer.deserialize,
       },
       queries: {
         refetchOnWindowFocus: false,

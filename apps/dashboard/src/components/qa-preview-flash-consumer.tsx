@@ -1,46 +1,40 @@
 "use client"
 
-import { useEffect } from "react"
-import type { QaNotificationPreview } from "@halaalvest/notifications"
+import { useEffect, useRef, useState } from "react"
 import { useNotifications } from "@halaalvest/notifications-react"
+import { createQaPreviewFlashLoader } from "@/lib/qa-preview-flash-client"
 
-type QaPreviewFlashResponse = {
-  previews?: QaNotificationPreview[]
-}
-
-export function QaPreviewFlashConsumer({ enabled }: { enabled: boolean }) {
+export function QaPreviewFlashConsumer({
+  enabled,
+  previewKey,
+}: {
+  enabled: boolean
+  previewKey: string | null
+}) {
   const { publishQaPreviews } = useNotifications()
+  const [loadPreviews] = useState(() => createQaPreviewFlashLoader())
+  const publishedKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !previewKey) return
 
     let cancelled = false
 
-    async function consume() {
-      try {
-        const response = await fetch("/api/qa-notification-previews", {
-          cache: "no-store",
-          credentials: "same-origin",
-        })
-        if (!response.ok || cancelled) return
-
-        const payload = (await response.json()) as QaPreviewFlashResponse
-        if (!cancelled) {
-          publishQaPreviews(payload.previews)
-        }
-      } catch {
-        // A preview is a QA convenience; notification delivery remains primary.
+    void loadPreviews(previewKey).then((previews) => {
+      if (
+        !cancelled &&
+        previews.length > 0 &&
+        publishedKeyRef.current !== previewKey
+      ) {
+        publishedKeyRef.current = previewKey
+        publishQaPreviews(previews)
       }
-    }
-
-    void consume()
-    const interval = window.setInterval(consume, 1_500)
+    })
 
     return () => {
       cancelled = true
-      window.clearInterval(interval)
     }
-  }, [enabled, publishQaPreviews])
+  }, [enabled, loadPreviews, previewKey, publishQaPreviews])
 
   return null
 }

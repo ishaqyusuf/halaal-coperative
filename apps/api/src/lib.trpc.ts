@@ -5,9 +5,9 @@ import {
   getMemberByUserId,
 } from "@halaalvest/db"
 import { initTRPC, TRPCError } from "@trpc/server"
-import superjson from "superjson"
 
 import type { TRPCContext } from "./context"
+import { halaalvestDataTransformer } from "./transformer"
 import { getTrpcPublicError, normalizeTrpcError } from "./trpc/error-contract"
 
 const t = initTRPC.context<TRPCContext>().create({
@@ -23,7 +23,7 @@ const t = initTRPC.context<TRPCContext>().create({
       },
     }
   },
-  transformer: superjson,
+  transformer: halaalvestDataTransformer,
 })
 
 export const createTRPCRouter = t.router

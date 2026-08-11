@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { cookies } from "next/headers"
 import type { QaNotificationPreview } from "@halaalvest/notifications"
 import {
@@ -35,6 +36,15 @@ export async function setQaPreviewFlash(
       secure: process.env.NODE_ENV === "production",
     },
   )
+}
+
+export async function getQaPreviewFlashKey() {
+  const cookieStore = await cookies()
+  const value = cookieStore.get(qaPreviewFlashCookieName)?.value
+
+  return value
+    ? createHash("sha256").update(value).digest("base64url")
+    : null
 }
 
 export async function consumeQaPreviewFlash() {

@@ -1,6 +1,7 @@
 "use client"
 
 import type { AppRouter } from "@halaalvest/api/trpc/routers/_app"
+import { halaalvestDataTransformer } from "@halaalvest/api/trpc/transformer"
 import type { QueryClient } from "@tanstack/react-query"
 import { isServer, QueryClientProvider } from "@tanstack/react-query"
 import {
@@ -10,7 +11,6 @@ import {
 } from "@trpc/client"
 import { createTRPCContext } from "@trpc/tanstack-react-query"
 import { useState } from "react"
-import superjson from "superjson"
 import { makeQueryClient } from "./query-client"
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>()
@@ -44,7 +44,7 @@ export function TRPCReactProvider({
             (opts.direction === "down" && opts.result instanceof Error),
         }),
         httpBatchLink({
-          transformer: superjson,
+          transformer: halaalvestDataTransformer,
           url: "/api/trpc",
         }),
       ],

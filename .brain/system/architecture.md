@@ -92,6 +92,7 @@ This file documents the intended high-level architecture, service boundaries, an
 - `packages/errors` owns typed classification, original-cause preservation, safe transport envelopes, support references, and user presentation helpers. It has no framework or telemetry dependency.
 - `packages/observability` owns production/DSN gating and bounded redacted capture context. It never accepts nested request or domain payloads.
 - `apps/api` normalizes all tRPC procedures, exposes `data.appError`, returns safe REST envelopes, and propagates `x-request-id`.
+- API transport and dashboard query hydration share one Decimal-aware SuperJSON transformer. Prisma Decimal values cross the React server boundary as exact plain string payloads and are restored as Decimal values after transport instead of leaking ORM objects into Client Component props.
 - Dashboard crash audit evidence is deliberately separate from technical diagnostics and contains only an allowlisted classification receipt.
 - Dashboard, marketing, mobile, and background jobs render the same public presentation contract; jobs retry only classified retryable failures and return a safe terminal receipt.
 - Production telemetry is implemented as isolated API, dashboard, marketing, jobs, and mobile capture boundaries. It is active only for explicitly configured production deployments, reconstructs final events from a strict allowlist, and never forwards events between runtime projects; see ADR-018 and the observability transmission policy.

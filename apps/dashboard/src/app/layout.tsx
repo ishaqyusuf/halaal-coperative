@@ -5,6 +5,7 @@ import { Inter } from "next/font/google"
 import { NuqsAdapter } from "nuqs/adapters/next/app"
 import { QaQuickFillProvider } from "@/components/qa-quick-fill-provider"
 import { ThemeProvider } from "@/components/theme-provider"
+import { getQaPreviewFlashKey } from "@/lib/qa-preview-flash.server"
 import {
   getDashboardServerContext,
   getQaQuickFillContext,
@@ -45,7 +46,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const dashboardContext = await getDashboardServerContext()
+  const [dashboardContext, qaPreviewKey] = await Promise.all([
+    getDashboardServerContext(),
+    getQaPreviewFlashKey(),
+  ])
   const quickFill = getQaQuickFillContext(dashboardContext)
 
   return (
@@ -59,7 +63,10 @@ export default async function RootLayout({
           <TRPCReactProvider>
             <ThemeProvider>
               <NotificationsProvider>
-                <QaQuickFillProvider value={quickFill}>
+                <QaQuickFillProvider
+                  previewKey={qaPreviewKey}
+                  value={quickFill}
+                >
                   {children}
                 </QaQuickFillProvider>
               </NotificationsProvider>

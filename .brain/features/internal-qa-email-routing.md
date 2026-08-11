@@ -28,6 +28,7 @@ EMAIL_QA_DOMAIN_ROUTES='{"tester-one.qa.test":"tester-one@example.com","tester-t
 - Unmapped `.test` domains fail closed. Ordinary recipients use console delivery outside production and live provider delivery in production.
 - Mixed recipient lists are split and routed independently.
 - Delivery results and tenant audit metadata record the routing mode, original recipient, delivered recipients, attempts, status, and provider message ID without logging rendered email bodies.
+- Dashboard QA preview flashes are consumed only when the server observes a new signed HttpOnly flash cookie. The client receives only an opaque hash key, deduplicates the one consume request across React Strict Mode effects, and does not continuously poll the preview endpoint.
 - New tenants created by a configured QA-domain owner are explicitly marked QA. Existing candidates require platform-owner adoption.
 - `/platform/qa-maintenance` discovers candidates, previews counts/files/provider blockers, requires the exact `PURGE ALL QA DATA` confirmation, starts the Trigger job, and exposes counts-only run status.
 - Purge revokes sessions, blocks writes, removes tracked files before database records, cleans non-live hosting attachments, blocks live commercial resources, and supports partial retries.

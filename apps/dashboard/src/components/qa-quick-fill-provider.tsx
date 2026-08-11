@@ -15,16 +15,21 @@ const QaQuickFillContext = createContext<QaQuickFillContext>(disabledQuickFill)
 
 export function QaQuickFillProvider({
   children,
+  previewKey,
   value,
 }: {
   children: ReactNode
+  previewKey: string | null
   value: QaQuickFillContext
 }) {
   return (
     <QaQuickFillContext value={value}>
       {children}
       <UniversalQaQuickFill quickFill={value} />
-      <QaPreviewFlashConsumer enabled={value.enabled} />
+      <QaPreviewFlashConsumer
+        enabled={value.enabled}
+        previewKey={previewKey}
+      />
     </QaQuickFillContext>
   )
 }

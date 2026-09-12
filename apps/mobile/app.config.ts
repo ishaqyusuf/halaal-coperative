@@ -5,9 +5,11 @@ const PROJECT_ID =
   process.env.HALAALVEST_EXPO_PROJECT_ID ??
   process.env.EXPO_PROJECT_ID ??
   process.env.EAS_PROJECT_ID ??
-  ""
+  "3fb3e5e2-bd84-4308-8739-e9f4436d0da9"
 const EXPO_OWNER =
-  process.env.HALAALVEST_EXPO_OWNER ?? process.env.EXPO_OWNER ?? undefined
+  process.env.HALAALVEST_EXPO_OWNER ??
+  process.env.EXPO_OWNER ??
+  "cipron-startups"
 const updateUrl = PROJECT_ID ? `https://u.expo.dev/${PROJECT_ID}` : undefined
 
 const appVariant =

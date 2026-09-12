@@ -1,4 +1,5 @@
 import "@halaalvest/ui/globals.css"
+import { EventsProvider } from "@halaalvest/events/client"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
 import type { Metadata } from "next"
 import { Hedvig_Letters_Sans, Hedvig_Letters_Serif } from "next/font/google"
@@ -79,7 +80,7 @@ export default function RootLayout({
         className={`${hedvigSans.variable} ${hedvigSerif.variable} font-sans`}
       >
         <NotificationsProvider>
-          {children}
+          <EventsProvider>{children}</EventsProvider>
           <QaPreviewFlashConsumer />
         </NotificationsProvider>
       </body>

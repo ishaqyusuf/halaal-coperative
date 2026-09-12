@@ -1,3 +1,4 @@
+import { AnalyticsRuntime } from "@/runtime/analytics-runtime"
 import { AppAutoUpdateModal } from "@/components/app-auto-update-modal"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
@@ -118,6 +119,7 @@ function RootLayoutNav() {
               <AuthProvider>
                 <TRPCReactProvider>
                   <BottomSheetModalProvider>
+                    <AnalyticsRuntime />
                     <FlashMessage position="top" />
                     <AppAutoUpdateModal />
                     <StatusBar

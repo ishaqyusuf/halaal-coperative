@@ -1,0 +1,5 @@
+# Logly analytics integration
+
+The current main revision composes the shared provider in dashboard and marketing and mounts the native runtime in the Expo root. Browser `/api/analytics` uses `halaalvest-web`; `/api/analytics/mobile` uses independently scoped `halaalvest-mobile` credentials. Package privacy projection removes private route segments and event properties. Native identifiers remain installation-local in SecureStore, and the native bundle never receives the server credential. Country metadata uses only the trusted Vercel edge header. No schema changes.
+
+Twelve analytics tests / 50 assertions, events-package typecheck, and mobile typecheck pass on the clean analytics branch. The native runtime uses existing JavaScript random-ID support so it remains compatible with the installed native runtime. Both web deployments were previously promoted successfully: dashboard `dpl_ey3CgBPmf9ZrVWFX847ecqMaajRg`, marketing `dpl_6PDXnBzM3KGtHjNxDMJPQpujN8xi`. Production Expo publication and interactive acceptance are tracked separately.

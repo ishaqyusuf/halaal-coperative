@@ -54,6 +54,7 @@
         "@halaalvest/db": "workspace:*",
         "@halaalvest/domain": "workspace:*",
         "@halaalvest/errors": "workspace:*",
+        "@halaalvest/events": "workspace:*",
         "@halaalvest/jobs": "workspace:*",
         "@halaalvest/notifications": "workspace:*",
         "@halaalvest/notifications-react": "workspace:*",
@@ -108,6 +109,7 @@
         "@halaalvest/db": "workspace:*",
         "@halaalvest/domain": "workspace:*",
         "@halaalvest/errors": "workspace:*",
+        "@halaalvest/events": "workspace:*",
         "@halaalvest/jobs": "workspace:*",
         "@halaalvest/notifications": "workspace:*",
         "@halaalvest/notifications-react": "workspace:*",
@@ -144,6 +146,7 @@
         "@gorhom/bottom-sheet": "^5.0.5",
         "@halaalvest/api": "workspace:*",
         "@halaalvest/errors": "workspace:*",
+        "@halaalvest/events": "workspace:*",
         "@halaalvest/observability": "workspace:*",
         "@hookform/resolvers": "^5.2.2",
         "@legendapp/list": "^2.0.15",
@@ -251,6 +254,7 @@
       "dependencies": {
         "@halaalvest/backfill": "workspace:*",
         "@halaalvest/domain": "workspace:*",
+        "@halaalvest/errors": "workspace:*",
         "@halaalvest/utils": "workspace:*",
         "@prisma/adapter-pg": "^7.7.0",
         "@prisma/client": "^7.0.0",
@@ -321,6 +325,24 @@
         "globals": "^17.2.0",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.54.0",
+      },
+    },
+    "packages/events": {
+      "name": "@halaalvest/events",
+      "version": "0.1.0",
+      "dependencies": {
+        "@ishaqyusuf/logly-core": "^0.2.0",
+        "@ishaqyusuf/logly-next": "^0.2.1",
+      },
+      "devDependencies": {
+        "@halaalvest/tsconfig": "workspace:*",
+        "@types/bun": "^1.3.14",
+        "@types/node": "^25.1.0",
+        "@types/react": "^19.2.10",
+        "typescript": "^5.9.3",
+      },
+      "peerDependencies": {
+        "react": ">=19",
       },
     },
     "packages/jobs": {
@@ -916,6 +938,8 @@
 
     "@halaalvest/eslint-config": ["@halaalvest/eslint-config@workspace:packages/eslint-config"],
 
+    "@halaalvest/events": ["@halaalvest/events@workspace:packages/events"],
+
     "@halaalvest/jobs": ["@halaalvest/jobs@workspace:packages/jobs"],
 
     "@halaalvest/marketing": ["@halaalvest/marketing@workspace:apps/marketing"],
@@ -1045,6 +1069,10 @@
     "@isaacs/fs-minipass": ["@isaacs/fs-minipass@4.0.1", "", { "dependencies": { "minipass": "^7.0.4" } }, "sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w=="],
 
     "@isaacs/ttlcache": ["@isaacs/ttlcache@1.4.1", "", {}, "sha512-RQgQ4uQ+pLbqXfOmieB91ejmLwvSgv9nLx6sT6sD83s7umBypgg+OIBOBbEUiJXrfpnp9j0mRhYYdzp9uqq3lA=="],
+
+    "@ishaqyusuf/logly-core": ["@ishaqyusuf/logly-core@0.2.0", "", { "dependencies": { "zod": "^4.3.5" } }, "sha512-F+6IanI9JAnp0galz+st5ON4f0F+yPFTULlASWLYB9jCF+eUjdveIYPJznwX/FdtEFnMZKyejlqbuEGwYIoVAw=="],
+
+    "@ishaqyusuf/logly-next": ["@ishaqyusuf/logly-next@0.2.1", "", { "dependencies": { "@ishaqyusuf/logly-core": "^0.2.0" }, "peerDependencies": { "next": ">=15", "react": ">=19" } }, "sha512-sjeuI9Ya3VNgBvBDltPYY2O4O8ePp2wynJqmG+Tz4Xz+PEpPd4afqzbnohj7u9D7V0vk3EL1TVecq7aQ/gaoQg=="],
 
     "@istanbuljs/load-nyc-config": ["@istanbuljs/load-nyc-config@1.1.0", "", { "dependencies": { "camelcase": "^5.3.1", "find-up": "^4.1.0", "get-package-type": "^0.1.0", "js-yaml": "^3.13.1", "resolve-from": "^5.0.0" } }, "sha512-VjeHSlIzpv/NyD3N0YuHfXOPDIixcA1q2ZV98wsMqcYlPmv2n3Yb2lYP9XMElnaFVXg5A7YLTeLu6V84uQDjmQ=="],
 

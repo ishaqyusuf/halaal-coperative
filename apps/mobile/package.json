@@ -22,6 +22,7 @@
     "with-env:prod": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod --"
   },
   "dependencies": {
+    "@halaalvest/events": "workspace:*",
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.0.5",
     "@halaalvest/api": "workspace:*",

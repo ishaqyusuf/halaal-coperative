@@ -1,4 +1,5 @@
 import "@halaalvest/ui/globals.css"
+import { EventsProvider } from "@halaalvest/events/client"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { Inter } from "next/font/google"
@@ -67,7 +68,7 @@ export default async function RootLayout({
                   previewKey={qaPreviewKey}
                   value={quickFill}
                 >
-                  {children}
+                  <EventsProvider>{children}</EventsProvider>
                 </QaQuickFillProvider>
               </NotificationsProvider>
             </ThemeProvider>

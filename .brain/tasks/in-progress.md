@@ -222,4 +222,4 @@ This file tracks work currently being executed.
 - Remaining rollout work is schema deployment, secure environment propagation, canary delivery, and the first operator-reviewed purge preview.
 
 ### [Halaalvest Logly completion](2026-09-22-logly-completion.md)
-- Status: In Progress
+- Status: Blocked — dashboard and marketing are live and verified, and Android production build 10 is complete; installed-device acceptance awaits an authorized store/internal-distribution install path.

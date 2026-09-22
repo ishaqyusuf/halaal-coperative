@@ -2,33 +2,39 @@ import { createNativeAnalytics } from "@halaalvest/events/native"
 import * as SecureStore from "expo-secure-store"
 import { useSegments } from "expo-router"
 import { useEffect, useRef } from "react"
-import { AppState } from "react-native"
+import Constants from "expo-constants"
+import * as Crypto from "expo-crypto"
+import { AppState, Platform } from "react-native"
 
 const keyFor = (key: string) => key.replaceAll(":", ".")
-const createAnalyticsId = () =>
-  globalThis.crypto?.randomUUID?.() ??
-  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+const createAnalyticsId = () => Crypto.randomUUID()
 
 export function AnalyticsRuntime() {
   const segments = useSegments()
   const route =
     "/" +
     segments
-      .filter(
-        (segment) => !segment.startsWith("(") && !segment.startsWith("[")
-      )
+      .filter((segment) => !segment.startsWith("(") && !segment.startsWith("["))
       .join("/")
   const latestRoute = useRef(route)
   latestRoute.current = route
   const client = useRef<ReturnType<typeof createNativeAnalytics> | null>(null)
 
   useEffect(() => {
-    if (process.env.EXPO_PUBLIC_LOGLY_ENABLED !== "true") return
+    if (
+      Platform.OS !== "android" ||
+      Constants.expoConfig?.extra?.appVariant !== "production" ||
+      process.env.EXPO_PUBLIC_LOGLY_ENABLED !== "true" ||
+      process.env.EXPO_PUBLIC_LOGLY_PROJECT !== "halaalvest-mobile"
+    )
+      return
     const endpoint = process.env.EXPO_PUBLIC_LOGLY_ENDPOINT
     if (!endpoint || !endpoint.startsWith("https://")) return
     const analytics = createNativeAnalytics({
       endpoint,
       enabled: true,
+      appVersion: Constants.nativeAppVersion ?? undefined,
+      appBuild: Constants.nativeBuildVersion ?? undefined,
       createId: createAnalyticsId,
       storage: {
         getItem: (key) => SecureStore.getItem(keyFor(key)),

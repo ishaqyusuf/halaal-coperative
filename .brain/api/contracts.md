@@ -230,3 +230,8 @@ This file captures payload shapes, response conventions, and contract assumption
 - `POST /api/error-report` accepts only an allowlisted dashboard source plus a valid shared error code and `ERR-*` reference from an authenticated user with an active membership in the resolved tenant. Its audit metadata excludes message, stack, path, component stack, user agent, payload, and identity.
 - API request correlation is returned in `x-request-id`. Unexpected Hono failures are owned by the Hono fallback, while tRPC procedure failures are owned by the tRPC adapter and are not recaptured by the outer boundary.
 - Marketing caught-route diagnostics are a private operational side effect only; response status and `{ error: PublicError }` remain the complete public contract.
+
+## Logly product telemetry
+- Both web proxies accept published Logly batches (1–25 events, 48 KiB streaming maximum); outbound only site_visit/page_view, coarse route, random visitor and event IDs, timestamps, visit kind, empty properties. Project is fixed by deployed surface.
+- Android native wire extension accepts source mobile, platform android, bounded version/build; outbound only app_session/screen_view. Actor, campaign, referrer and arbitrary property fields are discarded.
+- Exact per-app origin lists fail closed when absent. Native requires no Origin and uses explicit server-side proxy origin. Trusted Vercel country is forwarded; caller country/IP is not. Collector errors return generic bodies; failures have a four-second upstream deadline.

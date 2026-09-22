@@ -68,7 +68,7 @@ export default async function RootLayout({
                   previewKey={qaPreviewKey}
                   value={quickFill}
                 >
-                  <EventsProvider>{children}</EventsProvider>
+                  <EventsProvider surface="dashboard">{children}</EventsProvider>
                 </QaQuickFillProvider>
               </NotificationsProvider>
             </ThemeProvider>

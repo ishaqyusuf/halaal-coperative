@@ -116,3 +116,7 @@ This file tracks the public and internal API surface of the platform.
 
 - `qaMaintenance.candidates`, `adopt`, `preview`, `start`, and `run` are platform-owner-only tRPC operations.
 - `preview` issues a ten-minute signed snapshot token. `start` requires that token plus the exact `PURGE ALL QA DATA` confirmation.
+
+## Product telemetry
+- Dashboard and marketing `POST /api/analytics`: public, exact surface origin validation; server-fixed project/key; bounded privacy-projected web batches.
+- `POST /api/analytics/mobile`: public Android telemetry proxy, rejects browser Origin, uses existing mobile-only key and namespace. No tenant/member data or authenticated identity accepted into the outbound projection.

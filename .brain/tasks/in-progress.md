@@ -220,3 +220,6 @@ This file tracks work currently being executed.
 
 - Implementation is integrated in Halaalvest and ported to EwaTrade, PlotKeys, SchoolClerk, and afterservice.
 - Remaining rollout work is schema deployment, secure environment propagation, canary delivery, and the first operator-reviewed purge preview.
+
+### [Halaalvest Logly completion](2026-09-22-logly-completion.md)
+- Status: In Progress

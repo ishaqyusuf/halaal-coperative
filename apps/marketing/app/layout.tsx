@@ -80,7 +80,7 @@ export default function RootLayout({
         className={`${hedvigSans.variable} ${hedvigSerif.variable} font-sans`}
       >
         <NotificationsProvider>
-          <EventsProvider>{children}</EventsProvider>
+          <EventsProvider surface="marketing">{children}</EventsProvider>
           <QaPreviewFlashConsumer />
         </NotificationsProvider>
       </body>

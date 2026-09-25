@@ -33,3 +33,4 @@ This folder is the structured memory for halaalvest. It keeps product, architect
 - Highest-risk domains: financial correctness, auditability, permissions, trust, and financing liquidity.
 - Domain operating lens: Halaal-standard cooperative money safety, contribution health, portfolio risk, admin action queues, compliance watch, and member trust.
 - Primary external architecture and coding-standard reference for performance-sensitive work: `midday` at `/Users/M1PRO/Documents/code/_kitchen_sink/midday`.
+- Release assurance is repository-owned through `release.manifest.json`, the pinned shared toolkit snapshot, and the signed provider-evidence boundary documented in `features/release-assurance.md` and `decisions/ADR-20260925-release-assurance-provider-evidence-boundary.md`.

@@ -1,5 +1,11 @@
 # Done
 
+## 2026-09-25 — Release assurance source integration
+
+- Added a pinned shared-toolkit snapshot, repository release manifest, Halalvest evidence adapter, signed provider-evidence verifier, source-change tests, and a protected Preview/Production verification workflow.
+- The planner distinguishes database push, dashboard web, marketing web, Expo update versus native rebuild, and jobs deployment, while enforcing prerequisites and exact-revision evidence.
+- Source integration is complete; hosted CI activation remains intentionally pending until protected evidence secrets and provider collectors are configured.
+
 ## Purpose
 
 This file records completed work and important outcomes.

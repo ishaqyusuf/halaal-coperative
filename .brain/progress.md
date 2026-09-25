@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-09-25 — Release assurance source integration complete
+
+- Integrated the reusable `local-infra-kit` release-assurance toolkit for Preview and Production across database push, dashboard and marketing Vercel deployments, Expo OTA/native builds, and Trigger jobs.
+- Added fail-closed signed evidence verification, exact-revision CI guards, concurrency protection, and focused regression coverage. The integration verifies hosted state and never deploys it.
+- Hosted activation is pending protected HMAC/evidence configuration and provider-side evidence collection; until then, `release:check` correctly refuses approval.
+
 ## 2026-08-05 — Approved Production Diagnostics Integration
 
 - Recorded the owner's explicit approval of Halaalvest external production diagnostics under the observability transmission policy.
